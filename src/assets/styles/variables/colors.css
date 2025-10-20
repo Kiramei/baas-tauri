@@ -1,0 +1,91 @@
+@theme {
+  /* Primary (青绿) */
+  --color-primary-50:  #ecfeff;
+  --color-primary-100: #cffafe;
+  --color-primary-200: #67e8f9;
+  --color-primary-300: #22d3ee;
+  --color-primary-400: #06b6d4;
+  --color-primary-500: #0891b2;
+  --color-primary-600: #0891b2;
+  --color-primary-700: #155e75;
+  --color-primary-800: #164e63;
+  --color-primary-900: #164e63;
+
+  /* Secondary (紫) */
+  --color-secondary-50:  #f6f5ff;
+  --color-secondary-100: #ebe7ff;
+  --color-secondary-200: #d9d0ff;
+  --color-secondary-300: #c1aefc;
+  --color-secondary-400: #a384f7;
+  --color-secondary-500: #8a60f0;
+  --color-secondary-600: #7a4be0;
+  --color-secondary-700: #6537c2;
+  --color-secondary-800: #522d9b;
+  --color-secondary-900: #44267f;
+
+  /* Accent (蜜桃粉) */
+  --color-accent-50:  #fff6f5;
+  --color-accent-100: #ffe8e5;
+  --color-accent-200: #ffd0c8;
+  --color-accent-300: #ffb0a3;
+  --color-accent-400: #ff8f7f;
+  --color-accent-500: #ff7568;
+  --color-accent-600: #f35e54;
+  --color-accent-700: #d54848;
+  --color-accent-800: #b33b3d;
+  --color-accent-900: #8f3235;
+
+  /* Green (薄荷绿) */
+  --color-green-50:  #effef7;
+  --color-green-100: #d6fbe9;
+  --color-green-200: #b3f4d6;
+  --color-green-300: #84e9bf;
+  --color-green-400: #4edca6;
+  --color-green-500: #21cd8f;
+  --color-green-600: #17b07b;
+  --color-green-700: #138e66;
+  --color-green-800: #116f54;
+  --color-green-900: #0f5a46;
+
+  /* Yellow (蜂蜜杏，你写成 yello，我帮你规范成 yellow) */
+  --color-yellow-50:  #fffbef;
+  --color-yellow-100: #fff4d6;
+  --color-yellow-200: #ffe6a8;
+  --color-yellow-300: #ffd173;
+  --color-yellow-400: #ffb63d;
+  --color-yellow-500: #ffa116;
+  --color-yellow-600: #e08d11;
+  --color-yellow-700: #b87212;
+  --color-yellow-800: #935b15;
+  --color-yellow-900: #784a16;
+
+  /* Red (草莓红) */
+  --color-red-50:  #fff1f3;
+  --color-red-100: #ffe0e5;
+  --color-red-200: #ffc4cf;
+  --color-red-300: #ff9caf;
+  --color-red-400: #ff6f8b;
+  --color-red-500: #fb4b73;
+  --color-red-600: #e03864;
+  --color-red-700: #be2f56;
+  --color-red-800: #9c294a;
+  --color-red-900: #7f2440;
+
+  /* Gray (奶灰) */
+  --color-gray-50:  #f8fafb;
+  --color-gray-100: #f0f2f4;
+  --color-gray-200: #e5e8eb;
+  --color-gray-300: #d4d9de;
+  --color-gray-400: #b3bac2;
+  --color-gray-500: #8f98a3;
+  --color-gray-600: #717a86;
+  --color-gray-700: #5b646f;
+  --color-gray-800: #4a535c;
+  --color-gray-900: #3e464e;
+
+}
+
+::selection {
+    background: #0891b2;  /* 你喜欢的背景色 */
+    color: #ffffff;       /* 选中文字的颜色 */
+}
