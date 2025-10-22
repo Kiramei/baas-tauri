@@ -13,9 +13,12 @@
     "windows": [
       {
         "title": "baas-tauri",
-        "width": 1280,
-        "height": 800,
-        "devtools": true
+        "label": "main",
+        "width": 400,
+        "height": 400,
+        "devtools": true,
+        "visible": false,
+        "theme": null
       }
     ],
     "security": {
