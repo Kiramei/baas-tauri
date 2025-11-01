@@ -16,7 +16,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
   profileId
 }) => {
   const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
+  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId!]);
   const modify = useWebSocketStore(state => state.modify);
 
   const party_nos = ["1", "2", "3", "4"];
@@ -26,8 +26,8 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
   const ext = useMemo(() => {
     return {
       drill_enable_sweep: settings.drill_enable_sweep,
-      drill_fight_formation_list: settings.drill_fight_formation_list.map(String),
-      drill_difficulty_list: settings.drill_difficulty_list.map(String)
+      drill_fight_formation_list: settings.drill_fight_formation_list!.map(String),
+      drill_difficulty_list: settings.drill_difficulty_list!.map(String)
     };
   }, [settings]);
 
@@ -61,7 +61,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
       {/* Sweep toggle */}
       <SwitchButton
         label={t("drill.useAllAfterSweep")}
-        checked={draft.drill_enable_sweep}
+        checked={draft.drill_enable_sweep!}
         onChange={(val) =>
           setDraft((prev) => ({...prev, drill_enable_sweep: val}))
         }

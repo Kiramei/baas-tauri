@@ -55,7 +55,7 @@ const TeamConfig: React.FC<TeamConfigProps> = (
   const handleCellChange =
     (tableKey: string, row: number, col: number) => (value: string) => {
       setDraft((prev) => {
-        const newTable = prev[tableKey].map((r: any, ri: any) =>
+        const newTable = (prev[tableKey as keyof Draft] as string[][]).map((r: any, ri: any) =>
           ri === row ? r.map((c: any, ci: any) => (ci === col ? value : c)) : r
         );
         return {...prev, [tableKey]: newTable};
@@ -84,7 +84,7 @@ const TeamConfig: React.FC<TeamConfigProps> = (
   };
 
   const renderTable = (key: string) => {
-    const rows = draft[key];
+    const rows = draft[key as keyof Draft] as string[][];
     const cols = key == 'preset_team_attribute' ? 4 : 1;
     return (
       <div

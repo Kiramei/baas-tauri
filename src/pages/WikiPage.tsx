@@ -1,7 +1,7 @@
 import React, {useDeferredValue, useEffect, useMemo, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/Card";
-import {wikiArticles, mapLanguage, getLocalizedField, WikiArticle} from "@/lib/wikiContent.ts";
+import {wikiArticles, mapLanguage, getLocalizedField, WikiArticle, LanguageCode} from "@/lib/wikiContent.ts";
 import {Search, BookOpen, Tag, X} from "lucide-react";
 import {motion, AnimatePresence} from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -45,6 +45,7 @@ const ArticleModal: React.FC<{
   if (!open || !article) return null;
   const { i18n } = useTranslation();
 
+  // @ts-ignore
   return (
     <div
       className={overlayCls}
@@ -89,7 +90,7 @@ const ArticleModal: React.FC<{
           className="flex-1 overflow-y-auto scroll-embedded prose prose-sm dark:prose-invert max-w-none p-4 cursor-text allow-select-text">
           {/*<article dangerouslySetInnerHTML={{ __html: article.bodyHtml }} />*/}
           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-            {article.body[i18n.language]}
+            {article.body[i18n.language as LanguageCode]}
           </ReactMarkdown>
         </CardContent>
       </motion.div>

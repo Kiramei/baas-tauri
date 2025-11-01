@@ -12,10 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "baas-tauri",
+        "title": "Blue Archive Auto Script",
         "label": "main",
-        "width": 400,
-        "height": 400,
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 640,
         "devtools": true,
         "visible": false,
         "theme": null

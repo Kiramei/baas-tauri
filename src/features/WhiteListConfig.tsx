@@ -16,13 +16,13 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({
                                                            profileId
                                                          }) => {
   const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
+  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId!]);
   const modify = useWebSocketStore(state => state.modify);
-  const server_mode = serverMap[settings.server]
+  const server_mode = serverMap[settings.server!]
 
   const ext = useMemo(() => {
     return {
-      clear_friend_white_list: settings.clear_friend_white_list
+      clear_friend_white_list: settings.clear_friend_white_list!
     };
   }, [settings]);
 

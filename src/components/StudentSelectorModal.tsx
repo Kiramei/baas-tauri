@@ -1,5 +1,5 @@
 import React, {useState, useMemo} from "react";
-import {Dialog, DialogPanel, DialogTitle} from "@headlessui/react"; // 推荐 headlessui 管理 modal
+import {Dialog, DialogPanel, DialogTitle} from "@headlessui/react";
 import {X} from "lucide-react";
 import {useTranslation} from "react-i18next";
 
@@ -18,7 +18,7 @@ type Props = {
   allStudents: Student[] | string[];
   selected: string[];
   onChange: (list: string[]) => void;
-  lang?: "CN" | "JP" | "Global";
+  lang?: string;
 };
 
 const StudentSelectorModal: React.FC<Props> = ({

@@ -1,6 +1,6 @@
 import React, {Dispatch, SetStateAction, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {Card, CardDescription, CardHeader, CardTitle} from '../components/ui/Card';
+import {Card, CardDescription, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Modal} from '@/components/ui/Modal';
 import CafeConfig from '@/features/CafeConfig';
 import ServerConfig from '@/features/ServerConfig';
@@ -17,14 +17,21 @@ import {
   Amphora,
   ArrowUpFromLine,
   BrushCleaning,
+  Coffee,
   Database,
+  Dices,
   FileCode2,
   LucideProps,
   Map,
   ScrollText,
+  Server,
+  Settings2,
+  Shield,
+  ShoppingCart,
+  Sword,
+  Swords,
   Users2Icon
 } from 'lucide-react';
-import {Coffee, Dices, Settings2, ShoppingCart, Swords, Server, Sword, Shield} from 'lucide-react';
 import {motion, Variants} from 'framer-motion';
 import {useApp} from '@/contexts/AppContext';
 import {ProfileProps} from "@/types/app";
@@ -33,7 +40,7 @@ import ArtifactConfig from "@/features/ArtifactConfig.tsx";
 import ScriptConfig from "@/features/ScriptConfig.tsx";
 import StageConfig from "@/features/StageConfig.tsx";
 import TeamConfig from "@/features/TeamConfig.tsx";
-import {PageKey} from "@/App.tsx";
+import {PageKey} from "@/types/app";
 
 type Feature =
   'cafe'
@@ -78,7 +85,7 @@ const FeatureWidthDict: Record<Feature, number> = {
  */
 export interface FeatureComponentProps {
   onClose: () => void;
-  profileId?: string;
+  profileId: string;
   setActivePage?: Dispatch<SetStateAction<PageKey>>;
 }
 
@@ -207,10 +214,10 @@ const ConfigurationPage: React.FC<ProfileProps> = ({profileId, setActivePage}) =
 
       {/* Lazy render the selected feature panel inside a shared modal shell. */}
       {modalContent && CurrentModalContent && (
-        <Modal isOpen title={t(modalContent)} onClose={closeModal} width={modalWidth}>
+        <Modal isOpen title={t(modalContent)} onClose={closeModal} width={modalWidth ?? 0}>
           <CurrentModalContent
             onClose={closeModal}
-            profileId={profile?.id}
+            profileId={profile!.id}
             setActivePage={setActivePage}
           />
         </Modal>

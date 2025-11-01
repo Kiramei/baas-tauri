@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Keyboard as KeyboardIcon, Circle as RecIcon, X as XIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -30,7 +30,7 @@ function normalizeCombo(e: KeyboardEvent): string | null {
   if (isMac) {
     if (metaKey) parts.push("Cmd");
     if (altKey)  parts.push("Option");
-    if (ctrlKey) parts.push("Ctrl");   // Some mac configurations still use Ctrl
+    if (ctrlKey) parts.push("Ctrl");   // Some Mac configurations still use Ctrl
   } else {
     if (ctrlKey) parts.push("Ctrl");
     if (altKey)  parts.push("Alt");

@@ -1,7 +1,7 @@
 "use client"
 
 import React, {useLayoutEffect, useRef} from "react"
-import type {LogItem} from "@/store/websocketStore.ts"
+import type {LogItem} from "@/types/app"
 import {formatIsoToReadableTime} from "@/lib/utils.ts"
 import {List} from "react-window"
 import {type RowComponentProps, useDynamicRowHeight} from "react-window";

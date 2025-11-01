@@ -14,7 +14,7 @@ Reactアプリは `App.tsx` でレンダリングされ、
 **ThemeProvider**、**AppProvider**、および永続レイアウト枠（`MainLayout`）が統合されています。
 軽量な **framer-motionルーター** によりページ切替時も状態を保持します。
 
-* **エントリーポイント：** `index.tsx` — i18nとテーマ初期化後に `<App />` を描画。
+* **エントリーポイント：** `main.tsx` — i18nとテーマ初期化後に `<App />` を描画。
 * **プロバイダー：** `AppProvider` — UI設定、WebSocket接続、プロファイル一覧を管理。
 * **レイアウト：** `MainLayout` — サイドバー (`Sidebar.tsx`) とヘッダー (`Header.tsx`) を保持。
 

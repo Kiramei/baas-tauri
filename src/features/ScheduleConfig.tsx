@@ -8,7 +8,7 @@ import {FormInput} from "@/components/ui/FormInput.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 import {DynamicConfig} from "@/types/dynamic";
-import {serverMap} from "@/lib/utils.ts";
+import {serverMap, serverMapSpec} from "@/lib/utils.ts";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -30,11 +30,11 @@ const levels = ["primary", "normal", "advanced", "superior"];
 const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
   const {t} = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
+    (state) => state.configStore[profileId!]
   );
   const modify = useWebSocketStore((state) => state.modify);
   const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const lessonNames = staticConfig.lesson_region_name[serverMap[settings.server]];
+  const lessonNames = staticConfig.lesson_region_name[serverMapSpec[settings.server!]];
   const studentNames = staticConfig.student_names;
   const [showSelector, setShowSelector] = useState(false);
 
@@ -284,7 +284,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
         onChange={(names) =>
           setDraft((d) => ({...d, lesson_favorStudent: names}))
         }
-        lang={serverMap[settings.server]}
+        lang={serverMap[settings.server!]}
       />
 
       {/* Save button */}

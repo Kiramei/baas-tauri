@@ -29,7 +29,7 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
   const trigger = useWebSocketStore((state) => state.trigger);
   const logStore = useWebSocketStore((state) => state.logStore);
 
-  const scriptRunning = statusStore[profileId]?.running || false;
+  const scriptRunning = statusStore[profileId!]?.running || false;
 
   /**
    * Issues the scheduler start command for the active profile.
@@ -100,12 +100,12 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
       </div>
 
       {/* Live status for the active task pipeline. */}
-      <TaskStatus profileId={profileId}/>
+      <TaskStatus profileId={profileId!}/>
 
       {/* Optional asset snapshot to provide immediate operational context. */}
       {uiSettings?.assetsDisplay && (
         <div className="shrink-0">
-          <AssetsDisplay profileId={profileId}/>
+          <AssetsDisplay profileId={profileId!}/>
         </div>
       )}
 
@@ -119,7 +119,7 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
           </CardTitle>
           <div className="sm:flex hidden items-center justify-center">
             <SwitchButton
-              checked={uiSettings?.scrollToEnd}
+              checked={uiSettings?.scrollToEnd!}
               onChange={value => {
                 setUiSettings(state => ({...state, scrollToEnd: value}));
               }}

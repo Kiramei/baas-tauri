@@ -2,8 +2,7 @@ import React, {useEffect, useRef} from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import {useApp} from "@/contexts/AppContext.tsx";
-
-type PageKey = 'home' | 'scheduler' | 'configuration' | 'settings' | 'wiki';
+import {PageKey} from "@/types/app";
 
 
 interface MainLayoutProps {

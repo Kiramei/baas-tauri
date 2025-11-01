@@ -31,9 +31,9 @@ async function buildFernet(secret: string) {
 }
 
 export class SecureWebSocket {
-  private url: string;
-  private sharedSecret: string;
-  private name: string;
+  private readonly url: string;
+  private readonly sharedSecret: string;
+  private readonly name: string;
   private ws: WebSocket | null = null;
   private fernetSecret: any = null;
 

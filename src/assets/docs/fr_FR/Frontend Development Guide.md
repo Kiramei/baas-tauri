@@ -11,7 +11,7 @@ Il s’adresse aux **équipes d’ingénierie et de déploiement** nécessitant 
 L’application React est rendue via `App.tsx`. Elle relie le **ThemeProvider**, **AppProvider** et la structure persistante (`MainLayout`).
 Les pages sont commutées à l’aide d’un **routeur framer-motion** léger qui garde les pages inactives montées pour préserver leur état lors du changement d’onglet.
 
-* **Point d’entrée :** `index.tsx` initialise i18n, le thème et rend `<App />`.
+* **Point d’entrée :** `main.tsx` initialise i18n, le thème et rend `<App />`.
 * **Providers :** `AppProvider` charge les préférences UI, établit la connexion WebSocket, injecte le catalogue de profils et expose les fonctions via le contexte.
 * **Mise en page :** `MainLayout` contient la barre latérale persistante (`Sidebar.tsx`) et l’en-tête (`Header.tsx`).
 

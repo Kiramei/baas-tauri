@@ -48,7 +48,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({
   const staticConfig = useWebSocketStore(e => e.staticStore);
   const studentNames = staticConfig.student_names;
   const {t} = useTranslation();
-  const settings = useWebSocketStore(e => e.configStore[profileId]);
+  const settings = useWebSocketStore(e => e.configStore[profileId!]);
   const modify = useWebSocketStore(state => state.modify);
 
   const ext = useMemo(() => {
@@ -105,7 +105,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({
   // Persist only the fields that have diverged from the server state.
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof DynamicConfig)[]).forEach((k) => {
+    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
       if (draft[k] !== ext[k]) {
         // @ts-ignore
         patch[k] = draft[k] as DynamicConfig[typeof k];

@@ -60,15 +60,15 @@ const HotkeySettingsModal: React.FC<{
     return dups;
   }, [draft]);
 
-  // const handleInput = (id: string, v: string) => {
-  //   setDraft(prev => prev.map(it => it.id === id ? {...it, value: v} : it));
-  //   setErrors(prev => {
-  //     const next = {...prev};
-  //     if (!isHotkeyValid(v)) next[id] = t('Invalid hotkey format') as string;
-  //     else delete next[id];
-  //     return next;
-  //   });
-  // };
+  const handleInput = (id: string, v: string) => {
+    setDraft(prev => prev.map(it => it.id === id ? {...it, value: v} : it));
+    setErrors(prev => {
+      const next = {...prev};
+      if (!isHotkeyValid(v)) next[id] = t('Invalid hotkey format') as string;
+      else delete next[id];
+      return next;
+    });
+  };
 
   const handleSave = () => {
     // 最终校验：格式 + 重复

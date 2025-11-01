@@ -11,7 +11,7 @@
 React 应用由 `App.tsx` 渲染，负责加载 **ThemeProvider**、**AppProvider** 与主框架 `MainLayout`。
 页面切换使用轻量级 **framer-motion 路由**，在切换标签页时保持非活动页挂载以保存状态。
 
-* **入口文件：** `index.tsx` → 初始化 i18n、主题并渲染 `<App />`
+* **入口文件：** `main.tsx` → 初始化 i18n、主题并渲染 `<App />`
 * **Provider：** `AppProvider` 加载 UI 偏好、建立 WebSocket 连接、注入配置数据并通过 context 提供方法
 * **布局：** `MainLayout` 含侧边栏 (`Sidebar.tsx`) 与顶部栏 (`Header.tsx`)
 

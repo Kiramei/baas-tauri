@@ -34,7 +34,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   );
   const modify = useWebSocketStore(state => state.modify);
 
-  const serverType = serverMap[settings.server];
+  const serverType = serverMap[settings.server!];
 
   const _default_goods_ =
     staticConfig.common_shop_price_list[serverType] as Array<

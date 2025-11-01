@@ -1,13 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { AnimatePresence, motion, MotionProps } from "motion/react";
-import React, {
-  ComponentPropsWithoutRef,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import {cn} from "@/lib/utils";
+import {AnimatePresence, motion, MotionProps} from "motion/react";
+import React, {ComponentPropsWithoutRef, useEffect, useMemo, useState,} from "react";
 
 export function AnimatedListItem({ children }: { children: React.ReactNode }) {
   const animations: MotionProps = {
@@ -48,8 +43,7 @@ export const AnimatedList = React.memo(
     }, [index, delay, childrenArray.length]);
 
     const itemsToShow = useMemo(() => {
-      const result = childrenArray.slice(0, index + 1).reverse();
-      return result;
+      return childrenArray.slice(0, index + 1).reverse();
     }, [index, childrenArray]);
 
     return (

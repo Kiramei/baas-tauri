@@ -11,7 +11,7 @@ Es richtet sich an **Engineering- und Delivery-Teams**, die eine kanonische Refe
 Die React-Applikation wird über `App.tsx` gerendert. Sie verbindet den **ThemeProvider**, den **AppProvider** und das persistente Layout-Gerüst (`MainLayout`).
 Seiten werden über einen leichten **framer-motion Router** gewechselt, der inaktive Seiten gemountet hält, sodass sie ihren Zustand beim Tab-Wechsel behalten.
 
-* **Einstiegspunkt:** `index.tsx` initialisiert i18n, das Theme und rendert `<App />`.
+* **Einstiegspunkt:** `main.tsx` initialisiert i18n, das Theme und rendert `<App />`.
 * **Provider:** `AppProvider` lädt UI-Präferenzen, stellt WebSocket-Verbindungen her, injiziert das Profilkatalog und stellt Setter über Context zur Verfügung.
 * **Layout:** `MainLayout` enthält die persistente Seitenleiste (`Sidebar.tsx`) und den Header (`Header.tsx`).
 

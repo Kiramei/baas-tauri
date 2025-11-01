@@ -1,6 +1,6 @@
-import React, {useState, useMemo} from "react";
+import React, {useMemo, useState} from "react";
 import {useTranslation} from "react-i18next";
-import {Tabs, TabsList, TabsTrigger, TabsContent} from "@/components/ui/tabs";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {FormSelect} from "@/components/ui/FormSelect";
 import {FormInput} from "@/components/ui/FormInput";
 import {LabelWithTooltip} from "@/components/ui/LabelWithTooltip.tsx";
@@ -34,21 +34,21 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({profileId, onClose}) => 
   const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
   const modify = useWebSocketStore(state => state.modify);
   const staticConfig = useWebSocketStore(state => state.staticStore);
-  const hard_task_student_material = staticConfig.hard_task_student_material
+  const hard_task_student_material = staticConfig.hard_task_student_material as string [][]
   const [openStudentModal, setOpenStudentModal] = useState(false);
 
   const ext = useMemo(() => {
     return {
-      mainlinePriority: settings.mainlinePriority,
-      hardPriority: settings.hardPriority,
-      rewarded_task_times: settings.rewarded_task_times,
-      scrimmage_times: settings.scrimmage_times,
-      activity_sweep_task_number: settings.activity_sweep_task_number,
-      activity_sweep_times: settings.activity_sweep_times,
-      special_task_times: settings.special_task_times,
-      purchase_rewarded_task_ticket_times: settings.purchase_rewarded_task_ticket_times,
-      purchase_lesson_ticket_times: settings.purchase_lesson_ticket_times,
-      purchase_scrimmage_ticket_times: settings.purchase_scrimmage_ticket_times
+      mainlinePriority: settings.mainlinePriority!,
+      hardPriority: settings.hardPriority!,
+      rewarded_task_times: settings.rewarded_task_times!,
+      scrimmage_times: settings.scrimmage_times!,
+      activity_sweep_task_number: settings.activity_sweep_task_number!,
+      activity_sweep_times: settings.activity_sweep_times!,
+      special_task_times: settings.special_task_times!,
+      purchase_rewarded_task_ticket_times: settings.purchase_rewarded_task_ticket_times!,
+      purchase_lesson_ticket_times: settings.purchase_lesson_ticket_times!,
+      purchase_scrimmage_ticket_times: settings.purchase_scrimmage_ticket_times!
     };
   }, []);
 

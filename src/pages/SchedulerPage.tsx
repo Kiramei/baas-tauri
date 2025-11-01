@@ -54,7 +54,7 @@ const TaskRow = React.memo(function TaskRow(
           </div>
           <DateTimePicker
             value={task.next_tick * 1000}
-            onChange={(ts) => onChangeTime(task, ts)}
+            onChange={(ts) => onChangeTime(task, ts!)}
             className="hidden xl:flex"
           />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
@@ -78,7 +78,7 @@ const TaskRow = React.memo(function TaskRow(
           </CButton>
           <DateTimePicker
             value={task.next_tick * 1000}
-            onChange={(ts) => onChangeTime(task, ts)}
+            onChange={(ts) => onChangeTime(task, ts!)}
             className="hidden xl:flex"
           />
           <div className="flex flex-grow min-w-0 overflow-hidden text-ellipsis text-right mr-2 justify-end">
@@ -106,9 +106,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
   const [sortKey, setSortKey] = useState<"default" | "time">("default");
   const [modalTask, setModalTask] = useState<EventConfig | null>(null);
 
-  const runningTask = useWebSocketStore((e) => e.statusStore[profileId]?.current_task);
-  const taskQueue = useWebSocketStore((e) => e.statusStore[profileId]?.waiting_tasks);
-  const eventConfigs = useWebSocketStore((e) => e.eventStore[profileId] ?? EMPTY_ARRAY);
+  const runningTask = useWebSocketStore((e) => e.statusStore[profileId!]?.current_task);
+  const taskQueue = useWebSocketStore((e) => e.statusStore[profileId!]?.waiting_tasks);
+  const eventConfigs: EventConfig[] = useWebSocketStore((e) => e.eventStore[profileId!] ?? EMPTY_ARRAY);
   const modify = useWebSocketStore((e) => e.modify);
 
   const filtered = useMemo(() => {

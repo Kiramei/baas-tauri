@@ -2,13 +2,13 @@ import React, {Dispatch, SetStateAction} from "react";
 import {useTranslation} from "react-i18next";
 import {toast} from "sonner";
 import {getTimestampMs} from "@/lib/utils.ts";
-import {PageKey} from "@/App.tsx";
+import {PageKey} from "@/types/app";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 
 type OtherConfigProps = {
   profileId: string;
   onClose: () => void;
-  setActivePage: Dispatch<SetStateAction<PageKey>>;
+  setActivePage?: Dispatch<SetStateAction<PageKey>>;
 };
 
 const OtherConfig: React.FC<OtherConfigProps> = (
@@ -35,7 +35,7 @@ const OtherConfig: React.FC<OtherConfigProps> = (
       })
     });
     onClose();
-    setActivePage("home")
+    setActivePage?.("home")
   }
 
   return (

@@ -40,7 +40,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({task, onClose, o
 
         <DateTimePicker
           value={task.next_tick * 1000}
-          onChange={(ts) => handleChange("next_tick", Math.floor(ts / 1000))}
+          onChange={(ts) => handleChange("next_tick", Math.floor(ts! / 1000))}
           className="w-full justify-center flex xl:hidden"
         />
 

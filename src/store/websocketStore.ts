@@ -6,93 +6,20 @@ import {getTimestampMs, isPlainObject} from "@/lib/utils.ts";
 import {useGlobalLogStore} from "@/store/globalLogStore.ts";
 import {t} from "i18next";
 import {StorageUtil} from "@/lib/storage";
+import {
+  ConnectionError,
+  LogItem,
+  RawLogItem,
+  StatusItem,
+  WebSocketState,
+  WrappedStatusItem,
+  WsCallBackDict,
+  WsMessageItem,
+  WsName
+} from "@/types/app";
 
 const BASE = "ws://localhost:8190";
 
-type WsName = "provider" | "sync" | "trigger" | "heartbeat";
-
-export interface LogItem {
-  time: string;
-  level: string;
-  message: string;
-}
-
-interface RawLogItem extends LogItem {
-  scope: string;
-}
-
-interface StatusItem {
-  running: boolean;
-  config_id: string | null;
-  current_task: string | null;
-  waiting_tasks: string[];
-  timestamp: number;
-}
-
-interface WrappedStatusItem {
-  config_id: string | null;
-  status: StatusItem;
-}
-
-interface CommandPayload {
-  command: string;
-  config_id?: string;
-  timestamp: number;
-  payload: { [id: string]: any };
-}
-
-interface InitState {
-  all_data_initialized: boolean;
-}
-
-interface SyncOperation {
-  op: string;
-  path: string;
-  value: any | null;
-}
-
-interface WsMessageItem {
-  type: string;
-  scopes?: string[];
-  entry?: RawLogItem;
-  entries?: RawLogItem[];
-  status?: InitState | StatusItem | WrappedStatusItem | string;
-  timestamp?: number;
-  data?: any;
-  resource?: string;
-  resource_id?: string;
-  "ops"?: SyncOperation;
-  "command"?: string;
-}
-
-
-interface LogStoreSet {
-  [key: string]: LogItem[];
-}
-
-interface WebSocketState {
-  connections: Partial<Record<WsName, SecureWebSocket>>;
-  logStore: LogStoreSet;
-  configStore: any;
-  staticStore: any;
-  eventStore: any;
-  updateStore: any;
-  versionStore: any;
-  statusStore: { [id: string]: StatusItem };
-  connect: (name: WsName) => Promise<void>;
-  disconnect: (name: WsName) => void;
-  send: (name: WsName, data: any) => void;
-  init: () => Promise<void>;
-  modify: (path: string, value: any, showToast?: boolean) => void;
-  patch: (path: string, value: any) => void;
-  trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
-  pendingCallbacks: Record<string, (data?: any) => void>;
-
-  _all_data_initialized: boolean;
-  _heartbeat_time: number;
-  _initiating: boolean;
-  _secret: string;
-}
 
 const {appendGlobalLog} = useGlobalLogStore.getState()
 
@@ -105,7 +32,7 @@ const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
       console.log(`[${name}] connected successfully`);
       return;
     } catch (err) {
-      if (err.reason === "Invalid handshake response") {
+      if ((err as ConnectionError).reason === "Invalid handshake response") {
         console.error(`[${name}] connect failed, maybe Secret is Incorrect!`, err);
         useWebSocketStore.setState(state => ({...state, _secret: ""}))
         StorageUtil.set("SECRET", "")
@@ -183,6 +110,7 @@ export const waitForNormal = <T>(
     const timer = setInterval(check, intervalMs);
   });
 };
+void waitForNormal;
 
 
 export const useWebSocketStore = create<WebSocketState>()(
@@ -211,7 +139,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (name === "trigger") url = `${BASE}/ws/trigger`;
       if (name === "heartbeat") url = `${BASE}/ws/heartbeat`;
 
-      const resourceCallBack = {
+      const resourceCallBack: WsCallBackDict = {
         "config": (message: WsMessageItem) => {
           set((state) => ({
             configStore: {
@@ -240,7 +168,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
       };
 
-      const callbackDict = {
+      const callbackDict: WsCallBackDict = {
         "config_list": (message: WsMessageItem) => {
           set((state): Partial<WebSocketState> => {
             const config_added = Object.fromEntries(
@@ -361,7 +289,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               set(state => ({
                 statusStore: {
                   ...state.statusStore,
-                  [(data as StatusItem).config_id]: (data as WrappedStatusItem).status
+                  [(data as StatusItem).config_id!]: (data as WrappedStatusItem).status
                 }
               }));
             }

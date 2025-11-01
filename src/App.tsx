@@ -1,5 +1,5 @@
 import React, {Suspense, useCallback, useState} from 'react';
-import {AppProvider} from '@/contexts/AppContext';
+import {AppProvider, useApp} from '@/contexts/AppContext';
 import {ThemeProvider} from '@/hooks/useTheme';
 import MainLayout from '@/components/layout/MainLayout';
 import HomePage from '@/pages/HomePage';
@@ -9,9 +9,9 @@ import SettingsPage from '@/pages/SettingsPage';
 import WikiPage from "@/pages/WikiPage.tsx";
 import type {Variants} from 'framer-motion';
 import {motion} from 'framer-motion';
-import {useApp} from '@/contexts/AppContext';
-import {LoadingPage} from './pages/LoadingPage';
+import {LoadingPage} from '@/pages/LoadingPage';
 import {Toaster} from "sonner";
+import {PageKey} from "@/types/app";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -73,11 +73,6 @@ const App: React.FC = () => {
 
 
 /**
- * Identifiers for each primary application route.
- */
-export type PageKey = 'home' | 'scheduler' | 'configuration' | 'settings' | 'wiki';
-
-/**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
  */
 const instanceKeyOf = (page: PageKey, pid?: string) =>
@@ -100,7 +95,7 @@ const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>('home');
   const {activeProfile} = useApp();
 
-  const activePid = activeProfile.id;
+  const activePid = activeProfile!.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
   const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf('home', activePid)]);

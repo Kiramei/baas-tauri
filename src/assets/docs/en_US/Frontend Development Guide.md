@@ -10,7 +10,7 @@ It targets **engineering and delivery teams** that need a canonical reference wh
 The React application is rendered through `App.tsx`. It wires the **ThemeProvider**, **AppProvider**, and the persistent layout frame (`MainLayout`).  
 Pages are swapped using a lightweight **framer-motion router** that keeps inactive pages mounted, allowing them to retain state while users change tabs.
 
-- **Entry point:** `index.tsx` bootstraps i18n, theme, and renders `<App />`.
+- **Entry point:** `main.tsx` bootstraps i18n, theme, and renders `<App />`.
 - **Providers:** `AppProvider` loads UI preferences, establishes WebSocket connectivity, injects the profile catalogue, and exposes setters via context.
 - **Layout:** `MainLayout` contains the persistent sidebar (`Sidebar.tsx`) and header (`Header.tsx`).
 

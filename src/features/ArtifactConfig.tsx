@@ -204,7 +204,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
     name: string
   ): string[] => {
     const indexes = staticConfig.create_phase2_recommended_priority[name];
-    const originPriority = staticConfig.create_default_priority[serverMap[settings.server]]["phase2"];
+    const originPriority = staticConfig.create_default_priority[serverMap[settings.server!]]["phase2"];
     const resPriority = indexes.map((i: any) => originPriority[i]);
 
     originPriority.forEach((_: any, i: number) => {
@@ -221,7 +221,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
       <div>
         <label className="block mb-1">{t("artifact.materialSelect")}</label>
         <Select
-          value={draft[`create_phase_${phase}_select_item_rule`]}
+          value={draft[`create_phase_${phase}_select_item_rule` as keyof Draft] as string}
           onValueChange={(val) =>
             setDraft((d) => {
               return {...d, [`create_phase_${phase}_select_item_rule`]: val};
@@ -255,7 +255,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
       <div>
         <label className="block mb-1">{t("artifact.priority")}</label>
         <Textarea
-          value={(draft[`createPriority_phase${phase}`]).join(" > ") || ""}
+          value={(draft[`createPriority_phase${phase}` as keyof Draft] as string[]).join(" > ") || ""}
           onChange={(e) =>
             setDraft((d) => {
               return {...d, [`createPriority_phase${phase}`]: e.target.value.split(">").map(s => s.trim())};

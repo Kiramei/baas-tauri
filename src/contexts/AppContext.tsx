@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useState, useEffect, ReactNode} from 'react';
+import React, {createContext, ReactNode, useContext, useEffect, useState} from 'react';
 import type {ConfigProfile, UISettings} from '@/types/app';
 import {GlobalSelectProvider} from "@/components/ui/select-global"
 import {useWebSocketStore} from "@/store/websocketStore.ts";
@@ -12,6 +12,14 @@ interface AppContextType {
   profiles: ConfigProfile[];
   activeProfile: ConfigProfile | null;
   setActiveProfile: (profile: ConfigProfile | null) => void;
+}
+
+const DEFAULT_UI_SETTINGS = {
+  lang: "",
+  theme: "",
+  zoomScale: 100,
+  scrollToEnd: true,
+  assetsDisplay: true
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -51,7 +59,7 @@ export const AppProvider: React.FC<{ children: ReactNode, setReady: (value: bool
   const [profiles, setProfiles] = useState<ConfigProfile[]>([]);
   const [activeProfile, setActiveProfile] = useState<ConfigProfile | null>(null);
 
-  const [uiSettings, setUiSettings] = useState<UISettings | null>(null);
+  const [uiSettings, setUiSettings] = useState<UISettings>(DEFAULT_UI_SETTINGS);
   const {i18n} = useTranslation();
 
 
@@ -62,13 +70,7 @@ export const AppProvider: React.FC<{ children: ReactNode, setReady: (value: bool
   useEffect(() => {
     const _uiSettings: UISettings | null = StorageUtil.get("uiSettings")
     if (!_uiSettings) {
-      const DEFAULT_UI_SETTINGS = {
-        lang: "",
-        theme: "",
-        zoomScale: 100,
-        scrollToEnd: true,
-        assetsDisplay: true
-      }
+
       setUiSettings(DEFAULT_UI_SETTINGS);
       StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
     } else {

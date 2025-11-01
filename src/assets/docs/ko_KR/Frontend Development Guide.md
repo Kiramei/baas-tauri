@@ -14,7 +14,7 @@ React 앱은 `App.tsx`를 통해 렌더링됩니다.
 사용자는 가벼운 **framer-motion 라우터**를 통해 페이지를 전환하며,
 비활성 페이지도 상태를 유지하면서 탭을 전환할 수 있습니다.
 
-* **진입점:** `index.tsx` — i18n, 테마를 초기화하고 `<App />`을 렌더링
+* **진입점:** `main.tsx` — i18n, 테마를 초기화하고 `<App />`을 렌더링
 * **Providers:** `AppProvider`는 UI 설정 로드, WebSocket 연결 설정, 프로필 카탈로그 주입,
   그리고 context를 통한 설정자(setter)를 노출
 * **레이아웃:** `MainLayout`은 지속되는 사이드바(`Sidebar.tsx`)와 헤더(`Header.tsx`)를 포함

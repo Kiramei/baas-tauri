@@ -1,5 +1,5 @@
 import {create} from "zustand";
-import {LogItem} from "./websocketStore.js"
+import {LogItem} from "@/types/app"
 
 interface GlobalLogInterface {
   globalLogData: LogItem[]

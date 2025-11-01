@@ -1,5 +1,6 @@
 import {clsx, type ClassValue} from "clsx"
 import {twMerge} from "tailwind-merge"
+import {StringKVMap} from "@/types/app";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -84,12 +85,22 @@ export const getTimestamp = (): number => Math.floor(Date.now() / 1000);
 
 export const getTimestampMs = (): number => Date.now();
 
-export const serverMap = {
+export const serverMap: StringKVMap = {
   "日服": "JP",
   "国际服": "Global",
   "国际服青少年": "Global",
   "韩国ONE": "Global",
   "Steam国际服": "Global",
+  "B服": "CN",
+  "官服": "CN"
+}
+
+export const serverMapSpec: StringKVMap = {
+  "日服": "JP",
+  "国际服": "Global_en-us",
+  "国际服青少年": "Global_en-us",
+  "韩国ONE": "Global_en-us",
+  "Steam国际服": "Global_en-us",
   "B服": "CN",
   "官服": "CN"
 }

@@ -10,12 +10,12 @@ import {useWebSocketStore} from "@/store/websocketStore.ts";
 import {DynamicConfig} from "@/types/dynamic";
 import {getTimestampMs, serverMap} from "@/lib/utils.ts";
 import {toast} from "sonner";
-import {PageKey} from "@/App.tsx";
+import {PageKey} from "@/types/app";
 
 type StageConfigProps = {
   profileId: string;
-  setActivePage: Dispatch<SetStateAction<PageKey>>;
   onClose: () => void;
+  setActivePage?: Dispatch<SetStateAction<PageKey>>;
 };
 
 
@@ -52,7 +52,7 @@ const StageConfig: React.FC<StageConfigProps> = (
 
     const [eventTable, setEventTable] = useState<[string, string][]>([]);
 
-    const serverKey = serverMap[settings.server];
+    const serverKey = serverMap[settings.server!];
     const event = staticConfig.current_game_activity[serverKey];
     const eventName = event?.activity_name ?? t("stage.noEvent");
 
@@ -116,7 +116,7 @@ const StageConfig: React.FC<StageConfigProps> = (
         })
       });
       onClose();
-      setActivePage("home")
+      setActivePage?.("home")
     }
 
 

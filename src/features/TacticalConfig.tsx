@@ -20,10 +20,10 @@ const TacticalConfig: React.FC<TacticalConfigProps> = ({
                                                        }) => {
   const {t} = useTranslation();
   const staticConfig = useWebSocketStore(state => state.staticStore);
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
+  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId!]);
   const modify = useWebSocketStore(state => state.modify);
 
-  const total_assault_difficulties = staticConfig.total_assault_difficulties[serverMap[settings.server]] as string[];
+  const total_assault_difficulties = staticConfig.total_assault_difficulties[serverMap[settings.server!]] as string[];
 
   const ext = useMemo(() => {
     return {
