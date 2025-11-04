@@ -5,6 +5,7 @@ import {FormSelect} from "@/components/ui/FormSelect";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import {DynamicConfig} from "@/types/dynamic";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
+import {getEmulatorPath} from "@/lib/ipcTauri.ts";
 
 type EmulatorConfigProps = {
   profileId: string;
@@ -122,16 +123,17 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = (
               placeholder="C:\\Path\\to\\MuMuPlayer.exe"
               className="flex-1"
             />
-            {/*<button*/}
-            {/*  type="button"*/}
-            {/*  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded-md"*/}
-            {/*  onClick={() => {*/}
-            {/* TODO: integrate the platform file picker once available. */}
-            {/*    alert("选择文件逻辑待实现");*/}
-            {/*  }}*/}
-            {/*>*/}
-            {/*  {t("choose")}*/}
-            {/*</button>*/}
+            <button
+              type="button"
+              className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded-md"
+              onClick={async () => {
+                const path = await getEmulatorPath({translator: t});
+                if (!path) return;
+                setDraft(state => ({...state, program_address: path}))
+              }}
+            >
+              {t("choose")}
+            </button>
           </div>
         </div>
       )}

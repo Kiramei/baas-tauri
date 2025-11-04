@@ -26,18 +26,22 @@ interface FormSelectProps {
   className?: string;
   /** 同一 SelectGroup 内要唯一，用于互斥控制；不传则自动生成 */
   selectId?: string;
+  disabled?: boolean;
 }
 
-export const FormSelect: React.FC<FormSelectProps> = ({
-                                                        label,
-                                                        tooltip,
-                                                        value,
-                                                        onChange,
-                                                        options,
-                                                        placeholder,
-                                                        className,
-                                                        selectId,
-                                                      }) => {
+export const FormSelect: React.FC<FormSelectProps> = (
+  {
+    label,
+    tooltip,
+    value,
+    onChange,
+    options,
+    placeholder,
+    className,
+    selectId,
+    disabled = false,
+  }
+) => {
   const autoId = React.useId()
   const id = selectId ?? autoId
   const global = useGlobalSelect()
@@ -63,6 +67,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
       <Select
         value={value}
+        disabled={disabled}
         onValueChange={(v) => {
           onChange(v)
           if (global) global.setOpenId(null)

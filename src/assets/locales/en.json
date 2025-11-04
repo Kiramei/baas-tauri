@@ -445,5 +445,6 @@
   "secretPlaceholder": "Please enter your public key here",
   "secretRequired": "The public key is required!",
   "secretNotice": "Obtained from the service.secret file from backend.",
-  "Confirm": "Confirm"
+  "Confirm": "Confirm",
+  "export.log.folderSelect": "Choose the Log Export Path"
 }

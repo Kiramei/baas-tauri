@@ -32,10 +32,9 @@ const isHotkeyValid = (v: string) => {
 // ========== 快捷键设置模态框 ========== //
 const HotkeySettingsModal: React.FC<{
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (toSave: boolean, draft?: HotkeyConfig[]) => void;
   value: HotkeyConfig[];
-  onChange: (next: HotkeyConfig[]) => void;
-}> = ({isOpen, onClose, value, onChange}) => {
+}> = ({isOpen, onClose, value}) => {
   const {t} = useTranslation();
   const [draft, setDraft] = useState<HotkeyConfig[]>(value);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -60,16 +59,6 @@ const HotkeySettingsModal: React.FC<{
     return dups;
   }, [draft]);
 
-  const handleInput = (id: string, v: string) => {
-    setDraft(prev => prev.map(it => it.id === id ? {...it, value: v} : it));
-    setErrors(prev => {
-      const next = {...prev};
-      if (!isHotkeyValid(v)) next[id] = t('Invalid hotkey format') as string;
-      else delete next[id];
-      return next;
-    });
-  };
-
   const handleSave = () => {
     // 最终校验：格式 + 重复
     const bad: Record<string, string> = {};
@@ -87,8 +76,7 @@ const HotkeySettingsModal: React.FC<{
       setErrors(dupErr);
       return;
     }
-    onChange(draft);
-    onClose();
+    onClose(true, draft);
   };
 
   const [search, setSearch] = useState("");
@@ -100,7 +88,7 @@ const HotkeySettingsModal: React.FC<{
 
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('hotkeys')}>
+    <Modal isOpen={isOpen} onClose={() => onClose(false)} title={t('hotkeys')}>
       <div className="space-y-6">
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {t('Use combinations like')} <code
@@ -118,7 +106,7 @@ const HotkeySettingsModal: React.FC<{
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                    px-3 py-2 text-sm bg-white dark:bg-slate-900
                    text-slate-900 dark:text-slate-100
-                   focus:outline-none focus:ring-2 focus:ring-primary-500"
+                   focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
           />
         </div>
 
@@ -155,7 +143,7 @@ const HotkeySettingsModal: React.FC<{
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <CButton variant="secondary" onClick={onClose}>{t('cancel')}</CButton>
+          <CButton variant="secondary" onClick={() => onClose(false)}>{t('cancel')}</CButton>
           <CButton variant="primary" onClick={handleSave}>{t('save')}</CButton>
         </div>
       </div>

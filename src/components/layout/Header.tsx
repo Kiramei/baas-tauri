@@ -415,6 +415,7 @@ const ProfileEditorModal = (props: {
           <FormSelect
             label={t('server.server')}
             value={server}
+            disabled={props.mode === 'edit'}
             onChange={
               (e) => setServer(e)
             }

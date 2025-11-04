@@ -90,7 +90,7 @@ html, body, #root {
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: var(--color-slate-900);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -98,7 +98,7 @@ html, body, #root {
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: var(--color-slate-500);
-  --accent: oklch(0.269 0 0);
+  --accent: var(--color-slate-800);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -119,13 +119,6 @@ html, body, #root {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-.bg-popover {
-    background-color: rgba(255, 255, 255, 1); /* 默认亮色背景 */
-}
-
-.dark .bg-popover {
-    background-color: rgba(18, 26, 46, 1); /* 深色背景 */
-}
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Keyboard as KeyboardIcon, Circle as RecIcon, X as XIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -101,7 +101,7 @@ export default function HotkeyField({
       )}
 
       <div className={`relative flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100
-                       border transition ${borderClass}`}>
+                       border transition border-2 ${borderClass}`}>
         {/* Read-only display slot */}
         <input
           type={"text"}

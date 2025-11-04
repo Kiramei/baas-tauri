@@ -1,8 +1,8 @@
 import React, {useEffect, useRef, useState} from "react";
-import Particles from "@/components/Particles";
+// import Particles from "@/components/Particles";
 import {TextGenerateEffect} from "@/components/ui/text-generate-effect.tsx";
 import {useGlobalLogStore} from "@/store/globalLogStore.ts";
-import {formatIsoToReadable} from "@/lib/utils.ts";
+import {formatIsoToReadableTime} from "@/lib/utils.ts";
 import {motion} from "framer-motion";
 import {useTheme} from "@/hooks/useTheme.tsx";
 import {useWebSocketStore} from "../store/websocketStore";
@@ -34,71 +34,88 @@ export function AutoScrollTerminal({children}: { children: React.ReactNode }) {
   }, [children]);
 
   return (
-    <div className="w-full h-full opacity-50 scrollbar-hide font-mono overflow-auto p-2">
+    <div className="w-full h-full opacity-50 scrollbar-hide font-mono overflow-auto p-2 text-sm">
       {children}
       <div ref={endRef}/>
     </div>
   );
 }
 
-export const LoadingPage: React.FC<LoadingPageProps> = ({
-                                                          message = "Loading..."
-                                                        }) => {
+export const LoadingPage: React.FC<LoadingPageProps> = (
+  {
+    message = "Loading..."
+  }
+) => {
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
   const _secret = useWebSocketStore(state => state._secret);
   const {theme} = useTheme();
-  const particlePalette = theme === "dark" ? ["#c2eaf9", "#ffffff"] : ["#6bc6d7"];
+  // const particlePalette = theme === "dark" ? ["#c2eaf9", "#ffffff"] : ["#6bc6d7"];
 
   return (
     <>
+      {/* Ambient particle field that reinforces the product identity during loading. */}
+      {/* Deprecated: For consideration of performance, the effect of particles won't be used. */}
+      {/*<div*/}
+      {/*  className="fixed w-full h-full flex items-center justify-center bg-[var(--color-slate-100)] dark:bg-[oklch(12.9%_0.042_264.695)] overflow-hidden">*/}
+      {/*<Particles*/}
+      {/*  particleColors={particlePalette}*/}
+      {/*  particleCount={100}*/}
+      {/*  particleSpread={5}*/}
+      {/*  speed={0.8}*/}
+      {/*  particleBaseSize={300}*/}
+      {/*  alphaParticles*/}
+      {/*  disableRotation*/}
+      {/*/>*/}
+      {/*</div>*/}
+
       <div
-        className="fixed w-full h-full flex items-center justify-center bg-[var(--color-slate-100)] dark:bg-[oklch(12.9%_0.042_264.695)] overflow-hidden">
-        {/* Ambient particle field that reinforces the product identity during loading. */}
-        <Particles
-          particleColors={particlePalette}
-          particleCount={100}
-          particleSpread={5}
-          speed={0.8}
-          particleBaseSize={300}
-          alphaParticles
-          disableRotation
+        className="fixed inset-0 bg-[var(--color-slate-100)] dark:bg-[oklch(12.9%_0.042_264.695)] overflow-hidden">
+        <img
+          src={theme === "light" ? "/assets/images/bg-light.png" : "/assets/images/bg-dark.png"}
+          alt="Loading BG"
+          className="w-full h-full object-cover object-center"
         />
       </div>
 
-      <div className="fixed w-full h-full">
-        <AutoScrollTerminal>
-          {globalLogData.map((log, idx) => (
-            <div className="flex mb-1" key={`${log.time}-${idx}`}>
-              <div className="min-w-[230px] text-slate-600 dark:text-slate-400">
-                <TextGenerateEffect
-                  words={formatIsoToReadable(log.time)}
-                  mode="all"
-                />
+
+      <div className="fixed w-full h-full p-2">
+        <div
+          className="w-full h-full bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-[5px] rounded-md p-2 border border-2 border-primary-500/70">
+          <AutoScrollTerminal>
+            {globalLogData.map((log, idx) => (
+              <div className="flex" key={`${log.time}-${idx}`}>
+                <div className="min-w-[80px] text-slate-600 dark:text-slate-400">
+                  <TextGenerateEffect
+                    words={formatIsoToReadableTime(log.time)}
+                    mode="all"
+                  />
+                </div>
+                <div
+                  className="min-w-[80px] flex justify-end mr-2 font-bold"
+                  style={{color: statusColorMap[log.level]}}
+                >
+                  <TextGenerateEffect words={log.level} mode="all"/>
+                </div>
+                <motion.div
+                  className="flex-1 border-l-3 pl-4"
+                  style={{
+                    borderColor: statusColorMap[log.level],
+                    whiteSpace: "pre-wrap",
+                    borderLeftWidth: log.level === "INFO" ? "3px" : "5px",
+                    color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
+                    fontWeight: log.level === "INFO" ? "inherit" : "bold"
+                  }}
+                  initial={{opacity: 0, filter: "blur(10px)"}}
+                  animate={{opacity: 1, filter: "blur(0px)"}}
+                  transition={{duration: 0.5}}
+                >
+                  {log.message}
+                </motion.div>
               </div>
-              <div
-                className="min-w-[70px] flex justify-end mr-2 font-bold"
-                style={{color: statusColorMap[log.level]}}
-              >
-                <TextGenerateEffect words={log.level} mode="all"/>
-              </div>
-              <motion.div
-                className="flex-1 border-l-3 pl-4"
-                style={{
-                  borderColor: statusColorMap[log.level],
-                  whiteSpace: "pre-wrap",
-                  borderLeftWidth: log.level === "INFO" ? "3px" : "5px",
-                  color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
-                  fontWeight: log.level === "INFO" ? "inherit" : "bold"
-                }}
-                initial={{opacity: 0, filter: "blur(10px)"}}
-                animate={{opacity: 1, filter: "blur(0px)"}}
-                transition={{duration: 0.5}}
-              >
-                {log.message}
-              </motion.div>
-            </div>
-          ))}
-        </AutoScrollTerminal>
+            ))}
+          </AutoScrollTerminal>
+        </div>
+
       </div>
 
       <div className="z-10 flex flex-col items-center justify-center w-full h-full">

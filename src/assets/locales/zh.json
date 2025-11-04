@@ -445,5 +445,10 @@
   "secretPlaceholder": "请在此输入公钥",
   "secretRequired": "公钥必须输入！",
   "secretNotice": "公钥可从服务后端的service.secret文件获取",
-  "Confirm": "确认"
+  "Confirm": "确认",
+  "export.log.folderSelect": "选择日志导出位置",
+  "export.log.success": "日志保存成功",
+  "export.log.successDesc": "日志保存于: {{path}}",
+  "toast.dateUpdated": "日期已更新",
+  "toast.timeUpdated": "时间已更新"
 }

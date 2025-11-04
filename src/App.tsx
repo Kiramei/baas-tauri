@@ -10,7 +10,7 @@ import WikiPage from "@/pages/WikiPage.tsx";
 import type {Variants} from 'framer-motion';
 import {motion} from 'framer-motion';
 import {LoadingPage} from '@/pages/LoadingPage';
-import {Toaster} from "sonner";
+import {Toaster} from "@/components/ui/sonner";
 import {PageKey} from "@/types/app";
 
 /**

@@ -208,7 +208,7 @@ export const ConfirmUpdateModal: React.FC<{
               {t("remoteVersion") || "Latest version"}:
             </span>
             <code className="font-mono text-green-700 dark:text-green-300">
-              {remoteVersion.slice(0, 8)}
+              {remoteVersion ? remoteVersion.slice(0, 8) : "UNKNOWN"}
             </code>
           </div>
         </div>

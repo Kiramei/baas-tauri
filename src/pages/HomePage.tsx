@@ -1,16 +1,20 @@
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useApp} from '../contexts/AppContext';
 import CButton from '../components/ui/CButton.tsx';
 import Logger from '../components/ui/Logger';
 import AssetsDisplay from '../components/AssetsDisplay';
 import {Card, CardContent, CardHeader, CardTitle} from '../components/ui/Card';
-import {FileUp, ListEnd, Logs, Play, Square} from 'lucide-react';
+import {FileUp, KeyboardIcon, ListEnd, Logs, Play, Square} from 'lucide-react';
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import {ProfileProps} from "@/types/app";
 import {TaskStatus} from "@/components/HomeTaskStatus.tsx";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 import {formatIsoToReadable, getTimestamp, getTimestampMs} from "@/lib/utils.ts";
+import {exportLogForProfile} from "@/lib/ipcTauri.ts";
+import {toast} from "sonner";
+import {useBindHotkeyHandlers, useRemoteHotkeys} from "@/hooks/useHotkeys.ts";
+import {HotkeyConfig, HotkeySettingsModal} from "@/components/HotkeyConfig.tsx";
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -65,19 +69,41 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
   /**
    * Serializes the on-screen log buffer and triggers a local download for auditing or support.
    */
-  const exportLog = () => {
+  const exportLog = async () => {
     const content = logStore[`config:${profileId}`].map(
       (entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`
     ).join('\n');
-
-    const blob = new Blob([content], {type: 'text/plain;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `logs-${new Date().toISOString()}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    const now = new Date();
+    const formattedDate = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') + '-' +
+      String(now.getMinutes()).padStart(2, '0') + '-' +
+      String(now.getSeconds()).padStart(2, '0');
+    const pathToSave = await exportLogForProfile({
+      translator: t,
+      logContent: content,
+      nameSaveTo: `logs-${profileId}-${formattedDate}.txt`
+    });
+    if (!pathToSave) return;
+    toast.success(t("export.log.success"), {
+      description: t("export.log.successDesc", {path: pathToSave})
+    })
   };
+
+  const [hotkeyModalOpen, setHotkeyModalOpen] = useState(false);
+  const {hotkeys, save} = useRemoteHotkeys(t, hotkeyModalOpen);
+
+
+  const handlers = useMemo(() => ({
+    'toggle-run': () => (scriptRunning ? stopScript() : startScript())
+  }), [scriptRunning, startScript, stopScript]);
+
+  const handleCloseModal = async (toSave: boolean, draft: HotkeyConfig[]) => {
+    if (toSave) await save(draft);
+    setHotkeyModalOpen(false);
+  };
+  useBindHotkeyHandlers(hotkeys as HotkeyConfig[] | null, handlers);
 
   return (
     <div className="h-full flex flex-col min-h-0 gap-2">
@@ -87,7 +113,31 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('home')}</h2>
           <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex sm:hidden items-center gap-2">
+          <CButton
+            variant="secondary"
+            onClick={() => setHotkeyModalOpen(true)}
+            className="flex pl-2 pr-2 items-center"
+          >
+            <KeyboardIcon className="w-4 h-4"/>
+          </CButton>
+          <CButton
+            onClick={scriptRunning ? stopScript : startScript}
+            variant={scriptRunning ? 'danger' : 'primary'}
+            className="pl-2 pr-2 flex items-center justify-center"
+          >
+            {scriptRunning ? <Square className="w-4 h-4"/> : <Play className="w-4 h-4"/>}
+          </CButton>
+        </div>
+        <div className="hidden sm:flex items-center gap-2">
+          <CButton
+            variant="secondary"
+            onClick={() => setHotkeyModalOpen(true)}
+            className="flex items-center"
+          >
+            <KeyboardIcon className="w-4 h-4 mr-2"/>
+            {t('hotkeys')}
+          </CButton>
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? 'danger' : 'primary'}
@@ -155,6 +205,11 @@ const HomePage: React.FC<ProfileProps> = ({profileId}) => {
           <Logger logs={logStore[`config:${profileId}`]} scrollToEnd={uiSettings?.scrollToEnd}/>
         </CardContent>
       </Card>
+      <HotkeySettingsModal
+        isOpen={hotkeyModalOpen}
+        onClose={handleCloseModal}
+        value={hotkeys ?? []}
+      />
     </div>
   );
 };

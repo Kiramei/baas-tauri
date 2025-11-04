@@ -64,6 +64,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({profileId, onClose}) => {
       <FormSelect
         label={t('server.server')}
         value={draft.server}
+        disabled={true}
         onChange={handleChange("server")}
         options={[
           {label: t('server.cn.official'), value: "官服"},

@@ -2,19 +2,46 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import type {TFunction} from 'i18next';
 import type {HotkeyConfig} from '@/components/HotkeyConfig';
 import {eventToCombo, getDefaultHotkeys, normalizeCombo} from '@/lib/hotkeys';
-import {fetchHotkeys, saveHotkeys} from '@/services/hotkeyService';
+import {StorageUtil} from "@/lib/storage.ts";
 
-export type HotkeyId =
-  | 'toggle-run' | 'toggle-scroll' | 'open-settings'
-  | 'clear-logs' | 'focus-search'  | 'help';
+/**
+ * Abstraction for retrieving the persisted hotkey bindings from a remote service.
+ * The concrete implementation can choose any transport layer (REST, RPC, WebSocket, etc.).
+ */
+export type FetchHotkeys = () => Promise<HotkeyConfig[]>;
 
-export type HotkeyHandlers = Partial<Record<HotkeyId, () => void>>;
+/**
+ * Abstraction for saving the configured hotkey bindings to a remote service.
+ */
+export type SaveHotkeys = (hotkeys: HotkeyConfig[]) => Promise<void>;
+
+/**
+ * Placeholder implementation that keeps the client responsive while the integration is pending.
+ * Replace with a real data fetch that returns the effective hotkey configuration for the profile.
+ */
+export const fetchHotkeys: FetchHotkeys = async () => {
+  // TODO: The format requires Change
+  return await StorageUtil.get("hotkeys") || [];
+};
+
+/**
+ * Placeholder save handler that resolves immediately.
+ * Replace with the call required by your backend once the hotkey API contract is finalized.
+ */
+export const saveHotkeys: SaveHotkeys = async (_hotkeys: HotkeyConfig[]) => {
+  // TODO: The format requires Change
+  StorageUtil.set("hotkeys", _hotkeys);
+  return Promise.resolve();
+};
+
+
+export type HotkeyHandlers = Partial<Record<string, () => void>>;
 
 /**
  * Lazily loads the remote hotkey configuration once the consuming component is ready.
  * Falls back to the default key map if the remote endpoint is unavailable.
  */
-export function useRemoteHotkeys(t: TFunction, enabled: boolean) {
+export const useRemoteHotkeys = (t: TFunction, enabled: boolean) => {
   const [hotkeys, setHotkeys] = useState<HotkeyConfig[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

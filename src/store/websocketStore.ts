@@ -416,6 +416,9 @@ export const useWebSocketStore = create<WebSocketState>()(
     init: async () => {
       if (get()._initiating) return;
       set(state => ({...state, _initiating: true}));
+
+      await StorageUtil.init()
+
       await connectWithRetry("heartbeat");
 
       await connectWithRetry("provider")

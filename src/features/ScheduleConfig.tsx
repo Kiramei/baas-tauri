@@ -7,7 +7,7 @@ import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import {FormInput} from "@/components/ui/FormInput.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {DynamicConfig} from "@/types/dynamic";
+import {DynamicConfig, LessonEachRegionObjectPriority} from "@/types/dynamic";
 import {serverMap, serverMapSpec} from "@/lib/utils.ts";
 
 type LessonConfigProps = {
@@ -25,7 +25,7 @@ type Draft = {
   lesson_times: number[];
 };
 
-const levels = ["primary", "normal", "advanced", "superior"];
+const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced", "superior"];
 
 const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
   const {t} = useTranslation();
@@ -39,16 +39,38 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
   const [showSelector, setShowSelector] = useState(false);
 
   // Convert external settings → default draft values
-  const ext = useMemo(() => {
+  const ext: Draft = useMemo(() => {
+    let _lesson_each_region_object_priority: LessonEachRegionObjectPriority[][];
+    if (!settings.lesson_each_region_object_priority) {
+      _lesson_each_region_object_priority = lessonNames.map(() => [...levels]);
+    } else if (settings.lesson_each_region_object_priority.length < lessonNames.length) {
+      const results = Array.from({length: lessonNames.length - settings.lesson_times.length}, () => levels);
+      _lesson_each_region_object_priority = [...settings.lesson_each_region_object_priority, ...results];
+    } else if (settings.lesson_each_region_object_priority.length > lessonNames.length) {
+      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority.slice(0, lessonNames.length)
+    } else {
+      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority;
+    }
+
+    let _lesson_times: number[];
+    if (!settings.lesson_times) {
+      _lesson_times = lessonNames.map(() => 1);
+    } else if (settings.lesson_times.length < lessonNames.length) {
+      const results = Array.from({length: lessonNames.length - settings.lesson_times.length}, () => 1);
+      _lesson_times = [...settings.lesson_times, ...results];
+    } else if (settings.lesson_times.length > lessonNames.length) {
+      _lesson_times = settings.lesson_times.slice(0, lessonNames.length)
+    } else {
+      _lesson_times = settings.lesson_times;
+    }
+
     return {
       lesson_enableInviteFavorStudent:
         settings.lesson_enableInviteFavorStudent ?? false,
       lesson_favorStudent: settings.lesson_favorStudent ?? [],
       lesson_relationship_first: settings.lesson_relationship_first ?? false,
-      lesson_each_region_object_priority:
-        settings.lesson_each_region_object_priority ??
-        lessonNames.map(() => [...levels]),
-      lesson_times: settings.lesson_times ?? lessonNames.map(() => 1),
+      lesson_each_region_object_priority: _lesson_each_region_object_priority,
+      lesson_times: _lesson_times,
     };
   }, [settings]);
 

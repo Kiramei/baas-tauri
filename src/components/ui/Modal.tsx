@@ -38,7 +38,7 @@ export const Modal: React.FC<ModalProps> = ({isOpen, onClose, title, children, w
         transition={{duration: 0.16}}
         onMouseDown={(e) => e.stopPropagation()}
         className='rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5 px-3'
-        style={{width: `${width}%`, minWidth: '400px'}}
+        style={{width: `${width}%`, minWidth: '320px'}}
       >
         <div className='overflow-auto px-2' style={{maxHeight: 'calc(100vh - 80px)'}}>
           <div className="flex items-center justify-between p-0 border-b border-slate-200 dark:border-slate-700">
