@@ -71,7 +71,7 @@ export const LoadingPage: React.FC<LoadingPageProps> = (
       <div
         className="fixed inset-0 bg-[var(--color-slate-100)] dark:bg-[oklch(12.9%_0.042_264.695)] overflow-hidden">
         <img
-          src={theme === "light" ? "/assets/images/bg-light.png" : "/assets/images/bg-dark.png"}
+          src={theme === "light" ? "/assets/images/bg-light.webp" : "/assets/images/bg-dark.webp"}
           alt="Loading BG"
           className="w-full h-full object-cover object-center"
         />
