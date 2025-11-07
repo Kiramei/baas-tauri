@@ -1,33 +1,33 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import enTranslations from '@/assets/locales/en.json';
-import zhTranslations from '@/assets/locales/zh.json';
-import jaTranslations from '@/assets/locales/ja.json';
-import koTranslations from '@/assets/locales/ko.json';
-import ruTranslations from '@/assets/locales/ru.json';
-import frTranslations from '@/assets/locales/fr.json';
-import deTranslations from '@/assets/locales/de.json';
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import { StorageUtil } from "@/lib/storage.ts";
 
-i18n
-  .use(initReactI18next)
-  .init({
-    resources: {
-      en: { translation: enTranslations },
-      zh: { translation: zhTranslations },
-      ja: { translation: jaTranslations },
-      ko: { translation: koTranslations },
-      ru: { translation: ruTranslations },
-      fr: { translation: frTranslations },
-      de: { translation: deTranslations },
-    },
-    lng: 'en', // Default locale presented on first launch.
-    fallbackLng: 'en',
-    interpolation: {
-      escapeValue: false,
-    },
-  }).then(
-    () => {
-      console.log("[app]", "i18n loaded.");
-    }
-);
+export async function initI18n() {
+  await StorageUtil.init().catch(() => {
+    console.warn("[i18n] Storage init failed, fallback to default settings");
+  });
 
+  await i18n.use(initReactI18next).init({
+    lng: StorageUtil.get("uiSettings")?.["lang"] || "en",
+    fallbackLng: "en",
+    resources: {},
+    interpolation: { escapeValue: false },
+  });
+
+  console.log("[i18n] initialized");
+}
+
+export async function loadLocale(lang: string) {
+  try {
+    const res = await fetch(`/locales/${lang}.json`);
+    if (!res.ok) throw new Error(`Failed to load locale: ${lang}`);
+    const data = await res.json();
+    i18n.addResourceBundle(lang, "translation", data, true, true);
+    await i18n.changeLanguage(lang);
+    console.log(`[i18n] switched to ${lang}`);
+  } catch (err) {
+    console.error(`[i18n] failed to load ${lang}:`, err);
+  }
+}
+
+export default i18n;

@@ -1,9 +1,16 @@
 import React, {useDeferredValue, useEffect, useMemo, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/Card";
-import {wikiArticles, mapLanguage, getLocalizedField, WikiArticle, LanguageCode} from "@/lib/wikiContent.ts";
-import {Search, BookOpen, Tag, X} from "lucide-react";
-import {motion, AnimatePresence} from "framer-motion";
+import {
+  getLocalizedField,
+  getWikiArticles,
+  LanguageCode,
+  loadDocs,
+  mapLanguage,
+  WikiArticle
+} from "@/lib/wikiContent.ts";
+import {BookOpen, Loader2, Search, Tag, X} from "lucide-react";
+import {AnimatePresence, motion} from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -43,7 +50,7 @@ const ArticleModal: React.FC<{
   }, [open, onClose]);
 
   if (!open || !article) return null;
-  const { i18n } = useTranslation();
+  const {i18n} = useTranslation();
 
   // @ts-ignore
   return (
@@ -105,24 +112,76 @@ const WikiPage: React.FC = () => {
   const language = mapLanguage(i18n.language);
 
   const [query, setQuery] = useState("");
+  const [articlesEntry, setArticlesEntry] = useState<WikiArticle[] | null>(null);
   const deferredQuery = useDeferredValue(query);
   const [activeCategory, setActiveCategory] = useState<WikiArticle["category"] | "all">("all");
   const [selectedArticle, setSelectedArticle] = useState<PreparedArticle | null>(null);
+  const [preparedArticles, setPreparedArticles] = useState<PreparedArticle[]>([]);
 
-  // Prepare the article
-  const preparedArticles: PreparedArticle[] = useMemo(() => {
-    return wikiArticles.map((article) => {
-      const localizedTitle = getLocalizedField(article.title, language);
-      const localizedSummary = getLocalizedField(article.summary, language);
-      const bodyHtml = article.body[language] ?? article.body.en ?? "";
-      const bodyText = stripHtml(bodyHtml);
-      const searchIndex = buildSearchIndex(localizedTitle, localizedSummary, bodyText, article.tags);
-      return {...article, localizedTitle, localizedSummary, bodyHtml, searchIndex};
-    });
-  }, [language]);
+  // ------------------------------
+  // Fetch Wiki Articles once
+  // ------------------------------
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const data = await getWikiArticles(language);
+        if (isMounted) setArticlesEntry(data);
+      } catch (err) {
+        console.error("Failed to load wiki articles:", err);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
+  // ------------------------------
+  // Prepare Articles (after loaded)
+  // ------------------------------
+
+  useEffect(() => {
+    if (!articlesEntry) return;
+
+    const prepareArticles = async () => {
+      const results = await Promise.all(
+        articlesEntry.map(async (article) => {
+          const localizedTitle = getLocalizedField(article.title, language);
+          const localizedSummary = getLocalizedField(article.summary, language);
+
+          let bodyHtml = article.body[language] ?? article.body.en ?? "";
+          let articleAppended = article;
+
+          // Async Fetching Language Pack
+          if (!article.body[language]) {
+            try {
+              const loadedBody = await loadDocs(article.basename, language);
+              articleAppended = {...article, body: {...article.body, ...loadedBody}};
+              if (loadedBody) {
+                bodyHtml = loadedBody[language]!;
+              }
+            } catch (err) {
+              console.error(`Failed to load ${article.basename} (${language})`, err);
+            }
+          }
+
+          const bodyText = stripHtml(bodyHtml);
+          const searchIndex = buildSearchIndex(localizedTitle, localizedSummary, bodyText, article.tags);
+
+          return {...articleAppended, localizedTitle, localizedSummary, bodyHtml, searchIndex};
+        })
+      );
+      setPreparedArticles(results);
+      return results;
+    };
+    prepareArticles().then(undefined);
+  }, [articlesEntry, language]);
+
+  // ------------------------------
   // Classification Statistics
+  // ------------------------------
   const categoriesWithCounts = useMemo(() => {
+    if (!preparedArticles.length) return [];
     const counts = new Map<WikiArticle["category"], number>();
     preparedArticles.forEach((article) => {
       counts.set(article.category, (counts.get(article.category) ?? 0) + 1);
@@ -130,8 +189,11 @@ const WikiPage: React.FC = () => {
     return Array.from(counts.entries());
   }, [preparedArticles]);
 
+  // ------------------------------
   // Article Filter
+  // ------------------------------
   const filteredArticles = useMemo(() => {
+    if (!preparedArticles.length) return [];
     const normalizedQuery = deferredQuery.trim().toLowerCase();
     return preparedArticles.filter((article) => {
       const matchCategory = activeCategory === "all" || article.category === activeCategory;
@@ -140,7 +202,18 @@ const WikiPage: React.FC = () => {
     });
   }, [preparedArticles, deferredQuery, activeCategory]);
 
-  // Classification Button
+  // ------------------------------
+  // Render
+  // ------------------------------
+  if (!articlesEntry) {
+    return (
+      <div className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">
+        <Loader2 className="animate-spin mr-2 h-10 w-10"/>
+      </div>
+    );
+  }
+
+  // Category Button Component
   const renderCategoryChip = (
     category: WikiArticle["category"] | "all",
     label: string,

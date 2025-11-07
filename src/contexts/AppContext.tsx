@@ -4,7 +4,6 @@ import {GlobalSelectProvider} from "@/components/ui/select-global"
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 
 import {StorageUtil} from "@/lib/storage.ts";
-import {useTranslation} from "react-i18next";
 
 interface AppContextType {
   uiSettings: UISettings;
@@ -60,8 +59,6 @@ export const AppProvider: React.FC<{ children: ReactNode, setReady: (value: bool
   const [activeProfile, setActiveProfile] = useState<ConfigProfile | null>(null);
   const [stageInitiated, setStageInitiated] = useState<boolean>(false)
   const [uiSettings, setUiSettings] = useState<UISettings>(DEFAULT_UI_SETTINGS);
-  const {i18n} = useTranslation();
-
 
   configRes.read()
 
@@ -74,7 +71,6 @@ export const AppProvider: React.FC<{ children: ReactNode, setReady: (value: bool
       StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
     } else {
       setUiSettings(_uiSettings);
-      i18n.changeLanguage(_uiSettings.lang).then(undefined)
     }
     setStageInitiated(true);
   }, []);

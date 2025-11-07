@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({activePage, setActivePage}) => {
   const {t} = useTranslation();
   const versionConfig = useWebSocketStore(state => state.versionStore);
   const [confirmUpdate, setConfirmUpdate] = useState<boolean>(false);
-  const hasUpdate = versionConfig["local"] !== versionConfig["remote"];
+  const hasUpdate = versionConfig["remote"] && (versionConfig["local"] !== versionConfig["remote"]);
 
   const navItems: Array<{ id: PageKey, label: string, icon: any }> = [
     {id: 'home', label: t('home'), icon: Home},
@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({activePage, setActivePage}) => {
         className="w-64 h-full flex-shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-col lg:block hidden"
       >
         <div className="h-16 flex items-center border-b border-slate-200 dark:border-slate-700 px-4">
-          <img src="/assets/images/logo.png" alt="Logo" className="h-8 w-8"/>
+          <img src="/images/logo.png" alt="Logo" className="h-8 w-8"/>
           <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400 flex-1 text-start ml-2">
             {t("appTitle")}
           </h1>
@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({activePage, setActivePage}) => {
                 )}
                 <button
                   onClick={() => setActivePage(item.id)}
-                  className={`flex items-center w-full px-4 py-3 my-1 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center w-full px-4 py-3 my-1 text-sm font-bold rounded-lg transition-colors duration-200 ${
                     activePage === item.id
                       ? "bg-primary-500 text-white"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"

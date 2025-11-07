@@ -44,7 +44,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
     if (!settings.lesson_each_region_object_priority) {
       _lesson_each_region_object_priority = lessonNames.map(() => [...levels]);
     } else if (settings.lesson_each_region_object_priority.length < lessonNames.length) {
-      const results = Array.from({length: lessonNames.length - settings.lesson_times.length}, () => levels);
+      const results = Array.from({length: lessonNames.length - settings.lesson_times!.length}, () => levels);
       _lesson_each_region_object_priority = [...settings.lesson_each_region_object_priority, ...results];
     } else if (settings.lesson_each_region_object_priority.length > lessonNames.length) {
       _lesson_each_region_object_priority = settings.lesson_each_region_object_priority.slice(0, lessonNames.length)

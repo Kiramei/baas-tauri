@@ -1,0 +1,55 @@
+@theme {
+  --font-sans: "Source Han Sans SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
+}
+
+@font-face {
+  font-family: "Source Han Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SourceHanSans-Subset-SC.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Han Sans JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SourceHanSans-Subset-JP.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono.ttf");
+}
+
+:lang(zh),
+:lang(ko),
+:lang(en),
+:lang(fr),
+:lang(ru),
+:lang(de),
+:lang(zh-CN),
+:lang(zh-TW),
+:lang(zh-HK) {
+  font-family: "Source Han Sans SC", var(--font-sans), sans-serif;
+}
+
+:lang(ja) {
+  font-family: "Source Han Sans JP", var(--font-sans), sans-serif;
+}
+
+/* 强化选择器权重 */
+.font-mono, .font-mono * {
+  font-family: var(--font-mono), monospace !important;
+}
+
+
+/* 默认（非中文、日文） */
+html {
+  font-family: var(--font-sans) sans-serif;
+}

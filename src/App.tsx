@@ -1,4 +1,4 @@
-import React, {Suspense, useCallback, useState} from 'react';
+import React, {Suspense, useCallback, useEffect, useState} from 'react';
 import {AppProvider, useApp} from '@/contexts/AppContext';
 import {ThemeProvider} from '@/hooks/useTheme';
 import MainLayout from '@/components/layout/MainLayout';
@@ -12,6 +12,7 @@ import {motion} from 'framer-motion';
 import {LoadingPage} from '@/pages/LoadingPage';
 import {Toaster} from "@/components/ui/sonner";
 import {PageKey} from "@/types/app";
+import i18n, {loadLocale} from "@/lib/i18n";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -34,6 +35,21 @@ const variants: Variants = {
 const App: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language;
+    const onLangChange = (lng: string) => {
+      document.documentElement.lang = lng;
+    };
+    i18n.on("languageChanged", onLangChange);
+    return () => {
+      i18n.off("languageChanged", onLangChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    loadLocale(i18n.language || "en").then(undefined);
+  }, []);
 
   return (
     <>

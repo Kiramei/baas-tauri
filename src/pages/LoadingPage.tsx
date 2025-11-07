@@ -71,7 +71,7 @@ export const LoadingPage: React.FC<LoadingPageProps> = (
       <div
         className="fixed inset-0 bg-[var(--color-slate-100)] dark:bg-[oklch(12.9%_0.042_264.695)] overflow-hidden">
         <img
-          src={theme === "light" ? "/assets/images/bg-light.webp" : "/assets/images/bg-dark.webp"}
+          src={theme === "light" ? "/images/bg-light.webp" : "/images/bg-dark.webp"}
           alt="Loading BG"
           className="w-full h-full object-cover object-center"
         />
@@ -126,7 +126,7 @@ export const LoadingPage: React.FC<LoadingPageProps> = (
           }}
         >
           <img
-            src="/assets/images/logo.png"
+            src="/images/logo.png"
             alt="App Logo"
             className="w-36 h-36 mb-6 fixed rounded-full drop-shadow-[0_0_80px_rgba(0,215,255,0.8)] dark:drop-shadow-[0_0_80px_rgba(59,130,246,0.8)]"
           />

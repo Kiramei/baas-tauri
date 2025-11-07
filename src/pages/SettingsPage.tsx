@@ -24,6 +24,7 @@ import {
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 import {formatIsoToReadable, getTimestampMs} from "@/lib/utils.ts";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
+import {loadLocale} from "@/lib/i18n.ts";
 
 type RepoConfig = {
   label: string;
@@ -82,7 +83,7 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleLanguageChange = (value: string) => {
-    i18n.changeLanguage(value).then(() => {
+    loadLocale(value).then(() => {
       setUiSettings(state => ({...state, lang: value}));
     });
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import {cn} from "@/lib/utils";
-import {AnimatePresence, motion, MotionProps} from "motion/react";
+import {AnimatePresence, motion, MotionProps} from "framer-motion";
 import React, {ComponentPropsWithoutRef, useEffect, useMemo, useState,} from "react";
 
 export function AnimatedListItem({ children }: { children: React.ReactNode }) {

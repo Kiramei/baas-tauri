@@ -4,10 +4,11 @@
   "version": "0.1.0",
   "identifier": "com.kiramei.baas-tauri",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:8191",
+    "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../dist"
+    "beforeBundleCommand": "pnpm run build:after"
   },
   "app": {
     "windows": [

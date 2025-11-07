@@ -1,0 +1,42 @@
+/* 默认指针（普通状态） */
+* {
+    cursor: url('/cursors/normal.cur'), auto;
+}
+
+* {
+    user-select: none;
+}
+
+img {
+    -webkit-user-drag: none;
+}
+
+input[type="text"],
+.allow-select-text * {
+    user-select: text;
+}
+
+/* 链接/按钮（手指） */
+a, a *,
+button, button *,
+select, select *,
+.cursor-link, .cursor-link *,
+[role="button"], [role="button"] *,
+.cursor-pointer, .cursor-pointer *,
+input[type="button"], input[type="button"] * {
+    cursor: url('/cursors/link.cur'), pointer !important;
+}
+
+input[type="text"], input[type="text"] *,
+input[type="password"], input[type="password"] *,
+input[type="number"], input[type="number"] *,
+input[type="time"], input[type="time"] *,
+textarea, textarea *,
+[contenteditable="true"], [contenteditable="true"] *,
+.cursor-text, .cursor-text * {
+    cursor: url('/cursors/text_static_white.cur') 7 16, text;
+}
+
+.cursor-grab, .cursor-grab * {
+    cursor: url('/cursors/move.cur'), grab;
+}

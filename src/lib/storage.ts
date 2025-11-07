@@ -16,6 +16,7 @@ export class StorageUtil {
   static get<T = any>(key: string): T | null {
     if (!this.initialized) {
       console.warn("[StorageUtil:get] called before init");
+      console.trace("Call Trace:")
       return null;
     }
     return this.cache[key] ?? null;

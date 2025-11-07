@@ -1,0 +1,39 @@
+/* src/input.css */
+@tailwind utilities;
+
+::-webkit-scrollbar {
+    z-index: 999;
+    width: 7px;
+    height: 9px;
+}
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background-color: var(--color-primary-500);
+    background-image: -webkit-linear-gradient(45deg,hsla(0,0%,100%,.2) 25%,transparent 0,transparent 50%,hsla(0,0%,100%,.2) 0,hsla(0,0%,100%,.2) 75%,transparent 0,transparent);
+}
+::-webkit-scrollbar-track {
+    /* background:hsla(0,0%,92.9%,.33333); */
+    border-radius: 10px
+}
+
+.scroll-embedded {
+  /* 
+   * 关键属性: 始终为滚动条保留空间，防止页面内容跳动。
+   * 这解决了“滚动条不能遮盖原内容”的核心问题。
+   */
+  scrollbar-gutter: stable;
+  /* 应用滚动条样式 */
+  /* @apply scrollbar-thin scrollbar-track-slate-200 scrollbar-thumb-cyan-600 hover:scrollbar-thumb-cyan-700; */
+
+  /* &:where(.dark, .dark *) {
+    @apply scrollbar-track-slate-700 hover:scrollbar-thumb-cyan-500;
+  } */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE, Edge */
+    scrollbar-width: none;     /* Firefox */
+}
