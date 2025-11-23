@@ -104,3 +104,7 @@ export const serverMapSpec: StringKVMap = {
   "B服": "CN",
   "官服": "CN"
 }
+
+export const getBaseUrl = (addr: string, port: number) => {
+  return `ws://${addr}:${port}`;
+}

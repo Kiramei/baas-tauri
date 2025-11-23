@@ -26,7 +26,7 @@ const statusColorMap: Record<string, string> = {
 /**
  * Scrolls a terminal-like log viewport to the latest entry whenever new content arrives.
  */
-export function AutoScrollTerminal({children}: { children: React.ReactNode }) {
+export const AutoScrollTerminal = ({children}: { children: React.ReactNode }) => {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function AutoScrollTerminal({children}: { children: React.ReactNode }) {
   );
 }
 
-export const LoadingPage: React.FC<LoadingPageProps> = (
+const LoadingPage: React.FC<LoadingPageProps> = (
   {
     message = "Loading..."
   }
@@ -257,3 +257,5 @@ export const SecretInputModal: React.FC<{
     </div>
   );
 };
+
+export default LoadingPage;

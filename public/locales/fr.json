@@ -445,5 +445,21 @@
   "secretPlaceholder": "Veuillez entrer votre clé publique ici",
   "secretRequired": "La clé publique est requise !",
   "secretNotice": "La clé publique peut être obtenue à partir du fichier service.secret sur le serveur.",
-  "Confirm": "Confirmer"
+  "Confirm": "Confirmer",
+  "export.log.folderSelect": "Choisir le dossier d'exportation des journaux",
+  "export.log.success": "Journal enregistré avec succès",
+  "export.log.successDesc": "Journal enregistré sous : {{path}}",
+  "toast.dateUpdated": "La date a été mise à jour",
+  "toast.timeUpdated": "L'heure a été mise à jour",
+  "installer.title": "Bienvenue dans Blue Archive Auto Script",
+  "installer.title.wizard": "Assistant d'installation",
+  "installer.subtitle.stage_1": "Configurez votre installation",
+  "installer.subtitle.stage_2": "Nous configurons votre environnement. Cela peut prendre quelques minutes.",
+  "label.install_dir": "Répertoire d'installation",
+  "installer.exit": "Annuler l'installation",
+  "installer.setting": "Paramètres d'installation",
+  "installer.advanced": "Paramètres avancés",
+  "installer.start": "Démarrer l'installation",
+  "label.repo_url": "Choisir l'adresse du dépôt ou le miroir",
+  "label.pypi_mirror": "Sélectionner un miroir PyPI"
 }

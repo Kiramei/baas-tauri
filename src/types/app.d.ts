@@ -108,6 +108,11 @@ interface WsMessageItem {
   "command"?: string;
 }
 
+interface BaseBackendInterface {
+  baseBackendAddr: string;
+  baseBackendPort: number;
+  serviceSecret: string;
+}
 
 interface LogStoreSet {
   [key: string]: LogItem[];

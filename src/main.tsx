@@ -12,6 +12,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+// window.app.$on("installer://log", (event) => {
+//   console.log("Received log:", event.message);
+// });
+
 async function bootstrap() {
   await initI18n();
 

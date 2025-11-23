@@ -445,5 +445,21 @@
   "secretPlaceholder": "Введите здесь ваш открытый ключ",
   "secretRequired": "Необходимо ввести открытый ключ!",
   "secretNotice": "Открытый ключ можно получить из файла service.secret на сервере.",
-  "Confirm": "Подтвердить"
+  "Confirm": "Подтвердить",
+  "export.log.folderSelect": "Выберите путь для экспорта логов",
+  "export.log.success": "Лог успешно сохранен",
+  "export.log.successDesc": "Лог сохранен в: {{path}}",
+  "toast.dateUpdated": "Дата обновлена",
+  "toast.timeUpdated": "Время обновлено",
+  "installer.title": "Добро пожаловать в Blue Archive Auto Script",
+  "installer.title.wizard": "Мастер установки",
+  "installer.subtitle.stage_1": "Настройте установку",
+  "installer.subtitle.stage_2": "Настраиваем окружение. Это может занять несколько минут.",
+  "label.install_dir": "Папка установки",
+  "installer.exit": "Отменить установку",
+  "installer.setting": "Настройки установки",
+  "installer.advanced": "Расширенные настройки",
+  "installer.start": "Начать установку",
+  "label.repo_url": "Выберите адрес репозитория или зеркало",
+  "label.pypi_mirror": "Выберите зеркало PyPI"
 }

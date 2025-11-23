@@ -1,8 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod file;
+mod installer;
 
+use crate::installer::InstallerManager;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex;
 
 #[tauri::command]
 async fn splash_off(app: AppHandle) {
@@ -15,17 +19,26 @@ async fn splash_off(app: AppHandle) {
     }
 }
 
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             splash_off,
-            file::export_log_for_profile
+            file::export_log_for_profile,
+            installer::manager::start_installer,
+            installer::manager::get_default_path,
+            installer::manager::get_default_config
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let handle = app.handle().clone();
+            let installer_manager = InstallerManager::new(handle);
+            app.manage(Arc::new(Mutex::new(installer_manager)));
             let _win = app
                 .get_webview_window("main")
                 .expect("window 'main' not found");

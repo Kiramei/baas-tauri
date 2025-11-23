@@ -445,5 +445,21 @@
   "secretPlaceholder": "Bitte geben Sie hier Ihren öffentlichen Schlüssel ein",
   "secretRequired": "Der öffentliche Schlüssel muss eingegeben werden!",
   "secretNotice": "Der öffentliche Schlüssel kann aus der Datei service.secret im Backend-Server abgerufen werden.",
-  "Confirm": "Bestätigen"
+  "Confirm": "Bestätigen",
+  "export.log.folderSelect": "Wählen Sie den Exportpfad für Protokolle",
+  "export.log.success": "Protokoll erfolgreich gespeichert",
+  "export.log.successDesc": "Protokoll gespeichert unter: {{path}}",
+  "toast.dateUpdated": "Das Datum wurde aktualisiert",
+  "toast.timeUpdated": "Die Uhrzeit wurde aktualisiert",
+  "installer.title": "Willkommen bei Blue Archive Auto Script",
+  "installer.title.wizard": "Einrichtungsassistent",
+  "installer.subtitle.stage_1": "Konfigurieren Sie Ihre Installation",
+  "installer.subtitle.stage_2": "Wir richten Ihre Umgebung ein. Dies kann einige Minuten dauern.",
+  "label.install_dir": "Installationsverzeichnis",
+  "installer.exit": "Installation abbrechen",
+  "installer.setting": "Installationseinstellungen",
+  "installer.advanced": "Erweiterte Einstellungen",
+  "installer.start": "Installation starten",
+  "label.repo_url": "Repository-Adresse oder Spiegelserver wählen",
+  "label.pypi_mirror": "PyPI-Spiegelserver auswählen"
 }

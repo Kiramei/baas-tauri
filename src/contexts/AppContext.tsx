@@ -22,8 +22,7 @@ const DEFAULT_UI_SETTINGS = {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-function createResource<T>(promise: Promise<T>) {
+const createResource = <T, >(promise: Promise<T>) => {
   let status = "pending";
   let result: T;
   let suspender = promise.then(
@@ -36,14 +35,15 @@ function createResource<T>(promise: Promise<T>) {
       result = e;
     }
   );
+
   return {
-    read(): T {
+    read: (): T => {
       if (status === "pending") throw suspender;
       if (status === "error") throw result;
       return result!;
     },
   };
-}
+};
 
 const init = useWebSocketStore.getState().init;
 const configRes = createResource(init())

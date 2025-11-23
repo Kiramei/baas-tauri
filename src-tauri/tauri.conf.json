@@ -19,7 +19,7 @@
         "height": 800,
         "minWidth": 360,
         "minHeight": 640,
-        "devtools": true,
+        "devtools": false,
         "visible": false,
         "theme": null
       }

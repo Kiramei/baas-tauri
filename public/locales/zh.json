@@ -450,5 +450,16 @@
   "export.log.success": "日志保存成功",
   "export.log.successDesc": "日志保存于: {{path}}",
   "toast.dateUpdated": "日期已更新",
-  "toast.timeUpdated": "时间已更新"
+  "toast.timeUpdated": "时间已更新",
+  "installer.title": "欢迎使用蔚蓝档案自动脚本",
+  "installer.title.wizard": "安装向导",
+  "installer.subtitle.stage_1": "配置您的安装",
+  "installer.subtitle.stage_2": "我们正在设置您的环境，请稍安勿躁。",
+  "label.install_dir": "安装目录",
+  "installer.exit": "取消安装",
+  "installer.setting": "安装配置",
+  "installer.advanced": "高级设置",
+  "installer.start": "开始安装",
+  "label.repo_url": "选择仓库地址或镜像",
+  "label.pypi_mirror": "选择 PyPI 镜像"
 }

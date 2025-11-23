@@ -2,7 +2,8 @@ import {toast} from "sonner"
 import {create} from "zustand";
 import {SecureWebSocket} from "@/lib/SecureWebSocket";
 import {subscribeWithSelector} from "zustand/middleware";
-import {getTimestampMs, isPlainObject} from "@/lib/utils.ts";
+import {formatIsoToReadableTime, getBaseUrl, getTimestampMs, isPlainObject,} from "@/lib/utils";
+// import {pause} from "@/lib/utils"
 import {useGlobalLogStore} from "@/store/globalLogStore.ts";
 import {t} from "i18next";
 import {StorageUtil} from "@/lib/storage";
@@ -17,8 +18,6 @@ import {
   WsMessageItem,
   WsName
 } from "@/types/app";
-
-const BASE = "ws://localhost:8190";
 
 
 const {appendGlobalLog} = useGlobalLogStore.getState()
@@ -133,6 +132,10 @@ export const useWebSocketStore = create<WebSocketState>()(
     connect: async (name: WsName) => {
       if (get().connections[name]) return;
 
+      const addr = StorageUtil.get("baseBackendAddr");
+      const port = StorageUtil.get("baseBackendPort");
+      const BASE = getBaseUrl(addr, port);
+
       let url = "";
       if (name === "provider") url = `${BASE}/ws/provider`;
       if (name === "sync") url = `${BASE}/ws/sync`;
@@ -241,7 +244,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               message: e.message
             }
             log_added[e.scope].push(info)
-            if (e.scope == 'global') appendGlobalLog(info)
+            if (e.scope == 'global') appendGlobalLog({...info, time: formatIsoToReadableTime(info.time)})
           })
           set(_ => {
             return {logStore: log_added}
@@ -264,7 +267,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               },
             };
           });
-          if (data!.scope == 'global') appendGlobalLog(info)
+          if (data!.scope == 'global') appendGlobalLog({...info, time: formatIsoToReadableTime(info.time)})
         },
         "status": (message: WsMessageItem) => {
           const data = message.status;
@@ -419,12 +422,14 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       await StorageUtil.init()
 
-      await connectWithRetry("heartbeat");
-
-      await connectWithRetry("provider")
       // Uncomment during deep diagnostics to halt before sync initialization.
       // await pause(Infinity)
       // Establish the sync channel once the provider handshake succeeds.
+
+      await connectWithRetry("heartbeat");
+
+      await connectWithRetry("provider")
+
       await connectWithRetry("sync")
 
       get().send("sync", {type: "pull", resource: "static"});

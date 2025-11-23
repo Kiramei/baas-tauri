@@ -445,5 +445,21 @@
   "secretPlaceholder": "ここに公開鍵を入力してください",
   "secretRequired": "公開鍵の入力は必須です！",
   "secretNotice": "公開鍵はサーバーの backend にある service.secret ファイルから取得できます。",
-  "Confirm": "確認"
+  "Confirm": "確認",
+  "export.log.folderSelect": "ログのエクスポート先を選択",
+  "export.log.success": "ログが正常に保存されました",
+  "export.log.successDesc": "ログの保存先: {{path}}",
+  "toast.dateUpdated": "日付が更新されました",
+  "toast.timeUpdated": "時刻が更新されました",
+  "installer.title": "Blue Archive Auto Script へようこそ",
+  "installer.title.wizard": "セットアップウィザード",
+  "installer.subtitle.stage_1": "インストールの設定",
+  "installer.subtitle.stage_2": "実行環境を構築しています。少々お待ちください。",
+  "label.install_dir": "インストール先",
+  "installer.exit": "キャンセル",
+  "installer.setting": "インストール設定",
+  "installer.advanced": "詳細設定",
+  "installer.start": "インストール開始",
+  "label.repo_url": "リポジトリのアドレスまたはミラーを選択",
+  "label.pypi_mirror": "PyPI ミラーを選択"
 }

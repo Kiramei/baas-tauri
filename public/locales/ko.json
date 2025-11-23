@@ -445,5 +445,21 @@
   "secretPlaceholder": "여기에 공개 키를 입력하세요",
   "secretRequired": "공개 키를 반드시 입력해야 합니다!",
   "secretNotice": "공개 키는 서버 백엔드의 service.secret 파일에서 가져올 수 있습니다.",
-  "Confirm": "확인"
+  "Confirm": "확인",
+  "export.log.folderSelect": "로그 내보내기 경로 선택",
+  "export.log.success": "로그가 성공적으로 저장되었습니다",
+  "export.log.successDesc": "로그 저장 위치: {{path}}",
+  "toast.dateUpdated": "날짜가 업데이트되었습니다",
+  "toast.timeUpdated": "시간이 업데이트되었습니다",
+  "installer.title": "Blue Archive Auto Script에 오신 것을 환영합니다",
+  "installer.title.wizard": "설치 마법사",
+  "installer.subtitle.stage_1": "설치 구성",
+  "installer.subtitle.stage_2": "환경을 설정하는 중입니다. 몇 분 정도 걸릴 수 있습니다.",
+  "label.install_dir": "설치 디렉터리",
+  "installer.exit": "설치 취소",
+  "installer.setting": "설치 설정",
+  "installer.advanced": "고급 설정",
+  "installer.start": "설치 시작",
+  "label.repo_url": "리포지토리 주소 또는 미러 선택",
+  "label.pypi_mirror": "PyPI 미러 선택"
 }

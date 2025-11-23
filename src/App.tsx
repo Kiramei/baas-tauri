@@ -1,18 +1,18 @@
-import React, {Suspense, useCallback, useEffect, useState} from 'react';
-import {AppProvider, useApp} from '@/contexts/AppContext';
-import {ThemeProvider} from '@/hooks/useTheme';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import { AppProvider, useApp } from '@/contexts/AppContext';
+import { ThemeProvider } from '@/hooks/useTheme';
 import MainLayout from '@/components/layout/MainLayout';
 import HomePage from '@/pages/HomePage';
 import SchedulerPage from '@/pages/SchedulerPage';
 import ConfigurationPage from '@/pages/ConfigurationPage';
 import SettingsPage from '@/pages/SettingsPage';
 import WikiPage from "@/pages/WikiPage.tsx";
-import type {Variants} from 'framer-motion';
-import {motion} from 'framer-motion';
-import {LoadingPage} from '@/pages/LoadingPage';
-import {Toaster} from "@/components/ui/sonner";
-import {PageKey} from "@/types/app";
-import i18n, {loadLocale} from "@/lib/i18n";
+import type { Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { Toaster } from "@/components/ui/sonner";
+import { PageKey } from "@/types/app";
+import i18n, { loadLocale } from "@/lib/i18n";
+import SetupPage from "@/pages/SetupPage.tsx";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -22,13 +22,13 @@ const variants: Variants = {
     opacity: 1,
     x: 0,
     display: 'block' as const,
-    transition: {type: 'tween' as const, duration: 0.2, ease: 'easeOut' as const}
+    transition: { type: 'tween' as const, duration: 0.2, ease: 'easeOut' as const }
   },
   hide: {
     opacity: 0,
     x: -24,
-    transition: {type: 'tween' as const, duration: 0.2, ease: 'easeOut' as const},
-    transitionEnd: {display: 'none'}
+    transition: { type: 'tween' as const, duration: 0.2, ease: 'easeOut' as const },
+    transitionEnd: { display: 'none' }
   },
 };
 
@@ -58,8 +58,8 @@ const App: React.FC = () => {
         {!hideLoading && (
           <motion.div
             initial={false}
-            animate={{opacity: ready ? 0 : 1}}
-            transition={{duration: 0.2}}
+            animate={{ opacity: ready ? 0 : 1 }}
+            transition={{ duration: 0.2 }}
             onAnimationComplete={(definition) => {
               // When the animation returns an opacity of zero the loading screen can be removed.
               if (ready && (definition as any).opacity === 0) {
@@ -68,7 +68,7 @@ const App: React.FC = () => {
             }}
             className="fixed inset-0 z-[100]"
           >
-            <LoadingPage/>
+            <SetupPage />
           </motion.div>
         )}
 
@@ -76,8 +76,8 @@ const App: React.FC = () => {
           <AppProvider setReady={setReady}>
             {ready && (
               <>
-                <Main/>
-                <Toaster/>
+                <Main />
+                <Toaster />
               </>
             )}
           </AppProvider>
@@ -107,9 +107,10 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
   return [k as PageKey, undefined];
 };
 
+
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>('home');
-  const {activeProfile} = useApp();
+  const { activeProfile } = useApp();
 
   const activePid = activeProfile!.id;
   const currentKey = instanceKeyOf(activePage, activePid);
@@ -127,15 +128,15 @@ const Main: React.FC = () => {
   const renderPage = useCallback((page: PageKey, pid: string) => {
     switch (page) {
       case 'home':
-        return <HomePage profileId={pid}/>;
+        return <HomePage profileId={pid} />;
       case 'scheduler':
-        return <SchedulerPage profileId={pid}/>;
+        return <SchedulerPage profileId={pid} />;
       case 'configuration':
-        return <ConfigurationPage profileId={pid} setActivePage={setActivePage}/>;
+        return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
       case 'settings':
-        return <SettingsPage/>;
+        return <SettingsPage />;
       case 'wiki':
-        return <WikiPage/>;
+        return <WikiPage />;
       default:
         return null;
     }
@@ -154,7 +155,7 @@ const Main: React.FC = () => {
               variants={variants}
               initial={isActive ? 'show' : 'hide'}
               animate={isActive ? 'show' : 'hide'}
-              style={{pointerEvents: isActive ? 'auto' : 'none'}}
+              style={{ pointerEvents: isActive ? 'auto' : 'none' }}
               aria-hidden={!isActive}
             >
               {renderPage(page, pid!)}
