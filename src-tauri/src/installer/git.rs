@@ -1,24 +1,9 @@
 use crate::installer::config::SetupConfig;
+use crate::installer::utils::emit_log;
 use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks, Repository};
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Emitter};
-
-#[derive(Clone, serde::Serialize)]
-struct LogEvent {
-    message: String,
-    level: String,
-}
-
-fn emit_log(app: &AppHandle, message: &str, level: &str) {
-    let _ = app.emit(
-        "installer://log",
-        LogEvent {
-            message: message.to_string(),
-            level: level.to_string(),
-        },
-    );
-}
 
 pub fn setup_git(app: &AppHandle, config: &SetupConfig, base_path: &Path) -> Result<(), String> {
     emit_log(app, "Checking git repository...", "info");

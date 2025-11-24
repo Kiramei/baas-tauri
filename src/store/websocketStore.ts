@@ -422,10 +422,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       await StorageUtil.init()
 
-      // Uncomment during deep diagnostics to halt before sync initialization.
-      // await pause(Infinity)
-      // Establish the sync channel once the provider handshake succeeds.
-
       await connectWithRetry("heartbeat");
 
       await connectWithRetry("provider")
@@ -500,6 +496,10 @@ export const useWebSocketStore = create<WebSocketState>()(
         (s: WebSocketState) => s._all_data_initialized,
         (status) => status
       );
+
+      // Uncomment during deep diagnostics to halt before sync initialization.
+      // await pause(Infinity)
+      // Establish the sync channel once the provider handshake succeeds.
 
       set(state => ({...state, _initiating: false}));
     },

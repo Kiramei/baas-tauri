@@ -8,16 +8,16 @@ import {useGlobalLogStore} from "@/store/globalLogStore.ts";
 
 export const LogViewer: React.FC = () => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const globalLogData = useGlobalLogStore(e=>e.globalLogData);
+    const terminalLogData = useGlobalLogStore(e=>e.terminalLogData);
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [globalLogData]);
+    }, [terminalLogData]);
 
     const copyLogs = () => {
-        const text = globalLogData.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.message}`).join('\n');
+        const text = terminalLogData.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.message}`).join('\n');
         navigator.clipboard.writeText(text).then(undefined);
         toast.success("Logs copied to clipboard");
     };
@@ -27,6 +27,7 @@ export const LogViewer: React.FC = () => {
             case 'success': return 'text-green-400';
             case 'warning': return 'text-yellow-400';
             case 'error': return 'text-red-400';
+            case 'critical': return 'text-purple-400';
             default: return 'text-blue-400';
         }
     };
@@ -51,9 +52,9 @@ export const LogViewer: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-auto p-4 font-mono text-xs bg-white/50 dark:bg-black/50 text-gray-300" ref={scrollRef}>
-          {globalLogData.length === 0 && <div className="text-gray-500 italic">Waiting for logs...</div>}
-          {globalLogData.map((log, i) => (
-            <div key={i} className="mb-1 break-words allow-select-text cursor-text">
+          {terminalLogData.length === 0 && <div className="text-gray-500 italic">Waiting for logs...</div>}
+          {terminalLogData.map((log, i) => (
+            <div key={i} className="flex mb-1 break-words allow-select-text cursor-text">
               <span className="text-gray-500 mr-2">[{log.time}]</span>
               <span className={getColor(log.level)}>{log.message}</span>
             </div>

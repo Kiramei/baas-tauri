@@ -9,12 +9,15 @@ interface ProgressInterface {
 interface GlobalLogInterface {
   globalLogData: LogItem[];
   globalProgress: ProgressInterface;
+  terminalLogData: LogItem[];
   appendGlobalLog: (log: LogItem) => void;
+  appendTerminalLog: (log: LogItem) => void;
   setProgress: (progress: ProgressInterface) => void;
 }
 
 export const useGlobalLogStore = create<GlobalLogInterface>((set, _) => ({
   globalLogData: [],
+  terminalLogData: [],
   globalProgress: {
     progress: 0,
     message: "Initializing ..."
@@ -23,6 +26,12 @@ export const useGlobalLogStore = create<GlobalLogInterface>((set, _) => ({
   appendGlobalLog: (log: LogItem) => {
     set((state) => {
       return {globalLogData: [...state.globalLogData, log]}
+    })
+  },
+
+  appendTerminalLog: (log: LogItem) => {
+    set((state) => {
+      return {terminalLogData: [...state.terminalLogData, log]}
     })
   },
 

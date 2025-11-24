@@ -9,37 +9,24 @@ import {BaseBackendInterface} from "@/types/app";
 import {listen} from "@tauri-apps/api/event";
 import {useGlobalLogStore} from "@/store/globalLogStore.ts";
 import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {formatIsoToReadableTime} from "@/lib/utils.ts";
+import {createResource, formatIsoToReadableTime} from "@/lib/utils.ts";
 import {useTheme} from "@/hooks/useTheme.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import ConfigEditorModal from "@/components/installer/ConfigEditor.tsx";
 import {exit} from '@tauri-apps/plugin-process';
 import {useTranslation} from "react-i18next";
 
-function createResource<T>(promise: Promise<T>) {
-  let status = "pending";
-  let result: T;
-  let suspender = promise.then(
-    (r) => {
-      status = "success";
-      result = r;
-    },
-    (e) => {
-      status = "error";
-      result = e;
-    }
-  );
-  return {
-    read(): T {
-      if (status === "pending") throw suspender;
-      if (status === "error") throw result;
-      return result!;
-    },
-  };
-}
 
 const init = useWebSocketStore.getState().init;
 const configRes = createResource(init())
+
+const LEVEL_MAP = {
+  "INFO": "info",
+  "WARNING": "warning",
+  "ERROR": "error",
+  "CRITICAL": "critical",
+};
+
 
 const SetupPage = () => {
   const [started, setStarted] = useState(false);
@@ -47,15 +34,33 @@ const SetupPage = () => {
   const [config, setConfig] = useState<any>(null);
   const [installPath, setInstallPath] = useState("");
   const [setupPhase, setSetupPhase] = useState(true);
-  const appendGlobalLog = useGlobalLogStore(e => e.appendGlobalLog);
+  const appendTerminalLog = useGlobalLogStore(e => e.appendTerminalLog);
   const setProgress = useGlobalLogStore(e => e.setProgress);
   const {t} = useTranslation();
 
   useEffect(() => {
     const unlisten = listen<{ message: string; level: string }>('installer://log', (event) => {
-      appendGlobalLog({
-        message: event.payload.message,
-        level: event.payload.level as any,
+
+      // Extract the message and level from the event
+      let message = event.payload.message;
+      let level = event.payload.level;
+
+      // Try to parse the message in the format {flag} | {date} | {content}
+      const parts = message.split(' | ');
+
+      if (parts.length === 3) {
+        // If it's in the format {flag} | {date} | {content}, parse it
+        const flag = parts[0]; // {flag}
+        const content = parts[2]; // {content}
+
+        // Override level based on the flag
+        level = LEVEL_MAP[flag] || level; // Default to current level if no mapping found
+        message = content; // Set the message to the content part
+      }
+
+      appendTerminalLog({
+        message,
+        level: level as any, // Cast to correct type
         time: formatIsoToReadableTime(new Date().toISOString()),
       });
     });

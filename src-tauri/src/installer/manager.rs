@@ -1,9 +1,10 @@
-use crate::installer::{config, git, python, system};
+use crate::installer::utils::emit_log;
+use crate::installer::{config, git, python, system, utils};
 use serde_json;
 use std::net::TcpListener;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::{fs, thread};
 use tauri::{command, AppHandle, Emitter, Manager, State, WindowEvent};
@@ -41,7 +42,7 @@ impl InstallerManager {
         install_path: String,
         setup_config: Option<config::SetupConfig>,
     ) -> Result<serde_json::value::Value, String> {
-        self.emit_log("Starting installation...", "info");
+        emit_log(&self.app, "Starting installation...", "info");
         let base_path = PathBuf::from(&install_path);
         if !base_path.exists() {
             fs::create_dir_all(&base_path).map_err(|e| e.to_string())?;
@@ -85,7 +86,8 @@ impl InstallerManager {
             // 5. Launch Service
             self.launch_service(&base_path)?;
         } else {
-            self.emit_log(
+            emit_log(
+                &self.app,
                 format!("Already run service on Port {}.", self.backend_port).as_str(),
                 "warning",
             );
@@ -110,7 +112,7 @@ impl InstallerManager {
     }
 
     fn launch_service(&self, base_path: &Path) -> Result<(), String> {
-        self.emit_log("Launching main.service.py...", "info");
+        emit_log(&self.app, "Launching main.service.py...", "info");
 
         let python_path = if cfg!(target_os = "windows") {
             base_path.join(".venv").join("Scripts").join("python.exe")
@@ -124,14 +126,18 @@ impl InstallerManager {
             return Err("main.service.py not found".to_string());
         }
 
-        let child_python = Command::new(python_path)
+        let mut child_python = Command::new(python_path)
             .arg(script_path)
             .arg("--port")
             .arg(self.backend_port.to_string())
             .creation_flags(0x08000000)
             .current_dir(base_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| e.to_string())?;
+            .expect("Launch child failed");
+
+        utils::log_stream(&self.app, &mut child_python);
 
         let main_window = self.app.get_webview_window("main").unwrap();
         let backend_pid = child_python.id();
@@ -143,7 +149,7 @@ impl InstallerManager {
             }
         });
 
-        self.emit_log("Service launched successfully.", "success");
+        emit_log(&self.app, "Service launched successfully.", "success");
 
         Ok(())
     }
@@ -183,7 +189,8 @@ impl InstallerManager {
         while attempt < max_retries {
             if let Some(found_secret) = system::check_service_secret(base_path) {
                 // Secret found, log success and return the secret
-                self.emit_log(
+                emit_log(
+                    &self.app,
                     &format!("Service secret found: {}", found_secret),
                     "success",
                 );
@@ -191,7 +198,8 @@ impl InstallerManager {
                 break; // Exit the loop if the secret is found
             } else {
                 // Secret not found, log the retry attempt and wait 5 seconds before retrying
-                self.emit_log(
+                emit_log(
+                    &self.app,
                     &format!(
                         "Service secret not found. Retrying in 5 seconds... (Attempt {}/{}).",
                         attempt + 1,
@@ -206,23 +214,13 @@ impl InstallerManager {
 
         // If the secret is still empty after retries, log a warning and return an empty string
         if secret.is_empty() {
-            self.emit_log(
+            emit_log(&self.app,
                 "Service secret not found after multiple attempts. You may need to input the key later.",
                 "warning",
             );
         }
 
         secret
-    }
-
-    fn emit_log(&self, message: &str, level: &str) {
-        let _ = self.app.emit(
-            "installer://log",
-            serde_json::json!({
-                "message": message,
-                "level": level
-            }),
-        );
     }
 }
 

@@ -4,6 +4,7 @@ import {GlobalSelectProvider} from "@/components/ui/select-global"
 import {useWebSocketStore} from "@/store/websocketStore.ts";
 
 import {StorageUtil} from "@/lib/storage.ts";
+import {createResource} from "@/lib/utils.ts";
 
 interface AppContextType {
   uiSettings: UISettings;
@@ -22,28 +23,6 @@ const DEFAULT_UI_SETTINGS = {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-const createResource = <T, >(promise: Promise<T>) => {
-  let status = "pending";
-  let result: T;
-  let suspender = promise.then(
-    (r) => {
-      status = "success";
-      result = r;
-    },
-    (e) => {
-      status = "error";
-      result = e;
-    }
-  );
-
-  return {
-    read: (): T => {
-      if (status === "pending") throw suspender;
-      if (status === "error") throw result;
-      return result!;
-    },
-  };
-};
 
 const init = useWebSocketStore.getState().init;
 const configRes = createResource(init())

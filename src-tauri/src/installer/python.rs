@@ -1,16 +1,17 @@
-use crate::installer::config::{SetupConfig};
+use crate::installer::config::SetupConfig;
+use crate::installer::utils::{emit_log, log_stream};
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use reqwest::header::CONTENT_LENGTH;
+use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{self, Cursor, Read};
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter};
 use zip::ZipArchive;
-use std::{io::{self, Read, Cursor}};
-use std::os::windows::process::CommandExt;
-use sha2::{Sha256, Digest};
+
 pub async fn setup_python(
     app: &AppHandle,
     config: &SetupConfig,
@@ -182,31 +183,39 @@ async fn install_uv(app: &AppHandle, base_path: &Path) -> Result<std::path::Path
     let _ = app.emit(
         "installer://progress",
         serde_json::json!({
-                "step": "setup_uv",
-                "message": "Python 3.9.0 Downloading ...",
-                "percentage": 45.0 as u8
-            }),
+            "step": "setup_uv",
+            "message": "Python 3.9.0 Downloading ...",
+            "percentage": 45.0 as u8
+        }),
     );
 
-    Command::new(uv_executable.clone())
+    let mut child = Command::new(uv_executable.clone())
         .arg("python")
         .arg("install")
         .arg("3.9.0")
         .creation_flags(0x08000000)
-        .env("UV_PYTHON_INSTALL_MIRROR", "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download")
+        .env(
+            "UV_PYTHON_INSTALL_MIRROR",
+            "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download",
+        )
+        .stdout(Stdio::piped()) // Capture stdout
+        .stderr(Stdio::piped()) // Capture stderr
         .spawn()
-        .and_then(|mut child| child.wait())
         .map_err(|e| e.to_string())?;
+
+    log_stream(app, &mut child);
+
+    child.wait().map_err(|e| e.to_string())?;
 
     emit_log(app, "Python 3.9.0 installed.", "info");
 
     let _ = app.emit(
         "installer://progress",
         serde_json::json!({
-                "step": "setup_uv",
-                "message": "Python 3.9.0 Downloaded.",
-                "percentage": 50.0 as u8
-            }),
+            "step": "setup_uv",
+            "message": "Python 3.9.0 Downloaded.",
+            "percentage": 50.0 as u8
+        }),
     );
 
     // chmod +x on unix
@@ -261,20 +270,7 @@ fn create_venv(app: &AppHandle, uv_path: &Path, base_path: &Path) -> Result<(), 
         .spawn()
         .map_err(|e| e.to_string())?;
 
-    // Create BufReader to read the process output line by line
-    let stdout = BufReader::new(child.stdout.take().ok_or("Failed to capture stdout")?);
-    let stderr = BufReader::new(child.stderr.take().ok_or("Failed to capture stderr")?);
-
-    // Read the output and report progress
-    for line in stdout.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        emit_log(app, &line, "info");
-    }
-
-    for line in stderr.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        emit_log(app, &line, "info"); // Report stderr as info
-    }
+    log_stream(app, &mut child);
 
     // Wait for the command to finish
     let output = child.wait().map_err(|e| e.to_string())?;
@@ -300,7 +296,12 @@ fn generate_file_hash(file_path: &Path) -> io::Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, config: &SetupConfig) -> Result<(), String> {
+fn install_dependencies(
+    app: &AppHandle,
+    uv_path: &Path,
+    base_path: &Path,
+    config: &SetupConfig,
+) -> Result<(), String> {
     emit_log(app, "Installing dependencies...", "info");
 
     let req_path = base_path.join("requirements.service.txt");
@@ -324,13 +325,18 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
         last_hash = fs::read_to_string(&hash_file_path).map_err(|e| e.to_string())?;
     }
 
+    let dep_need_update = current_hash != last_hash;
     // Compare the current hash with the saved hash
-    if current_hash != last_hash {
+    if dep_need_update {
         // If the hashes differ, compile the dependencies
-        emit_log(app, "Dependencies have changed, locking the dependencies...", "info");
+        emit_log(
+            app,
+            "Dependencies have changed, locking the dependencies...",
+            "info",
+        );
 
         // Run the 'pip compile' command to lock the dependencies
-        Command::new(uv_path)
+        let mut child = Command::new(uv_path)
             .arg("pip")
             .arg("compile")
             .arg(&req_path)
@@ -340,9 +346,14 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
             .env("UV_INDEX", config.general.source_list[0].as_str())
             .env("UV_DEFAULT_INDEX", config.general.source_list[0].as_str())
             .env("VIRTUAL_ENV", base_path.join(".venv"))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
-            .and_then(|mut child| child.wait())
-            .map_err(|e| e.to_string())?;
+            .expect("Deps lock failed");
+
+        log_stream(app, &mut child);
+
+        child.wait().unwrap();
 
         // Update the hash file with the new hash value
         fs::write(hash_file_path, current_hash).map_err(|e| e.to_string())?;
@@ -354,7 +365,11 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
         emit_log(app, "No changes in dependencies. Skipping compile.", "info");
     }
 
-    emit_log(app, "Synchronizing dependencies (this may take a while) ...", "info");
+    emit_log(
+        app,
+        "Synchronizing dependencies (this may take a while) ...",
+        "info",
+    );
     // Start the command process and capture its output
     let mut child = Command::new(uv_path)
         .arg("pip")
@@ -369,21 +384,7 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
         .spawn()
         .map_err(|e| e.to_string())?;
 
-    // Create BufReader to read the process output line by line
-    let stdout = BufReader::new(child.stdout.take().ok_or("Failed to capture stdout")?);
-    let stderr = BufReader::new(child.stderr.take().ok_or("Failed to capture stderr")?);
-
-    // Read the output and report progress
-    for line in stdout.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        emit_log(app, &line, "info");
-    }
-
-    // Read error output if any
-    for line in stderr.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        emit_log(app, &line, "info"); // Report stderr as info
-    }
+    log_stream(app, &mut child);
 
     // Wait for the command to finish
     let output = child.wait().map_err(|e| e.to_string())?;
@@ -393,6 +394,31 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
     }
 
     emit_log(app, "Dependencies synchronized.", "success");
+
+    if dep_need_update {
+        emit_log(app, "Cleaning cache yielded by UV ...", "info");
+
+        let mut child = Command::new(uv_path)
+            .arg("cache")
+            .arg("clean")
+            .creation_flags(0x08000000)
+            .stdout(Stdio::piped()) // Capture stdout
+            .stderr(Stdio::piped()) // Capture stderr
+            .spawn()
+            .map_err(|e| e.to_string())?;
+
+        log_stream(app, &mut child);
+
+        // Wait for the command to finish
+        let output = child.wait().map_err(|e| e.to_string())?;
+
+        if !output.success() {
+            return Err("Failed to clean UV cache.".to_string());
+        } else {
+            emit_log(app, "UV Cache cleaned successfully.", "info");
+        }
+    }
+
     Ok(())
 }
 
@@ -475,13 +501,3 @@ fn install_dependencies(app: &AppHandle, uv_path: &Path, base_path: &Path, confi
 //     emit_log(app, "Environment patch applied.", "success");
 //     Ok(())
 // }
-
-fn emit_log(app: &AppHandle, message: &str, level: &str) {
-    let _ = app.emit(
-        "installer://log",
-        serde_json::json!({
-            "message": message,
-            "level": level,
-        }),
-    );
-}
