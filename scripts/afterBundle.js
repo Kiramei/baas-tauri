@@ -118,10 +118,12 @@ function compressFile(file) {
       console.log(`[UPX] ⏩ Skipping already packed file: ${file}`);
       return;
     }
-
+    // 4️⃣ Modify output file name by adding "_upx" suffix
+    const outputFile = path.join(path.dirname(file), path.basename(file, path.extname(file)) + "_upx" + path.extname(file));
+    
     // 4️⃣ Run UPX compression
     console.log(`[UPX] 🧩 Compressing ${file}`);
-    execSync(`upx --best --lzma "${file}"`, { stdio: "inherit" });
+    execSync(`upx --best --lzma -o "${outputFile}" "${file}"`, { stdio: "inherit" });
   } catch (err) {
     // Non-fatal: print warning but continue
     console.warn(`[UPX] ⚠️  Failed to compress ${file}: ${err.message}`);

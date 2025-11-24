@@ -23,17 +23,7 @@ pub fn setup_git(app: &AppHandle, config: &SetupConfig, base_path: &Path) -> Res
 }
 
 fn clone_repo(app: &AppHandle, url: &str, path: &Path) -> Result<(), String> {
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.transfer_progress(|stats| {
-        if stats.received_objects() % 100 == 0 {
-             let _ = app.emit("installer://progress", serde_json::json!({
-                "step": "setup_git",
-                "message": format!("Cloning: {}/{} objects", stats.received_objects(), stats.total_objects()),
-                "percentage": (stats.received_objects() as f32 / stats.total_objects() as f32 * 40.0) as u8
-            }));
-        }
-        true
-    });
+    let callbacks = get_callbacks(app);
 
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(callbacks);
@@ -181,13 +171,7 @@ fn update_repo(app: &AppHandle, path: &Path) -> Result<(), String> {
     let repo = Repository::open(path).map_err(|e| e.to_string())?;
     let mut remote = repo.find_remote("origin").map_err(|e| e.to_string())?;
 
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.transfer_progress(|stats| {
-        if stats.received_objects() % 10 == 0 {
-            // emit progress
-        }
-        true
-    });
+    let callbacks = get_callbacks(app);
 
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(callbacks);
@@ -234,4 +218,19 @@ fn update_repo(app: &AppHandle, path: &Path) -> Result<(), String> {
         }),
     );
     Ok(())
+}
+
+fn get_callbacks(app: &'_ AppHandle) -> RemoteCallbacks<'_> {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.transfer_progress(|stats| {
+        if stats.received_objects() % 100 == 0 {
+            let _ = app.emit("installer://progress", serde_json::json!({
+                "step": "setup_git",
+                "message": format!("Fetching: {}/{} objects", stats.received_objects(), stats.total_objects()),
+                "percentage": (stats.received_objects() as f32 / stats.total_objects() as f32 * 40.0) as u8
+            }));
+        }
+        true
+    });
+    callbacks
 }

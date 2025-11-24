@@ -30,20 +30,25 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "windows": {
-      "allowDowngrades": true,
       "certificateThumbprint": null,
-      "digestAlgorithm": null,
-      "nsis": null,
-      "signCommand": null,
-      "timestampUrl": null,
-      "tsp": false,
-      "webviewInstallMode": {
-        "silent": true,
-        "type": "downloadBootstrapper"
+      "digestAlgorithm": "sha256",
+      "nsis": {
+        "headerImage": "./packages/windows/assets/nsiHeader.bmp",
+        "sidebarImage": "./packages/windows/assets/nsiSidebar.bmp",
+        "installMode": "perMachine",
+        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
+        "installerIcon": "./packages/windows/assets/installer.ico",
+        "compression": "lzma",
+        "displayLanguageSelector": true,
+        "template": "./packages/windows/installer.nsi"
       },
-      "wix": null
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      }
     },
     "icon": [
       "icons/32x32.png",
