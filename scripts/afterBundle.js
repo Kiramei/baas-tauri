@@ -46,7 +46,7 @@
  */
 
 import { execSync, spawnSync } from "child_process";
-import { readdirSync, statSync } from "fs";
+import { readdirSync, statSync, accessSync, constants } from "fs";
 import { platform } from "os";
 import path from "path";
 
@@ -120,13 +120,27 @@ function compressFile(file) {
     }
     // 4️⃣ Modify output file name by adding "_upx" suffix
     const outputFile = path.join(path.dirname(file), path.basename(file, path.extname(file)) + "_upx" + path.extname(file));
-    
+
     // 4️⃣ Run UPX compression
     console.log(`[UPX] 🧩 Compressing ${file}`);
     execSync(`upx --best --lzma -o "${outputFile}" "${file}"`, { stdio: "inherit" });
   } catch (err) {
     // Non-fatal: print warning but continue
     console.warn(`[UPX] ⚠️  Failed to compress ${file}: ${err.message}`);
+  }
+}
+
+/**
+ * Check if a file is executable. (Specific for Linux version)
+ *
+ * @param {string} fullPath - Path to file for check
+ */
+function isExecutable(fullPath) {
+  try {
+    accessSync(fullPath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -153,7 +167,16 @@ function main() {
 
   // Find all binary files that are likely to be executable
   const files = readdirSync(dir)
-    .filter((f) => /\.(exe|appimage|bin)$/i.test(f))
+    .filter((f) => {
+      const full = path.join(dir, f);
+      if (/\.(exe|appimage|bin)$/i.test(f)) {
+        return true;
+      }
+      if (!f.includes(".")) {
+        return isExecutable(full);
+      }
+      return false;
+    })
     .map((f) => path.join(dir, f));
 
   if (files.length === 0) {

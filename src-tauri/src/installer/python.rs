@@ -6,6 +6,7 @@ use reqwest::header::CONTENT_LENGTH;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{self, Cursor, Read};
+#[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -189,11 +190,11 @@ async fn install_uv(app: &AppHandle, base_path: &Path) -> Result<std::path::Path
         }),
     );
 
-    let mut child = Command::new(uv_executable.clone())
-        .arg("python")
-        .arg("install")
-        .arg("3.9.0")
-        .creation_flags(0x08000000)
+    let mut cmd = Command::new(uv_executable.clone());
+    cmd.arg("python").arg("install").arg("3.9.0");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+    let mut child = cmd
         .env(
             "UV_PYTHON_INSTALL_MIRROR",
             "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download",
@@ -259,12 +260,11 @@ fn create_venv(app: &AppHandle, uv_path: &Path, base_path: &Path) -> Result<(), 
         return Ok(());
     }
     // Start the command process and capture its output
-    let mut child = Command::new(uv_path)
-        .arg("venv")
-        .arg(&venv_path)
-        .arg("--python")
-        .arg("3.9.0")
-        .creation_flags(0x08000000)
+    let mut cmd = Command::new(uv_path);
+    cmd.arg("venv").arg(&venv_path).arg("--python").arg("3.9.0");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+    let mut child = cmd
         .stdout(Stdio::piped()) // Capture stdout
         .stderr(Stdio::piped()) // Capture stderr
         .spawn()
@@ -303,8 +303,10 @@ fn install_dependencies(
     config: &SetupConfig,
 ) -> Result<(), String> {
     emit_log(app, "Installing dependencies...", "info");
-
+    #[cfg(target_os = "windows")]
     let req_path = base_path.join("requirements.service.txt");
+    #[cfg(target_os = "linux")]
+    let req_path = base_path.join("requirements.service.linux.txt");
 
     // Check if the 'requirements.service.txt' file exists
     if !req_path.exists() {
@@ -336,13 +338,15 @@ fn install_dependencies(
         );
 
         // Run the 'pip compile' command to lock the dependencies
-        let mut child = Command::new(uv_path)
-            .arg("pip")
+        let mut cmd = Command::new(uv_path);
+        cmd.arg("pip")
             .arg("compile")
             .arg(&req_path)
             .arg("-o")
-            .arg(&req_lock_path)
-            .creation_flags(0x08000000)
+            .arg(&req_lock_path);
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000);
+        let mut child = cmd
             .env("UV_INDEX", config.general.source_list[0].as_str())
             .env("UV_DEFAULT_INDEX", config.general.source_list[0].as_str())
             .env("VIRTUAL_ENV", base_path.join(".venv"))
@@ -371,11 +375,11 @@ fn install_dependencies(
         "info",
     );
     // Start the command process and capture its output
-    let mut child = Command::new(uv_path)
-        .arg("pip")
-        .arg("sync")
-        .arg(&req_lock_path)
-        .creation_flags(0x08000000)
+    let mut cmd = Command::new(uv_path);
+    cmd.arg("pip").arg("sync").arg(&req_lock_path);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+    let mut child = cmd
         .env("UV_INDEX", config.general.source_list[0].as_str())
         .env("UV_DEFAULT_INDEX", config.general.source_list[0].as_str())
         .env("VIRTUAL_ENV", base_path.join(".venv"))
@@ -398,10 +402,11 @@ fn install_dependencies(
     if dep_need_update {
         emit_log(app, "Cleaning cache yielded by UV ...", "info");
 
-        let mut child = Command::new(uv_path)
-            .arg("cache")
-            .arg("clean")
-            .creation_flags(0x08000000)
+        let mut cmd = Command::new(uv_path);
+        cmd.arg("cache").arg("clean");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000);
+        let mut child = cmd
             .stdout(Stdio::piped()) // Capture stdout
             .stderr(Stdio::piped()) // Capture stderr
             .spawn()

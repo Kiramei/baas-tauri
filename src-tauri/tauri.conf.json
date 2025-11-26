@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "deb", "appimage"],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

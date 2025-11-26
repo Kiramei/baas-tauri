@@ -2,6 +2,7 @@ use crate::installer::utils::emit_log;
 use crate::installer::{config, git, python, system, utils};
 use serde_json;
 use std::net::TcpListener;
+#[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -126,11 +127,13 @@ impl InstallerManager {
             return Err("main.service.py not found".to_string());
         }
 
-        let mut child_python = Command::new(python_path)
-            .arg(script_path)
+        let mut cmd = Command::new(python_path);
+        cmd.arg(script_path)
             .arg("--port")
-            .arg(self.backend_port.to_string())
-            .creation_flags(0x08000000)
+            .arg(self.backend_port.to_string());
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000);
+        let mut child_python = cmd
             .current_dir(base_path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
