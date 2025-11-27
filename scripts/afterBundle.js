@@ -46,9 +46,10 @@
  */
 
 import { execSync, spawnSync } from "child_process";
-import { readdirSync, statSync, accessSync, constants } from "fs";
+import {readdirSync, statSync, accessSync, constants, rmSync} from "fs";
 import { platform } from "os";
 import path from "path";
+import {existsSync} from "node:fs";
 
 /* -------------------------------------------------------------------------- */
 /* Utility Functions                                                          */
@@ -120,6 +121,11 @@ function compressFile(file) {
     }
     // 4️⃣ Modify output file name by adding "_upx" suffix
     const outputFile = path.join(path.dirname(file), path.basename(file, path.extname(file)) + "_upx" + path.extname(file));
+
+    // 4️⃣ Clear the upx-patched bin if exists.
+    if (existsSync(outputFile)) {
+      rmSync(outputFile);
+    }
 
     // 4️⃣ Run UPX compression
     console.log(`[UPX] 🧩 Compressing ${file}`);

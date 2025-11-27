@@ -26,7 +26,7 @@ fn clone_repo(app: &AppHandle, url: &str, path: &Path) -> Result<(), String> {
     let callbacks = get_callbacks(app);
 
     let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks);
+    fo.remote_callbacks(callbacks).depth(1);
 
     let mut builder = RepoBuilder::new();
     builder.fetch_options(fo);
