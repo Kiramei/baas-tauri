@@ -42,7 +42,10 @@ const SetupPage = () => {
     const unlisten = listen<{ message: string; level: string }>('installer://log', (event) => {
 
       // Extract the message and level from the event
-      let message = event.payload.message;
+      let message = event.payload.message.replace(
+        /^\S+\s+\S+\s+\[(INFO|WARN|ERRO|CRIT)]\s*/,
+        ""
+      );
       let level = event.payload.level;
 
       // Try to parse the message in the format {flag} | {date} | {content}
@@ -55,7 +58,10 @@ const SetupPage = () => {
 
         // Override level based on the flag
         level = LEVEL_MAP[flag] || level; // Default to current level if no mapping found
-        message = content; // Set the message to the content part
+        message = content.replace(
+          /^\S+\s+\S+\s+\[(INFO|WARN|ERRO|CRIT)]\s*/,
+          ""
+        ); // Set the message to the content part
       }
 
       appendTerminalLog({
