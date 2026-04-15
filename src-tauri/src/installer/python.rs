@@ -303,10 +303,12 @@ fn install_dependencies(
     config: &SetupConfig,
 ) -> Result<(), String> {
     emit_log(app, "Installing dependencies...", "info");
+    let uv_dir = base_path.join("toolkit").join("uv");
+    let req_base_path = base_path.join("deploy").join("service");
     #[cfg(target_os = "windows")]
-    let req_path = base_path.join("requirements.service.txt");
+    let req_path = base_path.join("requirements.service.windows.txt");
     #[cfg(target_os = "linux")]
-    let req_path = base_path.join("requirements.service.linux.txt");
+    let req_path = req_base_path.join("requirements.service.linux.txt");
 
     // Check if the 'requirements.service.txt' file exists
     if !req_path.exists() {
@@ -349,6 +351,7 @@ fn install_dependencies(
         let mut child = cmd
             .env("UV_INDEX", config.general.source_list[0].as_str())
             .env("UV_DEFAULT_INDEX", config.general.source_list[0].as_str())
+            .env("UV_CACHE_DIR", uv_dir.join("cache"))
             .env("VIRTUAL_ENV", base_path.join(".venv"))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -382,6 +385,7 @@ fn install_dependencies(
     let mut child = cmd
         .env("UV_INDEX", config.general.source_list[0].as_str())
         .env("UV_DEFAULT_INDEX", config.general.source_list[0].as_str())
+        .env("UV_CACHE_DIR", uv_dir.join("cache"))
         .env("VIRTUAL_ENV", base_path.join(".venv"))
         .stdout(Stdio::piped()) // Capture stdout
         .stderr(Stdio::piped()) // Capture stderr
