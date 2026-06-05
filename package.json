@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm dev:fonts && vite",
+    "dev": "bun dev:fonts && vite",
     "dev:fonts": "node scripts/runFontBuild.js",
-    "build": "tsc && pnpm build:fonts && vite build",
+    "build": "tsc && bun build:fonts && vite build",
     "build:fonts": "node scripts/runFontBuild.js",
     "build:after": "node scripts/afterBundle.js",
     "preview": "vite preview",
