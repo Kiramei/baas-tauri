@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { AppProvider, useApp } from '@/contexts/AppContext';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { ThemeProvider } from '@/hooks/useTheme';
 import MainLayout from '@/components/layout/MainLayout';
 import HomePage from '@/pages/HomePage';

@@ -14,7 +14,7 @@ dist-ssr
 .cache
 
 # Editor directories and files
-.vscode/*
+.vscode
 .idea
 .DS_Store
 *.suo
@@ -23,3 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 *.br
+.pnpm-store
+target

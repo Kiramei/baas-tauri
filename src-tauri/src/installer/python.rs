@@ -293,7 +293,11 @@ fn generate_file_hash(file_path: &Path) -> io::Result<String> {
     hasher.update(&buffer); // Update the hasher with the file content
 
     // Return the hash as a hexadecimal string
-    Ok(format!("{:x}", hasher.finalize()))
+    let digest = hasher.finalize();
+    Ok(digest
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>())
 }
 
 fn install_dependencies(

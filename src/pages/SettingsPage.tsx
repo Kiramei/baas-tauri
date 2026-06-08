@@ -3,7 +3,7 @@ import {useTranslation} from 'react-i18next';
 import {Card, CardContent, CardHeader, CardTitle} from '../components/ui/Card';
 import {useTheme} from '../hooks/useTheme';
 import type {Theme} from '@/types/app';
-import {useApp} from "@/contexts/AppContext.tsx";
+import {useApp} from "@/context/AppContext.tsx";
 import {FormSelect} from "@/components/ui/FormSelect.tsx";
 import {FormInput} from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";

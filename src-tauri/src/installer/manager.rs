@@ -69,7 +69,7 @@ impl InstallerManager {
             // First check if config_manager.existence is false
             if !config_manager.existence {
                 // Then check if setup_config contains Some(cfg)
-                if let Some(cfg) = setup_config {
+                if let Some(cfg) = setup_config {config::ConfigManager::new(&base_path);
                     // Save the user-provided config
                     *config_manager.config.lock().unwrap() = cfg;
                     // Try to save the config and handle errors
@@ -146,6 +146,8 @@ impl InstallerManager {
         let backend_pid = child_python.id();
 
         main_window.on_window_event(move |event| {
+            eprintln!(">>> Exit Triggered! <<<");
+            println!(">>> Exit Triggered! <<<");
             if let WindowEvent::CloseRequested { .. } = event {
                 let _ = Self::kill_process(backend_pid);
                 std::process::exit(0);

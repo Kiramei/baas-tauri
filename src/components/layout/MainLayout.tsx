@@ -1,7 +1,7 @@
 import React, {useEffect, useRef} from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import {useApp} from "@/contexts/AppContext.tsx";
+import {useApp} from "@/context/AppContext.tsx";
 import {PageKey} from "@/types/app";
 
 

@@ -33,7 +33,7 @@ import {
   Users2Icon
 } from 'lucide-react';
 import {motion, Variants} from 'framer-motion';
-import {useApp} from '@/contexts/AppContext';
+import {useApp} from '@/context/AppContext';
 import {ProfileProps} from "@/types/app";
 import WhiteListConfig from "@/features/WhiteListConfig.tsx";
 import ArtifactConfig from "@/features/ArtifactConfig.tsx";

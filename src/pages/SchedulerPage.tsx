@@ -1,6 +1,6 @@
 import React, {useMemo, useState, useCallback, startTransition} from "react";
 import {useTranslation} from "react-i18next";
-import {useApp} from "../contexts/AppContext";
+import {useApp} from "@/context/AppContext";
 import {Card, CardContent, CardHeader, CardTitle} from "../components/ui/Card";
 import {
   CheckCircle2,

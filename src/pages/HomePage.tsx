@@ -1,6 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useApp} from '../contexts/AppContext';
+import {useApp} from '@/context/AppContext';
 import CButton from '../components/ui/CButton.tsx';
 import Logger from '../components/ui/Logger';
 import AssetsDisplay from '../components/AssetsDisplay';

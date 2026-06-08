@@ -1,6 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useApp} from '@/contexts/AppContext';
+import {useApp} from '@/context/AppContext';
 import {ChevronLeft, ChevronRight, FilePlus2, Loader2, Pencil, Trash2, X} from 'lucide-react';
 import {AnimatePresence, motion, Reorder} from 'framer-motion';
 import {type ProfileDTO} from '@/types/app';
