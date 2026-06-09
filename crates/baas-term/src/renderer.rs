@@ -1,3 +1,9 @@
+//! Terminal-dashboard renderer.
+//!
+//! The renderer consumes task events, maintains per-region terminal buffers,
+//! clips output to the configured viewport, and emits Tauri events containing
+//! rendered dashboard snapshots.
+
 use crate::types::{
     DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec, TaskStartedPayload,
     TaskStatusPayload,
@@ -160,6 +166,12 @@ where
     }
 }
 
+/// Runs the renderer event loop for a single session.
+///
+/// The loop receives [`RendererEvent`] values, updates the in-memory dashboard,
+/// and emits serialized Tauri events such as `"term:chunk"` and
+/// `"term:task-status"`. It exits when the session finishes, the sender closes,
+/// or a shutdown event is received.
 pub fn renderer_loop(
     app: AppHandle,
     session_id: String,
@@ -761,5 +773,182 @@ impl SessionRenderer {
 
         output.extend(body);
         output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spec(task_id: &str, region_id: &str, step_index: u8, name: &str) -> TaskSpec {
+        TaskSpec {
+            task_id: task_id.to_string(),
+            region_id: region_id.to_string(),
+            step_index,
+            step_total: 4,
+            name: name.to_string(),
+            command: "run".to_string(),
+            program: "program".to_string(),
+            args: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn csi_param_parses_defaults_and_private_prefixes() {
+        assert_eq!(csi_param("", 0, 1), 1);
+        assert_eq!(csi_param("?25;7", 0, 1), 25);
+        assert_eq!(csi_param("?25;7", 1, 1), 7);
+        assert_eq!(csi_param("bad", 0, 9), 9);
+    }
+
+    #[test]
+    fn visible_width_ignores_csi_and_osc_sequences() {
+        assert_eq!(visible_width("\x1b[31mred\x1b[0m"), 3);
+        assert_eq!(visible_width("a\x1b]0;title\u{7}b"), 2);
+    }
+
+    #[test]
+    fn truncate_preserves_ansi_sequences_while_limiting_visible_width() {
+        assert_eq!(
+            truncate_ansi_line_to_visible_width("\x1b[31mabcdef\x1b[0m", 3),
+            "\x1b[31mabc"
+        );
+        assert_eq!(fit_ansi_line("\x1b[31mabcdef", 3), "\x1b[31mabc\x1b[0m");
+    }
+
+    #[test]
+    fn suffix_from_visible_width_ignores_ansi_sequences() {
+        assert_eq!(
+            ansi_line_suffix_from_visible_width("\x1b[31mabcdef\x1b[0m", 3),
+            "def"
+        );
+    }
+
+    #[test]
+    fn region_buffer_handles_newlines_tabs_backspace_and_carriage_return() {
+        let mut buffer = RegionBuffer::new();
+        buffer.push("ab\tc\rZ\nxy\u{8}z");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["Z\x1b[0m", "xz\x1b[0m"]);
+    }
+
+    #[test]
+    fn region_buffer_applies_cursor_movement_and_erase_line_modes() {
+        let mut buffer = RegionBuffer::new();
+        buffer.push("abcdef\x1b[3D\x1b[K");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["abc\x1b[0m"]);
+
+        let mut buffer = RegionBuffer::new();
+        buffer.push("abcdef\x1b[3D\x1b[1K");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["def\x1b[0m"]);
+
+        let mut buffer = RegionBuffer::new();
+        buffer.push("abcdef\x1b[2K");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["\x1b[0m"]);
+    }
+
+    #[test]
+    fn region_buffer_applies_cursor_position_and_display_erase_modes() {
+        let mut buffer = RegionBuffer::new();
+        buffer.push("one\ntwo\nthree\x1b[1;1Htop\x1b[J");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["top\x1b[0m"]);
+
+        let mut buffer = RegionBuffer::new();
+        buffer.push("one\ntwo\x1b[2Jdone");
+
+        assert_eq!(buffer.render_lines(None, 80), vec!["done\x1b[0m"]);
+    }
+
+    #[test]
+    fn region_buffer_preserves_sgr_and_drops_incomplete_escape_on_finish() {
+        let mut buffer = RegionBuffer::new();
+        buffer.push("\x1b[31mred\x1b[0m\x1b[");
+        buffer.finish();
+
+        assert_eq!(
+            buffer.render_lines(None, 80),
+            vec!["\x1b[31mred\x1b[0m\x1b[0m"]
+        );
+    }
+
+    #[test]
+    fn region_buffer_trims_history_to_max_kept_lines() {
+        let mut buffer = RegionBuffer::new();
+        buffer.max_kept_lines = 3;
+        buffer.push("1\n2\n3\n4\n5");
+
+        assert_eq!(buffer.lines.len(), 3);
+        assert_eq!(
+            buffer.render_lines(None, 80),
+            vec!["3\x1b[0m", "4\x1b[0m", "5\x1b[0m"]
+        );
+    }
+
+    #[test]
+    fn session_renderer_clamps_size_and_resizes() {
+        let mut renderer = SessionRenderer::new(0, 0);
+        assert_eq!(renderer.rows, 1);
+        assert_eq!(renderer.cols, 1);
+
+        renderer.resize(32, 120);
+        assert_eq!(renderer.rows, 32);
+        assert_eq!(renderer.cols, 120);
+    }
+
+    #[test]
+    fn session_renderer_renders_regions_in_start_order_and_clips_running_view() {
+        let mut renderer = SessionRenderer::new(20, 80);
+        renderer.start_region(&spec("task-a", "region-a", 1, "Alpha"));
+        renderer.push_output("task-a", "region-a", b"a1\na2\na3\na4\na5\na6");
+        renderer.start_region(&spec("task-b", "region-b", 2, "Beta"));
+        renderer.push_output("task-b", "region-b", b"b1");
+
+        let snapshot = renderer.render_running_snapshot();
+
+        assert!(snapshot.starts_with("\x1b[H\x1b[2J"));
+        assert!(snapshot.contains("[01/04] Alpha"));
+        assert!(snapshot.contains("[02/04] Beta"));
+        assert!(snapshot.contains("a6"));
+        assert!(!snapshot.contains("a1"));
+    }
+
+    #[test]
+    fn session_renderer_ignores_output_for_unknown_regions() {
+        let mut renderer = SessionRenderer::new(24, 80);
+
+        assert_eq!(renderer.push_output("task", "missing", b"hello"), "");
+        assert_eq!(renderer.finish_region("missing"), "");
+        assert_eq!(renderer.region_id_for("missing"), None);
+    }
+
+    #[test]
+    fn session_renderer_tracks_buffered_regions_and_flushes_them() {
+        let mut renderer = SessionRenderer::new(24, 80);
+        renderer.buffer_regions(vec!["region".to_string()]);
+        renderer.start_region(&spec("task", "region", 1, "Buffered"));
+        renderer.push_output("task", "region", b"hello");
+
+        assert!(renderer.buffered_regions.contains("region"));
+        let flushed = renderer.flush_regions(&["region".to_string()]);
+
+        assert!(!renderer.buffered_regions.contains("region"));
+        assert!(flushed.contains("[01/04] Buffered"));
+        assert!(flushed.contains("hello"));
+    }
+
+    #[test]
+    fn completed_snapshot_includes_full_region_history() {
+        let mut renderer = SessionRenderer::new(3, 80);
+        renderer.start_region(&spec("task", "region", 1, "History"));
+        renderer.push_output("task", "region", b"1\n2\n3\n4");
+
+        let snapshot = renderer.render_completed_snapshot();
+
+        assert!(snapshot.contains("1"));
+        assert!(snapshot.contains("4"));
     }
 }

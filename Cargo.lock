@@ -280,6 +280,7 @@ dependencies = [
  "chrono",
  "portable-pty",
  "serde",
+ "serde_json",
  "tauri",
  "uuid",
 ]
