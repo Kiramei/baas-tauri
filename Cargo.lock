@@ -247,21 +247,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "baas-pty"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "portable-pty",
- "serde",
- "tauri",
- "uuid",
-]
-
-[[package]]
 name = "baas-tauri"
 version = "0.1.0"
 dependencies = [
- "baas-pty",
+ "baas-term",
  "baas-updater",
  "directories",
  "flate2",
@@ -285,10 +274,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "baas-term"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "portable-pty",
+ "serde",
+ "tauri",
+ "uuid",
+]
+
+[[package]]
 name = "baas-updater"
 version = "0.1.0"
 dependencies = [
- "baas-pty",
+ "baas-term",
  "git2",
  "indicatif",
  "tar",

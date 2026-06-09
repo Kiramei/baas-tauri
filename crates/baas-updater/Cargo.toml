@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-baas-pty = { workspace = true }
+baas-term = { workspace = true }
 git2 = { version = "0.21.0" }
 zip = { version = "8.6.0" }
 tar = { version = "0.4.44" }

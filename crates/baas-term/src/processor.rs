@@ -1,5 +1,7 @@
-use crate::types::{RendererEvent, State, TaskCompletion, TaskHandle, TaskSpec};
+use crate::common::wait_for_completion;
+use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
 use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
+use std::sync::mpsc::Receiver;
 use std::{
     sync::{Arc, Mutex, mpsc::Sender},
     thread,
@@ -31,8 +33,16 @@ pub fn create_process_task(
     }
 }
 
+fn contains_device_status_report(tail: &mut Vec<u8>, bytes: &[u8]) -> bool {
+    tail.extend_from_slice(bytes);
+    let found = tail.windows(4).any(|window| window == b"\x1b[6n");
+    let keep_from = tail.len().saturating_sub(3);
+    tail.drain(..keep_from);
+    found
+}
+
 pub fn spawn_process_task(
-    inner: &Arc<Mutex<State>>,
+    inner: &Arc<Mutex<TermState>>,
     session_id: &str,
     spec: TaskSpec,
     renderer_tx: &Sender<RendererEvent>,
@@ -59,6 +69,10 @@ pub fn spawn_process_task(
         .master
         .try_clone_reader()
         .map_err(|error| error.to_string())?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| error.to_string())?;
 
     let mut command = CommandBuilder::new(&spec.program);
     command.args(spec.args.clone());
@@ -70,6 +84,7 @@ pub fn spawn_process_task(
     drop(pair.slave);
 
     let child = Arc::new(Mutex::new(child));
+    let writer = Arc::new(Mutex::new(writer));
     let handle = Arc::new(TaskHandle::Process {
         child: Arc::clone(&child),
         master: Arc::new(Mutex::new(pair.master)),
@@ -87,12 +102,20 @@ pub fn spawn_process_task(
     let read_tx = renderer_tx.clone();
     let read_task_id = spec.task_id.clone();
     let read_region_id = spec.region_id.clone();
+    let read_writer = Arc::clone(&writer);
     thread::spawn(move || {
         let mut buffer = [0_u8; 4096];
+        let mut control_tail = Vec::new();
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(size) => {
+                    if contains_device_status_report(&mut control_tail, &buffer[..size]) {
+                        if let Ok(mut writer) = read_writer.lock() {
+                            let _ = writer.write_all(b"\x1b[1;1R");
+                            let _ = writer.flush();
+                        }
+                    }
                     let _ = read_tx.send(RendererEvent::Output {
                         task_id: read_task_id.clone(),
                         region_id: read_region_id.clone(),
@@ -160,4 +183,21 @@ pub fn spawn_process_task(
     });
 
     Ok(())
+}
+
+pub fn run_process_and_wait(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    spec: TaskSpec,
+    renderer_tx: &Sender<RendererEvent>,
+    completion_tx: &Sender<TaskCompletion>,
+    completion_rx: &Receiver<TaskCompletion>,
+) -> bool {
+    let task_id = spec.task_id.clone();
+    if spawn_process_task(inner, session_id, spec, renderer_tx, completion_tx).is_err() {
+        return false;
+    }
+    wait_for_completion(completion_rx, &task_id)
+        .map(|completion| completion.success)
+        .unwrap_or(false)
 }

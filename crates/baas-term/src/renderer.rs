@@ -27,6 +27,12 @@ fn csi_param(params: &str, index: usize, default: usize) -> usize {
     cleaned.parse::<usize>().unwrap_or(default)
 }
 
+fn fit_ansi_line(line: &str, cols: usize) -> String {
+    let mut fitted = truncate_ansi_line_to_visible_width(line, cols);
+    fitted.push_str("\x1b[0m");
+    fitted
+}
+
 fn visible_width(text: &str) -> usize {
     let mut width = 0;
     let mut chars = text.chars().peekable();
@@ -154,8 +160,14 @@ where
     }
 }
 
-fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>) {
-    let mut renderer = SessionRenderer::new();
+pub fn renderer_loop(
+    app: AppHandle,
+    session_id: String,
+    rx: Receiver<RendererEvent>,
+    rows: u16,
+    cols: u16,
+) {
+    let mut renderer = SessionRenderer::new(rows, cols);
 
     while let Ok(event) = rx.recv() {
         match event {
@@ -165,7 +177,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
             RendererEvent::TaskStarted(spec) => {
                 let started_at = Some(Utc::now().to_rfc3339());
                 let _ = app.emit(
-                    "updater:task-started",
+                    "term:task-started",
                     TaskStartedPayload {
                         session_id: session_id.clone(),
                         task_id: spec.task_id.clone(),
@@ -180,7 +192,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
 
                 let chunk = renderer.start_region(&spec);
                 let _ = app.emit(
-                    "updater:dashboard-log",
+                    "term:chunk",
                     DashboardLogPayload {
                         session_id: session_id.clone(),
                         chunk,
@@ -188,7 +200,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
                 );
 
                 let _ = app.emit(
-                    "updater:task-status",
+                    "term:task-status",
                     TaskStatusPayload {
                         session_id: session_id.clone(),
                         task_id: spec.task_id,
@@ -209,7 +221,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
                 let clean = renderer.push_output(&task_id, &region_id, &chunk);
                 if !clean.is_empty() {
                     let _ = app.emit(
-                        "updater:dashboard-log",
+                        "term:chunk",
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk: clean,
@@ -227,7 +239,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
                 let clean = renderer.finish_region(&task_id);
                 if !clean.is_empty() {
                     let _ = app.emit(
-                        "updater:dashboard-log",
+                        "term:chunk",
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk: clean,
@@ -240,7 +252,7 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
                     region_id
                 };
                 let _ = app.emit(
-                    "updater:task-status",
+                    "term:task-status",
                     TaskStatusPayload {
                         session_id: session_id.clone(),
                         task_id,
@@ -255,25 +267,38 @@ fn renderer_loop(app: AppHandle, session_id: String, rx: Receiver<RendererEvent>
             }
             RendererEvent::SessionFinished { success } => {
                 let _ = app.emit(
-                    "updater:session-finished",
+                    "term:session-finished",
                     SessionFinishedPayload {
                         session_id: session_id.clone(),
                         success,
                     },
                 );
-                break;
-            }
-            RendererEvent::FlushRegions { region_ids } => {
-                let chunk = renderer.flush_regions(&region_ids);
+                let chunk = renderer.render_completed_snapshot();
                 if !chunk.is_empty() {
                     let _ = app.emit(
-                        "updater:dashboard-log",
+                        "term:chunk",
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk,
                         },
                     );
                 }
+                break;
+            }
+            RendererEvent::FlushRegions { region_ids } => {
+                let chunk = renderer.flush_regions(&region_ids);
+                if !chunk.is_empty() {
+                    let _ = app.emit(
+                        "term:chunk",
+                        DashboardLogPayload {
+                            session_id: session_id.clone(),
+                            chunk,
+                        },
+                    );
+                }
+            }
+            RendererEvent::Resize { rows, cols } => {
+                renderer.resize(rows, cols);
             }
             RendererEvent::Shutdown => break,
         }
@@ -349,22 +374,21 @@ impl RegionBuffer {
         self.escape_buffer = None;
     }
 
-    fn tail_lines(&self, max_lines: usize) -> String {
+    fn render_lines(&self, max_lines: Option<usize>, cols: usize) -> Vec<String> {
         let mut lines = self.lines.clone();
 
         while lines.len() > 1 && lines.last().map(|line| line.is_empty()).unwrap_or(false) {
             lines.pop();
         }
 
-        let start = lines.len().saturating_sub(max_lines);
-        let mut output = String::new();
+        let start = max_lines
+            .map(|max_lines| lines.len().saturating_sub(max_lines))
+            .unwrap_or(0);
 
-        for line in &lines[start..] {
-            output.push_str(line);
-            output.push_str("\x1b[0m\r\n");
-        }
-
-        output
+        lines[start..]
+            .iter()
+            .map(|line| fit_ansi_line(line, cols))
+            .collect()
     }
 
     fn consume_escape(&mut self, ch: char) -> bool {
@@ -591,17 +615,26 @@ struct SessionRenderer {
     task_regions: HashMap<String, String>,
     buffered_regions: HashSet<String>,
     region_order: Vec<String>,
+    rows: usize,
+    cols: usize,
 }
 
 impl SessionRenderer {
-    fn new() -> Self {
+    fn new(rows: u16, cols: u16) -> Self {
         Self {
             regions: HashMap::new(),
             titles: HashMap::new(),
             task_regions: HashMap::new(),
             buffered_regions: HashSet::new(),
             region_order: Vec::new(),
+            rows: usize::from(rows.max(1)),
+            cols: usize::from(cols.max(1)),
         }
+    }
+
+    fn resize(&mut self, rows: u16, cols: u16) {
+        self.rows = usize::from(rows.max(1));
+        self.cols = usize::from(cols.max(1));
     }
 
     fn buffer_regions(&mut self, region_ids: Vec<String>) {
@@ -625,7 +658,7 @@ impl SessionRenderer {
             self.region_order.push(spec.region_id.clone());
         }
 
-        self.render_dashboard_snapshot()
+        self.render_running_snapshot()
     }
 
     fn push_output(&mut self, task_id: &str, region_id: &str, bytes: &[u8]) -> String {
@@ -641,7 +674,7 @@ impl SessionRenderer {
             .entry(task_id.to_string())
             .or_insert_with(|| region_id.to_string());
 
-        self.render_dashboard_snapshot()
+        self.render_running_snapshot()
     }
 
     fn finish_region(&mut self, task_id: &str) -> String {
@@ -653,7 +686,7 @@ impl SessionRenderer {
             region.finish();
         }
 
-        self.render_dashboard_snapshot()
+        self.render_running_snapshot()
     }
 
     fn flush_regions(&mut self, region_ids: &[String]) -> String {
@@ -664,53 +697,69 @@ impl SessionRenderer {
             self.buffered_regions.remove(region_id);
         }
 
-        self.render_dashboard_snapshot()
+        self.render_running_snapshot()
     }
 
     fn region_id_for(&self, task_id: &str) -> Option<String> {
         self.task_regions.get(task_id).cloned()
     }
 
-    fn render_dashboard_snapshot(&self) -> String {
-        let mut snapshot = String::from("\x1b[H\x1b[2J");
+    fn render_running_snapshot(&self) -> String {
+        self.render_dashboard_snapshot(true)
+    }
+
+    fn render_completed_snapshot(&self) -> String {
+        self.render_dashboard_snapshot(false)
+    }
+
+    fn render_dashboard_snapshot(&self, clip_to_view: bool) -> String {
+        let mut lines = Vec::new();
         for region_id in &self.region_order {
-            let block = self.render_region(region_id);
+            let block = self.render_region_lines(region_id, clip_to_view);
             if block.is_empty() {
                 continue;
             }
-            if !snapshot.ends_with("\r\n") && !snapshot.ends_with("\x1b[2J") {
+            if !lines.is_empty() {
+                lines.push(String::new());
+            }
+            lines.extend(block);
+        }
+
+        if clip_to_view && lines.len() > self.rows {
+            lines = lines.split_off(lines.len() - self.rows);
+        }
+
+        let mut snapshot = String::from("\x1b[H\x1b[2J");
+        if !lines.is_empty() {
+            snapshot.push_str(&lines.join("\r\n"));
+            if !clip_to_view || lines.len() < self.rows {
                 snapshot.push_str("\r\n");
             }
-            if !snapshot.ends_with("\x1b[2J") {
-                snapshot.push_str("\r\n");
-            }
-            snapshot.push_str(&block);
         }
         snapshot
     }
 
-    fn render_region(&self, region_id: &str) -> String {
+    fn render_region_lines(&self, region_id: &str, running: bool) -> Vec<String> {
         let title = self.titles.get(region_id).cloned().unwrap_or_default();
         let body = self
             .regions
             .get(region_id)
-            .map(|region| region.tail_lines(4))
+            .map(|region| region.render_lines(if running { Some(5) } else { None }, self.cols))
             .unwrap_or_default();
 
         if title.is_empty() && body.is_empty() {
-            return String::new();
+            return Vec::new();
         }
 
-        let mut output = String::new();
+        let mut output = Vec::new();
         if !title.is_empty() {
-            output.push_str(&format!("\x1b[1;36m{title}\x1b[0m\r\n"));
+            output.push(fit_ansi_line(
+                &format!("\x1b[1;36m{title}\x1b[0m"),
+                self.cols,
+            ));
         }
 
-        output.push_str(&body);
-
-        if !output.ends_with("\r\n") {
-            output.push_str("\r\n");
-        }
+        output.extend(body);
         output
     }
 }

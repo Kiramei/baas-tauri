@@ -19,7 +19,7 @@ tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 baas-updater = { workspace = true }
-baas-pty = { workspace = true }
+baas-term = { workspace = true }
 tokio = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }

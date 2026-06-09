@@ -5,13 +5,8 @@ use std::{
     sync::{Arc, Mutex, atomic::AtomicBool, mpsc::Sender},
 };
 
-#[derive(Clone, Default)]
-pub struct Manager {
-    inner: Arc<Mutex<State>>,
-}
-
 #[derive(Default)]
-pub struct State {
+pub struct TermState {
     pub current_session_id: Option<String>,
     pub tasks: HashMap<String, Arc<TaskHandle>>,
     pub renderer_tx: Option<Sender<RendererEvent>>,
@@ -50,15 +45,15 @@ pub struct TaskSpec {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMetadata {
-    session_id: String,
-    status: String,
+    pub session_id: String,
+    pub status: String,
 }
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStartedPayload {
-    session_id: String,
-    status: String,
+    pub session_id: String,
+    pub status: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -130,6 +125,10 @@ pub enum RendererEvent {
     },
     FlushRegions {
         region_ids: Vec<String>,
+    },
+    Resize {
+        rows: u16,
+        cols: u16,
     },
     Shutdown,
 }
