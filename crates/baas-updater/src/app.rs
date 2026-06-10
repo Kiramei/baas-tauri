@@ -7,7 +7,10 @@
 use crate::{
     WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
-    workflow::{WorkflowFailure, WorkflowReport, run_terminal_workflow_flow, run_workflow},
+    workflow::{
+        WorkflowCleanupState, WorkflowFailure, WorkflowReport, cleanup_workflow_state,
+        new_workflow_cleanup_state, run_terminal_workflow_flow, run_workflow,
+    },
 };
 use baas_term::{
     renderer::renderer_loop,
@@ -83,12 +86,21 @@ pub fn updater_run_workflow(options: WorkflowOptions) -> Result<WorkflowReport, 
     run_workflow(options)
 }
 
+/// Aborts a terminal updater workflow owned by the provided manager.
+pub fn updater_abort_workflow(
+    manager: &UpdaterTermManager,
+    request: WorkflowAbortRequest,
+) -> Result<WorkflowAbortReport, String> {
+    manager.abort(request)
+}
+
 /// Command names exported by this adapter.
 pub const COMMAND_NAMES: &[&str] = &[
     "updater_default_config",
     "updater_load_config",
     "updater_update_config",
     "updater_run_workflow",
+    "updater_abort_workflow",
 ];
 
 /// Terminal-backed updater session manager.
@@ -96,9 +108,43 @@ pub const COMMAND_NAMES: &[&str] = &[
 /// This manager starts the real updater workflow through `baas-term` renderer,
 /// process tasks, and thread tasks. It is separate from the legacy installer so
 /// the main application can opt in without replacing existing commands first.
-#[derive(Clone, Default)]
+/// Request payload for aborting a terminal updater workflow.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowAbortRequest {
+    /// Whether transient staging paths should be removed after stopping tasks.
+    pub cleanup: bool,
+}
+
+impl Default for WorkflowAbortRequest {
+    fn default() -> Self {
+        Self { cleanup: true }
+    }
+}
+
+/// Result payload returned after aborting a terminal updater workflow.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowAbortReport {
+    /// Number of currently registered tasks that were stopped.
+    pub stopped_tasks: usize,
+    /// Transient paths that were removed.
+    pub cleaned_paths: Vec<PathBuf>,
+}
+
+#[derive(Clone)]
 pub struct UpdaterTermManager {
     inner: Arc<Mutex<TermState>>,
+    cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
+}
+
+impl Default for UpdaterTermManager {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(TermState::default())),
+            cleanup_state: new_workflow_cleanup_state(),
+        }
+    }
 }
 
 impl UpdaterTermManager {
@@ -108,7 +154,14 @@ impl UpdaterTermManager {
         app: AppHandle,
         options: WorkflowOptions,
     ) -> Result<SessionMetadata, String> {
-        self.stop_all()?;
+        self.abort(WorkflowAbortRequest { cleanup: true })?;
+        {
+            let mut cleanup = self
+                .cleanup_state
+                .lock()
+                .map_err(|_| "updater cleanup lock poisoned")?;
+            *cleanup = WorkflowCleanupState::default();
+        }
 
         let session_id = Uuid::new_v4().to_string();
         let (renderer_tx, renderer_rx) = mpsc::channel();
@@ -152,8 +205,15 @@ impl UpdaterTermManager {
 
         let flow_inner = Arc::clone(&self.inner);
         let flow_session_id = session_id.clone();
+        let flow_cleanup = Arc::clone(&self.cleanup_state);
         thread::spawn(move || {
-            run_terminal_workflow_flow(flow_inner, flow_session_id, renderer_tx, options)
+            run_terminal_workflow_flow(
+                flow_inner,
+                flow_session_id,
+                renderer_tx,
+                options,
+                flow_cleanup,
+            )
         });
 
         Ok(SessionMetadata {
@@ -197,15 +257,39 @@ impl UpdaterTermManager {
         Ok(())
     }
 
-    fn stop_all(&self) -> Result<(), String> {
+    /// Aborts the current terminal workflow.
+    ///
+    /// This method is safe to call after workflow failure. Cleanup is
+    /// idempotent and only removes transient staging paths registered by the
+    /// current or most recent workflow run.
+    pub fn abort(&self, request: WorkflowAbortRequest) -> Result<WorkflowAbortReport, String> {
+        let (stopped_tasks, tx) = self.stop_all()?;
+        let cleaned_paths = if request.cleanup {
+            cleanup_workflow_state(&self.cleanup_state).map_err(|error| error.message())?
+        } else {
+            Vec::new()
+        };
+        if let Some(tx) = tx {
+            let _ = tx.send(RendererEvent::SessionFinished { success: false });
+        }
+        Ok(WorkflowAbortReport {
+            stopped_tasks,
+            cleaned_paths,
+        })
+    }
+
+    fn stop_all(&self) -> Result<(usize, Option<mpsc::Sender<RendererEvent>>), String> {
         let (tasks, tx) = {
             let mut state = self
                 .inner
                 .lock()
                 .map_err(|_| "updater manager lock poisoned")?;
             let tasks = state.tasks.drain().collect::<Vec<_>>();
-            (tasks, state.renderer_tx.clone())
+            let tx = state.renderer_tx.take();
+            state.current_session_id = None;
+            (tasks, tx)
         };
+        let stopped_tasks = tasks.len();
 
         for (task_id, handle) in tasks {
             match &*handle {
@@ -229,7 +313,7 @@ impl UpdaterTermManager {
                 });
             }
         }
-        Ok(())
+        Ok((stopped_tasks, tx))
     }
 }
 
@@ -240,5 +324,13 @@ mod tests {
     #[test]
     fn default_config_command_returns_schema_one() {
         assert_eq!(updater_default_config().schema_version, 1);
+    }
+
+    #[test]
+    fn abort_idle_workflow_is_idempotent() {
+        let manager = UpdaterTermManager::default();
+        let report = manager.abort(WorkflowAbortRequest::default()).unwrap();
+        assert_eq!(report.stopped_tasks, 0);
+        assert!(report.cleaned_paths.is_empty());
     }
 }

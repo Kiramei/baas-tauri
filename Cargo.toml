@@ -1,8 +1,8 @@
 [workspace]
 members = [
-	"src-tauri",
-	"crates/baas-updater",
-    "crates/baas-term"
+  "src-tauri",
+  "crates/baas-updater",
+  "crates/baas-term"
 ]
 resolver = "2"
 
@@ -13,3 +13,4 @@ baas-term = { path = "crates/baas-term" }
 tauri = { version = "2.11.2", features = ["tray-icon"] }
 tokio = { version = "1.48.0", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }

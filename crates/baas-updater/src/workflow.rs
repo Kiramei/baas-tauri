@@ -26,6 +26,7 @@ use baas_term::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeSet,
     fs,
     net::TcpListener,
     path::{Path, PathBuf},
@@ -73,6 +74,55 @@ pub struct WorkflowReport {
     pub cpp_status: UpdateStatus,
     /// Whether the backend launch step ran.
     pub launched: bool,
+}
+
+/// Shared cleanup registry for one updater workflow run.
+///
+/// The workflow registers only transient paths it creates itself. Cleanup is
+/// intentionally limited to staging and ranking directories so aborting an
+/// update never removes an existing installation.
+#[derive(Debug, Default)]
+pub struct WorkflowCleanupState {
+    transient_paths: BTreeSet<PathBuf>,
+}
+
+impl WorkflowCleanupState {
+    /// Registers a transient path for later cleanup.
+    pub fn register_path(&mut self, path: impl Into<PathBuf>) {
+        self.transient_paths.insert(path.into());
+    }
+
+    /// Removes registered transient paths that still exist.
+    pub fn cleanup(&self) -> UpdaterResult<Vec<PathBuf>> {
+        let mut removed = Vec::new();
+        for path in self.transient_paths.iter().rev() {
+            if !path.exists() {
+                continue;
+            }
+            if path.is_dir() {
+                fs::remove_dir_all(path)?;
+            } else {
+                fs::remove_file(path)?;
+            }
+            removed.push(path.clone());
+        }
+        Ok(removed)
+    }
+}
+
+/// Creates an empty workflow cleanup registry.
+pub fn new_workflow_cleanup_state() -> Arc<Mutex<WorkflowCleanupState>> {
+    Arc::new(Mutex::new(WorkflowCleanupState::default()))
+}
+
+/// Runs cleanup for a shared workflow cleanup registry.
+pub fn cleanup_workflow_state(
+    cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
+) -> UpdaterResult<Vec<PathBuf>> {
+    cleanup_state
+        .lock()
+        .map_err(|_| UpdaterError::Workflow("workflow cleanup lock poisoned".to_string()))?
+        .cleanup()
 }
 
 /// Workflow service abstraction used by tests.
@@ -223,6 +273,25 @@ pub fn run_workflow_with_services(
     services: Arc<dyn WorkflowServices>,
     output: Arc<dyn OutputSink + Send + Sync>,
 ) -> Result<WorkflowReport, WorkflowFailure> {
+    let cleanup_state = new_workflow_cleanup_state();
+    let result = run_workflow_with_services_inner(
+        options,
+        services,
+        Arc::clone(&output),
+        Arc::clone(&cleanup_state),
+    );
+    if result.is_err() {
+        let _ = cleanup_workflow_state(&cleanup_state);
+    }
+    result
+}
+
+fn run_workflow_with_services_inner(
+    options: WorkflowOptions,
+    services: Arc<dyn WorkflowServices>,
+    output: Arc<dyn OutputSink + Send + Sync>,
+    cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
+) -> Result<WorkflowReport, WorkflowFailure> {
     let mut manager =
         load_manager(&options).map_err(|error| WorkflowFailure::from_error("config", error))?;
     if let Some(path) = &options.install_path {
@@ -245,6 +314,8 @@ pub fn run_workflow_with_services(
     let ranking_dir = config.tmp_dir().join("source-ranking");
     fs::create_dir_all(&ranking_dir)
         .map_err(|error| WorkflowFailure::from_error("prepare_paths", error.into()))?;
+    register_cleanup_paths(&cleanup_state, &main_job, &cpp_job, &ranking_dir)
+        .map_err(|error| WorkflowFailure::from_error("cleanup", error))?;
 
     let main_services = Arc::clone(&services);
     let cpp_services = Arc::clone(&services);
@@ -254,8 +325,11 @@ pub fn run_workflow_with_services(
     let cpp_output = Arc::clone(&output);
     let main_ranking = ranking_dir.join("main.json");
     let cpp_ranking = ranking_dir.join("cpp.json");
+    let prepare_services = Arc::clone(&services);
+    let prepare_config = config.clone();
+    let prepare_output = Arc::clone(&output);
 
-    let (main_result, cpp_result) = thread::scope(|scope| {
+    let (main_result, cpp_result, prepare_result) = thread::scope(|scope| {
         let main_handle = scope.spawn(|| {
             main_services.update_repository(
                 RepositoryKind::Main,
@@ -274,7 +348,9 @@ pub fn run_workflow_with_services(
                 &*cpp_output,
             )
         });
-        (main_handle.join(), cpp_handle.join())
+        let prepare_handle =
+            scope.spawn(|| prepare_services.prepare_environment(&prepare_config, &*prepare_output));
+        (main_handle.join(), cpp_handle.join(), prepare_handle.join())
     });
 
     let main_outcome = main_result
@@ -293,6 +369,14 @@ pub fn run_workflow_with_services(
             )
         })?
         .map_err(|error| WorkflowFailure::from_error("cpp_repo", error))?;
+    prepare_result
+        .map_err(|_| {
+            WorkflowFailure::from_error(
+                "environment",
+                UpdaterError::Workflow("environment prepare task panicked".to_string()),
+            )
+        })?
+        .map_err(|error| WorkflowFailure::from_error("environment", error))?;
 
     finalize_job(&main_job)
         .map_err(|error| WorkflowFailure::from_error("move_main_repo", error))?;
@@ -304,9 +388,6 @@ pub fn run_workflow_with_services(
         .save()
         .map_err(|error| WorkflowFailure::from_error("config", error))?;
 
-    services
-        .prepare_environment(&manager.config, &*output)
-        .map_err(|error| WorkflowFailure::from_error("environment", error))?;
     services
         .sync_dependencies(&manager.config, &*output)
         .map_err(|error| WorkflowFailure::from_error("dependencies", error))?;
@@ -382,6 +463,25 @@ fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob
             }
         }
     }
+}
+
+fn register_cleanup_paths(
+    cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
+    main_job: &RepositoryJob,
+    cpp_job: &RepositoryJob,
+    ranking_dir: &Path,
+) -> UpdaterResult<()> {
+    let mut cleanup = cleanup_state
+        .lock()
+        .map_err(|_| UpdaterError::Workflow("workflow cleanup lock poisoned".to_string()))?;
+    cleanup.register_path(ranking_dir.to_path_buf());
+    if main_job.needs_move {
+        cleanup.register_path(main_job.target_dir.clone());
+    }
+    if cpp_job.needs_move {
+        cleanup.register_path(cpp_job.target_dir.clone());
+    }
+    Ok(())
 }
 
 fn cpp_bin_has_content(path: &Path) -> bool {
@@ -483,6 +583,7 @@ pub fn run_terminal_workflow_flow(
     session_id: String,
     renderer_tx: Sender<RendererEvent>,
     options: WorkflowOptions,
+    cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
 ) {
     let (completion_tx, completion_rx) = mpsc::channel::<TaskCompletion>();
     let state = Arc::new(Mutex::new(TerminalWorkflowState::default()));
@@ -503,25 +604,20 @@ pub fn run_terminal_workflow_flow(
         TerminalConfigArgs {
             options: options.clone(),
             state: Arc::clone(&state),
+            cleanup_state: Arc::clone(&cleanup_state),
         },
         terminal_config_task,
     )
     .is_err()
         || !wait_for_task(&completion_rx, "updater-config")
     {
-        finish_terminal_session(&inner, &session_id, &renderer_tx, false);
+        fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
 
-    if !run_terminal_repo_stage(
-        &inner,
-        &session_id,
-        &renderer_tx,
-        &completion_tx,
-        &completion_rx,
-        Arc::clone(&state),
-    ) {
-        finish_terminal_session(&inner, &session_id, &renderer_tx, false);
+    if !run_terminal_update_and_prepare_stage(&inner, &session_id, &renderer_tx, Arc::clone(&state))
+    {
+        fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
 
@@ -544,11 +640,11 @@ pub fn run_terminal_workflow_flow(
     .is_err()
         || !wait_for_task(&completion_rx, "updater-finalize-repos")
     {
-        finish_terminal_session(&inner, &session_id, &renderer_tx, false);
+        fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
 
-    if !run_terminal_environment_stage(
+    if !run_terminal_dependency_stage(
         &inner,
         &session_id,
         &renderer_tx,
@@ -557,16 +653,61 @@ pub fn run_terminal_workflow_flow(
         Arc::clone(&state),
         options.launch,
     ) {
-        finish_terminal_session(&inner, &session_id, &renderer_tx, false);
+        fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
 
     finish_terminal_session(&inner, &session_id, &renderer_tx, true);
 }
 
+fn run_terminal_update_and_prepare_stage(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    renderer_tx: &Sender<RendererEvent>,
+    state: Arc<Mutex<TerminalWorkflowState>>,
+) -> bool {
+    let (repo_completion_tx, repo_completion_rx) = mpsc::channel::<TaskCompletion>();
+    let (prepare_completion_tx, prepare_completion_rx) = mpsc::channel::<TaskCompletion>();
+
+    thread::scope(|scope| {
+        let repo_inner = Arc::clone(inner);
+        let repo_renderer_tx = renderer_tx.clone();
+        let repo_state = Arc::clone(&state);
+        let repo_session_id = session_id.to_string();
+        let repo_handle = scope.spawn(move || {
+            run_terminal_repo_stage(
+                &repo_inner,
+                &repo_session_id,
+                &repo_renderer_tx,
+                &repo_completion_tx,
+                &repo_completion_rx,
+                repo_state,
+            )
+        });
+
+        let prepare_inner = Arc::clone(inner);
+        let prepare_renderer_tx = renderer_tx.clone();
+        let prepare_state = state;
+        let prepare_session_id = session_id.to_string();
+        let prepare_handle = scope.spawn(move || {
+            run_terminal_environment_prepare_stage(
+                &prepare_inner,
+                &prepare_session_id,
+                &prepare_renderer_tx,
+                &prepare_completion_tx,
+                &prepare_completion_rx,
+                prepare_state,
+            )
+        });
+
+        repo_handle.join().unwrap_or(false) && prepare_handle.join().unwrap_or(false)
+    })
+}
+
 struct TerminalConfigArgs {
     options: WorkflowOptions,
     state: Arc<Mutex<TerminalWorkflowState>>,
+    cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
 }
 
 fn terminal_config_task(
@@ -593,6 +734,8 @@ fn terminal_config_task(
         spinner.set_detail("planning repository targets");
         let main_job = repository_job(&manager.config, RepositoryKind::Main);
         let cpp_job = repository_job(&manager.config, RepositoryKind::Cpp);
+        register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job, &ranking_dir)
+            .map_err(|error| error.message())?;
         let mut state = args
             .state
             .lock()
@@ -1002,14 +1145,13 @@ fn terminal_finalize_repos_task(
     )
 }
 
-fn run_terminal_environment_stage(
+fn run_terminal_environment_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
     state: Arc<Mutex<TerminalWorkflowState>>,
-    launch: bool,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1104,7 +1246,7 @@ fn run_terminal_environment_stage(
         return false;
     }
 
-    let (cpython_mirror, pypi_index) = match terminal_environment_sources(&state) {
+    let (cpython_mirror, _) = match terminal_environment_sources(&state) {
         Ok(sources) => sources,
         Err(error) => {
             let output = ThreadOutput {
@@ -1156,6 +1298,77 @@ fn run_terminal_environment_stage(
         return false;
     }
 
+    true
+}
+
+fn run_terminal_dependency_stage(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    renderer_tx: &Sender<RendererEvent>,
+    completion_tx: &Sender<TaskCompletion>,
+    completion_rx: &mpsc::Receiver<TaskCompletion>,
+    state: Arc<Mutex<TerminalWorkflowState>>,
+    launch: bool,
+) -> bool {
+    let config = match terminal_config(&state) {
+        Ok(config) => config,
+        Err(error) => {
+            let output = ThreadOutput {
+                task_id: "dependencies".to_string(),
+                region_id: "dependencies".to_string(),
+                tx: renderer_tx.clone(),
+            };
+            output.line(OutputStyle::Error, &error);
+            return false;
+        }
+    };
+
+    if !uses_managed_runtime(&config) {
+        let spec = create_thread_task(
+            "custom-runtime-dependencies",
+            "custom-runtime-dependencies",
+            4,
+            "Custom Runtime",
+            "skip managed dependency sync",
+        );
+        if spawn_thread_task(
+            inner,
+            session_id,
+            spec,
+            renderer_tx,
+            completion_tx,
+            config.clone(),
+            terminal_custom_runtime_task,
+        )
+        .is_err()
+            || !wait_for_task(completion_rx, "custom-runtime-dependencies")
+        {
+            return false;
+        }
+        return run_terminal_launch_stage(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            config,
+            launch,
+        );
+    }
+
+    let (_, pypi_index) = match terminal_environment_sources(&state) {
+        Ok(sources) => sources,
+        Err(error) => {
+            let output = ThreadOutput {
+                task_id: "environment-source-ranking".to_string(),
+                region_id: "environment-source-ranking".to_string(),
+                tx: renderer_tx.clone(),
+            };
+            output.line(OutputStyle::Error, &error);
+            return false;
+        }
+    };
+
     let requirements = match requirements_path(&config) {
         Some(path) => path,
         None => {
@@ -1197,32 +1410,51 @@ fn run_terminal_environment_stage(
         }
     }
 
-    if launch && config.general.launch {
-        let port = match available_port() {
-            Ok(port) => port,
-            Err(_) => return false,
-        };
-        let spec = create_thread_task(
-            "launch-backend",
-            "launch-backend",
-            4,
-            "Launch Backend",
-            "spawn backend service",
-        );
-        spawn_thread_task(
-            inner,
-            session_id,
-            spec,
-            renderer_tx,
-            completion_tx,
-            (config, port),
-            terminal_launch_task,
-        )
-        .is_ok()
-            && wait_for_task(completion_rx, "launch-backend")
-    } else {
-        true
+    run_terminal_launch_stage(
+        inner,
+        session_id,
+        renderer_tx,
+        completion_tx,
+        completion_rx,
+        config,
+        launch,
+    )
+}
+
+fn run_terminal_launch_stage(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    renderer_tx: &Sender<RendererEvent>,
+    completion_tx: &Sender<TaskCompletion>,
+    completion_rx: &mpsc::Receiver<TaskCompletion>,
+    config: UpdaterConfig,
+    launch: bool,
+) -> bool {
+    if !launch || !config.general.launch {
+        return true;
     }
+    let port = match available_port() {
+        Ok(port) => port,
+        Err(_) => return false,
+    };
+    let spec = create_thread_task(
+        "launch-backend",
+        "launch-backend",
+        4,
+        "Launch Backend",
+        "spawn backend service",
+    );
+    spawn_thread_task(
+        inner,
+        session_id,
+        spec,
+        renderer_tx,
+        completion_tx,
+        (config, port),
+        terminal_launch_task,
+    )
+    .is_ok()
+        && wait_for_task(completion_rx, "launch-backend")
 }
 
 fn terminal_uv_install_task(
@@ -1397,6 +1629,16 @@ fn finish_terminal_session(
     if session_is_current(inner, session_id) {
         let _ = renderer_tx.send(RendererEvent::SessionFinished { success });
     }
+}
+
+fn fail_terminal_session(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    renderer_tx: &Sender<RendererEvent>,
+    cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
+) {
+    let _ = cleanup_workflow_state(cleanup_state);
+    finish_terminal_session(inner, session_id, renderer_tx, false);
 }
 
 fn script_from_command(command: &CommandSpec) -> ScriptCommand {
@@ -1610,9 +1852,10 @@ mod tests {
 
         fn prepare_environment(
             &self,
-            _config: &UpdaterConfig,
+            config: &UpdaterConfig,
             _output: &(dyn OutputSink + Send + Sync),
         ) -> UpdaterResult<()> {
+            assert!(!config.baas_root().join("main.txt").exists());
             self.calls.lock().unwrap().push("prepare".to_string());
             Ok(())
         }
@@ -1684,10 +1927,12 @@ mod tests {
                 &self,
                 _kind: RepositoryKind,
                 _config: &UpdaterConfig,
-                _target_dir: &Path,
+                target_dir: &Path,
                 _ranking_path: &Path,
                 _output: &(dyn OutputSink + Send + Sync),
             ) -> UpdaterResult<RepositoryOutcome> {
+                fs::create_dir_all(target_dir)?;
+                fs::write(target_dir.join("partial.txt"), "partial")?;
                 Err(UpdaterError::Git("boom".to_string()))
             }
             fn prepare_environment(
@@ -1714,10 +1959,11 @@ mod tests {
         }
 
         let dir = tempfile::tempdir().unwrap();
+        let install_path = dir.path().join("BAAS");
         let failure = run_workflow_with_services(
             WorkflowOptions {
                 config_path: Some(dir.path().join("setup.toml")),
-                install_path: Some(dir.path().join("BAAS")),
+                install_path: Some(install_path.clone()),
                 launch: false,
             },
             Arc::new(Failing),
@@ -1727,5 +1973,7 @@ mod tests {
 
         assert_eq!(failure.code, "git");
         assert!(failure.step == "main_repo" || failure.step == "cpp_repo");
+        assert!(!install_path.join("tmp").join("main-repo").exists());
+        assert!(!install_path.join("tmp").join("cpp-repo").exists());
     }
 }
