@@ -4,8 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-baas-term = { workspace = true }
+baas-term = { workspace = true, optional = true }
+serde = { workspace = true }
 git2 = { version = "0.21.0" }
 zip = { version = "8.6.0" }
 tar = { version = "0.4.44" }
-indicatif = { version = "0.18.4" }
+serde_json = "1"
+toml = "1.1.2"
+reqwest = { version = "0.13.4", features = ["json", "blocking", "stream"] }
+flate2 = "1.1.5"
+futures-util = "0.3.31"
+sha2 = "0.11.0"
+tempfile = "3"
+directories = "6.0.0"
+
+[features]
+default = []
+term-output = ["baas-term"]
