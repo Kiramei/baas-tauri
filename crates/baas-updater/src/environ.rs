@@ -3,7 +3,8 @@
 use crate::{
     OutputSink, OutputStyle, UpdaterError, UpdaterResult,
     config::UpdaterConfig,
-    constants::{CPYTHON_HEAD, UV_SRC_HEAD},
+    constants::{CPYTHON_HEAD, PYPI_SOURCE_LIST, UV_SRC_HEAD},
+    repo::{SourceProbe, SourceRanking, benchmark_sources_with_output, save_ranking},
 };
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,7 @@ use std::{
     io::{Cursor, Read},
     path::{Path, PathBuf},
     process::Command,
+    time::{Duration, Instant},
 };
 use tar::Archive;
 use zip::ZipArchive;
@@ -135,11 +137,130 @@ impl AssetDownloader for ReqwestDownloader {
         let mut response = reqwest::blocking::get(url)
             .and_then(reqwest::blocking::Response::error_for_status)
             .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let total = response.content_length().unwrap_or(0).max(1);
+        let started = Instant::now();
         let mut bytes = Vec::new();
-        response
-            .read_to_end(&mut bytes)
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        if let Some(term) = output.thread_output() {
+            let label = download_label(url);
+            term.with_progress_bar(label, total, 30, "download complete", |progress| {
+                let mut buffer = [0_u8; 64 * 1024];
+                loop {
+                    let read = response
+                        .read(&mut buffer)
+                        .map_err(|error| error.to_string())?;
+                    if read == 0 {
+                        break;
+                    }
+                    bytes.extend_from_slice(&buffer[..read]);
+                    progress.set(
+                        bytes.len() as u64,
+                        download_detail(bytes.len() as u64, total, started),
+                    );
+                }
+                Ok(())
+            })
+            .map_err(UpdaterError::Network)?;
+        } else {
+            response
+                .read_to_end(&mut bytes)
+                .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        }
         Ok(bytes)
+    }
+}
+
+fn download_label(url: &str) -> String {
+    url.rsplit('/')
+        .next()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("download")
+        .chars()
+        .take(18)
+        .collect()
+}
+
+fn download_detail(current: u64, total: u64, started: Instant) -> String {
+    let elapsed = started.elapsed().as_secs_f64().max(0.001);
+    let speed = current as f64 / elapsed;
+    format!(
+        "{} / {} at {}/s",
+        format_bytes(current),
+        format_bytes(total),
+        format_bytes(speed as u64)
+    )
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit + 1 < UNITS.len() {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[unit])
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
+/// Environment source list that must be ranked before use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnvironmentSourceKind {
+    /// UV binary download source.
+    Uv,
+    /// CPython mirror passed to `UV_PYTHON_INSTALL_MIRROR`.
+    Cpython,
+    /// Python package index passed to UV pip.
+    Pypi,
+}
+
+impl EnvironmentSourceKind {
+    /// Stable file-name prefix for persisted ranking.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Uv => "uv",
+            Self::Cpython => "cpython",
+            Self::Pypi => "pypi",
+        }
+    }
+}
+
+/// HTTP source probe used for UV, CPython, and PyPI source ranking.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HttpSourceProbe;
+
+impl SourceProbe for HttpSourceProbe {
+    fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let start = Instant::now();
+        let head = client.head(url).send();
+        let ok = match head {
+            Ok(response)
+                if response.status().is_success() || response.status().is_redirection() =>
+            {
+                true
+            }
+            _ => client
+                .get(url)
+                .header(reqwest::header::RANGE, "bytes=0-0")
+                .send()
+                .map(|response| {
+                    response.status().is_success() || response.status().is_redirection()
+                })
+                .unwrap_or(false),
+        };
+        if ok {
+            Ok(start.elapsed())
+        } else {
+            Err(UpdaterError::Network(format!(
+                "source probe failed for {url}"
+            )))
+        }
     }
 }
 
@@ -161,6 +282,16 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         config: &UpdaterConfig,
         output: &O,
     ) -> UpdaterResult<()> {
+        self.prepare_with_ranking(config, None, output)
+    }
+
+    /// Prepares UV and Python using ranked UV and CPython sources.
+    pub fn prepare_with_ranking<O: OutputSink + ?Sized>(
+        &self,
+        config: &UpdaterConfig,
+        ranking_dir: Option<&Path>,
+        output: &O,
+    ) -> UpdaterResult<()> {
         if !uses_managed_runtime(config) {
             output.line(
                 OutputStyle::Info,
@@ -169,15 +300,26 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
             return Ok(());
         }
 
-        let uv_path = uv_executable(config);
-        if !uv_path.exists() {
-            install_uv_archive(config, &self.downloader, output)?;
-        } else {
-            output.line(OutputStyle::Success, "uv is already installed");
-        }
+        let uv_url = ranked_environment_source_with_output(
+            EnvironmentSourceKind::Uv,
+            config,
+            ranking_dir,
+            &HttpSourceProbe,
+            output,
+        )?;
+        let cpython_mirror = ranked_environment_source_with_output(
+            EnvironmentSourceKind::Cpython,
+            config,
+            ranking_dir,
+            &HttpSourceProbe,
+            output,
+        )?;
+        ensure_uv_installed_from(config, &uv_url, &self.downloader, output)?;
 
-        self.runner
-            .run(&uv_python_install_command(config), output)?;
+        self.runner.run(
+            &uv_python_install_command_with_mirror(config, &cpython_mirror),
+            output,
+        )?;
         if !venv_python(config).exists() {
             self.runner.run(&uv_venv_command(config), output)?;
         } else {
@@ -192,6 +334,16 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         config: &UpdaterConfig,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<()> {
+        self.sync_dependencies_with_ranking(config, None, output)
+    }
+
+    /// Synchronizes Python dependencies using a ranked PyPI index.
+    pub fn sync_dependencies_with_ranking(
+        &self,
+        config: &UpdaterConfig,
+        ranking_dir: Option<&Path>,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
         if !uses_managed_runtime(config) {
             output.line(
                 OutputStyle::Info,
@@ -202,9 +354,19 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
 
         let requirements = requirements_path(config)
             .ok_or_else(|| UpdaterError::Environment("requirements file not found".to_string()))?;
+        let pypi_index = ranked_environment_source_with_output(
+            EnvironmentSourceKind::Pypi,
+            config,
+            ranking_dir,
+            &HttpSourceProbe,
+            output,
+        )?;
+        self.runner.run(
+            &uv_compile_command_with_index(config, &requirements, &pypi_index),
+            output,
+        )?;
         self.runner
-            .run(&uv_compile_command(config, &requirements), output)?;
-        self.runner.run(&uv_sync_command(config), output)?;
+            .run(&uv_sync_command_with_index(config, &pypi_index), output)?;
         self.runner.run(&uv_cache_clean_command(config), output)?;
         Ok(())
     }
@@ -278,11 +440,19 @@ pub fn uv_archive_name_for(os: &str, arch: &str) -> UpdaterResult<&'static str> 
 
 /// Builds the UV Python install command.
 pub fn uv_python_install_command(config: &UpdaterConfig) -> CommandSpec {
+    uv_python_install_command_with_mirror(config, CPYTHON_HEAD.main)
+}
+
+/// Builds the UV Python install command with an already-ranked CPython mirror.
+pub fn uv_python_install_command_with_mirror(
+    config: &UpdaterConfig,
+    cpython_mirror: &str,
+) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
         .arg("python")
         .arg("install")
         .arg(&config.python.python_version)
-        .env("UV_PYTHON_INSTALL_MIRROR", CPYTHON_HEAD.main)
+        .env("UV_PYTHON_INSTALL_MIRROR", cpython_mirror)
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
 }
 
@@ -299,8 +469,18 @@ pub fn uv_venv_command(config: &UpdaterConfig) -> CommandSpec {
 
 /// Builds the UV pip compile command.
 pub fn uv_compile_command(config: &UpdaterConfig, requirements: &Path) -> CommandSpec {
+    let index = default_pypi_index(config);
+    uv_compile_command_with_index(config, requirements, &index)
+}
+
+/// Builds the UV pip compile command with an already-ranked PyPI index.
+pub fn uv_compile_command_with_index(
+    config: &UpdaterConfig,
+    requirements: &Path,
+    pypi_index: &str,
+) -> CommandSpec {
     let lock_path = config.baas_root().join("requirements.service.lock");
-    uv_pip_command(config)
+    uv_pip_command_with_index(config, pypi_index)
         .arg("compile")
         .arg(requirements.to_string_lossy())
         .arg("-o")
@@ -309,12 +489,20 @@ pub fn uv_compile_command(config: &UpdaterConfig, requirements: &Path) -> Comman
 
 /// Builds the UV pip sync command.
 pub fn uv_sync_command(config: &UpdaterConfig) -> CommandSpec {
-    uv_pip_command(config).arg("sync").arg(
-        config
-            .baas_root()
-            .join("requirements.service.lock")
-            .to_string_lossy(),
-    )
+    let index = default_pypi_index(config);
+    uv_sync_command_with_index(config, &index)
+}
+
+/// Builds the UV pip sync command with an already-ranked PyPI index.
+pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> CommandSpec {
+    uv_pip_command_with_index(config, pypi_index)
+        .arg("sync")
+        .arg(
+            config
+                .baas_root()
+                .join("requirements.service.lock")
+                .to_string_lossy(),
+        )
 }
 
 /// Builds the UV cache clean command.
@@ -359,21 +547,16 @@ pub fn requirements_path(config: &UpdaterConfig) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.exists())
 }
 
-fn install_uv_archive(
+fn install_uv_archive_from(
     config: &UpdaterConfig,
+    url: &str,
     downloader: &impl AssetDownloader,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<()> {
-    let archive_name = uv_archive_name_for(std::env::consts::OS, std::env::consts::ARCH)?;
-    let url = format!(
-        "{}/{}",
-        UV_SRC_HEAD.main.trim_end_matches('/'),
-        archive_name
-    );
-    let bytes = downloader.download(&url, output)?;
+    let bytes = downloader.download(url, output)?;
     let uv_dir = config.toolkit_dir().join("uv");
     fs::create_dir_all(&uv_dir)?;
-    if archive_name.ends_with(".zip") {
+    if url.ends_with(".zip") {
         let mut archive = ZipArchive::new(Cursor::new(bytes))?;
         archive.extract(&uv_dir)?;
     } else {
@@ -384,6 +567,36 @@ fn install_uv_archive(
     flatten_uv_executable(&uv_dir, &uv_executable(config))?;
     output.line(OutputStyle::Success, "uv installed");
     Ok(())
+}
+
+/// Ensures the UV executable exists, downloading and extracting it when needed.
+pub fn ensure_uv_installed(
+    config: &UpdaterConfig,
+    downloader: &impl AssetDownloader,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
+    let archive_name = uv_archive_name_for(std::env::consts::OS, std::env::consts::ARCH)?;
+    let url = format!(
+        "{}/{}",
+        UV_SRC_HEAD.main.trim_end_matches('/'),
+        archive_name
+    );
+    ensure_uv_installed_from(config, &url, downloader, output)
+}
+
+/// Ensures UV exists by downloading from an already-ranked UV archive URL.
+pub fn ensure_uv_installed_from(
+    config: &UpdaterConfig,
+    url: &str,
+    downloader: &impl AssetDownloader,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
+    let uv_path = uv_executable(config);
+    if uv_path.exists() {
+        output.line(OutputStyle::Success, "uv is already installed");
+        return Ok(());
+    }
+    install_uv_archive_from(config, url, downloader, output)
 }
 
 fn flatten_uv_executable(uv_dir: &Path, target: &Path) -> UpdaterResult<()> {
@@ -413,16 +626,10 @@ fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
     None
 }
 
-fn uv_pip_command(config: &UpdaterConfig) -> CommandSpec {
-    let index = config
-        .general
-        .source_list
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "https://pypi.org/simple".to_string());
+fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
         .arg("pip")
-        .env("UV_INDEX", &index)
+        .env("UV_INDEX", index)
         .env("UV_DEFAULT_INDEX", index)
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
         .env(
@@ -430,6 +637,122 @@ fn uv_pip_command(config: &UpdaterConfig) -> CommandSpec {
             config.baas_root().join(".venv").to_string_lossy(),
         )
         .cwd(config.baas_root())
+}
+
+fn default_pypi_index(config: &UpdaterConfig) -> String {
+    config
+        .general
+        .source_list
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "https://pypi.org/simple".to_string())
+}
+
+/// Returns the selected ranked URL for an environment source kind.
+pub fn ranked_environment_source(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+    ranking_dir: Option<&Path>,
+    probe: &impl SourceProbe,
+) -> UpdaterResult<String> {
+    ranked_environment_source_with_output(kind, config, ranking_dir, probe, &crate::NoopOutput)
+}
+
+/// Returns the selected ranked URL and renders source probing when possible.
+pub fn ranked_environment_source_with_output(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+    ranking_dir: Option<&Path>,
+    probe: &impl SourceProbe,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<String> {
+    let expected_urls = environment_source_urls(kind, config)?;
+    let ranking_path = ranking_dir.map(|dir| dir.join(format!("{}.json", kind.as_str())));
+    let previous = load_environment_ranking(ranking_path.as_deref(), &expected_urls)?;
+    let previous_failed_cycles = previous
+        .as_ref()
+        .filter(|ranking| ranking.all_disabled())
+        .map(|ranking| ranking.all_failed_cycles)
+        .unwrap_or(0);
+    let mut ranking = match previous {
+        Some(ranking) if !ranking.all_disabled() => ranking,
+        _ => benchmark_sources_with_output(&expected_urls, probe, output),
+    };
+    if ranking.all_disabled() {
+        ranking.all_failed_cycles = previous_failed_cycles.saturating_add(1);
+    } else {
+        ranking.all_failed_cycles = 0;
+    }
+    if let Some(path) = &ranking_path {
+        save_ranking(path, &ranking)?;
+    }
+    if ranking.all_disabled() && ranking.all_failed_cycles >= 3 {
+        return Err(UpdaterError::Network(format!(
+            "all {} sources failed three consecutive ranking cycles",
+            kind.as_str()
+        )));
+    }
+    first_active_source(&ranking).ok_or_else(|| {
+        UpdaterError::Network(format!(
+            "all {} sources failed during ranking",
+            kind.as_str()
+        ))
+    })
+}
+
+fn load_environment_ranking(
+    path: Option<&Path>,
+    expected_urls: &[String],
+) -> UpdaterResult<Option<SourceRanking>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path)?;
+    let ranking: SourceRanking =
+        serde_json::from_str(&content).map_err(|error| UpdaterError::Config(error.to_string()))?;
+    Ok(ranking.matches_urls(expected_urls).then_some(ranking))
+}
+
+/// Returns the URL set for an environment source kind.
+pub fn environment_source_urls(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+) -> UpdaterResult<Vec<String>> {
+    match kind {
+        EnvironmentSourceKind::Uv => {
+            let archive_name = uv_archive_name_for(std::env::consts::OS, std::env::consts::ARCH)?;
+            Ok(std::iter::once(UV_SRC_HEAD.main)
+                .chain(UV_SRC_HEAD.proxy.iter().copied())
+                .map(|head| format!("{}/{}", head.trim_end_matches('/'), archive_name))
+                .collect())
+        }
+        EnvironmentSourceKind::Cpython => Ok(std::iter::once(CPYTHON_HEAD.main)
+            .chain(CPYTHON_HEAD.proxy.iter().copied())
+            .map(ToOwned::to_owned)
+            .collect()),
+        EnvironmentSourceKind::Pypi => {
+            let urls = if config.general.source_list.is_empty() {
+                PYPI_SOURCE_LIST
+                    .iter()
+                    .map(|source| source.to_string())
+                    .collect()
+            } else {
+                config.general.source_list.clone()
+            };
+            Ok(urls)
+        }
+    }
+}
+
+fn first_active_source(ranking: &SourceRanking) -> Option<String> {
+    ranking
+        .active_sources()
+        .into_iter()
+        .next()
+        .map(|source| source.url)
 }
 
 fn uv_cache_dir(config: &UpdaterConfig) -> PathBuf {
@@ -446,7 +769,10 @@ fn display_command(command: &CommandSpec) -> String {
 mod tests {
     use super::*;
     use crate::config::UpdaterConfig;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     #[derive(Default)]
     struct MockRunner {
@@ -473,6 +799,24 @@ mod tests {
             _output: &O,
         ) -> UpdaterResult<Vec<u8>> {
             Err(UpdaterError::Network("no network in test".to_string()))
+        }
+    }
+
+    struct Probe {
+        ok: Vec<String>,
+    }
+
+    impl SourceProbe for Probe {
+        fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+            if self.ok.iter().any(|item| item == url) {
+                Ok(Duration::from_millis(if url.contains("fast") {
+                    1
+                } else {
+                    10
+                }))
+            } else {
+                Err(UpdaterError::Network("down".to_string()))
+            }
         }
     }
 
@@ -535,5 +879,71 @@ mod tests {
         assert!(command.detached);
         assert!(command.args.contains(&"--port".to_string()));
         assert!(command.args.contains(&"48888".to_string()));
+    }
+
+    #[test]
+    fn environment_source_urls_include_uv_archive_and_pypi_config() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec!["https://fast.example/simple".to_string()];
+
+        let uv_urls = environment_source_urls(EnvironmentSourceKind::Uv, &config).unwrap();
+        let pypi_urls = environment_source_urls(EnvironmentSourceKind::Pypi, &config).unwrap();
+
+        assert!(uv_urls.iter().all(|url| url.contains("uv-")));
+        assert_eq!(pypi_urls, ["https://fast.example/simple"]);
+    }
+
+    #[test]
+    fn ranked_environment_source_persists_and_reuses_fast_source() {
+        let root = tempfile::tempdir().unwrap();
+        let ranking = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec![
+            "https://slow.example/simple".to_string(),
+            "https://fast.example/simple".to_string(),
+        ];
+
+        let selected = ranked_environment_source(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(ranking.path()),
+            &Probe {
+                ok: config.general.source_list.clone(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(selected, "https://fast.example/simple");
+        assert!(ranking.path().join("pypi.json").exists());
+    }
+
+    #[test]
+    fn ranked_environment_source_errors_after_three_all_failed_cycles() {
+        let root = tempfile::tempdir().unwrap();
+        let ranking = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec!["https://down.example/simple".to_string()];
+
+        for _ in 0..2 {
+            assert!(
+                ranked_environment_source(
+                    EnvironmentSourceKind::Pypi,
+                    &config,
+                    Some(ranking.path()),
+                    &Probe { ok: Vec::new() },
+                )
+                .is_err()
+            );
+        }
+        let error = ranked_environment_source(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(ranking.path()),
+            &Probe { ok: Vec::new() },
+        )
+        .unwrap_err();
+
+        assert!(error.message().contains("three consecutive"));
     }
 }

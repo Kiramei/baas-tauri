@@ -3,12 +3,11 @@
 `baas-updater` is the BAAS installation and update library. It manages
 `setup.toml`, synchronizes the main BAAS repository and Cpp/OCR prebuild
 repository, prepares a UV-managed Python 3.9 environment, syncs dependencies,
-and exposes Tauri-friendly adapter functions.
+and exposes a `baas-term` backed Tauri session manager.
 
-The crate keeps core logic independent from Tauri. The functions in `app.rs`
-are plain Rust functions with serializable payloads, so the main application can
-wrap or register them as Tauri commands when it is ready to replace the legacy
-installer module.
+The crate is deeply integrated with `baas-term`: Rust-native work runs through
+thread tasks, while Git CLI and UV commands run through PTY-backed process
+tasks so stdout/stderr is captured by the terminal renderer.
 
 ## Configuration
 
@@ -51,7 +50,10 @@ to `stable`.
 
 ## Workflow
 
-`workflow::run_workflow` performs the complete installer flow:
+`app::UpdaterTermManager::start(app, options)` is the UI-facing entry point.
+It starts a `baas-term` renderer session and then runs
+`workflow::run_terminal_workflow_flow`, which performs the complete installer
+flow:
 
 1. Load and migrate configuration.
 2. Synchronize the main repository and Cpp repository in parallel.
@@ -61,14 +63,18 @@ to `stable`.
 6. Launch the backend when both workflow options and config allow it.
 
 MirrorC is used when `general.mirrorc_cdk` is non-empty. Otherwise the updater
-uses Git. Git operations prefer system `git` and fall back to `git2`.
+uses Git. Git operations prefer system `git` through `baas-term` process tasks;
+when Git CLI is unavailable or planning fails, Rust `git2` work runs through
+`baas-term` thread tasks.
 
 ## Repository Sources
 
-Repository URLs come from `constants.rs`. Source ranking is persisted as JSON
-under the BAAS temporary directory. If the URL set changes, or every source is
-disabled, the updater rebuilds the ranking. Network failures demote the failing
-source by setting `order = -1`.
+Repository, UV, CPython, and PyPI URLs come from `constants.rs` or the migrated
+config. Source ranking is persisted as JSON under the BAAS temporary directory:
+`main.json`, `cpp.json`, `uv.json`, `cpython.json`, and `pypi.json`. If a URL
+set changes, or every source is disabled, the updater rebuilds the ranking.
+Network failures demote the failing source by setting `order = -1`; if every
+source fails three consecutive ranking cycles, the updater reports an error.
 
 All Git clone and update operations are shallow. CLI updates use
 `fetch --depth 1`, `reset --hard FETCH_HEAD`, and a best-effort history prune.
@@ -93,11 +99,12 @@ skipped, and launch commands use the configured interpreter directly.
 - `updater_load_config`
 - `updater_update_config`
 - `updater_run_workflow`
+- `UpdaterTermManager`
 
-These functions use serializable request/response types and can be wrapped with
-`#[tauri::command]` in the main app crate. Keeping Tauri out of this library's
-default dependency graph keeps unit tests lightweight and avoids Windows test
-binary manifest issues.
+The command-style functions use serializable request/response types and can be
+wrapped with `#[tauri::command]` in the main app crate. `UpdaterTermManager` is
+the preferred runtime integration because it emits the same terminal events as
+`baas-term::TermManager`.
 
 ## Testing
 

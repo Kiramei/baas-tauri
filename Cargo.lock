@@ -290,17 +290,17 @@ name = "baas-updater"
 version = "0.1.0"
 dependencies = [
  "baas-term",
- "directories",
  "flate2",
- "futures-util",
  "git2",
+ "portable-pty",
  "reqwest",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "tar",
+ "tauri",
  "tempfile",
  "toml 1.1.2+spec-1.1.0",
+ "uuid",
  "zip",
 ]
 

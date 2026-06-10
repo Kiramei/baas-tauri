@@ -105,7 +105,12 @@ pub trait MirrorHttp {
     /// Performs a JSON GET request and returns the response body.
     fn get_json(&self, url: &str, timeout: Duration) -> UpdaterResult<serde_json::Value>;
     /// Downloads a binary package.
-    fn download(&self, url: &str, timeout: Duration) -> UpdaterResult<Vec<u8>>;
+    fn download(
+        &self,
+        url: &str,
+        timeout: Duration,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<Vec<u8>>;
 }
 
 /// Blocking reqwest MirrorC HTTP implementation.
@@ -126,7 +131,12 @@ impl MirrorHttp for ReqwestMirrorHttp {
             .map_err(|error| UpdaterError::Network(error.to_string()))
     }
 
-    fn download(&self, url: &str, timeout: Duration) -> UpdaterResult<Vec<u8>> {
+    fn download(
+        &self,
+        url: &str,
+        timeout: Duration,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<Vec<u8>> {
         let client = reqwest::blocking::Client::builder()
             .timeout(timeout)
             .build()
@@ -137,9 +147,38 @@ impl MirrorHttp for ReqwestMirrorHttp {
             .and_then(reqwest::blocking::Response::error_for_status)
             .map_err(|error| UpdaterError::Network(error.to_string()))?;
         let mut bytes = Vec::new();
-        response
-            .read_to_end(&mut bytes)
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let total = response.content_length().unwrap_or(0).max(1);
+        let started = std::time::Instant::now();
+        if let Some(term) = output.thread_output() {
+            term.with_progress_bar(
+                "mirror package",
+                total,
+                30,
+                "MirrorC download complete",
+                |bar| {
+                    let mut buffer = [0_u8; 64 * 1024];
+                    loop {
+                        let read = response
+                            .read(&mut buffer)
+                            .map_err(|error| error.to_string())?;
+                        if read == 0 {
+                            break;
+                        }
+                        bytes.extend_from_slice(&buffer[..read]);
+                        bar.set(
+                            bytes.len() as u64,
+                            transfer_detail(bytes.len() as u64, total, started),
+                        );
+                    }
+                    Ok(())
+                },
+            )
+            .map_err(UpdaterError::Network)?;
+        } else {
+            response
+                .read_to_end(&mut bytes)
+                .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        }
         Ok(bytes)
     }
 }
@@ -209,11 +248,11 @@ impl<H: MirrorHttp> MirrorCClient<H> {
             .download_url
             .as_deref()
             .ok_or_else(|| mirrorc_error(&latest))?;
-        let package = self.http.download(download_url, self.timeout)?;
+        let package = self.http.download(download_url, self.timeout, output)?;
         match latest.update_type.unwrap_or(MirrorUpdateType::Full) {
             MirrorUpdateType::Full => {
                 output.line(OutputStyle::Info, "Applying MirrorC full package");
-                apply_full_package(&package, request.target_dir)?;
+                apply_full_package_with_output(&package, request.target_dir, output)?;
                 Ok(MirrorUpdateResult {
                     kind: request.kind,
                     status: UpdateStatus::Installed,
@@ -222,7 +261,7 @@ impl<H: MirrorHttp> MirrorCClient<H> {
             }
             MirrorUpdateType::Incremental => {
                 output.line(OutputStyle::Info, "Applying MirrorC incremental package");
-                apply_incremental_package(&package, request.target_dir)?;
+                apply_incremental_package_with_output(&package, request.target_dir, output)?;
                 Ok(MirrorUpdateResult {
                     kind: request.kind,
                     status: UpdateStatus::Updated,
@@ -308,20 +347,44 @@ pub fn remove_first_dir(path: &str) -> PathBuf {
 
 /// Applies an incremental package zip to a target directory.
 pub fn apply_incremental_package(package: &[u8], target_dir: &Path) -> UpdaterResult<()> {
+    apply_incremental_package_with_output(package, target_dir, &crate::NoopOutput)
+}
+
+/// Applies an incremental package zip with terminal progress when available.
+pub fn apply_incremental_package_with_output(
+    package: &[u8],
+    target_dir: &Path,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
     let temp = tempfile::tempdir()?;
-    extract_zip(package, temp.path())?;
+    with_optional_spinner(output, "Extracting MirrorC incremental package", || {
+        extract_zip(package, temp.path())
+    })?;
     let changes_path = temp.path().join("changes.json");
     let changes: ChangeSet = serde_json::from_str(&fs::read_to_string(changes_path)?)
         .map_err(|error| UpdaterError::MirrorC(error.to_string()))?;
-    apply_changes(temp.path(), &changes, target_dir)
+    apply_changes_with_output(temp.path(), &changes, target_dir, output)
 }
 
 /// Applies a MirrorC full package zip to a target directory.
 pub fn apply_full_package(package: &[u8], target_dir: &Path) -> UpdaterResult<()> {
+    apply_full_package_with_output(package, target_dir, &crate::NoopOutput)
+}
+
+/// Applies a MirrorC full package zip with terminal progress when available.
+pub fn apply_full_package_with_output(
+    package: &[u8],
+    target_dir: &Path,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
     let temp = tempfile::tempdir()?;
-    extract_zip(package, temp.path())?;
+    with_optional_spinner(output, "Extracting MirrorC full package", || {
+        extract_zip(package, temp.path())
+    })?;
     let source_root = first_child_dir(temp.path()).unwrap_or_else(|| temp.path().to_path_buf());
-    copy_dir_contents(&source_root, target_dir)
+    with_optional_spinner(output, "Installing MirrorC full package", || {
+        copy_dir_contents(&source_root, target_dir)
+    })
 }
 
 /// Applies a parsed MirrorC change set.
@@ -330,6 +393,51 @@ pub fn apply_changes(
     changes: &ChangeSet,
     target_dir: &Path,
 ) -> UpdaterResult<()> {
+    apply_changes_with_output(source_dir, changes, target_dir, &crate::NoopOutput)
+}
+
+/// Applies a parsed MirrorC change set with terminal progress when available.
+pub fn apply_changes_with_output(
+    source_dir: &Path,
+    changes: &ChangeSet,
+    target_dir: &Path,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
+    let total = (changes.deleted.len() + changes.added.len() + changes.modified.len()) as u64;
+    if let Some(term) = output.thread_output() {
+        return term
+            .with_progress_bar(
+                "mirror apply",
+                total.max(1),
+                30,
+                "MirrorC update applied",
+                |bar| {
+                    let mut current = 0;
+                    for deleted in &changes.deleted {
+                        let target = target_dir.join(remove_first_dir(deleted));
+                        if target.is_file() {
+                            fs::remove_file(target).map_err(|error| error.to_string())?;
+                        }
+                        current += 1;
+                        bar.set(current, format!("delete {current}/{total}"));
+                    }
+                    for added in &changes.added {
+                        copy_changed_file(source_dir, target_dir, added)
+                            .map_err(|error| error.message())?;
+                        current += 1;
+                        bar.set(current, format!("add {current}/{total}"));
+                    }
+                    for modified in &changes.modified {
+                        copy_changed_file(source_dir, target_dir, modified)
+                            .map_err(|error| error.message())?;
+                        current += 1;
+                        bar.set(current, format!("modify {current}/{total}"));
+                    }
+                    Ok(())
+                },
+            )
+            .map_err(UpdaterError::MirrorC);
+    }
     for deleted in &changes.deleted {
         let target = target_dir.join(remove_first_dir(deleted));
         if target.is_file() {
@@ -343,6 +451,22 @@ pub fn apply_changes(
         copy_changed_file(source_dir, target_dir, modified)?;
     }
     Ok(())
+}
+
+fn with_optional_spinner<T>(
+    output: &(impl OutputSink + ?Sized),
+    label: &str,
+    run: impl FnOnce() -> UpdaterResult<T>,
+) -> UpdaterResult<T> {
+    if let Some(term) = output.thread_output() {
+        term.with_spinner(label, format!("{label} complete"), |_spinner| {
+            run().map_err(|error| error.message())
+        })
+        .map_err(UpdaterError::MirrorC)
+    } else {
+        output.line(OutputStyle::Info, label);
+        run()
+    }
 }
 
 /// MirrorC incremental changes file.
@@ -442,6 +566,32 @@ fn copy_changed_file(source_dir: &Path, target_dir: &Path, changed: &str) -> Upd
     }
     fs::copy(source, target)?;
     Ok(())
+}
+
+fn transfer_detail(current: u64, total: u64, started: std::time::Instant) -> String {
+    let elapsed = started.elapsed().as_secs_f64().max(0.001);
+    let speed = current as f64 / elapsed;
+    format!(
+        "{} / {} at {}/s",
+        format_bytes(current),
+        format_bytes(total),
+        format_bytes(speed as u64)
+    )
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit + 1 < UNITS.len() {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[unit])
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
 }
 
 #[cfg(test)]

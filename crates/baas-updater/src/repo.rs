@@ -4,7 +4,8 @@ use crate::{
     OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
     UpdaterResult, constants,
 };
-use git2::{FetchOptions, Repository, build::RepoBuilder};
+use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
+use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -148,9 +149,21 @@ pub trait GitExecutor {
     /// Returns local HEAD SHA using CLI.
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String>;
     /// Runs a shallow git2 clone.
-    fn clone_git2(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()>;
+    fn clone_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()>;
     /// Runs a shallow git2 fetch/reset update.
-    fn update_git2(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()>;
+    fn update_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()>;
     /// Returns local HEAD SHA using git2.
     fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String>;
 }
@@ -232,8 +245,14 @@ impl GitExecutor for RealGitExecutor {
         }
     }
 
-    fn clone_git2(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
-        let mut fetch_options = FetchOptions::new();
+    fn clone_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
+        let mut fetch_options = git2_fetch_options(output);
         fetch_options.depth(1);
         let mut builder = RepoBuilder::new();
         builder.fetch_options(fetch_options);
@@ -242,7 +261,13 @@ impl GitExecutor for RealGitExecutor {
         Ok(())
     }
 
-    fn update_git2(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+    fn update_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
         let repo = Repository::open(target)?;
         if repo.find_remote("origin").is_ok() {
             repo.remote_set_url("origin", url)?;
@@ -250,7 +275,7 @@ impl GitExecutor for RealGitExecutor {
             repo.remote("origin", url)?;
         }
         let mut remote = repo.find_remote("origin")?;
-        let mut fetch_options = FetchOptions::new();
+        let mut fetch_options = git2_fetch_options(output);
         fetch_options.depth(1);
         remote.fetch(&[branch], Some(&mut fetch_options), None)?;
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -285,8 +310,12 @@ impl<E: GitExecutor> RepoManager<E> {
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<RepoSyncResult> {
         let expected_urls = repository_urls(options.kind, options.channel);
-        let mut ranking =
-            load_or_benchmark_ranking(options.ranking_path.as_deref(), &expected_urls, probe)?;
+        let mut ranking = load_or_benchmark_ranking_with_output(
+            options.ranking_path.as_deref(),
+            &expected_urls,
+            probe,
+            output,
+        )?;
         let branch = repository_branch(options.kind)?;
 
         for source in ranking.active_sources() {
@@ -298,7 +327,7 @@ impl<E: GitExecutor> RepoManager<E> {
                     source.url
                 ),
             );
-            match self.try_source(&source.url, &branch, &options.target_dir) {
+            match self.try_source(&source.url, &branch, &options.target_dir, output) {
                 Ok(status) => {
                     let sha = self.local_sha(&options.target_dir)?;
                     if let Some(path) = &options.ranking_path {
@@ -332,7 +361,7 @@ impl<E: GitExecutor> RepoManager<E> {
             ));
         }
 
-        ranking = benchmark_sources(&expected_urls, probe);
+        ranking = benchmark_sources_with_output(&expected_urls, probe, output);
         if let Some(path) = &options.ranking_path {
             save_ranking(path, &ranking)?;
         }
@@ -341,7 +370,13 @@ impl<E: GitExecutor> RepoManager<E> {
         ))
     }
 
-    fn try_source(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<UpdateStatus> {
+    fn try_source(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<UpdateStatus> {
         let is_update = target.join(".git").exists();
         if self.executor.has_cli() {
             let cli_result = if is_update {
@@ -359,10 +394,10 @@ impl<E: GitExecutor> RepoManager<E> {
         }
 
         if is_update {
-            self.executor.update_git2(url, branch, target)?;
+            self.executor.update_git2(url, branch, target, output)?;
             Ok(UpdateStatus::Updated)
         } else {
-            self.executor.clone_git2(url, branch, target)?;
+            self.executor.clone_git2(url, branch, target, output)?;
             Ok(UpdateStatus::Installed)
         }
     }
@@ -417,6 +452,16 @@ pub fn load_or_benchmark_ranking(
     expected_urls: &[String],
     probe: &impl SourceProbe,
 ) -> UpdaterResult<SourceRanking> {
+    load_or_benchmark_ranking_with_output(path, expected_urls, probe, &crate::NoopOutput)
+}
+
+/// Loads a ranking file or benchmarks sources with terminal repaint output.
+pub fn load_or_benchmark_ranking_with_output(
+    path: Option<&Path>,
+    expected_urls: &[String],
+    probe: &impl SourceProbe,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<SourceRanking> {
     if let Some(path) = path
         && path.exists()
     {
@@ -427,18 +472,46 @@ pub fn load_or_benchmark_ranking(
             return Ok(ranking);
         }
     }
-    Ok(benchmark_sources(expected_urls, probe))
+    Ok(benchmark_sources_with_output(expected_urls, probe, output))
 }
 
 /// Benchmarks sources and returns a sorted ranking.
 pub fn benchmark_sources(expected_urls: &[String], probe: &impl SourceProbe) -> SourceRanking {
+    benchmark_sources_with_output(expected_urls, probe, &crate::NoopOutput)
+}
+
+/// Benchmarks sources and renders multi-line status when terminal output exists.
+pub fn benchmark_sources_with_output(
+    expected_urls: &[String],
+    probe: &impl SourceProbe,
+    output: &(impl OutputSink + ?Sized),
+) -> SourceRanking {
     let mut measured = Vec::new();
     let mut failed = Vec::new();
-    for url in expected_urls {
+    let mut statuses = expected_urls
+        .iter()
+        .map(|url| format!("pending  {url}"))
+        .collect::<Vec<_>>();
+    let mut repaint = output
+        .thread_output()
+        .map(|term| term.log().block_repaint());
+    for (index, url) in expected_urls.iter().enumerate() {
+        statuses[index] = format!("testing  {url}");
+        render_probe_status(&mut repaint, &statuses);
         match probe.measure(url) {
-            Ok(duration) => measured.push((url.clone(), duration)),
-            Err(_) => failed.push(url.clone()),
+            Ok(duration) => {
+                statuses[index] = format!("ok       {:>5} ms  {url}", duration.as_millis());
+                measured.push((url.clone(), duration));
+            }
+            Err(_) => {
+                statuses[index] = format!("failed          {url}");
+                failed.push(url.clone());
+            }
         }
+        render_probe_status(&mut repaint, &statuses);
+    }
+    if let Some(repaint) = &mut repaint {
+        repaint.finish();
     }
     measured.sort_by_key(|(_, duration)| *duration);
     let mut sources = measured
@@ -457,6 +530,16 @@ pub fn benchmark_sources(expected_urls: &[String], probe: &impl SourceProbe) -> 
     SourceRanking {
         sources,
         all_failed_cycles: 0,
+    }
+}
+
+fn render_probe_status(
+    repaint: &mut Option<baas_term::threader::ThreadBlockRepaint>,
+    statuses: &[String],
+) {
+    if let Some(repaint) = repaint {
+        let lines = statuses.iter().map(String::as_str).collect::<Vec<_>>();
+        repaint.render(ThreadLogStyle::Muted, lines);
     }
 }
 
@@ -487,6 +570,34 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
             String::from_utf8_lossy(&output.stderr).trim().to_string(),
         ))
     }
+}
+
+fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
+    let mut callbacks = RemoteCallbacks::new();
+    let term = output.thread_output().cloned();
+    let mut progress: Option<ThreadProgressBar> = None;
+    callbacks.transfer_progress(move |stats| {
+        let total = stats.total_objects() as u64;
+        let received = stats.received_objects() as u64;
+        if total > 0 {
+            if progress.is_none()
+                && let Some(term) = term.clone()
+            {
+                progress = Some(term.progress_bar("git2 transfer", total, 30));
+            }
+            if let Some(progress_bar) = progress.as_mut() {
+                progress_bar.set(received, format!("{received}/{total} objects"));
+                if received >= total {
+                    progress_bar.finish(ThreadLogStyle::Success, "git2 transfer complete");
+                    progress = None;
+                }
+            }
+        }
+        true
+    });
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+    fetch_options
 }
 
 fn cleanup_failed_clone(target: &Path) -> UpdaterResult<()> {
@@ -582,7 +693,13 @@ mod tests {
             Ok("cli-sha".to_string())
         }
 
-        fn clone_git2(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
+        fn clone_git2(
+            &self,
+            url: &str,
+            branch: &str,
+            _target: &Path,
+            _output: &(impl OutputSink + ?Sized),
+        ) -> UpdaterResult<()> {
             self.calls
                 .lock()
                 .unwrap()
@@ -590,7 +707,13 @@ mod tests {
             Ok(())
         }
 
-        fn update_git2(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
+        fn update_git2(
+            &self,
+            url: &str,
+            branch: &str,
+            _target: &Path,
+            _output: &(impl OutputSink + ?Sized),
+        ) -> UpdaterResult<()> {
             self.calls
                 .lock()
                 .unwrap()

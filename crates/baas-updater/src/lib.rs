@@ -215,6 +215,11 @@ pub enum OutputStyle {
 pub trait OutputSink: Send + Sync {
     /// Emits one log line with a style.
     fn line(&self, style: OutputStyle, message: &str);
+
+    /// Returns the underlying `baas-term` thread output when available.
+    fn thread_output(&self) -> Option<&baas_term::threader::ThreadOutput> {
+        None
+    }
 }
 
 /// Output sink that drops all messages.
@@ -225,7 +230,6 @@ impl OutputSink for NoopOutput {
     fn line(&self, _style: OutputStyle, _message: &str) {}
 }
 
-#[cfg(feature = "term-output")]
 impl OutputSink for baas_term::threader::ThreadOutput {
     fn line(&self, style: OutputStyle, message: &str) {
         let mapped = match style {
@@ -236,6 +240,10 @@ impl OutputSink for baas_term::threader::ThreadOutput {
             OutputStyle::Muted => baas_term::threader::ThreadLogStyle::Muted,
         };
         self.log().line(mapped, message);
+    }
+
+    fn thread_output(&self) -> Option<&baas_term::threader::ThreadOutput> {
+        Some(self)
     }
 }
 
