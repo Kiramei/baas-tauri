@@ -1,28 +1,27 @@
-import React, {useState, useMemo} from "react";
-import {useTranslation} from "react-i18next";
-import {toast} from "sonner"
-import {FormInput} from "@/components/ui/FormInput.tsx";
-import {DynamicConfig} from "@/types/dynamic";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {serverMap} from "@/lib/utils.ts";
+import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { FormInput } from "@/components/ui/FormInput.tsx";
+import { DynamicConfig } from "@/types/dynamic";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type WhiteListConfigProps = {
   onClose: () => void;
   profileId?: string;
 };
 
-const WhiteListConfig: React.FC<WhiteListConfigProps> = ({
-                                                           onClose,
-                                                           profileId
-                                                         }) => {
-  const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId!]);
-  const modify = useWebSocketStore(state => state.modify);
-  const server_mode = serverMap[settings.server!]
+const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId }) => {
+  const { t } = useTranslation();
+  const settings: Partial<DynamicConfig> = useWebSocketStore(
+    (state) => state.configStore[profileId!]
+  );
+  const modify = useWebSocketStore((state) => state.modify);
+  const server_mode = serverMap[settings.server!];
 
   const ext = useMemo(() => {
     return {
-      clear_friend_white_list: settings.clear_friend_white_list!
+      clear_friend_white_list: settings.clear_friend_white_list!,
     };
   }, [settings]);
 
@@ -30,7 +29,6 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({
   const [draft, setDraft] = useState(ext);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
 
   const validateCode = (code: string): string | null => {
     let expectedLen = 7;
@@ -63,20 +61,21 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({
       return;
     }
     const newList = [...draft.clear_friend_white_list, code];
-    setDraft((d)=> ({...d, clear_friend_white_list: newList}));
+    setDraft((d) => ({ ...d, clear_friend_white_list: newList }));
   };
 
   const handleDelete = async (code: string) => {
     const newList = draft.clear_friend_white_list.filter((c) => c !== code);
-    setDraft((d)=> ({...d, clear_friend_white_list: newList}));
+    setDraft((d) => ({ ...d, clear_friend_white_list: newList }));
   };
 
   const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {clear_friend_white_list: draft.clear_friend_white_list};
-    modify(`${profileId}::config`, patch)
+    const patch: Partial<DynamicConfig> = {
+      clear_friend_white_list: draft.clear_friend_white_list,
+    };
+    modify(`${profileId}::config`, patch);
     onClose();
-  }
-
+  };
 
   return (
     <div className="space-y-4">

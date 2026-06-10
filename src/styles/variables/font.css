@@ -44,10 +44,10 @@
 }
 
 /* 强化选择器权重 */
-.font-mono, .font-mono * {
+.font-mono,
+.font-mono * {
   font-family: var(--font-mono), monospace !important;
 }
-
 
 /* 默认（非中文、日文） */
 html {

@@ -1,29 +1,31 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import { initI18n } from "@/lib/i18n.ts";
-import { invoke } from "@tauri-apps/api/core";
+import "@xterm/xterm/css/xterm.css";
+import App from "@/App.tsx";
+import { initI18n } from "@/shared/I18nTranslator.ts";
+import { Buffer } from "buffer";
 
-document.addEventListener("DOMContentLoaded", async () => {
+(globalThis as any).Buffer = Buffer;
+
+const closeSplash = async () => {
+  if (!__WITH_TAURI__) return;
   try {
+    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("splash_off");
   } catch (e) {
     console.error("invoke failed:", e);
   }
-});
+};
 
-// window.app.$on("installer://log", (event) => {
-//   console.log("Received log:", event.message);
-// });
-
-async function bootstrap() {
+const bootstrap = async () => {
   await initI18n();
-
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
-}
 
-bootstrap().then(undefined);
+  await closeSplash();
+};
+
+void bootstrap().catch(console.error);

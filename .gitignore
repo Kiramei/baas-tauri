@@ -12,9 +12,11 @@ dist
 dist-ssr
 *.local
 .cache
+target
 
 # Editor directories and files
-.vscode
+.vscode/*
+!.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
@@ -23,5 +25,3 @@ dist-ssr
 *.sln
 *.sw?
 *.br
-.pnpm-store
-target

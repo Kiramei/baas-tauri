@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import {startTransition} from "react";
-import {Calendar} from "@/components/ui/calendar";
-import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {FormInput} from "@/components/ui/FormInput";
-import {cn} from "@/lib/utils";
-import {toast} from "sonner";
-import {useTranslation} from "react-i18next";
+import { startTransition } from "react";
+import { Calendar } from "./ui/Calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/Popover";
+import { FormInput } from "@/components/ui/FormInput";
+import { cn } from "@/shared/GlobalUtilities.ts";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface DateTimePickerProps {
   /**
@@ -29,24 +29,24 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   value,
   onChange,
   className,
-  delay = 500
+  delay = 500,
 }) => {
   const [open, setOpen] = React.useState(false);
   const dateObj = value != null ? new Date(value) : null;
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   // Pre-format date and time strings so the inputs remain controlled even with null values.
   const dateStr = dateObj
     ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-${String(
-      dateObj.getDate()
-    ).padStart(2, "0")}`
+        dateObj.getDate()
+      ).padStart(2, "0")}`
     : "0000-00-00";
 
   const timeStr = dateObj
     ? `${String(dateObj.getHours()).padStart(2, "0")}:${String(dateObj.getMinutes()).padStart(
-      2,
-      "0"
-    )}:${String(dateObj.getSeconds()).padStart(2, "0")}`
+        2,
+        "0"
+      )}:${String(dateObj.getSeconds()).padStart(2, "0")}`
     : "00:00:00";
 
   // Maintain the time input locally so we can debounce the write-back.
@@ -55,9 +55,10 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   React.useEffect(() => {
     if (dateObj) {
       setLocalTime(
-        `${String(dateObj.getHours()).padStart(2, "0")}:${String(
-          dateObj.getMinutes()
-        ).padStart(2, "0")}:${String(dateObj.getSeconds()).padStart(2, "0")}`
+        `${String(dateObj.getHours()).padStart(2, "0")}:${String(dateObj.getMinutes()).padStart(
+          2,
+          "0"
+        )}:${String(dateObj.getSeconds()).padStart(2, "0")}`
       );
     }
   }, [value]);
@@ -65,50 +66,51 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   // Shared timeout handle for debounced time updates.
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const handleDateSelect = React.useCallback((selected?: Date) => {
-    if (!selected) {
-      onChange(null);
-      return;
-    }
+  const handleDateSelect = React.useCallback(
+    (selected?: Date) => {
+      if (!selected) {
+        onChange(null);
+        return;
+      }
 
-    const newDate = dateObj ?? new Date();
-    newDate.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-    startTransition(() => {
-      onChange(newDate.getTime());
-      setOpen(false);
-    });
-    toast(t("toast.dateUpdated"), {
-      description: newDate.toLocaleString()
-    });
-  }, [dateObj, onChange, t]);
-
-  const handleTimeInput = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const val = event.target.value;
-    setLocalTime(val);
-
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      const [h, m, s] = val.split(":").map((piece) => parseInt(piece, 10));
       const newDate = dateObj ?? new Date();
-      newDate.setHours(h || 0, m || 0, s || 0);
-
+      newDate.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
       startTransition(() => {
         onChange(newDate.getTime());
+        setOpen(false);
       });
+      toast(t("toast.dateUpdated"), {
+        description: newDate.toLocaleString(),
+      });
+    },
+    [dateObj, onChange, t]
+  );
 
-      toast.success(t("toast.timeUpdated"), {
-        description: newDate.toLocaleString()
-      });
-    }, delay);
-  }, [dateObj, delay, onChange, t]);
+  const handleTimeInput = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const val = event.target.value;
+      setLocalTime(val);
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        const [h, m, s] = val.split(":").map((piece) => parseInt(piece, 10));
+        const newDate = dateObj ?? new Date();
+        newDate.setHours(h || 0, m || 0, s || 0);
+
+        startTransition(() => {
+          onChange(newDate.getTime());
+        });
+
+        toast.success(t("toast.timeUpdated"), {
+          description: newDate.toLocaleString(),
+        });
+      }, delay);
+    },
+    [dateObj, delay, onChange, t]
+  );
 
   return (
-    <div
-      className={cn(
-        "flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8",
-        className
-      )}
-    >
+    <div className={cn("flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8", className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <FormInput

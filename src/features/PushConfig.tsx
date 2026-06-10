@@ -1,9 +1,9 @@
-import React, {useMemo, useState} from "react";
+import React, { useMemo, useState } from "react";
 import SwitchButton from "@/components/ui/SwitchButton";
-import {FormInput} from "@/components/ui/FormInput";
-import {useTranslation} from "react-i18next";
-import {DynamicConfig} from "@/types/dynamic";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
+import { FormInput } from "@/components/ui/FormInput";
+import { useTranslation } from "react-i18next";
+import { DynamicConfig } from "@/types/dynamic";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
 
 type PushConfigProps = {
   profileId: string;
@@ -17,20 +17,19 @@ interface Draft {
   push_serverchan: string;
 }
 
-const PushConfig: React.FC<PushConfigProps> = ({
-                                                 profileId,
-                                                 onClose
-                                               }) => {
-  const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
-  const modify = useWebSocketStore(state => state.modify);
+const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
+  const { t } = useTranslation();
+  const settings: Partial<DynamicConfig> = useWebSocketStore(
+    (state) => state.configStore[profileId]
+  );
+  const modify = useWebSocketStore((state) => state.modify);
 
   const ext = useMemo(() => {
     return {
       push_json: settings.push_json,
       push_serverchan: settings.push_serverchan,
       push_after_error: settings.push_after_error,
-      push_after_completion: settings.push_after_completion
+      push_after_completion: settings.push_after_completion,
     } as Draft;
   }, [settings]);
 
@@ -40,9 +39,9 @@ const PushConfig: React.FC<PushConfigProps> = ({
 
   const handleChange =
     <K extends keyof Draft>(key: K) =>
-      (value: Draft[K]) => {
-        setDraft((prev) => ({...prev, [key]: value}));
-      };
+    (value: Draft[K]) => {
+      setDraft((prev) => ({ ...prev, [key]: value }));
+    };
 
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
@@ -56,7 +55,7 @@ const PushConfig: React.FC<PushConfigProps> = ({
       onClose();
       return;
     }
-    modify(`${profileId}::config`, patch)
+    modify(`${profileId}::config`, patch);
 
     onClose();
   };

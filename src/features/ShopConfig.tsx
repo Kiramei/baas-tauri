@@ -1,18 +1,13 @@
-import React, {useState, useMemo, useEffect} from "react";
-import {useTranslation} from "react-i18next";
-import {EllipsisWithTooltip} from "@/components/ui/etooltip.tsx";
+import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { EllipsisWithTooltip } from "../components/ui/ETooltip.tsx";
 
 // shadcn tabs
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
-import {FormInput} from "@/components/ui/FormInput.tsx";
-import {DynamicConfig} from "@/types/dynamic";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {serverMap} from "@/lib/utils.ts";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/Tabs";
+import { FormInput } from "@/components/ui/FormInput.tsx";
+import { DynamicConfig } from "@/types/dynamic";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type TabKey = "common" | "tactical";
 
@@ -24,26 +19,24 @@ interface Draft {
 }
 
 const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
-                                                                            profileId,
-                                                                            onClose,
-                                                                          }) => {
-  const {t} = useTranslation();
+  profileId,
+  onClose,
+}) => {
+  const { t } = useTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
   const settings: Partial<DynamicConfig> = useWebSocketStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore(state => state.modify);
+  const modify = useWebSocketStore((state) => state.modify);
 
   const serverType = serverMap[settings.server!];
 
-  const _default_goods_ =
-    staticConfig.common_shop_price_list[serverType] as Array<
-      [string, number, string]
-    >;
-  const _default_tactical_shop_goods_ =
-    staticConfig.tactical_challenge_shop_price_list[serverType] as Array<
-      [string, number, string]
-    >;
+  const _default_goods_ = staticConfig.common_shop_price_list[serverType] as Array<
+    [string, number, string]
+  >;
+  const _default_tactical_shop_goods_ = staticConfig.tactical_challenge_shop_price_list[
+    serverType
+  ] as Array<[string, number, string]>;
 
   const shopDefs = {
     common: {
@@ -65,15 +58,11 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   /** ext = Snapshot */
   const ext = useMemo(() => {
     return {
-      CommonShopList:
-        settings.CommonShopList ||
-        Array(shopDefs.common.defaultGoods.length).fill(0),
+      CommonShopList: settings.CommonShopList || Array(shopDefs.common.defaultGoods.length).fill(0),
       CommonShopRefreshTime: settings.CommonShopRefreshTime ?? 0,
       TacticalChallengeShopList:
-        settings.TacticalChallengeShopList ||
-        Array(shopDefs.tactical.defaultGoods.length).fill(0),
-      TacticalChallengeShopRefreshTime:
-        settings.TacticalChallengeShopRefreshTime ?? 0,
+        settings.TacticalChallengeShopList || Array(shopDefs.tactical.defaultGoods.length).fill(0),
+      TacticalChallengeShopRefreshTime: settings.TacticalChallengeShopRefreshTime ?? 0,
     };
   }, [settings]);
 
@@ -91,12 +80,11 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   /** 切换商品启用/禁用 */
   const toggleItem = (tab: TabKey, i: number) => {
     setDraft((d) => {
-      const list =
-        tab === "common" ? [...d.CommonShopList] : [...d.TacticalChallengeShopList];
+      const list = tab === "common" ? [...d.CommonShopList] : [...d.TacticalChallengeShopList];
       list[i] = list[i] === 1 ? 0 : 1;
       return tab === "common"
-        ? {...d, CommonShopList: list}
-        : {...d, TacticalChallengeShopList: list};
+        ? { ...d, CommonShopList: list }
+        : { ...d, TacticalChallengeShopList: list };
     });
   };
 
@@ -106,8 +94,8 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
     if (raw === "") {
       setDraft((d) =>
         tab === "common"
-          ? {...d, CommonShopRefreshTime: ""}
-          : {...d, TacticalChallengeShopRefreshTime: ""}
+          ? { ...d, CommonShopRefreshTime: "" }
+          : { ...d, TacticalChallengeShopRefreshTime: "" }
       );
       return;
     }
@@ -115,8 +103,8 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
     if (Number.isFinite(n)) {
       setDraft((d) =>
         tab === "common"
-          ? {...d, CommonShopRefreshTime: Math.max(0, Math.min(n, 5))}
-          : {...d, TacticalChallengeShopRefreshTime: Math.max(0, Math.min(n, 5))}
+          ? { ...d, CommonShopRefreshTime: Math.max(0, Math.min(n, 5)) }
+          : { ...d, TacticalChallengeShopRefreshTime: Math.max(0, Math.min(n, 5)) }
       );
     }
   };
@@ -133,7 +121,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
         patch[k] = draft[k] as any;
       }
     });
-    modify(`${profileId}::config`, patch)
+    modify(`${profileId}::config`, patch);
 
     onClose();
   };
@@ -182,9 +170,9 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
               <div className="max-h-[40vh] overflow-y-auto pr-1 grid grid-cols-2 gap-1">
                 {def.defaultGoods.map(([nameKey, price, coin], i) => {
                   const enabled =
-                    (tab === "common"
-                      ? draft.CommonShopList
-                      : draft.TacticalChallengeShopList)[i] === 1;
+                    (tab === "common" ? draft.CommonShopList : draft.TacticalChallengeShopList)[
+                      i
+                    ] === 1;
                   const priceText =
                     coin === "creditpoints"
                       ? `${price} ${t("creditpoints")}`
@@ -201,12 +189,10 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                       onClick={() => toggleItem(tab, i)}
                     >
                       <div>
-                        <EllipsisWithTooltip text={nameKey}/>
+                        <EllipsisWithTooltip text={nameKey} />
                         <div
                           className={`text-sm ${
-                            enabled
-                              ? "text-slate-200"
-                              : "text-slate-500 dark:text-slate-400"
+                            enabled ? "text-slate-200" : "text-slate-500 dark:text-slate-400"
                           }`}
                         >
                           {priceText}

@@ -1,10 +1,10 @@
-import React, {useMemo, useState} from "react";
-import {useTranslation} from "react-i18next";
-import {FormSelect} from "@/components/ui/FormSelect.tsx";
-import {FormInput} from "@/components/ui/FormInput.tsx";
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { FormInput } from "@/components/ui/FormInput.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {DynamicConfig} from "@/types/dynamic";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { DynamicConfig } from "@/types/dynamic";
 
 type ScriptConfigProps = {
   profileId: string;
@@ -19,21 +19,18 @@ interface Draft {
   control_method: string;
 }
 
-const ScriptConfig: React.FC<ScriptConfigProps> = ({
-                                                     profileId,
-                                                     onClose
-                                                   }) => {
-  const {t} = useTranslation();
-  const staticConfig = useWebSocketStore(state => state.staticStore);
-  const settings = useWebSocketStore(state => state.configStore[profileId]);
-  const modify = useWebSocketStore(state => state.modify);
+const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
+  const { t } = useTranslation();
+  const staticConfig = useWebSocketStore((state) => state.staticStore);
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const modify = useWebSocketStore((state) => state.modify);
 
   const thenOptions = [
     [t("script.doNothing"), "无动作"],
     [t("script.exitBaas"), "退出 Baas"],
     [t("script.exitEmu"), "退出 模拟器"],
     [t("script.exitBoth"), "退出 Baas 和 模拟器"],
-    [t("script.shutdown"), "关机"]
+    [t("script.shutdown"), "关机"],
   ];
 
   const ext = useMemo(() => {
@@ -42,7 +39,7 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({
       autostart: settings.autostart,
       then: settings.then,
       screenshot_method: settings.screenshot_method,
-      control_method: settings.control_method
+      control_method: settings.control_method,
     } as Draft;
   }, [settings]);
 
@@ -50,11 +47,9 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
-  const handleChange =
-    (key: keyof Draft) =>
-      (value: string | boolean) => {
-        setDraft((prev) => ({...prev, [key]: value as any}));
-      };
+  const handleChange = (key: keyof Draft) => (value: string | boolean) => {
+    setDraft((prev) => ({ ...prev, [key]: value as any }));
+  };
 
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
@@ -68,7 +63,7 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({
       onClose();
       return;
     }
-    modify(`${profileId}::config`, patch)
+    modify(`${profileId}::config`, patch);
 
     onClose();
   };
@@ -80,9 +75,7 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({
         type="number"
         label={t("script.screenshotInterval")}
         value={draft.screenshot_interval}
-        onChange={(e) =>
-          handleChange("screenshot_interval")(e.target.value)
-        }
+        onChange={(e) => handleChange("screenshot_interval")(e.target.value)}
         placeholder="1.0"
         min={0.1}
         step={0.1}

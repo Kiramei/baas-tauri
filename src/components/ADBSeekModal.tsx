@@ -1,77 +1,73 @@
-import React, {useState} from "react";
-import {useTranslation} from "react-i18next";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import CButton from "@/components/ui/CButton.tsx";
-import {Card} from "@/components/ui/Card";
-import {Modal} from "@/components/ui/Modal";
-import {Loader2, SearchCode} from "lucide-react";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {getTimestampMs} from "@/lib/utils.ts";
+import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
+import { Loader2, SearchCode } from "lucide-react";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 
 type ADBSeekProps = {
   onSelect?: (addr: string) => void;
 };
 
-const ADBSeekModal: React.FC<ADBSeekProps> = ({onSelect}) => {
-  const {t} = useTranslation();
+const ADBSeekModal: React.FC<ADBSeekProps> = ({ onSelect }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
-  const trigger = useWebSocketStore(state => state.trigger)
+  const trigger = useWebSocketStore((state) => state.trigger);
 
   const handleDetect = async () => {
     setLoading(true);
 
-    trigger({
-      timestamp: getTimestampMs(),
-      command: "detect_adb",
-      payload: {}
-    }, (e) => {
-      console.log("detect_adb", e.data.addresses);
-      const addrList = e.data.addresses;
-      if (!addrList || addrList.length === 0) {
-        setResults([]);
-      } else {
-        setResults(addrList);
+    trigger(
+      {
+        timestamp: getTimestampMs(),
+        command: "detect_adb",
+        payload: {},
+      },
+      (e) => {
+        console.log("detect_adb", e.data.addresses);
+        const addrList = e.data.addresses;
+        if (!addrList || addrList.length === 0) {
+          setResults([]);
+        } else {
+          setResults(addrList);
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
   };
 
   return (
     <>
       {/* Trigger button */}
-      <CButton variant="primary" onClick={() => setOpen(true)} style={
-        {
+      <CButton
+        variant="primary"
+        onClick={() => setOpen(true)}
+        style={{
           borderRadius: "50%",
           padding: "8px",
           width: "36px",
-          height: "36px"
-        }
-      }>
-        <SearchCode size={20}/>
+          height: "36px",
+        }}
+      >
+        <SearchCode size={20} />
       </CButton>
 
       {/* Modal */}
-      <Modal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        title={t("adb.title")}
-        width={40}
-      >
+      <Modal isOpen={open} onClose={() => setOpen(false)} title={t("adb.title")} width={40}>
         <div className="space-y-2">
-          <CButton
-            onClick={handleDetect}
-            disabled={loading}
-            className="w-full"
-          >
+          <CButton onClick={handleDetect} disabled={loading} className="w-full">
             {loading ? (
               <div className="flex justify-center items-center">
-                <Loader2 className="animate-spin mr-2 h-4 w-4"/>
+                <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 {t("adb.detecting")}
               </div>
             ) : (
               <div className="flex justify-center items-center">
-                <SearchCode className="mr-2 h-4 w-4"/>
+                <SearchCode className="mr-2 h-4 w-4" />
                 {t("adb.detectBtn")}
               </div>
             )}
@@ -91,9 +87,7 @@ const ADBSeekModal: React.FC<ADBSeekProps> = ({onSelect}) => {
               </Card>
             ))}
             {results.length === 0 && !loading && (
-              <p className="text-sm text-slate-500">
-                {t("adb.noData") || "No results found"}
-              </p>
+              <p className="text-sm text-slate-500">{t("adb.noData") || "No results found"}</p>
             )}
           </div>
         </div>

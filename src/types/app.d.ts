@@ -1,11 +1,28 @@
-import {DynamicConfig} from "@/types/dynamic";
-import {Dispatch, SetStateAction} from "react";
-import {PageKey} from "@/App.tsx";
+import { DynamicConfig } from "@/types/dynamic";
+import { Dispatch, SetStateAction } from "react";
+import { PageKey } from "@/App.tsx";
+import {
+  AuthPhase,
+  ControlConnection,
+  ControlSessionBundle,
+  SecureWebSocket,
+} from "@/shared/SecureWebSocket";
 
 export interface ConfigProfile {
   id: string;
   name: string;
   settings: DynamicConfig;
+}
+
+export interface RemoteSettings {
+  streamPlayer: "mse" | "broadway" | "tinyh264" | "webcodecs";
+  enableSafeStream: boolean;
+  maxWidth: number;
+  maxHeight: number;
+  maxFPS: number;
+  bitRate: number;
+  iFrameRate: number;
+  showStatus: boolean;
 }
 
 export interface UISettings {
@@ -14,14 +31,16 @@ export interface UISettings {
   zoomScale: number;
   scrollToEnd: boolean;
   assetsDisplay: boolean;
+  enableBAComet: boolean;
+  remoteSettings: RemoteSettings;
 }
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = "light" | "dark" | "system";
 
 /**
  * Identifiers for each primary application route.
  */
-export type PageKey = 'home' | 'scheduler' | 'configuration' | 'settings' | 'wiki';
+export type PageKey = "home" | "scheduler" | "configuration" | "settings" | "wiki";
 
 export interface ProfileProps {
   profileId?: string;
@@ -43,8 +62,7 @@ export interface WsCallBackDict {
   [key: string]: (message: WsMessageItem) => void;
 }
 
-
-type WsName = "provider" | "sync" | "trigger" | "heartbeat";
+export type WsName = "provider" | "sync" | "trigger" | `remote-${string}`;
 
 export interface LogItem {
   time: string;
@@ -104,14 +122,8 @@ interface WsMessageItem {
   data?: any;
   resource?: string;
   resource_id?: string;
-  "ops"?: SyncOperation;
-  "command"?: string;
-}
-
-interface BaseBackendInterface {
-  baseBackendAddr: string;
-  baseBackendPort: number;
-  serviceSecret: string;
+  ops?: SyncOperation[];
+  command?: string;
 }
 
 interface LogStoreSet {
@@ -127,6 +139,8 @@ interface WebSocketState {
   updateStore: any;
   versionStore: any;
   statusStore: { [id: string]: StatusItem };
+  startAuthFlow: () => Promise<void>;
+  submitPassword: (password: string) => Promise<void>;
   connect: (name: WsName) => Promise<void>;
   disconnect: (name: WsName) => void;
   send: (name: WsName, data: any) => void;
@@ -134,16 +148,23 @@ interface WebSocketState {
   modify: (path: string, value: any, showToast?: boolean) => void;
   patch: (path: string, value: any) => void;
   trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
+  connectRemote: () => Promise<SecureWebSocket>;
   pendingCallbacks: Record<string, (data?: any) => void>;
 
   _all_data_initialized: boolean;
   _heartbeat_time: number;
   _initiating: boolean;
-  _secret: string;
+  _auth_phase: AuthPhase;
+  _auth_error: string | null;
+  _server_initialized: boolean;
+  _server_verified: boolean;
+  _pwd_epoch: number;
+  _control: ControlConnection | null;
+  _session: ControlSessionBundle | null;
 }
 
-interface ConnectionError {
-  reason: string;
-
-  [key: string]: any;
+interface BaseBackendInterface {
+  baseBackendAddr: string;
+  baseBackendPort: number;
+  serviceSecret: string;
 }

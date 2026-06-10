@@ -1,14 +1,16 @@
-import {toast} from "sonner"
-import {create} from "zustand";
-import {SecureWebSocket} from "@/lib/SecureWebSocket";
-import {subscribeWithSelector} from "zustand/middleware";
-import {formatIsoToReadableTime, getBaseUrl, getTimestampMs, isPlainObject,} from "@/lib/utils";
-// import {pause} from "@/lib/utils"
-import {useGlobalLogStore} from "@/store/globalLogStore.ts";
-import {t} from "i18next";
-import {StorageUtil} from "@/lib/storage";
+import { toast } from "sonner";
+import { create } from "zustand";
 import {
-  ConnectionError,
+  ControlConnection,
+  randomUUID,
+  rememberControlSession,
+  SecureWebSocket,
+} from "@/shared/SecureWebSocket";
+import { subscribeWithSelector } from "zustand/middleware";
+import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
+import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
+import { t } from "i18next";
+import {
   LogItem,
   RawLogItem,
   StatusItem,
@@ -16,33 +18,62 @@ import {
   WrappedStatusItem,
   WsCallBackDict,
   WsMessageItem,
-  WsName
+  WsName,
 } from "@/types/app";
+import StorageUtil from "@/shared/StorageManager.ts";
 
+const resolveBase = () => {
+  if (import.meta.env.VITE_BAAS_WS_BASE) {
+    return import.meta.env.VITE_BAAS_WS_BASE as string;
+  }
+  if (typeof window !== "undefined" && window.location.hostname) {
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProtocol}//${window.location.hostname}:8190`;
+  }
+  return "ws://127.0.0.1:8190";
+};
 
-const {appendGlobalLog} = useGlobalLogStore.getState()
+const resolveHttpBase = () => {
+  const wsBase = resolveBase();
+  if (wsBase.startsWith("wss://")) return `https://${wsBase.slice("wss://".length)}`;
+  if (wsBase.startsWith("ws://")) return `http://${wsBase.slice("ws://".length)}`;
+  return wsBase;
+};
+
+const { appendGlobalLog } = useGlobalLogStore.getState();
+
+const resetConnectionStores = (): Partial<WebSocketState> => ({
+  connections: {},
+  pendingCallbacks: {},
+  _all_data_initialized: false,
+  _heartbeat_time: 0,
+  _initiating: false,
+});
+
+const resetDataStores = (): Partial<WebSocketState> => ({
+  ...resetConnectionStores(),
+  logStore: {},
+  configStore: {},
+  staticStore: {},
+  eventStore: {},
+  updateStore: {},
+  statusStore: {},
+  versionStore: {},
+});
 
 const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
-  const {connect} = useWebSocketStore.getState();
+  const { connect } = useWebSocketStore.getState();
 
-  while (true) {
+  while (useWebSocketStore.getState()._auth_phase === "authenticated") {
     try {
       await connect(name);
-      console.log(`[${name}] connected successfully`);
       return;
-    } catch (err) {
-      if ((err as ConnectionError).reason === "Invalid handshake response") {
-        console.error(`[${name}] connect failed, maybe Secret is Incorrect!`, err);
-        useWebSocketStore.setState(state => ({...state, _secret: ""}))
-        StorageUtil.set("SECRET", "")
-      } else {
-        console.error(`[${name}] connect failed, retrying in ${retryInterval}ms`, err);
-      }
+    } catch (error) {
+      console.error(`[${name}] connect failed, retrying in ${retryInterval}ms`, error);
       await new Promise((resolve) => setTimeout(resolve, retryInterval));
     }
   }
-}
-
+};
 
 export const waitFor = <T>(
   get: () => any,
@@ -58,16 +89,13 @@ export const waitFor = <T>(
       return;
     }
 
-    const unsub = subscribe(
-      selector,
-      (val: T) => {
-        if (predicate(val)) {
-          clearTimeout(timer);
-          unsub();
-          resolve();
-        }
+    const unsub = subscribe(selector, (val: T) => {
+      if (predicate(val)) {
+        clearTimeout(timer);
+        unsub();
+        resolve();
       }
-    );
+    });
 
     let timer: any = null;
     if (timeoutMs !== Infinity) {
@@ -77,8 +105,7 @@ export const waitFor = <T>(
       }, timeoutMs);
     }
   });
-}
-
+};
 
 export const waitForNormal = <T>(
   getter: () => T,
@@ -99,18 +126,17 @@ export const waitForNormal = <T>(
           clearInterval(timer);
           reject(new Error("waitFor timeout"));
         }
-      } catch (err) {
+      } catch (error) {
         clearInterval(timer);
-        reject(err);
+        reject(error);
       }
     };
-    // Trigger an immediate evaluation so the caller does not wait for the first interval tick.
+
     check();
     const timer = setInterval(check, intervalMs);
   });
 };
 void waitForNormal;
-
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
@@ -127,23 +153,204 @@ export const useWebSocketStore = create<WebSocketState>()(
     _all_data_initialized: false,
     _heartbeat_time: 0,
     _initiating: false,
-    _secret: "",
+    _auth_phase: "idle",
+    _auth_error: null,
+    _server_initialized: false,
+    _server_verified: false,
+    _pwd_epoch: 0,
+    _control: null,
+    _session: null,
+
+    startAuthFlow: async () => {
+      const phase = get()._auth_phase;
+      if (
+        get()._control ||
+        phase === "control_connecting" ||
+        phase === "server_verified" ||
+        phase === "waiting_password" ||
+        phase === "resuming" ||
+        phase === "initializing" ||
+        phase === "authenticating" ||
+        phase === "authenticated"
+      ) {
+        return;
+      }
+
+      set((state) => ({
+        ...state,
+        _auth_phase: "control_connecting",
+        _auth_error: phase === "revoked" ? state._auth_error : null,
+        _server_verified: false,
+      }));
+
+      try {
+        const control = await ControlConnection.open(`${resolveBase()}/ws/control`);
+        control.onSecureMessage = (payload) => {
+          if (payload.type === "heartbeat") {
+            set((state) => ({ ...state, _heartbeat_time: payload.timestamp }));
+            return;
+          }
+          if (payload.type === "auth_revoked") {
+            const activeControl = get()._control;
+            activeControl?.close();
+            Object.values(get().connections).forEach((connection) => connection?.close());
+            set((state) => ({
+              ...state,
+              ...resetDataStores(),
+              _auth_phase: "revoked",
+              _auth_error:
+                payload.reason === "password_reset"
+                  ? "Password was reset on the server."
+                  : "Password changed. Re-enter the current password.",
+              _server_initialized: true,
+              _server_verified: false,
+              _pwd_epoch: Number(payload.pwd_epoch ?? 0),
+              _control: null,
+              _session: null,
+            }));
+          }
+        };
+
+        control.onClose = () => {
+          if (get()._control !== control) return;
+          if (get()._auth_phase === "authenticated") {
+            Object.values(get().connections).forEach((connection) => connection?.close());
+            set((state) => ({
+              ...state,
+              ...resetConnectionStores(),
+              _auth_phase: "revoked",
+              _auth_error: "Control connection closed. Authenticate again.",
+              _server_initialized: true,
+              _server_verified: false,
+              _control: null,
+              _session: null,
+            }));
+          } else {
+            set((state) => ({
+              ...state,
+              _auth_phase: "idle",
+              _control: null,
+            }));
+          }
+        };
+
+        control.onError = (event) => {
+          console.error("[control] socket error", event);
+        };
+
+        set((state) => ({
+          ...state,
+          _control: control,
+          _server_initialized: control.initialized,
+          _server_verified: true,
+          _pwd_epoch: control.pwdEpoch,
+          _auth_phase: "server_verified",
+        }));
+
+        if (control.initialized) {
+          set((state) => ({ ...state, _auth_phase: "resuming", _auth_error: null }));
+          const session = await control.resumeWithCookie();
+          if (session) {
+            set((state) => ({
+              ...state,
+              ...resetConnectionStores(),
+              _auth_phase: "authenticated",
+              _auth_error: null,
+              _server_initialized: true,
+              _server_verified: true,
+              _pwd_epoch: session.pwdEpoch,
+              _control: control,
+              _session: session,
+            }));
+            return;
+          }
+        }
+
+        set((state) => ({ ...state, _auth_phase: "waiting_password" }));
+      } catch (error) {
+        console.error("[control] failed to connect", error);
+        set((state) => ({
+          ...state,
+          _auth_phase: "idle",
+          _auth_error: error instanceof Error ? error.message : "Failed to verify server identity.",
+          _control: null,
+          _server_verified: false,
+        }));
+      }
+    },
+
+    submitPassword: async (password: string) => {
+      const secret = password.trim();
+      if (!secret) {
+        set((state) => ({
+          ...state,
+          _auth_error: "Password is required.",
+        }));
+        return;
+      }
+
+      let control = get()._control;
+      if (!control) {
+        await get().startAuthFlow();
+        control = get()._control;
+      }
+      if (!control) {
+        throw new Error("Control connection is not ready");
+      }
+
+      set((state) => ({
+        ...state,
+        _auth_phase: control.initialized ? "authenticating" : "initializing",
+        _auth_error: null,
+      }));
+
+      try {
+        const session = await control.authenticate(secret);
+        try {
+          await rememberControlSession(resolveHttpBase(), session);
+        } catch (rememberError) {
+          console.warn("[control] failed to persist remembered session", rememberError);
+        }
+        set((state) => ({
+          ...state,
+          ...resetConnectionStores(),
+          _auth_phase: "authenticated",
+          _auth_error: null,
+          _server_initialized: true,
+          _server_verified: true,
+          _pwd_epoch: session.pwdEpoch,
+          _control: control,
+          _session: session,
+        }));
+      } catch (error) {
+        console.error("[control] authentication failed", error);
+        control.close();
+        set((state) => ({
+          ...state,
+          ...resetDataStores(),
+          _auth_phase: "idle",
+          _auth_error: error instanceof Error ? error.message : "Authentication failed.",
+          _server_verified: false,
+          _control: null,
+          _session: null,
+        }));
+      }
+    },
 
     connect: async (name: WsName) => {
       if (get().connections[name]) return;
-
-      const addr = StorageUtil.get("baseBackendAddr");
-      const port = StorageUtil.get("baseBackendPort");
-      const BASE = getBaseUrl(addr, port);
+      const session = get()._session;
+      if (!session) {
+        throw new Error("No authenticated session is available");
+      }
 
       let url = "";
-      if (name === "provider") url = `${BASE}/ws/provider`;
-      if (name === "sync") url = `${BASE}/ws/sync`;
-      if (name === "trigger") url = `${BASE}/ws/trigger`;
-      if (name === "heartbeat") url = `${BASE}/ws/heartbeat`;
+      if (name === "provider") url = `${resolveBase()}/ws/provider`;
+      if (name === "sync") url = `${resolveBase()}/ws/sync`;
+      if (name === "trigger") url = `${resolveBase()}/ws/trigger`;
 
       const resourceCallBack: WsCallBackDict = {
-        "config": (message: WsMessageItem) => {
+        config: (message: WsMessageItem) => {
           set((state) => ({
             configStore: {
               ...state.configStore,
@@ -151,7 +358,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
         },
-        "event": (message: WsMessageItem) => {
+        event: (message: WsMessageItem) => {
           set((state) => ({
             eventStore: {
               ...state.eventStore,
@@ -159,13 +366,13 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
         },
-        "static": (message: WsMessageItem) => {
-          set((_) => ({
+        static: (message: WsMessageItem) => {
+          set(() => ({
             staticStore: message.data,
           }));
         },
-        "setup_toml": (message: WsMessageItem) => {
-          set((_) => ({
+        setup_toml: (message: WsMessageItem) => {
+          set(() => ({
             updateStore: message.data,
           }));
         },
@@ -186,14 +393,14 @@ export const useWebSocketStore = create<WebSocketState>()(
                 .map((id: string) => [id, []])
             );
 
-            const log_added = Object.fromEntries(
+            const log_added: { [key: string]: LogItem[] } = Object.fromEntries(
               message.data
                 .map((id: string) => {
                   const key = `config:${id}`;
                   if (key in state.logStore) return null;
                   return [key, []];
                 })
-                .filter((x: any): x is [string, LogItem[]] => Boolean(x))
+                .filter((item: any): item is [string, LogItem[]] => Boolean(item))
             );
 
             const status_added = Object.fromEntries(
@@ -205,105 +412,102 @@ export const useWebSocketStore = create<WebSocketState>()(
             const config_kept = Object.fromEntries(
               Object.entries(state.configStore).filter(([id]) => message.data.includes(id))
             );
-
             const event_kept = Object.fromEntries(
               Object.entries(state.eventStore).filter(([id]) => message.data.includes(id))
             );
-
             const log_kept = Object.fromEntries(
               Object.entries(state.logStore).filter(([key]) =>
                 message.data.some((id: string) => key === `config:${id}`)
               )
             );
-
             const status_kept = Object.fromEntries(
               Object.entries(state.statusStore).filter(([id]) => message.data.includes(id))
             );
 
             return {
-              configStore: {...config_kept, ...config_added},
-              eventStore: {...event_kept, ...event_added},
-              logStore: {...log_kept, ...log_added},
-              statusStore: {...status_kept, ...status_added},
+              configStore: { ...config_kept, ...config_added },
+              eventStore: { ...event_kept, ...event_added },
+              logStore: { ...log_kept, ...log_added },
+              statusStore: { ...status_kept, ...status_added },
             };
           });
         },
 
         "snapshot": (message: WsMessageItem) => {
-          resourceCallBack[message.resource!](message);
+          resourceCallBack[message.resource!]?.(message);
         },
 
         "logs_full": (message: WsMessageItem) => {
-          const scopes = message.scopes;
-          const log_added: { [key: string]: LogItem[] } = Object.fromEntries(scopes!.map((id) => [id, []]));
-          const entries = message.entries;
-          entries!.forEach((e: RawLogItem) => {
+          const scopes = message.scopes ?? [];
+          const log_added: { [key: string]: LogItem[] } = Object.fromEntries(
+            scopes.map((id) => [id, []])
+          );
+          message.entries?.forEach((entry: RawLogItem) => {
             const info = {
-              time: e.time,
-              level: e.level,
-              message: e.message
-            }
-            log_added[e.scope].push(info)
-            if (e.scope == 'global') appendGlobalLog({...info, time: formatIsoToReadableTime(info.time)})
-          })
-          set(_ => {
-            return {logStore: log_added}
-          })
+              time: entry.time,
+              level: entry.level,
+              message: entry.message,
+            };
+            log_added[entry.scope].push(info);
+            if (entry.scope === "global") appendGlobalLog(info);
+          });
+          set(() => ({ logStore: log_added }));
         },
-        "log": (message: WsMessageItem) => {
-          const data = message.entry;
-          const info = {
-            time: data!.time,
-            level: data!.level,
-            message: data!.message,
-          };
 
+        "log": (message: WsMessageItem) => {
+          const entry = message.entry!;
+          const info = {
+            time: entry.time,
+            level: entry.level,
+            message: entry.message,
+          };
           set((state) => {
-            const prevLogs = state.logStore[data!.scope] ?? [];
+            const prevLogs = state.logStore[entry.scope] ?? [];
             return {
               logStore: {
                 ...state.logStore,
-                [data!.scope]: [...prevLogs, info], // Preserve existing log history while appending the new item.
+                [entry.scope]: [...prevLogs, info],
               },
             };
           });
-          if (data!.scope == 'global') appendGlobalLog({...info, time: formatIsoToReadableTime(info.time)})
+          if (entry.scope === "global") appendGlobalLog(info);
         },
+
         "status": (message: WsMessageItem) => {
           const data = message.status;
-          if (typeof data === "string") return
-          if ("is_all_data_initialized" in data!) {
-            set(state => ({...state, _all_data_initialized: true}));
+          if (typeof data === "string" || !data) return;
+          if ("is_all_data_initialized" in data) {
+            set((state) => ({ ...state, _all_data_initialized: true }));
           } else {
-            let k0 = Object.keys(data!)[0];
-            if (typeof data![k0] === "object" && "config_id" in data![k0]) {
-              Object.keys(data!).forEach((key) => {
-                set(state => ({
+            const firstKey = Object.keys(data)[0];
+            if (typeof data[firstKey] === "object" && "config_id" in data[firstKey]) {
+              Object.keys(data).forEach((key) => {
+                set((state) => ({
                   statusStore: {
                     ...state.statusStore,
                     [key]: {
                       ...(state.statusStore[key] ?? {}),
-                      ...(data![key] as StatusItem)
-                    }
-                  }
+                      ...(data[key] as StatusItem),
+                    },
+                  },
                 }));
               });
             } else {
-              set(state => ({
+              set((state) => ({
                 statusStore: {
                   ...state.statusStore,
-                  [(data as StatusItem).config_id!]: (data as WrappedStatusItem).status
-                }
+                  [(data as StatusItem).config_id!]: (data as WrappedStatusItem).status,
+                },
               }));
             }
           }
         },
-        "command_response": (message: WsMessageItem) => {
-          const {timestamp, command, data, status} = message;
 
-          const cb = get().pendingCallbacks[timestamp!];
-          if (cb) {
-            cb({command, data, status});
+        "command_response": (message: WsMessageItem) => {
+          const { timestamp, command, data, status } = message;
+          const callback = get().pendingCallbacks[timestamp!];
+          if (callback) {
+            callback({ command, data, status });
             delete get().pendingCallbacks[timestamp!];
           } else {
             console.warn("CallBack Not Found:", message);
@@ -314,204 +518,206 @@ export const useWebSocketStore = create<WebSocketState>()(
           const ops = message.ops;
           const resource = message.resource;
           if (resource === "gui") return;
-          const resource_id = message.resource_id ?? null;
-          if (!resource_id) return;
+          const resourceId = message.resource_id ?? null;
+          if (!resourceId || !Array.isArray(ops)) return;
 
-          if (Array.isArray(ops)) {
-            ops.forEach((op) => {
-              if (op.op === "add") {
-                get().send("sync", {type: "list"});
-                const prev_len = Object.keys(get().configStore).length
-                waitFor(
-                  get,
-                  api.subscribe,
-                  (s: WebSocketState) => Object.keys(s.configStore).length,
-                  (len) => len === prev_len + 1
-                ).then(() => {
-                  get().send("sync", {type: "pull", resource: "config", resource_id: resource_id});
-                  get().send("sync", {type: "pull", resource: "event", resource_id: resource_id});
-                })
-              }
-              if (op.op === "remove") {
-                get().send("sync", {type: "list"});
-              } else {
-                const path = `${resource_id}::${resource}${op.path}`;
-                let value = op.value;
-                get().patch(path, value);
-              }
-            });
-          } else {
-            console.error("Invalid patch message:", message);
-          }
+          ops.forEach((op) => {
+            if (op.op === "add") {
+              get().send("sync", { type: "list" });
+              const prevLength = Object.keys(get().configStore).length;
+              waitFor(
+                get,
+                api.subscribe,
+                (state: WebSocketState) => Object.keys(state.configStore).length,
+                (length) => length === prevLength + 1
+              ).then(() => {
+                get().send("sync", { type: "pull", resource: "config", resource_id: resourceId });
+                get().send("sync", { type: "pull", resource: "event", resource_id: resourceId });
+              });
+            }
+            if (op.op === "remove") {
+              get().send("sync", { type: "list" });
+            } else {
+              const path = `${resourceId}::${resource}${op.path}`;
+              get().patch(path, op.value);
+            }
+          });
         },
 
         "patch_ack": (message: WsMessageItem) => {
-          const {timestamp} = message;
-          const cb = get().pendingCallbacks[timestamp!];
-          if (cb) {
-            cb();
-            delete get().pendingCallbacks[timestamp!];
+          const callback = get().pendingCallbacks[message.timestamp!];
+          if (callback) {
+            callback();
+            delete get().pendingCallbacks[message.timestamp!];
           } else {
             console.warn("CallBack Not Found:", message);
           }
         },
-
-        "heartbeat": (message: WsMessageItem) => {
-          const {timestamp} = message;
-          set(state => ({...state, _heartbeat_time: timestamp}));
-        }
       };
 
-      set(state => ({...state, _secret: StorageUtil.get("SECRET")}))
-
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => s._secret,
-        (s: string) => s !== ""
-      )
-
-      StorageUtil.set("SECRET", get()._secret);
-
-      const ws = new SecureWebSocket(url, get()._secret, name);
-      await ws.connect((msg) => {
-        try {
-          const message = JSON.parse(msg) as WsMessageItem;
-          callbackDict[message.type]?.(message);
-        } catch (err) {
-          console.error("Message parse error:", err, msg);
-        }
+      const ws = new SecureWebSocket(url, name, session, "arraybuffer");
+      await ws.connect((message: any) => {
+        callbackDict[message.type]?.(message as WsMessageItem);
       });
 
       ws.onClose = () => {
         set((state) => {
-          const next = {...state.connections};
+          const next = { ...state.connections };
           delete next[name];
-          return {connections: next};
+          return { connections: next };
         });
       };
 
-      ws.onError = (e) => console.error("Socket error:", e);
+      ws.onError = (event) => console.error("Socket error:", event);
 
       set((state) => ({
-        connections: {...state.connections, [name]: ws},
+        connections: {
+          ...state.connections,
+          [name]: ws,
+        },
       }));
     },
 
+    connectRemote: async (): Promise<SecureWebSocket> => {
+      const session = get()._session;
+      if (!session) {
+        throw new Error("No authenticated session is available");
+      }
+      const unique = randomUUID();
+      const name = `remote-${unique}` as `remote-${string}`;
+      const ws = new SecureWebSocket(`${resolveBase()}/ws/remote`, name, session, "arraybuffer");
+
+      ws.hookClose = () => {
+        set((state) => {
+          const next = { ...state.connections };
+          delete next[name];
+          return { connections: next };
+        });
+      };
+
+      set((state) => ({
+        connections: {
+          ...state.connections,
+          [name]: ws,
+        },
+      }));
+
+      return ws;
+    },
 
     disconnect: (name: WsName) => {
       const conn = get().connections[name];
       if (conn) {
-        (conn as any).ws?.close();
+        conn.close();
         set((state) => {
-          const next = {...state.connections};
+          const next = { ...state.connections };
           delete next[name];
-          return {connections: next};
+          return { connections: next };
         });
       }
     },
 
     send: (name: WsName, data: any) => {
       const conn = get().connections[name];
-      if (conn) conn.sendJson(data);
+      conn?.sendJson(data);
     },
 
     init: async () => {
-      if (get()._initiating) return;
-      set(state => ({...state, _initiating: true}));
+      if (get()._initiating || get()._all_data_initialized) return;
+      if (get()._auth_phase !== "authenticated") return;
 
-      await StorageUtil.init()
+      set((state) => ({ ...state, _initiating: true }));
 
-      await connectWithRetry("heartbeat");
+      await StorageUtil.init();
 
-      await connectWithRetry("provider")
+      try {
+        await connectWithRetry("provider");
+        await connectWithRetry("sync");
 
-      await connectWithRetry("sync")
+        get().send("sync", { type: "pull", resource: "static" });
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => Object.keys(state.staticStore).length,
+          (length) => length > 0
+        );
 
-      get().send("sync", {type: "pull", resource: "static"});
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => Object.keys(s.staticStore).length,
-        (len) => len > 0
-      );
+        get().send("sync", { type: "pull", resource: "setup_toml", resource_id: "global" });
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => Object.keys(state.updateStore).length,
+          (length) => length > 0
+        );
 
-      get().send("sync", {type: "pull", resource: "setup_toml", resource_id: "global"});
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => Object.keys(s.updateStore).length,
-        (len) => len > 0
-      );
+        get().send("sync", { type: "list" });
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => Object.keys(state.configStore).length,
+          (length) => length > 0
+        );
 
-      get().send("sync", {type: "list"});
+        Object.keys(get().configStore).forEach((key: string) => {
+          get().send("sync", { type: "pull", resource: "config", resource_id: key });
+        });
 
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => Object.keys(s.configStore).length,
-        (len) => len > 0
-      );
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => Object.keys(state.eventStore).length,
+          (length) => length > 0
+        );
 
-      Object.keys(get().configStore).forEach((key: string) => {
-        get().send("sync", {type: "pull", resource: "config", resource_id: key});
-      });
+        Object.keys(get().configStore).forEach((key: string) => {
+          get().send("sync", { type: "pull", resource: "event", resource_id: key });
+        });
 
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => Object.keys(s.eventStore).length,
-        (len) => len > 0
-      );
+        await connectWithRetry("trigger");
 
-      Object.keys(get().configStore).forEach((key: string) => {
-        get().send("sync", {type: "pull", resource: "event", resource_id: key});
-      });
-
-      await connectWithRetry("trigger");
-
-      get().trigger({
-        timestamp: getTimestampMs(),
-        command: "check_for_update",
-        payload: {}
-      }, (e) => {
-        set((state) => ({
-          ...state, versionStore: {
-            local: e.data.local,
-            remote: e.data.remote
+        get().trigger(
+          {
+            timestamp: getTimestampMs(),
+            command: "check_for_update",
+            payload: {},
+          },
+          (event) => {
+            // console.log("===============================")
+            // console.log(`${event}`);
+            set((state) => ({
+              ...state,
+              versionStore: {
+                local: event.data.local,
+                remote: event.data.remote,
+              },
+            }));
           }
-        }))
-      });
+        );
 
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => s.versionStore,
-        (versionStore) => Object.keys(versionStore).length > 0
-      );
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => state.versionStore,
+          (versionStore) => Object.keys(versionStore).length > 0
+        );
 
-      await waitFor(
-        get,
-        api.subscribe,
-        (s: WebSocketState) => s._all_data_initialized,
-        (status) => status
-      );
-
-      // Uncomment during deep diagnostics to halt before sync initialization.
-      // await pause(Infinity)
-      // Establish the sync channel once the provider handshake succeeds.
-
-      set(state => ({...state, _initiating: false}));
+        await waitFor(
+          get,
+          api.subscribe,
+          (state: WebSocketState) => state._all_data_initialized,
+          (status) => status
+        );
+      } finally {
+        set((state) => ({ ...state, _initiating: false }));
+      }
     },
 
     patch: (path: string, patch: any) => {
       const [resourceId, scopeRaw] = path.split("::");
       const [scope, ...keys] = scopeRaw.split("/");
 
-      // @ts-ignore
       set((state: WebSocketState) => {
         let storeKey: keyof WebSocketState;
-        // Determine which store should receive the patch.
         switch (scope) {
           case "config":
             storeKey = "configStore";
@@ -530,85 +736,91 @@ export const useWebSocketStore = create<WebSocketState>()(
         const prev = store?.[resourceId] ?? {};
 
         if (!(keys[0] in prev) && patch === undefined) {
-          return; // No mutation required when the existing value is already in sync.
+          return state;
         }
 
-        let base = {...prev};
-        // Apply the patch directly when targeting the root resource.
-        if (keys.length === 0 || (keys.length === 1 && keys[0] === "")) base = patch;
-        else {
-          // Walk the nested path so only the targeted leaf is replaced.
+        let base = { ...prev };
+        if (keys.length === 0 || (keys.length === 1 && keys[0] === "")) {
+          base = patch;
+        } else {
           let current = base;
-          for (let i = 0; i < keys.length - 1; i++) {
-            const key = keys[i];
+          for (let index = 0; index < keys.length - 1; index += 1) {
+            const key = keys[index];
             if (!current[key]) {
               current[key] = {};
             }
             current = current[key];
           }
-
-          const lastKey = keys[keys.length - 1];
-          current[lastKey] = patch;
+          current[keys[keys.length - 1]] = patch;
         }
-        if (resourceId === "global")
+
+        if (resourceId === "global") {
           return {
+            ...state,
             [storeKey]: {
               ...store,
-              ...base
-            }
+              ...base,
+            },
           };
-        else
-          return {
-            [storeKey]: {
-              ...store,
-              [resourceId]: base
-            }
-          };
+        }
+
+        return {
+          ...state,
+          [storeKey]: {
+            ...store,
+            [resourceId]: base,
+          },
+        };
       });
     },
 
-
-    modify: (path: string, patch: any, showToast: boolean = false) => {
+    modify: (path: string, patch: any, showToast = false) => {
       const [resourceId, scope] = path.split("::");
       const timestamp = getTimestampMs();
-      const ops = isPlainObject(patch) ?
-        Object.entries(patch).map(([key, value]) => ({
-          op: "replace",
-          path: `/${key}`,
-          value: value
-        }))
-        :
-        [{
-          op: "replace",
-          path: "/",
-          value: patch
-        }]
+      const ops = isPlainObject(patch)
+        ? Object.entries(patch).map(([key, value]) => ({
+            op: "replace",
+            path: `/${key}`,
+            value,
+          }))
+        : [
+            {
+              op: "replace",
+              path: "/",
+              value: patch,
+            },
+          ];
+
       get().pendingCallbacks[timestamp] = () => {
         if (showToast) {
           toast.success(t("settings.updateSuccess"), {
             description: t("settings.updateSuccessDesc"),
-          })
+          });
         }
       };
+
       get().send("sync", {
         type: "patch",
         resource_id: resourceId,
         resource: scope,
-        timestamp: timestamp,
-        ops: ops
+        timestamp,
+        ops,
       });
     },
 
     trigger: (payload, callback) => {
-      const _timestamp = payload.timestamp || Date.now();
+      const timestamp = payload.timestamp || Date.now();
       if (callback) {
-        get().pendingCallbacks[_timestamp] = callback;
+        get().pendingCallbacks[timestamp] = callback;
       }
+      const normalizedPayload = {
+        ...payload,
+        timestamp,
+      };
       get().send("trigger", {
         type: "command",
-        _timestamp,
-        ...payload,
+        ...normalizedPayload,
       });
-    }
+    },
   }))
 );

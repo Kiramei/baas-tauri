@@ -22,12 +22,12 @@ React 应用由 `App.tsx` 渲染，负责加载 **ThemeProvider**、**AppProvide
 | 模块                  | 功能说明                                                   | 关键文件                                                                      |
 | :------------------ | :----------------------------------------------------- | :------------------------------------------------------------------------ |
 | **Context**         | 在全局共享 UI 设置、当前档案及档案目录。                                 | `contexts/AppContext.tsx`                                                 |
-| **State Stores**    | 使用 Zustand 管理远程状态（配置、事件、状态、日志等）。                       | `store/websocketStore.ts`、`store/globalLogStore.ts`                       |
+| **State Stores**    | 使用 Zustand 管理远程状态（配置、事件、状态、日志等）。                       | `store/WebsocketStore.ts`、`store/GlobalLogStore.ts`                       |
 | **Remote Services** | 封装后端接口，如快捷键持久化、加密 WebSocket 会话等。                       | `services/hotkeyService.ts`、`lib/SecureWebSocket.ts`                      |
 | **Pages**           | 对应路由的页面容器（Home、Scheduler、Configuration、Settings、Wiki）。 | `pages/*.tsx`                                                             |
 | **Feature Forms**   | 模块化配置面板，对应 `DynamicConfig` 的局部操作。                      | `features/*Config.tsx`、`features/DailySweep.tsx`                          |
 | **Shared UI**       | 可复用的界面组件（输入框、选择器、模态框、日志面板等）。                           | `components/ui`、`components/AssetsDisplay.tsx`、`components/Particles.tsx` |
-| **Hooks**           | 包含快捷键控制、主题切换等业务逻辑。                                     | `hooks/useHotkeys.ts`、`hooks/useTheme.tsx`                                |
+| **Hooks**           | 包含快捷键控制、主题切换等业务逻辑。                                     | `hooks/useHotkeys.ts`、`hooks/ThemeProvider.tsx`                                |
 
 ---
 

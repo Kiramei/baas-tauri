@@ -1,7 +1,7 @@
-import React, {useMemo, useState, useCallback, startTransition} from "react";
-import {useTranslation} from "react-i18next";
-import {useApp} from "@/context/AppContext";
-import {Card, CardContent, CardHeader, CardTitle} from "../components/ui/Card";
+import React, { useMemo, useState, useCallback, startTransition } from "react";
+import { useTranslation } from "react-i18next";
+import { useApp } from "@/context/AppContext";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import {
   CheckCircle2,
   Hourglass,
@@ -10,47 +10,45 @@ import {
   ArrowLeft,
   Settings,
   Search,
-  Ban, ArrowUp, ArrowDown,
+  Ban,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
-import {ProfileProps} from "@/types/app";
-import {FormInput} from "@/components/ui/FormInput";
-import {FormSelect} from "@/components/ui/FormSelect";
+import { ProfileProps } from "@/types/app";
+import { FormInput } from "@/components/ui/FormInput";
+import { FormSelect } from "@/components/ui/FormSelect";
 import CButton from "@/components/ui/CButton.tsx";
-import {Separator} from "@/components/ui/separator";
+import { Separator } from "../components/ui/Separator";
 import FeatureSwitchModal from "@/components/FeatureSwitchModal";
-import {DateTimePicker} from "@/components/DateTimePicker.tsx";
-import {EventConfig} from "@/types/event";
-import {EllipsisWithTooltip} from "@/components/ui/etooltip.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
+import { DateTimePicker } from "@/components/DateTimePicker.tsx";
+import { EventConfig } from "@/types/event";
+import { EllipsisWithTooltip } from "../components/ui/ETooltip.tsx";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
 
 const EMPTY_ARRAY: any[] = [];
 
 // Memoized row to keep expensive controls from re-rendering unnecessarily.
-const TaskRow = React.memo(function TaskRow(
-  {
-    task,
-    side,
-    onMove,
-    onEdit,
-    onChangeTime,
-    t,
-  }: {
-    task: EventConfig;
-    side: "left" | "right";
-    onMove: (task: EventConfig, toRight: boolean) => void;
-    onEdit: (task: EventConfig) => void;
-    onChangeTime: (task: EventConfig, ts: number) => void;
-    t: (key: string) => string;
-  }) {
+const TaskRow = React.memo(function TaskRow({
+  task,
+  side,
+  onMove,
+  onEdit,
+  onChangeTime,
+  t,
+}: {
+  task: EventConfig;
+  side: "left" | "right";
+  onMove: (task: EventConfig, toRight: boolean) => void;
+  onEdit: (task: EventConfig) => void;
+  onChangeTime: (task: EventConfig, ts: number) => void;
+  t: (key: string) => string;
+}) {
   return (
-    <div
-      className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
+    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
       {side === "left" ? (
         <>
-          <div className="flex flex-grow min-w-0 overflow-hidden text-ellipsis text-left mr-2">
-            <EllipsisWithTooltip
-              text={t("eventName." + task.func_name)}
-            />
+          <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-left mr-2">
+            <EllipsisWithTooltip text={t("eventName." + task.func_name)} />
           </div>
           <DateTimePicker
             value={task.next_tick * 1000}
@@ -58,33 +56,31 @@ const TaskRow = React.memo(function TaskRow(
             className="hidden xl:flex"
           />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
-            <Settings className="w-4 h-4 translate-x-[-8px]"/>
+            <Settings className="w-4 h-4 -translate-x-2" />
           </CButton>
-          <Separator orientation="vertical" className="!h-8"/>
+          <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onMove(task, true)} className="rounded-[50%] w-8 h-8">
-            <ArrowRight className="w-4 h-4 translate-x-[-8px] max-md:hidden"/>
-            <ArrowDown className="w-4 h-4 translate-x-[-8px] md:hidden"/>
+            <ArrowRight className="w-4 h-4 -translate-x-2 max-md:hidden" />
+            <ArrowDown className="w-4 h-4 -translate-x-2 md:hidden" />
           </CButton>
         </>
       ) : (
         <>
           <CButton onClick={() => onMove(task, false)} className="rounded-[50%] w-8 h-8">
-            <ArrowLeft className="w-4 h-4 translate-x-[-8px] max-md:hidden"/>
-            <ArrowUp className="w-4 h-4 translate-x-[-8px] md:hidden"/>
+            <ArrowLeft className="w-4 h-4 -translate-x-2 max-md:hidden" />
+            <ArrowUp className="w-4 h-4 -translate-x-2 md:hidden" />
           </CButton>
-          <Separator orientation="vertical" className="!h-8"/>
+          <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
-            <Settings className="w-4 h-4 translate-x-[-8px]"/>
+            <Settings className="w-4 h-4 -translate-x-2" />
           </CButton>
           <DateTimePicker
             value={task.next_tick * 1000}
             onChange={(ts) => onChangeTime(task, ts!)}
             className="hidden xl:flex"
           />
-          <div className="flex flex-grow min-w-0 overflow-hidden text-ellipsis text-right mr-2 justify-end">
-            <EllipsisWithTooltip
-              text={t("eventName." + task.func_name)}
-            />
+          <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-right mr-2 justify-end">
+            <EllipsisWithTooltip text={t("eventName." + task.func_name)} />
           </div>
         </>
       )}
@@ -92,9 +88,9 @@ const TaskRow = React.memo(function TaskRow(
   );
 });
 
-const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
-  const {t} = useTranslation();
-  const {profiles, activeProfile} = useApp();
+const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
+  const { t } = useTranslation();
+  const { profiles, activeProfile } = useApp();
 
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
@@ -108,7 +104,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
 
   const runningTask = useWebSocketStore((e) => e.statusStore[profileId!]?.current_task);
   const taskQueue = useWebSocketStore((e) => e.statusStore[profileId!]?.waiting_tasks);
-  const eventConfigs: EventConfig[] = useWebSocketStore((e) => e.eventStore[profileId!] ?? EMPTY_ARRAY);
+  const eventConfigs: EventConfig[] = useWebSocketStore(
+    (e) => e.eventStore[profileId!] ?? EMPTY_ARRAY
+  );
   const modify = useWebSocketStore((e) => e.modify);
 
   const filtered = useMemo(() => {
@@ -127,22 +125,17 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
   const left = filtered.filter((t) => !t.enabled);
   const right = filtered.filter((t) => t.enabled);
 
-  const onUpdate = useCallback(
-    (newConfigs: EventConfig[]) => {
-      modify(`${profileId}::event`, newConfigs);
-    },
-    []
-  );
+  const onUpdate = useCallback((newConfigs: EventConfig[]) => {
+    modify(`${profileId}::event`, newConfigs);
+  }, []);
 
   const handleMoveOne = useCallback(
     (task: EventConfig, toRight: boolean) => {
       startTransition(() => {
         onUpdate(
-          eventConfigs.map((t) =>
-            t.func_name === task.func_name ? {...t, enabled: toRight} : t
-          )
+          eventConfigs.map((t) => (t.func_name === task.func_name ? { ...t, enabled: toRight } : t))
         );
-      })
+      });
     },
     [eventConfigs, onUpdate]
   );
@@ -151,7 +144,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
     (task: EventConfig, ts: number) => {
       onUpdate(
         eventConfigs.map((t) =>
-          t.func_name === task.func_name ? {...t, next_tick: Math.floor(ts / 1000)} : t
+          t.func_name === task.func_name ? { ...t, next_tick: Math.floor(ts / 1000) } : t
         )
       );
     },
@@ -164,47 +157,37 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
 
   const moveAll = (toRight: boolean) => {
     startTransition(() => {
-      onUpdate(eventConfigs.map((t) => ({...t, enabled: toRight})));
+      onUpdate(eventConfigs.map((t) => ({ ...t, enabled: toRight })));
     });
   };
 
   const refreshAll = () => {
     const now = new Date().getTime();
     startTransition(() => {
-      onUpdate(eventConfigs.map((t) => ({...t, next_tick: Math.floor(now / 1000)})));
+      onUpdate(eventConfigs.map((t) => ({ ...t, next_tick: Math.floor(now / 1000) })));
     });
   };
 
   const handleUpdateTask = (updated: EventConfig) => {
-    startTransition(
-      () => {
-        onUpdate(
-          eventConfigs.map((t) =>
-            t.func_name === updated.func_name ? updated : t
-          )
-        );
-        setModalTask(null);
-      }
-    )
+    startTransition(() => {
+      onUpdate(eventConfigs.map((t) => (t.func_name === updated.func_name ? updated : t)));
+      setModalTask(null);
+    });
   };
 
   return (
     <div className="h-full flex flex-col gap-4 min-h-0">
       {/* Page heading with the active profile reference. */}
       <div className="flex">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          {t("scheduler")}
-        </h2>
-        <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">
-          #{profile?.name}
-        </h2>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("scheduler")}</h2>
+        <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
       </div>
 
       <div className="grid grid-cols-1 gap-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Hourglass className="w-5 h-5 mr-2 text-primary-500"/>
+              <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
               {t("taskOverview")}
             </CardTitle>
           </CardHeader>
@@ -218,9 +201,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
                     </span>
                   </div>
                 ) : (
-                  <p className="text-slate-500 dark:text-slate-400">
-                    {t("noTaskRunning")}
-                  </p>
+                  <p className="text-slate-500 dark:text-slate-400">{t("noTaskRunning")}</p>
                 )}
               </div>
               {taskQueue && taskQueue.length > 0 ? (
@@ -245,7 +226,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
       </div>
       {/* Filtering toolbar for quick navigation and sorting. */}
       <div className="flex items-center justify-between gap-2">
-        <Search size={20}/>
+        <Search size={20} />
         <div className="flex-1 bg-white dark:bg-slate-800 rounded-md shadow-sm">
           <FormInput
             placeholder={t("scheduler.search")}
@@ -256,22 +237,16 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-md shadow-sm">
           <FormSelect
-            onChange={(value: string) =>
-              setSortKey(value as "default" | "time")
-            }
+            onChange={(value: string) => setSortKey(value as "default" | "time")}
             value={sortKey}
             options={[
-              {label: t("scheduler.sortDefault"), value: "default"},
-              {label: t("scheduler.sortByTime"), value: "time"},
+              { label: t("scheduler.sortDefault"), value: "default" },
+              { label: t("scheduler.sortByTime"), value: "time" },
             ]}
           />
         </div>
-        <CButton
-          variant="primary"
-          onClick={refreshAll}
-          className="mr-2 rounded-[50%] w-8 h-8"
-        >
-          <RefreshCw className="w-4 h-4 translate-x-[-8px]"/>
+        <CButton variant="primary" onClick={refreshAll} className="mr-2 rounded-[50%] w-8 h-8">
+          <RefreshCw className="w-4 h-4 -translate-x-2" />
         </CButton>
       </div>
       {/* Dual column layout showing inactive and active task queues. */}
@@ -281,18 +256,16 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
           <CardContent className="pr-1 sm:pr-4 flex flex-col flex-1 min-h-0">
             <div className="flex justify-between mb-2">
               <div className="flex items-center">
-                <Ban className="w-5 h-5 mr-2 text-red-500"/>
-                <span className="font-medium">
-                  {t("scheduler.inactiveTasks")}
-                </span>
+                <Ban className="w-5 h-5 mr-2 text-red-500" />
+                <span className="font-medium">{t("scheduler.inactiveTasks")}</span>
               </div>
               <CButton
                 variant="primary"
                 onClick={() => moveAll(true)}
                 className="rounded-[50%] w-8 h-8 mr-4.5"
               >
-                <ArrowRight className="w-4 h-4 translate-x-[-8px] max-md:hidden"/>
-                <ArrowDown className="w-4 h-4 translate-x-[-8px] md:hidden"/>
+                <ArrowRight className="w-4 h-4 -translate-x-2 max-md:hidden" />
+                <ArrowDown className="w-4 h-4 -translate-x-2 md:hidden" />
               </CButton>
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
@@ -319,14 +292,12 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
                 onClick={() => moveAll(false)}
                 className="rounded-[50%] w-8 h-8 ml-2"
               >
-                <ArrowLeft className="w-4 h-4 translate-x-[-8px] max-md:hidden"/>
-                <ArrowUp className="w-4 h-4 translate-x-[-8px] md:hidden"/>
+                <ArrowLeft className="w-4 h-4 -translate-x-2 max-md:hidden" />
+                <ArrowUp className="w-4 h-4 -translate-x-2 md:hidden" />
               </CButton>
               <div className="flex items-center">
-                <span className="font-medium">
-                  {t("scheduler.activeTasks")}
-                </span>
-                <CheckCircle2 className="w-5 h-5 ml-2 text-green-500"/>
+                <span className="font-medium">{t("scheduler.activeTasks")}</span>
+                <CheckCircle2 className="w-5 h-5 ml-2 text-green-500" />
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
@@ -351,11 +322,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
           task={modalTask}
           onClose={() => setModalTask(null)}
           onSave={handleUpdateTask}
-          allTasks={
-            eventConfigs
-              .filter(e => e.func_name != modalTask.func_name)
-              .map((e) => e.func_name)
-          }
+          allTasks={eventConfigs
+            .filter((e) => e.func_name != modalTask.func_name)
+            .map((e) => e.func_name)}
         />
       )}
     </div>
@@ -363,5 +332,3 @@ const SchedulerPage: React.FC<ProfileProps> = ({profileId}) => {
 };
 
 export default SchedulerPage;
-
-
