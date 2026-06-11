@@ -70,6 +70,11 @@ pub struct MirrorLatest {
 }
 
 impl MirrorLatest {
+    /// Returns true when MirrorC reports a successful request.
+    pub fn is_success(&self) -> bool {
+        self.code == 0
+    }
+
     /// Returns true when MirrorC returned a package URL.
     pub fn has_url(&self) -> bool {
         self.download_url.is_some()
@@ -289,7 +294,7 @@ pub struct MirrorUpdateRequest<'a> {
 /// Builds a MirrorC latest URL.
 pub fn mirrorc_latest_url(
     kind: RepositoryKind,
-    channel: UpdateChannel,
+    _channel: UpdateChannel,
     current_version: &str,
     cdk: &str,
 ) -> String {
@@ -299,7 +304,7 @@ pub fn mirrorc_latest_url(
     };
     let mut url = format!(
         "{MIRRORC_BASE_URL}/{app}/latest?channel={}&current_version={}&user_agent={USER_AGENT}&cdk={}",
-        channel.as_str(),
+        "stable",
         current_version,
         cdk
     );
@@ -503,10 +508,14 @@ struct RawLatestData {
 }
 
 fn mirrorc_error(latest: &MirrorLatest) -> UpdaterError {
-    let detail = latest
-        .cdk_state()
-        .map(|state| format!("CDK state: {state:?}"))
-        .unwrap_or_else(|| latest.message.clone());
+    let detail = if latest.message.trim().is_empty() {
+        latest
+            .cdk_state()
+            .map(|state| format!("CDK state: {state:?}"))
+            .unwrap_or_else(|| format!("MirrorC returned code {}", latest.code))
+    } else {
+        latest.message.clone()
+    };
     UpdaterError::MirrorC(format!("MirrorC did not provide a download URL: {detail}"))
 }
 
@@ -629,7 +638,36 @@ mod tests {
         .unwrap();
 
         assert_eq!(latest.cdk_state(), Some(CdkState::Invalid));
-        assert!(mirrorc_error(&latest).message().contains("Invalid"));
+        assert!(mirrorc_error(&latest).message().contains("invalid"));
+    }
+
+    #[test]
+    fn preserves_mirrorc_error_message_when_error_response_has_data() {
+        let latest = parse_latest_response(serde_json::json!({
+            "code": 7001,
+            "msg": "The cdk has expired",
+            "data": {
+                "version_name": "0940d8c3c1e505adabd881038f25862871585a6e",
+                "version_number": 236,
+                "channel": "stable",
+                "os": "",
+                "arch": "",
+                "release_note": "2026-06-10 21:10:15 +0800 0940d8c update : JP activity"
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(latest.cdk_state(), Some(CdkState::Expired));
+        assert_eq!(latest.message, "The cdk has expired");
+        assert_eq!(
+            latest.latest_version_name,
+            Some("0940d8c3c1e505adabd881038f25862871585a6e".to_string())
+        );
+        assert!(
+            mirrorc_error(&latest)
+                .message()
+                .contains("The cdk has expired")
+        );
     }
 
     #[test]

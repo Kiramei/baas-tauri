@@ -1,10 +1,11 @@
 use baas_term::types::SessionMetadata;
 use baas_updater::{
-    RepositoryKind, UpdateChannel, WorkflowOptions,
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{ConfigManager, UpdaterConfig},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
+    RepositoryKind, UpdateChannel, WorkflowOptions,
 };
+use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -79,9 +80,7 @@ pub fn updater_get_startup_state() -> Result<UpdaterStartupState, String> {
 }
 
 #[tauri::command]
-pub fn updater_update_config(
-    request: UpdaterConfigUpdateRequest,
-) -> Result<UpdaterConfig, String> {
+pub fn updater_update_config(request: UpdaterConfigUpdateRequest) -> Result<UpdaterConfig, String> {
     let mut manager = ensure_default_config()?;
     let parsed_channel = match request.channel.as_deref() {
         Some(value) => Some(UpdateChannel::parse(value).map_err(|error| error.message())?),
@@ -130,20 +129,21 @@ pub fn updater_validate_mirrorc_cdk(
         let client = MirrorCClient::new(ReqwestMirrorHttp);
         match client.latest(RepositoryKind::Main, channel, "", &cdk) {
             Ok(latest) => {
-                let success = latest.code == 0;
+                let success = latest.is_success();
+                let expires_at_iso = format_mirrorc_expiry(latest.cdk_expired_time);
+                let message = mirrorc_validation_message(
+                    latest.code,
+                    &latest.message,
+                    expires_at_iso.as_deref(),
+                );
                 MirrorCValidateReport {
                     success,
                     code: Some(latest.code),
-                    message: mirrorc_validation_message(
-                        latest.code,
-                        latest.cdk_expired_time,
-                    ),
-                    mirrorc_message: Some(latest.message),
+                    message,
+                    mirrorc_message: Some(latest.message.clone()),
                     latest_version: latest.latest_version_name,
                     expires_at: latest.cdk_expired_time,
-                    expires_at_iso: latest
-                        .cdk_expired_time
-                        .map(|value| value.to_string()),
+                    expires_at_iso,
                 }
             }
             Err(error) => MirrorCValidateReport {
@@ -257,12 +257,33 @@ fn non_empty_path(value: &str) -> Option<PathBuf> {
     }
 }
 
-fn mirrorc_validation_message(code: i32, expires_at: Option<u64>) -> String {
+fn format_mirrorc_expiry(expires_at: Option<u64>) -> Option<String> {
+    let timestamp = i64::try_from(expires_at?).ok()?;
+    DateTime::<Utc>::from_timestamp(timestamp, 0).map(|datetime| {
+        datetime
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S %:z")
+            .to_string()
+    })
+}
+
+fn mirrorc_validation_message(
+    code: i32,
+    mirrorc_message: &str,
+    expires_at: Option<&str>,
+) -> String {
     match code {
         0 => expires_at
             .map(|timestamp| format!("CDK valid. Expires at {timestamp}."))
-            .unwrap_or_else(|| "CDK valid.".to_string()),
-        7001 => "CDK expired.".to_string(),
+            .unwrap_or_else(|| {
+                if mirrorc_message.trim().is_empty() {
+                    "CDK valid, but MirrorC did not return an expiry time.".to_string()
+                } else {
+                    format!("{mirrorc_message}. MirrorC did not return an expiry time.")
+                }
+            }),
+        _ if !mirrorc_message.trim().is_empty() => mirrorc_message.to_string(),
+        7001 => "The cdk has expired".to_string(),
         7002 => "CDK invalid.".to_string(),
         7003 => "CDK quota exhausted for today.".to_string(),
         7004 => "CDK mismatched for requested resource.".to_string(),
@@ -285,12 +306,24 @@ mod tests {
 
     #[test]
     fn mirrorc_validation_messages_cover_known_codes() {
-        assert!(mirrorc_validation_message(0, Some(1)).contains("valid"));
-        assert!(mirrorc_validation_message(7001, None).contains("expired"));
-        assert!(mirrorc_validation_message(7002, None).contains("invalid"));
-        assert!(mirrorc_validation_message(7003, None).contains("quota"));
-        assert!(mirrorc_validation_message(7004, None).contains("mismatched"));
-        assert!(mirrorc_validation_message(7005, None).contains("blocked"));
+        assert!(
+            mirrorc_validation_message(0, "ok", Some("2026-06-11 12:00:00 +08:00"))
+                .contains("Expires at")
+        );
+        assert_eq!(
+            mirrorc_validation_message(7001, "The cdk has expired", None),
+            "The cdk has expired"
+        );
+        assert!(mirrorc_validation_message(7002, "", None).contains("invalid"));
+        assert!(mirrorc_validation_message(7003, "", None).contains("quota"));
+        assert!(mirrorc_validation_message(7004, "", None).contains("mismatched"));
+        assert!(mirrorc_validation_message(7005, "", None).contains("blocked"));
+    }
+
+    #[test]
+    fn formats_mirrorc_expiry_for_frontend_display() {
+        assert!(format_mirrorc_expiry(Some(1_784_199_615)).is_some());
+        assert_eq!(format_mirrorc_expiry(None), None);
     }
 
     #[test]
