@@ -26,12 +26,12 @@ React 앱은 `App.tsx`를 통해 렌더링됩니다.
 | 모듈명                 | 책임 범위                                                                   | 주요 파일 경로                                                                    |
 | :------------------ | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
 | **Context**         | UI 설정, 활성 프로필, 프로필 카탈로그를 앱 전반에 공유                                       | `contexts/AppContext.tsx`                                                   |
-| **State Stores**    | Zustand 상태 저장소가 원격 상태(config, 이벤트, 상태, 로그)을 정규화                         | `store/websocketStore.ts`, `store/globalLogStore.ts`                        |
+| **State Stores**    | Zustand 상태 저장소가 원격 상태(config, 이벤트, 상태, 로그)을 정규화                         | `store/WebsocketStore.ts`, `store/GlobalLogStore.ts`                        |
 | **Remote Services** | 핫키 지속성, 암호화된 WebSocket 세션 등 백엔드 계약을 캡슐화                                 | `services/hotkeyService.ts`, `lib/SecureWebSocket.ts`                       |
 | **Pages**           | `Home`, `Scheduler`, `Configuration`, `Settings`, `Wiki` 등의 페이지 레벨 컨테이너 | `pages/*.tsx`                                                               |
 | **Feature Forms**   | `DynamicConfig`의 일부를 다루는 구성 패널 모듈                                       | `features/*Config.tsx`, `features/DailySweep.tsx`                           |
 | **Shared UI**       | 재사용 가능한 시각 요소 및 구성 요소 (입력, 선택기, 모달, 로거 등)                               | `components/ui`, `components/AssetsDisplay.tsx`, `components/Particles.tsx` |
-| **Hooks**           | 비즈니스 로직 훅, 핫키 조율, 테마 처리 포함                                              | `hooks/useHotkeys.ts`, `hooks/useTheme.tsx`                                 |
+| **Hooks**           | 비즈니스 로직 훅, 핫키 조율, 테마 처리 포함                                              | `hooks/useHotkeys.ts`, `hooks/ThemeProvider.tsx`                                 |
 
 ---
 

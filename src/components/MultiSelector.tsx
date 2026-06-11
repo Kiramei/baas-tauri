@@ -1,20 +1,20 @@
-import {Reorder} from "framer-motion";
-import {Plus, X} from "lucide-react";
-import React, {useMemo, useState} from "react";
-import {cn} from "@/lib/utils"
-import {Dialog, DialogPanel, DialogTitle} from "@headlessui/react";
-import {useTranslation} from "react-i18next";
-import {LabelWithTooltip} from "@/components/ui/LabelWithTooltip.tsx";
-import {FormInput} from "@/components/ui/FormInput.tsx";
+import { Reorder } from "framer-motion";
+import { Plus, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { cn } from "@/shared/GlobalUtilities.ts";
+import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
+import { useTranslation } from "react-i18next";
+import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
+import { FormInput } from "@/components/ui/FormInput.tsx";
 
 interface MultiSelectorProps {
-  label?: string
-  tooltip?: string
-  values: any[]
-  onChange: (newValues: any[]) => void
-  className?: string
-  alternatives: any[]
-  translatePrefix?: string
+  label?: string;
+  tooltip?: string;
+  values: any[];
+  onChange: (newValues: any[]) => void;
+  className?: string;
+  alternatives: any[];
+  translatePrefix?: string;
 }
 
 interface SelectorModalProps {
@@ -25,45 +25,45 @@ interface SelectorModalProps {
   onChange: (list: string[]) => void;
   lang?: "CN" | "JP" | "Global";
   mode?: "single" | "multiple";
-  translatePrefix?: string
+  translatePrefix?: string;
 }
 
 interface BaseTimeProps {
-  label?: string
-  tooltip?: string
-  className?: string
+  label?: string;
+  tooltip?: string;
+  className?: string;
 }
 
 interface TimeModeProps extends BaseTimeProps {
-  mode?: "time"
-  values: number[][]
-  onChange: (list: number[][]) => void
+  mode?: "time";
+  values: number[][];
+  onChange: (list: number[][]) => void;
 }
 
 interface RangeModeProps extends BaseTimeProps {
-  mode: "range"
-  values: number[][][]
-  onChange: (list: number[][][]) => void
+  mode: "range";
+  values: number[][][];
+  onChange: (list: number[][][]) => void;
 }
 
-
-const SelectorModal: React.FC<SelectorModalProps> = (
-  {
-    isOpen,
-    onClose,
-    alternatives,
-    selected,
-    onChange,
-    translatePrefix,
-  }
-) => {
-  const {t} = useTranslation()
+const SelectorModal: React.FC<SelectorModalProps> = ({
+  isOpen,
+  onClose,
+  alternatives,
+  selected,
+  onChange,
+  translatePrefix,
+}) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      (translatePrefix ? t(translatePrefix + "." + s) : s).toString().toLowerCase().includes(query.toLowerCase())
+      (translatePrefix ? t(translatePrefix + "." + s) : s)
+        .toString()
+        .toLowerCase()
+        .includes(query.toLowerCase())
     );
   }, [query, alternatives]);
 
@@ -77,15 +77,13 @@ const SelectorModal: React.FC<SelectorModalProps> = (
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true"/>
+      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center">
         <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
-            <DialogTitle className="text-lg font-semibold">
-              {t("scheduler.selector")}
-            </DialogTitle>
+            <DialogTitle className="text-lg font-semibold">{t("scheduler.selector")}</DialogTitle>
             <button onClick={onClose}>
-              <X className="w-5 h-5 text-slate-500"/>
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
 
@@ -123,51 +121,46 @@ const SelectorModal: React.FC<SelectorModalProps> = (
   );
 };
 
-
-export const OrderedMultiSelector: React.FC<MultiSelectorProps> = (
-  {
-    label,
-    tooltip,
-    values,
-    onChange,
-    className,
-    alternatives = [],
-    translatePrefix,
-  }
-) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const {t} = useTranslation()
+export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
+  label,
+  tooltip,
+  values,
+  onChange,
+  className,
+  alternatives = [],
+  translatePrefix,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const { t } = useTranslation();
 
   // Remove value from the ordered collection.
   const handleRemove = (name: string) => {
-    onChange(values.filter((n) => n !== name))
-  }
+    onChange(values.filter((n) => n !== name));
+  };
 
   // Apply the new order emitted by the drag-and-drop group.
   const handleReorder = (newOrder: string[]) => {
-    onChange(newOrder)
-  }
+    onChange(newOrder);
+  };
 
   // Open the modal so the user can append new entries.
   const handleAdd = () => {
-    setIsOpen(true)
-  }
+    setIsOpen(true);
+  };
 
   return (
     <>
       <div>
-        {label && (
-          tooltip ?
+        {label &&
+          (tooltip ? (
             <LabelWithTooltip
               className="block text-sm font-medium mb-2"
               label={label}
               tooltip={tooltip}
             />
-            :
-            <label className="block text-sm font-medium mb-2">
-              {label}
-            </label>)
-        }
+          ) : (
+            <label className="block text-sm font-medium mb-2">{label}</label>
+          ))}
 
         <div className={cn("space-y-2", className)}>
           <div className="overflow-x-auto pb-1">
@@ -190,19 +183,20 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = (
                   )}
                 >
                   {/* Index badge */}
-                  <span
-                    className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
+                  <span className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
                     {index + 1}
                   </span>
 
-                  <span className="text-sm">{translatePrefix ? t(translatePrefix + "." + name) : name}</span>
+                  <span className="text-sm">
+                    {translatePrefix ? t(translatePrefix + "." + name) : name}
+                  </span>
 
                   {/* Remove button */}
                   <button
                     onClick={() => handleRemove(name)}
                     className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900 transition"
                   >
-                    <X className="w-3.5 h-3.5"/>
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </Reorder.Item>
               ))}
@@ -217,7 +211,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = (
                   "hover:bg-slate-100 dark:hover:bg-slate-600"
                 )}
               >
-                <Plus className="w-4 h-4"/> {t("add")}
+                <Plus className="w-4 h-4" /> {t("add")}
               </button>
             </Reorder.Group>
           </div>
@@ -236,58 +230,61 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = (
         translatePrefix={translatePrefix}
       />
     </>
-  )
-}
+  );
+};
 
-
-export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
-  {
-    label,
-    tooltip,
-    values,
-    onChange,
-    className,
-    mode = "time",
-  }
-) => {
-  const {t} = useTranslation()
+export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
+  label,
+  tooltip,
+  values,
+  onChange,
+  className,
+  mode = "time",
+}) => {
+  const { t } = useTranslation();
 
   const handleTimeAdd = (): void => {
     if (mode === "time") {
-      const list = values as number[][]
-      onChange([...list, [0, 0, 0]] as any)
+      const list = values as number[][];
+      onChange([...list, [0, 0, 0]] as any);
     }
-  }
+  };
 
   const handleRangeAdd = (): void => {
     if (mode === "range") {
-      const list = values as number[][][]
-      onChange([...list, [[0, 0, 0], [23, 59, 59]]] as any)
+      const list = values as number[][][];
+      onChange([
+        ...list,
+        [
+          [0, 0, 0],
+          [23, 59, 59],
+        ],
+      ] as any);
     }
-  }
+  };
 
   const handleRemove = (index: number): void => {
-    onChange(values.filter((_, i) => i !== index) as any)
-  }
+    onChange(values.filter((_, i) => i !== index) as any);
+  };
 
-  const pad = (n: number) => String(n).padStart(2, "0")
+  const pad = (n: number) => String(n).padStart(2, "0");
 
   const forwardHandler = (value: number[]): string => {
     if (value.length === 2) {
-      return `${pad(value[0])}:${pad(value[1])}`
+      return `${pad(value[0])}:${pad(value[1])}`;
     } else {
-      return `${pad(value[0])}:${pad(value[1])}:${pad(value[2])}`
+      return `${pad(value[0])}:${pad(value[1])}:${pad(value[2])}`;
     }
-  }
+  };
 
   const backwardHandler = (value: string): number[] => {
-    return value.split(":").map((e) => parseInt(e))
-  }
+    return value.split(":").map((e) => parseInt(e));
+  };
 
   return (
     <div>
-      {label && (
-        tooltip ? (
+      {label &&
+        (tooltip ? (
           <LabelWithTooltip
             className="block text-sm font-medium mb-2"
             label={label}
@@ -295,8 +292,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
           />
         ) : (
           <label className="block text-sm font-medium mb-2">{label}</label>
-        )
-      )}
+        ))}
 
       <div className={cn("space-y-2", className)}>
         <div className="overflow-x-auto pb-2 flex flex-row gap-1 scroll-embedded">
@@ -316,11 +312,11 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
                   value={forwardHandler(item as number[])}
                   step="1"
                   onChange={(e) => {
-                    const time = e.target.value
-                    const arr = backwardHandler(time)
-                    const newValues = [...(values as number[][])]
-                    newValues[index] = arr
-                    onChange(newValues as any)
+                    const time = e.target.value;
+                    const arr = backwardHandler(time);
+                    const newValues = [...(values as number[][])];
+                    newValues[index] = arr;
+                    onChange(newValues as any);
                   }}
                   className="w-20.5 md:w-18.5"
                   childClassName="h-6 px-1 bg-slate-200 dark:bg-slate-600 shadow-none translate-y-[-1px]"
@@ -339,10 +335,10 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
                         value={forwardHandler(point)}
                         step="1"
                         onChange={(e) => {
-                          const arr = backwardHandler(e.target.value)
-                          const newValues = [...(values as number[][][])]
-                          newValues[index][i] = arr
-                          onChange(newValues as any)
+                          const arr = backwardHandler(e.target.value);
+                          const newValues = [...(values as number[][][])];
+                          newValues[index][i] = arr;
+                          onChange(newValues as any);
                         }}
                         className="w-18.5"
                         childClassName="h-6 px-1 bg-slate-200 dark:bg-slate-600 shadow-none translate-y-[-1px]"
@@ -357,7 +353,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
                 className="inline-flex items-center justify-center w-5 h-5
                 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900 transition"
               >
-                <X className="w-3.5 h-3.5"/>
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
@@ -372,10 +368,10 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = (
               "hover:bg-slate-100 dark:hover:bg-slate-600"
             )}
           >
-            <Plus className="w-4 h-4"/> {t("add")}
+            <Plus className="w-4 h-4" /> {t("add")}
           </button>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

@@ -1,18 +1,17 @@
-import React from "react"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import React from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./Tooltip";
 
 interface EllipsisWithTooltipProps {
-  text: string
-  tooltip?: string
-  className?: string
+  text: string;
+  tooltip?: string;
+  className?: string;
 }
 
-export const EllipsisWithTooltip: React.FC<EllipsisWithTooltipProps> = ({text, tooltip, className}) => {
+export const EllipsisWithTooltip: React.FC<EllipsisWithTooltipProps> = ({
+  text,
+  tooltip,
+  className,
+}) => {
   return (
     <TooltipProvider>
       <Tooltip>
@@ -28,5 +27,5 @@ export const EllipsisWithTooltip: React.FC<EllipsisWithTooltipProps> = ({text, t
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
-}
+  );
+};

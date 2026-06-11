@@ -1,9 +1,9 @@
-import React, {useMemo, useState} from 'react';
-import {useTranslation} from 'react-i18next';
-import {FormInput} from "@/components/ui/FormInput.tsx";
-import {FormSelect} from "@/components/ui/FormSelect.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {DynamicConfig} from "@/types/dynamic";
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FormInput } from "@/components/ui/FormInput.tsx";
+import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { DynamicConfig } from "@/types/dynamic";
 
 interface ArenaConfigProps {
   profileId: string;
@@ -16,10 +16,12 @@ interface Draft {
   maxArenaRefreshTimes: number;
 }
 
-const ArenaConfig: React.FC<ArenaConfigProps> = ({profileId, onClose}) => {
-  const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId]);
-  const modify = useWebSocketStore(state => state.modify);
+const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
+  const { t } = useTranslation();
+  const settings: Partial<DynamicConfig> = useWebSocketStore(
+    (state) => state.configStore[profileId]
+  );
+  const modify = useWebSocketStore((state) => state.modify);
 
   const ext = useMemo(() => {
     return {
@@ -36,15 +38,15 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({profileId, onClose}) => {
   const handleChange = (key: string) => (value: string) => {
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue)) {
-      setDraft((d) => ({...d, [key]: numValue}))
+      setDraft((d) => ({ ...d, [key]: numValue }));
     }
   };
 
   const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {name, value} = e.target;
+    const { name, value } = e.target;
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue)) {
-      setDraft((d) => ({...d, [name]: numValue}))
+      setDraft((d) => ({ ...d, [name]: numValue }));
     }
   };
 
@@ -60,7 +62,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({profileId, onClose}) => {
       onClose();
       return;
     }
-    modify(`${profileId}::config`, patch)
+    modify(`${profileId}::config`, patch);
 
     onClose();
   };
@@ -91,20 +93,18 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({profileId, onClose}) => {
           min="0"
         />
 
-
         <FormSelect
           label={t("arena.opponent_no")}
           className="w-full"
           value={draft.ArenaComponentNumber.toString()}
           onChange={handleChange("ArenaComponentNumber")}
           options={[
-            {value: "1", label: "1"},
-            {value: "2", label: "2"},
-            {value: "3", label: "3"},
+            { value: "1", label: "1" },
+            { value: "2", label: "2" },
+            { value: "3", label: "3" },
           ]}
           placeholder={t("selectPlaceholder") || undefined}
         />
-
       </div>
 
       <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -113,7 +113,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({profileId, onClose}) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t('save')}
+          {t("save")}
         </button>
       </div>
     </div>

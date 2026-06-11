@@ -17,7 +17,7 @@
  *   ✅ Verbose logs for every step
  *
  * Typical use case:
- *   "pnpm tauri build && node scripts/afterBundle.js"
+ *   "bun tauri build && node scripts/afterBundle.js"
  *
  * -----------------------------------------------------------------------------
  * HOW TO USE:
@@ -32,12 +32,12 @@
  * 3. Update your `package.json` scripts section:
  *      {
  *        "scripts": {
- *          "build:tauri": "pnpm tauri build && node scripts/afterBundle.js"
+ *          "build:tauri": "bun tauri build && node scripts/afterBundle.js"
  *        }
  *      }
  *
  * 4. Run the build:
- *      pnpm run build:tauri
+ *      bun run build:tauri
  *
  * 5. The script will locate built binaries inside `src-tauri/target/release`
  *    and compress them using UPX if available.
@@ -46,10 +46,10 @@
  */
 
 import { execSync, spawnSync } from "child_process";
-import {readdirSync, statSync, accessSync, constants, rmSync} from "fs";
+import { readdirSync, statSync, accessSync, constants, rmSync } from "fs";
 import { platform } from "os";
 import path from "path";
-import {existsSync} from "node:fs";
+import { existsSync } from "node:fs";
 
 /* -------------------------------------------------------------------------- */
 /* Utility Functions                                                          */
@@ -120,7 +120,10 @@ function compressFile(file) {
       return;
     }
     // 4️⃣ Modify output file name by adding "_upx" suffix
-    const outputFile = path.join(path.dirname(file), path.basename(file, path.extname(file)) + "_upx" + path.extname(file));
+    const outputFile = path.join(
+      path.dirname(file),
+      path.basename(file, path.extname(file)) + "_upx" + path.extname(file)
+    );
 
     // 4️⃣ Clear the upx-patched bin if exists.
     if (existsSync(outputFile)) {

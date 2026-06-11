@@ -1,30 +1,30 @@
-"use client"
+"use client";
 
-import React, {useLayoutEffect, useRef} from "react"
-import type {LogItem} from "@/types/app"
-import {formatIsoToReadableTime} from "@/lib/utils.ts"
-import {List} from "react-window"
-import {type RowComponentProps, useDynamicRowHeight} from "react-window";
+import React, { useLayoutEffect, useRef } from "react";
+import type { LogItem } from "@/types/app";
+import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
+import { List } from "react-window";
+import { type RowComponentProps, useDynamicRowHeight } from "react-window";
 
 interface LoggerProps {
-  logs: LogItem[]
-  scrollToEnd: boolean // 控制是否滑动到底部
+  logs: LogItem[];
+  scrollToEnd: boolean; // 控制是否滑动到底部
 }
 
 const getLevelColor = (level: string) => {
   switch (level) {
     case "INFO":
-      return "text-blue-400"
+      return "text-blue-400";
     case "WARNING":
-      return "text-yellow-400"
+      return "text-yellow-400";
     case "ERROR":
-      return "text-red-400"
+      return "text-red-400";
     case "CRITICAL":
-      return "text-purple-400"
+      return "text-purple-400";
     default:
-      return "text-slate-400"
+      return "text-slate-400";
   }
-}
+};
 
 const getMessageStyle = (level: string) => {
   switch (level) {
@@ -41,7 +41,7 @@ const getMessageStyle = (level: string) => {
   }
 };
 
-const Row = ({index, logs, style}: RowComponentProps<{ logs: LogItem[] }>) => {
+const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => {
   const log: LogItem = logs[index];
   return (
     <div style={style} className="flex items-start cursor-text px-2">
@@ -66,8 +66,8 @@ const Row = ({index, logs, style}: RowComponentProps<{ logs: LogItem[] }>) => {
         {log.message}
       </div>
     </div>
-  )
-}
+  );
+};
 
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
   const listRef = useRef<any>(null);

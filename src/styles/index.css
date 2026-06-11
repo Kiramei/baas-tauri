@@ -3,12 +3,16 @@
 @import "./variables/font.css";
 @import "./components/scrollbar.css";
 @import "./components/cursor.css";
+@import "./components/term.css";
 @import "tw-animate-css";
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -62,14 +66,14 @@ html, body, #root {
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
+  --muted: oklch(96.8% 0.007 247.896);
+  --muted-foreground: oklch(55.4% 0.046 257.417);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.929 0.013 255.508);
+  --ring: oklch(92.9% 0.013 255.508);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -83,27 +87,28 @@ html, body, #root {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --color-autofill: oklch(1 0 0);
 }
 
 .dark {
-  --background: oklch(0.231 0.028 251.228);
+  --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.208 0.042 265.755);
+  --popover: oklch(20.8% 0.042 265.755);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(55.4% 0.046 257.417);
+  --accent: oklch(27.9% 0.041 260.031);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.554 0.046 257.417);
+  --ring: oklch(55.4% 0.046 257.417);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -117,13 +122,29 @@ html, body, #root {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --color-autofill: oklch(27.9% 0.041 260.031);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  box-shadow: 0 0 0 1000px var(--color-autofill) inset;
+  border-color: var(--ring);
+  transition: 0.3s;
+}
+
+@keyframes resetBg {
+  to {
+    color: #fff;
+    background: transparent;
   }
 }

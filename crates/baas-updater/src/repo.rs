@@ -1,0 +1,991 @@
+//! Git repository synchronization and source ranking.
+
+use crate::{
+    OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
+    UpdaterResult, constants,
+};
+use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
+use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
+
+const DEFAULT_BRANCH: &str = "master";
+
+/// A ranked repository source URL.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RankedSource {
+    /// Remote repository URL.
+    pub url: String,
+    /// Source order. `-1` means temporarily disabled.
+    pub order: i32,
+}
+
+/// Source ranking file payload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceRanking {
+    /// Ranked sources.
+    pub sources: Vec<RankedSource>,
+    /// Consecutive benchmark cycles where every URL failed.
+    pub all_failed_cycles: u8,
+}
+
+impl SourceRanking {
+    /// Builds an initial ranking from an ordered URL list.
+    pub fn from_urls(urls: &[String]) -> Self {
+        Self {
+            sources: urls
+                .iter()
+                .enumerate()
+                .map(|(index, url)| RankedSource {
+                    url: url.clone(),
+                    order: index as i32,
+                })
+                .collect(),
+            all_failed_cycles: 0,
+        }
+    }
+
+    /// Returns true when the ranking contains exactly the expected URLs.
+    pub fn matches_urls(&self, expected: &[String]) -> bool {
+        let mut current = self
+            .sources
+            .iter()
+            .map(|source| source.url.clone())
+            .collect::<Vec<_>>();
+        let mut expected = expected.to_vec();
+        current.sort();
+        expected.sort();
+        current == expected
+    }
+
+    /// Returns active sources sorted by order.
+    pub fn active_sources(&self) -> Vec<RankedSource> {
+        let mut sources = self
+            .sources
+            .iter()
+            .filter(|source| source.order >= 0)
+            .cloned()
+            .collect::<Vec<_>>();
+        sources.sort_by_key(|source| source.order);
+        sources
+    }
+
+    /// Marks one source as failed and compacts successful source order.
+    pub fn demote_failed(&mut self, url: &str) {
+        for source in &mut self.sources {
+            if source.url == url {
+                source.order = -1;
+            }
+        }
+        self.compact_orders();
+    }
+
+    /// Compacts non-negative order values while preserving relative order.
+    pub fn compact_orders(&mut self) {
+        let mut active = self
+            .sources
+            .iter_mut()
+            .filter(|source| source.order >= 0)
+            .collect::<Vec<_>>();
+        active.sort_by_key(|source| source.order);
+        for (index, source) in active.into_iter().enumerate() {
+            source.order = index as i32;
+        }
+    }
+
+    /// Returns true when every source is disabled.
+    pub fn all_disabled(&self) -> bool {
+        self.sources.iter().all(|source| source.order < 0)
+    }
+}
+
+/// Result of a repository synchronization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepoSyncResult {
+    /// Repository that was synchronized.
+    pub kind: RepositoryKind,
+    /// Operation outcome.
+    pub status: UpdateStatus,
+    /// URL that succeeded.
+    pub source_url: String,
+    /// Local HEAD SHA after synchronization.
+    pub sha: String,
+}
+
+/// Options for repository synchronization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepoSyncOptions {
+    /// Repository kind.
+    pub kind: RepositoryKind,
+    /// Update channel.
+    pub channel: UpdateChannel,
+    /// Target directory for the working tree.
+    pub target_dir: PathBuf,
+    /// Optional JSON file used to persist source ranking.
+    pub ranking_path: Option<PathBuf>,
+}
+
+/// Measures whether source URLs are reachable and how long they take.
+pub trait SourceProbe: Sync {
+    /// Returns a duration for a reachable URL.
+    fn measure(&self, url: &str) -> UpdaterResult<Duration>;
+}
+
+/// Git backend abstraction used for mock-first tests.
+pub trait GitExecutor {
+    /// Returns whether system Git CLI is available.
+    fn has_cli(&self) -> bool;
+    /// Runs a shallow CLI clone.
+    fn clone_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()>;
+    /// Runs a shallow CLI fetch/reset update.
+    fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()>;
+    /// Returns local HEAD SHA using CLI.
+    fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String>;
+    /// Returns remote branch HEAD SHA.
+    fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String>;
+    /// Runs a shallow git2 clone.
+    fn clone_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()>;
+    /// Runs a shallow git2 fetch/reset update.
+    fn update_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()>;
+    /// Returns local HEAD SHA using git2.
+    fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String>;
+}
+
+/// Real source probe that uses `git ls-remote` as a reachability check.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GitSourceProbe;
+
+impl SourceProbe for GitSourceProbe {
+    fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+        let start = Instant::now();
+        let status = Command::new("git")
+            .arg("ls-remote")
+            .arg("--heads")
+            .arg(url)
+            .arg(DEFAULT_BRANCH)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .status()
+            .map_err(|error| UpdaterError::Git(error.to_string()))?;
+        if status.success() {
+            Ok(start.elapsed())
+        } else {
+            Err(UpdaterError::Git(format!("source probe failed for {url}")))
+        }
+    }
+}
+
+/// Real Git executor that prefers CLI commands and provides git2 fallback.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RealGitExecutor;
+
+impl GitExecutor for RealGitExecutor {
+    fn has_cli(&self) -> bool {
+        Command::new("git")
+            .arg("--version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    fn clone_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        run_git(
+            &[
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                branch,
+                url,
+                &target.to_string_lossy(),
+            ],
+            None,
+        )
+    }
+
+    fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        run_git(&["remote", "set-url", "origin", url], Some(target))?;
+        run_git(&["fetch", "--depth", "1", "origin", branch], Some(target))?;
+        run_git(&["reset", "--hard", "FETCH_HEAD"], Some(target))?;
+        let _ = run_git(&["reflog", "expire", "--expire=now", "--all"], Some(target));
+        let _ = run_git(&["gc", "--prune=now"], Some(target));
+        Ok(())
+    }
+
+    fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
+        let output = Command::new("git")
+            .arg("rev-parse")
+            .arg("HEAD")
+            .current_dir(target)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .output()
+            .map_err(|error| UpdaterError::Git(error.to_string()))?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(UpdaterError::Git(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ))
+        }
+    }
+
+    fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
+        let output = Command::new("git")
+            .arg("ls-remote")
+            .arg("--heads")
+            .arg(url)
+            .arg(branch)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .output()
+            .map_err(|error| UpdaterError::Git(error.to_string()))?;
+        if !output.status.success() {
+            return Err(UpdaterError::Git(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        stdout
+            .split_whitespace()
+            .next()
+            .filter(|sha| !sha.is_empty())
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| UpdaterError::Git(format!("remote branch not found: {url} {branch}")))
+    }
+
+    fn clone_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
+        let mut fetch_options = git2_fetch_options(output);
+        fetch_options.depth(1);
+        let mut builder = RepoBuilder::new();
+        builder.fetch_options(fetch_options);
+        builder.branch(branch);
+        builder.clone(url, target)?;
+        Ok(())
+    }
+
+    fn update_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
+        let repo = Repository::open(target)?;
+        if repo.find_remote("origin").is_ok() {
+            repo.remote_set_url("origin", url)?;
+        } else {
+            repo.remote("origin", url)?;
+        }
+        let mut remote = repo.find_remote("origin")?;
+        let mut fetch_options = git2_fetch_options(output);
+        fetch_options.depth(1);
+        remote.fetch(&[branch], Some(&mut fetch_options), None)?;
+        let fetch_head = repo.find_reference("FETCH_HEAD")?;
+        let object = fetch_head.peel(git2::ObjectType::Commit)?;
+        repo.reset(&object, git2::ResetType::Hard, None)?;
+        Ok(())
+    }
+
+    fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String> {
+        let repo = Repository::open(target)?;
+        let head = repo.head()?.peel_to_commit()?;
+        Ok(head.id().to_string())
+    }
+}
+
+/// Synchronizes repositories with source ranking and Git fallback behavior.
+pub struct RepoManager<E> {
+    executor: E,
+}
+
+impl<E: GitExecutor> RepoManager<E> {
+    /// Creates a repository manager using the provided Git executor.
+    pub fn new(executor: E) -> Self {
+        Self { executor }
+    }
+
+    /// Synchronizes one repository by trying ranked sources in order.
+    pub fn sync(
+        &self,
+        options: &RepoSyncOptions,
+        probe: &impl SourceProbe,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<RepoSyncResult> {
+        let expected_urls = repository_urls(options.kind, options.channel);
+        let mut ranking = load_or_benchmark_ranking_with_output(
+            options.ranking_path.as_deref(),
+            &expected_urls,
+            probe,
+            output,
+        )?;
+        let branch = repository_branch(options.kind)?;
+
+        for source in ranking.active_sources() {
+            output.line(
+                OutputStyle::Info,
+                &format!(
+                    "Synchronizing {} repository from {}",
+                    options.kind.as_str(),
+                    source.url
+                ),
+            );
+            match self.try_source(&source.url, &branch, &options.target_dir, output) {
+                Ok(status) => {
+                    let sha = self.local_sha(&options.target_dir)?;
+                    if let Some(path) = &options.ranking_path {
+                        save_ranking(path, &ranking)?;
+                    }
+                    return Ok(RepoSyncResult {
+                        kind: options.kind,
+                        status,
+                        source_url: source.url,
+                        sha,
+                    });
+                }
+                Err(error) => {
+                    output.line(OutputStyle::Warning, &format!("{error}"));
+                    ranking.demote_failed(&source.url);
+                    if let Some(path) = &options.ranking_path {
+                        save_ranking(path, &ranking)?;
+                    }
+                    cleanup_failed_clone(&options.target_dir)?;
+                }
+            }
+        }
+
+        ranking.all_failed_cycles = ranking.all_failed_cycles.saturating_add(1);
+        if ranking.all_failed_cycles >= 3 {
+            if let Some(path) = &options.ranking_path {
+                save_ranking(path, &ranking)?;
+            }
+            return Err(UpdaterError::Git(
+                "all repository sources failed three consecutive ranking cycles".to_string(),
+            ));
+        }
+
+        ranking = benchmark_sources_with_output(&expected_urls, probe, output);
+        if let Some(path) = &options.ranking_path {
+            save_ranking(path, &ranking)?;
+        }
+        Err(UpdaterError::Git(
+            "all repository sources failed; ranking was rebuilt".to_string(),
+        ))
+    }
+
+    fn try_source(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<UpdateStatus> {
+        let is_update = target.join(".git").exists();
+        if is_update
+            && let Ok(local_sha) = self.local_sha(target)
+            && let Ok(remote_sha) = self.executor.remote_sha(url, branch)
+            && local_sha == remote_sha
+        {
+            output.line(
+                OutputStyle::Success,
+                &format!("{} repository already at {local_sha}", target.display()),
+            );
+            return Ok(UpdateStatus::Skipped);
+        }
+        if self.executor.has_cli() {
+            let cli_result = if is_update {
+                self.executor.update_cli(url, branch, target)
+            } else {
+                self.executor.clone_cli(url, branch, target)
+            };
+            if cli_result.is_ok() {
+                return Ok(if is_update {
+                    UpdateStatus::Updated
+                } else {
+                    UpdateStatus::Installed
+                });
+            }
+        }
+
+        if is_update {
+            self.executor.update_git2(url, branch, target, output)?;
+            Ok(UpdateStatus::Updated)
+        } else {
+            self.executor.clone_git2(url, branch, target, output)?;
+            Ok(UpdateStatus::Installed)
+        }
+    }
+
+    fn local_sha(&self, target: &Path) -> UpdaterResult<String> {
+        if self.executor.has_cli() {
+            self.executor
+                .local_sha_cli(target)
+                .or_else(|_| self.executor.local_sha_git2(target))
+        } else {
+            self.executor.local_sha_git2(target)
+        }
+    }
+}
+
+/// Returns the ordered source URLs for a repository and channel.
+pub fn repository_urls(kind: RepositoryKind, channel: UpdateChannel) -> Vec<String> {
+    let source = match (kind, channel) {
+        (RepositoryKind::Main, UpdateChannel::Stable) => &constants::MAIN_REPO_SRC,
+        (RepositoryKind::Main, UpdateChannel::Dev) => &constants::MAIN_REPO_SRC_DEV,
+        (RepositoryKind::Cpp, _) => &constants::CPP_REPO_SRC,
+    };
+    std::iter::once(source.main)
+        .chain(source.proxy.iter().copied())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+/// Returns the branch name for a repository on the current platform.
+pub fn repository_branch(kind: RepositoryKind) -> UpdaterResult<String> {
+    match kind {
+        RepositoryKind::Main => Ok(DEFAULT_BRANCH.to_string()),
+        RepositoryKind::Cpp => cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH),
+    }
+}
+
+/// Maps OS and architecture to the Cpp prebuild branch.
+pub fn cpp_branch_for(os: &str, arch: &str) -> UpdaterResult<String> {
+    match (os, arch) {
+        ("windows", "x86_64" | "amd64") => Ok("windows-x64".to_string()),
+        ("linux", "x86_64" | "amd64") => Ok("linux-x64".to_string()),
+        ("macos", "aarch64" | "arm64") => Ok("macos-arm64".to_string()),
+        _ => Err(UpdaterError::Git(format!(
+            "unsupported Cpp repository platform: {os}/{arch}"
+        ))),
+    }
+}
+
+/// Loads a ranking file or benchmarks sources when it is missing or stale.
+pub fn load_or_benchmark_ranking(
+    path: Option<&Path>,
+    expected_urls: &[String],
+    probe: &(impl SourceProbe + Sync),
+) -> UpdaterResult<SourceRanking> {
+    load_or_benchmark_ranking_with_output(path, expected_urls, probe, &crate::NoopOutput)
+}
+
+/// Loads a ranking file or benchmarks sources with terminal repaint output.
+pub fn load_or_benchmark_ranking_with_output(
+    path: Option<&Path>,
+    expected_urls: &[String],
+    probe: &(impl SourceProbe + Sync),
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<SourceRanking> {
+    if let Some(path) = path
+        && path.exists()
+    {
+        let content = fs::read_to_string(path)?;
+        let ranking: SourceRanking = serde_json::from_str(&content)
+            .map_err(|error| UpdaterError::Config(error.to_string()))?;
+        if ranking.matches_urls(expected_urls) && !ranking.all_disabled() {
+            return Ok(ranking);
+        }
+    }
+    Ok(benchmark_sources_with_output(expected_urls, probe, output))
+}
+
+/// Benchmarks sources and returns a sorted ranking.
+pub fn benchmark_sources(
+    expected_urls: &[String],
+    probe: &(impl SourceProbe + Sync),
+) -> SourceRanking {
+    benchmark_sources_with_output(expected_urls, probe, &crate::NoopOutput)
+}
+
+/// Benchmarks sources and renders multi-line status when terminal output exists.
+pub fn benchmark_sources_with_output(
+    expected_urls: &[String],
+    probe: &(impl SourceProbe + Sync),
+    output: &(impl OutputSink + ?Sized),
+) -> SourceRanking {
+    let source_probes = expected_urls
+        .iter()
+        .map(|url| (url.clone(), url.clone()))
+        .collect::<Vec<_>>();
+    benchmark_source_probes_with_output(&source_probes, probe, output)
+}
+
+/// Benchmarks source URLs using separate probe URLs.
+///
+/// The returned ranking always stores the source URL. The probe URL is used
+/// only for reachability measurement, which is useful for mirror roots that are
+/// consumed by a tool but do not respond successfully themselves.
+pub fn benchmark_source_probes_with_output(
+    source_probes: &[(String, String)],
+    probe: &(impl SourceProbe + Sync),
+    output: &(impl OutputSink + ?Sized),
+) -> SourceRanking {
+    let mut measured = Vec::new();
+    let mut failed = Vec::new();
+    let mut statuses = source_probes
+        .iter()
+        .map(|(url, _)| format!("pending  {url}"))
+        .collect::<Vec<_>>();
+    let mut repaint = output
+        .thread_output()
+        .map(|term| term.log().block_repaint());
+
+    for (index, (url, _)) in source_probes.iter().enumerate() {
+        statuses[index] = format!("testing  {url}");
+    }
+    render_probe_status(&mut repaint, &statuses);
+
+    thread::scope(|scope| {
+        let (tx, rx) = mpsc::channel();
+        for (index, (source_url, probe_url)) in source_probes.iter().enumerate() {
+            let tx = tx.clone();
+            scope.spawn(move || {
+                let result = probe.measure(probe_url);
+                let _ = tx.send((index, source_url.clone(), result));
+            });
+        }
+        drop(tx);
+
+        for (index, url, result) in rx {
+            match result {
+                Ok(duration) => {
+                    statuses[index] = format!("ok       {:>5} ms  {url}", duration.as_millis());
+                    measured.push((url, duration));
+                }
+                Err(_) => {
+                    statuses[index] = format!("failed          {url}");
+                    failed.push(url);
+                }
+            }
+            render_probe_status(&mut repaint, &statuses);
+        }
+    });
+    if let Some(repaint) = &mut repaint {
+        repaint.finish();
+    }
+    measured.sort_by_key(|(_, duration)| *duration);
+    let mut sources = measured
+        .into_iter()
+        .enumerate()
+        .map(|(index, (url, _))| RankedSource {
+            url,
+            order: index as i32,
+        })
+        .collect::<Vec<_>>();
+    sources.extend(
+        failed
+            .into_iter()
+            .map(|url| RankedSource { url, order: -1 }),
+    );
+    SourceRanking {
+        sources,
+        all_failed_cycles: 0,
+    }
+}
+
+fn render_probe_status(
+    repaint: &mut Option<baas_term::threader::ThreadBlockRepaint>,
+    statuses: &[String],
+) {
+    if let Some(repaint) = repaint {
+        let lines = statuses.iter().map(String::as_str).collect::<Vec<_>>();
+        repaint.render(ThreadLogStyle::Muted, lines);
+    }
+}
+
+/// Saves source ranking to a JSON file.
+pub fn save_ranking(path: &Path, ranking: &SourceRanking) -> UpdaterResult<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let content = serde_json::to_string_pretty(ranking)
+        .map_err(|error| UpdaterError::Config(error.to_string()))?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
+fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
+    let mut command = Command::new("git");
+    command.args(args).env("GIT_TERMINAL_PROMPT", "0");
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    let output = command
+        .output()
+        .map_err(|error| UpdaterError::Git(error.to_string()))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(UpdaterError::Git(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ))
+    }
+}
+
+fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
+    let mut callbacks = RemoteCallbacks::new();
+    let term = output.thread_output().cloned();
+    let mut progress: Option<ThreadProgressBar> = None;
+    callbacks.transfer_progress(move |stats| {
+        let total = stats.total_objects() as u64;
+        let received = stats.received_objects() as u64;
+        if total > 0 {
+            if progress.is_none()
+                && let Some(term) = term.clone()
+            {
+                progress = Some(term.progress_bar("git2 transfer", total, 30));
+            }
+            if let Some(progress_bar) = progress.as_mut() {
+                progress_bar.set(received, format!("{received}/{total} objects"));
+                if received >= total {
+                    progress_bar.finish(ThreadLogStyle::Success, "git2 transfer complete");
+                    progress = None;
+                }
+            }
+        }
+        true
+    });
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+    fetch_options
+}
+
+fn cleanup_failed_clone(target: &Path) -> UpdaterResult<()> {
+    if target.exists() && target.join(".git").exists() {
+        return Ok(());
+    }
+    if target.exists()
+        && fs::read_dir(target)
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(false)
+    {
+        fs::remove_dir_all(target)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        collections::VecDeque,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
+
+    #[derive(Clone)]
+    struct Probe {
+        ok: Vec<String>,
+    }
+
+    impl SourceProbe for Probe {
+        fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+            if self.ok.iter().any(|item| item == url) {
+                Ok(Duration::from_millis(if url.contains("fast") {
+                    1
+                } else {
+                    10
+                }))
+            } else {
+                Err(UpdaterError::Network("fail".to_string()))
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct MockGit {
+        has_cli: bool,
+        remote_sha: String,
+        cli_results: Mutex<VecDeque<UpdaterResult<()>>>,
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl MockGit {
+        fn with_cli_failure_then_git2() -> Self {
+            let mut cli_results = VecDeque::new();
+            cli_results.push_back(Err(UpdaterError::Git("cli failed".to_string())));
+            Self {
+                has_cli: true,
+                remote_sha: "remote-sha".to_string(),
+                cli_results: Mutex::new(cli_results),
+                calls: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn up_to_date() -> Self {
+            Self {
+                has_cli: true,
+                remote_sha: "cli-sha".to_string(),
+                cli_results: Mutex::new(VecDeque::new()),
+                calls: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+    }
+
+    impl GitExecutor for MockGit {
+        fn has_cli(&self) -> bool {
+            self.has_cli
+        }
+
+        fn clone_cli(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("clone_cli:{url}:{branch}"));
+            self.cli_results
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(Ok(()))
+        }
+
+        fn update_cli(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("update_cli:{url}:{branch}"));
+            self.cli_results
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(Ok(()))
+        }
+
+        fn local_sha_cli(&self, _target: &Path) -> UpdaterResult<String> {
+            Ok("cli-sha".to_string())
+        }
+
+        fn remote_sha(&self, _url: &str, _branch: &str) -> UpdaterResult<String> {
+            Ok(self.remote_sha.clone())
+        }
+
+        fn clone_git2(
+            &self,
+            url: &str,
+            branch: &str,
+            _target: &Path,
+            _output: &(impl OutputSink + ?Sized),
+        ) -> UpdaterResult<()> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("clone_git2:{url}:{branch}"));
+            Ok(())
+        }
+
+        fn update_git2(
+            &self,
+            url: &str,
+            branch: &str,
+            _target: &Path,
+            _output: &(impl OutputSink + ?Sized),
+        ) -> UpdaterResult<()> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("update_git2:{url}:{branch}"));
+            Ok(())
+        }
+
+        fn local_sha_git2(&self, _target: &Path) -> UpdaterResult<String> {
+            Ok("git2-sha".to_string())
+        }
+    }
+
+    #[test]
+    fn ranking_detects_stale_url_set_and_demotes_failures() {
+        let mut ranking = SourceRanking::from_urls(&["a".to_string(), "b".to_string()]);
+
+        assert!(ranking.matches_urls(&["b".to_string(), "a".to_string()]));
+        assert!(!ranking.matches_urls(&["a".to_string(), "c".to_string()]));
+
+        ranking.demote_failed("a");
+        assert_eq!(ranking.sources[0].order, -1);
+        assert_eq!(ranking.active_sources()[0].url, "b");
+    }
+
+    #[test]
+    fn benchmarks_sources_by_duration_and_marks_failures() {
+        let ranking = benchmark_sources(
+            &[
+                "https://slow.example".to_string(),
+                "https://down.example".to_string(),
+                "https://fast.example".to_string(),
+            ],
+            &Probe {
+                ok: vec![
+                    "https://slow.example".to_string(),
+                    "https://fast.example".to_string(),
+                ],
+            },
+        );
+
+        assert_eq!(ranking.sources[0].url, "https://fast.example");
+        assert_eq!(ranking.sources[1].url, "https://slow.example");
+        assert_eq!(ranking.sources[2].order, -1);
+    }
+
+    #[test]
+    fn benchmarks_sources_in_parallel() {
+        struct ParallelProbe {
+            active: AtomicUsize,
+            max_active: AtomicUsize,
+        }
+
+        impl SourceProbe for ParallelProbe {
+            fn measure(&self, _url: &str) -> UpdaterResult<Duration> {
+                let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+                self.max_active.fetch_max(active, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(30));
+                self.active.fetch_sub(1, Ordering::SeqCst);
+                Ok(Duration::from_millis(1))
+            }
+        }
+
+        let probe = ParallelProbe {
+            active: AtomicUsize::new(0),
+            max_active: AtomicUsize::new(0),
+        };
+        let ranking =
+            benchmark_sources(&["a".to_string(), "b".to_string(), "c".to_string()], &probe);
+
+        assert_eq!(ranking.sources.len(), 3);
+        assert!(probe.max_active.load(Ordering::SeqCst) > 1);
+    }
+
+    #[test]
+    fn cpp_branch_mapping_matches_reference_script() {
+        assert_eq!(cpp_branch_for("windows", "x86_64").unwrap(), "windows-x64");
+        assert_eq!(cpp_branch_for("linux", "x86_64").unwrap(), "linux-x64");
+        assert_eq!(cpp_branch_for("macos", "aarch64").unwrap(), "macos-arm64");
+        assert!(cpp_branch_for("windows", "aarch64").is_err());
+    }
+
+    #[test]
+    fn sync_falls_back_from_cli_to_git2() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        let ranking = dir.path().join("ranking.json");
+        let url = repository_urls(RepositoryKind::Main, UpdateChannel::Stable)
+            .into_iter()
+            .next()
+            .unwrap();
+        save_ranking(
+            &ranking,
+            &SourceRanking::from_urls(&repository_urls(
+                RepositoryKind::Main,
+                UpdateChannel::Stable,
+            )),
+        )
+        .unwrap();
+        let git = MockGit::with_cli_failure_then_git2();
+        let calls = Arc::clone(&git.calls);
+        let manager = RepoManager::new(git);
+
+        let result = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target,
+                    ranking_path: Some(ranking),
+                },
+                &Probe {
+                    ok: vec![url.clone()],
+                },
+                &crate::NoopOutput,
+            )
+            .unwrap();
+
+        assert_eq!(result.status, UpdateStatus::Installed);
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![
+                format!("clone_cli:{url}:master"),
+                format!("clone_git2:{url}:master")
+            ]
+        );
+    }
+
+    #[test]
+    fn sync_skips_update_when_remote_sha_matches_local_head() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        fs::create_dir_all(target.join(".git")).unwrap();
+        let ranking = dir.path().join("ranking.json");
+        let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
+        let url = urls.first().unwrap().clone();
+        save_ranking(&ranking, &SourceRanking::from_urls(&urls)).unwrap();
+        let git = MockGit::up_to_date();
+        let calls = Arc::clone(&git.calls);
+        let manager = RepoManager::new(git);
+
+        let result = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target,
+                    ranking_path: Some(ranking),
+                },
+                &Probe { ok: vec![url] },
+                &crate::NoopOutput,
+            )
+            .unwrap();
+
+        assert_eq!(result.status, UpdateStatus::Skipped);
+        assert!(calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn all_disabled_ranking_errors_after_three_cycles() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ranking.json");
+        save_ranking(
+            &path,
+            &SourceRanking {
+                sources: vec![RankedSource {
+                    url: "https://fast.example".to_string(),
+                    order: -1,
+                }],
+                all_failed_cycles: 2,
+            },
+        )
+        .unwrap();
+
+        let loaded = load_or_benchmark_ranking(
+            Some(&path),
+            &["https://fast.example".to_string()],
+            &Probe { ok: Vec::new() },
+        )
+        .unwrap();
+
+        assert!(loaded.all_disabled());
+    }
+}

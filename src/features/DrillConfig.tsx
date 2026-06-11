@@ -1,23 +1,22 @@
-import React, {useMemo, useState} from "react";
-import {useTranslation} from "react-i18next";
-import {FormSelect} from "@/components/ui/FormSelect.tsx";
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import {Separator} from "@/components/ui/separator.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {DynamicConfig} from "@/types/dynamic";
+import { Separator } from "../components/ui/Separator.tsx";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { DynamicConfig } from "@/types/dynamic";
 
 type DrillConfigProps = {
   onClose: () => void;
   profileId?: string;
 };
 
-const DrillConfig: React.FC<DrillConfigProps> = ({
-  onClose,
-  profileId
-}) => {
-  const {t} = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(state => state.configStore[profileId!]);
-  const modify = useWebSocketStore(state => state.modify);
+const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
+  const { t } = useTranslation();
+  const settings: Partial<DynamicConfig> = useWebSocketStore(
+    (state) => state.configStore[profileId!]
+  );
+  const modify = useWebSocketStore((state) => state.modify);
 
   const party_nos = ["1", "2", "3", "4"];
   const total_assault_difficulties = ["1", "2", "3", "4"];
@@ -27,7 +26,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
     return {
       drill_enable_sweep: settings.drill_enable_sweep,
       drill_fight_formation_list: settings.drill_fight_formation_list!.map(String),
-      drill_difficulty_list: settings.drill_difficulty_list!.map(String)
+      drill_difficulty_list: settings.drill_difficulty_list!.map(String),
     };
   }, [settings]);
 
@@ -37,13 +36,13 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
   // Generic updater for list-based selectors (party formation and difficulty).
   const handleListChange =
     (key: "drill_fight_formation_list" | "drill_difficulty_list", idx: number) =>
-      (value: string) => {
-        setDraft((prev) => {
-          const list = [...prev[key]];
-          list[idx] = value;
-          return {...prev, [key]: list};
-        });
-      };
+    (value: string) => {
+      setDraft((prev) => {
+        const list = [...prev[key]];
+        list[idx] = value;
+        return { ...prev, [key]: list };
+      });
+    };
 
   // Persist current draft back to the backend if any values changed.
   const handleSave = async () => {
@@ -62,13 +61,11 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
       <SwitchButton
         label={t("drill.useAllAfterSweep")}
         checked={draft.drill_enable_sweep!}
-        onChange={(val) =>
-          setDraft((prev) => ({...prev, drill_enable_sweep: val}))
-        }
+        onChange={(val) => setDraft((prev) => ({ ...prev, drill_enable_sweep: val }))}
         className="w-full"
       />
 
-      <Separator/>
+      <Separator />
 
       {/* Party lineup configuration */}
       <div>
@@ -81,7 +78,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({
               <FormSelect
                 value={val}
                 onChange={handleListChange("drill_fight_formation_list", i)}
-                options={party_nos.map((p) => ({value: p, label: p}))}
+                options={party_nos.map((p) => ({ value: p, label: p }))}
                 className="flex-1"
               />
               {i !== draft.drill_fight_formation_list.length - 1 && (

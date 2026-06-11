@@ -1,15 +1,21 @@
-import React, {useState, useMemo, useEffect} from "react";
-import {Tabs, TabsList, TabsTrigger, TabsContent} from "@/components/ui/tabs";
-import {Select, SelectTrigger, SelectContent, SelectItem, SelectValue} from "@/components/ui/select";
-import {Textarea} from "@/components/ui/textarea";
-import {useTranslation} from "react-i18next";
+import React, { useState, useMemo, useEffect } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/Tabs";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "../components/ui/Select";
+import { Textarea } from "../components/ui/Textarea";
+import { useTranslation } from "react-i18next";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import {FormInput} from "@/components/ui/FormInput.tsx";
-import {FormSelect} from "@/components/ui/FormSelect.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
+import { FormInput } from "@/components/ui/FormInput.tsx";
+import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
-import {serverMap} from "@/lib/utils.ts";
-import {DynamicConfig} from "@/types/dynamic";
+import { serverMap } from "@/shared/GlobalUtilities.ts";
+import { DynamicConfig } from "@/types/dynamic";
 import CButton from "@/components/ui/CButton.tsx";
 
 type ArtifactConfigProps = {
@@ -34,11 +40,11 @@ type Draft = {
   }[];
 };
 
-const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => {
-  const {t} = useTranslation();
+const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) => {
+  const { t } = useTranslation();
 
-  const settings = useWebSocketStore(state => state.configStore[profileId]);
-  const modify = useWebSocketStore(state => state.modify);
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const modify = useWebSocketStore((state) => state.modify);
 
   /** Hydrate the form with the latest server-side values. */
   const ext = useMemo(() => {
@@ -54,7 +60,6 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
       createPriority_phase3: settings.createPriority_phase3,
     } as Draft;
   }, [settings]);
-
 
   const [draft, setDraft] = useState<Draft>(ext);
 
@@ -79,7 +84,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
       onClose();
       return;
     }
-    modify(`${profileId}::config`, patch)
+    modify(`${profileId}::config`, patch);
 
     onClose();
   };
@@ -89,7 +94,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
       <Tabs defaultValue="global" className="w-full">
         <TabsList className="w-full">
           <TabsTrigger value="global">{t("artifact.global")}</TabsTrigger>
-          {Array.from({length: draft.create_phase}).map((_, i) => (
+          {Array.from({ length: draft.create_phase }).map((_, i) => (
             <TabsTrigger key={i} value={`phase${i + 1}`}>
               {t(`artifact.phase_${i + 1}`)}
             </TabsTrigger>
@@ -102,9 +107,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
             <SwitchButton
               label={t("artifact.useTicketDesc")}
               checked={draft.use_acceleration_ticket}
-              onChange={(v) =>
-                setDraft((d) => ({...d, use_acceleration_ticket: v}))
-              }
+              onChange={(v) => setDraft((d) => ({ ...d, use_acceleration_ticket: v }))}
             />
 
             <FormInput
@@ -112,9 +115,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
               label={t("artifact.createTime")}
               type="number"
               value={draft.createTime}
-              onChange={(e) =>
-                setDraft((d) => ({...d, createTime: e.target.value}))
-              }
+              onChange={(e) => setDraft((d) => ({ ...d, createTime: e.target.value }))}
               min="1"
               max="10"
             />
@@ -125,7 +126,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
               onChange={(v) =>
                 setDraft((d) => ({
                   ...d,
-                  create_phase: Number(v)
+                  create_phase: Number(v),
                 }))
               }
               options={[1, 2, 3].map((p) => ({
@@ -137,7 +138,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
         </TabsContent>
 
         {/* Phase-specific configuration */}
-        {Array.from({length: draft.create_phase}, (_, i) => i).map((i) => (
+        {Array.from({ length: draft.create_phase }, (_, i) => i).map((i) => (
           <TabsContent key={i} value={`phase${i + 1}`}>
             <ArtifactPhaseConfig
               phase={i + 1}
@@ -167,21 +168,21 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({onClose, profileId}) => 
 type ArtifactPhaseConfigProps = {
   phase: number;
   draft: Draft;
-  settings: Partial<DynamicConfig>
+  settings: Partial<DynamicConfig>;
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
 };
 
 const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
-                                                                   settings,
-                                                                   phase,
-                                                                   draft,
-                                                                   setDraft,
-                                                                 }) => {
-  const {t} = useTranslation();
+  settings,
+  phase,
+  draft,
+  setDraft,
+}) => {
+  const { t } = useTranslation();
   const [openStudentModal, setOpenStudentModal] = useState(false);
 
   const phaseMethods: Record<number, Record<string, string>> = {
-    1: {default: t("artifact.default")},
+    1: { default: t("artifact.default") },
     2: {
       primary: t("artifact.white"),
       normal: t("artifact.blue"),
@@ -198,13 +199,12 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
     },
   };
 
-  const staticConfig = useWebSocketStore(state => state.staticStore);
+  const staticConfig = useWebSocketStore((state) => state.staticStore);
 
-  const getPhase2RecommendedPriority = (
-    name: string
-  ): string[] => {
+  const getPhase2RecommendedPriority = (name: string): string[] => {
     const indexes = staticConfig.create_phase2_recommended_priority[name];
-    const originPriority = staticConfig.create_default_priority[serverMap[settings.server!]]["phase2"];
+    const originPriority =
+      staticConfig.create_default_priority[serverMap[settings.server!]]["phase2"];
     const resPriority = indexes.map((i: any) => originPriority[i]);
 
     originPriority.forEach((_: any, i: number) => {
@@ -224,12 +224,12 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
           value={draft[`create_phase_${phase}_select_item_rule` as keyof Draft] as string}
           onValueChange={(val) =>
             setDraft((d) => {
-              return {...d, [`create_phase_${phase}_select_item_rule`]: val};
+              return { ...d, [`create_phase_${phase}_select_item_rule`]: val };
             })
           }
         >
           <SelectTrigger className="w-full">
-            <SelectValue/>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(phaseMethods[phase]).map(([key, label]) => (
@@ -245,7 +245,11 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
       {phase === 2 && (
         <div>
           <label className="block mb-1">{t("artifact.phase2.recommend")}</label>
-          <CButton className="w-full" variant={"secondary"} onClick={() => setOpenStudentModal(true)}>
+          <CButton
+            className="w-full"
+            variant={"secondary"}
+            onClick={() => setOpenStudentModal(true)}
+          >
             {t("artifact.selectStudent")}
           </CButton>
         </div>
@@ -255,10 +259,15 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
       <div>
         <label className="block mb-1">{t("artifact.priority")}</label>
         <Textarea
-          value={(draft[`createPriority_phase${phase}` as keyof Draft] as string[]).join(" > ") || ""}
+          value={
+            (draft[`createPriority_phase${phase}` as keyof Draft] as string[]).join(" > ") || ""
+          }
           onChange={(e) =>
             setDraft((d) => {
-              return {...d, [`createPriority_phase${phase}`]: e.target.value.split(">").map(s => s.trim())};
+              return {
+                ...d,
+                [`createPriority_phase${phase}`]: e.target.value.split(">").map((s) => s.trim()),
+              };
             })
           }
           placeholder="A > B > C"
@@ -274,8 +283,8 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
         selected={[]}
         onChange={function (list: string[]): void {
           const priority = getPhase2RecommendedPriority(list[0]);
-          setDraft((d) => ({...d, createPriority_phase2: priority}));
-          setOpenStudentModal(false)
+          setDraft((d) => ({ ...d, createPriority_phase2: priority }));
+          setOpenStudentModal(false);
         }}
       />
     </div>

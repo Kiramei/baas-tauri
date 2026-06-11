@@ -1,14 +1,14 @@
-import React, {useEffect, useMemo, useState} from "react";
-import {useTranslation} from "react-i18next";
-import {Check, Plus, X} from "lucide-react";
-import {Reorder} from "framer-motion";
-import {Separator} from "@/components/ui/separator";
+import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Check, Plus, X } from "lucide-react";
+import { Reorder } from "framer-motion";
+import { Separator } from "../components/ui/Separator";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import {FormInput} from "@/components/ui/FormInput.tsx";
+import { FormInput } from "@/components/ui/FormInput.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
-import {useWebSocketStore} from "@/store/websocketStore.ts";
-import {DynamicConfig, LessonEachRegionObjectPriority} from "@/types/dynamic";
-import {serverMap, serverMapSpec} from "@/lib/utils.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
+import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -27,8 +27,8 @@ type Draft = {
 
 const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced", "superior"];
 
-const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
-  const {t} = useTranslation();
+const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
+  const { t } = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(
     (state) => state.configStore[profileId!]
   );
@@ -44,10 +44,19 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
     if (!settings.lesson_each_region_object_priority) {
       _lesson_each_region_object_priority = lessonNames.map(() => [...levels]);
     } else if (settings.lesson_each_region_object_priority.length < lessonNames.length) {
-      const results = Array.from({length: lessonNames.length - settings.lesson_times!.length}, () => levels);
-      _lesson_each_region_object_priority = [...settings.lesson_each_region_object_priority, ...results];
+      const results = Array.from(
+        { length: lessonNames.length - settings.lesson_times!.length },
+        () => levels
+      );
+      _lesson_each_region_object_priority = [
+        ...settings.lesson_each_region_object_priority,
+        ...results,
+      ];
     } else if (settings.lesson_each_region_object_priority.length > lessonNames.length) {
-      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority.slice(0, lessonNames.length)
+      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority.slice(
+        0,
+        lessonNames.length
+      );
     } else {
       _lesson_each_region_object_priority = settings.lesson_each_region_object_priority;
     }
@@ -56,17 +65,19 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
     if (!settings.lesson_times) {
       _lesson_times = lessonNames.map(() => 1);
     } else if (settings.lesson_times.length < lessonNames.length) {
-      const results = Array.from({length: lessonNames.length - settings.lesson_times.length}, () => 1);
+      const results = Array.from(
+        { length: lessonNames.length - settings.lesson_times.length },
+        () => 1
+      );
       _lesson_times = [...settings.lesson_times, ...results];
     } else if (settings.lesson_times.length > lessonNames.length) {
-      _lesson_times = settings.lesson_times.slice(0, lessonNames.length)
+      _lesson_times = settings.lesson_times.slice(0, lessonNames.length);
     } else {
       _lesson_times = settings.lesson_times;
     }
 
     return {
-      lesson_enableInviteFavorStudent:
-        settings.lesson_enableInviteFavorStudent ?? false,
+      lesson_enableInviteFavorStudent: settings.lesson_enableInviteFavorStudent ?? false,
       lesson_favorStudent: settings.lesson_favorStudent ?? [],
       lesson_relationship_first: settings.lesson_relationship_first ?? false,
       lesson_each_region_object_priority: _lesson_each_region_object_priority,
@@ -122,7 +133,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
       } else {
         copy[i].push(level);
       }
-      return {...d, lesson_each_region_object_priority: copy};
+      return { ...d, lesson_each_region_object_priority: copy };
     });
   };
 
@@ -133,7 +144,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
       setDraft((d) => {
         const copy = [...d.lesson_times];
         copy[i] = n;
-        return {...d, lesson_times: copy};
+        return { ...d, lesson_times: copy };
       });
     }
   };
@@ -156,9 +167,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
         <SwitchButton
           checked={draft.lesson_relationship_first}
           label={t("lesson.relationshipFirst")}
-          onChange={(checked) =>
-            setDraft((d) => ({...d, lesson_relationship_first: checked}))
-          }
+          onChange={(checked) => setDraft((d) => ({ ...d, lesson_relationship_first: checked }))}
         />
       </div>
 
@@ -174,9 +183,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
             <Reorder.Group
               axis="x"
               values={draft.lesson_favorStudent}
-              onReorder={(newOrder) =>
-                setDraft((d) => ({...d, lesson_favorStudent: newOrder}))
-              }
+              onReorder={(newOrder) => setDraft((d) => ({ ...d, lesson_favorStudent: newOrder }))}
               className="flex gap-1 min-w-max"
             >
               {draft.lesson_favorStudent.map((name, index) => (
@@ -192,8 +199,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
                   "
                 >
                   {/* Order number indicator */}
-                  <span
-                    className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
+                  <span className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
                     {index + 1}
                   </span>
 
@@ -204,7 +210,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
                     onClick={() => removeFavorStudent(name)}
                     className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900 transition"
                   >
-                    <X className="w-3.5 h-3.5"/>
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </Reorder.Item>
               ))}
@@ -219,48 +225,44 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
                   hover:bg-slate-100 dark:hover:bg-slate-600
                 "
               >
-                <Plus className="w-4 h-4"/> {t("add")}
+                <Plus className="w-4 h-4" /> {t("add")}
               </button>
             </Reorder.Group>
           </div>
         </div>
       )}
 
-      <Separator/>
+      <Separator />
 
       {/* Region-level configuration table */}
       <div
         className="overflow-y-auto overflow-x-auto border rounded-md"
-        style={{maxHeight: "calc(100vh - 320px)", minHeight: "80px"}}
+        style={{ maxHeight: "calc(100vh - 320px)", minHeight: "80px" }}
       >
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 bg-slate-100 dark:bg-slate-700 z-10">
-          <tr>
-            <th className="px-2 py-1 border text-left">
-              {t("lesson.region")}
-            </th>
-            {levels.map((l) => (
-              <th key={l} className="px-2 py-1 border">
-                {t(`schedule.${l}`)}
-              </th>
-            ))}
-            <th className="px-2 py-1 border">{t("lesson.times")}</th>
-          </tr>
+            <tr>
+              <th className="px-2 py-1 border text-left">{t("lesson.region")}</th>
+              {levels.map((l) => (
+                <th key={l} className="px-2 py-1 border">
+                  {t(`schedule.${l}`)}
+                </th>
+              ))}
+              <th className="px-2 py-1 border">{t("lesson.times")}</th>
+            </tr>
           </thead>
           <tbody>
-          {lessonNames.map((name: any, i: number) => (
-            <tr key={i}>
-              <td className="px-2 py-1 border">{name}</td>
-              {levels.map((lvl, j) => (
-                <td key={j} className="px-2 py-1 border text-center">
-                  <label className="relative inline-flex items-center cursor-pointer mt-1">
-                    <input
-                      type="checkbox"
-                      checked={draft.lesson_each_region_object_priority[i].includes(
-                        lvl
-                      )}
-                      onChange={() => toggleLevel(i, lvl)}
-                      className="
+            {lessonNames.map((name: any, i: number) => (
+              <tr key={i}>
+                <td className="px-2 py-1 border">{name}</td>
+                {levels.map((lvl, j) => (
+                  <td key={j} className="px-2 py-1 border text-center">
+                    <label className="relative inline-flex items-center cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={draft.lesson_each_region_object_priority[i].includes(lvl)}
+                        onChange={() => toggleLevel(i, lvl)}
+                        className="
                           peer w-6 h-6 cursor-pointer
                           appearance-none
                           rounded-full border
@@ -272,28 +274,28 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
                           disabled:cursor-not-allowed disabled:opacity-50
                         "
-                    />
-                    <Check
-                      className="
+                      />
+                      <Check
+                        className="
                           pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 text-white
                           opacity-0 peer-checked:opacity-100 transition-opacity
                         "
-                    />
-                  </label>
+                      />
+                    </label>
+                  </td>
+                ))}
+                <td className="px-2 py-1 border ">
+                  <FormInput
+                    type="number"
+                    value={draft.lesson_times[i]}
+                    onChange={(e) => updateTimes(i, e.target.value)}
+                    min={0}
+                    max={99}
+                    className="w-20 px-1 m-auto"
+                  />
                 </td>
-              ))}
-              <td className="px-2 py-1 border ">
-                <FormInput
-                  type="number"
-                  value={draft.lesson_times[i]}
-                  onChange={(e) => updateTimes(i, e.target.value)}
-                  min={0}
-                  max={99}
-                  className="w-20 px-1 m-auto"
-                />
-              </td>
-            </tr>
-          ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -303,9 +305,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({onClose, profileId}) => {
         onClose={() => setShowSelector(false)}
         allStudents={studentNames}
         selected={draft.lesson_favorStudent}
-        onChange={(names) =>
-          setDraft((d) => ({...d, lesson_favorStudent: names}))
-        }
+        onChange={(names) => setDraft((d) => ({ ...d, lesson_favorStudent: names }))}
         lang={serverMap[settings.server!]}
       />
 

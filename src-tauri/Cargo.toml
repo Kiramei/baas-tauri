@@ -15,27 +15,25 @@ name = "baas_tauri_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+baas-updater = { workspace = true }
+baas-term = { workspace = true }
+tauri = { workspace = true }
+serde = { workspace = true }
+
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 tauri-plugin-store = "2"
-reqwest = { version = "0.12.24", features = ["json", "blocking", "stream"] }
-tokio = { version = "1.48.0", features = ["full"] }
-git2 = "0.20.2"
-zip = "6.0.0"
-tar = "0.4.44"
-flate2 = "1.1.5"
 directories = "6.0.0"
-toml = "0.9.8"
-futures-util = "0.3.31"
 tauri-plugin-process = "2"
-sha2 = "0.10.9"
 
-[dependencies.windows]
-version = "0.58.0"
-features = ["Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"]
+[dev-dependencies]
+tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+  "Win32_UI_HiDpi",
+  "Win32_UI_WindowsAndMessaging",
+] }

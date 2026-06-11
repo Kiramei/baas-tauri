@@ -23,12 +23,12 @@ React-приложение рендерится через `App.tsx`.
 | Модуль              | Ответственность                                                                                        | Основные файлы                                                              |
 | :------------------ | :----------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
 | **Context**         | Делится настройками UI, активным профилем и каталогом профилей.                                        | `contexts/AppContext.tsx`                                                   |
-| **State Stores**    | Хранилища Zustand нормализуют удалённое состояние (конфиг, события, статусы, логи) для компонентов.    | `store/websocketStore.ts`, `store/globalLogStore.ts`                        |
+| **State Stores**    | Хранилища Zustand нормализуют удалённое состояние (конфиг, события, статусы, логи) для компонентов.    | `store/WebsocketStore.ts`, `store/GlobalLogStore.ts`                        |
 | **Remote Services** | Инкапсулируют серверные контракты, включая сохранение горячих клавиш и зашифрованные WebSocket-сессии. | `services/hotkeyService.ts`, `lib/SecureWebSocket.ts`                       |
 | **Pages**           | Контейнеры верхнего уровня для страниц `Home`, `Scheduler`, `Configuration`, `Settings`, `Wiki`.       | `pages/*.tsx`                                                               |
 | **Feature Forms**   | Модульные панели конфигурации, работающие с фрагментом `DynamicConfig`.                                | `features/*Config.tsx`, `features/DailySweep.tsx`                           |
 | **Shared UI**       | Повторно используемые визуальные элементы (инпуты, селекторы, модальные окна, логгеры и пр.).          | `components/ui`, `components/AssetsDisplay.tsx`, `components/Particles.tsx` |
-| **Hooks**           | Бизнес-логика, включая горячие клавиши и управление темой.                                             | `hooks/useHotkeys.ts`, `hooks/useTheme.tsx`                                 |
+| **Hooks**           | Бизнес-логика, включая горячие клавиши и управление темой.                                             | `hooks/useHotkeys.ts`, `hooks/ThemeProvider.tsx`                                 |
 
 ---
 

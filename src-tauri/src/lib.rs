@@ -1,25 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod file;
-mod installer;
+mod behavior;
+mod commands;
 
-use crate::installer::InstallerManager;
-use std::sync::Arc;
-use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
+use crate::{
+    behavior::{disable_f5_press_event, inject_tray_icon, splash_off, BehaviorState},
+    commands::{
+        ensure_default_config, updater_abort_workflow, updater_get_startup_state,
+        updater_resize_term, updater_start_workflow, updater_terminal_snapshot, updater_update_config,
+        updater_validate_mirrorc_cdk,
+    },
+};
 
-#[tauri::command]
-async fn splash_off(app: AppHandle) {
-    if let Some(main) = app.get_webview_window("main") {
-        main.center().ok();
-        main.show().ok();
-        main.set_focus().ok();
-    } else {
-        eprintln!("⚠️ main window not found when calling splash_off()");
-    }
-}
+use tauri::{Manager, WindowEvent};
 
-
+use baas_updater::app::UpdaterTermManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,49 +23,38 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             splash_off,
-            file::export_log_for_profile,
-            installer::manager::start_installer,
-            installer::manager::get_default_path,
-            installer::manager::get_default_config
+            updater_get_startup_state,
+            updater_update_config,
+            updater_validate_mirrorc_cdk,
+            updater_start_workflow,
+            updater_abort_workflow,
+            updater_terminal_snapshot,
+            updater_resize_term
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let handle = app.handle().clone();
-            let installer_manager = InstallerManager::new(handle);
-            app.manage(Arc::new(Mutex::new(installer_manager)));
-            let _win = app
-                .get_webview_window("main")
-                .expect("window 'main' not found");
+            // Add tray icon to the app
+            let tray_enabled = inject_tray_icon(app).is_ok();
+            app.manage(BehaviorState { tray_enabled });
 
-            // Disable F5 Refresh
-            #[cfg(not(debug_assertions))]
-            {
-                let harden_js = r#"
-                  (function () {
-                    addEventListener('keydown', function (e) {
-                      const key = e.key && e.key.toLowerCase();
-                      const isReload = (e.key === 'F5') ||
-                                       (e.ctrlKey && key === 'r') ||
-                                       (e.metaKey && key === 'r');
-                      if (isReload) {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        e.stopPropagation();
-                        console.log('[prod] reload blocked');
-                      }
-                    }, { capture: true });
-
-                    addEventListener('beforeunload', function (e) {
-                      e.preventDefault();
-                      e.returnValue = '';
-                    }, { capture: true });
-                  })();
-                "#;
-                _win.eval(harden_js).ok();
-            }
-
+            ensure_default_config().map_err(std::io::Error::other)?;
+            app.manage(UpdaterTermManager::default());
+            disable_f5_press_event(app);
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
+            let state = window.state::<BehaviorState>();
+            if !state.tray_enabled {
+                return;
+            }
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

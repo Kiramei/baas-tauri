@@ -1,16 +1,16 @@
-import React, {useDeferredValue, useEffect, useMemo, useState} from "react";
-import {useTranslation} from "react-i18next";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/Card";
+import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   getLocalizedField,
   getWikiArticles,
   LanguageCode,
   loadDocs,
   mapLanguage,
-  WikiArticle
-} from "@/lib/wikiContent.ts";
-import {BookOpen, Loader2, Search, Tag, X} from "lucide-react";
-import {AnimatePresence, motion} from "framer-motion";
+  WikiArticle,
+} from "@/components/LocalWikiContent.tsx";
+import { BookOpen, Loader2, Search, Tag, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -23,7 +23,11 @@ interface PreparedArticle extends WikiArticle {
   searchIndex: string;
 }
 
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+const stripHtml = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 const buildSearchIndex = (title: string, summary: string, bodyText: string, tags: string[]) =>
   `${title} ${summary} ${bodyText} ${tags.join(" ")}`.toLowerCase();
 
@@ -35,7 +39,8 @@ const ArticleModal: React.FC<{
   open: boolean;
   article: PreparedArticle | null;
   onClose: () => void;
-}> = ({open, article, onClose}) => {
+}> = ({ open, article, onClose }) => {
+  const { i18n } = useTranslation();
   // ESCAPE Key to Close
   useEffect(() => {
     if (!open) return;
@@ -50,33 +55,28 @@ const ArticleModal: React.FC<{
   }, [open, onClose]);
 
   if (!open || !article) return null;
-  const {i18n} = useTranslation();
 
-  // @ts-ignore
   return (
-    <div
-      className={overlayCls}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <div className={overlayCls} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div
-        initial={{opacity: 0, scale: 0.95, y: 10}}
-        animate={{opacity: 1, scale: 1, y: 0}}
-        exit={{opacity: 0, scale: 0.97, y: 10}}
-        transition={{duration: 0.2, ease: "easeOut"}}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 10 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-h-[95vh] m-5 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col"
       >
         <CardHeader className="space-y-2 border-b border-slate-200 dark:border-slate-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-primary-600 dark:text-primary-400"/>
+              <BookOpen className="w-5 h-5 text-primary-600 dark:text-primary-400" />
               <CardTitle className="text-lg">{article.localizedTitle}</CardTitle>
             </div>
             <button
               onClick={onClose}
               className="rounded-full p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <X className="w-5 h-5 text-slate-500"/>
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
           <CardDescription>{article.localizedSummary}</CardDescription>
@@ -86,15 +86,14 @@ const ArticleModal: React.FC<{
                 key={tag}
                 className="inline-flex items-center gap-1 rounded-full bg-primary-100/70 dark:bg-primary-900/40 px-2 py-0.5 text-xs text-primary-700 dark:text-primary-300"
               >
-                <Tag size={12}/>
+                <Tag size={12} />
                 {tag}
               </span>
             ))}
           </div>
         </CardHeader>
 
-        <CardContent
-          className="flex-1 overflow-y-auto scroll-embedded prose prose-sm dark:prose-invert max-w-none p-4 cursor-text allow-select-text">
+        <CardContent className="flex-1 overflow-y-auto scroll-embedded prose prose-sm dark:prose-invert max-w-none p-4 cursor-text allow-select-text">
           {/*<article dangerouslySetInnerHTML={{ __html: article.bodyHtml }} />*/}
           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
             {article.body[i18n.language as LanguageCode]}
@@ -105,10 +104,9 @@ const ArticleModal: React.FC<{
   );
 };
 
-
 // ========= Wiki Page Main Component ==========
 const WikiPage: React.FC = () => {
-  const {t, i18n} = useTranslation();
+  const { t, i18n } = useTranslation();
   const language = mapLanguage(i18n.language);
 
   const [query, setQuery] = useState("");
@@ -156,7 +154,7 @@ const WikiPage: React.FC = () => {
           if (!article.body[language]) {
             try {
               const loadedBody = await loadDocs(article.basename, language);
-              articleAppended = {...article, body: {...article.body, ...loadedBody}};
+              articleAppended = { ...article, body: { ...article.body, ...loadedBody } };
               if (loadedBody) {
                 bodyHtml = loadedBody[language]!;
               }
@@ -166,9 +164,14 @@ const WikiPage: React.FC = () => {
           }
 
           const bodyText = stripHtml(bodyHtml);
-          const searchIndex = buildSearchIndex(localizedTitle, localizedSummary, bodyText, article.tags);
+          const searchIndex = buildSearchIndex(
+            localizedTitle,
+            localizedSummary,
+            bodyText,
+            article.tags
+          );
 
-          return {...articleAppended, localizedTitle, localizedSummary, bodyHtml, searchIndex};
+          return { ...articleAppended, localizedTitle, localizedSummary, bodyHtml, searchIndex };
         })
       );
       setPreparedArticles(results);
@@ -208,7 +211,7 @@ const WikiPage: React.FC = () => {
   if (!articlesEntry) {
     return (
       <div className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">
-        <Loader2 className="animate-spin mr-2 h-10 w-10"/>
+        <Loader2 className="animate-spin mr-2 h-10 w-10" />
       </div>
     );
   }
@@ -241,7 +244,7 @@ const WikiPage: React.FC = () => {
       key={tag}
       className="inline-flex items-center gap-1 rounded-full bg-primary-100/70 dark:bg-primary-900/40 px-2 py-0.5 text-xs text-primary-700 dark:text-primary-300"
     >
-      <Tag size={12}/>
+      <Tag size={12} />
       {tag}
     </span>
   );
@@ -252,12 +255,10 @@ const WikiPage: React.FC = () => {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <BookOpen className="w-6 h-6 text-primary-600 dark:text-primary-400"/>
+          <BookOpen className="w-6 h-6 text-primary-600 dark:text-primary-400" />
           {t("wiki.title")}
         </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl">
-          {t("wiki.subtitle")}
-        </p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl">{t("wiki.subtitle")}</p>
       </header>
 
       {/* Search Box */}
@@ -285,7 +286,7 @@ const WikiPage: React.FC = () => {
 
       {/* Search Results Statistics */}
       <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-        <span>{t("wiki.resultsCount", {count: filteredArticles.length})}</span>
+        <span>{t("wiki.resultsCount", { count: filteredArticles.length })}</span>
         {query && (
           <button className="underline" onClick={() => setQuery("")}>
             {t("wiki.clearSearch")}
@@ -300,10 +301,10 @@ const WikiPage: React.FC = () => {
             <motion.div
               key={article.id}
               layout
-              initial={{opacity: 0, y: 6}}
-              animate={{opacity: 1, y: 0}}
-              exit={{opacity: 0, y: -6}}
-              transition={{duration: 0.15, ease: "easeOut"}}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
             >
               <Card
                 onClick={() => setSelectedArticle(article)}
@@ -315,7 +316,7 @@ const WikiPage: React.FC = () => {
                   </CardTitle>
                   <CardDescription>{article.localizedSummary}</CardDescription>
                 </CardHeader>
-                <CardContent className="!p-2 flex gap-2 flex-wrap">
+                <CardContent className="p-2! flex gap-2 flex-wrap">
                   {article.tags.slice(0, 4).map(renderTag)}
                 </CardContent>
               </Card>
@@ -324,8 +325,7 @@ const WikiPage: React.FC = () => {
         </AnimatePresence>
 
         {filteredArticles.length === 0 && (
-          <div
-            className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
             {t("wiki.noResults")}
           </div>
         )}

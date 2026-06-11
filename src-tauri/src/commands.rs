@@ -1,0 +1,302 @@
+use baas_term::types::SessionMetadata;
+use baas_updater::{
+    RepositoryKind, UpdateChannel, WorkflowOptions,
+    app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
+    config::{ConfigManager, UpdaterConfig},
+    mirrorc::{MirrorCClient, ReqwestMirrorHttp},
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+use tauri::{AppHandle, State};
+
+/// Frontend startup snapshot for deciding whether to show the setup wizard or
+/// immediately run the updater. The setup file is still the source of truth;
+/// storage is intentionally not consulted here.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterStartupState {
+    pub config_path: PathBuf,
+    pub config: UpdaterConfig,
+    pub default_install_path: PathBuf,
+    pub baas_root_exists_non_empty: bool,
+}
+
+/// Partial configuration update request used by the setup wizard.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterConfigUpdateRequest {
+    pub baas_root_path: Option<PathBuf>,
+    pub mirrorc_cdk: Option<String>,
+    pub channel: Option<String>,
+    pub runtime_path: Option<String>,
+}
+
+/// MirrorC CDK validation request.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorCValidateRequest {
+    pub cdk: String,
+    pub channel: Option<String>,
+}
+
+/// MirrorC CDK validation result returned to the setup wizard.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorCValidateReport {
+    pub success: bool,
+    pub code: Option<i32>,
+    pub message: String,
+    pub mirrorc_message: Option<String>,
+    pub latest_version: Option<String>,
+    pub expires_at: Option<u64>,
+    pub expires_at_iso: Option<String>,
+}
+
+/// Terminal workflow start request.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterWorkflowRequest {
+    pub install_path: Option<PathBuf>,
+    pub launch: Option<bool>,
+}
+
+#[tauri::command]
+pub fn updater_get_startup_state() -> Result<UpdaterStartupState, String> {
+    let manager = ensure_default_config()?;
+    let default_install_path = default_install_path();
+    let root = manager.config.baas_root();
+    let baas_root_exists_non_empty = path_exists_non_empty(&root);
+
+    Ok(UpdaterStartupState {
+        config_path: manager.config_path,
+        config: manager.config,
+        default_install_path,
+        baas_root_exists_non_empty,
+    })
+}
+
+#[tauri::command]
+pub fn updater_update_config(
+    request: UpdaterConfigUpdateRequest,
+) -> Result<UpdaterConfig, String> {
+    let mut manager = ensure_default_config()?;
+    let parsed_channel = match request.channel.as_deref() {
+        Some(value) => Some(UpdateChannel::parse(value).map_err(|error| error.message())?),
+        None => None,
+    };
+    manager
+        .update(|config| {
+            if let Some(path) = request.baas_root_path {
+                config.paths.baas_root_path = path.to_string_lossy().to_string();
+            }
+            if let Some(cdk) = request.mirrorc_cdk {
+                config.general.mirrorc_cdk = cdk.trim().to_string();
+            }
+            if let Some(channel) = parsed_channel {
+                config.general.channel = channel;
+            }
+            if let Some(runtime) = request.runtime_path {
+                config.python.runtime_path = runtime;
+            }
+        })
+        .map_err(|error| error.message())?;
+    Ok(manager.config)
+}
+
+#[tauri::command]
+pub fn updater_validate_mirrorc_cdk(
+    request: MirrorCValidateRequest,
+) -> Result<MirrorCValidateReport, String> {
+    let cdk = request.cdk.trim().to_string();
+    let channel = match request.channel.as_deref() {
+        Some(value) => UpdateChannel::parse(value).map_err(|error| error.message())?,
+        None => ensure_default_config()?.config.general.channel,
+    };
+
+    let report = if cdk.is_empty() {
+        MirrorCValidateReport {
+            success: false,
+            code: Some(7002),
+            message: "CDK invalid.".to_string(),
+            mirrorc_message: None,
+            latest_version: None,
+            expires_at: None,
+            expires_at_iso: None,
+        }
+    } else {
+        let client = MirrorCClient::new(ReqwestMirrorHttp);
+        match client.latest(RepositoryKind::Main, channel, "", &cdk) {
+            Ok(latest) => {
+                let success = latest.code == 0;
+                MirrorCValidateReport {
+                    success,
+                    code: Some(latest.code),
+                    message: mirrorc_validation_message(
+                        latest.code,
+                        latest.cdk_expired_time,
+                    ),
+                    mirrorc_message: Some(latest.message),
+                    latest_version: latest.latest_version_name,
+                    expires_at: latest.cdk_expired_time,
+                    expires_at_iso: latest
+                        .cdk_expired_time
+                        .map(|value| value.to_string()),
+                }
+            }
+            Err(error) => MirrorCValidateReport {
+                success: false,
+                code: None,
+                message: error.message(),
+                mirrorc_message: None,
+                latest_version: None,
+                expires_at: None,
+                expires_at_iso: None,
+            },
+        }
+    };
+
+    let mut manager = ensure_default_config()?;
+    manager
+        .set_mirrorc_cdk(if report.success { cdk } else { String::new() })
+        .map_err(|error| error.message())?;
+
+    Ok(report)
+}
+
+#[tauri::command]
+pub fn updater_start_workflow(
+    app: AppHandle,
+    request: UpdaterWorkflowRequest,
+    manager: State<'_, UpdaterTermManager>,
+) -> Result<SessionMetadata, String> {
+    let mut config_manager = ensure_default_config()?;
+    let install_path = request
+        .install_path
+        .or_else(|| non_empty_path(&config_manager.config.paths.baas_root_path))
+        .unwrap_or_else(default_install_path);
+
+    // The updater launch stage checks both WorkflowOptions.launch and
+    // general.launch. Persisting this makes setup.toml reflect the app mode.
+    config_manager
+        .update(|config| {
+            config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+            config.general.launch = request.launch.unwrap_or(true);
+        })
+        .map_err(|error| error.message())?;
+
+    manager.start(
+        app,
+        WorkflowOptions {
+            config_path: Some(config_manager.config_path),
+            install_path: Some(install_path),
+            launch: request.launch.unwrap_or(true),
+        },
+    )
+}
+
+#[tauri::command]
+pub fn updater_abort_workflow(
+    request: Option<WorkflowAbortRequest>,
+    manager: State<'_, UpdaterTermManager>,
+) -> Result<WorkflowAbortReport, String> {
+    manager.abort(request.unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn updater_terminal_snapshot(
+    manager: State<'_, UpdaterTermManager>,
+) -> Result<TerminalSnapshot, String> {
+    manager.snapshot()
+}
+
+#[tauri::command]
+pub fn updater_resize_term(
+    manager: State<'_, UpdaterTermManager>,
+    rows: u16,
+    cols: u16,
+) -> Result<(), String> {
+    manager.resize(rows, cols)
+}
+
+/// Creates the exe-adjacent setup.toml if it is missing, then returns the
+/// loaded manager. Keeping this small helper in the Tauri layer avoids
+/// frontend storage becoming a second source of install-path truth.
+pub fn ensure_default_config() -> Result<ConfigManager, String> {
+    let manager = ConfigManager::load_default_path().map_err(|error| error.message())?;
+    manager.save().map_err(|error| error.message())?;
+    Ok(manager)
+}
+
+fn default_install_path() -> PathBuf {
+    if cfg!(target_os = "windows") {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    } else {
+        directories::BaseDirs::new()
+            .map(|dirs| dirs.home_dir().join(".baas"))
+            .unwrap_or_else(|| PathBuf::from(".baas"))
+    }
+}
+
+fn path_exists_non_empty(path: &Path) -> bool {
+    !path.as_os_str().is_empty()
+        && path.is_dir()
+        && fs::read_dir(path)
+            .map(|mut entries| entries.next().is_some())
+            .unwrap_or(false)
+}
+
+fn non_empty_path(value: &str) -> Option<PathBuf> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(trimmed))
+    }
+}
+
+fn mirrorc_validation_message(code: i32, expires_at: Option<u64>) -> String {
+    match code {
+        0 => expires_at
+            .map(|timestamp| format!("CDK valid. Expires at {timestamp}."))
+            .unwrap_or_else(|| "CDK valid.".to_string()),
+        7001 => "CDK expired.".to_string(),
+        7002 => "CDK invalid.".to_string(),
+        7003 => "CDK quota exhausted for today.".to_string(),
+        7004 => "CDK mismatched for requested resource.".to_string(),
+        7005 => "CDK blocked.".to_string(),
+        other => format!("MirrorC returned code {other}."),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_existing_non_empty_root() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!path_exists_non_empty(dir.path()));
+        fs::write(dir.path().join("marker.txt"), "ok").unwrap();
+        assert!(path_exists_non_empty(dir.path()));
+    }
+
+    #[test]
+    fn mirrorc_validation_messages_cover_known_codes() {
+        assert!(mirrorc_validation_message(0, Some(1)).contains("valid"));
+        assert!(mirrorc_validation_message(7001, None).contains("expired"));
+        assert!(mirrorc_validation_message(7002, None).contains("invalid"));
+        assert!(mirrorc_validation_message(7003, None).contains("quota"));
+        assert!(mirrorc_validation_message(7004, None).contains("mismatched"));
+        assert!(mirrorc_validation_message(7005, None).contains("blocked"));
+    }
+
+    #[test]
+    fn parses_non_empty_path_only() {
+        assert_eq!(non_empty_path(""), None);
+        assert_eq!(non_empty_path("   "), None);
+        assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
+    }
+}

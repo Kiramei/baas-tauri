@@ -2,6 +2,20 @@
 import { spawn, spawnSync } from "child_process";
 
 /**
+ * Detect a working pyftsubset command across platforms.
+ * Returns the first command that works, or exits gracefully if none found.
+ */
+function detectPyftsubsetCmd() {
+  const check = spawnSync("pyftsubset", ["--help"], { shell: true });
+  if (check.status === 0) return;
+  console.warn("⚠️ pyftsubset not found. Skipping font build.");
+  process.exit(0);
+}
+
+// Select the available Python command
+detectPyftsubsetCmd();
+
+/**
  * Detect a working Python command across platforms.
  * Checks "python", "python3", then "py" (Windows launcher).
  * Returns the first command that works, or exits gracefully if none found.

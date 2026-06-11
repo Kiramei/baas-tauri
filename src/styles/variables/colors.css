@@ -1,6 +1,6 @@
 @theme {
   /* Primary (青绿) */
-  --color-primary-50:  #ecfeff;
+  --color-primary-50: #ecfeff;
   --color-primary-100: #cffafe;
   --color-primary-200: #67e8f9;
   --color-primary-300: #22d3ee;
@@ -12,7 +12,7 @@
   --color-primary-900: #164e63;
 
   /* Secondary (紫) */
-  --color-secondary-50:  #f6f5ff;
+  --color-secondary-50: #f6f5ff;
   --color-secondary-100: #ebe7ff;
   --color-secondary-200: #d9d0ff;
   --color-secondary-300: #c1aefc;
@@ -24,7 +24,7 @@
   --color-secondary-900: #44267f;
 
   /* Accent (蜜桃粉) */
-  --color-accent-50:  #fff6f5;
+  --color-accent-50: #fff6f5;
   --color-accent-100: #ffe8e5;
   --color-accent-200: #ffd0c8;
   --color-accent-300: #ffb0a3;
@@ -36,7 +36,7 @@
   --color-accent-900: #8f3235;
 
   /* Green (薄荷绿) */
-  --color-green-50:  #effef7;
+  --color-green-50: #effef7;
   --color-green-100: #d6fbe9;
   --color-green-200: #b3f4d6;
   --color-green-300: #84e9bf;
@@ -48,7 +48,7 @@
   --color-green-900: #0f5a46;
 
   /* Yellow (蜂蜜杏，你写成 yello，我帮你规范成 yellow) */
-  --color-yellow-50:  #fffbef;
+  --color-yellow-50: #fffbef;
   --color-yellow-100: #fff4d6;
   --color-yellow-200: #ffe6a8;
   --color-yellow-300: #ffd173;
@@ -60,7 +60,7 @@
   --color-yellow-900: #784a16;
 
   /* Red (草莓红) */
-  --color-red-50:  #fff1f3;
+  --color-red-50: #fff1f3;
   --color-red-100: #ffe0e5;
   --color-red-200: #ffc4cf;
   --color-red-300: #ff9caf;
@@ -72,7 +72,7 @@
   --color-red-900: #7f2440;
 
   /* Gray (奶灰) */
-  --color-gray-50:  #f8fafb;
+  --color-gray-50: #f8fafb;
   --color-gray-100: #f0f2f4;
   --color-gray-200: #e5e8eb;
   --color-gray-300: #d4d9de;
@@ -82,10 +82,9 @@
   --color-gray-700: #5b646f;
   --color-gray-800: #4a535c;
   --color-gray-900: #3e464e;
-
 }
 
 ::selection {
-    background: #0891b2;  /* 你喜欢的背景色 */
-    color: #ffffff;       /* 选中文字的颜色 */
+  background: #0891b2; /* 你喜欢的背景色 */
+  color: #ffffff; /* 选中文字的颜色 */
 }
