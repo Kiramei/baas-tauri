@@ -36,6 +36,9 @@ The crate also exposes lower-level modules:
 - `renderer`: consumes `RendererEvent` values and emits rendered Tauri chunks.
 - `types`: shared task specs, renderer events, and serialized payloads.
 - `common`: small orchestration helpers for session checks and task completion.
+- `constants`: named defaults and limits for terminal dimensions, renderer
+  history, running-region clipping, task statuses, Tauri event names, and worker
+  timing.
 
 ## Task Types
 

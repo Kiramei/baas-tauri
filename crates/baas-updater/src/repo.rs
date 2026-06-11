@@ -11,6 +11,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::mpsc,
+    thread,
     time::{Duration, Instant},
 };
 
@@ -133,7 +135,7 @@ pub struct RepoSyncOptions {
 }
 
 /// Measures whether source URLs are reachable and how long they take.
-pub trait SourceProbe {
+pub trait SourceProbe: Sync {
     /// Returns a duration for a reachable URL.
     fn measure(&self, url: &str) -> UpdaterResult<Duration>;
 }
@@ -450,7 +452,7 @@ pub fn cpp_branch_for(os: &str, arch: &str) -> UpdaterResult<String> {
 pub fn load_or_benchmark_ranking(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &impl SourceProbe,
+    probe: &(impl SourceProbe + Sync),
 ) -> UpdaterResult<SourceRanking> {
     load_or_benchmark_ranking_with_output(path, expected_urls, probe, &crate::NoopOutput)
 }
@@ -459,7 +461,7 @@ pub fn load_or_benchmark_ranking(
 pub fn load_or_benchmark_ranking_with_output(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &impl SourceProbe,
+    probe: &(impl SourceProbe + Sync),
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<SourceRanking> {
     if let Some(path) = path
@@ -476,40 +478,76 @@ pub fn load_or_benchmark_ranking_with_output(
 }
 
 /// Benchmarks sources and returns a sorted ranking.
-pub fn benchmark_sources(expected_urls: &[String], probe: &impl SourceProbe) -> SourceRanking {
+pub fn benchmark_sources(
+    expected_urls: &[String],
+    probe: &(impl SourceProbe + Sync),
+) -> SourceRanking {
     benchmark_sources_with_output(expected_urls, probe, &crate::NoopOutput)
 }
 
 /// Benchmarks sources and renders multi-line status when terminal output exists.
 pub fn benchmark_sources_with_output(
     expected_urls: &[String],
-    probe: &impl SourceProbe,
+    probe: &(impl SourceProbe + Sync),
+    output: &(impl OutputSink + ?Sized),
+) -> SourceRanking {
+    let source_probes = expected_urls
+        .iter()
+        .map(|url| (url.clone(), url.clone()))
+        .collect::<Vec<_>>();
+    benchmark_source_probes_with_output(&source_probes, probe, output)
+}
+
+/// Benchmarks source URLs using separate probe URLs.
+///
+/// The returned ranking always stores the source URL. The probe URL is used
+/// only for reachability measurement, which is useful for mirror roots that are
+/// consumed by a tool but do not respond successfully themselves.
+pub fn benchmark_source_probes_with_output(
+    source_probes: &[(String, String)],
+    probe: &(impl SourceProbe + Sync),
     output: &(impl OutputSink + ?Sized),
 ) -> SourceRanking {
     let mut measured = Vec::new();
     let mut failed = Vec::new();
-    let mut statuses = expected_urls
+    let mut statuses = source_probes
         .iter()
-        .map(|url| format!("pending  {url}"))
+        .map(|(url, _)| format!("pending  {url}"))
         .collect::<Vec<_>>();
     let mut repaint = output
         .thread_output()
         .map(|term| term.log().block_repaint());
-    for (index, url) in expected_urls.iter().enumerate() {
+
+    for (index, (url, _)) in source_probes.iter().enumerate() {
         statuses[index] = format!("testing  {url}");
-        render_probe_status(&mut repaint, &statuses);
-        match probe.measure(url) {
-            Ok(duration) => {
-                statuses[index] = format!("ok       {:>5} ms  {url}", duration.as_millis());
-                measured.push((url.clone(), duration));
-            }
-            Err(_) => {
-                statuses[index] = format!("failed          {url}");
-                failed.push(url.clone());
-            }
-        }
-        render_probe_status(&mut repaint, &statuses);
     }
+    render_probe_status(&mut repaint, &statuses);
+
+    thread::scope(|scope| {
+        let (tx, rx) = mpsc::channel();
+        for (index, (source_url, probe_url)) in source_probes.iter().enumerate() {
+            let tx = tx.clone();
+            scope.spawn(move || {
+                let result = probe.measure(probe_url);
+                let _ = tx.send((index, source_url.clone(), result));
+            });
+        }
+        drop(tx);
+
+        for (index, url, result) in rx {
+            match result {
+                Ok(duration) => {
+                    statuses[index] = format!("ok       {:>5} ms  {url}", duration.as_millis());
+                    measured.push((url, duration));
+                }
+                Err(_) => {
+                    statuses[index] = format!("failed          {url}");
+                    failed.push(url);
+                }
+            }
+            render_probe_status(&mut repaint, &statuses);
+        }
+    });
     if let Some(repaint) = &mut repaint {
         repaint.finish();
     }
@@ -619,7 +657,10 @@ mod tests {
     use super::*;
     use std::{
         collections::VecDeque,
-        sync::{Arc, Mutex},
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
     };
 
     #[derive(Clone)]
@@ -757,6 +798,34 @@ mod tests {
         assert_eq!(ranking.sources[0].url, "https://fast.example");
         assert_eq!(ranking.sources[1].url, "https://slow.example");
         assert_eq!(ranking.sources[2].order, -1);
+    }
+
+    #[test]
+    fn benchmarks_sources_in_parallel() {
+        struct ParallelProbe {
+            active: AtomicUsize,
+            max_active: AtomicUsize,
+        }
+
+        impl SourceProbe for ParallelProbe {
+            fn measure(&self, _url: &str) -> UpdaterResult<Duration> {
+                let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+                self.max_active.fetch_max(active, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(30));
+                self.active.fetch_sub(1, Ordering::SeqCst);
+                Ok(Duration::from_millis(1))
+            }
+        }
+
+        let probe = ParallelProbe {
+            active: AtomicUsize::new(0),
+            max_active: AtomicUsize::new(0),
+        };
+        let ranking =
+            benchmark_sources(&["a".to_string(), "b".to_string(), "c".to_string()], &probe);
+
+        assert_eq!(ranking.sources.len(), 3);
+        assert!(probe.max_active.load(Ordering::SeqCst) > 1);
     }
 
     #[test]

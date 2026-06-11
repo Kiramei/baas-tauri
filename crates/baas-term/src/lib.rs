@@ -7,6 +7,10 @@
 use crate::demo::run_demo_flow;
 use crate::renderer::renderer_loop;
 use crate::types::{RendererEvent, SessionMetadata, SessionStartedPayload, TaskHandle, TermState};
+use constants::{
+    DEFAULT_TERMINAL_COLS, DEFAULT_TERMINAL_ROWS, EVENT_BUILD_SESSION_STARTED, PTY_PIXEL_HEIGHT,
+    PTY_PIXEL_WIDTH, STATUS_RUNNING, STATUS_STOPPED,
+};
 use portable_pty::PtySize;
 use std::{
     sync::{Arc, Mutex, atomic::Ordering, mpsc},
@@ -17,6 +21,8 @@ use uuid::Uuid;
 
 /// Shared session and task-completion helpers.
 pub mod common;
+/// Shared constants controlling session, task, and renderer behavior.
+pub mod constants;
 mod demo;
 /// PTY-backed process task support.
 pub mod processor;
@@ -58,19 +64,19 @@ impl TermManager {
             state.renderer_tx = Some(renderer_tx.clone());
             state.tasks.clear();
             if state.rows == 0 {
-                state.rows = 32;
+                state.rows = DEFAULT_TERMINAL_ROWS;
             }
             if state.cols == 0 {
-                state.cols = 120;
+                state.cols = DEFAULT_TERMINAL_COLS;
             }
             (state.rows, state.cols)
         };
 
         app.emit(
-            "build:session-started",
+            EVENT_BUILD_SESSION_STARTED,
             SessionStartedPayload {
                 session_id: session_id.clone(),
-                status: "running".to_string(),
+                status: STATUS_RUNNING.to_string(),
             },
         )
         .map_err(|error| error.to_string())?;
@@ -93,7 +99,7 @@ impl TermManager {
 
         Ok(SessionMetadata {
             session_id,
-            status: "running".to_string(),
+            status: STATUS_RUNNING.to_string(),
         })
     }
 
@@ -123,7 +129,7 @@ impl TermManager {
                 let _ = tx.send(RendererEvent::TaskFinished {
                     task_id,
                     region_id: String::new(),
-                    status: "stopped".to_string(),
+                    status: STATUS_STOPPED.to_string(),
                     exit_code: None,
                     error: None,
                 });
@@ -172,8 +178,8 @@ impl TermManager {
                     .resize(PtySize {
                         rows,
                         cols,
-                        pixel_width: 0,
-                        pixel_height: 0,
+                        pixel_width: PTY_PIXEL_WIDTH,
+                        pixel_height: PTY_PIXEL_HEIGHT,
                     })
                     .map_err(|error| error.to_string())?;
             }

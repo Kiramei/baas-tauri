@@ -16,6 +16,10 @@ use std::{
     time::Duration,
 };
 
+use crate::constants::{
+    ANSI_CLEAR_LINE, ANSI_RESET, DEMO_STEP_TOTAL, PROGRESS_PERCENT_MAX, STATUS_FAILED,
+    STATUS_STOPPED, STATUS_SUCCESS, THREAD_PROGRESS_LABEL_WIDTH, THREAD_SPINNER_TICK_MS,
+};
 use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
 
 /// Builds a [`TaskSpec`] for an in-process thread task.
@@ -33,7 +37,7 @@ pub fn create_thread_task(
         task_id: task_id.to_string(),
         region_id: region_id.to_string(),
         step_index,
-        step_total: 4,
+        step_total: DEMO_STEP_TOTAL,
         name: name.to_string(),
         command: command.to_string(),
         program: String::new(),
@@ -102,14 +106,14 @@ where
         }
 
         let (status, error) = if cancelled {
-            ("stopped".to_string(), None)
+            (STATUS_STOPPED.to_string(), None)
         } else {
             match result {
-                Ok(()) => ("success".to_string(), None),
-                Err(error) => ("failed".to_string(), Some(error)),
+                Ok(()) => (STATUS_SUCCESS.to_string(), None),
+                Err(error) => (STATUS_FAILED.to_string(), Some(error)),
             }
         };
-        let success = status == "success";
+        let success = status == STATUS_SUCCESS;
 
         let _ = thread_tx.send(RendererEvent::TaskFinished {
             task_id: thread_task_id.clone(),
@@ -250,8 +254,6 @@ impl ThreadOutput {
     }
 }
 
-const ANSI_RESET: &str = "\x1b[0m";
-const ANSI_CLEAR_LINE: &str = "\r\x1b[2K";
 const SPINNER_FRAMES: [&str; 4] = ["-", "\\", "|", "/"];
 
 #[derive(Clone, Copy)]
@@ -508,7 +510,7 @@ impl ThreadSpinnerGuard {
                     .map(|detail| detail.clone())
                     .unwrap_or_default();
                 spinner.tick(detail);
-                thread::sleep(Duration::from_millis(100));
+                thread::sleep(Duration::from_millis(THREAD_SPINNER_TICK_MS));
             }
         });
 
@@ -637,7 +639,7 @@ impl ThreadProgressBar {
     pub fn render(&mut self, detail: &str) {
         let filled =
             (((self.current as usize) * self.width) / (self.total as usize)).min(self.width);
-        let percent = (self.current * 100) / self.total;
+        let percent = (self.current * PROGRESS_PERCENT_MAX) / self.total;
         let detail = if detail.is_empty() {
             String::new()
         } else {
@@ -648,7 +650,14 @@ impl ThreadProgressBar {
 
         self.output.write(&format!(
             "{prefix}{} {}  {} {}  {}/{}{}",
-            style_text(ThreadLogStyle::Accent, &format!("{:<18}", self.label)),
+            style_text(
+                ThreadLogStyle::Accent,
+                &format!(
+                    "{:<width$}",
+                    self.label,
+                    width = THREAD_PROGRESS_LABEL_WIDTH
+                ),
+            ),
             style_text(ThreadLogStyle::Info, &format!("{percent:>3}%")),
             style_text(ThreadLogStyle::Accent, &done),
             style_text(ThreadLogStyle::Muted, &todo),

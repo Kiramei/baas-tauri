@@ -166,6 +166,16 @@ pub struct DashboardClearedPayload {
     pub session_id: Option<String>,
 }
 
+/// Payload emitted when an updater workflow has launched the backend.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendReadyPayload {
+    /// IPv4 loopback address used by the local backend.
+    pub base_backend_addr: String,
+    /// Dynamically selected local backend port.
+    pub base_backend_port: u16,
+}
+
 /// Events consumed by the renderer loop.
 #[derive(Clone)]
 pub enum RendererEvent {
@@ -202,6 +212,13 @@ pub enum RendererEvent {
     SessionFinished {
         /// Whether the session succeeded.
         success: bool,
+    },
+    /// Updater backend launched and is ready for frontend authentication.
+    BackendReady {
+        /// Local backend address.
+        base_backend_addr: String,
+        /// Local backend port.
+        base_backend_port: u16,
     },
     /// Flush buffered regions back into the dashboard snapshot.
     FlushRegions {
@@ -271,6 +288,22 @@ mod tests {
                 "error": "boom",
                 "startedAt": "2026-06-09T00:00:00Z",
                 "finishedAt": null
+            })
+        );
+    }
+
+    #[test]
+    fn backend_ready_payload_serializes_with_backend_fields() {
+        let payload = BackendReadyPayload {
+            base_backend_addr: "127.0.0.1".to_string(),
+            base_backend_port: 8190,
+        };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            json!({
+                "baseBackendAddr": "127.0.0.1",
+                "baseBackendPort": 8190
             })
         );
     }

@@ -1,4 +1,11 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/Button";
 import { Copy, Terminal as TerminalIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -15,42 +22,57 @@ export interface TerminalHandle {
   setRunning: (running: boolean) => void;
 }
 
-// type TermTaskStatus = "idle" | "pending" | "running" | "success" | "failed" | "stopped";
+type TermTaskStatus = "idle" | "pending" | "running" | "success" | "failed" | "stopped";
 
 interface TermChunkPayload {
   sessionId: string;
   chunk: string;
 }
 
-// interface TermTaskStartedPayload {
-//   sessionId: string;
-//   taskId: string;
-//   regionId: string;
-//   stepIndex: number;
-//   stepTotal: number;
-//   name: string;
-//   command: string;
-//   status: "running";
-// }
-//
-// interface TermTaskStatusPayload {
-//   sessionId: string;
-//   taskId: string;
-//   regionId: string;
-//   status: Exclude<TermTaskStatus, "idle">;
-//   exitCode?: number;
-//   error?: string;
-//   startedAt?: string;
-//   finishedAt?: string;
-// }
-//
-// interface TermSessionFinishedPayload {
-//   sessionId: string;
-//   success: boolean;
-// }
+interface TermTaskStartedPayload {
+  sessionId: string;
+  taskId: string;
+  regionId: string;
+  stepIndex: number;
+  stepTotal: number;
+  name: string;
+  command: string;
+  status: "running";
+}
+
+interface TermTaskStatusPayload {
+  sessionId: string;
+  taskId: string;
+  regionId: string;
+  status: Exclude<TermTaskStatus, "idle">;
+  exitCode?: number;
+  error?: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+interface TermSessionFinishedPayload {
+  sessionId: string;
+  success: boolean;
+}
 
 interface TermClearedPayload {
   sessionId?: string;
+}
+
+interface TermTaskView {
+  taskId: string;
+  label: string;
+  name: string;
+  command: string;
+  status: TermTaskStatus;
+  error?: string;
+}
+
+interface TermViewerProps {
+  onAbort: () => void | Promise<void>;
+  onFailure?: (failure: { step: string; message: string }) => void;
+  onSessionFinished?: (success: boolean) => void;
 }
 
 const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
@@ -64,7 +86,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     if (!term || !fit) return;
 
     fit.fit();
-    void invoke("resize_term", {
+    void invoke("updater_resize_term", {
       rows: term.rows,
       cols: term.cols,
     });
@@ -135,15 +157,13 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
 
 TermEmulator.displayName = "TermEmulator";
 
-const TermViewer: React.FC = () => {
+const TermViewer: React.FC<TermViewerProps> = ({ onAbort, onFailure, onSessionFinished }) => {
   const terminalLogData = useGlobalLogStore((e) => e.terminalLogData);
+  const appendTerminalLog = useGlobalLogStore((e) => e.appendTerminalLog);
 
   const terminalRef = useRef<TerminalHandle | null>(null);
-  const startTerminalDemo = async () => {
-    terminalRef.current?.setRunning(true);
-    terminalRef.current?.reset();
-    await invoke("start_term_demo");
-  };
+  const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
+  const [sessionStatus, setSessionStatus] = useState<TermTaskStatus>("running");
 
   const copyLogs = () => {
     const text = terminalLogData
@@ -152,6 +172,17 @@ const TermViewer: React.FC = () => {
     navigator.clipboard.writeText(text).then(undefined);
     toast.success("Logs copied to clipboard");
   };
+
+  const appendStatusLog = useCallback(
+    (level: string, message: string) => {
+      appendTerminalLog({
+        message,
+        level,
+        time: new Date().toLocaleTimeString(),
+      });
+    },
+    [appendTerminalLog]
+  );
 
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
@@ -163,54 +194,66 @@ const TermViewer: React.FC = () => {
           if (disposed) return;
           terminalRef.current?.write(event.payload.chunk);
         }),
-        // listen<TermTaskStartedPayload>("term:task-started", (event) => {
-        //   if (disposed) return;
-        //   // const payload = event.payload;
-        //   // setTasks((current) => ({
-        //   //   ...current,
-        //   //   [payload.taskId]: {
-        //   //     taskId: payload.taskId,
-        //   //     regionId: payload.regionId,
-        //   //     label: `[${String(payload.stepIndex).padStart(2, "0")}/${String(payload.stepTotal).padStart(2, "0")}] ${payload.name}`,
-        //   //     name: payload.name,
-        //   //     command: payload.command,
-        //   //     status: payload.status,
-        //   //     startedAt: new Date().toISOString(),
-        //   //   },
-        //   // }));
-        // }),
-        // listen<TermTaskStatusPayload>("term:task-status", (event) => {
-        //   if (disposed) return;
-        //   // const payload = event.payload;
-        //   // setTasks((current) => {
-        //   //   const previous = current[payload.taskId];
-        //   //   if (!previous) return current;
-        //   //   return {
-        //   //     ...current,
-        //   //     [payload.taskId]: {
-        //   //       ...previous,
-        //   //       status: payload.status,
-        //   //       exitCode: payload.exitCode,
-        //   //       finishedAt: payload.finishedAt ?? previous.finishedAt,
-        //   //     },
-        //   //   };
-        //   // });
-        // }),
-        // listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
-        //   if (disposed) return;
-        //   terminalRef.current?.setRunning(false);
-        //   // setSession((current) => ({
-        //   //   ...current,
-        //   //   status: event.payload.success ? "success" : "failed",
-        //   //   finishedAt: new Date().toISOString(),
-        //   // }));
-        // }),
+        listen<TermTaskStartedPayload>("term:task-started", (event) => {
+          if (disposed) return;
+          const payload = event.payload;
+          const label = `[${String(payload.stepIndex).padStart(2, "0")}/${String(payload.stepTotal).padStart(2, "0")}] ${payload.name}`;
+          setTasks((current) => ({
+            ...current,
+            [payload.taskId]: {
+              taskId: payload.taskId,
+              label,
+              name: payload.name,
+              command: payload.command,
+              status: payload.status,
+            },
+          }));
+          appendStatusLog("info", `${label} started`);
+        }),
+        listen<TermTaskStatusPayload>("term:task-status", (event) => {
+          if (disposed) return;
+          const payload = event.payload;
+          setTasks((current) => {
+            const previous = current[payload.taskId] ?? {
+              taskId: payload.taskId,
+              label: payload.taskId,
+              name: payload.taskId,
+              command: "",
+              status: "pending" as TermTaskStatus,
+            };
+            return {
+              ...current,
+              [payload.taskId]: {
+                ...previous,
+                status: payload.status,
+                error: payload.error ?? previous.error,
+              },
+            };
+          });
+          if (payload.status === "failed" || payload.status === "stopped") {
+            const message = payload.error || `${payload.taskId} ${payload.status}`;
+            appendStatusLog(payload.status === "failed" ? "error" : "warning", message);
+            onFailure?.({ step: payload.taskId, message });
+          }
+        }),
+        listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
+          if (disposed) return;
+          terminalRef.current?.setRunning(false);
+          setSessionStatus(event.payload.success ? "success" : "failed");
+          onSessionFinished?.(event.payload.success);
+          if (!event.payload.success) {
+            onFailure?.({
+              step: "workflow",
+              message: "Updater workflow did not complete successfully.",
+            });
+          }
+        }),
         listen<TermClearedPayload>("term:dashboard-cleared", () => {
           if (disposed) return;
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
-          // setTasks({});
-          // setSession({ status: "idle" });
+          setTasks({});
+          setSessionStatus("running");
         }),
       ]);
 
@@ -231,18 +274,19 @@ const TermViewer: React.FC = () => {
         unlisten();
       }
     };
-  }, []);
+  }, [appendStatusLog, onFailure, onSessionFinished]);
 
   return (
     <div className="rounded-lg border border-border bg-transparent text-card-foreground shadow-sm overflow-hidden flex flex-col h-100">
       <div className="flex items-center justify-between px-3 py-0 border-b border-border bg-muted/50">
         <div className="flex items-center gap-2">
-          <button className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 focus:outline-none transition duration-150 ease-in-out" />
-          <button className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 focus:outline-none transition duration-150 ease-in-out" />
           <button
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 focus:outline-none transition duration-150 ease-in-out"
-            onClick={startTerminalDemo}
+            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 focus:outline-none transition duration-150 ease-in-out"
+            title="Abort"
+            onClick={() => void onAbort()}
           />
+          <button className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 focus:outline-none transition duration-150 ease-in-out" />
+          <button className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 focus:outline-none transition duration-150 ease-in-out" />
         </div>
 
         <div className="flex items-center gap-2 text-sm font-medium">
@@ -257,16 +301,35 @@ const TermViewer: React.FC = () => {
 
       <div className="flex-1 overflow-auto p-2 font-mono text-xs bg-black/90 dark:bg-black/50 text-gray-300">
         <TermEmulator ref={terminalRef} />
+      </div>
 
-        {/*{terminalLogData.length === 0 && (*/}
-        {/*  <div className="text-gray-500 italic">Waiting for logs...</div>*/}
-        {/*)}*/}
-        {/*{terminalLogData.map((log, i) => (*/}
-        {/*  <div key={i} className="flex mb-1 wrap-break-word allow-select-text cursor-text">*/}
-        {/*    <span className="text-gray-500 mr-2">[{log.time}]</span>*/}
-        {/*    <span className={getColor(log.level)}>{log.message}</span>*/}
-        {/*  </div>*/}
-        {/*))}*/}
+      <div className="border-t border-border bg-muted/30 px-3 py-2 text-xs">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-medium">Session: {sessionStatus}</span>
+          <span className="text-muted-foreground">{Object.keys(tasks).length} tasks</span>
+        </div>
+        {Object.values(tasks).length > 0 && (
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1 max-h-20 overflow-auto">
+            {Object.values(tasks).map((task) => (
+              <div key={task.taskId} className="flex justify-between gap-2">
+                <span className="truncate">{task.label}</span>
+                <span
+                  className={
+                    task.status === "failed"
+                      ? "text-red-500"
+                      : task.status === "success"
+                        ? "text-green-500"
+                        : task.status === "stopped"
+                          ? "text-yellow-500"
+                          : "text-muted-foreground"
+                  }
+                >
+                  {task.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

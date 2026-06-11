@@ -26,6 +26,11 @@ const resolveBase = () => {
   if (import.meta.env.VITE_BAAS_WS_BASE) {
     return import.meta.env.VITE_BAAS_WS_BASE as string;
   }
+  const storedAddr = StorageUtil.get<string>("baseBackendAddr");
+  const storedPort = StorageUtil.get<number | string>("baseBackendPort");
+  if (storedAddr && storedPort) {
+    return `ws://${storedAddr}:${Number(storedPort)}`;
+  }
   if (typeof window !== "undefined" && window.location.hostname) {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${wsProtocol}//${window.location.hostname}:8190`;

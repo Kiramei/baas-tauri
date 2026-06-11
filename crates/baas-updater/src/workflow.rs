@@ -7,10 +7,9 @@ use crate::{
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
         RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        ranked_environment_source_with_output, requirements_path, uses_managed_runtime,
-        uv_cache_clean_command, uv_compile_command_with_index,
+        managed_python_configured, ranked_environment_source_with_output, requirements_path,
+        uses_managed_runtime, uv_cache_clean_command, uv_compile_command_with_index, uv_executable,
         uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
-        venv_python,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
@@ -311,10 +310,10 @@ fn run_workflow_with_services_inner(
     );
     let main_job = repository_job(&config, RepositoryKind::Main);
     let cpp_job = repository_job(&config, RepositoryKind::Cpp);
-    let ranking_dir = config.tmp_dir().join("source-ranking");
+    let ranking_dir = environment_ranking_dir(&config);
     fs::create_dir_all(&ranking_dir)
         .map_err(|error| WorkflowFailure::from_error("prepare_paths", error.into()))?;
-    register_cleanup_paths(&cleanup_state, &main_job, &cpp_job, &ranking_dir)
+    register_cleanup_paths(&cleanup_state, &main_job, &cpp_job)
         .map_err(|error| WorkflowFailure::from_error("cleanup", error))?;
 
     let main_services = Arc::clone(&services);
@@ -469,12 +468,10 @@ fn register_cleanup_paths(
     cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
     main_job: &RepositoryJob,
     cpp_job: &RepositoryJob,
-    ranking_dir: &Path,
 ) -> UpdaterResult<()> {
     let mut cleanup = cleanup_state
         .lock()
         .map_err(|_| UpdaterError::Workflow("workflow cleanup lock poisoned".to_string()))?;
-    cleanup.register_path(ranking_dir.to_path_buf());
     if main_job.needs_move {
         cleanup.register_path(main_job.target_dir.clone());
     }
@@ -557,7 +554,7 @@ fn available_port() -> UpdaterResult<u16> {
 }
 
 fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
-    config.tmp_dir().join("source-ranking")
+    config.source_ranking_dir()
 }
 
 #[derive(Default)]
@@ -728,13 +725,13 @@ fn terminal_config_task(
         spinner.set_detail("saving migrated configuration");
         manager.save().map_err(|error| error.message())?;
         fs::create_dir_all(manager.config.baas_root()).map_err(|error| error.to_string())?;
-        let ranking_dir = manager.config.tmp_dir().join("source-ranking");
+        let ranking_dir = environment_ranking_dir(&manager.config);
         fs::create_dir_all(&ranking_dir).map_err(|error| error.to_string())?;
 
         spinner.set_detail("planning repository targets");
         let main_job = repository_job(&manager.config, RepositoryKind::Main);
         let cpp_job = repository_job(&manager.config, RepositoryKind::Cpp);
-        register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job, &ranking_dir)
+        register_cleanup_paths(&args.cleanup_state, &main_job, &cpp_job)
             .map_err(|error| error.message())?;
         let mut state = args
             .state
@@ -1220,38 +1217,48 @@ fn run_terminal_environment_prepare_stage(
         return false;
     }
 
-    let env_rank_spec = create_thread_task(
-        "environment-source-ranking",
-        "environment-source-ranking",
+    if managed_python_configured(&config) {
+        let output = ThreadOutput {
+            task_id: "python-ready".to_string(),
+            region_id: "python-ready".to_string(),
+            tx: renderer_tx.clone(),
+        };
+        output.line(OutputStyle::Success, "Python virtual environment exists");
+        return true;
+    }
+
+    let cpython_rank_spec = create_thread_task(
+        "cpython-source-ranking",
+        "cpython-source-ranking",
         4,
-        "Environment Sources",
-        "rank cpython and pypi sources",
+        "CPython Source",
+        "rank cpython sources",
     );
     if spawn_thread_task(
         inner,
         session_id,
-        env_rank_spec,
+        cpython_rank_spec,
         renderer_tx,
         completion_tx,
-        TerminalEnvironmentRankArgs {
+        TerminalCpythonRankArgs {
             state: Arc::clone(&state),
             config: config.clone(),
             ranking_dir: ranking_dir.clone(),
         },
-        terminal_environment_rank_task,
+        terminal_cpython_rank_task,
     )
     .is_err()
-        || !wait_for_task(completion_rx, "environment-source-ranking")
+        || !wait_for_task(completion_rx, "cpython-source-ranking")
     {
         return false;
     }
 
-    let (cpython_mirror, _) = match terminal_environment_sources(&state) {
-        Ok(sources) => sources,
+    let cpython_mirror = match terminal_cpython_source(&state) {
+        Ok(source) => source,
         Err(error) => {
             let output = ThreadOutput {
-                task_id: "environment-source-ranking".to_string(),
-                region_id: "environment-source-ranking".to_string(),
+                task_id: "cpython-source-ranking".to_string(),
+                region_id: "cpython-source-ranking".to_string(),
                 tx: renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, &error);
@@ -1279,7 +1286,7 @@ fn run_terminal_environment_prepare_stage(
         return false;
     }
 
-    if !venv_python(&config).exists()
+    if !managed_python_configured(&config)
         && !run_process_and_wait(
             inner,
             session_id,
@@ -1356,19 +1363,6 @@ fn run_terminal_dependency_stage(
         );
     }
 
-    let (_, pypi_index) = match terminal_environment_sources(&state) {
-        Ok(sources) => sources,
-        Err(error) => {
-            let output = ThreadOutput {
-                task_id: "environment-source-ranking".to_string(),
-                region_id: "environment-source-ranking".to_string(),
-                tx: renderer_tx.clone(),
-            };
-            output.line(OutputStyle::Error, &error);
-            return false;
-        }
-    };
-
     let requirements = match requirements_path(&config) {
         Some(path) => path,
         None => {
@@ -1378,6 +1372,57 @@ fn run_terminal_dependency_stage(
                 tx: renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, "requirements file not found");
+            return false;
+        }
+    };
+
+    let ranking_dir = match terminal_environment_ranking_dir(&state, &config) {
+        Ok(path) => path,
+        Err(error) => {
+            let output = ThreadOutput {
+                task_id: "pypi-source-ranking".to_string(),
+                region_id: "pypi-source-ranking".to_string(),
+                tx: renderer_tx.clone(),
+            };
+            output.line(OutputStyle::Error, &error);
+            return false;
+        }
+    };
+    let pypi_rank_spec = create_thread_task(
+        "pypi-source-ranking",
+        "pypi-source-ranking",
+        4,
+        "PyPI Source",
+        "rank pypi sources",
+    );
+    if spawn_thread_task(
+        inner,
+        session_id,
+        pypi_rank_spec,
+        renderer_tx,
+        completion_tx,
+        TerminalPypiRankArgs {
+            state: Arc::clone(&state),
+            config: config.clone(),
+            ranking_dir,
+        },
+        terminal_pypi_rank_task,
+    )
+    .is_err()
+        || !wait_for_task(completion_rx, "pypi-source-ranking")
+    {
+        return false;
+    }
+
+    let pypi_index = match terminal_pypi_source(&state) {
+        Ok(source) => source,
+        Err(error) => {
+            let output = ThreadOutput {
+                task_id: "pypi-source-ranking".to_string(),
+                region_id: "pypi-source-ranking".to_string(),
+                tx: renderer_tx.clone(),
+            };
+            output.line(OutputStyle::Error, &error);
             return false;
         }
     };
@@ -1454,7 +1499,16 @@ fn run_terminal_launch_stage(
         terminal_launch_task,
     )
     .is_ok()
-        && wait_for_task(completion_rx, "launch-backend")
+        && {
+            let success = wait_for_task(completion_rx, "launch-backend");
+            if success {
+                let _ = renderer_tx.send(RendererEvent::BackendReady {
+                    base_backend_addr: "127.0.0.1".to_string(),
+                    base_backend_port: port,
+                });
+            }
+            success
+        }
 }
 
 fn terminal_uv_install_task(
@@ -1464,6 +1518,10 @@ fn terminal_uv_install_task(
 ) -> Result<(), String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("uv install task cancelled".to_string());
+    }
+    if uv_executable(&config).exists() {
+        output.line(OutputStyle::Success, "uv is already installed");
+        return Ok(());
     }
     let uv_url = ranked_environment_source_with_output(
         EnvironmentSourceKind::Uv,
@@ -1477,19 +1535,19 @@ fn terminal_uv_install_task(
         .map_err(|error| error.message())
 }
 
-struct TerminalEnvironmentRankArgs {
+struct TerminalCpythonRankArgs {
     state: Arc<Mutex<TerminalWorkflowState>>,
     config: UpdaterConfig,
     ranking_dir: PathBuf,
 }
 
-fn terminal_environment_rank_task(
+fn terminal_cpython_rank_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
-    args: TerminalEnvironmentRankArgs,
+    args: TerminalCpythonRankArgs,
 ) -> Result<(), String> {
     if cancelled.load(Ordering::Relaxed) {
-        return Err("environment source ranking task cancelled".to_string());
+        return Err("cpython source ranking task cancelled".to_string());
     }
     let cpython_mirror = ranked_environment_source_with_output(
         EnvironmentSourceKind::Cpython,
@@ -1499,6 +1557,29 @@ fn terminal_environment_rank_task(
         &output,
     )
     .map_err(|error| error.message())?;
+    let mut state = args
+        .state
+        .lock()
+        .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
+    state.cpython_mirror = Some(cpython_mirror);
+    output.line(OutputStyle::Success, "CPython source ranked");
+    Ok(())
+}
+
+struct TerminalPypiRankArgs {
+    state: Arc<Mutex<TerminalWorkflowState>>,
+    config: UpdaterConfig,
+    ranking_dir: PathBuf,
+}
+
+fn terminal_pypi_rank_task(
+    output: ThreadOutput,
+    cancelled: Arc<AtomicBool>,
+    args: TerminalPypiRankArgs,
+) -> Result<(), String> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("pypi source ranking task cancelled".to_string());
+    }
     let pypi_index = ranked_environment_source_with_output(
         EnvironmentSourceKind::Pypi,
         &args.config,
@@ -1511,9 +1592,8 @@ fn terminal_environment_rank_task(
         .state
         .lock()
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
-    state.cpython_mirror = Some(cpython_mirror);
     state.pypi_index = Some(pypi_index);
-    output.line(OutputStyle::Success, "Environment sources ranked");
+    output.line(OutputStyle::Success, "PyPI source ranked");
     Ok(())
 }
 
@@ -1583,22 +1663,24 @@ fn terminal_config(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<UpdaterC
         .ok_or_else(|| "configuration not initialized".to_string())
 }
 
-fn terminal_environment_sources(
-    state: &Arc<Mutex<TerminalWorkflowState>>,
-) -> Result<(String, String), String> {
+fn terminal_cpython_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
     let state = state
         .lock()
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
-    Ok((
-        state
-            .cpython_mirror
-            .clone()
-            .ok_or_else(|| "CPython mirror not ranked".to_string())?,
-        state
-            .pypi_index
-            .clone()
-            .ok_or_else(|| "PyPI index not ranked".to_string())?,
-    ))
+    state
+        .cpython_mirror
+        .clone()
+        .ok_or_else(|| "CPython mirror not ranked".to_string())
+}
+
+fn terminal_pypi_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
+    let state = state
+        .lock()
+        .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
+    state
+        .pypi_index
+        .clone()
+        .ok_or_else(|| "PyPI index not ranked".to_string())
 }
 
 fn terminal_environment_ranking_dir(
@@ -1975,5 +2057,11 @@ mod tests {
         assert!(failure.step == "main_repo" || failure.step == "cpp_repo");
         assert!(!install_path.join("tmp").join("main-repo").exists());
         assert!(!install_path.join("tmp").join("cpp-repo").exists());
+        assert!(
+            install_path
+                .join(".baas-updater")
+                .join("source-ranking")
+                .exists()
+        );
     }
 }

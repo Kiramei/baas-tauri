@@ -70,11 +70,12 @@ when Git CLI is unavailable or planning fails, Rust `git2` work runs through
 ## Repository Sources
 
 Repository, UV, CPython, and PyPI URLs come from `constants.rs` or the migrated
-config. Source ranking is persisted as JSON under the BAAS temporary directory:
-`main.json`, `cpp.json`, `uv.json`, `cpython.json`, and `pypi.json`. If a URL
-set changes, or every source is disabled, the updater rebuilds the ranking.
-Network failures demote the failing source by setting `order = -1`; if every
-source fails three consecutive ranking cycles, the updater reports an error.
+config. Source ranking is persisted as JSON under
+`$BAAS_ROOT_PATH/.baas-updater/source-ranking`: `main.json`, `cpp.json`,
+`uv.json`, `cpython.json`, and `pypi.json`. If a URL set changes, or every
+source is disabled, the updater rebuilds the ranking. Network failures demote
+the failing source by setting `order = -1`; if every source fails three
+consecutive ranking cycles, the updater reports an error.
 
 All Git clone and update operations are shallow. CLI updates use
 `fetch --depth 1`, `reset --hard FETCH_HEAD`, and a best-effort history prune.

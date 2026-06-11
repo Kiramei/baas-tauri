@@ -70,6 +70,13 @@ impl UpdaterConfig {
         self.baas_root().join(&self.paths.toolkit_path)
     }
 
+    /// Returns the persistent source ranking directory.
+    pub fn source_ranking_dir(&self) -> PathBuf {
+        self.baas_root()
+            .join(".baas-updater")
+            .join("source-ranking")
+    }
+
     /// Validates user-controlled fields.
     pub fn validate(&self) -> UpdaterResult<()> {
         if self.schema_version == 0 {

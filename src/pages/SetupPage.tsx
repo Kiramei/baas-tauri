@@ -1,134 +1,270 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { exit } from "@tauri-apps/plugin-process";
+import { Copy } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import StorageUtil from "@/shared/StorageManager";
-import { BaseBackendInterface } from "@/types/app";
-import { listen } from "@tauri-apps/api/event";
+import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore.ts";
 import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
-import { formatIsoToReadableTime } from "@/shared/GlobalUtilities";
 import { useTheme } from "@/context/ThemeProvider";
 import CButton from "@/components/ui/CButton.tsx";
+import { Button } from "@/components/ui/Button.tsx";
+import { Modal } from "@/components/ui/Modal.tsx";
+import { Toaster } from "@/components/ui/Sonner.tsx";
 import ConfigEditorModal from "@/components/updater/ConfigEditor.tsx";
-import { exit } from "@tauri-apps/plugin-process";
-import { useTranslation } from "react-i18next";
-
 import TermViewer from "@/components/updater/TermViewer.tsx";
-import ProgressBar from "@/components/updater/ProgressBar";
 import PathSelector from "@/components/updater/PathSelector";
 import InstallerLayout from "@/components/updater/InstallerLayout";
 
-const init = useWebSocketStore.getState().init;
-void init();
+interface UpdaterConfig {
+  general?: {
+    channel?: "stable" | "dev";
+    mirrorcCdk?: string;
+  };
+  paths?: {
+    baasRootPath?: string;
+  };
+}
 
-const LEVEL_MAP = {
-  "INFO": "info",
-  "WARNING": "warning",
-  "ERROR": "error",
-  "CRITICAL": "critical",
+interface StartupState {
+  configPath: string;
+  config: UpdaterConfig;
+  defaultInstallPath: string;
+  baasRootExistsNonEmpty: boolean;
+}
+
+interface BackendReadyPayload {
+  baseBackendAddr: string;
+  baseBackendPort: number;
+}
+
+interface FailureInfo {
+  step: string;
+  message: string;
+}
+
+const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const randomPassword = () => {
+  if (globalThis.crypto?.randomUUID) {
+    return `baas-${globalThis.crypto.randomUUID()}`;
+  }
+  return `baas-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const resetWebsocketRuntimeState = () => {
+  const state = useWebSocketStore.getState();
+  Object.values(state.connections).forEach((connection) => connection?.close());
+  useWebSocketStore.setState({
+    connections: {},
+    pendingCallbacks: {},
+    logStore: {},
+    configStore: {},
+    staticStore: {},
+    eventStore: {},
+    updateStore: {},
+    statusStore: {},
+    versionStore: {},
+    _all_data_initialized: false,
+    _heartbeat_time: 0,
+    _initiating: false,
+    _auth_phase: "idle",
+    _auth_error: null,
+    _server_initialized: false,
+    _server_verified: false,
+    _pwd_epoch: 0,
+    _control: null,
+    _session: null,
+  });
 };
 
 const SetupPage = () => {
   const [started, setStarted] = useState(false);
   const [settingModal, setSettingModal] = useState(false);
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<UpdaterConfig | null>(null);
   const [installPath, setInstallPath] = useState("");
   const [setupPhase, setSetupPhase] = useState(true);
-  const appendTerminalLog = useGlobalLogStore((e) => e.appendTerminalLog);
-  const setProgress = useGlobalLogStore((e) => e.setProgress);
+  const [failure, setFailure] = useState<FailureInfo | null>(null);
+  const setupCompletedRef = useRef(false);
+  const abortingRef = useRef(false);
+  const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useTranslation();
+  const { theme } = useTheme();
+
+  const persistConfig = useCallback(
+    async (path = installPath, nextConfig = config) => {
+      const updated = await invoke<UpdaterConfig>("updater_update_config", {
+        request: {
+          baasRootPath: path,
+          channel: nextConfig?.general?.channel ?? "stable",
+          mirrorcCdk: nextConfig?.general?.mirrorcCdk ?? "",
+        },
+      });
+      setConfig(updated);
+      return updated;
+    },
+    [config, installPath]
+  );
+
+  const startInstall = useCallback(
+    async (path = installPath, nextConfig = config) => {
+      const targetPath = path || installPath;
+      abortingRef.current = false;
+      setFailure(null);
+      setSetupPhase(false);
+      setStarted(true);
+      StorageUtil.set("base_dir", targetPath);
+      try {
+        await persistConfig(targetPath, nextConfig);
+        await invoke("updater_start_workflow", {
+          request: {
+            installPath: targetPath,
+            launch: true,
+          },
+        });
+      } catch (error) {
+        StorageUtil.remove("base_dir");
+        setFailure({
+          step: "start",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        setStarted(false);
+        setSetupPhase(true);
+      }
+    },
+    [config, installPath, persistConfig]
+  );
+
+  const ensureAutoPassword = () => {
+    let password = StorageUtil.get<string>("baasAutoPassword");
+    if (!password) {
+      password = randomPassword();
+      StorageUtil.set("baasAutoPassword", password);
+    }
+    return password;
+  };
+
+  const authenticateBackend = useCallback(async (payload: BackendReadyPayload) => {
+    StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
+    StorageUtil.set("baseBackendPort", payload.baseBackendPort);
+    resetWebsocketRuntimeState();
+
+    const password = ensureAutoPassword();
+    const deadline = Date.now() + 30_000;
+    let lastError: unknown = null;
+
+    while (
+      Date.now() < deadline &&
+      !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
+    ) {
+      try {
+        await useWebSocketStore.getState().startAuthFlow();
+        await waitForNormal(
+          () => useWebSocketStore.getState()._auth_phase,
+          (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
+          3_000
+        );
+      } catch (error) {
+        lastError = error;
+      }
+      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+        await delay(750);
+      }
+    }
+
+    if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+      throw new Error(
+        useWebSocketStore.getState()._auth_error ||
+          (lastError instanceof Error
+            ? lastError.message
+            : "Backend authentication endpoint is not ready.")
+      );
+    }
+
+    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+      await useWebSocketStore.getState().submitPassword(password);
+      await waitForNormal(
+        () => useWebSocketStore.getState()._auth_phase,
+        (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
+        30_000
+      );
+    }
+
+    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+      throw new Error(
+        useWebSocketStore.getState()._auth_error ??
+          "Automatic login failed. Existing backend password may be different."
+      );
+    }
+
+    await useWebSocketStore.getState().init();
+  }, []);
+
+  const handleAbort = async () => {
+    abortingRef.current = true;
+    try {
+      await invoke("updater_abort_workflow", {
+        request: {
+          cleanup: true,
+        },
+      });
+    } finally {
+      setStarted(false);
+      setSetupPhase(true);
+    }
+  };
+
+  const copyFailureLogs = () => {
+    const text = terminalLogData
+      .map((log) => `[${log.time}] [${log.level.toUpperCase()}] ${log.message}`)
+      .join("\n");
+    void navigator.clipboard.writeText(text);
+    toast.success("Logs copied to clipboard");
+  };
 
   useEffect(() => {
-    const unlisten = listen<{ message: string; level: string }>("installer://log", (event) => {
-      // Extract the message and level from the event
-      let message = event.payload.message.replace(/^\S+\s+\S+\s+\[(INFO|WARN|ERRO|CRIT)]\s*/, "");
-      let level = event.payload.level;
-
-      // Try to parse the message in the format {flag} | {date} | {content}
-      const parts = message.split(" | ");
-
-      if (parts.length === 3) {
-        // If it's in the format {flag} | {date} | {content}, parse it
-        const flag = parts[0]; // {flag}
-        const content = parts[2]; // {content}
-
-        // Override level based on the flag
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        level = LEVEL_MAP[flag] || level; // Default to current level if no mapping found
-        message = content.replace(/^\S+\s+\S+\s+\[(INFO|WARN|ERRO|CRIT)]\s*/, ""); // Set the message to the content part
+    const unlisten = listen<BackendReadyPayload>("updater://backend-ready", async (event) => {
+      try {
+        await authenticateBackend(event.payload);
+      } catch (error) {
+        setFailure({
+          step: "auth",
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
-
-      appendTerminalLog({
-        message,
-        level: level as any, // Cast to correct type
-        time: formatIsoToReadableTime(new Date().toISOString()),
-      });
     });
 
     return () => {
       unlisten.then((f) => f());
     };
-  }, []);
+  }, [authenticateBackend]);
 
-  useEffect(() => {
-    const unlisten = listen<{ percentage: number; message: string }>(
-      "installer://progress",
-      (event) => {
-        setProgress({
-          progress: event.payload.percentage,
-          message: event.payload.message,
-        });
-      }
-    );
-
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
-  const setupCompletedRef = useRef(false);
-
-  const startInstall = async (base_dir: string | null = null, base_config: any | null = null) => {
-    setSetupPhase(false);
-    setStarted(true);
-    try {
-      const ret: BaseBackendInterface = await invoke("start_installer", {
-        "installPath": base_dir || installPath,
-        "setupConfig": base_config || config,
-      });
-      StorageUtil.set("base_dir", base_dir || installPath);
-      console.log(ret);
-      StorageUtil.set("baseBackendAddr", ret.baseBackendAddr);
-      StorageUtil.set("baseBackendPort", ret.baseBackendPort);
-      StorageUtil.set("SECRET", ret.serviceSecret);
-      useWebSocketStore.setState((state) => ({ ...state, _secret: ret.serviceSecret }));
-    } catch (error) {
-      StorageUtil.set("base_dir", null);
-      console.error(error);
-      setStarted(false);
-      setSetupPhase(true); // Go back to set up on failure
-    }
-  };
   useEffect(() => {
     if (setupCompletedRef.current) return;
+    setupCompletedRef.current = true;
 
     (async () => {
-      // Fetch defaults
-      const p = await invoke("get_default_path");
-      setInstallPath(p as string);
-      const c = await invoke("get_default_config");
-      setConfig(c);
+      try {
+        const startup = await invoke<StartupState>("updater_get_startup_state");
+        const root = startup.config.paths?.baasRootPath || startup.defaultInstallPath;
+        setInstallPath(root);
+        setConfig(startup.config);
 
-      if (setupPhase && StorageUtil.get("base_dir")) {
-        setSetupPhase(false);
-        await startInstall(StorageUtil.get("base_dir"), c);
+        if (startup.baasRootExistsNonEmpty && root) {
+          await startInstall(root, startup.config);
+        }
+      } catch (error) {
+        setFailure({
+          step: "startup",
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     })();
-
-    setupCompletedRef.current = true;
-  }, []);
-
-  const { theme } = useTheme();
+  }, [startInstall]);
 
   return (
     <>
@@ -171,21 +307,68 @@ const SetupPage = () => {
             )}
 
             {!setupPhase && started && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <ProgressBar />
-                <TermViewer />
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-4">
+                {/*<ProgressBar />*/}
+                <TermViewer
+                  onAbort={handleAbort}
+                  onFailure={(nextFailure) => {
+                    if (!abortingRef.current) setFailure(nextFailure);
+                  }}
+                  onSessionFinished={(success) => {
+                    if (!success && !abortingRef.current) {
+                      setFailure({
+                        step: "workflow",
+                        message: "Updater workflow did not complete successfully.",
+                      });
+                    }
+                  }}
+                />
               </div>
             )}
           </div>
         </div>
         <ConfigEditorModal
-          config={config}
+          config={config ?? {}}
           setConfig={setConfig}
           open={settingModal}
           onCancel={() => setSettingModal(false)}
-          onConfirm={() => setSettingModal(false)}
+          onConfirm={async () => {
+            await persistConfig();
+            setSettingModal(false);
+          }}
         />
       </InstallerLayout>
+      <Modal
+        isOpen={failure !== null}
+        onClose={() => setFailure(null)}
+        title="Setup Error"
+        width={55}
+      >
+        <div className="space-y-3">
+          <div className="text-sm">
+            <div className="font-medium text-red-500">{failure?.step}</div>
+            <div className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
+              {failure?.message}
+            </div>
+          </div>
+          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-60 overflow-auto text-xs font-mono">
+            {terminalLogData.length === 0
+              ? "No structured logs captured."
+              : terminalLogData.map((log, index) => (
+                  <div key={`${log.time}-${index}`}>
+                    [{log.time}] [{log.level.toUpperCase()}] {log.message}
+                  </div>
+                ))}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={copyFailureLogs}>
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Logs
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Toaster />
     </>
   );
 };

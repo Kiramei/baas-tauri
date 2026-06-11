@@ -4,7 +4,10 @@ use crate::{
     OutputSink, OutputStyle, UpdaterError, UpdaterResult,
     config::UpdaterConfig,
     constants::{CPYTHON_HEAD, PYPI_SOURCE_LIST, UV_SRC_HEAD},
-    repo::{SourceProbe, SourceRanking, benchmark_sources_with_output, save_ranking},
+    repo::{
+        SourceProbe, SourceRanking, benchmark_source_probes_with_output,
+        benchmark_sources_with_output, save_ranking,
+    },
 };
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Serialize};
@@ -300,30 +303,34 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
             return Ok(());
         }
 
-        let uv_url = ranked_environment_source_with_output(
-            EnvironmentSourceKind::Uv,
-            config,
-            ranking_dir,
-            &HttpSourceProbe,
-            output,
-        )?;
-        let cpython_mirror = ranked_environment_source_with_output(
-            EnvironmentSourceKind::Cpython,
-            config,
-            ranking_dir,
-            &HttpSourceProbe,
-            output,
-        )?;
-        ensure_uv_installed_from(config, &uv_url, &self.downloader, output)?;
-
-        self.runner.run(
-            &uv_python_install_command_with_mirror(config, &cpython_mirror),
-            output,
-        )?;
-        if !venv_python(config).exists() {
-            self.runner.run(&uv_venv_command(config), output)?;
+        if !uv_executable(config).exists() {
+            let uv_url = ranked_environment_source_with_output(
+                EnvironmentSourceKind::Uv,
+                config,
+                ranking_dir,
+                &HttpSourceProbe,
+                output,
+            )?;
+            ensure_uv_installed_from(config, &uv_url, &self.downloader, output)?;
         } else {
+            output.line(OutputStyle::Success, "uv is already installed");
+        }
+
+        if managed_python_configured(config) {
             output.line(OutputStyle::Success, "Python virtual environment exists");
+        } else {
+            let cpython_mirror = ranked_environment_source_with_output(
+                EnvironmentSourceKind::Cpython,
+                config,
+                ranking_dir,
+                &HttpSourceProbe,
+                output,
+            )?;
+            self.runner.run(
+                &uv_python_install_command_with_mirror(config, &cpython_mirror),
+                output,
+            )?;
+            self.runner.run(&uv_venv_command(config), output)?;
         }
         Ok(())
     }
@@ -413,6 +420,11 @@ pub fn venv_python(config: &UpdaterConfig) -> PathBuf {
     } else {
         config.baas_root().join(".venv").join("bin").join("python")
     }
+}
+
+/// Returns true when the managed Python environment already exists.
+pub fn managed_python_configured(config: &UpdaterConfig) -> bool {
+    venv_python(config).exists()
 }
 
 /// Returns the runtime Python path used for launch commands.
@@ -653,7 +665,7 @@ pub fn ranked_environment_source(
     kind: EnvironmentSourceKind,
     config: &UpdaterConfig,
     ranking_dir: Option<&Path>,
-    probe: &impl SourceProbe,
+    probe: &(impl SourceProbe + Sync),
 ) -> UpdaterResult<String> {
     ranked_environment_source_with_output(kind, config, ranking_dir, probe, &crate::NoopOutput)
 }
@@ -663,10 +675,11 @@ pub fn ranked_environment_source_with_output(
     kind: EnvironmentSourceKind,
     config: &UpdaterConfig,
     ranking_dir: Option<&Path>,
-    probe: &impl SourceProbe,
+    probe: &(impl SourceProbe + Sync),
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<String> {
     let expected_urls = environment_source_urls(kind, config)?;
+    let source_probes = environment_source_probe_urls(kind, &expected_urls);
     let ranking_path = ranking_dir.map(|dir| dir.join(format!("{}.json", kind.as_str())));
     let previous = load_environment_ranking(ranking_path.as_deref(), &expected_urls)?;
     let previous_failed_cycles = previous
@@ -676,7 +689,12 @@ pub fn ranked_environment_source_with_output(
         .unwrap_or(0);
     let mut ranking = match previous {
         Some(ranking) if !ranking.all_disabled() => ranking,
-        _ => benchmark_sources_with_output(&expected_urls, probe, output),
+        _ => match kind {
+            EnvironmentSourceKind::Cpython => {
+                benchmark_source_probes_with_output(&source_probes, probe, output)
+            }
+            _ => benchmark_sources_with_output(&expected_urls, probe, output),
+        },
     };
     if ranking.all_disabled() {
         ranking.all_failed_cycles = previous_failed_cycles.saturating_add(1);
@@ -698,6 +716,29 @@ pub fn ranked_environment_source_with_output(
             kind.as_str()
         ))
     })
+}
+
+fn environment_source_probe_urls(
+    kind: EnvironmentSourceKind,
+    source_urls: &[String],
+) -> Vec<(String, String)> {
+    source_urls
+        .iter()
+        .map(|url| {
+            let probe_url = match kind {
+                EnvironmentSourceKind::Cpython => cpython_probe_url(url),
+                _ => url.clone(),
+            };
+            (url.clone(), probe_url)
+        })
+        .collect()
+}
+
+fn cpython_probe_url(url: &str) -> String {
+    url.trim_end_matches('/')
+        .strip_suffix("/releases/download")
+        .map(|base| format!("{base}/releases"))
+        .unwrap_or_else(|| url.to_string())
 }
 
 fn load_environment_ranking(
@@ -856,6 +897,27 @@ mod tests {
     }
 
     #[test]
+    fn existing_uv_and_python_skip_prepare_ranking_and_downloads() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let uv = uv_executable(&config);
+        let python = venv_python(&config);
+        fs::create_dir_all(uv.parent().unwrap()).unwrap();
+        fs::create_dir_all(python.parent().unwrap()).unwrap();
+        fs::write(&uv, "uv").unwrap();
+        fs::write(&python, "python").unwrap();
+        let runner = MockRunner::default();
+        let commands = Arc::clone(&runner.commands);
+        let manager = EnvironmentManager::new(runner, EmptyDownloader);
+
+        manager
+            .prepare_with_ranking(&config, Some(root.path()), &crate::NoopOutput)
+            .unwrap();
+
+        assert!(commands.lock().unwrap().is_empty());
+    }
+
+    #[test]
     fn uv_commands_include_cache_and_virtual_env() {
         let root = tempfile::tempdir().unwrap();
         let config = config(root.path());
@@ -892,6 +954,19 @@ mod tests {
 
         assert!(uv_urls.iter().all(|url| url.contains("uv-")));
         assert_eq!(pypi_urls, ["https://fast.example/simple"]);
+    }
+
+    #[test]
+    fn cpython_probe_url_uses_releases_page_but_keeps_source_url() {
+        let source = "https://github.com/Kiramei/baas-tauri/releases/download/";
+        let mapped =
+            environment_source_probe_urls(EnvironmentSourceKind::Cpython, &[source.to_string()]);
+
+        assert_eq!(mapped[0].0, source);
+        assert_eq!(
+            mapped[0].1,
+            "https://github.com/Kiramei/baas-tauri/releases"
+        );
     }
 
     #[test]

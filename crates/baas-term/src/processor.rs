@@ -4,6 +4,11 @@
 //! output, ANSI control sequences, and resize events behave like a real shell.
 
 use crate::common::wait_for_completion;
+use crate::constants::{
+    DEMO_STEP_TOTAL, DEVICE_STATUS_REPORT_REQUEST, DEVICE_STATUS_REPORT_RESPONSE,
+    DEVICE_STATUS_REPORT_TAIL_BYTES, PROCESS_FINISH_SETTLE_MS, PROCESS_READ_BUFFER_BYTES,
+    PROCESS_WAIT_POLL_MS, PTY_PIXEL_HEIGHT, PTY_PIXEL_WIDTH, STATUS_FAILED, STATUS_SUCCESS,
+};
 use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
 use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::sync::mpsc::Receiver;
@@ -37,7 +42,7 @@ pub fn create_process_task(
         task_id: task_id.to_string(),
         region_id: region_id.to_string(),
         step_index,
-        step_total: 4,
+        step_total: DEMO_STEP_TOTAL,
         name: name.to_string(),
         command: script.display,
         program: script.program,
@@ -47,8 +52,10 @@ pub fn create_process_task(
 
 fn contains_device_status_report(tail: &mut Vec<u8>, bytes: &[u8]) -> bool {
     tail.extend_from_slice(bytes);
-    let found = tail.windows(4).any(|window| window == b"\x1b[6n");
-    let keep_from = tail.len().saturating_sub(3);
+    let found = tail
+        .windows(DEVICE_STATUS_REPORT_REQUEST.len())
+        .any(|window| window == DEVICE_STATUS_REPORT_REQUEST);
+    let keep_from = tail.len().saturating_sub(DEVICE_STATUS_REPORT_TAIL_BYTES);
     tail.drain(..keep_from);
     found
 }
@@ -78,8 +85,8 @@ pub fn spawn_process_task(
         .openpty(PtySize {
             rows,
             cols,
-            pixel_width: 0,
-            pixel_height: 0,
+            pixel_width: PTY_PIXEL_WIDTH,
+            pixel_height: PTY_PIXEL_HEIGHT,
         })
         .map_err(|error| error.to_string())?;
     let mut reader = pair
@@ -121,7 +128,7 @@ pub fn spawn_process_task(
     let read_region_id = spec.region_id.clone();
     let read_writer = Arc::clone(&writer);
     thread::spawn(move || {
-        let mut buffer = [0_u8; 4096];
+        let mut buffer = [0_u8; PROCESS_READ_BUFFER_BYTES];
         let mut control_tail = Vec::new();
         loop {
             match reader.read(&mut buffer) {
@@ -130,7 +137,7 @@ pub fn spawn_process_task(
                     if contains_device_status_report(&mut control_tail, &buffer[..size])
                         && let Ok(mut writer) = read_writer.lock()
                     {
-                        let _ = writer.write_all(b"\x1b[1;1R");
+                        let _ = writer.write_all(DEVICE_STATUS_REPORT_RESPONSE);
                         let _ = writer.flush();
                     }
                     let _ = read_tx.send(RendererEvent::Output {
@@ -156,7 +163,7 @@ pub fn spawn_process_task(
                     Ok(mut child) => child.try_wait(),
                     Err(_) => {
                         break (
-                            "failed".to_string(),
+                            STATUS_FAILED.to_string(),
                             None,
                             false,
                             Some("term child lock poisoned".to_string()),
@@ -170,18 +177,30 @@ pub fn spawn_process_task(
                     let code = exit_status.exit_code() as i32;
                     let success = code == 0;
                     break (
-                        if success { "success" } else { "failed" }.to_string(),
+                        if success {
+                            STATUS_SUCCESS
+                        } else {
+                            STATUS_FAILED
+                        }
+                        .to_string(),
                         Some(code),
                         success,
                         None,
                     );
                 }
-                Ok(None) => thread::sleep(Duration::from_millis(50)),
-                Err(error) => break ("failed".to_string(), None, false, Some(error.to_string())),
+                Ok(None) => thread::sleep(Duration::from_millis(PROCESS_WAIT_POLL_MS)),
+                Err(error) => {
+                    break (
+                        STATUS_FAILED.to_string(),
+                        None,
+                        false,
+                        Some(error.to_string()),
+                    );
+                }
             }
         };
 
-        thread::sleep(Duration::from_millis(80));
+        thread::sleep(Duration::from_millis(PROCESS_FINISH_SETTLE_MS));
 
         if let Ok(mut state) = wait_inner.lock() {
             state.tasks.remove(&wait_task_id);

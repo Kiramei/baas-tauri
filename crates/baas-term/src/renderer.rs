@@ -4,9 +4,15 @@
 //! clips output to the configured viewport, and emits Tauri events containing
 //! rendered dashboard snapshots.
 
+use crate::constants::{
+    ANSI_DASHBOARD_RESET, ANSI_RESET, EVENT_TERM_CHUNK, EVENT_TERM_SESSION_FINISHED,
+    EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS, EVENT_UPDATER_BACKEND_READY,
+    MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS, REGION_MAX_KEPT_LINES, RUNNING_REGION_MAX_LINES,
+    STATUS_RUNNING, TAB_WIDTH,
+};
 use crate::types::{
-    DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec, TaskStartedPayload,
-    TaskStatusPayload,
+    BackendReadyPayload, DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec,
+    TaskStartedPayload, TaskStatusPayload,
 };
 use chrono::Utc;
 use std::{
@@ -35,7 +41,7 @@ fn csi_param(params: &str, index: usize, default: usize) -> usize {
 
 fn fit_ansi_line(line: &str, cols: usize) -> String {
     let mut fitted = truncate_ansi_line_to_visible_width(line, cols);
-    fitted.push_str("\x1b[0m");
+    fitted.push_str(ANSI_RESET);
     fitted
 }
 
@@ -189,7 +195,7 @@ pub fn renderer_loop(
             RendererEvent::TaskStarted(spec) => {
                 let started_at = Some(Utc::now().to_rfc3339());
                 let _ = app.emit(
-                    "term:task-started",
+                    EVENT_TERM_TASK_STARTED,
                     TaskStartedPayload {
                         session_id: session_id.clone(),
                         task_id: spec.task_id.clone(),
@@ -198,13 +204,13 @@ pub fn renderer_loop(
                         step_total: spec.step_total,
                         name: spec.name.clone(),
                         command: spec.command.clone(),
-                        status: "running".to_string(),
+                        status: STATUS_RUNNING.to_string(),
                     },
                 );
 
                 let chunk = renderer.start_region(&spec);
                 let _ = app.emit(
-                    "term:chunk",
+                    EVENT_TERM_CHUNK,
                     DashboardLogPayload {
                         session_id: session_id.clone(),
                         chunk,
@@ -212,12 +218,12 @@ pub fn renderer_loop(
                 );
 
                 let _ = app.emit(
-                    "term:task-status",
+                    EVENT_TERM_TASK_STATUS,
                     TaskStatusPayload {
                         session_id: session_id.clone(),
                         task_id: spec.task_id,
                         region_id: spec.region_id,
-                        status: "running".to_string(),
+                        status: STATUS_RUNNING.to_string(),
                         exit_code: None,
                         error: None,
                         started_at,
@@ -233,7 +239,7 @@ pub fn renderer_loop(
                 let clean = renderer.push_output(&task_id, &region_id, &chunk);
                 if !clean.is_empty() {
                     let _ = app.emit(
-                        "term:chunk",
+                        EVENT_TERM_CHUNK,
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk: clean,
@@ -251,7 +257,7 @@ pub fn renderer_loop(
                 let clean = renderer.finish_region(&task_id);
                 if !clean.is_empty() {
                     let _ = app.emit(
-                        "term:chunk",
+                        EVENT_TERM_CHUNK,
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk: clean,
@@ -264,7 +270,7 @@ pub fn renderer_loop(
                     region_id
                 };
                 let _ = app.emit(
-                    "term:task-status",
+                    EVENT_TERM_TASK_STATUS,
                     TaskStatusPayload {
                         session_id: session_id.clone(),
                         task_id,
@@ -279,7 +285,7 @@ pub fn renderer_loop(
             }
             RendererEvent::SessionFinished { success } => {
                 let _ = app.emit(
-                    "term:session-finished",
+                    EVENT_TERM_SESSION_FINISHED,
                     SessionFinishedPayload {
                         session_id: session_id.clone(),
                         success,
@@ -288,7 +294,7 @@ pub fn renderer_loop(
                 let chunk = renderer.render_completed_snapshot();
                 if !chunk.is_empty() {
                     let _ = app.emit(
-                        "term:chunk",
+                        EVENT_TERM_CHUNK,
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk,
@@ -297,11 +303,23 @@ pub fn renderer_loop(
                 }
                 break;
             }
+            RendererEvent::BackendReady {
+                base_backend_addr,
+                base_backend_port,
+            } => {
+                let _ = app.emit(
+                    EVENT_UPDATER_BACKEND_READY,
+                    BackendReadyPayload {
+                        base_backend_addr,
+                        base_backend_port,
+                    },
+                );
+            }
             RendererEvent::FlushRegions { region_ids } => {
                 let chunk = renderer.flush_regions(&region_ids);
                 if !chunk.is_empty() {
                     let _ = app.emit(
-                        "term:chunk",
+                        EVENT_TERM_CHUNK,
                         DashboardLogPayload {
                             session_id: session_id.clone(),
                             chunk,
@@ -339,7 +357,7 @@ impl RegionBuffer {
             row: 0,
             col: 0,
             escape_buffer: None,
-            max_kept_lines: 2_000,
+            max_kept_lines: REGION_MAX_KEPT_LINES,
         }
     }
 
@@ -369,7 +387,7 @@ impl RegionBuffer {
                     }
                 }
                 '\t' => {
-                    let spaces = 4 - (self.col % 4);
+                    let spaces = TAB_WIDTH - (self.col % TAB_WIDTH);
                     for _ in 0..spaces {
                         self.write_char(' ');
                     }
@@ -639,14 +657,14 @@ impl SessionRenderer {
             task_regions: HashMap::new(),
             buffered_regions: HashSet::new(),
             region_order: Vec::new(),
-            rows: usize::from(rows.max(1)),
-            cols: usize::from(cols.max(1)),
+            rows: usize::from(rows.max(MIN_TERMINAL_ROWS)),
+            cols: usize::from(cols.max(MIN_TERMINAL_COLS)),
         }
     }
 
     fn resize(&mut self, rows: u16, cols: u16) {
-        self.rows = usize::from(rows.max(1));
-        self.cols = usize::from(cols.max(1));
+        self.rows = usize::from(rows.max(MIN_TERMINAL_ROWS));
+        self.cols = usize::from(cols.max(MIN_TERMINAL_COLS));
     }
 
     fn buffer_regions(&mut self, region_ids: Vec<String>) {
@@ -741,7 +759,7 @@ impl SessionRenderer {
             lines = lines.split_off(lines.len() - self.rows);
         }
 
-        let mut snapshot = String::from("\x1b[H\x1b[2J");
+        let mut snapshot = String::from(ANSI_DASHBOARD_RESET);
         if !lines.is_empty() {
             snapshot.push_str(&lines.join("\r\n"));
             if !clip_to_view || lines.len() < self.rows {
@@ -756,7 +774,16 @@ impl SessionRenderer {
         let body = self
             .regions
             .get(region_id)
-            .map(|region| region.render_lines(if running { Some(5) } else { None }, self.cols))
+            .map(|region| {
+                region.render_lines(
+                    if running {
+                        Some(RUNNING_REGION_MAX_LINES)
+                    } else {
+                        None
+                    },
+                    self.cols,
+                )
+            })
             .unwrap_or_default();
 
         if title.is_empty() && body.is_empty() {
@@ -779,13 +806,14 @@ impl SessionRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::DEMO_STEP_TOTAL;
 
     fn spec(task_id: &str, region_id: &str, step_index: u8, name: &str) -> TaskSpec {
         TaskSpec {
             task_id: task_id.to_string(),
             region_id: region_id.to_string(),
             step_index,
-            step_total: 4,
+            step_total: DEMO_STEP_TOTAL,
             name: name.to_string(),
             command: "run".to_string(),
             program: "program".to_string(),

@@ -1,63 +1,63 @@
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { loadLocale } from "@/shared/I18nTranslator";
 import StorageUtil from "@/shared/StorageManager";
 import type { Theme } from "@/types/app";
 import { useTheme } from "@/context/ThemeProvider";
+import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { FormInput } from "@/components/ui/FormInput.tsx";
+import CButton from "@/components/ui/CButton.tsx";
+import { useEffect, useState } from "react";
 
-// Define types matching Rust structs
-interface SetupConfig {
-  General: {
-    source_list: string[];
-    package_manager: string;
-    debug: boolean;
-    // ... other fields
+type Channel = "stable" | "dev";
+
+interface UpdaterConfig {
+  general?: {
+    channel?: Channel;
+    mirrorcCdk?: string;
   };
-  URLs: {
-    REPO_URL_HTTP: string;
-    // ... other fields
-  };
-  // ... Paths
 }
 
 interface ConfigEditorProps {
-  config: SetupConfig;
-  setConfig: (config: SetupConfig) => void;
+  config: UpdaterConfig;
+  setConfig: (config: UpdaterConfig) => void;
   open: boolean;
   disabled?: boolean;
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
 }
 
-const updateChannels = [
-  {
-    label: "https://github.com/pur1fying/blue_archive_auto_script.git",
-    value: "https://github.com/pur1fying/blue_archive_auto_script.git",
-  },
-  {
-    label: "https://gitee.com/pur1fy/blue_archive_auto_script.git",
-    value: "https://gitee.com/pur1fy/blue_archive_auto_script.git",
-  },
-  {
-    label: "https://gitcode.com/m0_74686738/blue_archive_auto_script.git",
-    value: "https://gitcode.com/m0_74686738/blue_archive_auto_script.git",
-  },
-  {
-    label: "https://github.com/Kiramei/baas-dev.git (Unstable)",
-    value: "https://github.com/Kiramei/baas-dev.git",
-  },
-  {
-    label: "https://gitee.com/kiramei/baas-dev.git (Unstable)",
-    value: "https://gitee.com/kiramei/baas-dev.git",
-  },
-];
-
 const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t, i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
+  const [cdkInput, setCdkInput] = useState(props.config?.general?.mirrorcCdk ?? "");
+  const [validating, setValidating] = useState(false);
+
+  useEffect(() => {
+    if (props.open) {
+      setCdkInput(props.config?.general?.mirrorcCdk ?? "");
+    }
+  }, [props.open, props.config?.general?.mirrorcCdk]);
+
+  if (!props.open) return null;
+
+  const channel = props.config?.general?.channel ?? "stable";
+
+  const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
+    props.setConfig({
+      ...props.config,
+      general: {
+        ...props.config.general,
+        ...patch,
+      },
+    });
+  };
+
   const handleLanguageChange = (value: string) => {
     loadLocale(value).then(() => {
       const uiSettings = StorageUtil.get("uiSettings")!;
@@ -66,7 +66,6 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     });
   };
 
-  const { theme, setTheme } = useTheme();
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     const uiSettings = StorageUtil.get("uiSettings")!;
@@ -74,26 +73,42 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     StorageUtil.set("uiSettings", uiSettings);
   };
 
-  if (!props.open) return null;
-
-  const handleUrlChange = (key: string, value: string) => {
-    props.setConfig({
-      ...props.config,
-      URLs: {
-        ...props.config.URLs,
-        [key]: value,
-      },
-    });
-  };
-
-  const handleGeneralChange = (key: string, value: any) => {
-    props.setConfig({
-      ...props.config,
-      General: {
-        ...props.config.General,
-        [key]: value,
-      },
-    });
+  const validateMirrorC = async () => {
+    setValidating(true);
+    try {
+      const report = await invoke<{
+        success: boolean;
+        message: string;
+        latestVersion?: string | null;
+      }>("updater_validate_mirrorc_cdk", {
+        request: {
+          cdk: cdkInput,
+          channel,
+        },
+      });
+      if (report.success) {
+        patchGeneral({ mirrorcCdk: cdkInput.trim() });
+        toast.success("MirrorC CDK valid", {
+          description: report.latestVersion
+            ? `${report.message} Latest: ${report.latestVersion}`
+            : report.message,
+        });
+      } else {
+        setCdkInput("");
+        patchGeneral({ mirrorcCdk: "" });
+        toast.error("MirrorC CDK invalid", {
+          description: report.message,
+        });
+      }
+    } catch (error) {
+      setCdkInput("");
+      patchGeneral({ mirrorcCdk: "" });
+      toast.error("MirrorC CDK validation failed", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setValidating(false);
+    }
   };
 
   return (
@@ -113,7 +128,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
       >
         <h3 className="font-semibold text-lg">{t("installer.setting")}</h3>
 
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="flex flex-col gap-3 mt-4">
           <FormSelect
             value={i18n.language}
             label={t("language")}
@@ -149,27 +164,42 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             </div>
           </div>
           <FormSelect
-            label={t("label.repo_url")}
-            value={props.config.URLs?.REPO_URL_HTTP || ""}
-            onChange={(e) => handleUrlChange("REPO_URL_HTTP", e)}
-            options={updateChannels}
+            label="Channel"
+            value={channel}
+            onChange={(value) => patchGeneral({ channel: value as Channel })}
+            options={[
+              { value: "stable", label: "stable" },
+              { value: "dev", label: "dev" },
+            ]}
           />
-          <FormSelect
-            label={t("label.pypi_mirror")}
-            className={"col-span-3"}
-            value={props.config.General?.source_list?.[0] || ""}
-            onChange={(val: string) => {
-              const newSources = [
-                val,
-                ...(props.config.General?.source_list?.filter((s: string) => s !== val) || []),
-              ];
-              handleGeneralChange("source_list", newSources);
-            }}
-            options={props.config.General!.source_list!.map((e: string) => ({
-              label: e,
-              value: e,
-            }))}
-          />
+          <div className="flex gap-2 items-end">
+            <FormInput
+              label="MirrorC CDK"
+              value={cdkInput}
+              onChange={(event) => setCdkInput(event.target.value)}
+              placeholder="Paste MirrorC CDK"
+              className="flex-1"
+              disabled={validating}
+            />
+            <CButton
+              type="button"
+              variant="secondary"
+              disabled={validating}
+              onClick={validateMirrorC}
+              className="min-w-24"
+            >
+              {validating ? "..." : "Validate"}
+            </CButton>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <CButton type="button" variant="secondary" onClick={props.onCancel}>
+            {t("Cancel")}
+          </CButton>
+          <CButton type="button" onClick={props.onConfirm} disabled={props.disabled}>
+            {t("Confirm")}
+          </CButton>
         </div>
       </motion.div>
     </div>
