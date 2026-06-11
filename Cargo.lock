@@ -252,6 +252,7 @@ version = "0.1.0"
 dependencies = [
  "baas-term",
  "baas-updater",
+ "chrono",
  "directories",
  "serde",
  "tauri",

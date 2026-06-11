@@ -202,6 +202,7 @@ impl WorkflowServices for RealWorkflowServices {
                 },
                 output,
             )?;
+            remove_git_metadata_if_present(target_dir, output)?;
             return Ok(RepositoryOutcome {
                 kind,
                 status: result.status,
@@ -300,6 +301,8 @@ fn run_workflow_with_services_inner(
     if let Some(path) = &options.install_path {
         manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
     }
+    validate_mirrorc_cdk_before_workflow(&manager.config)
+        .map_err(|error| WorkflowFailure::from_error("mirrorc_cdk", error))?;
     manager
         .save()
         .map_err(|error| WorkflowFailure::from_error("config", error))?;
@@ -428,8 +431,16 @@ fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
 fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob {
     let root = config.baas_root();
     let tmp = config.tmp_dir();
+    let using_mirrorc = !config.general.mirrorc_cdk.trim().is_empty();
     match kind {
         RepositoryKind::Main => {
+            if using_mirrorc {
+                return RepositoryJob {
+                    target_dir: root.clone(),
+                    final_dir: root,
+                    needs_move: false,
+                };
+            }
             let has_repo = root.join(".git").exists();
             if has_repo {
                 RepositoryJob {
@@ -451,7 +462,7 @@ fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob
                 .join("ocr")
                 .join("baas_ocr_client")
                 .join("bin");
-            if cpp_bin_has_content(&final_dir) {
+            if using_mirrorc || final_dir.join(".git").exists() {
                 RepositoryJob {
                     target_dir: final_dir.clone(),
                     final_dir,
@@ -485,22 +496,59 @@ fn register_cleanup_paths(
     Ok(())
 }
 
-fn cpp_bin_has_content(path: &Path) -> bool {
-    path.is_dir()
-        && fs::read_dir(path)
-            .map(|entries| {
-                entries
-                    .flatten()
-                    .any(|entry| entry.file_name().to_string_lossy() != ".git")
-            })
-            .unwrap_or(false)
-}
-
 fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
     if !job.needs_move {
         return Ok(());
     }
     move_dir_contents(&job.target_dir, &job.final_dir)
+}
+
+fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult<()> {
+    let cdk = config.general.mirrorc_cdk.trim();
+    if cdk.is_empty() {
+        return Ok(());
+    }
+    let latest = MirrorCClient::new(ReqwestMirrorHttp).latest(
+        RepositoryKind::Main,
+        config.general.channel,
+        "",
+        cdk,
+    )?;
+    if latest.is_success() {
+        return Ok(());
+    }
+    let message = if latest.message.trim().is_empty() {
+        latest
+            .cdk_state()
+            .map(|state| format!("MirrorC CDK validation failed: {state:?}"))
+            .unwrap_or_else(|| format!("MirrorC CDK validation failed with code {}", latest.code))
+    } else {
+        latest.message
+    };
+    Err(UpdaterError::MirrorC(message))
+}
+
+fn remove_git_metadata_if_present(
+    target_dir: &Path,
+    output: &(dyn OutputSink + Send + Sync),
+) -> UpdaterResult<()> {
+    let git_path = target_dir.join(".git");
+    if !git_path.exists() {
+        return Ok(());
+    }
+    output.line(
+        OutputStyle::Info,
+        &format!(
+            "Removing Git metadata from MirrorC-managed directory: {}",
+            git_path.display()
+        ),
+    );
+    if git_path.is_dir() {
+        fs::remove_dir_all(git_path)?;
+    } else {
+        fs::remove_file(git_path)?;
+    }
+    Ok(())
 }
 
 fn move_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
@@ -872,6 +920,11 @@ fn terminal_config_task(
         if let Some(path) = &args.options.install_path {
             spinner.set_detail("applying selected install path");
             manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
+        }
+        if !manager.config.general.mirrorc_cdk.trim().is_empty() {
+            spinner.set_detail("validating MirrorC CDK");
+            validate_mirrorc_cdk_before_workflow(&manager.config)
+                .map_err(|error| error.message())?;
         }
         spinner.set_detail("saving migrated configuration");
         manager.save().map_err(|error| error.message())?;
@@ -2260,6 +2313,65 @@ mod tests {
         let reloaded = ConfigManager::load_from(config_path).unwrap();
         assert_eq!(reloaded.config.general.current_baas_sha, "main-sha");
         assert_eq!(reloaded.config.general.current_baas_cpp_sha, "cpp-sha");
+    }
+
+    #[test]
+    fn git_cpp_job_reclones_when_existing_bin_has_no_git_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let install_path = dir.path().join("BAAS");
+        let bin_dir = install_path
+            .join("core")
+            .join("ocr")
+            .join("baas_ocr_client")
+            .join("bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+        fs::write(bin_dir.join("mirror-file.txt"), "from mirror").unwrap();
+
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+
+        let job = repository_job(&config, RepositoryKind::Cpp);
+
+        assert!(job.needs_move);
+        assert_eq!(job.target_dir, install_path.join("tmp").join("cpp-repo"));
+        assert_eq!(job.final_dir, bin_dir);
+    }
+
+    #[test]
+    fn mirrorc_jobs_use_final_dirs_without_requiring_git_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let install_path = dir.path().join("BAAS");
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+        config.general.mirrorc_cdk = "cdk".to_string();
+
+        let main_job = repository_job(&config, RepositoryKind::Main);
+        let cpp_job = repository_job(&config, RepositoryKind::Cpp);
+
+        assert!(!main_job.needs_move);
+        assert_eq!(main_job.target_dir, install_path);
+        assert!(!cpp_job.needs_move);
+        assert_eq!(
+            cpp_job.target_dir,
+            install_path
+                .join("core")
+                .join("ocr")
+                .join("baas_ocr_client")
+                .join("bin")
+        );
+    }
+
+    #[test]
+    fn mirrorc_cleanup_removes_extra_git_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        let git_dir = target.join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::write(git_dir.join("HEAD"), "ref: refs/heads/master").unwrap();
+
+        remove_git_metadata_if_present(&target, &NoopOutput).unwrap();
+
+        assert!(!git_dir.exists());
     }
 
     #[test]
