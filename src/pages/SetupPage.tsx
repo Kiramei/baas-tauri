@@ -91,6 +91,8 @@ const SetupPage = () => {
   const [failure, setFailure] = useState<FailureInfo | null>(null);
   const setupCompletedRef = useRef(false);
   const abortingRef = useRef(false);
+  const pendingWorkflowRef = useRef<{ path: string; config: UpdaterConfig | null } | null>(null);
+  const workflowStartedRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -114,30 +116,41 @@ const SetupPage = () => {
     async (path = installPath, nextConfig = config) => {
       const targetPath = path || installPath;
       abortingRef.current = false;
+      workflowStartedRef.current = false;
+      pendingWorkflowRef.current = { path: targetPath, config: nextConfig };
       setFailure(null);
       setSetupPhase(false);
       setStarted(true);
       StorageUtil.set("base_dir", targetPath);
-      try {
-        await persistConfig(targetPath, nextConfig);
-        await invoke("updater_start_workflow", {
-          request: {
-            installPath: targetPath,
-            launch: true,
-          },
-        });
-      } catch (error) {
-        StorageUtil.remove("base_dir");
-        setFailure({
-          step: "start",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        setStarted(false);
-        setSetupPhase(true);
-      }
     },
-    [config, installPath, persistConfig]
+    [config, installPath]
   );
+
+  const startWorkflowWhenTerminalReady = useCallback(async () => {
+    if (workflowStartedRef.current || !pendingWorkflowRef.current) return;
+    workflowStartedRef.current = true;
+    const { path, config: requestConfig } = pendingWorkflowRef.current;
+    StorageUtil.set("base_dir", path);
+    try {
+      await persistConfig(path, requestConfig);
+      await invoke("updater_start_workflow", {
+        request: {
+          installPath: path,
+          launch: true,
+        },
+      });
+    } catch (error) {
+      StorageUtil.remove("base_dir");
+      setFailure({
+        step: "start",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setStarted(false);
+      setSetupPhase(true);
+    } finally {
+      pendingWorkflowRef.current = null;
+    }
+  }, [persistConfig]);
 
   const ensureAutoPassword = () => {
     let password = StorageUtil.get<string>("baasAutoPassword");
@@ -206,6 +219,8 @@ const SetupPage = () => {
 
   const handleAbort = async () => {
     abortingRef.current = true;
+    pendingWorkflowRef.current = null;
+    workflowStartedRef.current = false;
     try {
       await invoke("updater_abort_workflow", {
         request: {
@@ -311,6 +326,7 @@ const SetupPage = () => {
                 {/*<ProgressBar />*/}
                 <TermViewer
                   onAbort={handleAbort}
+                  onReady={startWorkflowWhenTerminalReady}
                   onFailure={(nextFailure) => {
                     if (!abortingRef.current) setFailure(nextFailure);
                   }}

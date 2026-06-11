@@ -20,6 +20,8 @@ pub struct TermState {
     pub tasks: HashMap<String, Arc<TaskHandle>>,
     /// Channel used to send renderer events for the active session.
     pub renderer_tx: Option<Sender<RendererEvent>>,
+    /// Last planned workflow graph for the active session.
+    pub workflow_plan: Option<WorkflowPlan>,
     /// Terminal rows used for new and resized PTYs.
     pub rows: u16,
     /// Terminal columns used for new and resized PTYs.
@@ -52,7 +54,8 @@ pub enum TaskHandle {
 }
 
 /// Metadata used to start and render a task.
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskSpec {
     /// Stable task identifier.
     pub task_id: String,
@@ -70,6 +73,65 @@ pub struct TaskSpec {
     pub program: String,
     /// Program arguments for process tasks.
     pub args: Vec<String>,
+}
+
+/// A workflow task node rendered by the frontend graph.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowNode {
+    /// Stable task identifier.
+    pub task_id: String,
+    /// Renderer region receiving task output.
+    pub region_id: String,
+    /// 1-based task index calculated by the workflow builder.
+    pub step_index: u8,
+    /// Total task count calculated by the workflow builder.
+    pub step_total: u8,
+    /// Zero-based stage used by graph layout.
+    pub stage: u8,
+    /// Zero-based row inside a parallel stage.
+    pub lane: u8,
+    /// Human-readable task name.
+    pub name: String,
+    /// Short task description shown in graph tooltips.
+    pub description: String,
+    /// Display command or action text.
+    pub command: String,
+}
+
+/// A directed edge between workflow task nodes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowEdge {
+    /// Source task id.
+    pub from: String,
+    /// Target task id.
+    pub to: String,
+}
+
+/// Complete workflow graph emitted before task execution starts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowPlan {
+    /// Ordered task graph nodes.
+    pub nodes: Vec<WorkflowNode>,
+    /// Directed dependency edges.
+    pub edges: Vec<WorkflowEdge>,
+}
+
+impl WorkflowPlan {
+    /// Returns the graph node for a task id.
+    pub fn node(&self, task_id: &str) -> Option<&WorkflowNode> {
+        self.nodes.iter().find(|node| node.task_id == task_id)
+    }
+
+    /// Applies calculated workflow numbering to a task spec.
+    pub fn apply_to_spec(&self, spec: &mut TaskSpec) {
+        if let Some(node) = self.node(&spec.task_id) {
+            spec.step_index = node.step_index;
+            spec.step_total = node.step_total;
+        }
+    }
 }
 
 /// Metadata returned when a terminal session starts.
@@ -126,6 +188,18 @@ pub struct TaskStartedPayload {
     pub status: String,
 }
 
+/// Payload emitted when the full workflow graph is known.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkflowPlannedPayload {
+    /// Unique session id.
+    pub session_id: String,
+    /// Ordered task graph nodes.
+    pub nodes: Vec<WorkflowNode>,
+    /// Directed dependency edges.
+    pub edges: Vec<WorkflowEdge>,
+}
+
 /// Payload emitted when a task status changes.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -146,6 +220,8 @@ pub struct TaskStatusPayload {
     pub started_at: Option<String>,
     /// RFC 3339 finish timestamp when available.
     pub finished_at: Option<String>,
+    /// Elapsed task runtime in milliseconds when available.
+    pub duration_ms: Option<u64>,
 }
 
 /// Payload emitted when a terminal session finishes.
@@ -179,6 +255,8 @@ pub struct BackendReadyPayload {
 /// Events consumed by the renderer loop.
 #[derive(Clone)]
 pub enum RendererEvent {
+    /// The full workflow graph is known before task execution starts.
+    WorkflowPlanned(WorkflowPlan),
     /// Hold output for the listed regions until they are flushed.
     BufferRegions {
         /// Region ids to mark as buffered.
@@ -275,6 +353,7 @@ mod tests {
             error: Some("boom".to_string()),
             started_at: Some("2026-06-09T00:00:00Z".to_string()),
             finished_at: None,
+            duration_ms: Some(1234),
         };
 
         assert_eq!(
@@ -287,7 +366,8 @@ mod tests {
                 "exitCode": 2,
                 "error": "boom",
                 "startedAt": "2026-06-09T00:00:00Z",
-                "finishedAt": null
+                "finishedAt": null,
+                "durationMs": 1234
             })
         );
     }

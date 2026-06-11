@@ -32,6 +32,8 @@ pub mod renderer;
 pub mod threader;
 /// Shared task, renderer, and event payload types.
 pub mod types;
+/// Workflow graph declaration helpers.
+pub mod workflow;
 
 /// Coordinates the active terminal build session.
 ///

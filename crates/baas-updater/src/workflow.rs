@@ -7,7 +7,8 @@ use crate::{
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
         RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        managed_python_configured, ranked_environment_source_with_output, requirements_path,
+        managed_python_configured, ranked_environment_source_with_output,
+        requirements_compile_cached, requirements_path, save_requirements_cache,
         uses_managed_runtime, uv_cache_clean_command, uv_compile_command_with_index, uv_executable,
         uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
     },
@@ -19,15 +20,17 @@ use crate::{
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
-    processor::{ScriptCommand, create_process_task, run_process_and_wait, spawn_process_task},
-    threader::{ThreadOutput, create_thread_task, spawn_thread_task},
-    types::{RendererEvent, TaskCompletion, TermState},
+    processor::{ScriptCommand, run_process_and_wait, spawn_process_task},
+    threader::{ThreadOutput, spawn_thread_task},
+    types::{RendererEvent, TaskCompletion, TaskSpec, TermState, WorkflowPlan},
+    workflow::{WorkflowBuilder, WorkflowTask},
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     fs,
-    net::TcpListener,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
@@ -36,6 +39,7 @@ use std::{
         mpsc::Sender,
     },
     thread,
+    time::Duration,
 };
 
 /// Structured workflow failure payload for Tauri and UI callers.
@@ -584,14 +588,10 @@ pub fn run_terminal_workflow_flow(
 ) {
     let (completion_tx, completion_rx) = mpsc::channel::<TaskCompletion>();
     let state = Arc::new(Mutex::new(TerminalWorkflowState::default()));
+    let workflow_plan = terminal_workflow_plan();
+    let _ = renderer_tx.send(RendererEvent::WorkflowPlanned(workflow_plan.clone()));
 
-    let config_spec = create_thread_task(
-        "updater-config",
-        "updater-config",
-        1,
-        "Config Migration",
-        "load and migrate setup.toml",
-    );
+    let config_spec = planned_thread_task(&workflow_plan, "updater-config");
     if spawn_thread_task(
         &inner,
         &session_id,
@@ -612,19 +612,18 @@ pub fn run_terminal_workflow_flow(
         return;
     }
 
-    if !run_terminal_update_and_prepare_stage(&inner, &session_id, &renderer_tx, Arc::clone(&state))
-    {
+    if !run_terminal_update_and_prepare_stage(
+        &inner,
+        &session_id,
+        &renderer_tx,
+        &workflow_plan,
+        Arc::clone(&state),
+    ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
 
-    let finalize_spec = create_thread_task(
-        "updater-finalize-repos",
-        "updater-finalize-repos",
-        3,
-        "Finalize Repositories",
-        "move repositories and persist versions",
-    );
+    let finalize_spec = planned_thread_task(&workflow_plan, "updater-finalize-repos");
     if spawn_thread_task(
         &inner,
         &session_id,
@@ -647,6 +646,7 @@ pub fn run_terminal_workflow_flow(
         &renderer_tx,
         &completion_tx,
         &completion_rx,
+        &workflow_plan,
         Arc::clone(&state),
         options.launch,
     ) {
@@ -657,10 +657,159 @@ pub fn run_terminal_workflow_flow(
     finish_terminal_session(&inner, &session_id, &renderer_tx, true);
 }
 
+pub fn terminal_workflow_plan() -> WorkflowPlan {
+    WorkflowBuilder::new()
+        .thread_task(
+            "updater-config",
+            "updater-config",
+            "Config Migration",
+            "Load and migrate setup.toml, then plan repository targets.",
+            "load and migrate setup.toml",
+        )
+        .parallel(vec![
+            WorkflowTask::new(
+                "main-repository",
+                "main-repository",
+                "Main Repository",
+                "Clone or update the main BAAS repository.",
+                "git or MirrorC main repository sync",
+            ),
+            WorkflowTask::new(
+                "cpp-repository",
+                "cpp-repository",
+                "Cpp Repository",
+                "Clone or update the Cpp/OCR prebuild repository.",
+                "git or MirrorC cpp repository sync",
+            ),
+            WorkflowTask::new(
+                "uv-install",
+                "uv-install",
+                "Install UV",
+                "Download and extract UV when it is missing.",
+                "download and extract uv",
+            ),
+        ])
+        .task_after(
+            &["uv-install"],
+            WorkflowTask::new(
+                "cpython-source-ranking",
+                "cpython-source-ranking",
+                "CPython Source",
+                "Benchmark CPython mirrors when managed Python is missing.",
+                "rank cpython sources",
+            ),
+        )
+        .task_after(
+            &["main-repository", "cpp-repository"],
+            WorkflowTask::new(
+                "git-record-sha",
+                "git-record-sha",
+                "Record Git Versions",
+                "Read local repository versions after Git CLI updates.",
+                "read local git sha",
+            ),
+        )
+        .task_after(
+            &["cpython-source-ranking"],
+            WorkflowTask::new(
+                "uv-python-install",
+                "uv-python-install",
+                "Install Python",
+                "Install the configured managed Python runtime through UV.",
+                "uv python install",
+            ),
+        )
+        .task_after(
+            &["uv-python-install"],
+            WorkflowTask::new(
+                "uv-venv",
+                "uv-venv",
+                "Create Venv",
+                "Create the managed virtual environment.",
+                "uv venv",
+            ),
+        )
+        .task_after(
+            &["git-record-sha", "uv-venv"],
+            WorkflowTask::new(
+                "updater-finalize-repos",
+                "updater-finalize-repos",
+                "Finalize Repositories",
+                "Move fresh clones into place and persist versions.",
+                "move repositories and persist versions",
+            ),
+        )
+        .thread_task(
+            "pypi-source-ranking",
+            "pypi-source-ranking",
+            "PyPI Source",
+            "Benchmark PyPI indexes before dependency sync.",
+            "rank pypi sources",
+        )
+        .process_task(
+            "uv-compile",
+            "uv-compile",
+            "Compile Dependencies",
+            "Generate the dependency lock file when requirements changed.",
+            "uv pip compile",
+        )
+        .process_task(
+            "uv-sync",
+            "uv-sync",
+            "Sync Dependencies",
+            "Synchronize the virtual environment with the lock file.",
+            "uv pip sync",
+        )
+        .process_task(
+            "uv-cache-clean",
+            "uv-cache-clean",
+            "Clean UV Cache",
+            "Clean UV cache after dependency synchronization.",
+            "uv cache clean",
+        )
+        .thread_task(
+            "launch-backend",
+            "launch-backend",
+            "Launch Backend",
+            "Start the backend service and wait for it to accept connections.",
+            "spawn backend service",
+        )
+        .build()
+}
+
+fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
+    let node = plan.node(task_id).expect("workflow task missing from plan");
+    TaskSpec {
+        task_id: node.task_id.clone(),
+        region_id: node.region_id.clone(),
+        step_index: node.step_index,
+        step_total: node.step_total,
+        name: node.name.clone(),
+        command: node.command.clone(),
+        program: String::new(),
+        args: Vec::new(),
+    }
+}
+
+fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptCommand) -> TaskSpec {
+    let node = plan.node(task_id).expect("workflow task missing from plan");
+    TaskSpec {
+        task_id: node.task_id.clone(),
+        region_id: node.region_id.clone(),
+        step_index: node.step_index,
+        step_total: node.step_total,
+        name: node.name.clone(),
+        command: script.display,
+        program: script.program,
+        args: script.args,
+    }
+}
+
 fn run_terminal_update_and_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
     renderer_tx: &Sender<RendererEvent>,
+    workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
     let (repo_completion_tx, repo_completion_rx) = mpsc::channel::<TaskCompletion>();
@@ -678,6 +827,7 @@ fn run_terminal_update_and_prepare_stage(
                 &repo_renderer_tx,
                 &repo_completion_tx,
                 &repo_completion_rx,
+                workflow_plan,
                 repo_state,
             )
         });
@@ -693,6 +843,7 @@ fn run_terminal_update_and_prepare_stage(
                 &prepare_renderer_tx,
                 &prepare_completion_tx,
                 &prepare_completion_rx,
+                workflow_plan,
                 prepare_state,
             )
         });
@@ -751,6 +902,7 @@ fn run_terminal_repo_stage(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
     let (config, main_job, cpp_job, ranking_dir) = match terminal_state_snapshot(&state) {
@@ -773,6 +925,7 @@ fn run_terminal_repo_stage(
             renderer_tx,
             completion_tx,
             completion_rx,
+            workflow_plan,
             state,
         );
     }
@@ -791,6 +944,7 @@ fn run_terminal_repo_stage(
                 renderer_tx,
                 completion_tx,
                 completion_rx,
+                workflow_plan,
                 state,
             );
         }
@@ -809,23 +963,20 @@ fn run_terminal_repo_stage(
                 renderer_tx,
                 completion_tx,
                 completion_rx,
+                workflow_plan,
                 state,
             );
         }
     };
 
-    let main_spec = create_process_task(
-        "git-main",
-        "git-main",
-        2,
-        "Main Repository Git",
+    let main_spec = planned_process_task(
+        workflow_plan,
+        "main-repository",
         script_from_command(&main_plan.command),
     );
-    let cpp_spec = create_process_task(
-        "git-cpp",
-        "git-cpp",
-        2,
-        "Cpp Repository Git",
+    let cpp_spec = planned_process_task(
+        workflow_plan,
+        "cpp-repository",
         script_from_command(&cpp_plan.command),
     );
     let main_id = main_spec.task_id.clone();
@@ -840,19 +991,13 @@ fn run_terminal_repo_stage(
     }
     let success = wait_for_completions(completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
     let _ = renderer_tx.send(RendererEvent::FlushRegions {
-        region_ids: vec!["git-main".to_string(), "git-cpp".to_string()],
+        region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
     });
     if !success || !session_is_current(inner, session_id) {
         return false;
     }
 
-    let record_spec = create_thread_task(
-        "git-record-sha",
-        "git-record-sha",
-        2,
-        "Record Git Versions",
-        "read local git sha",
-    );
+    let record_spec = planned_thread_task(workflow_plan, "git-record-sha");
     spawn_thread_task(
         inner,
         session_id,
@@ -876,22 +1021,11 @@ fn run_terminal_thread_repo_stage(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
-    let main = create_thread_task(
-        "repo-main-thread",
-        "repo-main-thread",
-        2,
-        "Main Repository",
-        "mirrorc or git2 repository sync",
-    );
-    let cpp = create_thread_task(
-        "repo-cpp-thread",
-        "repo-cpp-thread",
-        2,
-        "Cpp Repository",
-        "mirrorc or git2 repository sync",
-    );
+    let main = planned_thread_task(workflow_plan, "main-repository");
+    let cpp = planned_thread_task(workflow_plan, "cpp-repository");
     let main_id = main.task_id.clone();
     let cpp_id = cpp.task_id.clone();
     let _ = renderer_tx.send(RendererEvent::BufferRegions {
@@ -926,10 +1060,7 @@ fn run_terminal_thread_repo_stage(
     }
     let success = wait_for_completions(completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
     let _ = renderer_tx.send(RendererEvent::FlushRegions {
-        region_ids: vec![
-            "repo-main-thread".to_string(),
-            "repo-cpp-thread".to_string(),
-        ],
+        region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
     });
     success && session_is_current(inner, session_id)
 }
@@ -1148,6 +1279,7 @@ fn run_terminal_environment_prepare_stage(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
     let config = match terminal_config(&state) {
@@ -1175,13 +1307,7 @@ fn run_terminal_environment_prepare_stage(
         }
     };
     if !uses_managed_runtime(&config) {
-        let spec = create_thread_task(
-            "custom-runtime",
-            "custom-runtime",
-            4,
-            "Custom Runtime",
-            "skip managed uv setup",
-        );
+        let spec = planned_thread_task(workflow_plan, "uv-install");
         return spawn_thread_task(
             inner,
             session_id,
@@ -1192,16 +1318,10 @@ fn run_terminal_environment_prepare_stage(
             terminal_custom_runtime_task,
         )
         .is_ok()
-            && wait_for_task(completion_rx, "custom-runtime");
+            && wait_for_task(completion_rx, "uv-install");
     }
 
-    let uv_spec = create_thread_task(
-        "uv-install",
-        "uv-install",
-        4,
-        "Install UV",
-        "download and extract uv",
-    );
+    let uv_spec = planned_thread_task(workflow_plan, "uv-install");
     if spawn_thread_task(
         inner,
         session_id,
@@ -1218,22 +1338,37 @@ fn run_terminal_environment_prepare_stage(
     }
 
     if managed_python_configured(&config) {
-        let output = ThreadOutput {
-            task_id: "python-ready".to_string(),
-            region_id: "python-ready".to_string(),
-            tx: renderer_tx.clone(),
-        };
-        output.line(OutputStyle::Success, "Python virtual environment exists");
-        return true;
+        return run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            "cpython-source-ranking",
+            "Python virtual environment exists; skipping CPython source ranking",
+        ) && run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            "uv-python-install",
+            "Python virtual environment exists; skipping uv python install",
+        ) && run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            "uv-venv",
+            "Python virtual environment exists; skipping uv venv",
+        );
     }
 
-    let cpython_rank_spec = create_thread_task(
-        "cpython-source-ranking",
-        "cpython-source-ranking",
-        4,
-        "CPython Source",
-        "rank cpython sources",
-    );
+    let cpython_rank_spec = planned_thread_task(workflow_plan, "cpython-source-ranking");
     if spawn_thread_task(
         inner,
         session_id,
@@ -1269,11 +1404,9 @@ fn run_terminal_environment_prepare_stage(
     if !run_process_and_wait(
         inner,
         session_id,
-        create_process_task(
+        planned_process_task(
+            workflow_plan,
             "uv-python-install",
-            "uv-python-install",
-            4,
-            "Install Python",
             script_from_command(&uv_python_install_command_with_mirror(
                 &config,
                 &cpython_mirror,
@@ -1290,11 +1423,9 @@ fn run_terminal_environment_prepare_stage(
         && !run_process_and_wait(
             inner,
             session_id,
-            create_process_task(
+            planned_process_task(
+                workflow_plan,
                 "uv-venv",
-                "uv-venv",
-                4,
-                "Create Venv",
                 script_from_command(&uv_venv_command(&config)),
             ),
             renderer_tx,
@@ -1314,6 +1445,7 @@ fn run_terminal_dependency_stage(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
 ) -> bool {
@@ -1331,13 +1463,7 @@ fn run_terminal_dependency_stage(
     };
 
     if !uses_managed_runtime(&config) {
-        let spec = create_thread_task(
-            "custom-runtime-dependencies",
-            "custom-runtime-dependencies",
-            4,
-            "Custom Runtime",
-            "skip managed dependency sync",
-        );
+        let spec = planned_thread_task(workflow_plan, "uv-sync");
         if spawn_thread_task(
             inner,
             session_id,
@@ -1348,7 +1474,7 @@ fn run_terminal_dependency_stage(
             terminal_custom_runtime_task,
         )
         .is_err()
-            || !wait_for_task(completion_rx, "custom-runtime-dependencies")
+            || !wait_for_task(completion_rx, "uv-sync")
         {
             return false;
         }
@@ -1358,6 +1484,7 @@ fn run_terminal_dependency_stage(
             renderer_tx,
             completion_tx,
             completion_rx,
+            workflow_plan,
             config,
             launch,
         );
@@ -1388,13 +1515,7 @@ fn run_terminal_dependency_stage(
             return false;
         }
     };
-    let pypi_rank_spec = create_thread_task(
-        "pypi-source-ranking",
-        "pypi-source-ranking",
-        4,
-        "PyPI Source",
-        "rank pypi sources",
-    );
+    let pypi_rank_spec = planned_thread_task(workflow_plan, "pypi-source-ranking");
     if spawn_thread_task(
         inner,
         session_id,
@@ -1426,27 +1547,48 @@ fn run_terminal_dependency_stage(
             return false;
         }
     };
-    for (task_id, name, command) in [
-        (
+    if requirements_compile_cached(&config, &requirements, &pypi_index).unwrap_or(false) {
+        if !run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
             "uv-compile",
-            "Compile Dependencies",
-            uv_compile_command_with_index(&config, &requirements, &pypi_index),
+            "requirements unchanged; skipping uv compile",
+        ) {
+            return false;
+        }
+    } else if !run_process_and_wait(
+        inner,
+        session_id,
+        planned_process_task(
+            workflow_plan,
+            "uv-compile",
+            script_from_command(&uv_compile_command_with_index(
+                &config,
+                &requirements,
+                &pypi_index,
+            )),
         ),
-        (
-            "uv-sync",
-            "Sync Dependencies",
-            uv_sync_command_with_index(&config, &pypi_index),
-        ),
-        (
-            "uv-cache-clean",
-            "Clean UV Cache",
-            uv_cache_clean_command(&config),
-        ),
+        renderer_tx,
+        completion_tx,
+        completion_rx,
+    ) {
+        return false;
+    } else if save_requirements_cache(&config, &requirements, &pypi_index).is_err() {
+        return false;
+    }
+
+    for (task_id, command) in [
+        ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
+        ("uv-cache-clean", uv_cache_clean_command(&config)),
     ] {
         if !run_process_and_wait(
             inner,
             session_id,
-            create_process_task(task_id, task_id, 4, name, script_from_command(&command)),
+            planned_process_task(workflow_plan, task_id, script_from_command(&command)),
             renderer_tx,
             completion_tx,
             completion_rx,
@@ -1461,9 +1603,51 @@ fn run_terminal_dependency_stage(
         renderer_tx,
         completion_tx,
         completion_rx,
+        workflow_plan,
         config,
         launch,
     )
+}
+
+fn run_terminal_skip_task(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    renderer_tx: &Sender<RendererEvent>,
+    completion_tx: &Sender<TaskCompletion>,
+    completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
+    task_id: &str,
+    message: &str,
+) -> bool {
+    spawn_thread_task(
+        inner,
+        session_id,
+        planned_thread_task(workflow_plan, task_id),
+        renderer_tx,
+        completion_tx,
+        TerminalSkipArgs {
+            message: message.to_string(),
+        },
+        terminal_skip_task,
+    )
+    .is_ok()
+        && wait_for_task(completion_rx, task_id)
+}
+
+struct TerminalSkipArgs {
+    message: String,
+}
+
+fn terminal_skip_task(
+    output: ThreadOutput,
+    cancelled: Arc<AtomicBool>,
+    args: TerminalSkipArgs,
+) -> Result<(), String> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("skip task cancelled".to_string());
+    }
+    output.line(OutputStyle::Success, &args.message);
+    Ok(())
 }
 
 fn run_terminal_launch_stage(
@@ -1472,6 +1656,7 @@ fn run_terminal_launch_stage(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
     completion_rx: &mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &WorkflowPlan,
     config: UpdaterConfig,
     launch: bool,
 ) -> bool {
@@ -1482,13 +1667,7 @@ fn run_terminal_launch_stage(
         Ok(port) => port,
         Err(_) => return false,
     };
-    let spec = create_thread_task(
-        "launch-backend",
-        "launch-backend",
-        4,
-        "Launch Backend",
-        "spawn backend service",
-    );
+    let spec = planned_thread_task(workflow_plan, "launch-backend");
     spawn_thread_task(
         inner,
         session_id,
@@ -1622,7 +1801,45 @@ fn terminal_launch_task(
     }
     RealProcessRunner
         .run(&launch_backend_command(&config, port), &output)
-        .map_err(|error| error.message())
+        .map_err(|error| error.message())?;
+    wait_for_backend_port(port, &cancelled).map_err(|error| error.message())
+}
+
+fn wait_for_backend_port(port: u16, cancelled: &AtomicBool) -> UpdaterResult<()> {
+    let started = std::time::Instant::now();
+    let timeout = Duration::from_secs(30);
+    while started.elapsed() < timeout {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(UpdaterError::Cancelled);
+        }
+        if backend_auth_endpoint_ready(port) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    Err(UpdaterError::Workflow(format!(
+        "backend auth endpoint did not become ready on 127.0.0.1:{port}"
+    )))
+}
+
+fn backend_auth_endpoint_ready(port: u16) -> bool {
+    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+        return false;
+    };
+    let timeout = Some(Duration::from_millis(700));
+    let _ = stream.set_read_timeout(timeout);
+    let _ = stream.set_write_timeout(timeout);
+    if stream
+        .write_all(b"GET /auth/remember HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut response = [0_u8; 16];
+    stream
+        .read(&mut response)
+        .map(|read| read > 0 && response.starts_with(b"HTTP/"))
+        .unwrap_or(false)
 }
 
 fn terminal_state_snapshot(
@@ -1999,6 +2216,58 @@ mod tests {
         let reloaded = ConfigManager::load_from(config_path).unwrap();
         assert_eq!(reloaded.config.general.current_baas_sha, "main-sha");
         assert_eq!(reloaded.config.general.current_baas_cpp_sha, "cpp-sha");
+    }
+
+    #[test]
+    fn terminal_workflow_plan_models_parallel_update_and_dependency_order() {
+        let plan = terminal_workflow_plan();
+        let main = plan.node("main-repository").unwrap();
+        let cpp = plan.node("cpp-repository").unwrap();
+        let uv = plan.node("uv-install").unwrap();
+        let cpython = plan.node("cpython-source-ranking").unwrap();
+        let python = plan.node("uv-python-install").unwrap();
+        let venv = plan.node("uv-venv").unwrap();
+        let git_record = plan.node("git-record-sha").unwrap();
+        let finalize = plan.node("updater-finalize-repos").unwrap();
+        let compile = plan.node("uv-compile").unwrap();
+
+        assert_eq!(main.stage, cpp.stage);
+        assert_eq!(main.stage, uv.stage);
+        assert_eq!(cpython.stage, uv.stage + 1);
+        assert_eq!(python.stage, cpython.stage + 1);
+        assert_eq!(venv.stage, python.stage + 1);
+        assert!(git_record.stage > main.stage);
+        assert!(finalize.stage > git_record.stage);
+        assert!(finalize.stage > venv.stage);
+        assert!(compile.stage > finalize.stage);
+        assert!(
+            plan.edges
+                .iter()
+                .any(|edge| edge.from == "uv-install" && edge.to == "cpython-source-ranking")
+        );
+        assert!(
+            plan.edges
+                .iter()
+                .any(|edge| edge.from == "git-record-sha" && edge.to == "updater-finalize-repos")
+        );
+        assert_eq!(plan.nodes.len() as u8, compile.step_total);
+    }
+
+    #[test]
+    fn backend_ready_probe_requires_http_response() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 128];
+            let _ = stream.read(&mut request).unwrap();
+            stream
+                .write_all(b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\n\r\n")
+                .unwrap();
+        });
+
+        assert!(backend_auth_endpoint_ready(port));
+        handle.join().unwrap();
     }
 
     #[test]

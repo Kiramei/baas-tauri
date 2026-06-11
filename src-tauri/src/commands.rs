@@ -1,7 +1,7 @@
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     RepositoryKind, UpdateChannel, WorkflowOptions,
-    app::{UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
+    app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{ConfigManager, UpdaterConfig},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
 };
@@ -203,6 +203,13 @@ pub fn updater_abort_workflow(
     manager: State<'_, UpdaterTermManager>,
 ) -> Result<WorkflowAbortReport, String> {
     manager.abort(request.unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn updater_terminal_snapshot(
+    manager: State<'_, UpdaterTermManager>,
+) -> Result<TerminalSnapshot, String> {
+    manager.snapshot()
 }
 
 #[tauri::command]

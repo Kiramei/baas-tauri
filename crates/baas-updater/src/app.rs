@@ -10,11 +10,14 @@ use crate::{
     workflow::{
         WorkflowCleanupState, WorkflowFailure, WorkflowReport, cleanup_workflow_state,
         new_workflow_cleanup_state, run_terminal_workflow_flow, run_workflow,
+        terminal_workflow_plan,
     },
 };
 use baas_term::{
     renderer::renderer_loop,
-    types::{RendererEvent, SessionMetadata, SessionStartedPayload, TaskHandle, TermState},
+    types::{
+        RendererEvent, SessionMetadata, SessionStartedPayload, TaskHandle, TermState, WorkflowPlan,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -101,6 +104,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "updater_update_config",
     "updater_run_workflow",
     "updater_abort_workflow",
+    "updater_terminal_snapshot",
 ];
 
 /// Terminal-backed updater session manager.
@@ -130,6 +134,16 @@ pub struct WorkflowAbortReport {
     pub stopped_tasks: usize,
     /// Transient paths that were removed.
     pub cleaned_paths: Vec<PathBuf>,
+}
+
+/// Current terminal workflow snapshot for late frontend subscribers.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalSnapshot {
+    /// Active session id when one exists.
+    pub session_id: Option<String>,
+    /// Last planned workflow graph for the active session.
+    pub workflow_plan: Option<WorkflowPlan>,
 }
 
 #[derive(Clone)]
@@ -165,6 +179,7 @@ impl UpdaterTermManager {
 
         let session_id = Uuid::new_v4().to_string();
         let (renderer_tx, renderer_rx) = mpsc::channel();
+        let workflow_plan = terminal_workflow_plan();
         let (initial_rows, initial_cols) = {
             let mut state = self
                 .inner
@@ -172,6 +187,7 @@ impl UpdaterTermManager {
                 .map_err(|_| "updater manager lock poisoned")?;
             state.current_session_id = Some(session_id.clone());
             state.renderer_tx = Some(renderer_tx.clone());
+            state.workflow_plan = Some(workflow_plan);
             state.tasks.clear();
             if state.rows == 0 {
                 state.rows = 32;
@@ -219,6 +235,18 @@ impl UpdaterTermManager {
         Ok(SessionMetadata {
             session_id,
             status: "running".to_string(),
+        })
+    }
+
+    /// Returns the active terminal workflow snapshot.
+    pub fn snapshot(&self) -> Result<TerminalSnapshot, String> {
+        let state = self
+            .inner
+            .lock()
+            .map_err(|_| "updater manager lock poisoned")?;
+        Ok(TerminalSnapshot {
+            session_id: state.current_session_id.clone(),
+            workflow_plan: state.workflow_plan.clone(),
         })
     }
 
@@ -287,6 +315,7 @@ impl UpdaterTermManager {
             let tasks = state.tasks.drain().collect::<Vec<_>>();
             let tx = state.renderer_tx.take();
             state.current_session_id = None;
+            state.workflow_plan = None;
             (tasks, tx)
         };
         let stopped_tasks = tasks.len();

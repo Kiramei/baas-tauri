@@ -33,11 +33,30 @@ pub fn create_thread_task(
     name: &str,
     command: &str,
 ) -> TaskSpec {
+    create_thread_task_with_total(
+        task_id,
+        region_id,
+        step_index,
+        DEMO_STEP_TOTAL,
+        name,
+        command,
+    )
+}
+
+/// Builds a [`TaskSpec`] for an in-process thread task with an explicit total.
+pub fn create_thread_task_with_total(
+    task_id: &str,
+    region_id: &str,
+    step_index: u8,
+    step_total: u8,
+    name: &str,
+    command: &str,
+) -> TaskSpec {
     TaskSpec {
         task_id: task_id.to_string(),
         region_id: region_id.to_string(),
         step_index,
-        step_total: DEMO_STEP_TOTAL,
+        step_total,
         name: name.to_string(),
         command: command.to_string(),
         program: String::new(),

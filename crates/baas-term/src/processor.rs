@@ -38,11 +38,30 @@ pub fn create_process_task(
     name: &str,
     script: ScriptCommand,
 ) -> TaskSpec {
+    create_process_task_with_total(
+        task_id,
+        region_id,
+        step_index,
+        DEMO_STEP_TOTAL,
+        name,
+        script,
+    )
+}
+
+/// Builds a [`TaskSpec`] for a PTY-backed process task with an explicit total.
+pub fn create_process_task_with_total(
+    task_id: &str,
+    region_id: &str,
+    step_index: u8,
+    step_total: u8,
+    name: &str,
+    script: ScriptCommand,
+) -> TaskSpec {
     TaskSpec {
         task_id: task_id.to_string(),
         region_id: region_id.to_string(),
         step_index,
-        step_total: DEMO_STEP_TOTAL,
+        step_total,
         name: name.to_string(),
         command: script.display,
         program: script.program,

@@ -94,15 +94,15 @@ export const waitFor = <T>(
       return;
     }
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const unsub = subscribe(selector, (val: T) => {
       if (predicate(val)) {
-        clearTimeout(timer);
+        if (timer) clearTimeout(timer);
         unsub();
         resolve();
       }
     });
 
-    let timer: any = null;
     if (timeoutMs !== Infinity) {
       timer = setTimeout(() => {
         unsub();
@@ -120,25 +120,26 @@ export const waitForNormal = <T>(
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     const start = Date.now();
+    let timer: ReturnType<typeof setInterval> | null = null;
 
     const check = () => {
       try {
         const val = getter();
         if (predicate(val)) {
-          clearInterval(timer);
+          if (timer) clearInterval(timer);
           resolve();
         } else if (Date.now() - start >= timeoutMs) {
-          clearInterval(timer);
+          if (timer) clearInterval(timer);
           reject(new Error("waitFor timeout"));
         }
       } catch (error) {
-        clearInterval(timer);
+        if (timer) clearInterval(timer);
         reject(error);
       }
     };
 
+    timer = setInterval(check, intervalMs);
     check();
-    const timer = setInterval(check, intervalMs);
   });
 };
 void waitForNormal;

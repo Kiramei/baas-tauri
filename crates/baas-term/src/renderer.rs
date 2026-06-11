@@ -6,15 +6,15 @@
 
 use crate::constants::{
     ANSI_DASHBOARD_RESET, ANSI_RESET, EVENT_TERM_CHUNK, EVENT_TERM_SESSION_FINISHED,
-    EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS, EVENT_UPDATER_BACKEND_READY,
-    MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS, REGION_MAX_KEPT_LINES, RUNNING_REGION_MAX_LINES,
-    STATUS_RUNNING, TAB_WIDTH,
+    EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS, EVENT_TERM_WORKFLOW_PLANNED,
+    EVENT_UPDATER_BACKEND_READY, MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS, REGION_MAX_KEPT_LINES,
+    RUNNING_REGION_MAX_LINES, STATUS_RUNNING, TAB_WIDTH,
 };
 use crate::types::{
     BackendReadyPayload, DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec,
-    TaskStartedPayload, TaskStatusPayload,
+    TaskStartedPayload, TaskStatusPayload, WorkflowPlannedPayload,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc::Receiver,
@@ -186,14 +186,27 @@ pub fn renderer_loop(
     cols: u16,
 ) {
     let mut renderer = SessionRenderer::new(rows, cols);
+    let mut task_started_at = HashMap::<String, DateTime<Utc>>::new();
 
     while let Ok(event) = rx.recv() {
         match event {
+            RendererEvent::WorkflowPlanned(plan) => {
+                let _ = app.emit(
+                    EVENT_TERM_WORKFLOW_PLANNED,
+                    WorkflowPlannedPayload {
+                        session_id: session_id.clone(),
+                        nodes: plan.nodes,
+                        edges: plan.edges,
+                    },
+                );
+            }
             RendererEvent::BufferRegions { region_ids } => {
                 renderer.buffer_regions(region_ids);
             }
             RendererEvent::TaskStarted(spec) => {
-                let started_at = Some(Utc::now().to_rfc3339());
+                let started = Utc::now();
+                let started_at = Some(started.to_rfc3339());
+                task_started_at.insert(spec.task_id.clone(), started);
                 let _ = app.emit(
                     EVENT_TERM_TASK_STARTED,
                     TaskStartedPayload {
@@ -228,6 +241,7 @@ pub fn renderer_loop(
                         error: None,
                         started_at,
                         finished_at: None,
+                        duration_ms: None,
                     },
                 );
             }
@@ -269,6 +283,11 @@ pub fn renderer_loop(
                 } else {
                     region_id
                 };
+                let finished = Utc::now();
+                let started_at = task_started_at.remove(&task_id);
+                let duration_ms = started_at
+                    .and_then(|started| (finished - started).to_std().ok())
+                    .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64);
                 let _ = app.emit(
                     EVENT_TERM_TASK_STATUS,
                     TaskStatusPayload {
@@ -279,7 +298,8 @@ pub fn renderer_loop(
                         exit_code,
                         error,
                         started_at: None,
-                        finished_at: Some(Utc::now().to_rfc3339()),
+                        finished_at: Some(finished.to_rfc3339()),
+                        duration_ms,
                     },
                 );
             }

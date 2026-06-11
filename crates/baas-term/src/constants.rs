@@ -25,7 +25,7 @@ pub const PTY_PIXEL_HEIGHT: u16 = 0;
 pub const DEMO_STEP_TOTAL: u8 = 4;
 
 /// Maximum number of recent output lines shown per region while tasks run.
-pub const RUNNING_REGION_MAX_LINES: usize = 3;
+pub const RUNNING_REGION_MAX_LINES: usize = 2;
 
 /// Maximum number of historical lines retained per renderer region.
 pub const REGION_MAX_KEPT_LINES: usize = 2_000;
@@ -86,6 +86,9 @@ pub const EVENT_BUILD_SESSION_STARTED: &str = "build:session-started";
 
 /// Tauri event emitted when a task starts.
 pub const EVENT_TERM_TASK_STARTED: &str = "term:task-started";
+
+/// Tauri event emitted with the full workflow task graph.
+pub const EVENT_TERM_WORKFLOW_PLANNED: &str = "term:workflow-planned";
 
 /// Tauri event carrying rendered terminal chunks.
 pub const EVENT_TERM_CHUNK: &str = "term:chunk";

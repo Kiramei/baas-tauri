@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { HotkeyConfig } from "@/components/HotkeyConfig";
-import { eventToCombo, getDefaultHotkeys, normalizeCombo } from "@/lib/hotkeys";
-import { StorageUtil } from "@/lib/storage.ts";
+import { eventToCombo, getDefaultHotkeys, normalizeCombo } from "@/shared/HotkeyManager";
+import StorageUtil from "@/shared/StorageManager";
 
 /**
  * Abstraction for retrieving the persisted hotkey bindings from a remote service.
