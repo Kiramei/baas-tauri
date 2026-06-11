@@ -1,7 +1,5 @@
 import React, {
   forwardRef,
-  memo,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -17,16 +15,6 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import ReactFlow, {
-  Background,
-  Handle,
-  MarkerType,
-  Position,
-  type Edge,
-  type Node,
-  type NodeProps,
-} from "reactflow";
-import "reactflow/dist/style.css";
 
 export interface TerminalHandle {
   write: (chunk: string) => void;
@@ -229,12 +217,26 @@ const statusEdgeClass: Record<TermTaskStatus, string> = {
   stopped: "#eab308",
 };
 
+const statusLabel: Record<TermTaskStatus, string> = {
+  idle: "Idle",
+  pending: "Pending",
+  running: "Running",
+  success: "Success",
+  failed: "Failed",
+  stopped: "Stopped",
+};
+
+const statusPillClass: Record<TermTaskStatus, string> = {
+  idle: "border-slate-600 bg-slate-800 text-slate-200",
+  pending: "border-slate-600 bg-slate-800 text-slate-200",
+  running: "border-blue-400/40 bg-blue-500/15 text-blue-200",
+  success: "border-green-400/40 bg-green-500/15 text-green-200",
+  failed: "border-red-400/40 bg-red-500/15 text-red-200",
+  stopped: "border-yellow-400/40 bg-yellow-500/15 text-yellow-100",
+};
+
 const isTerminalTaskStatus = (status?: TermTaskStatus) =>
   status === "success" || status === "failed" || status === "stopped";
-
-interface WorkflowNodeData {
-  task: TermTaskView;
-}
 
 const formatDuration = (durationMs?: number) => {
   if (durationMs === undefined) return null;
@@ -256,6 +258,13 @@ const fallbackDuration = (task: TermTaskView) => {
   return finished - started;
 };
 
+const formatTime = (value?: string) => {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return new Date(timestamp).toLocaleTimeString();
+};
+
 const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
   const planned: Record<string, TermTaskView> = {};
   for (const node of nodes) {
@@ -275,71 +284,96 @@ const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
   return planned;
 };
 
-/* eslint-disable react/prop-types */
-const WorkflowTaskNode = memo<NodeProps<WorkflowNodeData>>(({ data }) => {
-  const task = data.task;
+const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
   const duration = task.status === "success" ? formatDuration(fallbackDuration(task)) : null;
+  const startedAt = formatTime(task.startedAt);
+  const finishedAt = formatTime(task.finishedAt);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="nodrag nopan relative flex h-6 w-6 items-center justify-center">
-          <Handle
-            type="target"
-            position={Position.Left}
-            className="h-px! w-px! border-0! bg-transparent! opacity-0!"
-            style={{ pointerEvents: "none" }}
-            isConnectable={false}
-          />
+        <button
+          type="button"
+          className="relative flex h-4.5 w-4.5 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          aria-label={`${task.name}: ${task.status}`}
+        >
           <div
-            className={`h-5 w-5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
-            aria-label={`${task.name}: ${task.status}`}
+            className={`h-3.5 w-3.5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
           />
           {duration && (
-            <span className="pointer-events-none absolute left-7 top-1/2 -translate-y-1/2 whitespace-nowrap text-[11px] font-medium text-green-600 dark:text-green-300">
+            <span className="pointer-events-none absolute left-0 translate-x-4 -top-2  whitespace-nowrap text-[9px] font-medium leading-none text-green-600 dark:text-green-300 text-shadow-sm text-shadow-accent-100">
               {duration}
             </span>
           )}
-          <Handle
-            type="source"
-            position={Position.Right}
-            className="h-px! w-px! border-0! bg-transparent! opacity-0!"
-            style={{ pointerEvents: "none" }}
-            isConnectable={false}
-          />
-        </div>
+        </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-80 space-y-1 text-left">
-        <div className="font-semibold">{task.name}</div>
-        <div>{task.description || task.command}</div>
-        <div>Status: {task.status}</div>
-        <div>
-          Step: {String(task.stepIndex).padStart(2, "0")}/{String(task.stepTotal).padStart(2, "0")}
-        </div>
-        {duration && <div>Duration: {duration}</div>}
-        {task.command && <div className="break-all opacity-80">{task.command}</div>}
-        {task.startedAt && (
-          <div className="opacity-80">Started: {new Date(task.startedAt).toLocaleTimeString()}</div>
-        )}
-        {task.finishedAt && (
-          <div className="opacity-80">
-            Finished: {new Date(task.finishedAt).toLocaleTimeString()}
+      <TooltipContent
+        side="top"
+        sideOffset={8}
+        className="w-72 rounded-lg border border-slate-700/80 bg-slate-950/95 p-0 text-left text-slate-100 shadow-xl shadow-black/35 backdrop-blur"
+        arrowClassName="bg-slate-950 fill-slate-950 dark:bg-slate-950 dark:fill-slate-950"
+      >
+        <div className="border-b border-slate-800 px-3 py-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold leading-5 text-white">{task.name}</div>
+              <div className="mt-0.5 text-[11px] font-medium text-slate-400">
+                Step {String(task.stepIndex).padStart(2, "0")}/
+                {String(task.stepTotal).padStart(2, "0")}
+              </div>
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-4 ${statusPillClass[task.status]}`}
+            >
+              {statusLabel[task.status]}
+            </span>
           </div>
-        )}
-        {task.error && <div className="text-red-200">{task.error}</div>}
+        </div>
+        <div className="space-y-2 px-3 py-2">
+          {(task.description || task.command) && (
+            <p className="text-xs leading-5 text-slate-200">{task.description || task.command}</p>
+          )}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] leading-4 text-slate-400">
+            {duration && (
+              <>
+                <span>Duration</span>
+                <span className="text-right font-medium text-green-200">{duration}</span>
+              </>
+            )}
+            {startedAt && (
+              <>
+                <span>Started</span>
+                <span className="text-right text-slate-200">{startedAt}</span>
+              </>
+            )}
+            {finishedAt && (
+              <>
+                <span>Finished</span>
+                <span className="text-right text-slate-200">{finishedAt}</span>
+              </>
+            )}
+          </div>
+          {task.command && (
+            <div className="rounded-md border border-slate-800 bg-black/35 px-2 py-1.5 font-mono text-[11px] leading-4 text-slate-300 text-ellipsis overflow-hidden text-nowrap">
+              {task.command}
+            </div>
+          )}
+          {task.error && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-[11px] leading-4 text-red-100">
+              {task.error}
+            </div>
+          )}
+        </div>
       </TooltipContent>
     </Tooltip>
   );
-});
-/* eslint-enable react/prop-types */
-
-WorkflowTaskNode.displayName = "WorkflowTaskNode";
-
-const nodeTypes = { task: WorkflowTaskNode };
+};
 
 const WorkflowGraph: React.FC<{
   tasks: Record<string, TermTaskView>;
   edges: WorkflowEdgePayload[];
 }> = ({ tasks, edges }) => {
+  const graphRef = useRef<HTMLDivElement | null>(null);
+  const [graphWidth, setGraphWidth] = useState(602);
   const taskList = useMemo(
     () =>
       Object.values(tasks).sort(
@@ -348,76 +382,99 @@ const WorkflowGraph: React.FC<{
     [tasks]
   );
 
-  const flowNodes = useMemo<Node<WorkflowNodeData>[]>(() => {
+  useEffect(() => {
+    const node = graphRef.current;
+    if (!node) return;
+    const update = () => setGraphWidth(Math.max(240, node.clientWidth));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const layout = useMemo(() => {
     const byStage = new Map<number, TermTaskView[]>();
     for (const task of taskList) {
       const stageTasks = byStage.get(task.stage) ?? [];
       stageTasks.push(task);
       byStage.set(task.stage, stageTasks);
     }
-    return taskList.map((task) => {
+    const nodeSize = 18;
+    const maxStage = Math.max(...taskList.map((task) => task.stage), 0);
+    const paddingX = 14;
+    const graphHeight = 80;
+    const graphCenterY = (graphHeight - nodeSize) / 2;
+    const usableWidth = Math.max(nodeSize, graphWidth - paddingX * 2 - 28);
+    const colGap = maxStage > 0 ? usableWidth / maxStage : 0;
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const task of taskList) {
       const stageTasks = byStage.get(task.stage) ?? [task];
       const stageIndex = stageTasks.findIndex((candidate) => candidate.taskId === task.taskId);
-      const centeredY = (stageIndex - (stageTasks.length - 1) / 2) * 58;
-      return {
-        id: task.taskId,
-        type: "task",
-        position: {
-          x: task.stage * 96,
-          y: centeredY,
-        },
-        data: { task },
-        draggable: false,
-        selectable: false,
-      };
-    });
-  }, [taskList]);
-
-  const flowEdges = useMemo<Edge[]>(() => {
-    return edges.map((edge) => {
-      const target = tasks[edge.to];
-      const color = target ? statusEdgeClass[target.status] : "#94a3b8";
-      return {
-        id: `${edge.from}-${edge.to}`,
-        source: edge.from,
-        target: edge.to,
-        type: "smoothstep",
-        animated: target?.status === "running",
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 14,
-          height: 14,
-          color,
-        },
-        style: {
-          stroke: color,
-          strokeWidth: 2,
-        },
-      };
-    });
-  }, [edges, tasks]);
+      const rowGap = stageTasks.length > 1 ? Math.min(24, 48 / (stageTasks.length - 1)) : 0;
+      const stageTop = graphCenterY - ((stageTasks.length - 1) * rowGap) / 2;
+      positions.set(task.taskId, {
+        x: paddingX + task.stage * colGap,
+        y: Math.max(16, Math.min(56, stageTop + stageIndex * rowGap)),
+      });
+    }
+    return {
+      nodeSize,
+      positions,
+      width: graphWidth,
+      height: graphHeight,
+    };
+  }, [graphWidth, taskList]);
 
   if (!taskList.length) return null;
 
   return (
-    <div className="h-20 border-b border-border bg-muted/20">
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.25 }}
-        minZoom={0.35}
-        maxZoom={1.4}
-        nodesConnectable={false}
-        nodesDraggable={false}
-        elementsSelectable={false}
-        panOnDrag
-        zoomOnScroll={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={20} size={1} />
-      </ReactFlow>
+    <div
+      ref={graphRef}
+      className="h-20 overflow-hidden border-b border-border bg-black/90 dark:bg-black/50"
+    >
+      <div className="relative" style={{ width: layout.width, height: layout.height }}>
+        <svg
+          className="pointer-events-none absolute inset-0"
+          width={layout.width}
+          height={layout.height}
+        >
+          {edges.map((edge) => {
+            const from = layout.positions.get(edge.from);
+            const to = layout.positions.get(edge.to);
+            if (!from || !to) return null;
+            const target = tasks[edge.to];
+            const color = target ? statusEdgeClass[target.status] : "#94a3b8";
+            const x1 = from.x + layout.nodeSize;
+            const y1 = from.y + layout.nodeSize / 2;
+            const x2 = to.x;
+            const y2 = to.y + layout.nodeSize / 2;
+            const mid = x1 + Math.max(8, (x2 - x1) / 2);
+            return (
+              <path
+                key={`${edge.from}-${edge.to}`}
+                d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
+                stroke={color}
+                strokeWidth="2"
+                fill="none"
+                opacity={target?.status === "pending" ? 0.55 : 0.9}
+              />
+            );
+          })}
+        </svg>
+        {taskList.map((task) => {
+          const position = layout.positions.get(task.taskId);
+          if (!position) return null;
+          return (
+            <div
+              key={task.taskId}
+              className="absolute"
+              style={{ left: position.x, top: position.y }}
+            >
+              <WorkflowNodeDot task={task} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -433,9 +490,19 @@ const TermViewer: React.FC<TermViewerProps> = ({
 
   const terminalRef = useRef<TerminalHandle | null>(null);
   const readySentRef = useRef(false);
+  const onReadyRef = useRef(onReady);
+  const onFailureRef = useRef(onFailure);
+  const onSessionFinishedRef = useRef(onSessionFinished);
+  const appendTerminalLogRef = useRef(appendTerminalLog);
   const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
   const [edges, setEdges] = useState<WorkflowEdgePayload[]>([]);
-  const [sessionStatus, setSessionStatus] = useState<TermTaskStatus>("running");
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+    onFailureRef.current = onFailure;
+    onSessionFinishedRef.current = onSessionFinished;
+    appendTerminalLogRef.current = appendTerminalLog;
+  }, [appendTerminalLog, onFailure, onReady, onSessionFinished]);
 
   const copyLogs = () => {
     const text = terminalLogData
@@ -445,20 +512,34 @@ const TermViewer: React.FC<TermViewerProps> = ({
     toast.success("Logs copied to clipboard");
   };
 
-  const appendStatusLog = useCallback(
-    (level: string, message: string) => {
-      appendTerminalLog({
+  useEffect(() => {
+    const unlisteners: Array<() => void> = [];
+    let disposed = false;
+    let chunkBuffer = "";
+    let chunkFrame: number | null = null;
+
+    const flushChunks = () => {
+      chunkFrame = null;
+      if (!chunkBuffer) return;
+      const chunk = chunkBuffer;
+      chunkBuffer = "";
+      terminalRef.current?.write(chunk);
+    };
+
+    const writeChunk = (chunk: string) => {
+      chunkBuffer += chunk;
+      if (chunkFrame === null) {
+        chunkFrame = requestAnimationFrame(flushChunks);
+      }
+    };
+
+    const appendStatusLog = (level: string, message: string) => {
+      appendTerminalLogRef.current({
         message,
         level,
         time: new Date().toLocaleTimeString(),
       });
-    },
-    [appendTerminalLog]
-  );
-
-  useEffect(() => {
-    const unlisteners: Array<() => void> = [];
-    let disposed = false;
+    };
 
     async function bindEvents() {
       const listeners = await Promise.all([
@@ -469,7 +550,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
         }),
         listen<TermChunkPayload>("term:chunk", (event) => {
           if (disposed) return;
-          terminalRef.current?.write(event.payload.chunk);
+          writeChunk(event.payload.chunk);
         }),
         listen<TermTaskStartedPayload>("term:task-started", (event) => {
           if (disposed) return;
@@ -529,16 +610,16 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (payload.status === "failed" || payload.status === "stopped") {
             const message = payload.error || `${payload.taskId} ${payload.status}`;
             appendStatusLog(payload.status === "failed" ? "error" : "warning", message);
-            onFailure?.({ step: payload.taskId, message });
+            onFailureRef.current?.({ step: payload.taskId, message });
           }
         }),
         listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
           if (disposed) return;
+          flushChunks();
           terminalRef.current?.setRunning(false);
-          setSessionStatus(event.payload.success ? "success" : "failed");
-          onSessionFinished?.(event.payload.success);
+          onSessionFinishedRef.current?.(event.payload.success);
           if (!event.payload.success) {
-            onFailure?.({
+            onFailureRef.current?.({
               step: "workflow",
               message: "Updater workflow did not complete successfully.",
             });
@@ -550,7 +631,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.reset();
           setTasks({});
           setEdges([]);
-          setSessionStatus("running");
         }),
       ]);
 
@@ -578,7 +658,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
       }
       if (!readySentRef.current) {
         readySentRef.current = true;
-        void onReady?.();
+        void onReadyRef.current?.();
       }
     }
 
@@ -586,11 +666,16 @@ const TermViewer: React.FC<TermViewerProps> = ({
 
     return () => {
       disposed = true;
+      if (chunkFrame !== null) {
+        cancelAnimationFrame(chunkFrame);
+        chunkFrame = null;
+      }
+      chunkBuffer = "";
       for (const unlisten of unlisteners) {
         unlisten();
       }
     };
-  }, [appendStatusLog, onFailure, onReady, onSessionFinished]);
+  }, []);
 
   return (
     <div className="rounded-lg border border-border bg-transparent text-card-foreground shadow-sm overflow-hidden flex flex-col h-100">
@@ -619,13 +704,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
 
       <div className="flex-1 overflow-auto p-2 font-mono text-xs bg-black/90 dark:bg-black/50 text-gray-300">
         <TermEmulator ref={terminalRef} />
-      </div>
-
-      <div className="border-t border-border bg-muted/30 px-3 py-2 text-xs">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-medium">Session: {sessionStatus}</span>
-          <span className="text-muted-foreground">{Object.keys(tasks).length} tasks</span>
-        </div>
       </div>
     </div>
   );

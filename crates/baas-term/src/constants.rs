@@ -25,7 +25,7 @@ pub const PTY_PIXEL_HEIGHT: u16 = 0;
 pub const DEMO_STEP_TOTAL: u8 = 4;
 
 /// Maximum number of recent output lines shown per region while tasks run.
-pub const RUNNING_REGION_MAX_LINES: usize = 2;
+pub const RUNNING_REGION_MAX_LINES: usize = 3;
 
 /// Maximum number of historical lines retained per renderer region.
 pub const REGION_MAX_KEPT_LINES: usize = 2_000;

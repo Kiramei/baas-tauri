@@ -150,6 +150,8 @@ pub trait GitExecutor {
     fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()>;
     /// Returns local HEAD SHA using CLI.
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String>;
+    /// Returns remote branch HEAD SHA.
+    fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String>;
     /// Runs a shallow git2 clone.
     fn clone_git2(
         &self,
@@ -245,6 +247,29 @@ impl GitExecutor for RealGitExecutor {
                 String::from_utf8_lossy(&output.stderr).trim().to_string(),
             ))
         }
+    }
+
+    fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
+        let output = Command::new("git")
+            .arg("ls-remote")
+            .arg("--heads")
+            .arg(url)
+            .arg(branch)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .output()
+            .map_err(|error| UpdaterError::Git(error.to_string()))?;
+        if !output.status.success() {
+            return Err(UpdaterError::Git(
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        stdout
+            .split_whitespace()
+            .next()
+            .filter(|sha| !sha.is_empty())
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| UpdaterError::Git(format!("remote branch not found: {url} {branch}")))
     }
 
     fn clone_git2(
@@ -380,6 +405,17 @@ impl<E: GitExecutor> RepoManager<E> {
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<UpdateStatus> {
         let is_update = target.join(".git").exists();
+        if is_update
+            && let Ok(local_sha) = self.local_sha(target)
+            && let Ok(remote_sha) = self.executor.remote_sha(url, branch)
+            && local_sha == remote_sha
+        {
+            output.line(
+                OutputStyle::Success,
+                &format!("{} repository already at {local_sha}", target.display()),
+            );
+            return Ok(UpdateStatus::Skipped);
+        }
         if self.executor.has_cli() {
             let cli_result = if is_update {
                 self.executor.update_cli(url, branch, target)
@@ -685,6 +721,7 @@ mod tests {
     #[derive(Default)]
     struct MockGit {
         has_cli: bool,
+        remote_sha: String,
         cli_results: Mutex<VecDeque<UpdaterResult<()>>>,
         calls: Arc<Mutex<Vec<String>>>,
     }
@@ -695,7 +732,17 @@ mod tests {
             cli_results.push_back(Err(UpdaterError::Git("cli failed".to_string())));
             Self {
                 has_cli: true,
+                remote_sha: "remote-sha".to_string(),
                 cli_results: Mutex::new(cli_results),
+                calls: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn up_to_date() -> Self {
+            Self {
+                has_cli: true,
+                remote_sha: "cli-sha".to_string(),
+                cli_results: Mutex::new(VecDeque::new()),
                 calls: Arc::new(Mutex::new(Vec::new())),
             }
         }
@@ -732,6 +779,10 @@ mod tests {
 
         fn local_sha_cli(&self, _target: &Path) -> UpdaterResult<String> {
             Ok("cli-sha".to_string())
+        }
+
+        fn remote_sha(&self, _url: &str, _branch: &str) -> UpdaterResult<String> {
+            Ok(self.remote_sha.clone())
         }
 
         fn clone_git2(
@@ -880,6 +931,36 @@ mod tests {
                 format!("clone_git2:{url}:master")
             ]
         );
+    }
+
+    #[test]
+    fn sync_skips_update_when_remote_sha_matches_local_head() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        fs::create_dir_all(target.join(".git")).unwrap();
+        let ranking = dir.path().join("ranking.json");
+        let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
+        let url = urls.first().unwrap().clone();
+        save_ranking(&ranking, &SourceRanking::from_urls(&urls)).unwrap();
+        let git = MockGit::up_to_date();
+        let calls = Arc::clone(&git.calls);
+        let manager = RepoManager::new(git);
+
+        let result = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target,
+                    ranking_path: Some(ranking),
+                },
+                &Probe { ok: vec![url] },
+                &crate::NoopOutput,
+            )
+            .unwrap();
+
+        assert_eq!(result.status, UpdateStatus::Skipped);
+        assert!(calls.lock().unwrap().is_empty());
     }
 
     #[test]

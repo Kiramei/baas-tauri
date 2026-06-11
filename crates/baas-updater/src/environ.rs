@@ -372,18 +372,19 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         if requirements_compile_cached(config, &requirements, &pypi_index)? {
             output.line(
                 OutputStyle::Success,
-                "requirements unchanged; skipping uv compile",
+                "requirements unchanged; skipping uv compile, sync, and cache clean",
             );
+            return Ok(());
         } else {
             self.runner.run(
                 &uv_compile_command_with_index(config, &requirements, &pypi_index),
                 output,
             )?;
-            save_requirements_cache(config, &requirements, &pypi_index)?;
         }
         self.runner
             .run(&uv_sync_command_with_index(config, &pypi_index), output)?;
         self.runner.run(&uv_cache_clean_command(config), output)?;
+        save_requirements_cache(config, &requirements, &pypi_index)?;
         Ok(())
     }
 

@@ -118,12 +118,22 @@ pub const COMMAND_NAMES: &[&str] = &[
 pub struct WorkflowAbortRequest {
     /// Whether transient staging paths should be removed after stopping tasks.
     pub cleanup: bool,
+    /// Whether terminal session-finished events should be emitted.
+    #[serde(default = "default_abort_emit_events")]
+    pub emit_events: bool,
 }
 
 impl Default for WorkflowAbortRequest {
     fn default() -> Self {
-        Self { cleanup: true }
+        Self {
+            cleanup: true,
+            emit_events: true,
+        }
     }
+}
+
+fn default_abort_emit_events() -> bool {
+    true
 }
 
 /// Result payload returned after aborting a terminal updater workflow.
@@ -168,7 +178,10 @@ impl UpdaterTermManager {
         app: AppHandle,
         options: WorkflowOptions,
     ) -> Result<SessionMetadata, String> {
-        self.abort(WorkflowAbortRequest { cleanup: true })?;
+        self.abort(WorkflowAbortRequest {
+            cleanup: true,
+            emit_events: false,
+        })?;
         {
             let mut cleanup = self
                 .cleanup_state
@@ -297,7 +310,9 @@ impl UpdaterTermManager {
         } else {
             Vec::new()
         };
-        if let Some(tx) = tx {
+        if request.emit_events
+            && let Some(tx) = tx
+        {
             let _ = tx.send(RendererEvent::SessionFinished { success: false });
         }
         Ok(WorkflowAbortReport {

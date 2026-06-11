@@ -1128,6 +1128,7 @@ struct GitCliPlan {
     kind: RepositoryKind,
     command: CommandSpec,
     target_dir: PathBuf,
+    status: UpdateStatus,
 }
 
 fn plan_git_cli_process(
@@ -1145,15 +1146,39 @@ fn plan_git_cli_process(
         .next()
         .ok_or_else(|| UpdaterError::Git("no active repository source".to_string()))?;
     let branch = repository_branch(kind)?;
-    let command = if target_dir.join(".git").exists() {
-        git_update_command(&source.url, &branch, target_dir)
+    let is_update = target_dir.join(".git").exists();
+    let executor = RealGitExecutor;
+    let local_sha = if is_update {
+        executor
+            .local_sha_cli(target_dir)
+            .or_else(|_| executor.local_sha_git2(target_dir))
+            .ok()
     } else {
-        git_clone_command(&source.url, &branch, target_dir)
+        None
+    };
+    let remote_sha = if is_update {
+        executor.remote_sha(&source.url, &branch).ok()
+    } else {
+        None
+    };
+    let (command, status) = if is_update && local_sha.is_some() && local_sha == remote_sha {
+        (git_rev_parse_command(target_dir), UpdateStatus::Skipped)
+    } else if is_update {
+        (
+            git_update_command(&source.url, &branch, target_dir),
+            UpdateStatus::Updated,
+        )
+    } else {
+        (
+            git_clone_command(&source.url, &branch, target_dir),
+            UpdateStatus::Installed,
+        )
     };
     Ok(GitCliPlan {
         kind,
         command,
         target_dir: target_dir.to_path_buf(),
+        status,
     })
 }
 
@@ -1180,6 +1205,15 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("BAAS_UPDATER_GIT_UPDATE_BRANCH", branch)
         .env("BAAS_UPDATER_GIT_UPDATE_DIR", target_dir.to_string_lossy())
+}
+
+fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
+    CommandSpec::new("git")
+        .arg("-C")
+        .arg(target_dir.to_string_lossy())
+        .arg("rev-parse")
+        .arg("HEAD")
+        .env("GIT_TERMINAL_PROMPT", "0")
 }
 
 struct TerminalGitRecordArgs {
@@ -1212,12 +1246,12 @@ fn terminal_git_record_task(
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
     state.main_outcome = Some(RepositoryOutcome {
         kind: args.main_plan.kind,
-        status: UpdateStatus::Updated,
+        status: args.main_plan.status,
         sha: main_sha,
     });
     state.cpp_outcome = Some(RepositoryOutcome {
         kind: args.cpp_plan.kind,
-        status: UpdateStatus::Updated,
+        status: args.cpp_plan.status,
         sha: cpp_sha,
     });
     Ok(())
@@ -1548,17 +1582,26 @@ fn run_terminal_dependency_stage(
         }
     };
     if requirements_compile_cached(&config, &requirements, &pypi_index).unwrap_or(false) {
-        if !run_terminal_skip_task(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
-            "uv-compile",
-            "requirements unchanged; skipping uv compile",
-        ) {
-            return false;
+        for (task_id, message) in [
+            ("uv-compile", "requirements unchanged; skipping uv compile"),
+            ("uv-sync", "requirements unchanged; skipping uv sync"),
+            (
+                "uv-cache-clean",
+                "requirements unchanged; skipping uv cache clean",
+            ),
+        ] {
+            if !run_terminal_skip_task(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                task_id,
+                message,
+            ) {
+                return false;
+            }
         }
     } else if !run_process_and_wait(
         inner,
@@ -1577,22 +1620,23 @@ fn run_terminal_dependency_stage(
         completion_rx,
     ) {
         return false;
-    } else if save_requirements_cache(&config, &requirements, &pypi_index).is_err() {
-        return false;
-    }
-
-    for (task_id, command) in [
-        ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
-        ("uv-cache-clean", uv_cache_clean_command(&config)),
-    ] {
-        if !run_process_and_wait(
-            inner,
-            session_id,
-            planned_process_task(workflow_plan, task_id, script_from_command(&command)),
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-        ) {
+    } else {
+        for (task_id, command) in [
+            ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
+            ("uv-cache-clean", uv_cache_clean_command(&config)),
+        ] {
+            if !run_process_and_wait(
+                inner,
+                session_id,
+                planned_process_task(workflow_plan, task_id, script_from_command(&command)),
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+            ) {
+                return false;
+            }
+        }
+        if save_requirements_cache(&config, &requirements, &pypi_index).is_err() {
             return false;
         }
     }

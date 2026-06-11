@@ -264,6 +264,12 @@ const SetupPage = () => {
 
     (async () => {
       try {
+        await invoke("updater_abort_workflow", {
+          request: {
+            cleanup: false,
+            emitEvents: false,
+          },
+        }).catch(() => undefined);
         const startup = await invoke<StartupState>("updater_get_startup_state");
         const root = startup.config.paths?.baasRootPath || startup.defaultInstallPath;
         setInstallPath(root);

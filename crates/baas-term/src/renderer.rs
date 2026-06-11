@@ -17,7 +17,8 @@ use crate::types::{
 use chrono::{DateTime, Utc};
 use std::{
     collections::{HashMap, HashSet},
-    sync::mpsc::Receiver,
+    sync::mpsc::{Receiver, RecvTimeoutError},
+    time::Duration,
 };
 use tauri::{AppHandle, Emitter};
 
@@ -172,6 +173,20 @@ where
     }
 }
 
+fn emit_dashboard_chunk(app: &AppHandle, session_id: &str, pending_chunk: &mut String) {
+    if pending_chunk.is_empty() {
+        return;
+    }
+    let chunk = std::mem::take(pending_chunk);
+    let _ = app.emit(
+        EVENT_TERM_CHUNK,
+        DashboardLogPayload {
+            session_id: session_id.to_string(),
+            chunk,
+        },
+    );
+}
+
 /// Runs the renderer event loop for a single session.
 ///
 /// The loop receives [`RendererEvent`] values, updates the in-memory dashboard,
@@ -187,10 +202,27 @@ pub fn renderer_loop(
 ) {
     let mut renderer = SessionRenderer::new(rows, cols);
     let mut task_started_at = HashMap::<String, DateTime<Utc>>::new();
+    let mut pending_chunk = String::new();
 
-    while let Ok(event) = rx.recv() {
+    loop {
+        let event = if pending_chunk.is_empty() {
+            match rx.recv() {
+                Ok(event) => event,
+                Err(_) => break,
+            }
+        } else {
+            match rx.recv_timeout(Duration::from_millis(16)) {
+                Ok(event) => event,
+                Err(RecvTimeoutError::Timeout) => {
+                    emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => break,
+            }
+        };
         match event {
             RendererEvent::WorkflowPlanned(plan) => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 let _ = app.emit(
                     EVENT_TERM_WORKFLOW_PLANNED,
                     WorkflowPlannedPayload {
@@ -204,6 +236,7 @@ pub fn renderer_loop(
                 renderer.buffer_regions(region_ids);
             }
             RendererEvent::TaskStarted(spec) => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 let started = Utc::now();
                 let started_at = Some(started.to_rfc3339());
                 task_started_at.insert(spec.task_id.clone(), started);
@@ -222,13 +255,7 @@ pub fn renderer_loop(
                 );
 
                 let chunk = renderer.start_region(&spec);
-                let _ = app.emit(
-                    EVENT_TERM_CHUNK,
-                    DashboardLogPayload {
-                        session_id: session_id.clone(),
-                        chunk,
-                    },
-                );
+                pending_chunk.push_str(&chunk);
 
                 let _ = app.emit(
                     EVENT_TERM_TASK_STATUS,
@@ -252,13 +279,10 @@ pub fn renderer_loop(
             } => {
                 let clean = renderer.push_output(&task_id, &region_id, &chunk);
                 if !clean.is_empty() {
-                    let _ = app.emit(
-                        EVENT_TERM_CHUNK,
-                        DashboardLogPayload {
-                            session_id: session_id.clone(),
-                            chunk: clean,
-                        },
-                    );
+                    pending_chunk.push_str(&clean);
+                    if pending_chunk.len() >= 65_536 {
+                        emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
+                    }
                 }
             }
             RendererEvent::TaskFinished {
@@ -268,15 +292,11 @@ pub fn renderer_loop(
                 exit_code,
                 error,
             } => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 let clean = renderer.finish_region(&task_id);
                 if !clean.is_empty() {
-                    let _ = app.emit(
-                        EVENT_TERM_CHUNK,
-                        DashboardLogPayload {
-                            session_id: session_id.clone(),
-                            chunk: clean,
-                        },
-                    );
+                    pending_chunk.push_str(&clean);
+                    emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 }
                 let region_id = if region_id.is_empty() {
                     renderer.region_id_for(&task_id).unwrap_or_default()
@@ -304,6 +324,7 @@ pub fn renderer_loop(
                 );
             }
             RendererEvent::SessionFinished { success } => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 let _ = app.emit(
                     EVENT_TERM_SESSION_FINISHED,
                     SessionFinishedPayload {
@@ -313,13 +334,8 @@ pub fn renderer_loop(
                 );
                 let chunk = renderer.render_completed_snapshot();
                 if !chunk.is_empty() {
-                    let _ = app.emit(
-                        EVENT_TERM_CHUNK,
-                        DashboardLogPayload {
-                            session_id: session_id.clone(),
-                            chunk,
-                        },
-                    );
+                    pending_chunk.push_str(&chunk);
+                    emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 }
                 break;
             }
@@ -327,6 +343,7 @@ pub fn renderer_loop(
                 base_backend_addr,
                 base_backend_port,
             } => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 let _ = app.emit(
                     EVENT_UPDATER_BACKEND_READY,
                     BackendReadyPayload {
@@ -338,19 +355,17 @@ pub fn renderer_loop(
             RendererEvent::FlushRegions { region_ids } => {
                 let chunk = renderer.flush_regions(&region_ids);
                 if !chunk.is_empty() {
-                    let _ = app.emit(
-                        EVENT_TERM_CHUNK,
-                        DashboardLogPayload {
-                            session_id: session_id.clone(),
-                            chunk,
-                        },
-                    );
+                    pending_chunk.push_str(&chunk);
+                    emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
                 }
             }
             RendererEvent::Resize { rows, cols } => {
                 renderer.resize(rows, cols);
             }
-            RendererEvent::Shutdown => break,
+            RendererEvent::Shutdown => {
+                emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
+                break;
+            }
         }
     }
 }
