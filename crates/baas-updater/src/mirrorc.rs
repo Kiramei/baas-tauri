@@ -128,12 +128,16 @@ impl MirrorHttp for ReqwestMirrorHttp {
             .timeout(timeout)
             .build()
             .map_err(|error| UpdaterError::Network(error.to_string()))?;
-        client
+        let response = client
             .get(url)
             .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-            .and_then(reqwest::blocking::Response::json)
-            .map_err(|error| UpdaterError::Network(error.to_string()))
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let status = response.status();
+        let body = response
+            .text()
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+
+        parse_mirrorc_json_body(status, &body)
     }
 
     fn download(
@@ -232,6 +236,9 @@ impl<H: MirrorHttp> MirrorCClient<H> {
             request.current_version,
             request.cdk,
         )?;
+        if !latest.is_success() {
+            return Err(mirrorc_error(&latest));
+        }
         let version = latest
             .latest_version_name
             .clone()
@@ -304,9 +311,7 @@ pub fn mirrorc_latest_url(
     };
     let mut url = format!(
         "{MIRRORC_BASE_URL}/{app}/latest?channel={}&current_version={}&user_agent={USER_AGENT}&cdk={}",
-        "stable",
-        current_version,
-        cdk
+        "stable", current_version, cdk
     );
     if kind == RepositoryKind::Cpp {
         let (os, arch) = mirrorc_system_info();
@@ -333,6 +338,25 @@ pub fn parse_latest_response(value: serde_json::Value) -> UpdaterResult<MirrorLa
         file_size: data.filesize,
         cdk_expired_time: data.cdk_expired_time,
     })
+}
+
+fn parse_mirrorc_json_body(
+    status: reqwest::StatusCode,
+    body: &str,
+) -> UpdaterResult<serde_json::Value> {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        return Ok(value);
+    }
+
+    if status.is_success() {
+        Err(UpdaterError::Network(format!(
+            "MirrorC returned invalid JSON: {body}"
+        )))
+    } else {
+        Err(UpdaterError::Network(format!(
+            "MirrorC HTTP {status}: {body}"
+        )))
+    }
 }
 
 /// Removes the first directory component from a package path.
@@ -668,6 +692,20 @@ mod tests {
                 .message()
                 .contains("The cdk has expired")
         );
+    }
+
+    #[test]
+    fn accepts_mirrorc_json_body_from_http_error_status() {
+        let value = parse_mirrorc_json_body(
+            reqwest::StatusCode::FORBIDDEN,
+            r#"{"code":7001,"msg":"The cdk has expired","data":{"version_name":"sha"}}"#,
+        )
+        .unwrap();
+        let latest = parse_latest_response(value).unwrap();
+
+        assert_eq!(latest.code, 7001);
+        assert_eq!(latest.message, "The cdk has expired");
+        assert_eq!(latest.latest_version_name, Some("sha".to_string()));
     }
 
     #[test]

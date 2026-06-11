@@ -494,6 +494,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
   const onFailureRef = useRef(onFailure);
   const onSessionFinishedRef = useRef(onSessionFinished);
   const appendTerminalLogRef = useRef(appendTerminalLog);
+  const concreteFailureRef = useRef(false);
   const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
   const [edges, setEdges] = useState<WorkflowEdgePayload[]>([]);
 
@@ -610,6 +611,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (payload.status === "failed" || payload.status === "stopped") {
             const message = payload.error || `${payload.taskId} ${payload.status}`;
             appendStatusLog(payload.status === "failed" ? "error" : "warning", message);
+            concreteFailureRef.current = true;
             onFailureRef.current?.({ step: payload.taskId, message });
           }
         }),
@@ -618,7 +620,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           flushChunks();
           terminalRef.current?.setRunning(false);
           onSessionFinishedRef.current?.(event.payload.success);
-          if (!event.payload.success) {
+          if (!event.payload.success && !concreteFailureRef.current) {
             onFailureRef.current?.({
               step: "workflow",
               message: "Updater workflow did not complete successfully.",
@@ -629,6 +631,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (disposed) return;
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
+          concreteFailureRef.current = false;
           setTasks({});
           setEdges([]);
         }),

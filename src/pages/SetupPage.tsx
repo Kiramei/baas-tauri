@@ -97,6 +97,17 @@ const SetupPage = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
+  const returnToSetupWithFailure = useCallback(
+    (nextFailure: FailureInfo, preserveExisting = false) => {
+      pendingWorkflowRef.current = null;
+      workflowStartedRef.current = false;
+      setFailure((current) => (preserveExisting ? current ?? nextFailure : nextFailure));
+      setStarted(false);
+      setSetupPhase(true);
+    },
+    []
+  );
+
   const persistConfig = useCallback(
     async (path = installPath, nextConfig = config) => {
       const updated = await invoke<UpdaterConfig>("updater_update_config", {
@@ -141,16 +152,14 @@ const SetupPage = () => {
       });
     } catch (error) {
       StorageUtil.remove("base_dir");
-      setFailure({
+      returnToSetupWithFailure({
         step: "start",
         message: error instanceof Error ? error.message : String(error),
       });
-      setStarted(false);
-      setSetupPhase(true);
     } finally {
       pendingWorkflowRef.current = null;
     }
-  }, [persistConfig]);
+  }, [persistConfig, returnToSetupWithFailure]);
 
   const ensureAutoPassword = () => {
     let password = StorageUtil.get<string>("baasAutoPassword");
@@ -334,14 +343,17 @@ const SetupPage = () => {
                   onAbort={handleAbort}
                   onReady={startWorkflowWhenTerminalReady}
                   onFailure={(nextFailure) => {
-                    if (!abortingRef.current) setFailure(nextFailure);
+                    if (!abortingRef.current) returnToSetupWithFailure(nextFailure);
                   }}
                   onSessionFinished={(success) => {
                     if (!success && !abortingRef.current) {
-                      setFailure({
-                        step: "workflow",
-                        message: "Updater workflow did not complete successfully.",
-                      });
+                      returnToSetupWithFailure(
+                        {
+                          step: "workflow",
+                          message: "Updater workflow did not complete successfully.",
+                        },
+                        true
+                      );
                     }
                   }}
                 />
