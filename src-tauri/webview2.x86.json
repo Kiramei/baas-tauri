@@ -13,10 +13,14 @@
       },
       "nsis": {
         "displayLanguageSelector": true,
-        "installerIcon": "icons/icon.ico",
-        "languages": ["SimpChinese", "English", "Russian"],
+        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
         "installMode": "perMachine",
-        "template": "./packages/windows/installer.nsi"
+        "compression": "lzma",
+        "template": "./packages/windows/installer.nsi",
+        "headerImage": "./packages/windows/assets/nsiHeader.bmp",
+        "sidebarImage": "./packages/windows/assets/nsiSidebar.bmp",
+        "installerIcon": "./packages/windows/assets/installer.ico",
+        "uninstallerIcon": "./packages/windows/assets/uninstaller.ico"
       }
     }
   },
