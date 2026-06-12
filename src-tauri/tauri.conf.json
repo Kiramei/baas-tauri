@@ -1,14 +1,13 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "baas-tauri",
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "BAAS Tauri",
   "version": "0.1.0",
-  "identifier": "com.kiramei.baas-tauri",
+  "identifier": "io.github.Kiramei.baas-tauri",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:8191",
     "beforeDevCommand": "bun dev:tauri",
-    "beforeBuildCommand": "bun build:tauri",
-    "beforeBundleCommand": "bun run build:after"
+    "beforeBuildCommand": "bun build:tauri"
   },
   "app": {
     "windows": [
@@ -28,34 +27,38 @@
       "csp": null
     }
   },
-  "bundle": {
-    "active": true,
-    "targets": ["nsis", "deb", "appimage"],
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "nsis": {
-        "headerImage": "./packages/windows/assets/nsiHeader.bmp",
-        "sidebarImage": "./packages/windows/assets/nsiSidebar.bmp",
-        "installMode": "perMachine",
-        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
-        "installerIcon": "./packages/windows/assets/installer.ico",
-        "compression": "lzma",
-        "displayLanguageSelector": true,
-        "template": "./packages/windows/installer.nsi"
-      },
-      "timestampUrl": "",
-      "webviewInstallMode": {
-        "type": "embedBootstrapper",
-        "silent": true
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NzNGODlERTkxNUJDMDEKUldRQnZCWHBuZmh6eERYUWs0dFowYUNYcFRFNmZIZGk5WStWZWI3Z0dGRmphQnFNbFM2MHhpTloK",
+      "endpoints": [
+        "https://update.hwdns.net/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+        "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+        "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["baas-tauri", "baas-tauri-app"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "longDescription": "BAAS Tauri App",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "licenseFile": "../LICENSE",
+    "copyright": "GNU General Public License v3.0",
+    "publisher": "Kiramei",
+    "category": "Utility",
+    "createUpdaterArtifacts": true
   }
 }

@@ -1,8 +1,8 @@
 import { Hourglass, List } from "lucide-react";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/Popover";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();

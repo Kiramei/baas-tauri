@@ -7,13 +7,13 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import StorageUtil from "@/shared/StorageManager";
-import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore.ts";
-import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
+import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
+import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
 import CButton from "@/components/ui/CButton.tsx";
-import { Button } from "@/components/ui/Button.tsx";
+import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
-import { Toaster } from "@/components/ui/Sonner.tsx";
+import { Toaster } from "@/components/ui/Sonner";
 import ConfigEditorModal from "@/components/updater/ConfigEditor.tsx";
 import TermViewer from "@/components/updater/TermViewer.tsx";
 import PathSelector from "@/components/updater/PathSelector";
@@ -101,7 +101,7 @@ const SetupPage = () => {
     (nextFailure: FailureInfo, preserveExisting = false) => {
       pendingWorkflowRef.current = null;
       workflowStartedRef.current = false;
-      setFailure((current) => (preserveExisting ? current ?? nextFailure : nextFailure));
+      setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
       setStarted(false);
       setSetupPhase(true);
     },

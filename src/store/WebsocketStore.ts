@@ -8,7 +8,7 @@ import {
 } from "@/shared/SecureWebSocket";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
-import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
+import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { t } from "i18next";
 import {
   LogItem,

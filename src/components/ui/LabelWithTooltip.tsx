@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "./Tooltip.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./Tooltip";
 import { BadgeQuestionMark } from "lucide-react";
 
 interface LabelWithTooltipProps {

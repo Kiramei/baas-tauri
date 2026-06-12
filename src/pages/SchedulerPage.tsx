@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback, startTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   CheckCircle2,
   Hourglass,
@@ -18,12 +18,12 @@ import { ProfileProps } from "@/types/app";
 import { FormInput } from "@/components/ui/FormInput";
 import { FormSelect } from "@/components/ui/FormSelect";
 import CButton from "@/components/ui/CButton.tsx";
-import { Separator } from "../components/ui/Separator";
+import { Separator } from "@/components/ui/Separator";
 import FeatureSwitchModal from "@/components/FeatureSwitchModal";
 import { DateTimePicker } from "@/components/DateTimePicker.tsx";
 import { EventConfig } from "@/types/event";
-import { EllipsisWithTooltip } from "../components/ui/ETooltip.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 const EMPTY_ARRAY: any[] = [];
 

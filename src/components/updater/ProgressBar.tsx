@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
+import { useGlobalLogStore } from "@/store/GlobalLogStore";
 
 const ProgressBar: React.FC = () => {
   const globalProgress = useGlobalLogStore((e) => e.globalProgress);

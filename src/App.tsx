@@ -9,7 +9,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
 import type { Variants } from "framer-motion";
 import { motion } from "framer-motion";
-import { Toaster } from "./components/ui/Sonner";
+import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
 import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
 import BAComet from "@/components/ui/BAComet.tsx";

@@ -1,18 +1,18 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import {
   Select,
   SelectTrigger,
   SelectContent,
   SelectItem,
   SelectValue,
-} from "../components/ui/Select";
-import { Textarea } from "../components/ui/Textarea";
+} from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { useTranslation } from "react-i18next";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";

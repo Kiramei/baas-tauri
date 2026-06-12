@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { PageKey } from "@/types/app";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 type OtherConfigProps = {
   profileId: string;

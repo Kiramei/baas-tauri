@@ -1,0 +1,28 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "io.github.Kiramei.baas-tauri",
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {
+      "timestampUrl": "",
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
+        "installMode": "perMachine",
+        "compression": "lzma",
+        "template": "./packages/windows/installer.nsi",
+        "headerImage": "./packages/windows/assets/nsiHeader.bmp",
+        "sidebarImage": "./packages/windows/assets/nsiSidebar.bmp",
+        "installerIcon": "./packages/windows/assets/installer.ico",
+        "uninstallerIcon": "./packages/windows/assets/uninstaller.ico"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      }
+    }
+  }
+}

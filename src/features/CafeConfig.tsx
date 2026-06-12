@@ -5,9 +5,9 @@ import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { FormInput } from "@/components/ui/FormInput";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/Tabs";
-import { Separator } from "../components/ui/Separator.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import { Separator } from "@/components/ui/Separator";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
 

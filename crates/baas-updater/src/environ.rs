@@ -543,8 +543,17 @@ pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec 
         .arg(config.baas_root().join("main.service.py").to_string_lossy())
         .arg("--port")
         .arg(port.to_string())
+        .env(
+            "BAAS_BACKEND_PID_FILE",
+            backend_pid_path(config).to_string_lossy(),
+        )
         .cwd(config.baas_root())
         .detached()
+}
+
+/// Returns the pid file used for the currently launched backend process.
+pub fn backend_pid_path(config: &UpdaterConfig) -> PathBuf {
+    config.baas_root().join(".baas-updater").join("backend.pid")
 }
 
 /// Finds the service requirements file for the current platform.

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig } from "@/types/dynamic";
 
 interface ArenaConfigProps {

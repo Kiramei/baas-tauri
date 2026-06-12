@@ -1,6 +1,6 @@
 {
   "name": "baas-tauri",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -15,7 +15,11 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "lint": "eslint . --ext .ts,.tsx",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "updater": "bun scripts/updater.mjs",
+    "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
+    "portable": "bun scripts/portable.mjs",
+    "portable-fixed-webview2": "bun scripts/portable-fixed-webview2.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
@@ -33,6 +37,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "~2",
     "@tauri-apps/plugin-store": "~2",
+    "@tauri-apps/plugin-updater": "2.10.1",
     "@vitejs/plugin-react": "^5.0.2",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
@@ -62,14 +67,16 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
+    "@actions/github": "^9.1.1",
     "@eslint/js": "^9.39.4",
     "@tailwindcss/typography": "^0.5.19",
+    "@tauri-apps/cli": "^2",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@typescript-eslint/eslint-plugin": "^8.59.1",
     "@typescript-eslint/parser": "^8.59.1",
+    "adm-zip": "^0.5.17",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",

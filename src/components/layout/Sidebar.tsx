@@ -11,9 +11,9 @@ import {
   SlidersHorizontal,
   XCircle,
 } from "lucide-react";
-import HeartbeatChart from "../HeartbeatIndicator.tsx";
+import HeartbeatChart from "@/components/HeartbeatIndicator.tsx";
 import { motion } from "framer-motion";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { PageKey } from "@/types/app";
 
 const baseUrl = import.meta.env.BASE_URL;

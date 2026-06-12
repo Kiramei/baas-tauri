@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
-import { useGlobalSelect } from "./SelectGlobal.tsx"; // ⬅️ 新增
+import { useGlobalSelect } from "@/components/ui/SelectGlobal.tsx";
 
 interface Option {
   value: string;

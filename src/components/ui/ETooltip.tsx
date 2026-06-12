@@ -1,5 +1,5 @@
 import React from "react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./Tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 
 interface EllipsisWithTooltipProps {
   text: string;

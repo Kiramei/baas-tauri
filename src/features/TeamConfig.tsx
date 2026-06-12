@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 type TeamConfigProps = {
   profileId: string;

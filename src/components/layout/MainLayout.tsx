@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 import { PageKey } from "@/types/app";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 

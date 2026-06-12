@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig } from "@/types/dynamic";
 
 type ScriptConfigProps = {

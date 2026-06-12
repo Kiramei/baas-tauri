@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useTheme } from "@/context/ThemeProvider";
 import { Theme } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
-import { Separator } from "../components/ui/Separator.tsx";
-import { EllipsisWithTooltip } from "../components/ui/ETooltip.tsx";
+import { Separator } from "@/components/ui/Separator";
+import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { toast } from "sonner";
 import {
   AppWindow,
@@ -23,7 +23,7 @@ import {
   UserSearch,
   XCircle,
 } from "lucide-react";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
