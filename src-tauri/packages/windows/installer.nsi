@@ -37,7 +37,7 @@ ${StrLoc}
 !define VERSIONWITHBUILD "{{version_with_build}}"
 !define HOMEPAGE "{{homepage}}"
 !define INSTALLMODE "{{install_mode}}"
-!define LICENSE "..\..\..\..\LICENSE"
+!define LICENSE "{{license}}"
 !define INSTALLERICON "{{installer_icon}}"
 !define UNINSTALLERICON "{{uninstaller_icon}}"
 !define SIDEBARIMAGE "{{sidebar_image}}"
