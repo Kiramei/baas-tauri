@@ -163,11 +163,10 @@ jobs:
         with:
           bun-version: "latest"
 
-      - name: Bun install and prebuild
+      - name: Bun install
         shell: bash
         run: |
           bun install --frozen-lockfile
-          bun run prebuild ${{ matrix.target }}
 
       - name: Tauri build
         shell: bash
@@ -318,11 +317,10 @@ jobs:
         with:
           bun-version: "latest"
 
-      - name: Bun install and prebuild
+      - name: Bun install
         shell: bash
         run: |
           bun install --frozen-lockfile
-          bun run prebuild ${{ matrix.target }}
 
       - name: Download WebView2 Runtime
         shell: pwsh

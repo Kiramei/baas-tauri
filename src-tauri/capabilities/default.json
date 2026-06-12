@@ -16,5 +16,6 @@
     "store:allow-load",
     "store:allow-entries",
     "process:default"
-  ]
+  ],
+  "capabilities": []
 }
