@@ -404,8 +404,18 @@ jobs:
 
       - name: Portable Bundle
         run: bun run portable-fixed-webview2 ${{ matrix.target }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload fixed WebView2 portable bundle
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "BAAS Tauri App ${{ github.ref_name }}"
+          body: "Draft release, will be updated later."
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          overwrite_files: true
+          files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
 
   update_tag:
     name: Update tag
@@ -450,6 +460,7 @@ jobs:
           ### Windows
           - [Windows x64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64-setup.exe)
           - [Windows x64 fixed WebView2 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2-setup.exe)
+          - [Windows x64 fixed WebView2 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2_portable.zip)
 
           ### Linux
           - [Linux amd64 DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_amd64.deb)

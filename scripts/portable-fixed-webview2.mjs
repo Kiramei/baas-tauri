@@ -2,7 +2,6 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 
-import { context, getOctokit } from "@actions/github";
 import AdmZip from "adm-zip";
 
 const target = process.argv.slice(2)[0];
@@ -121,55 +120,6 @@ function addFixedWebView2RuntimeIfExists(zip, releaseDir) {
   }
 }
 
-async function uploadAssetIfPossible(zipFilePath, zipFileName) {
-  const token = process.env.GITHUB_TOKEN;
-  const tagName = process.env.GITHUB_REF_NAME || process.env.TAG_NAME;
-
-  if (!token || !tagName) {
-    console.log("[INFO]: skip release upload because GITHUB_TOKEN or tag name is missing");
-    return;
-  }
-
-  const repoFullName =
-    process.env.GITHUB_REPOSITORY ||
-    (context.repo.owner && context.repo.repo ? `${context.repo.owner}/${context.repo.repo}` : "");
-
-  if (!repoFullName.includes("/")) {
-    console.log("[INFO]: skip release upload because repository context is missing");
-    return;
-  }
-
-  const [owner, repo] = repoFullName.split("/");
-  const github = getOctokit(token);
-
-  const { data: release } = await github.rest.repos.getReleaseByTag({
-    owner,
-    repo,
-    tag: tagName,
-  });
-
-  for (const asset of release.assets) {
-    if (asset.name === zipFileName) {
-      console.log(`[INFO]: deleting existing release asset ${zipFileName}`);
-      await github.rest.repos.deleteReleaseAsset({
-        owner,
-        repo,
-        asset_id: asset.id,
-      });
-    }
-  }
-
-  await github.rest.repos.uploadReleaseAsset({
-    owner,
-    repo,
-    release_id: release.id,
-    name: zipFileName,
-    data: await fsp.readFile(zipFilePath),
-  });
-
-  console.log(`[INFO]: uploaded portable asset ${zipFileName}`);
-}
-
 /// Package fixed WebView2 portable bundle. Windows only.
 async function resolvePortable() {
   if (process.platform !== "win32") {
@@ -198,8 +148,6 @@ async function resolvePortable() {
 
   zip.writeZip(zipFilePath);
   console.log(`[INFO]: created portable zip ${zipFilePath}`);
-
-  await uploadAssetIfPossible(zipFilePath, zipFileName);
 }
 
 resolvePortable().catch((error) => {
