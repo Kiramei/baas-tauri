@@ -16,8 +16,11 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    "resolveJsonModule": true,
     "strict": true,
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

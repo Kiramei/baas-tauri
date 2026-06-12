@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/Modal";
 import CButton from "@/components/ui/CButton.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
-import { Separator } from "./ui/Separator.tsx";
+import { Separator } from "@/components/ui/Separator";
 import { OrderedMultiSelector, TimeSelectorModal } from "@/components/MultiSelector.tsx";
 import { EventConfig } from "@/types/event";
 import { DateTimePicker } from "@/components/DateTimePicker.tsx";

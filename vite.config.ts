@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import compression from "vite-plugin-compression";
-// import {visualizer} from "rollup-plugin-visualizer";
+import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
   if (mode === "development" || mode === "production") {
@@ -25,20 +25,22 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      compression({
-        algorithm: "brotliCompress",
-        ext: ".br",
-        threshold: 1024,
-        deleteOriginFile: false,
-      }),
+      mode === "webui"
+        ? compression({
+            algorithm: "brotliCompress",
+            ext: ".br",
+            threshold: 1024,
+            deleteOriginFile: false,
+          })
+        : undefined,
       // Consider using this plugin to analyze the chunk :)
-      // visualizer({
-      //   filename: 'dist/stats.html',
-      //   open: true,
-      // })
+      visualizer({
+        filename: "dist/stats.html",
+        open: true,
+      }),
     ],
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules/framer-motion")) {

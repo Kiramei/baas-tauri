@@ -1,10 +1,10 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import type { ConfigProfile, UISettings } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 import StorageUtil from "@/shared/StorageManager.ts";
-import { DEFAULT_UI_SETTINGS } from "./UISettingsProvider";
+import { DEFAULT_UI_SETTINGS } from "@/context/UISettingsProvider";
 
 interface AppContextType {
   uiSettings: UISettings;

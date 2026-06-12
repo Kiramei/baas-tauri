@@ -37,7 +37,7 @@ import {
 } from "@/components/remote/MessageCenter.ts";
 import { KeyEvent } from "@/components/remote/KeySpaceMap.ts";
 import { SlideOutButton } from "@/components/ui/SlideOutButton.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 
 /**
  * Connection state used by the UI layer.

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type WhiteListConfigProps = {

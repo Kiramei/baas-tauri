@@ -22,7 +22,7 @@ baas-updater = { workspace = true }
 baas-term = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
-chrono = "0.4"
+chrono = { workspace = true }
 
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"

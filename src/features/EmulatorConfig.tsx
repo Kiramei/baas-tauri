@@ -4,7 +4,7 @@ import { FormInput } from "@/components/ui/FormInput";
 import { FormSelect } from "@/components/ui/FormSelect";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 
 type EmulatorConfigProps = {

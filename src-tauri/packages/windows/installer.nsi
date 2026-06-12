@@ -37,8 +37,9 @@ ${StrLoc}
 !define VERSIONWITHBUILD "{{version_with_build}}"
 !define HOMEPAGE "{{homepage}}"
 !define INSTALLMODE "{{install_mode}}"
-!define LICENSE "..\..\..\..\..\LICENSE"
+!define LICENSE "..\..\..\..\LICENSE"
 !define INSTALLERICON "{{installer_icon}}"
+!define UNINSTALLERICON "{{uninstaller_icon}}"
 !define SIDEBARIMAGE "{{sidebar_image}}"
 !define HEADERIMAGE "{{header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
@@ -122,7 +123,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 ; Installer icon
 !if "${INSTALLERICON}" != ""
   !define MUI_ICON "${INSTALLERICON}"
-  !define MUI_UNICON "..\..\..\..\packages\windows\assets\uninstaller.ico"
+  !define MUI_UNICON "${UNINSTALLERICON}"
 !endif
 
 ; Installer sidebar image

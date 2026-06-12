@@ -7,8 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:8191",
     "beforeDevCommand": "bun dev:tauri",
-    "beforeBuildCommand": "bun build:tauri",
-    "beforeBundleCommand": "bun run build:after"
+    "beforeBuildCommand": "bun build:tauri"
   },
   "app": {
     "windows": [
@@ -31,6 +30,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "deb", "appimage"],
+    "licenseFile": "../LICENSE",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
@@ -40,6 +40,7 @@
         "installMode": "perMachine",
         "languages": ["SimpChinese", "English", "Japanese", "Korean"],
         "installerIcon": "./packages/windows/assets/installer.ico",
+        "uninstallerIcon": "./packages/windows/assets/uninstaller.ico",
         "compression": "lzma",
         "displayLanguageSelector": true,
         "template": "./packages/windows/installer.nsi"

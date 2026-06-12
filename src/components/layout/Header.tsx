@@ -6,7 +6,7 @@ import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore.ts";
+import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 

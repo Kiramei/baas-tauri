@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Copy, Terminal as TerminalIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
-import { useGlobalLogStore } from "@/store/GlobalLogStore.ts";
+import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { invoke } from "@tauri-apps/api/core";
