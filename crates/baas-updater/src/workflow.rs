@@ -5,8 +5,8 @@ use crate::{
     WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
-        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
-        RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
+        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
+        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
         managed_python_configured, ranked_environment_source_with_output,
         requirements_compile_cached, requirements_path, save_requirements_cache,
         uses_managed_runtime, uv_cache_clean_command, uv_compile_command_with_index, uv_executable,
@@ -805,7 +805,7 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "uv-sync",
             "uv-sync",
             "Sync Dependencies",
-            "Synchronize the virtual environment with the lock file.",
+            "If it takes too long time, restart by clicking the red button.",
             "uv pip sync",
         )
         .process_task(
@@ -815,7 +815,7 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "Clean UV cache after dependency synchronization.",
             "uv cache clean",
         )
-        .thread_task(
+        .process_task(
             "launch-backend",
             "launch-backend",
             "Launch Backend",
@@ -1764,27 +1764,30 @@ fn run_terminal_launch_stage(
         Ok(port) => port,
         Err(_) => return false,
     };
-    let spec = planned_thread_task(workflow_plan, "launch-backend");
-    spawn_thread_task(
+    let command = launch_backend_command(&config, port);
+    let success = run_process_and_wait(
         inner,
         session_id,
-        spec,
+        planned_process_task(
+            workflow_plan,
+            "launch-backend",
+            script_from_command(&command),
+        ),
         renderer_tx,
         completion_tx,
-        (config, port),
-        terminal_launch_task,
-    )
-    .is_ok()
-        && {
-            let success = wait_for_task(completion_rx, "launch-backend");
-            if success {
-                let _ = renderer_tx.send(RendererEvent::BackendReady {
-                    base_backend_addr: "127.0.0.1".to_string(),
-                    base_backend_port: port,
-                });
-            }
-            success
-        }
+        completion_rx,
+    );
+    if !success {
+        return false;
+    }
+    if wait_for_backend_port_for_session(inner, session_id, port).is_err() {
+        return false;
+    }
+    let _ = renderer_tx.send(RendererEvent::BackendReady {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    });
+    true
 }
 
 fn terminal_uv_install_task(
@@ -1888,25 +1891,15 @@ fn terminal_custom_runtime_task(
     Ok(())
 }
 
-fn terminal_launch_task(
-    output: ThreadOutput,
-    cancelled: Arc<AtomicBool>,
-    (config, port): (UpdaterConfig, u16),
-) -> Result<(), String> {
-    if cancelled.load(Ordering::Relaxed) {
-        return Err("launch task cancelled".to_string());
-    }
-    RealProcessRunner
-        .run(&launch_backend_command(&config, port), &output)
-        .map_err(|error| error.message())?;
-    wait_for_backend_port(port, &cancelled).map_err(|error| error.message())
-}
-
-fn wait_for_backend_port(port: u16, cancelled: &AtomicBool) -> UpdaterResult<()> {
+fn wait_for_backend_port_for_session(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    port: u16,
+) -> UpdaterResult<()> {
     let started = std::time::Instant::now();
     let timeout = Duration::from_secs(30);
     while started.elapsed() < timeout {
-        if cancelled.load(Ordering::Relaxed) {
+        if !session_is_current(inner, session_id) {
             return Err(UpdaterError::Cancelled);
         }
         if backend_auth_endpoint_ready(port) {
@@ -2079,7 +2072,7 @@ fn powershell_script(command: &CommandSpec) -> ScriptCommand {
     }
     if command.detached {
         script.push_str(&format!(
-            "Start-Process -WindowStyle Hidden -FilePath '{}' -ArgumentList @({}); exit 0",
+            "$backendProcess = Start-Process -WindowStyle Hidden -PassThru -FilePath '{}' -ArgumentList @({}); if ($env:BAAS_BACKEND_PID_FILE) {{ $pidDir = Split-Path -Parent $env:BAAS_BACKEND_PID_FILE; if ($pidDir) {{ New-Item -ItemType Directory -Force -Path $pidDir | Out-Null }}; Set-Content -LiteralPath $env:BAAS_BACKEND_PID_FILE -Value $backendProcess.Id -Encoding ASCII }}; exit 0",
             escape_powershell(&command.program.to_string_lossy()),
             command
                 .args
@@ -2143,7 +2136,7 @@ fn sh_script(command: &CommandSpec) -> ScriptCommand {
     }
     if command.detached {
         script.push_str(&format!(
-            "nohup {} {} >/dev/null 2>&1 &",
+            "nohup {} {} >/dev/null 2>&1 & backend_pid=$!; if [ -n \"$BAAS_BACKEND_PID_FILE\" ]; then mkdir -p \"$(dirname \"$BAAS_BACKEND_PID_FILE\")\" && printf '%s\\n' \"$backend_pid\" > \"$BAAS_BACKEND_PID_FILE\"; fi",
             shell_quote(&command.program.to_string_lossy()),
             command
                 .args

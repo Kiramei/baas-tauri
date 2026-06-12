@@ -2,6 +2,7 @@ use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{ConfigManager, UpdaterConfig},
+    environ::backend_pid_path,
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     RepositoryKind, UpdateChannel, WorkflowOptions,
 };
@@ -10,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
+    sync::{Arc, Mutex},
 };
 use tauri::{AppHandle, State};
 
@@ -62,6 +65,54 @@ pub struct MirrorCValidateReport {
 pub struct UpdaterWorkflowRequest {
     pub install_path: Option<PathBuf>,
     pub launch: Option<bool>,
+}
+
+/// Tracks backend processes started by updater workflows so the Tauri process
+/// owns their lifetime.
+#[derive(Default)]
+pub struct BackendProcessManager {
+    pid_files: Arc<Mutex<Vec<PathBuf>>>,
+}
+
+impl BackendProcessManager {
+    pub fn remember_config(&self, config: &UpdaterConfig) -> Result<(), String> {
+        self.remember_pid_file(backend_pid_path(config))
+    }
+
+    pub fn stop_for_config(&self, config: &UpdaterConfig) -> Result<(), String> {
+        let pid_file = backend_pid_path(config);
+        self.remember_pid_file(pid_file.clone())?;
+        stop_backend_pid_file(&pid_file)
+    }
+
+    pub fn stop_all(&self) -> Result<(), String> {
+        let pid_files = self
+            .pid_files
+            .lock()
+            .map_err(|_| "backend pid-file lock poisoned")?
+            .clone();
+        for pid_file in pid_files {
+            stop_backend_pid_file(&pid_file)?;
+        }
+        Ok(())
+    }
+
+    fn remember_pid_file(&self, pid_file: PathBuf) -> Result<(), String> {
+        let mut pid_files = self
+            .pid_files
+            .lock()
+            .map_err(|_| "backend pid-file lock poisoned")?;
+        if !pid_files.iter().any(|known| known == &pid_file) {
+            pid_files.push(pid_file);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for BackendProcessManager {
+    fn drop(&mut self) {
+        let _ = self.stop_all();
+    }
 }
 
 #[tauri::command]
@@ -171,12 +222,18 @@ pub fn updater_start_workflow(
     app: AppHandle,
     request: UpdaterWorkflowRequest,
     manager: State<'_, UpdaterTermManager>,
+    backend: State<'_, BackendProcessManager>,
 ) -> Result<SessionMetadata, String> {
     let mut config_manager = ensure_default_config()?;
+    backend.stop_for_config(&config_manager.config)?;
     let install_path = request
         .install_path
         .or_else(|| non_empty_path(&config_manager.config.paths.baas_root_path))
         .unwrap_or_else(default_install_path);
+    let mut next_config = config_manager.config.clone();
+    next_config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+    backend.stop_for_config(&next_config)?;
+    backend.remember_config(&next_config)?;
 
     // The updater launch stage checks both WorkflowOptions.launch and
     // general.launch. Persisting this makes setup.toml reflect the app mode.
@@ -255,6 +312,74 @@ fn non_empty_path(value: &str) -> Option<PathBuf> {
     } else {
         Some(PathBuf::from(trimmed))
     }
+}
+
+fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
+    let Some(pid) = read_backend_pid(pid_file)? else {
+        return Ok(());
+    };
+    kill_backend_pid(pid)?;
+    let _ = fs::remove_file(pid_file);
+    Ok(())
+}
+
+fn read_backend_pid(pid_file: &Path) -> Result<Option<u32>, String> {
+    if !pid_file.exists() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(pid_file).map_err(|error| error.to_string())?;
+    let Some(first) = text.split_whitespace().next() else {
+        let _ = fs::remove_file(pid_file);
+        return Ok(None);
+    };
+    match first.parse::<u32>() {
+        Ok(pid) if pid > 0 => Ok(Some(pid)),
+        _ => {
+            let _ = fs::remove_file(pid_file);
+            Ok(None)
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn kill_backend_pid(pid: u32) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    let script = format!(
+        "$targetPid = {pid}; \
+         $process = Get-CimInstance Win32_Process -Filter \"ProcessId = $targetPid\" -ErrorAction SilentlyContinue; \
+         if ($null -ne $process -and $process.CommandLine -like '*main.service.py*') {{ \
+             taskkill.exe /PID $targetPid /T /F | Out-Null \
+         }}; exit 0"
+    );
+    Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            &script,
+        ])
+        .creation_flags(0x08000000)
+        .status()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn kill_backend_pid(pid: u32) -> Result<(), String> {
+    let script = format!(
+        "if ps -p {pid} -o command= | grep -F 'main.service.py' >/dev/null 2>&1; then \
+             kill -TERM {pid} >/dev/null 2>&1 || true; \
+             sleep 1; \
+             kill -KILL {pid} >/dev/null 2>&1 || true; \
+         fi"
+    );
+    Command::new("sh")
+        .args(["-lc", &script])
+        .status()
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn format_mirrorc_expiry(expires_at: Option<u64>) -> Option<String> {
