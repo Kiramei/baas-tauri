@@ -1,0 +1,24 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "io.github.Kiramei.baas-tauri",
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm"],
+    "linux": {
+      "deb": {
+        "depends": ["openssl", "libayatana-appindicator3-1"],
+        "desktopTemplate": "./packages/linux/baas-tauri.desktop",
+        "provides": ["baas-tauri"],
+        "conflicts": ["baas-tauri"],
+        "replaces": ["baas-tauri"]
+      },
+      "rpm": {
+        "depends": ["openssl", "libayatana-appindicator-gtk3"],
+        "desktopTemplate": "./packages/linux/baas-tauri.desktop",
+        "provides": ["baas-tauri"],
+        "conflicts": ["baas-tauri"],
+        "obsoletes": ["baas-tauri"]
+      }
+    }
+  }
+}

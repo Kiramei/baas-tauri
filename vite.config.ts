@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import compression from "vite-plugin-compression";
-import { visualizer } from "rollup-plugin-visualizer";
+// import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
   if (mode === "development" || mode === "production") {
@@ -34,10 +34,10 @@ export default defineConfig(({ mode }) => {
           })
         : undefined,
       // Consider using this plugin to analyze the chunk :)
-      visualizer({
-        filename: "dist/stats.html",
-        open: true,
-      }),
+      // visualizer({
+      //   filename: "dist/stats.html",
+      //   open: true,
+      // }),
     ],
     build: {
       rolldownOptions: {

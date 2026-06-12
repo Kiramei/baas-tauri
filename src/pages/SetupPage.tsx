@@ -101,7 +101,7 @@ const SetupPage = () => {
     (nextFailure: FailureInfo, preserveExisting = false) => {
       pendingWorkflowRef.current = null;
       workflowStartedRef.current = false;
-      setFailure((current) => (preserveExisting ? current ?? nextFailure : nextFailure));
+      setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
       setStarted(false);
       setSetupPhase(true);
     },

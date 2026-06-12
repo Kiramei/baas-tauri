@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { useGlobalSelect } from "@/components/ui/SelectGlobal.tsx";
 
