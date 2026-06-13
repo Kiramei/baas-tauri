@@ -61,6 +61,8 @@ pub fn create_thread_task_with_total(
         command: command.to_string(),
         program: String::new(),
         args: Vec::new(),
+        cwd: String::new(),
+        env: Vec::new(),
     }
 }
 

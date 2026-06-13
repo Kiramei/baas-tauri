@@ -2,7 +2,7 @@ use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{ConfigManager, UpdaterConfig},
-    environ::backend_pid_path,
+    environ::{backend_pid_path, launch_backend_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     RepositoryKind, UpdateChannel, WorkflowOptions,
 };
@@ -10,11 +10,15 @@ use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex},
+    thread,
+    time::{Duration, Instant},
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 /// Frontend startup snapshot for deciding whether to show the setup wizard or
 /// immediately run the updater. The setup file is still the source of truth;
@@ -67,6 +71,14 @@ pub struct UpdaterWorkflowRequest {
     pub launch: Option<bool>,
 }
 
+/// Backend endpoint information emitted after a managed backend is ready.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendReadyPayload {
+    pub base_backend_addr: String,
+    pub base_backend_port: u16,
+}
+
 /// Tracks backend processes started by updater workflows so the Tauri process
 /// owns their lifetime.
 #[derive(Default)]
@@ -116,8 +128,8 @@ impl Drop for BackendProcessManager {
 }
 
 #[tauri::command]
-pub fn updater_get_startup_state() -> Result<UpdaterStartupState, String> {
-    let manager = ensure_default_config()?;
+pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, String> {
+    let manager = ensure_default_config(&app)?;
     let default_install_path = default_install_path();
     let root = manager.config.baas_root();
     let baas_root_exists_non_empty = path_exists_non_empty(&root);
@@ -131,8 +143,11 @@ pub fn updater_get_startup_state() -> Result<UpdaterStartupState, String> {
 }
 
 #[tauri::command]
-pub fn updater_update_config(request: UpdaterConfigUpdateRequest) -> Result<UpdaterConfig, String> {
-    let mut manager = ensure_default_config()?;
+pub fn updater_update_config(
+    app: AppHandle,
+    request: UpdaterConfigUpdateRequest,
+) -> Result<UpdaterConfig, String> {
+    let mut manager = ensure_default_config(&app)?;
     let parsed_channel = match request.channel.as_deref() {
         Some(value) => Some(UpdateChannel::parse(value).map_err(|error| error.message())?),
         None => None,
@@ -158,12 +173,13 @@ pub fn updater_update_config(request: UpdaterConfigUpdateRequest) -> Result<Upda
 
 #[tauri::command]
 pub fn updater_validate_mirrorc_cdk(
+    app: AppHandle,
     request: MirrorCValidateRequest,
 ) -> Result<MirrorCValidateReport, String> {
     let cdk = request.cdk.trim().to_string();
     let channel = match request.channel.as_deref() {
         Some(value) => UpdateChannel::parse(value).map_err(|error| error.message())?,
-        None => ensure_default_config()?.config.general.channel,
+        None => ensure_default_config(&app)?.config.general.channel,
     };
 
     let report = if cdk.is_empty() {
@@ -209,7 +225,7 @@ pub fn updater_validate_mirrorc_cdk(
         }
     };
 
-    let mut manager = ensure_default_config()?;
+    let mut manager = ensure_default_config(&app)?;
     manager
         .set_mirrorc_cdk(if report.success { cdk } else { String::new() })
         .map_err(|error| error.message())?;
@@ -224,7 +240,7 @@ pub fn updater_start_workflow(
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
 ) -> Result<SessionMetadata, String> {
-    let mut config_manager = ensure_default_config()?;
+    let mut config_manager = ensure_default_config(&app)?;
     backend.stop_for_config(&config_manager.config)?;
     let install_path = request
         .install_path
@@ -255,6 +271,27 @@ pub fn updater_start_workflow(
 }
 
 #[tauri::command]
+pub fn updater_reset_backend_auth_and_restart(
+    app: AppHandle,
+    backend: State<'_, BackendProcessManager>,
+) -> Result<BackendReadyPayload, String> {
+    let manager = ensure_default_config(&app)?;
+    backend.stop_for_config(&manager.config)?;
+    thread::sleep(Duration::from_millis(300));
+    delete_backend_auth_files(&manager.config)?;
+
+    let port = available_backend_port()?;
+    start_backend_detached(&manager.config, port)?;
+    backend.remember_config(&manager.config)?;
+    wait_for_backend_auth_endpoint(port)?;
+
+    Ok(BackendReadyPayload {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    })
+}
+
+#[tauri::command]
 pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
     manager: State<'_, UpdaterTermManager>,
@@ -278,11 +315,16 @@ pub fn updater_resize_term(
     manager.resize(rows, cols)
 }
 
-/// Creates the exe-adjacent setup.toml if it is missing, then returns the
-/// loaded manager. Keeping this small helper in the Tauri layer avoids
-/// frontend storage becoming a second source of install-path truth.
-pub fn ensure_default_config() -> Result<ConfigManager, String> {
-    let manager = ConfigManager::load_default_path().map_err(|error| error.message())?;
+/// Creates the selected setup.toml if it is missing, then returns the loaded
+/// manager. Existing exe-adjacent setup.toml is honored for portable
+/// deployments; fresh configs are written to Tauri app data.
+pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    let manager = ConfigManager::load_default_path_in_app_data(app_data_dir)
+        .map_err(|error| error.message())?;
     manager.save().map_err(|error| error.message())?;
     Ok(manager)
 }
@@ -312,6 +354,92 @@ fn non_empty_path(value: &str) -> Option<PathBuf> {
     } else {
         Some(PathBuf::from(trimmed))
     }
+}
+
+fn delete_backend_auth_files(config: &UpdaterConfig) -> Result<(), String> {
+    let auth_dir = config.baas_root().join("config");
+    for filename in [
+        "service_auth.json",
+        "service_remembered_logins.json",
+        "service_signing_key.bin",
+        "service_ticket.key",
+    ] {
+        let path = auth_dir.join(filename);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|error| {
+                format!(
+                    "failed to remove backend auth file {}: {error}",
+                    path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn available_backend_port() -> Result<u16, String> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|error| error.to_string())?;
+    listener
+        .local_addr()
+        .map(|addr| addr.port())
+        .map_err(|error| error.to_string())
+}
+
+fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
+    let command = launch_backend_command(config, port);
+    let mut process = Command::new(&command.program);
+    process.args(&command.args);
+    if let Some(cwd) = &command.cwd {
+        process.current_dir(cwd);
+    }
+    for (key, value) in &command.env {
+        process.env(key, value);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        process.creation_flags(0x08000000);
+    }
+    let child = process.spawn().map_err(|error| error.to_string())?;
+    let pid_file = backend_pid_path(config);
+    if let Some(parent) = pid_file.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(&pid_file, child.id().to_string()).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(30) {
+        if backend_auth_endpoint_ready(port) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    Err(format!(
+        "backend auth endpoint did not become ready on 127.0.0.1:{port}"
+    ))
+}
+
+fn backend_auth_endpoint_ready(port: u16) -> bool {
+    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+        return false;
+    };
+    let timeout = Some(Duration::from_millis(700));
+    let _ = stream.set_read_timeout(timeout);
+    let _ = stream.set_write_timeout(timeout);
+    if stream
+        .write_all(b"GET /auth/remember HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut response = [0_u8; 16];
+    stream
+        .read(&mut response)
+        .map(|read| read > 0 && response.starts_with(b"HTTP/"))
+        .unwrap_or(false)
 }
 
 fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {

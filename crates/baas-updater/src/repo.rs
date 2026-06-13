@@ -7,6 +7,7 @@ use crate::{
 use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
 use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
 use serde::{Deserialize, Serialize};
+use std::os::windows::process::CommandExt;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -202,6 +203,7 @@ pub struct RealGitExecutor;
 impl GitExecutor for RealGitExecutor {
     fn has_cli(&self) -> bool {
         Command::new("git")
+            .creation_flags(0x08000000)
             .arg("--version")
             .output()
             .map(|output| output.status.success())
@@ -233,7 +235,10 @@ impl GitExecutor for RealGitExecutor {
     }
 
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
-        let output = Command::new("git")
+        let mut cmd = Command::new("git");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000);
+        let output = cmd
             .arg("rev-parse")
             .arg("HEAD")
             .current_dir(target)
@@ -250,7 +255,10 @@ impl GitExecutor for RealGitExecutor {
     }
 
     fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
-        let output = Command::new("git")
+        let mut cmd = Command::new("git");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000);
+        let output = cmd
             .arg("ls-remote")
             .arg("--heads")
             .arg(url)

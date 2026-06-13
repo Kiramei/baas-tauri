@@ -11,7 +11,13 @@ tasks so stdout/stderr is captured by the terminal renderer.
 
 ## Configuration
 
-By default, the library reads `setup.toml` next to the running executable.
+By default, Tauri callers resolve configuration in this order:
+
+1. Existing `setup.toml` next to the executable for portable/debug deployments.
+2. Existing `$BAAS_ROOT_PATH/setup.toml` when the app-data config points to it.
+3. `setup.toml` in the writable Tauri app data directory, next to
+   `.app_storage.json`.
+
 Tests and UI callers can pass an explicit path through `ConfigManager::load_from`.
 
 The current schema is version `1`:

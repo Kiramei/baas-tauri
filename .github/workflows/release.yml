@@ -594,7 +594,6 @@ jobs:
           overwrite_files: true
           files: release-assets/*
 
-
   release-for-fixed-webview2:
     name: Release Build for Fixed WebView2
     needs: [create_release, generate_fonts]

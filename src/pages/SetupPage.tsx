@@ -97,16 +97,11 @@ const SetupPage = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
-  const returnToSetupWithFailure = useCallback(
-    (nextFailure: FailureInfo, preserveExisting = false) => {
-      pendingWorkflowRef.current = null;
-      workflowStartedRef.current = false;
-      setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
-      setStarted(false);
-      setSetupPhase(true);
-    },
-    []
-  );
+  const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
+    pendingWorkflowRef.current = null;
+    workflowStartedRef.current = false;
+    setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
+  }, []);
 
   const persistConfig = useCallback(
     async (path = installPath, nextConfig = config) => {
@@ -152,79 +147,82 @@ const SetupPage = () => {
       });
     } catch (error) {
       StorageUtil.remove("base_dir");
-      returnToSetupWithFailure({
+      showWorkflowFailure({
         step: "start",
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
       pendingWorkflowRef.current = null;
     }
-  }, [persistConfig, returnToSetupWithFailure]);
+  }, [persistConfig, showWorkflowFailure]);
 
-  const ensureAutoPassword = () => {
+  const ensureAutoPassword = (forceNew = false) => {
     let password = StorageUtil.get<string>("baasAutoPassword");
-    if (!password) {
+    if (!password || forceNew) {
       password = randomPassword();
       StorageUtil.set("baasAutoPassword", password);
     }
     return password;
   };
 
-  const authenticateBackend = useCallback(async (payload: BackendReadyPayload) => {
-    StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
-    StorageUtil.set("baseBackendPort", payload.baseBackendPort);
-    resetWebsocketRuntimeState();
+  const authenticateBackend = useCallback(
+    async (payload: BackendReadyPayload, forceNewPassword = false) => {
+      StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
+      StorageUtil.set("baseBackendPort", payload.baseBackendPort);
+      resetWebsocketRuntimeState();
 
-    const password = ensureAutoPassword();
-    const deadline = Date.now() + 30_000;
-    let lastError: unknown = null;
+      const password = ensureAutoPassword(forceNewPassword);
+      const deadline = Date.now() + 30_000;
+      let lastError: unknown = null;
 
-    while (
-      Date.now() < deadline &&
-      !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
-    ) {
-      try {
-        await useWebSocketStore.getState().startAuthFlow();
+      while (
+        Date.now() < deadline &&
+        !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
+      ) {
+        try {
+          await useWebSocketStore.getState().startAuthFlow();
+          await waitForNormal(
+            () => useWebSocketStore.getState()._auth_phase,
+            (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
+            3_000
+          );
+        } catch (error) {
+          lastError = error;
+        }
+        if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+          await delay(750);
+        }
+      }
+
+      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+        throw new Error(
+          useWebSocketStore.getState()._auth_error ||
+            (lastError instanceof Error
+              ? lastError.message
+              : "Backend authentication endpoint is not ready.")
+        );
+      }
+
+      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+        await useWebSocketStore.getState().submitPassword(password);
         await waitForNormal(
           () => useWebSocketStore.getState()._auth_phase,
-          (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
-          3_000
+          (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
+          30_000
         );
-      } catch (error) {
-        lastError = error;
       }
-      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-        await delay(750);
+
+      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+        throw new Error(
+          useWebSocketStore.getState()._auth_error ??
+            "Automatic login failed. Existing backend password may be different."
+        );
       }
-    }
 
-    if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-      throw new Error(
-        useWebSocketStore.getState()._auth_error ||
-          (lastError instanceof Error
-            ? lastError.message
-            : "Backend authentication endpoint is not ready.")
-      );
-    }
-
-    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-      await useWebSocketStore.getState().submitPassword(password);
-      await waitForNormal(
-        () => useWebSocketStore.getState()._auth_phase,
-        (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
-        30_000
-      );
-    }
-
-    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-      throw new Error(
-        useWebSocketStore.getState()._auth_error ??
-          "Automatic login failed. Existing backend password may be different."
-      );
-    }
-
-    await useWebSocketStore.getState().init();
-  }, []);
+      await useWebSocketStore.getState().init();
+    },
+    []
+  );
 
   const handleAbort = async () => {
     abortingRef.current = true;
@@ -255,10 +253,20 @@ const SetupPage = () => {
       try {
         await authenticateBackend(event.payload);
       } catch (error) {
-        setFailure({
-          step: "auth",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        try {
+          const recovered = await invoke<BackendReadyPayload>(
+            "updater_reset_backend_auth_and_restart"
+          );
+          await authenticateBackend(recovered, true);
+        } catch (retryError) {
+          const firstMessage = error instanceof Error ? error.message : String(error);
+          const retryMessage =
+            retryError instanceof Error ? retryError.message : String(retryError);
+          setFailure({
+            step: "auth",
+            message: `${firstMessage}\n\nBackend auth reset retry failed: ${retryMessage}`,
+          });
+        }
       }
     });
 
@@ -343,11 +351,11 @@ const SetupPage = () => {
                   onAbort={handleAbort}
                   onReady={startWorkflowWhenTerminalReady}
                   onFailure={(nextFailure) => {
-                    if (!abortingRef.current) returnToSetupWithFailure(nextFailure);
+                    if (!abortingRef.current) showWorkflowFailure(nextFailure);
                   }}
                   onSessionFinished={(success) => {
                     if (!success && !abortingRef.current) {
-                      returnToSetupWithFailure(
+                      showWorkflowFailure(
                         {
                           step: "workflow",
                           message: "Updater workflow did not complete successfully.",
@@ -376,20 +384,20 @@ const SetupPage = () => {
         isOpen={failure !== null}
         onClose={() => setFailure(null)}
         title="Setup Error"
-        width={55}
+        width={72}
       >
-        <div className="space-y-3">
-          <div className="text-sm">
+        <div className="space-y-3 max-h-[78vh] overflow-hidden">
+          <div className="text-sm max-h-36 overflow-auto pr-1">
             <div className="font-medium text-red-500">{failure?.step}</div>
             <div className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
               {failure?.message}
             </div>
           </div>
-          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-60 overflow-auto text-xs font-mono">
+          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-[52vh] overflow-auto text-xs font-mono whitespace-pre-wrap break-words">
             {terminalLogData.length === 0
               ? "No structured logs captured."
               : terminalLogData.map((log, index) => (
-                  <div key={`${log.time}-${index}`}>
+                  <div key={`${log.time}-${index}`} className="leading-5">
                     [{log.time}] [{log.level.toUpperCase()}] {log.message}
                   </div>
                 ))}

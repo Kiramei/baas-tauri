@@ -379,6 +379,8 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
             script.to_string(),
         ],
         display: display.to_string(),
+        cwd: ".".to_string(),
+        env: vec![]
     }
 }
 

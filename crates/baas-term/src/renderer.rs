@@ -853,6 +853,8 @@ mod tests {
             command: "run".to_string(),
             program: "program".to_string(),
             args: Vec::new(),
+            cwd: ".".to_string(),
+            env: Vec::new(),
         }
     }
 

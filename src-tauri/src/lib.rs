@@ -7,8 +7,9 @@ use crate::{
     behavior::{disable_f5_press_event, inject_tray_icon, splash_off, BehaviorState},
     commands::{
         ensure_default_config, updater_abort_workflow, updater_get_startup_state,
-        updater_resize_term, updater_start_workflow, updater_terminal_snapshot,
-        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
+        BackendProcessManager,
     },
 };
 
@@ -35,6 +36,7 @@ pub fn run() {
             updater_update_config,
             updater_validate_mirrorc_cdk,
             updater_start_workflow,
+            updater_reset_backend_auth_and_restart,
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term
@@ -46,7 +48,8 @@ pub fn run() {
             let tray_enabled = inject_tray_icon(app).is_ok();
             app.manage(BehaviorState { tray_enabled });
 
-            let config_manager = ensure_default_config().map_err(std::io::Error::other)?;
+            let config_manager =
+                ensure_default_config(app.handle()).map_err(std::io::Error::other)?;
             app.manage(UpdaterTermManager::default());
             let backend = BackendProcessManager::default();
             let _ = backend.stop_for_config(&config_manager.config);

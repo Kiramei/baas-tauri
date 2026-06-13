@@ -73,6 +73,10 @@ pub struct TaskSpec {
     pub program: String,
     /// Program arguments for process tasks.
     pub args: Vec<String>,
+    /// Program run directory.
+    pub cwd: String,
+    /// Program run env var
+    pub env: Vec<(String, String)>,
 }
 
 /// A workflow task node rendered by the frontend graph.
