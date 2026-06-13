@@ -41,6 +41,7 @@ use std::{
     thread,
     time::Duration,
 };
+use std::os::windows::process::CommandExt;
 
 /// Structured workflow failure payload for Tauri and UI callers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -838,6 +839,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         command: node.command.clone(),
         program: String::new(),
         args: Vec::new(),
+        cwd: ".".to_string()
     }
 }
 
@@ -852,6 +854,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         command: script.display,
         program: script.program,
         args: script.args,
+        cwd: script.cwd
     }
 }
 
@@ -1027,12 +1030,12 @@ fn run_terminal_repo_stage(
     let main_spec = planned_process_task(
         workflow_plan,
         "main-repository",
-        script_from_command(&main_plan.command),
+        direct_script(&main_plan.command),
     );
     let cpp_spec = planned_process_task(
         workflow_plan,
         "cpp-repository",
-        script_from_command(&cpp_plan.command),
+        direct_script(&cpp_plan.command),
     );
     let main_id = main_spec.task_id.clone();
     let cpp_id = cpp_spec.task_id.clone();
@@ -1514,7 +1517,7 @@ fn run_terminal_environment_prepare_stage(
         planned_process_task(
             workflow_plan,
             "uv-python-install",
-            script_from_command(&uv_python_install_command_with_mirror(
+            direct_script(&uv_python_install_command_with_mirror(
                 &config,
                 &cpython_mirror,
             )),
@@ -1533,7 +1536,7 @@ fn run_terminal_environment_prepare_stage(
             planned_process_task(
                 workflow_plan,
                 "uv-venv",
-                script_from_command(&uv_venv_command(&config)),
+                direct_script(&uv_venv_command(&config)),
             ),
             renderer_tx,
             completion_tx,
@@ -1682,7 +1685,7 @@ fn run_terminal_dependency_stage(
         planned_process_task(
             workflow_plan,
             "uv-compile",
-            script_from_command(&uv_compile_command_with_index(
+            direct_script(&uv_compile_command_with_index(
                 &config,
                 &requirements,
                 &pypi_index,
@@ -1701,7 +1704,7 @@ fn run_terminal_dependency_stage(
             if !run_process_and_wait(
                 inner,
                 session_id,
-                planned_process_task(workflow_plan, task_id, script_from_command(&command)),
+                planned_process_task(workflow_plan, task_id, direct_script(&command)),
                 renderer_tx,
                 completion_tx,
                 completion_rx,
@@ -2061,9 +2064,30 @@ fn script_from_command(command: &CommandSpec) -> ScriptCommand {
     }
 }
 
+
+fn direct_script(command: &CommandSpec) -> ScriptCommand {
+    let program = command.program.to_string_lossy().to_string();
+    let display = std::iter::once(program.as_str())
+        .chain(command.args.iter().map(String::as_str))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    ScriptCommand {
+        program: program.to_string(),
+        args: command.args.clone(),
+        display,
+        cwd: command
+        .cwd
+        .as_ref()
+        .map(|cwd| cwd.to_string_lossy().to_string())
+        .unwrap_or_else(|| ".".to_string())
+    }
+}
+
 #[cfg(windows)]
 fn powershell_script(command: &CommandSpec) -> ScriptCommand {
     let shell = if std::process::Command::new("pwsh")
+        .creation_flags(0x08000000)
         .arg("-NoLogo")
         .arg("-NoProfile")
         .arg("-Command")
@@ -2142,6 +2166,11 @@ fn powershell_script(command: &CommandSpec) -> ScriptCommand {
             script,
         ],
         display: display_command(command),
+        cwd: command
+            .cwd
+            .as_ref()
+            .map(|cwd| cwd.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string())
     }
 }
 

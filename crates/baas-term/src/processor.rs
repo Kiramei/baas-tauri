@@ -26,6 +26,8 @@ pub struct ScriptCommand {
     pub args: Vec<String>,
     /// Human-readable command displayed in task metadata.
     pub display: String,
+    /// Script Run Directory
+    pub cwd: String,
 }
 
 /// Builds a [`TaskSpec`] for a PTY-backed process task.
@@ -66,6 +68,7 @@ pub fn create_process_task_with_total(
         command: script.display,
         program: script.program,
         args: script.args,
+        cwd: script.cwd
     }
 }
 
@@ -118,6 +121,7 @@ pub fn spawn_process_task(
         .map_err(|error| error.to_string())?;
 
     let mut command = CommandBuilder::new(&spec.program);
+    command.cwd(&spec.cwd);
     command.args(spec.args.clone());
     let child = pair
         .slave
@@ -278,6 +282,7 @@ mod tests {
                 command.to_string(),
             ],
             display: display.to_string(),
+            cwd: "./".to_string(),
         }
     }
 
@@ -324,6 +329,7 @@ mod tests {
                 program: "program".to_string(),
                 args: vec!["arg".to_string()],
                 display: "program arg".to_string(),
+                cwd: ".".to_string()
             },
         );
 

@@ -24,6 +24,7 @@ fn public_process_task_constructor_preserves_command_metadata() {
             program: "cargo".to_string(),
             args: vec!["test".to_string()],
             display: "cargo test".to_string(),
+            cwd: ".".to_string(),
         },
     );
 
