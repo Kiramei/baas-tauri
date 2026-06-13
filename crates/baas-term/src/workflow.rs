@@ -243,7 +243,8 @@ pub fn thread_task_spec(plan: &WorkflowPlan, task_id: &str) -> Option<TaskSpec> 
         command: node.command.clone(),
         program: String::new(),
         args: Vec::new(),
-        cwd: ".".to_string()
+        cwd: ".".to_string(),
+        env: Vec::new(),
     })
 }
 

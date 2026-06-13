@@ -839,7 +839,8 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         command: node.command.clone(),
         program: String::new(),
         args: Vec::new(),
-        cwd: ".".to_string()
+        cwd: ".".to_string(),
+        env: Vec::new(),
     }
 }
 
@@ -854,7 +855,8 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         command: script.display,
         program: script.program,
         args: script.args,
-        cwd: script.cwd
+        cwd: script.cwd,
+        env: script.env
     }
 }
 
@@ -2080,7 +2082,8 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
         .cwd
         .as_ref()
         .map(|cwd| cwd.to_string_lossy().to_string())
-        .unwrap_or_else(|| ".".to_string())
+        .unwrap_or_else(|| ".".to_string()),
+        env: command.env.clone()
     }
 }
 
@@ -2170,7 +2173,8 @@ fn powershell_script(command: &CommandSpec) -> ScriptCommand {
             .cwd
             .as_ref()
             .map(|cwd| cwd.to_string_lossy().to_string())
-            .unwrap_or_else(|| ".".to_string())
+            .unwrap_or_else(|| ".".to_string()),
+        env: command.env.clone()
     }
 }
 

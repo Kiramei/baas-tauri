@@ -380,6 +380,7 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
         ],
         display: display.to_string(),
         cwd: ".".to_string(),
+        env: vec![]
     }
 }
 

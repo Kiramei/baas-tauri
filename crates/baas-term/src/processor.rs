@@ -28,6 +28,8 @@ pub struct ScriptCommand {
     pub display: String,
     /// Script Run Directory
     pub cwd: String,
+    /// Script Run Env Var
+    pub env: Vec<(String, String)>,
 }
 
 /// Builds a [`TaskSpec`] for a PTY-backed process task.
@@ -68,7 +70,8 @@ pub fn create_process_task_with_total(
         command: script.display,
         program: script.program,
         args: script.args,
-        cwd: script.cwd
+        cwd: script.cwd,
+        env: script.env,
     }
 }
 
@@ -122,6 +125,9 @@ pub fn spawn_process_task(
 
     let mut command = CommandBuilder::new(&spec.program);
     command.cwd(&spec.cwd);
+    for (key, value) in &spec.env {
+        command.env(key.as_str(), value.as_str());
+    }
     command.args(spec.args.clone());
     let child = pair
         .slave
@@ -283,6 +289,7 @@ mod tests {
             ],
             display: display.to_string(),
             cwd: "./".to_string(),
+            env: vec![]
         }
     }
 
@@ -329,7 +336,8 @@ mod tests {
                 program: "program".to_string(),
                 args: vec!["arg".to_string()],
                 display: "program arg".to_string(),
-                cwd: ".".to_string()
+                cwd: ".".to_string(),
+                env: vec![]
             },
         );
 
