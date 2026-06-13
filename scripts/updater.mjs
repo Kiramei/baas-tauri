@@ -95,8 +95,6 @@ async function processRelease(github, options, tag, isAlpha) {
         "darwin-intel": { signature: "", url: "" },
         "darwin-x86_64": { signature: "", url: "" },
         "linux-x86_64": { signature: "", url: "" },
-        "linux-x86": { signature: "", url: "" },
-        "linux-i686": { signature: "", url: "" },
         "linux-aarch64": { signature: "", url: "" },
         "linux-armv7": { signature: "", url: "" },
         "windows-x86_64": { signature: "", url: "" },
@@ -161,11 +159,9 @@ async function processRelease(github, options, tag, isAlpha) {
       // darwin url (aarch)
       if (name.endsWith("aarch64.app.tar.gz")) {
         updateData.platforms["darwin-aarch64"].url = browser_download_url;
-        // 使linux可以检查更新
+        // Get linux informed of updates
         updateData.platforms.linux.url = browser_download_url;
         updateData.platforms["linux-x86_64"].url = browser_download_url;
-        updateData.platforms["linux-x86"].url = browser_download_url;
-        updateData.platforms["linux-i686"].url = browser_download_url;
         updateData.platforms["linux-aarch64"].url = browser_download_url;
         updateData.platforms["linux-armv7"].url = browser_download_url;
       }
@@ -173,10 +169,9 @@ async function processRelease(github, options, tag, isAlpha) {
       if (name.endsWith("aarch64.app.tar.gz.sig")) {
         const sig = await getSignature(browser_download_url);
         updateData.platforms["darwin-aarch64"].signature = sig;
+        // Get linux informed of updates
         updateData.platforms.linux.signature = sig;
         updateData.platforms["linux-x86_64"].signature = sig;
-        updateData.platforms["linux-x86"].url = browser_download_url;
-        updateData.platforms["linux-i686"].url = browser_download_url;
         updateData.platforms["linux-aarch64"].signature = sig;
         updateData.platforms["linux-armv7"].signature = sig;
       }

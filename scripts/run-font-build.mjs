@@ -1,6 +1,17 @@
 // scripts/run-font-build.mjs
 import { spawn, spawnSync } from "child_process";
 
+const strict = process.env.CI_FONT_BUILD_STRICT === "1";
+
+function skipOrFail(message) {
+  if (strict) {
+    console.error(message);
+    process.exit(1);
+  }
+  console.warn(message);
+  process.exit(0);
+}
+
 /**
  * Detect a working pyftsubset command across platforms.
  * Returns the first command that works, or exits gracefully if none found.
@@ -8,8 +19,7 @@ import { spawn, spawnSync } from "child_process";
 function detectPyftsubsetCmd() {
   const check = spawnSync("pyftsubset", ["--help"], { shell: true });
   if (check.status === 0) return;
-  console.warn("⚠️ pyftsubset not found. Skipping font build.");
-  process.exit(0);
+  skipOrFail("pyftsubset not found. Skipping font build.");
 }
 
 // Select the available Python command
@@ -26,8 +36,7 @@ function detectPythonCmd() {
     const check = spawnSync(cmd, ["--version"], { shell: true });
     if (check.status === 0) return cmd;
   }
-  console.warn("⚠️  No working Python command found. Skipping font build.");
-  process.exit(0);
+  skipOrFail("No working Python command found. Skipping font build.");
 }
 
 // Select the available Python command
@@ -44,7 +53,11 @@ const child = spawn(pythonCmd, ["scripts/font-pipeline.py"], {
 // Always continue the build even if the font script fails
 child.on("exit", (code) => {
   if (code !== 0) {
-    console.warn(`⚠️  Font build failed (exit code ${code}), skipping...`);
+    if (strict) {
+      console.error(`Font build failed (exit code ${code}).`);
+      process.exit(code ?? 1);
+    }
+    console.warn(`Font build failed (exit code ${code}), skipping...`);
   }
   process.exit(0);
 });
