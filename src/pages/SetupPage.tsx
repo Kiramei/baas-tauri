@@ -97,16 +97,11 @@ const SetupPage = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
-  const returnToSetupWithFailure = useCallback(
-    (nextFailure: FailureInfo, preserveExisting = false) => {
-      pendingWorkflowRef.current = null;
-      workflowStartedRef.current = false;
-      setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
-      setStarted(false);
-      setSetupPhase(true);
-    },
-    []
-  );
+  const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
+    pendingWorkflowRef.current = null;
+    workflowStartedRef.current = false;
+    setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
+  }, []);
 
   const persistConfig = useCallback(
     async (path = installPath, nextConfig = config) => {
@@ -152,14 +147,14 @@ const SetupPage = () => {
       });
     } catch (error) {
       StorageUtil.remove("base_dir");
-      returnToSetupWithFailure({
+      showWorkflowFailure({
         step: "start",
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
       pendingWorkflowRef.current = null;
     }
-  }, [persistConfig, returnToSetupWithFailure]);
+  }, [persistConfig, showWorkflowFailure]);
 
   const ensureAutoPassword = (forceNew = false) => {
     let password = StorageUtil.get<string>("baasAutoPassword");
@@ -356,11 +351,11 @@ const SetupPage = () => {
                   onAbort={handleAbort}
                   onReady={startWorkflowWhenTerminalReady}
                   onFailure={(nextFailure) => {
-                    if (!abortingRef.current) returnToSetupWithFailure(nextFailure);
+                    if (!abortingRef.current) showWorkflowFailure(nextFailure);
                   }}
                   onSessionFinished={(success) => {
                     if (!success && !abortingRef.current) {
-                      returnToSetupWithFailure(
+                      showWorkflowFailure(
                         {
                           step: "workflow",
                           message: "Updater workflow did not complete successfully.",
@@ -389,20 +384,20 @@ const SetupPage = () => {
         isOpen={failure !== null}
         onClose={() => setFailure(null)}
         title="Setup Error"
-        width={55}
+        width={72}
       >
-        <div className="space-y-3">
-          <div className="text-sm">
+        <div className="space-y-3 max-h-[78vh] overflow-hidden">
+          <div className="text-sm max-h-36 overflow-auto pr-1">
             <div className="font-medium text-red-500">{failure?.step}</div>
             <div className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
               {failure?.message}
             </div>
           </div>
-          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-60 overflow-auto text-xs font-mono">
+          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-[52vh] overflow-auto text-xs font-mono whitespace-pre-wrap break-words">
             {terminalLogData.length === 0
               ? "No structured logs captured."
               : terminalLogData.map((log, index) => (
-                  <div key={`${log.time}-${index}`}>
+                  <div key={`${log.time}-${index}`} className="leading-5">
                     [{log.time}] [{log.level.toUpperCase()}] {log.message}
                   </div>
                 ))}
