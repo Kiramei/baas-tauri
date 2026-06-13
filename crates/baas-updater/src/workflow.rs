@@ -393,6 +393,8 @@ fn run_workflow_with_services_inner(
     manager
         .save()
         .map_err(|error| WorkflowFailure::from_error("config", error))?;
+    copy_setup_to_install_root(&manager)
+        .map_err(|error| WorkflowFailure::from_error("config", error))?;
 
     services
         .sync_dependencies(&manager.config, &*output)
@@ -1355,9 +1357,27 @@ fn terminal_finalize_repos_task(
             manager.config.general.current_baas_sha = main_sha;
             manager.config.general.current_baas_cpp_sha = cpp_sha;
             manager.save().map_err(|error| error.message())?;
+            copy_setup_to_install_root(manager).map_err(|error| error.message())?;
             Ok(())
         },
     )
+}
+
+fn copy_setup_to_install_root(manager: &ConfigManager) -> UpdaterResult<()> {
+    let root = manager.config.baas_root();
+    if root.as_os_str().is_empty() {
+        return Ok(());
+    }
+
+    let install_config = root.join("setup.toml");
+    if manager.config_path == install_config {
+        return Ok(());
+    }
+
+    fs::create_dir_all(&root)?;
+    let content = toml::to_string_pretty(&manager.config)?;
+    fs::write(install_config, content)?;
+    Ok(())
 }
 
 fn run_terminal_environment_prepare_stage(
