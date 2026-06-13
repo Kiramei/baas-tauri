@@ -7,8 +7,9 @@ use crate::{
     behavior::{disable_f5_press_event, inject_tray_icon, splash_off, BehaviorState},
     commands::{
         ensure_default_config, updater_abort_workflow, updater_get_startup_state,
-        updater_resize_term, updater_start_workflow, updater_terminal_snapshot,
-        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
+        BackendProcessManager,
     },
 };
 
@@ -35,6 +36,7 @@ pub fn run() {
             updater_update_config,
             updater_validate_mirrorc_cdk,
             updater_start_workflow,
+            updater_reset_backend_auth_and_restart,
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term

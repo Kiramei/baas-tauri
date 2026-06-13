@@ -2,7 +2,7 @@ use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{ConfigManager, UpdaterConfig},
-    environ::backend_pid_path,
+    environ::{backend_pid_path, launch_backend_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     RepositoryKind, UpdateChannel, WorkflowOptions,
 };
@@ -10,9 +10,13 @@ use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    io::{Read, Write},
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex},
+    thread,
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, State};
 
@@ -65,6 +69,14 @@ pub struct MirrorCValidateReport {
 pub struct UpdaterWorkflowRequest {
     pub install_path: Option<PathBuf>,
     pub launch: Option<bool>,
+}
+
+/// Backend endpoint information emitted after a managed backend is ready.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendReadyPayload {
+    pub base_backend_addr: String,
+    pub base_backend_port: u16,
 }
 
 /// Tracks backend processes started by updater workflows so the Tauri process
@@ -259,6 +271,27 @@ pub fn updater_start_workflow(
 }
 
 #[tauri::command]
+pub fn updater_reset_backend_auth_and_restart(
+    app: AppHandle,
+    backend: State<'_, BackendProcessManager>,
+) -> Result<BackendReadyPayload, String> {
+    let manager = ensure_default_config(&app)?;
+    backend.stop_for_config(&manager.config)?;
+    thread::sleep(Duration::from_millis(300));
+    delete_backend_auth_files(&manager.config)?;
+
+    let port = available_backend_port()?;
+    start_backend_detached(&manager.config, port)?;
+    backend.remember_config(&manager.config)?;
+    wait_for_backend_auth_endpoint(port)?;
+
+    Ok(BackendReadyPayload {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    })
+}
+
+#[tauri::command]
 pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
     manager: State<'_, UpdaterTermManager>,
@@ -321,6 +354,92 @@ fn non_empty_path(value: &str) -> Option<PathBuf> {
     } else {
         Some(PathBuf::from(trimmed))
     }
+}
+
+fn delete_backend_auth_files(config: &UpdaterConfig) -> Result<(), String> {
+    let auth_dir = config.baas_root().join("config");
+    for filename in [
+        "service_auth.json",
+        "service_remembered_logins.json",
+        "service_signing_key.bin",
+        "service_ticket.key",
+    ] {
+        let path = auth_dir.join(filename);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|error| {
+                format!(
+                    "failed to remove backend auth file {}: {error}",
+                    path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn available_backend_port() -> Result<u16, String> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|error| error.to_string())?;
+    listener
+        .local_addr()
+        .map(|addr| addr.port())
+        .map_err(|error| error.to_string())
+}
+
+fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
+    let command = launch_backend_command(config, port);
+    let mut process = Command::new(&command.program);
+    process.args(&command.args);
+    if let Some(cwd) = &command.cwd {
+        process.current_dir(cwd);
+    }
+    for (key, value) in &command.env {
+        process.env(key, value);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        process.creation_flags(0x08000000);
+    }
+    let child = process.spawn().map_err(|error| error.to_string())?;
+    let pid_file = backend_pid_path(config);
+    if let Some(parent) = pid_file.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(&pid_file, child.id().to_string()).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(30) {
+        if backend_auth_endpoint_ready(port) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    Err(format!(
+        "backend auth endpoint did not become ready on 127.0.0.1:{port}"
+    ))
+}
+
+fn backend_auth_endpoint_ready(port: u16) -> bool {
+    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+        return false;
+    };
+    let timeout = Some(Duration::from_millis(700));
+    let _ = stream.set_read_timeout(timeout);
+    let _ = stream.set_write_timeout(timeout);
+    if stream
+        .write_all(b"GET /auth/remember HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut response = [0_u8; 16];
+    stream
+        .read(&mut response)
+        .map(|read| read > 0 && response.starts_with(b"HTTP/"))
+        .unwrap_or(false)
 }
 
 fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {

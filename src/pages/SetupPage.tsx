@@ -161,70 +161,73 @@ const SetupPage = () => {
     }
   }, [persistConfig, returnToSetupWithFailure]);
 
-  const ensureAutoPassword = () => {
+  const ensureAutoPassword = (forceNew = false) => {
     let password = StorageUtil.get<string>("baasAutoPassword");
-    if (!password) {
+    if (!password || forceNew) {
       password = randomPassword();
       StorageUtil.set("baasAutoPassword", password);
     }
     return password;
   };
 
-  const authenticateBackend = useCallback(async (payload: BackendReadyPayload) => {
-    StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
-    StorageUtil.set("baseBackendPort", payload.baseBackendPort);
-    resetWebsocketRuntimeState();
+  const authenticateBackend = useCallback(
+    async (payload: BackendReadyPayload, forceNewPassword = false) => {
+      StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
+      StorageUtil.set("baseBackendPort", payload.baseBackendPort);
+      resetWebsocketRuntimeState();
 
-    const password = ensureAutoPassword();
-    const deadline = Date.now() + 30_000;
-    let lastError: unknown = null;
+      const password = ensureAutoPassword(forceNewPassword);
+      const deadline = Date.now() + 30_000;
+      let lastError: unknown = null;
 
-    while (
-      Date.now() < deadline &&
-      !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
-    ) {
-      try {
-        await useWebSocketStore.getState().startAuthFlow();
+      while (
+        Date.now() < deadline &&
+        !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
+      ) {
+        try {
+          await useWebSocketStore.getState().startAuthFlow();
+          await waitForNormal(
+            () => useWebSocketStore.getState()._auth_phase,
+            (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
+            3_000
+          );
+        } catch (error) {
+          lastError = error;
+        }
+        if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+          await delay(750);
+        }
+      }
+
+      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
+        throw new Error(
+          useWebSocketStore.getState()._auth_error ||
+            (lastError instanceof Error
+              ? lastError.message
+              : "Backend authentication endpoint is not ready.")
+        );
+      }
+
+      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+        await useWebSocketStore.getState().submitPassword(password);
         await waitForNormal(
           () => useWebSocketStore.getState()._auth_phase,
-          (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
-          3_000
+          (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
+          30_000
         );
-      } catch (error) {
-        lastError = error;
       }
-      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-        await delay(750);
+
+      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+        throw new Error(
+          useWebSocketStore.getState()._auth_error ??
+            "Automatic login failed. Existing backend password may be different."
+        );
       }
-    }
 
-    if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-      throw new Error(
-        useWebSocketStore.getState()._auth_error ||
-          (lastError instanceof Error
-            ? lastError.message
-            : "Backend authentication endpoint is not ready.")
-      );
-    }
-
-    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-      await useWebSocketStore.getState().submitPassword(password);
-      await waitForNormal(
-        () => useWebSocketStore.getState()._auth_phase,
-        (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
-        30_000
-      );
-    }
-
-    if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-      throw new Error(
-        useWebSocketStore.getState()._auth_error ??
-          "Automatic login failed. Existing backend password may be different."
-      );
-    }
-
-    await useWebSocketStore.getState().init();
-  }, []);
+      await useWebSocketStore.getState().init();
+    },
+    []
+  );
 
   const handleAbort = async () => {
     abortingRef.current = true;
@@ -255,10 +258,20 @@ const SetupPage = () => {
       try {
         await authenticateBackend(event.payload);
       } catch (error) {
-        setFailure({
-          step: "auth",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        try {
+          const recovered = await invoke<BackendReadyPayload>(
+            "updater_reset_backend_auth_and_restart"
+          );
+          await authenticateBackend(recovered, true);
+        } catch (retryError) {
+          const firstMessage = error instanceof Error ? error.message : String(error);
+          const retryMessage =
+            retryError instanceof Error ? retryError.message : String(retryError);
+          setFailure({
+            step: "auth",
+            message: `${firstMessage}\n\nBackend auth reset retry failed: ${retryMessage}`,
+          });
+        }
       }
     });
 
