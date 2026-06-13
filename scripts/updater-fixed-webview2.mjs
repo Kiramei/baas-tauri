@@ -1,6 +1,6 @@
 import { context, getOctokit } from "@actions/github";
 
-import { resolveUpdateLog } from "./update_log.mjs";
+import { resolveUpdateLog } from "./update-log.mjs";
 
 const UPDATE_TAG_NAME = "updater";
 const UPDATE_JSON_FILE = "update-fixed-webview2.json";
@@ -123,9 +123,12 @@ async function resolveUpdater() {
     const response = await github.rest.repos.createRelease({
       ...options,
       tag_name: UPDATE_TAG_NAME,
+      target_commitish: "master",
       name: "Auto-update Stable Channel",
       body: "This release contains the fixed WebView2 update information for the stable channel.",
-      prerelease: false,
+      draft: false,
+      prerelease: true,
+      make_latest: "false",
     });
     updateRelease = response.data;
   }
@@ -172,4 +175,7 @@ async function getSignature(url) {
   return response.text();
 }
 
-resolveUpdater().catch(console.error);
+resolveUpdater().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

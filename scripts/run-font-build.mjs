@@ -1,4 +1,4 @@
-// scripts/runFontBuild.js
+// scripts/run-font-build.mjs
 import { spawn, spawnSync } from "child_process";
 
 /**
@@ -36,7 +36,7 @@ const pythonCmd = detectPythonCmd();
 console.log(`🪶 Using Python command: ${pythonCmd}`);
 
 // Run the font build script
-const child = spawn(pythonCmd, ["scripts/font_pipeline.py"], {
+const child = spawn(pythonCmd, ["scripts/font-pipeline.py"], {
   stdio: "inherit",
   shell: true,
 });

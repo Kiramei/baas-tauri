@@ -1,6 +1,6 @@
 import { context, getOctokit } from "@actions/github";
 
-import { resolveUpdateLog, resolveUpdateLogDefault } from "./update_log.mjs";
+import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
 
 // Add stable update JSON filenames
 const UPDATE_TAG_NAME = "updater";
@@ -213,7 +213,6 @@ async function processRelease(github, options, tag, isAlpha) {
       let updateRelease;
 
       try {
-        // Try to get the existing release
         const response = await github.rest.repos.getReleaseByTag({
           ...options,
           tag: releaseTag,
@@ -279,12 +278,14 @@ async function processRelease(github, options, tag, isAlpha) {
       );
     } catch (error) {
       console.error(`Failed to process ${isAlpha ? "alpha" : "stable"} release:`, error.message);
+      throw error;
     }
   } catch (error) {
     if (error.status === 404) {
-      console.log(`Release not found for tag: ${tag.name}, skipping...`);
+      throw new Error(`Release not found for tag: ${tag.name}`);
     } else {
       console.error(`Failed to get release for tag: ${tag.name}`, error.message);
+      throw error;
     }
   }
 }
@@ -299,4 +300,7 @@ async function getSignature(url) {
   return response.text();
 }
 
-resolveUpdater().catch(console.error);
+resolveUpdater().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

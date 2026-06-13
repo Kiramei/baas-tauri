@@ -1,6 +1,6 @@
 /**
  * -----------------------------------------------------------------------------
- * afterBundle.js
+ * after-bundle.mjs
  * -----------------------------------------------------------------------------
  *
  * Purpose:
@@ -17,7 +17,7 @@
  *   ✅ Verbose logs for every step
  *
  * Typical use case:
- *   "bun tauri build && node scripts/afterBundle.js"
+ *   "bun tauri build && node scripts/after-bundle.mjs"
  *
  * -----------------------------------------------------------------------------
  * HOW TO USE:
@@ -27,12 +27,12 @@
  *    - macOS:   brew install upx
  *    - Linux:   sudo apt install upx
  *
- * 2. Place this file at:  <project_root>/scripts/afterBundle.js
+ * 2. Place this file at:  <project_root>/scripts/after-bundle.mjs
  *
  * 3. Update your `package.json` scripts section:
  *      {
  *        "scripts": {
- *          "build:tauri": "bun tauri build && node scripts/afterBundle.js"
+ *          "build:tauri": "bun tauri build && node scripts/after-bundle.mjs"
  *        }
  *      }
  *

@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "identifier": "io.github.Kiramei.baas-tauri",
+  "identifier": "io.github.kiramei.baas-tauri",
   "bundle": {
     "active": true,
     "targets": ["nsis"],

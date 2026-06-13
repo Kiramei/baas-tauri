@@ -118,6 +118,15 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             dist_arch: x64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            dist_arch: arm64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            dist_arch: aarch64
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            dist_arch: x64
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             deb_arch: amd64
@@ -162,7 +171,17 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            rpm
+
+      - name: Install x86 OpenSSL (macOS only)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -216,6 +235,51 @@ jobs:
 
           Get-ChildItem $dst -File | Sort-Object Name
 
+      - name: Normalize macOS artifacts
+        if: contains(matrix.target, 'apple-darwin')
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCH="${{ matrix.dist_arch }}"
+          SRC="target/${{ matrix.target }}/release/bundle"
+          DST="release-assets"
+
+          rm -rf "$DST"
+          mkdir -p "$DST"
+
+          FOUND=0
+
+          DMG="$(find "$SRC/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1 || true)"
+          if [ -n "$DMG" ]; then
+            cp -v "$DMG" "$DST/BAAS.Tauri_${VERSION}_${ARCH}.dmg"
+            FOUND=1
+          fi
+
+          DMG_SIG="$(find "$SRC/dmg" -maxdepth 1 -type f -name '*.dmg.sig' | head -n 1 || true)"
+          if [ -n "$DMG_SIG" ]; then
+            cp -v "$DMG_SIG" "$DST/BAAS.Tauri_${VERSION}_${ARCH}.dmg.sig"
+          fi
+
+          APP_TAR="$(find "$SRC/macos" -maxdepth 1 -type f -name '*.app.tar.gz' | head -n 1 || true)"
+          if [ -n "$APP_TAR" ]; then
+            cp -v "$APP_TAR" "$DST/BAAS.Tauri_${VERSION}_${ARCH}.app.tar.gz"
+            FOUND=1
+          fi
+
+          APP_TAR_SIG="$(find "$SRC/macos" -maxdepth 1 -type f -name '*.app.tar.gz.sig' | head -n 1 || true)"
+          if [ -n "$APP_TAR_SIG" ]; then
+            cp -v "$APP_TAR_SIG" "$DST/BAAS.Tauri_${VERSION}_${ARCH}.app.tar.gz.sig"
+          fi
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::error::No macOS bundle found in $SRC/dmg or $SRC/macos"
+            exit 1
+          fi
+
+          find "$DST" -maxdepth 1 -type f -print | sort
+
       - name: Normalize Linux artifacts
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
@@ -261,6 +325,12 @@ jobs:
         with:
           subject-path: release-assets/*
 
+      - name: Attest macOS bundles
+        if: contains(matrix.target, 'apple-darwin')
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release-assets/*
+
       - name: Attest Linux bundles
         if: matrix.os == 'ubuntu-22.04'
         uses: actions/attest-build-provenance@v4
@@ -278,6 +348,203 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
+
+  release-for-linux-arm:
+    name: Release Build for Linux ARM
+    needs: [create_release]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            arch: arm64
+            deb_arch: arm64
+            rpm_arch: aarch64
+            linker: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+            pkg_config_path: /usr/lib/aarch64-linux-gnu/pkgconfig
+            pkg_config_sysroot: /usr/aarch64-linux-gnu
+          - os: ubuntu-22.04
+            target: armv7-unknown-linux-gnueabihf
+            arch: armhf
+            deb_arch: armhf
+            rpm_arch: armv7hl
+            linker: arm-linux-gnueabihf-gcc
+            cxx: arm-linux-gnueabihf-g++
+            pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
+            pkg_config_sysroot: /usr/arm-linux-gnueabihf
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+          targets: ${{ matrix.target }}
+
+      - name: Add Rust Target
+        shell: bash
+        run: |
+          rustup target add ${{ matrix.target }} --toolchain 1.95.0 || rustup target add ${{ matrix.target }}
+          rustup target list --installed
+          echo "Rust target ${{ matrix.target }} installed."
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          save-if: false
+          prefix-key: "v1-rust"
+          key: "rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}"
+          workspaces: |
+            . -> target
+          cache-all-crates: true
+          cache-workspace-crates: true
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Bun install
+        shell: bash
+        run: |
+          bun install --frozen-lockfile
+
+      - name: Setup Linux ARM cross dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/sources.list <<'EOF'
+          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy main multiverse universe restricted
+          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-security main multiverse universe restricted
+          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-updates main multiverse universe restricted
+          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-backports main multiverse universe restricted
+
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy main multiverse universe restricted
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main multiverse universe restricted
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main multiverse universe restricted
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main multiverse universe restricted
+          EOF
+
+          if [ -f /etc/apt/sources.list ]; then
+            sudo cp /etc/apt/sources.list /etc/apt/sources.list.default
+          fi
+          sudo mv /tmp/sources.list /etc/apt/sources.list
+
+          sudo dpkg --add-architecture ${{ matrix.arch }}
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            libxslt1.1:${{ matrix.arch }} \
+            libwebkit2gtk-4.1-dev:${{ matrix.arch }} \
+            libayatana-appindicator3-dev:${{ matrix.arch }} \
+            libssl-dev:${{ matrix.arch }} \
+            librsvg2-dev:${{ matrix.arch }} \
+            patchelf \
+            rpm
+
+      - name: Install aarch64 tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
+
+      - name: Install armv7 tools
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        shell: bash
+        run: |
+          sudo apt-get install -y \
+            gcc-arm-linux-gnueabihf \
+            g++-arm-linux-gnueabihf
+
+      - name: Configure Linux ARM cross env
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_SYSROOT_DIR=${{ matrix.pkg_config_sysroot }}" >> "$GITHUB_ENV"
+
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
+            echo "CC_aarch64_unknown_linux_gnu=${{ matrix.linker }}" >> "$GITHUB_ENV"
+            echo "CXX_aarch64_unknown_linux_gnu=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          else
+            echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
+            echo "CC_armv7_unknown_linux_gnueabihf=${{ matrix.linker }}" >> "$GITHUB_ENV"
+            echo "CXX_armv7_unknown_linux_gnueabihf=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Tauri build
+        shell: bash
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: bun tauri build --target ${{ matrix.target }}
+
+      - name: Normalize Linux ARM artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          SRC="target/${{ matrix.target }}/release/bundle"
+          DST="release-assets"
+
+          rm -rf "$DST"
+          mkdir -p "$DST"
+
+          DEB="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb' | head -n 1 || true)"
+          if [ -z "$DEB" ]; then
+            echo "::error::No deb package found in $SRC/deb"
+            exit 1
+          fi
+          cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
+
+          DEB_SIG="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb.sig' | head -n 1 || true)"
+          if [ -n "$DEB_SIG" ]; then
+            cp -v "$DEB_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
+          fi
+
+          RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
+          if [ -z "$RPM" ]; then
+            echo "::error::No rpm package found in $SRC/rpm"
+            exit 1
+          fi
+          cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
+
+          RPM_SIG="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm.sig' | head -n 1 || true)"
+          if [ -n "$RPM_SIG" ]; then
+            cp -v "$RPM_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
+          fi
+
+          find "$DST" -maxdepth 1 -type f -print | sort
+
+      - name: Attest Linux bundles
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release-assets/*
+
+      - name: Upload normalized release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "BAAS Tauri App ${{ github.ref_name }}"
+          body: "Draft release, will be updated later."
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          overwrite_files: true
+          files: release-assets/*
+
 
   release-for-fixed-webview2:
     name: Release Build for Fixed WebView2
@@ -420,14 +687,14 @@ jobs:
   update_tag:
     name: Update tag
     runs-on: ubuntu-latest
-    needs: [release, release-for-fixed-webview2]
+    needs: [release, release-for-linux-arm, release-for-fixed-webview2]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Fetch UPDATE logs
         id: fetch_update_logs
-        run: bash ./scripts/genUpdateLog.sh
+        run: bash ./scripts/gen-update-log.sh
         shell: bash
 
       - name: Set Env
@@ -459,12 +726,23 @@ jobs:
 
           ### Windows
           - [Windows x64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64-setup.exe)
+          - [Windows arm64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64-setup.exe)
           - [Windows x64 fixed WebView2 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2-setup.exe)
           - [Windows x64 fixed WebView2 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2_portable.zip)
+
+          ### macOS
+          - [macOS Apple Silicon DMG](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.dmg)
+          - [macOS Apple Silicon updater archive](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.app.tar.gz)
+          - [macOS Intel DMG](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64.dmg)
+          - [macOS Intel updater archive](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64.app.tar.gz)
 
           ### Linux
           - [Linux amd64 DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_amd64.deb)
           - [Linux x86_64 RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x86_64.rpm)
+          - [Linux arm64 DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64.deb)
+          - [Linux aarch64 RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_aarch64.rpm)
+          - [Linux armhf DEB](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_armhf.deb)
+          - [Linux armv7hl RPM](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_armv7hl.rpm)
 
           ### Download Acceleration Service
           - [MirrorChyan](https://mirrorchyan.com/)

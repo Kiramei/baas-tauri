@@ -2,7 +2,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 
-const UPDATE_LOG = "UPDATE.md";
+const UpdateLog = "UPDATE.md";
 
 // parse the UPDATE.md
 export async function resolveUpdateLog(tag) {
@@ -11,7 +11,7 @@ export async function resolveUpdateLog(tag) {
   const reTitle = /^## v\d+\.\d+\.\d+(?:[-+][\w.-]+)?/;
   const reEnd = /^---/;
 
-  const file = path.join(cwd, UPDATE_LOG);
+  const file = path.join(cwd, UpdateLog);
 
   if (!fs.existsSync(file)) {
     throw new Error("could not find UPDATE.md");
@@ -46,7 +46,7 @@ export async function resolveUpdateLog(tag) {
 
 export async function resolveUpdateLogDefault() {
   const cwd = process.cwd();
-  const file = path.join(cwd, UPDATE_LOG);
+  const file = path.join(cwd, UpdateLog);
 
   if (!fs.existsSync(file)) {
     throw new Error("could not find UPDATE.md");

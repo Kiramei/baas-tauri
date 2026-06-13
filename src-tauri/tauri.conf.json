@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BAAS Tauri",
   "version": "0.1.0",
-  "identifier": "io.github.Kiramei.baas-tauri",
+  "identifier": "io.github.kiramei.baas-tauri",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:8191",
