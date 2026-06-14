@@ -1,15 +1,18 @@
 [package]
 name = "baas-term"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 readme = "README.md"
+description = "Package used for baas-updater terminal display"
+authors = ["Kiramei"]
 
 [dependencies]
+# Borrow from workspace
 tauri = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
-uuid = { version = "1", features = ["v4", "serde"] }
-portable-pty = { version = "0.9.0" }
+uuid = { workspace = true }
+portable-pty = { workspace = true }
 
 [dev-dependencies]
-serde_json = "1"
+serde_json = { workspace = true }

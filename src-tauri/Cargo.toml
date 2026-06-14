@@ -1,8 +1,8 @@
 [package]
 name = "baas-tauri"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.0.0"
+description = "Tauri App for pur1fying/blue_archive_auto_script"
+authors = ["Kiramei"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
+# Borrow from workspace
 baas-updater = { workspace = true }
 baas-term = { workspace = true }
 baas-i18n = { workspace = true }
@@ -26,16 +27,17 @@ serde = { workspace = true }
 chrono = { workspace = true }
 serde_json = { workspace = true }
 
+# Main App Specified Packages
+directories = "6.0.0"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
-directories = "6.0.0"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-single-instance = "2"
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
