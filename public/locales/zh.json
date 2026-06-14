@@ -188,7 +188,16 @@
     "resultsCount": "共 {{count}} 篇文档",
     "searchPlaceholder": "按主题、关键词或标签搜索…",
     "subtitle": "面向 BAAS 自动化平台的规范化指南与运维手册。",
-    "title": "百科文档"
+    "title": "百科文档",
+    "web": {
+      "close": "关闭",
+      "detach": "独立窗口",
+      "failed": "网页 Wiki 加载失败",
+      "loading": "正在加载网页 Wiki...",
+      "pin": "浮动显示",
+      "return": "回到覆盖模式",
+      "title": "网页Wiki"
+    }
   },
   "scheduler": {
     "activeTasks": "启用的任务",

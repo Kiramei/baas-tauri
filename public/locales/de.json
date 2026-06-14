@@ -188,7 +188,16 @@
     "resultsCount": "{{count}} Dokumente gefunden",
     "searchPlaceholder": "Nach Thema, Schlüsselwort oder Tag suchen...",
     "subtitle": "Ein standardisierter Leitfaden und ein Betriebshandbuch für die BAAS-Automatisierungsplattform.",
-    "title": "Wiki-Dokumentation"
+    "title": "Wiki-Dokumentation",
+    "web": {
+      "close": "Schliessen",
+      "detach": "Abtrennen",
+      "failed": "Web-Wiki konnte nicht laden",
+      "loading": "Web-Wiki wird geladen...",
+      "pin": "Schweben",
+      "return": "Zurueck",
+      "title": "Web-Wiki"
+    }
   },
   "scheduler": {
     "activeTasks": "Aktive Aufgaben",

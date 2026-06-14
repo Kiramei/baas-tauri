@@ -192,6 +192,13 @@ const manualTranslations = {
     "mirrorc.message.confirmCdkey": "请确认您输入了正确的 CDK",
     "mirrorc.message.expired": "CDK 已过期。",
     "mirrorc.message.validExpires": "该 CDK 有效期至 {{expire_date}}。",
+    "wiki.web.close": "关闭",
+    "wiki.web.detach": "独立窗口",
+    "wiki.web.failed": "网页 Wiki 加载失败",
+    "wiki.web.loading": "正在加载网页 Wiki...",
+    "wiki.web.pin": "浮动显示",
+    "wiki.web.return": "回到覆盖模式",
+    "wiki.web.title": "网页Wiki",
     "other": "其他",
     "otherDesc": "杂项功能与设置",
     "profile.cannotDeleteLast": "不能删除最后一个配置。",
@@ -276,6 +283,13 @@ const manualTranslations = {
     "mirrorc.message.confirmCdkey": "Check your CDK.",
     "mirrorc.message.expired": "CDK expired.",
     "mirrorc.message.validExpires": "CDK valid until {{expire_date}}.",
+    "wiki.web.close": "Close",
+    "wiki.web.detach": "Detach",
+    "wiki.web.failed": "Web Wiki failed to load",
+    "wiki.web.loading": "Loading Web Wiki...",
+    "wiki.web.pin": "Float",
+    "wiki.web.return": "Return",
+    "wiki.web.title": "Web Wiki",
     "other": "Other",
     "otherDesc": "Misc settings",
     "profile.cannotDeleteLast": "Cannot delete the last profile.",
@@ -315,8 +329,58 @@ const manualTranslations = {
 };
 
 for (const lang of ["de", "fr", "ja", "ko", "ru"]) {
-  manualTranslations[lang] = manualTranslations.en;
+  manualTranslations[lang] = { ...manualTranslations.en };
 }
+
+Object.assign(manualTranslations.de, {
+  "wiki.web.close": "Schliessen",
+  "wiki.web.detach": "Abtrennen",
+  "wiki.web.failed": "Web-Wiki konnte nicht laden",
+  "wiki.web.loading": "Web-Wiki wird geladen...",
+  "wiki.web.pin": "Schweben",
+  "wiki.web.return": "Zurueck",
+  "wiki.web.title": "Web-Wiki",
+});
+
+Object.assign(manualTranslations.fr, {
+  "wiki.web.close": "Fermer",
+  "wiki.web.detach": "Detacher",
+  "wiki.web.failed": "Echec du chargement du Wiki web",
+  "wiki.web.loading": "Chargement du Wiki web...",
+  "wiki.web.pin": "Flottant",
+  "wiki.web.return": "Retour",
+  "wiki.web.title": "Wiki web",
+});
+
+Object.assign(manualTranslations.ja, {
+  "wiki.web.close": "閉じる",
+  "wiki.web.detach": "別ウィンドウ",
+  "wiki.web.failed": "Web Wikiの読み込みに失敗",
+  "wiki.web.loading": "Web Wikiを読み込み中...",
+  "wiki.web.pin": "フロート",
+  "wiki.web.return": "戻る",
+  "wiki.web.title": "Web Wiki",
+});
+
+Object.assign(manualTranslations.ko, {
+  "wiki.web.close": "닫기",
+  "wiki.web.detach": "분리",
+  "wiki.web.failed": "웹 Wiki 로드 실패",
+  "wiki.web.loading": "웹 Wiki 로드 중...",
+  "wiki.web.pin": "플로팅",
+  "wiki.web.return": "돌아가기",
+  "wiki.web.title": "웹 Wiki",
+});
+
+Object.assign(manualTranslations.ru, {
+  "wiki.web.close": "Закрыть",
+  "wiki.web.detach": "Отделить",
+  "wiki.web.failed": "Не удалось загрузить Web Wiki",
+  "wiki.web.loading": "Загрузка Web Wiki...",
+  "wiki.web.pin": "Плавающая",
+  "wiki.web.return": "Назад",
+  "wiki.web.title": "Web Wiki",
+});
 
 function flatten(value, prefix = "", output = {}) {
   for (const [key, child] of Object.entries(value)) {

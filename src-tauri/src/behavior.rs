@@ -54,7 +54,8 @@ impl BehaviorState {
 #[tauri::command]
 pub async fn splash_off(app: AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
-        main.center().ok();
+        // This causes `create webview window` malfunction.
+        // main.center().ok();
         main.show().ok();
         main.set_focus().ok();
     } else {

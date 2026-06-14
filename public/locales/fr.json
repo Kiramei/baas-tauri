@@ -188,7 +188,16 @@
     "resultsCount": "{{count}} documents trouvés",
     "searchPlaceholder": "Rechercher par sujet, mot-clé ou étiquette...",
     "subtitle": "Un guide normalisé et un manuel d'exploitation pour la plateforme d'automatisation BAAS.",
-    "title": "Documentation Wiki"
+    "title": "Documentation Wiki",
+    "web": {
+      "close": "Fermer",
+      "detach": "Detacher",
+      "failed": "Echec du chargement du Wiki web",
+      "loading": "Chargement du Wiki web...",
+      "pin": "Flottant",
+      "return": "Retour",
+      "title": "Wiki web"
+    }
   },
   "scheduler": {
     "activeTasks": "Tâches actives",

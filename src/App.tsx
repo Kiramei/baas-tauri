@@ -7,6 +7,7 @@ import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
+import WebWikiViewer from "@/components/WebWikiViewer";
 import type { Variants } from "framer-motion";
 import { motion } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
@@ -182,14 +183,12 @@ const App: React.FC = () => {
     loadLocale(i18n.language || "en").then(undefined);
   }, []);
 
+  const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
+
   return (
-    <>
-      <ThemeProvider>
-        <UISettingsProvider>
-          <WrappedApp />
-        </UISettingsProvider>
-      </ThemeProvider>
-    </>
+    <ThemeProvider>
+      <UISettingsProvider>{isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}</UISettingsProvider>
+    </ThemeProvider>
   );
 };
 

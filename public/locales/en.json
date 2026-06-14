@@ -188,7 +188,16 @@
     "resultsCount": "{{count}} documents found",
     "searchPlaceholder": "Search by topic, keyword, or tag...",
     "subtitle": "A standardized guide and operation manual for the BAAS automation platform.",
-    "title": "Wiki Docs"
+    "title": "Wiki Docs",
+    "web": {
+      "close": "Close",
+      "detach": "Detach",
+      "failed": "Web Wiki failed to load",
+      "loading": "Loading Web Wiki...",
+      "pin": "Float",
+      "return": "Return",
+      "title": "Web Wiki"
+    }
   },
   "scheduler": {
     "activeTasks": "Active Tasks",

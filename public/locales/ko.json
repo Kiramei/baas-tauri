@@ -188,7 +188,16 @@
     "resultsCount": "{{count}}개의 문서가 있습니다",
     "searchPlaceholder": "주제, 키워드 또는 태그로 검색...",
     "subtitle": "BAAS 자동화 플랫폼을 위한 표준화된 가이드 및 운영 매뉴얼.",
-    "title": "위키 문서"
+    "title": "위키 문서",
+    "web": {
+      "close": "닫기",
+      "detach": "분리",
+      "failed": "웹 Wiki 로드 실패",
+      "loading": "웹 Wiki 로드 중...",
+      "pin": "플로팅",
+      "return": "돌아가기",
+      "title": "웹 Wiki"
+    }
   },
   "scheduler": {
     "activeTasks": "활성 작업",
