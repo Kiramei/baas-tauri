@@ -10,10 +10,10 @@
   },
   "common": {
     "add": "追加",
-    "cancel": "キャンセル",
+    "cancel": "取り消し",
     "choose": "選択",
     "confirm": "確認",
-    "create": "Create",
+    "create": "作成",
     "delete": "削除",
     "edit": "編集",
     "execute": "実行",
@@ -22,9 +22,9 @@
     "stop": "停止",
     "theme": {
       "$self": "テーマ",
-      "dark": "Dark",
-      "light": "Light",
-      "system": "System"
+      "dark": "ダーク",
+      "light": "ライト",
+      "system": "システム"
     },
     "update": "更新"
   },
@@ -65,9 +65,9 @@
     "ui": {
       "$self": "UI設定",
       "assets": "資産詳細を表示",
-      "enableBAComet": "Enable BAComet",
-      "enableSafeStream": "Enable safe stream",
-      "player": "Player"
+      "enableBAComet": "BAComet有効",
+      "enableSafeStream": "安全ストリーム",
+      "player": "プレイヤー"
     },
     "updateSuccess": "設定の更新に成功しました"
   },
@@ -90,56 +90,56 @@
     "info": "バージョン情報",
     "local": "現在のバージョン",
     "remote": "最新バージョン",
-    "tapToTest": "Check for updates",
+    "tapToTest": "更新確認",
     "testing": "テスト中..."
   },
   "profile": {
     "add": "プロファイルを追加",
-    "cannotDeleteLast": "Cannot delete the last profile.",
+    "cannotDeleteLast": "最後のプロファイルは削除できません。",
     "create": "プロファイルを作成",
     "deleteConfirmMessage": "プロファイル「{{name}}」を削除してもよろしいですか？この操作は元に戻せません！",
     "deleteConfirmTitle": "削除の確認",
     "edit": "プロファイルを編集",
     "name": "プロファイル名",
-    "nameExists": "Name already exists"
+    "nameExists": "名前は既に存在します"
   },
   "description": {
-    "arena": "Arena automation",
+    "arena": "アリーナ自動化",
     "artifact": {
-      "$self": "Crafting settings",
+      "$self": "製造設定",
       "useTicket": "製造チケットを使用"
     },
     "cafe": {
-      "$self": "Cafe invites and rewards",
+      "$self": "カフェ招待と報酬",
       "patRounds": "回数が多いほど、なで忘れが少なくなります"
     },
     "commonShop": {
       "refresh": "ショップを自動更新"
     },
-    "dailySweep": "Daily stages and sweeps",
-    "drill": "Joint drill settings",
-    "emulator": "Emulator path and startup",
-    "getEmulator": "Select emulator path",
+    "dailySweep": "日課ステージと掃討",
+    "drill": "合同火力演習設定",
+    "emulator": "エミュレーターのパスと起動",
+    "getEmulator": "エミュレーターを選択",
     "other": {
-      "$self": "Misc settings",
+      "$self": "その他設定",
       "fhx": "規制解除を試みます（中国サーバー限定）"
     },
-    "push": "Push settings",
-    "schedule": "Daily schedule",
-    "script": "Script settings",
-    "server": "Server and connection",
+    "push": "通知設定",
+    "schedule": "デイリー予定",
+    "script": "スクリプト設定",
+    "server": "サーバーと接続",
     "settings": {
       "updateSuccess": "設定が正常に更新されました。"
     },
-    "shop": "Purchase priorities",
+    "shop": "購入優先度",
     "stage": {
-      "$self": "Auto stage clearing",
+      "$self": "自動ステージ",
       "hard": "ハードステージの設定も同様です。注意：回数は最大3回、カンマは半角です。日本/グローバルサーバーでは'max'と入力できます。",
       "normal": "ノーマルステージと回数（例：「1-1-1,1-2-3」はステージ1-1を1回、次に1-2を3回）"
     },
-    "tactical": "Total Assault settings",
-    "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "tactical": "総力戦設定",
+    "team": "編成設定",
+    "whitelist": "フレンド白リスト"
   },
   "installer": {
     "advanced": "詳細設定",
@@ -156,7 +156,7 @@
     }
   },
   "auth": {
-    "confirm": "Confirm",
+    "confirm": "確認",
     "confirmPasswordLabel": "パスワードを確認",
     "enterKeyTitle": "BAAS キーを入力",
     "enterPasswordPlaceholder": "現在のシステムパスワードを入力...",
@@ -208,7 +208,7 @@
     "sortDefault": "デフォルトの並び順"
   },
   "stage": {
-    "$self": "Stages",
+    "$self": "ステージ",
     "attrTable": "ステージ属性参照表",
     "challenge": "チャレンジ任務をクリア",
     "currentEvent": "現在のイベント",
@@ -236,13 +236,17 @@
     "taskTriggerStart": "タスクが発行されました"
   },
   "cafe": {
-    "$self": "Cafe",
+    "$self": "カフェ",
     "basicSettings": "カフェ基本設定",
     "byName": "生徒名順",
     "cafe1Settings": "1号店カフェ設定",
     "cafe1Students": "生徒名リスト",
     "cafe2Settings": "2号店カフェ設定",
     "cafe2Students": "生徒名リスト",
+    "collectReward": "報酬を回収",
+    "duplicateInvite": "重複招待",
+    "exchangeStudent": "衣装変更",
+    "hasNo2Cafe": "カフェ2",
     "highestAffection": "絆ランクが高い順",
     "invite1Mode": "招待モード",
     "invite2Mode": "招待モード",
@@ -251,25 +255,26 @@
     "patStyle": "なでなでスタイル",
     "patStyleDragGift": "贈り物をドラッグ",
     "starred": "お気に入りの生徒順",
-    "starredPosition": "お気に入り生徒の位置"
+    "starredPosition": "お気に入り生徒の位置",
+    "useInvitation": "招待券を使う"
   },
-  "dailySweep": "Daily",
+  "dailySweep": "日課",
   "schedule": {
-    "$self": "Schedule",
+    "$self": "予定",
     "advanced": "上級",
     "normal": "普通",
     "primary": "初級",
     "superior": "特級"
   },
-  "shop": "Shop",
+  "shop": "ショップ",
   "arena": {
-    "$self": "Arena",
+    "$self": "アリーナ",
     "higherLevel": "相手が自分より高いレベル数",
     "maxRefreshTimes": "最大更新回数",
     "opponentNo": "対戦相手番号"
   },
   "server": {
-    "$self": "Server",
+    "$self": "サーバー",
     "adbIP": "ADB IPアドレス",
     "adbPort": "ADB ポート",
     "cn": {
@@ -287,7 +292,7 @@
     "server": "ゲームサーバー"
   },
   "emulator": {
-    "$self": "Emulator",
+    "$self": "エミュレーター",
     "address": "エミュレータのパス",
     "instanceCount": "マルチインスタンスエミュレータ番号",
     "multiInstance": "エミュレータのマルチインスタンス",
@@ -296,24 +301,24 @@
     "waitTime": "エミュレータ起動待機時間 (秒)"
   },
   "push": {
-    "$self": "Push",
+    "$self": "通知",
     "afterCompletion": "すべてのタスク完了後にプッシュ",
     "afterError": "エラー発生後にプッシュ",
     "json": "JSONプッシュ",
     "serverchan": "Server酱 プッシュ"
   },
   "other": {
-    "$self": "Other",
+    "$self": "その他",
     "fhx": "ワンクリック規制解除"
   },
   "drill": {
-    "$self": "Joint Drill",
+    "$self": "合同火力演習",
     "difficulty": "演習難易度",
     "outPartyNo": "部隊番号",
     "useAllAfterSweep": "出撃後にすべての演習チケットを使用"
   },
   "artifact": {
-    "$self": "Crafting",
+    "$self": "製造",
     "all": "すべて",
     "blue": "青",
     "createTime": "製造回数",
@@ -335,9 +340,9 @@
     "white": "白",
     "whiteBlue": "白青"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "白リスト",
   "script": {
-    "$self": "Scripts",
+    "$self": "スクリプト",
     "autostart": "スクリプト起動時に自動開始",
     "controlMethod": "制御方法",
     "doNothing": "何もしない",
@@ -350,11 +355,11 @@
     "then": "タスク完了後の操作"
   },
   "tactical": {
-    "$self": "Total Assault",
+    "$self": "総力戦",
     "hardLevel": "総力戦の難易度"
   },
   "team": {
-    "$self": "Formation",
+    "$self": "編成",
     "chooseMethod": "編成方法",
     "order": "サイドバーの順序で",
     "preset": "プリセット編成で",
@@ -401,18 +406,18 @@
     "clear": {
       "logs": "ログを消去"
     },
-    "duplicate": "Duplicate hotkey",
-    "fixInvalid": "Fix invalid or duplicate hotkeys.",
+    "duplicate": "重複ショートカット",
+    "fixInvalid": "無効または重複したショートカットを修正してください。",
     "help": {
       "about": "ヘルプ / 情報"
     },
-    "invalidFormat": "Invalid hotkey",
-    "leaveEmpty": "Leave empty to unbind",
-    "search": "Search hotkeys",
+    "invalidFormat": "無効なショートカット",
+    "leaveEmpty": "空欄で解除",
+    "search": "ショートカット検索",
     "switch": {
       "start": "開始/停止"
     },
-    "usage": "Use combinations like"
+    "usage": "組み合わせ例"
   },
   "property": {
     "ap": "AP",
@@ -458,18 +463,18 @@
     "restart": "午前4時に再起動",
     "rewardedTask": "指名手配",
     "scrimmage": "学園交流会",
-    "startExploreActivityChallenge": "Event Challenge",
-    "startExploreActivityMission": "Event Mission",
-    "startExploreActivityStory": "Event Story",
+    "startExploreActivityChallenge": "イベント挑戦",
+    "startExploreActivityMission": "イベント任務",
+    "startExploreActivityStory": "イベントストーリー",
     "startFhx": "FHX",
-    "startGroupStory": "Group Story",
-    "startHardTask": "Hard Stage",
-    "startMainStory": "Main Story",
-    "startMiniStory": "Mini Story",
-    "startNormalTask": "Normal Stage",
+    "startGroupStory": "グループストーリー",
+    "startHardTask": "ハードステージ",
+    "startMainStory": "メインストーリー",
+    "startMiniStory": "ミニストーリー",
+    "startNormalTask": "ノーマルステージ",
     "tacticalChallengeShop": "戦術対抗戦ショップ購入",
     "totalAssault": "総力戦",
-    "unknown": "Unknown task"
+    "unknown": "不明なタスク"
   },
   "shaMethod": {
     "gitcode": "GitCodeリポジトリ",
@@ -493,7 +498,7 @@
   "mirrorc": {
     "cdk": {
       "noInput": "MirrorC CDKを入力してください！",
-      "testOk": "CDK OK"
+      "testOk": "CDK有効"
     },
     "message": {
       "confirmCdkey": "正しいCDKを入力したことを確認してください",
@@ -514,13 +519,13 @@
   "configAdd": {
     "nameDuplicate": "プロファイル名が既に存在します",
     "nameRequired": "プロファイル名は必須です",
-    "saveFailed": "Save failed",
+    "saveFailed": "保存失敗",
     "selectServer": "サーバーを選択してください",
     "serverRequired": "サーバーを指定する必要があります"
   },
   "export": {
     "log": {
-      "folderSelect": "Choose log export path"
+      "folderSelect": "ログ出力先を選択"
     }
   },
   "friend": {
@@ -528,8 +533,8 @@
     "addFailed": "追加に失敗しました",
     "alreadyExists": "このフレンドは既に存在します",
     "empty": "フレンドホワイトリストは空です",
-    "invalidFormatCN": "CN code needs numbers and lowercase letters",
-    "invalidFormatGlobal": "Global code needs uppercase letters",
+    "invalidFormatCN": "CNコードは数字と小文字",
+    "invalidFormatGlobal": "Globalコードは大文字",
     "invalidLength": "フレンドコードの長さが無効です",
     "placeholder": "フレンドコードを入力"
   },
@@ -548,10 +553,10 @@
     "profileName": "ここにプロファイル名を入力してください"
   },
   "select": {
-    "placeholder": "Select"
+    "placeholder": "選択"
   },
   "student": {
-    "add": "Add Student",
+    "add": "生徒を追加",
     "search": "生徒を検索"
   },
   "switch": {
@@ -565,8 +570,8 @@
     "wiki": "ドキュメント"
   },
   "toast": {
-    "dateUpdated": "Date updated",
-    "timeUpdated": "Time updated"
+    "dateUpdated": "日付を更新しました",
+    "timeUpdated": "時刻を更新しました"
   },
   "ui": {
     "zoom": "UIズーム設定"

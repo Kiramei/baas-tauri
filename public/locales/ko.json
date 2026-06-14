@@ -13,7 +13,7 @@
     "cancel": "취소",
     "choose": "선택",
     "confirm": "확인",
-    "create": "Create",
+    "create": "생성",
     "delete": "삭제",
     "edit": "편집",
     "execute": "실행",
@@ -22,9 +22,9 @@
     "stop": "정지",
     "theme": {
       "$self": "테마",
-      "dark": "Dark",
-      "light": "Light",
-      "system": "System"
+      "dark": "다크",
+      "light": "라이트",
+      "system": "시스템"
     },
     "update": "업데이트"
   },
@@ -65,9 +65,9 @@
     "ui": {
       "$self": "UI 설정",
       "assets": "자산 세부 정보 표시",
-      "enableBAComet": "Enable BAComet",
-      "enableSafeStream": "Enable safe stream",
-      "player": "Player"
+      "enableBAComet": "BAComet 켜기",
+      "enableSafeStream": "보안 스트림",
+      "player": "플레이어"
     },
     "updateSuccess": "설정이 성공적으로 업데이트되었습니다"
   },
@@ -90,56 +90,56 @@
     "info": "버전 정보",
     "local": "현재 버전",
     "remote": "최신 버전",
-    "tapToTest": "Check for updates",
+    "tapToTest": "업데이트 확인",
     "testing": "테스트 중..."
   },
   "profile": {
     "add": "프로필 추가",
-    "cannotDeleteLast": "Cannot delete the last profile.",
+    "cannotDeleteLast": "마지막 프로필은 삭제할 수 없습니다.",
     "create": "프로필 생성",
     "deleteConfirmMessage": "프로필 '{{name}}'을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다!",
     "deleteConfirmTitle": "삭제 확인",
     "edit": "프로필 편집",
     "name": "프로필 이름",
-    "nameExists": "Name already exists"
+    "nameExists": "이름이 이미 있습니다"
   },
   "description": {
-    "arena": "Arena automation",
+    "arena": "아레나 자동화",
     "artifact": {
-      "$self": "Crafting settings",
+      "$self": "제조 설정",
       "useTicket": "제조 티켓 사용"
     },
     "cafe": {
-      "$self": "Cafe invites and rewards",
+      "$self": "카페 초대와 보상",
       "patRounds": "횟수가 높을수록 놓칠 확률이 줄어듭니다"
     },
     "commonShop": {
       "refresh": "자동으로 상점 새로고침"
     },
-    "dailySweep": "Daily stages and sweeps",
-    "drill": "Joint drill settings",
-    "emulator": "Emulator path and startup",
-    "getEmulator": "Select emulator path",
+    "dailySweep": "일일 스테이지와 소탕",
+    "drill": "종합전술시험 설정",
+    "emulator": "에뮬레이터 경로와 실행",
+    "getEmulator": "에뮬레이터 선택",
     "other": {
-      "$self": "Misc settings",
+      "$self": "기타 설정",
       "fhx": "검열 해제를 시도합니다 (중국 서버 전용)"
     },
-    "push": "Push settings",
-    "schedule": "Daily schedule",
-    "script": "Script settings",
-    "server": "Server and connection",
+    "push": "푸시 설정",
+    "schedule": "일일 일정",
+    "script": "스크립트 설정",
+    "server": "서버와 연결",
     "settings": {
       "updateSuccess": "설정이 성공적으로 업데이트되었습니다."
     },
-    "shop": "Purchase priorities",
+    "shop": "구매 우선순위",
     "stage": {
-      "$self": "Auto stage clearing",
+      "$self": "자동 스테이지",
       "hard": "하드 임무 설정도 위와 같습니다. 참고: 최대 3회, 쉼표는 영문 쉼표 사용. 일본/글로벌 서버는 'max' 입력 가능.",
       "normal": "일반 임무 및 횟수 (예: \"1-1-1,1-2-3\"은 1-1 임무 1회, 그 다음 1-2 임무 3회)"
     },
-    "tactical": "Total Assault settings",
-    "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "tactical": "총력전 설정",
+    "team": "편성 설정",
+    "whitelist": "친구 화이트리스트"
   },
   "installer": {
     "advanced": "고급 설정",
@@ -156,7 +156,7 @@
     }
   },
   "auth": {
-    "confirm": "Confirm",
+    "confirm": "확인",
     "confirmPasswordLabel": "비밀번호 확인",
     "enterKeyTitle": "BAAS 키 입력",
     "enterPasswordPlaceholder": "현재 시스템 비밀번호 입력...",
@@ -208,7 +208,7 @@
     "sortDefault": "기본 정렬"
   },
   "stage": {
-    "$self": "Stages",
+    "$self": "스테이지",
     "attrTable": "스테이지 속성 참조표",
     "challenge": "챌린지 임무 클리어",
     "currentEvent": "현재 이벤트",
@@ -236,13 +236,17 @@
     "taskTriggerStart": "작업이 할당되었습니다"
   },
   "cafe": {
-    "$self": "Cafe",
+    "$self": "카페",
     "basicSettings": "카페 기본 설정",
     "byName": "학생 이름 순",
     "cafe1Settings": "1호점 카페 설정",
     "cafe1Students": "학생 이름 목록",
     "cafe2Settings": "2호점 카페 설정",
     "cafe2Students": "학생 이름 목록",
+    "collectReward": "보상 받기",
+    "duplicateInvite": "중복 초대",
+    "exchangeStudent": "의상 변경",
+    "hasNo2Cafe": "카페 2",
     "highestAffection": "가장 높은 호감도 순",
     "invite1Mode": "초대 모드",
     "invite2Mode": "초대 모드",
@@ -251,25 +255,26 @@
     "patStyle": "쓰다듬기 스타일",
     "patStyleDragGift": "선물 드래그",
     "starred": "즐겨찾기 학생 순",
-    "starredPosition": "즐겨찾기 학생 위치"
+    "starredPosition": "즐겨찾기 학생 위치",
+    "useInvitation": "초대권 사용"
   },
-  "dailySweep": "Daily",
+  "dailySweep": "일일",
   "schedule": {
-    "$self": "Schedule",
+    "$self": "일정",
     "advanced": "상급",
     "normal": "보통",
     "primary": "초급",
     "superior": "최상급"
   },
-  "shop": "Shop",
+  "shop": "상점",
   "arena": {
-    "$self": "Arena",
+    "$self": "아레나",
     "higherLevel": "상대방이 당신보다 높은 레벨",
     "maxRefreshTimes": "최대 새로고침 횟수",
     "opponentNo": "상대 번호"
   },
   "server": {
-    "$self": "Server",
+    "$self": "서버",
     "adbIP": "ADB IP 주소",
     "adbPort": "ADB 포트",
     "cn": {
@@ -287,7 +292,7 @@
     "server": "게임 서버"
   },
   "emulator": {
-    "$self": "Emulator",
+    "$self": "에뮬레이터",
     "address": "에뮬레이터 경로",
     "instanceCount": "멀티 인스턴스 에뮬레이터 번호",
     "multiInstance": "에뮬레이터 멀티 인스턴스",
@@ -296,24 +301,24 @@
     "waitTime": "에뮬레이터 시작 대기 시간 (초)"
   },
   "push": {
-    "$self": "Push",
+    "$self": "푸시",
     "afterCompletion": "모든 작업 완료 후 푸시",
     "afterError": "오류 발생 후 푸시",
     "json": "JSON 푸시",
     "serverchan": "ServerChan 푸시"
   },
   "other": {
-    "$self": "Other",
+    "$self": "기타",
     "fhx": "원클릭 검열 해제"
   },
   "drill": {
-    "$self": "Joint Drill",
+    "$self": "종합전술시험",
     "difficulty": "시험 난이도",
     "outPartyNo": "부대 번호",
     "useAllAfterSweep": "출격 후 모든 시험 티켓 사용"
   },
   "artifact": {
-    "$self": "Crafting",
+    "$self": "제조",
     "all": "모두",
     "blue": "파란색",
     "createTime": "제조 횟수",
@@ -335,9 +340,9 @@
     "white": "흰색",
     "whiteBlue": "흰색/파란색"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "화이트리스트",
   "script": {
-    "$self": "Scripts",
+    "$self": "스크립트",
     "autostart": "스크립트 실행 시 자동 시작",
     "controlMethod": "제어 방식",
     "doNothing": "아무것도 안 함",
@@ -350,11 +355,11 @@
     "then": "작업 완료 후 작업"
   },
   "tactical": {
-    "$self": "Total Assault",
+    "$self": "총력전",
     "hardLevel": "총력전 난이도"
   },
   "team": {
-    "$self": "Formation",
+    "$self": "편성",
     "chooseMethod": "편성 방식",
     "order": "사이드바 순서별",
     "preset": "사전 설정된 편성",
@@ -401,18 +406,18 @@
     "clear": {
       "logs": "로그 지우기"
     },
-    "duplicate": "Duplicate hotkey",
-    "fixInvalid": "Fix invalid or duplicate hotkeys.",
+    "duplicate": "중복 단축키",
+    "fixInvalid": "잘못되었거나 중복된 단축키를 수정하세요.",
     "help": {
       "about": "도움말 / 정보"
     },
-    "invalidFormat": "Invalid hotkey",
-    "leaveEmpty": "Leave empty to unbind",
-    "search": "Search hotkeys",
+    "invalidFormat": "잘못된 단축키",
+    "leaveEmpty": "비우면 해제",
+    "search": "단축키 검색",
     "switch": {
       "start": "시작/정지"
     },
-    "usage": "Use combinations like"
+    "usage": "조합 예시"
   },
   "property": {
     "ap": "AP",
@@ -458,18 +463,18 @@
     "restart": "오전 4시에 재시작",
     "rewardedTask": "현상수배",
     "scrimmage": "학원 교류회",
-    "startExploreActivityChallenge": "Event Challenge",
-    "startExploreActivityMission": "Event Mission",
-    "startExploreActivityStory": "Event Story",
+    "startExploreActivityChallenge": "이벤트 챌린지",
+    "startExploreActivityMission": "이벤트 미션",
+    "startExploreActivityStory": "이벤트 스토리",
     "startFhx": "FHX",
-    "startGroupStory": "Group Story",
-    "startHardTask": "Hard Stage",
-    "startMainStory": "Main Story",
-    "startMiniStory": "Mini Story",
-    "startNormalTask": "Normal Stage",
+    "startGroupStory": "그룹 스토리",
+    "startHardTask": "하드 스테이지",
+    "startMainStory": "메인 스토리",
+    "startMiniStory": "미니 스토리",
+    "startNormalTask": "노멀 스테이지",
     "tacticalChallengeShop": "전술 대항전 상점 구매",
     "totalAssault": "총력전",
-    "unknown": "Unknown task"
+    "unknown": "알 수 없는 작업"
   },
   "shaMethod": {
     "gitcode": "GitCode 리포지토리",
@@ -493,7 +498,7 @@
   "mirrorc": {
     "cdk": {
       "noInput": "MirrorC CDK를 입력하세요!",
-      "testOk": "CDK OK"
+      "testOk": "CDK 유효"
     },
     "message": {
       "confirmCdkey": "올바른 CDK를 입력했는지 확인하세요",
@@ -514,13 +519,13 @@
   "configAdd": {
     "nameDuplicate": "프로필 이름이 이미 존재합니다",
     "nameRequired": "프로필 이름은 비워둘 수 없습니다",
-    "saveFailed": "Save failed",
+    "saveFailed": "저장 실패",
     "selectServer": "서버를 선택하세요",
     "serverRequired": "서버를 지정해야 합니다"
   },
   "export": {
     "log": {
-      "folderSelect": "Choose log export path"
+      "folderSelect": "로그 내보내기 위치 선택"
     }
   },
   "friend": {
@@ -528,8 +533,8 @@
     "addFailed": "추가 실패",
     "alreadyExists": "친구가 이미 존재합니다",
     "empty": "친구 화이트리스트가 비어 있습니다",
-    "invalidFormatCN": "CN code needs numbers and lowercase letters",
-    "invalidFormatGlobal": "Global code needs uppercase letters",
+    "invalidFormatCN": "CN 코드는 숫자와 소문자",
+    "invalidFormatGlobal": "Global 코드는 대문자",
     "invalidLength": "잘못된 친구 코드 길이",
     "placeholder": "친구 코드 입력"
   },
@@ -548,10 +553,10 @@
     "profileName": "여기에 프로필 이름을 입력하세요"
   },
   "select": {
-    "placeholder": "Select"
+    "placeholder": "선택"
   },
   "student": {
-    "add": "Add Student",
+    "add": "학생 추가",
     "search": "학생 검색"
   },
   "switch": {
@@ -565,8 +570,8 @@
     "wiki": "문서"
   },
   "toast": {
-    "dateUpdated": "Date updated",
-    "timeUpdated": "Time updated"
+    "dateUpdated": "날짜가 업데이트됨",
+    "timeUpdated": "시간이 업데이트됨"
   },
   "ui": {
     "zoom": "UI 확대/축소 설정"

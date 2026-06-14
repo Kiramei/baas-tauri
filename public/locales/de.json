@@ -13,20 +13,20 @@
     "cancel": "Abbrechen",
     "choose": "Wählen",
     "confirm": "Bestätigen",
-    "create": "Create",
+    "create": "Erstellen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "execute": "Ausführen",
     "save": "Speichern",
-    "start": "Start",
+    "start": "Starten",
     "stop": "Stopp",
     "theme": {
       "$self": "Thema",
-      "dark": "Dark",
-      "light": "Light",
+      "dark": "Dunkel",
+      "light": "Hell",
       "system": "System"
     },
-    "update": "Updates"
+    "update": "Aktualisieren"
   },
   "language": {
     "$self": "Sprache",
@@ -65,9 +65,9 @@
     "ui": {
       "$self": "UI-Einstellungen",
       "assets": "Ressourcendetails anzeigen",
-      "enableBAComet": "Enable BAComet",
-      "enableSafeStream": "Enable safe stream",
-      "player": "Player"
+      "enableBAComet": "BAComet aktivieren",
+      "enableSafeStream": "Sicheren Stream aktivieren",
+      "player": "Wiedergabe"
     },
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
   },
@@ -78,7 +78,7 @@
     "dueDate": "Ablaufdatum",
     "enterCdk": "CDK eingeben",
     "method": "Aktion",
-    "mirrorCdk": "MirrorC CDK (Optional)",
+    "mirrorCdk": "MirrorC-CDK",
     "notice": "Bitte stoppen Sie alle laufenden Aufgaben vor dem Update.",
     "prompt": "Eine neue Version wurde erkannt, jetzt aktualisieren?",
     "settingsTitle": "Update-Einstellungen",
@@ -90,56 +90,56 @@
     "info": "Versionsinformationen",
     "local": "Aktuelle Version",
     "remote": "Neueste Version",
-    "tapToTest": "Check for updates",
+    "tapToTest": "Updates prüfen",
     "testing": "Wird getestet..."
   },
   "profile": {
     "add": "Profil hinzufügen",
-    "cannotDeleteLast": "Cannot delete the last profile.",
+    "cannotDeleteLast": "Letztes Profil kann nicht gelöscht werden.",
     "create": "Profil erstellen",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie das Profil '{{name}}' löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!",
     "deleteConfirmTitle": "Löschung bestätigen",
     "edit": "Profil bearbeiten",
     "name": "Profilname",
-    "nameExists": "Name already exists"
+    "nameExists": "Name existiert bereits"
   },
   "description": {
-    "arena": "Arena automation",
+    "arena": "Arena-Automatik",
     "artifact": {
-      "$self": "Crafting settings",
+      "$self": "Herstellung",
       "useTicket": "Herstellungstickets verwenden"
     },
     "cafe": {
-      "$self": "Cafe invites and rewards",
+      "$self": "Café-Einladungen und Belohnungen",
       "patRounds": "Höhere Runden verringern die Wahrscheinlichkeit, Streicheleinheiten zu verpassen"
     },
     "commonShop": {
       "refresh": "Shop automatisch aktualisieren"
     },
-    "dailySweep": "Daily stages and sweeps",
-    "drill": "Joint drill settings",
-    "emulator": "Emulator path and startup",
-    "getEmulator": "Select emulator path",
+    "dailySweep": "Tägliche Stages und Sweeps",
+    "drill": "Test-Einstellungen",
+    "emulator": "Emulatorpfad und Start",
+    "getEmulator": "Emulator wählen",
     "other": {
-      "$self": "Misc settings",
+      "$self": "Sonstige Einstellungen",
       "fhx": "Versucht, den Anti-Zensur-Patch anzuwenden (CN-exklusiv)"
     },
-    "push": "Push settings",
-    "schedule": "Daily schedule",
-    "script": "Script settings",
-    "server": "Server and connection",
+    "push": "Push-Einstellungen",
+    "schedule": "Tagesplan",
+    "script": "Skripte",
+    "server": "Server und Verbindung",
     "settings": {
       "updateSuccess": "Ihre Einstellungen wurden erfolgreich aktualisiert."
     },
-    "shop": "Purchase priorities",
+    "shop": "Kaufprioritäten",
     "stage": {
-      "$self": "Auto stage clearing",
+      "$self": "Auto-Stage",
       "hard": "Einstellungen für schwere Stufen sind gleich. Hinweis: max. 3 Versuche. Englische Kommas verwenden. Für JP/Global-Server kann 'max' verwendet werden.",
       "normal": "Normale Stufen und Anzahl (z. B. \"1-1-1,1-2-3\" bedeutet Stufe 1-1 einmal, dann 1-2 dreimal)"
     },
-    "tactical": "Total Assault settings",
-    "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "tactical": "Total Assault",
+    "team": "Formation",
+    "whitelist": "Freundes-Whitelist"
   },
   "installer": {
     "advanced": "Erweiterte Einstellungen",
@@ -156,7 +156,7 @@
     }
   },
   "auth": {
-    "confirm": "Confirm",
+    "confirm": "Bestätigen",
     "confirmPasswordLabel": "Passwort bestätigen",
     "enterKeyTitle": "BAAS-Schlüssel eingeben",
     "enterPasswordPlaceholder": "Aktuelles Systempasswort eingeben...",
@@ -181,7 +181,7 @@
       "formation": "Formationsstrategie",
       "getting-started": "Erste Schritte",
       "operations": "Betrieb",
-      "support": "Support & Feedback"
+      "support": "Support"
     },
     "clearSearch": "Suche löschen",
     "noResults": "Keine Dokumente entsprechen den aktuellen Filterkriterien.",
@@ -208,7 +208,7 @@
     "sortDefault": "Standard-Sortierung"
   },
   "stage": {
-    "$self": "Stages",
+    "$self": "Stufen",
     "attrTable": "Referenztabelle der Stufenattribute",
     "challenge": "Herausforderungs-Stufen abschließen",
     "currentEvent": "Aktuelles Event",
@@ -236,13 +236,17 @@
     "taskTriggerStart": "Aufgabe wurde verteilt"
   },
   "cafe": {
-    "$self": "Cafe",
+    "$self": "Café",
     "basicSettings": "Grundlegende Café-Einstellungen",
     "byName": "Nach Schülernamen",
     "cafe1Settings": "Einstellungen Café 1",
     "cafe1Students": "Liste der Schülernamen",
     "cafe2Settings": "Einstellungen Café 2",
     "cafe2Students": "Liste der Schülernamen",
+    "collectReward": "Belohnungen sammeln",
+    "duplicateInvite": "Doppelte Einladung",
+    "exchangeStudent": "Outfitwechsel",
+    "hasNo2Cafe": "Café 2",
     "highestAffection": "Nach höchster Zuneigung",
     "invite1Mode": "Einladungsmodus",
     "invite2Mode": "Einladungsmodus",
@@ -251,17 +255,18 @@
     "patStyle": "Streichelstil",
     "patStyleDragGift": "Geschenk ziehen",
     "starred": "Nach favorisierten Schülern",
-    "starredPosition": "Position favorisierter Schüler"
+    "starredPosition": "Position favorisierter Schüler",
+    "useInvitation": "Einladungsticket nutzen"
   },
-  "dailySweep": "Daily",
+  "dailySweep": "Täglich",
   "schedule": {
-    "$self": "Schedule",
+    "$self": "Zeitplan",
     "advanced": "Fortgeschritten",
     "normal": "Normal",
     "primary": "Anfänger",
     "superior": "Experte"
   },
-  "shop": "Shop",
+  "shop": "Laden",
   "arena": {
     "$self": "Arena",
     "higherLevel": "Gegnerlevel höher als deins um",
@@ -273,16 +278,16 @@
     "adbIP": "ADB IP-Adresse",
     "adbPort": "ADB-Port",
     "cn": {
-      "bilibili": "Bilibili (CN)",
+      "bilibili": "Bilibili CN",
       "official": "Offiziell (CN)"
     },
     "global": {
       "$self": "Global",
-      "teen": "Global (Teen)"
+      "teen": "Global Jugend"
     },
     "jp": "Japan",
     "kr": {
-      "one": "Korea (ONE store)"
+      "one": "Korea ONE"
     },
     "server": "Spielserver"
   },
@@ -296,38 +301,38 @@
     "waitTime": "Wartezeit für Emulatorstart (Sekunden)"
   },
   "push": {
-    "$self": "Push",
+    "$self": "Benachrichtigung",
     "afterCompletion": "Push-Nachricht nach Abschluss aller Aufgaben",
     "afterError": "Push-Nachricht bei Fehler",
     "json": "JSON-Push",
     "serverchan": "ServerChan-Push"
   },
   "other": {
-    "$self": "Other",
+    "$self": "Sonstiges",
     "fhx": "Ein-Klick-Anti-Zensur"
   },
   "drill": {
-    "$self": "Joint Drill",
+    "$self": "Gemeinsamer Test",
     "difficulty": "Übungsschwierigkeit",
     "outPartyNo": "Teamnummer",
     "useAllAfterSweep": "Alle Übungstickets nach dem Einsatz verwenden"
   },
   "artifact": {
-    "$self": "Crafting",
+    "$self": "Herstellung",
     "all": "Alle",
     "blue": "Blau",
     "createTime": "Anzahl der Herstellungen",
     "default": "Standard",
     "global": "Globale Einstellungen",
-    "gold": "Gold",
+    "gold": "Goldfarben",
     "goldPurple": "Gold & Lila",
     "materialSelect": "Materialauswahl",
-    "phase1": "Phase 1",
+    "phase1": "Phase eins",
     "phase2": {
-      "$self": "Phase 2",
+      "$self": "Phase zwei",
       "recommend": "Empfehlung basierend auf Schüler"
     },
-    "phase3": "Phase 3",
+    "phase3": "Phase drei",
     "phaseCount": "Herstellungsphase",
     "priority": "Priorität",
     "purple": "Lila",
@@ -335,9 +340,9 @@
     "white": "Weiß",
     "whiteBlue": "Weiß & Blau"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "Freundesliste",
   "script": {
-    "$self": "Scripts",
+    "$self": "Skripte",
     "autostart": "Automatischer Start bei Skriptstart",
     "controlMethod": "Steuerungsmethode",
     "doNothing": "Nichts tun",
@@ -354,7 +359,7 @@
     "hardLevel": "Schwierigkeit des Großangriffs"
   },
   "team": {
-    "$self": "Formation",
+    "$self": "Team",
     "chooseMethod": "Formationsmethode",
     "order": "Nach Seitenleisten-Reihenfolge",
     "preset": "Nach voreingestellter Formation",
@@ -401,18 +406,18 @@
     "clear": {
       "logs": "Protokolle löschen"
     },
-    "duplicate": "Duplicate hotkey",
-    "fixInvalid": "Fix invalid or duplicate hotkeys.",
+    "duplicate": "Hotkey doppelt",
+    "fixInvalid": "Ungültige oder doppelte Hotkeys korrigieren.",
     "help": {
       "about": "Hilfe / Über"
     },
-    "invalidFormat": "Invalid hotkey",
-    "leaveEmpty": "Leave empty to unbind",
-    "search": "Search hotkeys",
+    "invalidFormat": "Ungültiger Hotkey",
+    "leaveEmpty": "Leer lassen zum Entfernen",
+    "search": "Hotkeys suchen",
     "switch": {
       "start": "Start/Stopp"
     },
-    "usage": "Use combinations like"
+    "usage": "Kombinationen wie"
   },
   "property": {
     "ap": "AP",
@@ -458,18 +463,18 @@
     "restart": "Neustart um 4 Uhr morgens",
     "rewardedTask": "Kopfgeld",
     "scrimmage": "Kommissionen",
-    "startExploreActivityChallenge": "Event Challenge",
-    "startExploreActivityMission": "Event Mission",
-    "startExploreActivityStory": "Event Story",
+    "startExploreActivityChallenge": "Event-Herausforderung",
+    "startExploreActivityMission": "Event-Mission",
+    "startExploreActivityStory": "Event-Story",
     "startFhx": "FHX",
-    "startGroupStory": "Group Story",
-    "startHardTask": "Hard Stage",
-    "startMainStory": "Main Story",
-    "startMiniStory": "Mini Story",
-    "startNormalTask": "Normal Stage",
+    "startGroupStory": "Gruppenstory",
+    "startHardTask": "Hard-Stage",
+    "startMainStory": "Hauptstory",
+    "startMiniStory": "Mini-Story",
+    "startNormalTask": "Normal-Stage",
     "tacticalChallengeShop": "Kauf im taktischen Herausforderungsshop",
     "totalAssault": "Großangriff",
-    "unknown": "Unknown task"
+    "unknown": "Unbekannte Aufgabe"
   },
   "shaMethod": {
     "gitcode": "GitCode-Repository",
@@ -493,7 +498,7 @@
   "mirrorc": {
     "cdk": {
       "noInput": "Bitte geben Sie den MirrorC CDK ein!",
-      "testOk": "CDK OK"
+      "testOk": "CDK gültig"
     },
     "message": {
       "confirmCdkey": "Bitte bestätigen Sie, dass Sie den korrekten CDK eingegeben haben",
@@ -514,13 +519,13 @@
   "configAdd": {
     "nameDuplicate": "Profilname existiert bereits",
     "nameRequired": "Profilname darf nicht leer sein",
-    "saveFailed": "Save failed",
+    "saveFailed": "Speichern fehlgeschlagen",
     "selectServer": "Bitte einen Server auswählen",
     "serverRequired": "Ein Server muss angegeben werden"
   },
   "export": {
     "log": {
-      "folderSelect": "Choose log export path"
+      "folderSelect": "Log-Export wählen"
     }
   },
   "friend": {
@@ -528,8 +533,8 @@
     "addFailed": "Hinzufügen fehlgeschlagen",
     "alreadyExists": "Freund existiert bereits",
     "empty": "Freunde-Whitelist ist leer",
-    "invalidFormatCN": "CN code needs numbers and lowercase letters",
-    "invalidFormatGlobal": "Global code needs uppercase letters",
+    "invalidFormatCN": "CN-Code: Zahlen und Kleinbuchstaben",
+    "invalidFormatGlobal": "Global-Code: Großbuchstaben",
     "invalidLength": "Ungültige Freundescode-Länge",
     "placeholder": "Freundescode eingeben"
   },
@@ -548,10 +553,10 @@
     "profileName": "Geben Sie hier Ihren Profilnamen ein"
   },
   "select": {
-    "placeholder": "Select"
+    "placeholder": "Auswählen"
   },
   "student": {
-    "add": "Add Student",
+    "add": "Schüler hinzufügen",
     "search": "Schüler suchen"
   },
   "switch": {
@@ -565,8 +570,8 @@
     "wiki": "Doku"
   },
   "toast": {
-    "dateUpdated": "Date updated",
-    "timeUpdated": "Time updated"
+    "dateUpdated": "Datum aktualisiert",
+    "timeUpdated": "Zeit aktualisiert"
   },
   "ui": {
     "zoom": "UI-Zoom-Einstellungen"

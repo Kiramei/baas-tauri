@@ -13,7 +13,7 @@
     "cancel": "Отмена",
     "choose": "Выбрать",
     "confirm": "Подтвердить",
-    "create": "Create",
+    "create": "Создать",
     "delete": "Удалить",
     "edit": "Редактировать",
     "execute": "Выполнить",
@@ -22,9 +22,9 @@
     "stop": "Стоп",
     "theme": {
       "$self": "Тема",
-      "dark": "Dark",
-      "light": "Light",
-      "system": "System"
+      "dark": "Тёмная",
+      "light": "Светлая",
+      "system": "Системная"
     },
     "update": "Обновления"
   },
@@ -65,9 +65,9 @@
     "ui": {
       "$self": "Настройки интерфейса",
       "assets": "Показать детали ресурсов",
-      "enableBAComet": "Enable BAComet",
-      "enableSafeStream": "Enable safe stream",
-      "player": "Player"
+      "enableBAComet": "Включить BAComet",
+      "enableSafeStream": "Безопасный поток",
+      "player": "Плеер"
     },
     "updateSuccess": "Настройки успешно обновлены"
   },
@@ -90,56 +90,56 @@
     "info": "Информация о версии",
     "local": "Текущая версия",
     "remote": "Последняя версия",
-    "tapToTest": "Check for updates",
+    "tapToTest": "Проверить",
     "testing": "Проверка..."
   },
   "profile": {
     "add": "Добавить профиль",
-    "cannotDeleteLast": "Cannot delete the last profile.",
+    "cannotDeleteLast": "Нельзя удалить последний профиль.",
     "create": "Создать профиль",
     "deleteConfirmMessage": "Вы уверены, что хотите удалить профиль '{{name}}'? Это действие необратимо!",
     "deleteConfirmTitle": "Подтверждение удаления",
     "edit": "Редактировать профиль",
     "name": "Имя профиля",
-    "nameExists": "Name already exists"
+    "nameExists": "Имя уже существует"
   },
   "description": {
-    "arena": "Arena automation",
+    "arena": "Автоматизация арены",
     "artifact": {
-      "$self": "Crafting settings",
+      "$self": "Крафт",
       "useTicket": "Использовать билеты для крафта"
     },
     "cafe": {
-      "$self": "Cafe invites and rewards",
+      "$self": "Кафе: приглашения и награды",
       "patRounds": "Чем выше число, тем меньше шанс пропустить поглаживание"
     },
     "commonShop": {
       "refresh": "Автоматически обновлять магазин"
     },
-    "dailySweep": "Daily stages and sweeps",
-    "drill": "Joint drill settings",
-    "emulator": "Emulator path and startup",
-    "getEmulator": "Select emulator path",
+    "dailySweep": "Ежедневные этапы и зачистки",
+    "drill": "Настройки испытания",
+    "emulator": "Путь и запуск эмулятора",
+    "getEmulator": "Выбрать эмулятор",
     "other": {
-      "$self": "Misc settings",
+      "$self": "Прочие настройки",
       "fhx": "Попытка применить патч анти-цензуры (только для CN)"
     },
-    "push": "Push settings",
-    "schedule": "Daily schedule",
-    "script": "Script settings",
-    "server": "Server and connection",
+    "push": "Push-настройки",
+    "schedule": "Ежедневное расписание",
+    "script": "Скрипты",
+    "server": "Сервер и подключение",
     "settings": {
       "updateSuccess": "Ваши настройки были успешно обновлены."
     },
-    "shop": "Purchase priorities",
+    "shop": "Приоритеты покупок",
     "stage": {
-      "$self": "Auto stage clearing",
+      "$self": "Автоэтапы",
       "hard": "Настройки сложных этапов такие же. Примечание: макс. 3 попытки. Используйте английские запятые. Для серверов JP/Global можно использовать 'max'.",
       "normal": "Обычные этапы и количество раз (например, \"1-1-1,1-2-3\" означает этап 1-1 один раз, затем этап 1-2 три раза)"
     },
-    "tactical": "Total Assault settings",
-    "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "tactical": "Total Assault",
+    "team": "Формация",
+    "whitelist": "Белый список друзей"
   },
   "installer": {
     "advanced": "Расширенные настройки",
@@ -156,7 +156,7 @@
     }
   },
   "auth": {
-    "confirm": "Confirm",
+    "confirm": "Подтвердить",
     "confirmPasswordLabel": "Подтвердите пароль",
     "enterKeyTitle": "Введите ключ BAAS",
     "enterPasswordPlaceholder": "Введите текущий системный пароль...",
@@ -208,7 +208,7 @@
     "sortDefault": "Сортировка по умолчанию"
   },
   "stage": {
-    "$self": "Stages",
+    "$self": "Этапы",
     "attrTable": "Справочная таблица атрибутов этапа",
     "challenge": "Проходить испытания",
     "currentEvent": "Текущее событие",
@@ -236,13 +236,17 @@
     "taskTriggerStart": "Задача была отправлена"
   },
   "cafe": {
-    "$self": "Cafe",
+    "$self": "Кафе",
     "basicSettings": "Основные настройки кафе",
     "byName": "По имени студента",
     "cafe1Settings": "Настройки Кафе 1",
     "cafe1Students": "Список имен студентов",
     "cafe2Settings": "Настройки Кафе 2",
     "cafe2Students": "Список имен студентов",
+    "collectReward": "Собрать награды",
+    "duplicateInvite": "Повторное приглашение",
+    "exchangeStudent": "Смена костюма",
+    "hasNo2Cafe": "Кафе 2",
     "highestAffection": "По наибольшей привязанности",
     "invite1Mode": "Режим приглашения",
     "invite2Mode": "Режим приглашения",
@@ -251,29 +255,30 @@
     "patStyle": "Стиль поглаживания",
     "patStyleDragGift": "Перетащить подарок",
     "starred": "По избранным студентам",
-    "starredPosition": "Позиция избранного студента"
+    "starredPosition": "Позиция избранного студента",
+    "useInvitation": "Использовать билет"
   },
-  "dailySweep": "Daily",
+  "dailySweep": "Ежедневно",
   "schedule": {
-    "$self": "Schedule",
+    "$self": "Расписание",
     "advanced": "Продвинутый",
     "normal": "Обычный",
     "primary": "Начальный",
     "superior": "Экспертный"
   },
-  "shop": "Shop",
+  "shop": "Магазин",
   "arena": {
-    "$self": "Arena",
+    "$self": "Арена",
     "higherLevel": "Уровень противника выше вашего на",
     "maxRefreshTimes": "Максимальное количество обновлений",
     "opponentNo": "Номер противника"
   },
   "server": {
-    "$self": "Server",
+    "$self": "Сервер",
     "adbIP": "IP-адрес ADB",
     "adbPort": "Порт ADB",
     "cn": {
-      "bilibili": "Bilibili (CN)",
+      "bilibili": "Bilibili CN",
       "official": "Официальный (CN)"
     },
     "global": {
@@ -287,7 +292,7 @@
     "server": "Игровой сервер"
   },
   "emulator": {
-    "$self": "Emulator",
+    "$self": "Эмулятор",
     "address": "Путь к эмулятору",
     "instanceCount": "Номер мульти-инстанса эмулятора",
     "multiInstance": "Мульти-инстанс эмулятора",
@@ -296,24 +301,24 @@
     "waitTime": "Время ожидания запуска эмулятора (секунды)"
   },
   "push": {
-    "$self": "Push",
+    "$self": "Уведомления",
     "afterCompletion": "Уведомить после завершения всех задач",
     "afterError": "Уведомить после ошибки",
     "json": "JSON-уведомление",
     "serverchan": "Уведомление ServerChan"
   },
   "other": {
-    "$self": "Other",
+    "$self": "Прочее",
     "fhx": "Анти-цензура в один клик"
   },
   "drill": {
-    "$self": "Joint Drill",
+    "$self": "Совместное испытание",
     "difficulty": "Сложность учений",
     "outPartyNo": "Номер команды",
     "useAllAfterSweep": "Использовать все билеты учений после вылазки"
   },
   "artifact": {
-    "$self": "Crafting",
+    "$self": "Крафт",
     "all": "Все",
     "blue": "Синий",
     "createTime": "Количество крафтов",
@@ -335,9 +340,9 @@
     "white": "Белый",
     "whiteBlue": "Белый и Синий"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "Белый список",
   "script": {
-    "$self": "Scripts",
+    "$self": "Скрипты",
     "autostart": "Автозапуск при запуске скрипта",
     "controlMethod": "Метод управления",
     "doNothing": "Ничего не делать",
@@ -354,7 +359,7 @@
     "hardLevel": "Сложность Тотального Штурма"
   },
   "team": {
-    "$self": "Formation",
+    "$self": "Формация",
     "chooseMethod": "Метод формирования",
     "order": "По порядку боковой панели",
     "preset": "По предустановленному формированию",
@@ -401,18 +406,18 @@
     "clear": {
       "logs": "Очистить логи"
     },
-    "duplicate": "Duplicate hotkey",
-    "fixInvalid": "Fix invalid or duplicate hotkeys.",
+    "duplicate": "Дубликат хоткея",
+    "fixInvalid": "Исправьте неверные или повторяющиеся хоткеи.",
     "help": {
       "about": "Помощь / О программе"
     },
-    "invalidFormat": "Invalid hotkey",
-    "leaveEmpty": "Leave empty to unbind",
-    "search": "Search hotkeys",
+    "invalidFormat": "Неверный хоткей",
+    "leaveEmpty": "Оставьте пустым для отвязки",
+    "search": "Поиск хоткеев",
     "switch": {
       "start": "Старт/Стоп"
     },
-    "usage": "Use combinations like"
+    "usage": "Комбинации вроде"
   },
   "property": {
     "ap": "AP",
@@ -458,18 +463,18 @@
     "restart": "Перезапуск в 4 утра",
     "rewardedTask": "Охота за головами",
     "scrimmage": "Поручения",
-    "startExploreActivityChallenge": "Event Challenge",
-    "startExploreActivityMission": "Event Mission",
-    "startExploreActivityStory": "Event Story",
+    "startExploreActivityChallenge": "Ивент-вызов",
+    "startExploreActivityMission": "Ивент-миссия",
+    "startExploreActivityStory": "Ивент-сюжет",
     "startFhx": "FHX",
-    "startGroupStory": "Group Story",
-    "startHardTask": "Hard Stage",
-    "startMainStory": "Main Story",
-    "startMiniStory": "Mini Story",
-    "startNormalTask": "Normal Stage",
+    "startGroupStory": "Групповой сюжет",
+    "startHardTask": "Сложный этап",
+    "startMainStory": "Главный сюжет",
+    "startMiniStory": "Мини-сюжет",
+    "startNormalTask": "Обычный этап",
     "tacticalChallengeShop": "Покупки в магазине тактических испытаний",
     "totalAssault": "Тотальный Штурм",
-    "unknown": "Unknown task"
+    "unknown": "Неизвестная задача"
   },
   "shaMethod": {
     "gitcode": "Репозиторий GitCode",
@@ -493,7 +498,7 @@
   "mirrorc": {
     "cdk": {
       "noInput": "Пожалуйста, введите CDK MirrorC!",
-      "testOk": "CDK OK"
+      "testOk": "CDK действителен"
     },
     "message": {
       "confirmCdkey": "Пожалуйста, подтвердите, что вы ввели правильный CDK",
@@ -514,13 +519,13 @@
   "configAdd": {
     "nameDuplicate": "Имя профиля уже существует",
     "nameRequired": "Имя профиля не может быть пустым",
-    "saveFailed": "Save failed",
+    "saveFailed": "Не удалось сохранить",
     "selectServer": "Выберите сервер",
     "serverRequired": "Необходимо указать сервер"
   },
   "export": {
     "log": {
-      "folderSelect": "Choose log export path"
+      "folderSelect": "Выбрать экспорт логов"
     }
   },
   "friend": {
@@ -528,8 +533,8 @@
     "addFailed": "Не удалось добавить",
     "alreadyExists": "Друг уже существует",
     "empty": "Белый список друзей пуст",
-    "invalidFormatCN": "CN code needs numbers and lowercase letters",
-    "invalidFormatGlobal": "Global code needs uppercase letters",
+    "invalidFormatCN": "CN-код: цифры и строчные буквы",
+    "invalidFormatGlobal": "Global-код: заглавные буквы",
     "invalidLength": "Неверная длина кода друга",
     "placeholder": "Введите код друга"
   },
@@ -548,10 +553,10 @@
     "profileName": "Введите имя вашего профиля здесь"
   },
   "select": {
-    "placeholder": "Select"
+    "placeholder": "Выбрать"
   },
   "student": {
-    "add": "Add Student",
+    "add": "Добавить ученика",
     "search": "Поиск студента"
   },
   "switch": {
@@ -565,8 +570,8 @@
     "wiki": "Документация"
   },
   "toast": {
-    "dateUpdated": "Date updated",
-    "timeUpdated": "Time updated"
+    "dateUpdated": "Дата обновлена",
+    "timeUpdated": "Время обновлено"
   },
   "ui": {
     "zoom": "Настройки масштабирования интерфейса"

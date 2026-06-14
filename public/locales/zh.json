@@ -243,6 +243,10 @@
     "cafe1Students": "学生姓名列表",
     "cafe2Settings": "咖啡厅2设置",
     "cafe2Students": "学生姓名列表",
+    "collectReward": "领取奖励",
+    "duplicateInvite": "允许重复邀请",
+    "exchangeStudent": "允许学生更换服饰",
+    "hasNo2Cafe": "启用二号咖啡厅",
     "highestAffection": "按最高好感度",
     "invite1Mode": "邀请模式",
     "invite2Mode": "邀请模式",
@@ -251,7 +255,8 @@
     "patStyle": "摸头风格",
     "patStyleDragGift": "拖动礼物",
     "starred": "按收藏的学生",
-    "starredPosition": "收藏学生位置"
+    "starredPosition": "收藏学生位置",
+    "useInvitation": "使用邀请券"
   },
   "dailySweep": "日常",
   "schedule": {

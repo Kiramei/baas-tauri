@@ -243,6 +243,10 @@
     "cafe1Students": "Student Name List",
     "cafe2Settings": "Cafe 2 Settings",
     "cafe2Students": "Student Name List",
+    "collectReward": "Collect rewards",
+    "duplicateInvite": "Duplicate invite",
+    "exchangeStudent": "Student outfit change",
+    "hasNo2Cafe": "Cafe 2",
     "highestAffection": "By Highest Affection",
     "invite1Mode": "Invitation Mode",
     "invite2Mode": "Invitation Mode",
@@ -251,7 +255,8 @@
     "patStyle": "Patting Style",
     "patStyleDragGift": "Drag Gift",
     "starred": "By Starred Students",
-    "starredPosition": "Starred Student Position"
+    "starredPosition": "Starred Student Position",
+    "useInvitation": "Use invitation ticket"
   },
   "dailySweep": "Daily",
   "schedule": {
