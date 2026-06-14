@@ -350,6 +350,8 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
         program: shell,
         args: vec!["-lc".to_string(), script.to_string()],
         display: display.to_string(),
+        cwd: ".".to_string(),
+        env: vec![],
     }
 }
 
@@ -380,7 +382,7 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
         ],
         display: display.to_string(),
         cwd: ".".to_string(),
-        env: vec![]
+        env: vec![],
     }
 }
 

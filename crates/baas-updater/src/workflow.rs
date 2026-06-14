@@ -41,7 +41,6 @@ use std::{
     thread,
     time::Duration,
 };
-use std::os::windows::process::CommandExt;
 
 /// Structured workflow failure payload for Tauri and UI callers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -856,7 +855,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         program: script.program,
         args: script.args,
         cwd: script.cwd,
-        env: script.env
+        env: script.env,
     }
 }
 
@@ -2066,7 +2065,6 @@ fn script_from_command(command: &CommandSpec) -> ScriptCommand {
     }
 }
 
-
 fn direct_script(command: &CommandSpec) -> ScriptCommand {
     let program = command.program.to_string_lossy().to_string();
     let display = std::iter::once(program.as_str())
@@ -2079,16 +2077,18 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
         args: command.args.clone(),
         display,
         cwd: command
-        .cwd
-        .as_ref()
-        .map(|cwd| cwd.to_string_lossy().to_string())
-        .unwrap_or_else(|| ".".to_string()),
-        env: command.env.clone()
+            .cwd
+            .as_ref()
+            .map(|cwd| cwd.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string()),
+        env: command.env.clone(),
     }
 }
 
 #[cfg(windows)]
 fn powershell_script(command: &CommandSpec) -> ScriptCommand {
+    use std::os::windows::process::CommandExt;
+
     let shell = if std::process::Command::new("pwsh")
         .creation_flags(0x08000000)
         .arg("-NoLogo")
@@ -2174,7 +2174,7 @@ fn powershell_script(command: &CommandSpec) -> ScriptCommand {
             .as_ref()
             .map(|cwd| cwd.to_string_lossy().to_string())
             .unwrap_or_else(|| ".".to_string()),
-        env: command.env.clone()
+        env: command.env.clone(),
     }
 }
 
@@ -2233,6 +2233,12 @@ fn sh_script(command: &CommandSpec) -> ScriptCommand {
         program: std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
         args: vec!["-lc".to_string(), script],
         display: display_command(command),
+        cwd: command
+            .cwd
+            .as_ref()
+            .map(|cwd| cwd.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string()),
+        env: command.env,
     }
 }
 
@@ -2279,8 +2285,8 @@ mod tests {
             _ranking_path: &Path,
             _output: &(dyn OutputSink + Send + Sync),
         ) -> UpdaterResult<RepositoryOutcome> {
-            fs::create_dir_all(target_dir).unwrap();
-            fs::write(target_dir.join(format!("{}.txt", kind.as_str())), "ok").unwrap();
+            fs::create_dir_all(target_dir)?;
+            fs::write(target_dir.join(format!("{}.txt", kind.as_str())), "ok")?;
             self.calls
                 .lock()
                 .unwrap()

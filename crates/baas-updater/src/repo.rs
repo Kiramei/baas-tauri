@@ -7,7 +7,6 @@ use crate::{
 use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
 use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
 use serde::{Deserialize, Serialize};
-use std::os::windows::process::CommandExt;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -202,8 +201,9 @@ pub struct RealGitExecutor;
 
 impl GitExecutor for RealGitExecutor {
     fn has_cli(&self) -> bool {
-        Command::new("git")
-            .creation_flags(0x08000000)
+        let mut command = Command::new("git");
+        hide_command_window(&mut command);
+        command
             .arg("--version")
             .output()
             .map(|output| output.status.success())
@@ -236,8 +236,7 @@ impl GitExecutor for RealGitExecutor {
 
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
-        #[cfg(target_os = "windows")]
-        cmd.creation_flags(0x08000000);
+        hide_command_window(&mut cmd);
         let output = cmd
             .arg("rev-parse")
             .arg("HEAD")
@@ -256,8 +255,7 @@ impl GitExecutor for RealGitExecutor {
 
     fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
-        #[cfg(target_os = "windows")]
-        cmd.creation_flags(0x08000000);
+        hide_command_window(&mut cmd);
         let output = cmd
             .arg("ls-remote")
             .arg("--heads")
@@ -638,6 +636,7 @@ pub fn save_ranking(path: &Path, ranking: &SourceRanking) -> UpdaterResult<()> {
 
 fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
     let mut command = Command::new("git");
+    hide_command_window(&mut command);
     command.args(args).env("GIT_TERMINAL_PROMPT", "0");
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
@@ -653,6 +652,15 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
         ))
     }
 }
+
+#[cfg(target_os = "windows")]
+fn hide_command_window(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(0x08000000);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn hide_command_window(_command: &mut Command) {}
 
 fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
     let mut callbacks = RemoteCallbacks::new();
