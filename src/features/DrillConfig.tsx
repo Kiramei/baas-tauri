@@ -70,7 +70,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
       {/* Party lineup configuration */}
       <div>
         <label className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-          {t("drill.out_partyNo")}
+          {t("drill.outPartyNo")}
         </label>
         <div className="flex items-center gap-2">
           {draft.drill_fight_formation_list.map((val, i) => (
@@ -121,7 +121,7 @@ const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

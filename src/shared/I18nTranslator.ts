@@ -3,6 +3,37 @@ import { initReactI18next } from "react-i18next";
 import StorageUtil from "@/shared/StorageManager.ts";
 
 const baseUrl = import.meta.env.BASE_URL;
+const selfKey = "$self";
+
+function flattenLocale(value: unknown, prefix = "", output: Record<string, string> = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return output;
+
+  for (const [key, child] of Object.entries(value)) {
+    if (key === selfKey) {
+      if (prefix) output[prefix] = String(child);
+      continue;
+    }
+
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+    if (child && typeof child === "object" && !Array.isArray(child)) {
+      flattenLocale(child, nextKey, output);
+    } else {
+      output[nextKey] = String(child);
+    }
+  }
+
+  return output;
+}
+
+async function syncBackendLocale(lang: string) {
+  if (!__WITH_TAURI__) return;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_backend_locale", { lang });
+  } catch (err) {
+    console.error(`[i18n] failed to sync backend locale ${lang}:`, err);
+  }
+}
 
 /**
  * Initialize i18next immediately so React never complains.
@@ -13,12 +44,16 @@ export async function initI18n() {
     console.warn("[i18n] Storage init failed, fallback to default settings");
   });
 
+  const lang = StorageUtil.get("uiSettings")?.["lang"] || "en";
+
   await i18n.use(initReactI18next).init({
-    lng: StorageUtil.get("uiSettings")?.["lang"] || "en",
+    lng: lang,
     fallbackLng: "en",
     resources: {},
     interpolation: { escapeValue: false },
   });
+
+  await syncBackendLocale(lang);
 
   console.log("[i18n] initialized");
 }
@@ -30,13 +65,14 @@ export async function loadLocale(lang: string) {
   try {
     const res = await fetch(`${__WITH_WEBUI__ ? baseUrl : ""}locales/${lang}.json`);
     if (!res.ok) throw new Error(`Failed to load locale: ${lang}`);
-    const data = await res.json();
+    const data = flattenLocale(await res.json());
 
     // Add or overwrite translations for this language
     i18n.addResourceBundle(lang, "translation", data, true, true);
 
     // Change the current language
     await i18n.changeLanguage(lang);
+    await syncBackendLocale(lang);
 
     console.log(`[i18n] switched to ${lang}`);
   } catch (err) {

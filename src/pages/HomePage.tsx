@@ -90,7 +90,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       {/* Header: high-level actions and script controls. */}
       <div className="flex justify-between items-center shrink-0">
         <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("home")}</h2>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("nav.home")}</h2>
           <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
         </div>
         <div className="flex sm:hidden items-center gap-2">
@@ -133,7 +133,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             ) : (
               <Play className="w-4 h-4 mr-2" />
             )}
-            {scriptRunning ? t("stop") : t("start")}
+            {scriptRunning ? t("common.stop") : t("common.start")}
           </CButton>
         </div>
       </div>
@@ -153,7 +153,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         <CardHeader className="flex justify-between items-center">
           <CardTitle>
             <div className="flex items-center gap-2">
-              <Logs /> {t("logs")}
+              <Logs /> {t("log")}
             </div>
           </CardTitle>
           <div className="sm:flex hidden items-center justify-center">

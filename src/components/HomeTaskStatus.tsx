@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { eventNameKey } from "@/shared/I18nKeys";
 
 export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
@@ -18,29 +19,29 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
         }
       >
         <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
-        <div className="grow">{t("runningTask")}:</div>
+        <div className="grow">{t("task.running")}:</div>
         <div className={"flex flex-col items-center justify-center float-end"}>
           {runningTask ? (
             <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
-              {t(runningTask)}
+              {t(eventNameKey(runningTask))}
             </span>
           ) : (
-            <span className="text-slate-500 dark:text-slate-400">{t("noTaskRunning")}</span>
+            <span className="text-slate-500 dark:text-slate-400">{t("task.noneRunning")}</span>
           )}
         </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center">
         <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
-        <div className="flex-grow">{t("nextTask")}:</div>
+        <div className="flex-grow">{t("task.next")}:</div>
 
         <div className="flex flex-col items-center justify-center float-end mr-2">
           {taskQueue && taskQueue.length > 0 ? (
             <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
-              {taskQueue[0]}
+              {t(eventNameKey(taskQueue[0]))}
             </span>
           ) : (
-            <span className="text-slate-500 dark:text-slate-400">{t("noTasksQueued")}</span>
+            <span className="text-slate-500 dark:text-slate-400">{t("task.noneQueued")}</span>
           )}
         </div>
 
@@ -65,12 +66,12 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
                     key={idx}
                     className="text-lg px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-md"
                   >
-                    {task}
+                    {t(eventNameKey(task))}
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="text-sm text-slate-500 dark:text-slate-400">{t("noTasksQueued")}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{t("task.noneQueued")}</div>
             )}
           </PopoverContent>
         </Popover>

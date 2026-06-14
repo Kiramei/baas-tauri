@@ -318,7 +318,7 @@ const SetupPage = () => {
           <div className="text-center space-y-2">
             <h2 className="text-2xl font-bold">{t("installer.title")}</h2>
             <p className="text-muted-foreground">
-              {setupPhase ? t("installer.subtitle.stage_1") : t("installer.subtitle.stage_2")}
+              {setupPhase ? t("installer.subtitle.stage1") : t("installer.subtitle.stage2")}
             </p>
           </div>
 

@@ -116,7 +116,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

@@ -85,7 +85,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
         <FormInput
           id="maxArenaRefreshTimes"
           name="maxArenaRefreshTimes"
-          label={t("arena.max_refresh_times")}
+          label={t("arena.maxRefreshTimes")}
           type="number"
           className="w-full"
           value={draft.maxArenaRefreshTimes}
@@ -94,7 +94,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
         />
 
         <FormSelect
-          label={t("arena.opponent_no")}
+          label={t("arena.opponentNo")}
           className="w-full"
           value={draft.ArenaComponentNumber.toString()}
           onChange={handleChange("ArenaComponentNumber")}
@@ -103,7 +103,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
             { value: "2", label: "2" },
             { value: "3", label: "3" },
           ]}
-          placeholder={t("selectPlaceholder") || undefined}
+          placeholder={t("select.placeholder")}
         />
       </div>
 
@@ -113,7 +113,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

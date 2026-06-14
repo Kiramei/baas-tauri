@@ -9,6 +9,7 @@ import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
 import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
+import { scheduleLevelKey } from "@/shared/I18nKeys";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -225,7 +226,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
                   hover:bg-slate-100 dark:hover:bg-slate-600
                 "
               >
-                <Plus className="w-4 h-4" /> {t("add")}
+                <Plus className="w-4 h-4" /> {t("common.add")}
               </button>
             </Reorder.Group>
           </div>
@@ -245,7 +246,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
               <th className="px-2 py-1 border text-left">{t("lesson.region")}</th>
               {levels.map((l) => (
                 <th key={l} className="px-2 py-1 border">
-                  {t(`schedule.${l}`)}
+                  {t(scheduleLevelKey(l))}
                 </th>
               ))}
               <th className="px-2 py-1 border">{t("lesson.times")}</th>
@@ -316,7 +317,7 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

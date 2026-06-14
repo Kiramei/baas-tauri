@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { PageKey } from "@/types/app";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { eventNameKey } from "@/shared/I18nKeys";
 
 type OtherConfigProps = {
   profileId: string;
@@ -27,7 +28,7 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ profileId, onClose, setActive
       },
       () => {
         toast(t("stage.taskTriggerStart"), {
-          description: t("stage.taskTriggered", { task: t(taskName) }),
+          description: t("stage.taskTriggered", { task: t(eventNameKey(taskName)) }),
         });
       }
     );
@@ -40,13 +41,13 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ profileId, onClose, setActive
       <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
         <div>
           <label className="text-slate-700 dark:text-slate-200 font-medium">{t("other.fhx")}</label>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t("other.fhxDesc")}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("description.other.fhx")}</p>
         </div>
         <button
           onClick={handleTrigger("start_fhx")}
           className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200"
         >
-          {t("execute")}
+          {t("common.execute")}
         </button>
       </div>
     </div>

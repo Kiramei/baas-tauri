@@ -28,7 +28,7 @@ const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath }) => {
     <div className="space-y-2">
       <div className="flex gap-2 items-end">
         <FormInput
-          label={t("label.install_dir")}
+          label={t("label.installDir")}
           value={path}
           onChange={(e) => setPath(e.target.value)}
           placeholder="Select installation directory..."

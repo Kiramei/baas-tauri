@@ -17,13 +17,13 @@ const useTimeAgo = () => {
 
   return (timestamp: number) => {
     const seconds = Math.floor(now / 1000 - timestamp);
-    if (seconds < 60) return t("secondsAgo", { count: seconds });
+    if (seconds < 60) return t("time.secondsAgo", { count: seconds });
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return t("minutesAgo", { count: minutes });
+    if (minutes < 60) return t("time.minutesAgo", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return t("hoursAgo", { count: hours });
+    if (hours < 24) return t("time.hoursAgo", { count: hours });
     const days = Math.floor(hours / 24);
-    return t("daysAgo", { count: days });
+    return t("time.daysAgo", { count: days });
   };
 };
 

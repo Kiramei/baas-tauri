@@ -256,9 +256,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "baas-i18n"
+version = "1.0.0"
+
+[[package]]
 name = "baas-tauri"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
+ "baas-i18n",
  "baas-term",
  "baas-updater",
  "chrono",
@@ -279,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -291,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "baas-term",
  "flate2",

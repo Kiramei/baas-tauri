@@ -41,6 +41,8 @@ import ScriptConfig from "@/features/ScriptConfig.tsx";
 import StageConfig from "@/features/StageConfig.tsx";
 import TeamConfig from "@/features/TeamConfig.tsx";
 import { PageKey } from "@/types/app";
+import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
+import type { TranslationKey } from "@/types/i18n";
 
 type Feature =
   | "cafe"
@@ -95,27 +97,27 @@ const featureMap: Record<
   Feature,
   {
     icon: React.FC<LucideProps>;
-    descKey: string;
+    descKey: TranslationKey;
     component: React.FC<FeatureComponentProps>;
   }
 > = {
-  cafe: { icon: Coffee, descKey: "cafeDesc", component: CafeConfig },
-  schedule: { icon: Dices, descKey: "scheduleDesc", component: ScheduleConfig },
-  shop: { icon: ShoppingCart, descKey: "shopDesc", component: ShopConfig },
-  arena: { icon: Swords, descKey: "arenaDesc", component: ArenaConfig },
-  dailySweep: { icon: BrushCleaning, descKey: "dailySweepDesc", component: DailySweep },
-  tactical: { icon: Shield, descKey: "tacticalDesc", component: TacticalConfig },
-  drill: { icon: Sword, descKey: "drillDesc", component: DrillConfig },
-  whitelist: { icon: ScrollText, descKey: "whitelistDesc", component: WhiteListConfig },
-  artifact: { icon: Amphora, descKey: "artifactDesc", component: ArtifactConfig },
+  cafe: { icon: Coffee, descKey: "description.cafe", component: CafeConfig },
+  schedule: { icon: Dices, descKey: "description.schedule", component: ScheduleConfig },
+  shop: { icon: ShoppingCart, descKey: "description.shop", component: ShopConfig },
+  arena: { icon: Swords, descKey: "description.arena", component: ArenaConfig },
+  dailySweep: { icon: BrushCleaning, descKey: "description.dailySweep", component: DailySweep },
+  tactical: { icon: Shield, descKey: "description.tactical", component: TacticalConfig },
+  drill: { icon: Sword, descKey: "description.drill", component: DrillConfig },
+  whitelist: { icon: ScrollText, descKey: "description.whitelist", component: WhiteListConfig },
+  artifact: { icon: Amphora, descKey: "description.artifact", component: ArtifactConfig },
 
-  server: { icon: Server, descKey: "serverDesc", component: ServerConfig },
-  script: { icon: FileCode2, descKey: "scriptDesc", component: ScriptConfig },
-  emulator: { icon: Database, descKey: "emulatorDesc", component: EmulatorConfig },
-  stage: { icon: Map, descKey: "stageDesc", component: StageConfig },
-  team: { icon: Users2Icon, descKey: "teamDesc", component: TeamConfig },
-  push: { icon: ArrowUpFromLine, descKey: "pushDesc", component: PushConfig },
-  other: { icon: Settings2, descKey: "otherDesc", component: OtherConfig },
+  server: { icon: Server, descKey: "description.server", component: ServerConfig },
+  script: { icon: FileCode2, descKey: "description.script", component: ScriptConfig },
+  emulator: { icon: Database, descKey: "description.emulator", component: EmulatorConfig },
+  stage: { icon: Map, descKey: "description.stage", component: StageConfig },
+  team: { icon: Users2Icon, descKey: "description.team", component: TeamConfig },
+  push: { icon: ArrowUpFromLine, descKey: "description.push", component: PushConfig },
+  other: { icon: Settings2, descKey: "description.other", component: OtherConfig },
 };
 
 const gridVariants = {
@@ -171,7 +173,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   };
 
   const featureGroups: Record<string, Feature[]> = {
-    [t("featureSettings")]: [
+    [t("settings.feature")]: [
       "cafe",
       "schedule",
       "shop",
@@ -182,7 +184,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       "drill",
       "whitelist",
     ],
-    [t("generalSettings")]: ["server", "script", "emulator", "stage", "team", "push", "other"],
+    [t("settings.general")]: ["server", "script", "emulator", "stage", "team", "push", "other"],
   };
 
   const renderFeatureCard = (feature: Feature) => {
@@ -195,8 +197,8 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
               <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <CardTitle>{t(feature)}</CardTitle>
-              <CardDescription>{t(descKey)}</CardDescription>
+              <CardTitle>{t(featureTranslationKey(feature))}</CardTitle>
+              <CardDescription>{t(i18nKey(descKey))}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -211,7 +213,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       <div className="flex items-baseline justify-between">
         <div className="flex">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {t("configuration")}
+            {t("nav.configuration")}
           </h2>
           <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
         </div>
@@ -233,7 +235,12 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
 
       {/* Lazy render the selected feature panel inside a shared modal shell. */}
       {modalContent && CurrentModalContent && (
-        <Modal isOpen title={t(modalContent)} onClose={closeModal} width={modalWidth ?? 0}>
+        <Modal
+          isOpen
+          title={t(featureTranslationKey(modalContent))}
+          onClose={closeModal}
+          width={modalWidth ?? 0}
+        >
           <CurrentModalContent
             onClose={closeModal}
             profileId={profile!.id}

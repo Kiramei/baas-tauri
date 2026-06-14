@@ -1,0 +1,8 @@
+[package]
+name = "baas-i18n"
+version = "1.0.0"
+edition = "2024"
+description = "Package used for baas-tauri backend translation"
+authors = ["Kiramei"]
+
+[dependencies]

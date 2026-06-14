@@ -7,7 +7,9 @@ mod behavior;
 mod commands;
 
 use crate::{
-    behavior::{disable_f5_press_event, inject_tray_icon, splash_off, BehaviorState},
+    behavior::{
+        disable_f5_press_event, inject_tray_icon, set_backend_locale, splash_off, BehaviorState,
+    },
     commands::{
         ensure_default_config, updater_abort_workflow, updater_get_startup_state,
         updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
@@ -35,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             splash_off,
+            set_backend_locale,
             updater_get_startup_state,
             updater_update_config,
             updater_validate_mirrorc_cdk,
@@ -48,8 +51,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Add tray icon to the app
-            let tray_enabled = inject_tray_icon(app).is_ok();
-            app.manage(BehaviorState { tray_enabled });
+            let tray_menu = inject_tray_icon(app).ok();
+            app.manage(BehaviorState::with_tray_menu(tray_menu));
 
             let config_manager =
                 ensure_default_config(app.handle()).map_err(std::io::Error::other)?;

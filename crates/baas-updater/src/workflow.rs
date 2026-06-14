@@ -2242,7 +2242,7 @@ fn sh_script(command: &CommandSpec) -> ScriptCommand {
             .as_ref()
             .map(|cwd| cwd.to_string_lossy().to_string())
             .unwrap_or_else(|| ".".to_string()),
-        env: command.env,
+        env: command.env.clone(),
     }
 }
 
