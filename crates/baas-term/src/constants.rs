@@ -24,8 +24,12 @@ pub const PTY_PIXEL_HEIGHT: u16 = 0;
 /// Number of steps shown by the built-in demo flow.
 pub const DEMO_STEP_TOTAL: u8 = 4;
 
-/// Maximum number of recent output lines shown per region while tasks run.
-pub const RUNNING_REGION_MAX_LINES: usize = 3;
+/// Default maximum number of recent output lines shown per region while tasks run.
+pub const DEFAULT_RUNNING_REGION_MAX_LINES: usize = 3;
+
+/// Default maximum number of recent output lines shown per region while tasks run.
+#[deprecated(note = "use DEFAULT_RUNNING_REGION_MAX_LINES; per-task overrides live on TaskSpec")]
+pub const RUNNING_REGION_MAX_LINES: usize = DEFAULT_RUNNING_REGION_MAX_LINES;
 
 /// Maximum number of historical lines retained per renderer region.
 pub const REGION_MAX_KEPT_LINES: usize = 2_000;

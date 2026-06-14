@@ -72,6 +72,7 @@ pub fn create_process_task_with_total(
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        running_region_max_lines: None,
     }
 }
 

@@ -840,6 +840,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         args: Vec::new(),
         cwd: ".".to_string(),
         env: Vec::new(),
+        running_region_max_lines: node.running_region_max_lines,
     }
 }
 
@@ -856,6 +857,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        running_region_max_lines: node.running_region_max_lines,
     }
 }
 
@@ -1702,10 +1704,12 @@ fn run_terminal_dependency_stage(
             ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
             ("uv-cache-clean", uv_cache_clean_command(&config)),
         ] {
+            let task = planned_process_task(workflow_plan, task_id, direct_script(&command))
+                .with_running_region_max_lines(4);
             if !run_process_and_wait(
                 inner,
                 session_id,
-                planned_process_task(workflow_plan, task_id, direct_script(&command)),
+                task,
                 renderer_tx,
                 completion_tx,
                 completion_rx,

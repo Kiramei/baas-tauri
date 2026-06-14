@@ -77,6 +77,16 @@ pub struct TaskSpec {
     pub cwd: String,
     /// Program run env var
     pub env: Vec<(String, String)>,
+    /// Optional maximum number of recent output lines shown while this task is running.
+    pub running_region_max_lines: Option<usize>,
+}
+
+impl TaskSpec {
+    /// Sets the maximum number of recent output lines shown while this task is running.
+    pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
+        self.running_region_max_lines = Some(max_lines.max(1));
+        self
+    }
 }
 
 /// A workflow task node rendered by the frontend graph.
@@ -101,6 +111,8 @@ pub struct WorkflowNode {
     pub description: String,
     /// Display command or action text.
     pub command: String,
+    /// Optional maximum number of recent output lines shown while this task is running.
+    pub running_region_max_lines: Option<usize>,
 }
 
 /// A directed edge between workflow task nodes.
