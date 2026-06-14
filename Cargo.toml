@@ -2,13 +2,15 @@
 members = [
   "src-tauri",
   "crates/baas-updater",
-  "crates/baas-term"
+  "crates/baas-term",
+  "crates/baas-i18n"
 ]
 resolver = "2"
 
 [workspace.dependencies]
 baas-updater = { path = "crates/baas-updater" }
 baas-term = { path = "crates/baas-term" }
+baas-i18n = { path = "crates/baas-i18n" }
 
 tauri = { version = "2.11.2", features = ["tray-icon"] }
 tokio = { version = "1.48.0", features = ["full"] }

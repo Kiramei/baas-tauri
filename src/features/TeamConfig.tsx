@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { DynamicConfig } from "@/types/dynamic";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { propertyKey, teamMethodKey } from "@/shared/I18nKeys";
 
 type TeamConfigProps = {
   profileId: string;
@@ -87,7 +88,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
               onChange={(v) => handleCellChange(key, ri, ci)(v)}
               options={PROPERTY.map((k) => ({
                 value: k,
-                label: t(`property.${k}`),
+                label: t(propertyKey(k)),
               }))}
               className="w-full"
             />
@@ -106,7 +107,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
         onChange={handleChange("choose_team_method")}
         options={MODE_DICT.map((k) => ({
           value: k,
-          label: t(`team.${k}`),
+          label: t(teamMethodKey(k)),
         }))}
       />
 
@@ -124,7 +125,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

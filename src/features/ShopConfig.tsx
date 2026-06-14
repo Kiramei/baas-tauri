@@ -149,7 +149,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                     {t("commonShop.refreshTimes")}
                   </label>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("commonShop.refreshDesc")}
+                    {t("description.commonShop.refresh")}
                   </p>
                 </div>
                 <FormInput
@@ -175,8 +175,8 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                     ] === 1;
                   const priceText =
                     coin === "creditpoints"
-                      ? `${price} ${t("creditpoints")}`
-                      : `${price} ${t("pyroxene")}`;
+                      ? `${price} ${t("property.credits")}`
+                      : `${price} ${t("property.pyroxene")}`;
 
                   return (
                     <div
@@ -214,7 +214,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

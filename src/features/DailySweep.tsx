@@ -96,7 +96,7 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
         {/* DailySweep Tab */}
         <TabsContent value="daily" className="space-y-4">
           <div>
-            <LabelWithTooltip label={t("stage.normalLabel")} tooltip={t("stage.normalDesc")} />
+            <LabelWithTooltip label={t("stage.normalLabel")} tooltip={t("description.stage.normal")} />
             <FormInput
               type="text"
               value={draft.mainlinePriority}
@@ -106,7 +106,7 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
           </div>
 
           <div>
-            <LabelWithTooltip label={t("stage.hardLabel")} tooltip={t("stage.hardDesc")} />
+            <LabelWithTooltip label={t("stage.hardLabel")} tooltip={t("description.stage.hard")} />
             <div className="flex gap-2">
               <FormInput
                 type="text"
@@ -189,7 +189,7 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
 

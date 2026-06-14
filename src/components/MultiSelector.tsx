@@ -6,6 +6,7 @@ import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
+import { eventNameKey } from "@/shared/I18nKeys";
 
 interface MultiSelectorProps {
   label?: string;
@@ -56,11 +57,13 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const translateName = (name: string) =>
+    translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      (translatePrefix ? t(translatePrefix + "." + s) : s)
+      translateName(s.toString())
         .toString()
         .toLowerCase()
         .includes(query.toLowerCase())
@@ -110,7 +113,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
                       : "bg-slate-100 dark:bg-slate-700 border-slate-300"
                   }`}
                 >
-                  {translatePrefix ? t(translatePrefix + "." + name) : name}
+                  {translateName(name)}
                 </button>
               );
             })}
@@ -132,6 +135,8 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
+  const translateName = (name: string) =>
+    translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
   // Remove value from the ordered collection.
   const handleRemove = (name: string) => {
@@ -188,7 +193,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                   </span>
 
                   <span className="text-sm">
-                    {translatePrefix ? t(translatePrefix + "." + name) : name}
+                    {translateName(name)}
                   </span>
 
                   {/* Remove button */}
@@ -211,7 +216,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                   "hover:bg-slate-100 dark:hover:bg-slate-600"
                 )}
               >
-                <Plus className="w-4 h-4" /> {t("add")}
+                <Plus className="w-4 h-4" /> {t("common.add")}
               </button>
             </Reorder.Group>
           </div>
@@ -368,7 +373,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
               "hover:bg-slate-100 dark:hover:bg-slate-600"
             )}
           >
-            <Plus className="w-4 h-4" /> {t("add")}
+            <Plus className="w-4 h-4" /> {t("common.add")}
           </button>
         </div>
       </div>

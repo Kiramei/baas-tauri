@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { Info, KeyRound, ShieldCheck } from "lucide-react";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import LanguageSelect from "@/components/LanguageSelect.tsx";
 
 const overlayCls =
   "fixed inset-0 flex items-center justify-center bg-black/50 z-[120] backdrop-blur-sm";
@@ -90,20 +89,7 @@ const PasswordInputModal: React.FC<{
 
             <div className="grow" />
 
-            <FormSelect
-              value={i18n.language}
-              onChange={handleLanguageChange}
-              options={[
-                { value: "en", label: t("english") },
-                { value: "zh", label: t("chinese") },
-                { value: "ja", label: t("japanese") },
-                { value: "ko", label: t("korean") },
-                { value: "de", label: t("deutsch") },
-                { value: "ru", label: t("russian") },
-                { value: "fr", label: t("french") },
-              ]}
-              className="float-right"
-            />
+            <LanguageSelect handleLanguageChange={handleLanguageChange} className="float-right" />
           </div>
 
           <div className="mb-4">
@@ -155,7 +141,11 @@ const PasswordInputModal: React.FC<{
 
           <div className="flex justify-end gap-2">
             <CButton onClick={handleConfirm} disabled={!serverVerified || submitting}>
-              {submitting ? t("auth.pleaseWait") : setupMode ? t("auth.initialize") : t("Confirm")}
+              {submitting
+                ? t("auth.pleaseWait")
+                : setupMode
+                  ? t("auth.initialize")
+                  : t("auth.confirm")}
             </CButton>
           </div>
         </form>

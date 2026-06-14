@@ -120,14 +120,14 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
                 type="button"
                 className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded-md"
                 onClick={async () => {
-                  const path = await StorageUtil.retrievePath(t("desc.getEmulator"), [
+                  const path = await StorageUtil.retrievePath(t("description.getEmulator"), [
                     { name: "Executable File", extensions: ["exe", "bin", "app", "*"] },
                   ]);
                   if (!path) return;
                   setDraft((state) => ({ ...state, program_address: path }));
                 }}
               >
-                {t("choose")}
+                {t("common.choose")}
               </button>
             )}
           </div>
@@ -163,7 +163,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

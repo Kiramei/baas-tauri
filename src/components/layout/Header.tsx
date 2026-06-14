@@ -113,7 +113,7 @@ const Header: React.FC = () => {
 
   const handleCreate = async (name: string, server: string) => {
     if (tabsRef.current.some((t) => t.name.trim() === name.trim()))
-      throw new Error(t("nameExists"));
+      throw new Error(t("profile.nameExists"));
 
     const serialName = await new Promise<string>((resolve) => {
       trigger(
@@ -138,7 +138,7 @@ const Header: React.FC = () => {
   const handleEdit = async (tab: Tab, name: string, server: string) => {
     const trimmed = name.trim();
     if (tabs.some((t) => t.id !== tab.id && t.name.trim() === trimmed))
-      throw new Error(t("nameExists") || "Name already exists");
+      throw new Error(t("profile.nameExists"));
     modify(`${tab.id}::config`, { name: trimmed, server: server });
     setTabs((prev) => prev.map((t) => (t.id === tab.id ? { ...t, name: trimmed, server } : t)));
     if (activeProfile?.id === tab.id) setActiveProfile({ ...activeProfile, name: trimmed });
@@ -146,7 +146,7 @@ const Header: React.FC = () => {
 
   const handleDelete = async (tab: Tab) => {
     if (tabs.length <= 1) {
-      alert(t("cannotDeleteLast") || "Cannot delete the last profile.");
+      alert(t("profile.cannotDeleteLast"));
       return;
     }
 
@@ -251,7 +251,7 @@ const Header: React.FC = () => {
 
                 {/* 关闭按钮：hover 时显示 */}
                 <button
-                  title={t("delete") || "Delete"}
+                  title={t("common.delete")}
                   className="absolute right-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -275,7 +275,7 @@ const Header: React.FC = () => {
           className="hidden sm:flex items-center px-3 h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
         >
           <FilePlus2 className="w-4 h-4 mr-2" />
-          {t("addProfile")}
+          {t("profile.add")}
         </button>
         <button
           onClick={() => setEditor({ mode: "create" })}
@@ -303,7 +303,7 @@ const Header: React.FC = () => {
                 setCtxMenu(null);
               }}
             >
-              <Pencil className="w-4 h-4" /> {t("edit") || "Edit"}
+              <Pencil className="w-4 h-4" /> {t("common.edit")}
             </button>
             <button
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
@@ -312,7 +312,7 @@ const Header: React.FC = () => {
                 setCtxMenu(null);
               }}
             >
-              <Trash2 className="w-4 h-4" /> {t("delete") || "Delete"}
+              <Trash2 className="w-4 h-4" /> {t("common.delete")}
             </button>
           </motion.div>
         )}
@@ -383,16 +383,16 @@ const ProfileEditorModal = (props: {
   const handleSubmit = async () => {
     const nm = name.trim();
     if (!nm) return setErr(t("configAdd.nameRequired"));
-    if (server === "NULL") return setErr(t("configAdd.serverRequired") || "Server is required");
+    if (server === "NULL") return setErr(t("configAdd.serverRequired"));
     if (props.checkName(nm, props.initial?.id))
-      return setErr(t("configAdd.nameDuplicate") || "Name already exists");
+      return setErr(t("configAdd.nameDuplicate"));
     try {
       setSubmitting(true);
       await props.onSubmit({ name: nm, server });
     } catch (e: any) {
       console.error(e);
       console.error({ nm, server });
-      setErr(e?.message || t("saveFailed") || "Save failed");
+      setErr(e?.message || t("configAdd.saveFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -415,15 +415,13 @@ const ProfileEditorModal = (props: {
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="text-lg font-semibold mb-4">
-          {props.mode === "create"
-            ? t("createProfile") || "Create Profile"
-            : t("editProfile") || "Edit Profile"}
+          {props.mode === "create" ? t("profile.create") : t("profile.edit")}
         </div>
 
         <div className="space-y-4">
           <FormInput
             value={name}
-            label={t("profileName")}
+            label={t("profile.name")}
             placeholder={t("placeholder.profileName")}
             onChange={(e) => setName(e.target.value)}
           />
@@ -454,7 +452,7 @@ const ProfileEditorModal = (props: {
             className="px-3 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
             disabled={submitting}
           >
-            {t("cancel")}
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSubmit}
@@ -462,7 +460,7 @@ const ProfileEditorModal = (props: {
             disabled={submitting}
           >
             {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-            <span>{props.mode === "create" ? t("create") || "Create" : t("save") || "Save"}</span>
+            <span>{props.mode === "create" ? t("common.create") : t("common.save")}</span>
           </button>
         </div>
       </motion.div>
@@ -499,9 +497,9 @@ const ConfirmDeleteModal = (props: {
             <Trash2 className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <div className="text-lg font-semibold">{t("confirmDeleteTitle")}</div>
+            <div className="text-lg font-semibold">{t("profile.deleteConfirmTitle")}</div>
             <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-              {t("confirmDeleteMessage", { name: props.name })}
+              {t("profile.deleteConfirmMessage", { name: props.name })}
             </div>
           </div>
         </div>
@@ -511,14 +509,14 @@ const ConfirmDeleteModal = (props: {
             onClick={props.onCancel}
             className="px-3 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
           >
-            {t("cancel")}
+            {t("common.cancel")}
           </button>
           <button
             onClick={props.onConfirm}
             disabled={props.disabled}
             className="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
           >
-            {t("delete")}
+            {t("common.delete")}
           </button>
         </div>
       </motion.div>

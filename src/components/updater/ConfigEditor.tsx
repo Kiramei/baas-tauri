@@ -3,12 +3,14 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { loadLocale } from "@/shared/I18nTranslator";
+import { themeKey } from "@/shared/I18nKeys";
 import StorageUtil from "@/shared/StorageManager";
 import type { Theme } from "@/types/app";
 import { useTheme } from "@/context/ThemeProvider";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
+import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
 
 type Channel = "stable" | "dev";
@@ -49,7 +51,7 @@ const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
 const ConfigEditorModal = (props: ConfigEditorProps) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const [cdkInput, setCdkInput] = useState(props.config?.general?.mirrorcCdk ?? "");
   const [validating, setValidating] = useState(false);
@@ -174,23 +176,10 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
         <h3 className="font-semibold text-lg">{t("installer.setting")}</h3>
 
         <div className="flex flex-col gap-3 mt-4">
-          <FormSelect
-            value={i18n.language}
-            label={t("language")}
-            onChange={handleLanguageChange}
-            options={[
-              { value: "en", label: t("english") },
-              { value: "zh", label: t("chinese") },
-              { value: "ja", label: t("japanese") },
-              { value: "ko", label: t("korean") },
-              { value: "de", label: t("deutsch") },
-              { value: "ru", label: t("russian") },
-              { value: "fr", label: t("french") },
-            ]}
-          />
+          <LanguageSelect handleLanguageChange={handleLanguageChange} />
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-              {t("theme")}
+              {t("common.theme")}
             </label>
             <div className="flex space-x-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-lg">
               {(["light", "dark", "system"] as Theme[]).map((value) => (
@@ -203,7 +192,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
                       : "hover:bg-white/50 dark:hover:bg-slate-700/50"
                   }`}
                 >
-                  {t(value)}
+                  {t(themeKey(value))}
                 </button>
               ))}
             </div>
@@ -257,10 +246,10 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
         <div className="mt-5 flex justify-end gap-2">
           <CButton type="button" variant="secondary" onClick={props.onCancel}>
-            {t("Cancel")}
+            {t("common.cancel")}
           </CButton>
           <CButton type="button" onClick={props.onConfirm} disabled={props.disabled}>
-            {t("Confirm")}
+            {t("common.confirm")}
           </CButton>
         </div>
       </motion.div>

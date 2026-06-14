@@ -30,10 +30,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const hasUpdate = versionConfig["remote"] && versionConfig["local"] !== versionConfig["remote"];
 
   const navItems: Array<{ id: PageKey; label: string; icon: any }> = [
-    { id: "home", label: t("home"), icon: Home },
-    { id: "scheduler", label: t("scheduler"), icon: ListChecks },
-    { id: "configuration", label: t("configuration"), icon: SlidersHorizontal },
-    { id: "settings", label: t("settings"), icon: Settings },
+    { id: "home", label: t("nav.home"), icon: Home },
+    { id: "scheduler", label: t("nav.scheduler"), icon: ListChecks },
+    { id: "configuration", label: t("nav.configuration"), icon: SlidersHorizontal },
+    { id: "settings", label: t("nav.settings"), icon: Settings },
     { id: "wiki", label: t("title.wiki"), icon: BookOpenText },
   ];
 
@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         <div className="h-16 flex items-center border-b border-slate-200 dark:border-slate-700 px-4">
           <img src={`${baseUrl}images/logo.png`} alt="Logo" className="h-8 w-8" />
           <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400 flex-1 text-start ml-2">
-            {t("appTitle")}
+            {t("app.title")}
           </h1>
         </div>
 
@@ -176,12 +176,9 @@ export const ConfirmUpdateModal: React.FC<{
           </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {t("confirmUpdateTitle") || "Confirm Update"}
+              {t("update.confirmTitle")}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t("updatePrompt") ||
-                "A new version is available. Confirm to update your application."}
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t("update.prompt")}</p>
           </div>
         </div>
 
@@ -190,7 +187,7 @@ export const ConfirmUpdateModal: React.FC<{
           <div className="flex items-center gap-2 text-sm mb-1">
             <XCircle className="w-4 h-4 text-red-500" />
             <span className="text-slate-600 dark:text-slate-300">
-              {t("localVersion") || "Current version"}:
+              {t("version.local")}:
             </span>
             <code className="font-mono text-slate-700 dark:text-slate-100">
               {localVersion.slice(0, 8)}
@@ -199,7 +196,7 @@ export const ConfirmUpdateModal: React.FC<{
           <div className="flex items-center gap-2 text-sm">
             <CheckCircle2 className="w-4 h-4 text-green-500" />
             <span className="text-slate-600 dark:text-slate-300">
-              {t("remoteVersion") || "Latest version"}:
+              {t("version.remote")}:
             </span>
             <code className="font-mono text-green-700 dark:text-green-300">
               {remoteVersion ? remoteVersion.slice(0, 8) : "UNKNOWN"}
@@ -210,9 +207,7 @@ export const ConfirmUpdateModal: React.FC<{
         {/* Hint */}
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-4">
           <Info className="w-4 h-4 text-primary-500" />
-          <span>
-            {t("updateNotice") || "Make sure your current tasks are saved before updating."}
-          </span>
+          <span>{t("update.notice")}</span>
         </div>
 
         {/* Buttons */}
@@ -221,13 +216,13 @@ export const ConfirmUpdateModal: React.FC<{
             onClick={onCancel}
             className="px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
           >
-            {t("cancel") || "Cancel"}
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm transition-colors"
           >
-            {t("updates") || "Update Now"}
+            {t("common.update")}
           </button>
         </div>
       </motion.div>

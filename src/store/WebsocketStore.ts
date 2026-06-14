@@ -800,7 +800,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       get().pendingCallbacks[timestamp] = () => {
         if (showToast) {
           toast.success(t("settings.updateSuccess"), {
-            description: t("settings.updateSuccessDesc"),
+            description: t("description.settings.updateSuccess"),
           });
         }
       };

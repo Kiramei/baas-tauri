@@ -11,6 +11,7 @@ import { DynamicConfig } from "@/types/dynamic";
 import { getTimestampMs, serverMap } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { PageKey } from "@/types/app";
+import { eventNameKey, propertyKey } from "@/shared/I18nKeys";
 
 type StageConfigProps = {
   profileId: string;
@@ -113,7 +114,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
       },
       () => {
         toast(t("stage.taskTriggerStart"), {
-          description: t("stage.taskTriggered", { task: t(taskName) }),
+          description: t("stage.taskTriggered", { task: t(eventNameKey(taskName)) }),
         });
       }
     );
@@ -161,7 +162,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
               className="flex-1"
             />
             <CButton onClick={handleTrigger("start_normal_task")} className="h-9">
-              {t("execute")}
+              {t("common.execute")}
             </CButton>
           </div>
 
@@ -175,7 +176,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
             />
 
             <CButton onClick={handleTrigger("start_hard_task")} className="h-9">
-              {t("execute")}
+              {t("common.execute")}
             </CButton>
           </div>
         </TabsContent>
@@ -206,7 +207,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
               {eventTable.map(([stage, attr], i) => (
                 <Card key={i} className="p-2 flex justify-between">
                   <span>{stage}</span>
-                  <span className="font-medium">{t(`property.${attr}`)}</span>
+                  <span className="font-medium">{t(propertyKey(attr))}</span>
                 </Card>
               ))}
             </div>
@@ -221,7 +222,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

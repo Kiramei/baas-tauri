@@ -1,13 +1,54 @@
-use std::error::Error;
+use baas_i18n::{tray_menu_labels, Language};
+use std::{error::Error, sync::Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    App, AppHandle, Manager,
+    App, AppHandle, Manager, State,
 };
 
 #[derive(Default)]
 pub struct BehaviorState {
     pub tray_enabled: bool,
+    tray_menu: Mutex<Option<TrayMenuItems>>,
+}
+
+pub struct TrayMenuItems {
+    language: Language,
+    show_item: MenuItem<tauri::Wry>,
+    quit_item: MenuItem<tauri::Wry>,
+}
+
+impl BehaviorState {
+    pub fn with_tray_menu(tray_menu: Option<TrayMenuItems>) -> Self {
+        Self {
+            tray_enabled: tray_menu.is_some(),
+            tray_menu: Mutex::new(tray_menu),
+        }
+    }
+
+    fn set_language(&self, language: Language) -> Result<(), String> {
+        let mut guard = self
+            .tray_menu
+            .lock()
+            .map_err(|_| "tray menu state lock poisoned".to_string())?;
+        let Some(menu) = guard.as_mut() else {
+            return Ok(());
+        };
+        if menu.language == language {
+            return Ok(());
+        }
+
+        let labels = tray_menu_labels(language);
+        menu.show_item
+            .set_text(labels.show_main_window)
+            .map_err(|error| error.to_string())?;
+        menu.quit_item
+            .set_text(labels.exit)
+            .map_err(|error| error.to_string())?;
+        menu.language = language;
+
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -21,9 +62,16 @@ pub async fn splash_off(app: AppHandle) {
     }
 }
 
-pub fn inject_tray_icon(app: &mut App) -> Result<(), Box<dyn Error>> {
-    let show_i = MenuItem::with_id(app, "show", "Show Main Window", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
+#[tauri::command]
+pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Result<(), String> {
+    state.set_language(Language::parse(&lang))
+}
+
+pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> {
+    let language = Language::default();
+    let labels = tray_menu_labels(language);
+    let show_i = MenuItem::with_id(app, "show", labels.show_main_window, true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(app, "quit", labels.exit, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
     TrayIconBuilder::new()
@@ -60,7 +108,11 @@ pub fn inject_tray_icon(app: &mut App) -> Result<(), Box<dyn Error>> {
             }
         })
         .build(app)?;
-    Ok(())
+    Ok(TrayMenuItems {
+        language,
+        show_item: show_i,
+        quit_item: quit_i,
+    })
 }
 
 pub fn disable_f5_press_event(app: &mut App) {

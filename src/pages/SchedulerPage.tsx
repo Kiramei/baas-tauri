@@ -24,6 +24,8 @@ import { DateTimePicker } from "@/components/DateTimePicker.tsx";
 import { EventConfig } from "@/types/event";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { eventNameKey } from "@/shared/I18nKeys";
+import type { TranslationKey } from "@/types/i18n";
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -41,14 +43,14 @@ const TaskRow = React.memo(function TaskRow({
   onMove: (task: EventConfig, toRight: boolean) => void;
   onEdit: (task: EventConfig) => void;
   onChangeTime: (task: EventConfig, ts: number) => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 }) {
   return (
     <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
       {side === "left" ? (
         <>
           <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-left mr-2">
-            <EllipsisWithTooltip text={t("eventName." + task.func_name)} />
+            <EllipsisWithTooltip text={t(eventNameKey(task.func_name))} />
           </div>
           <DateTimePicker
             value={task.next_tick * 1000}
@@ -80,7 +82,7 @@ const TaskRow = React.memo(function TaskRow({
             className="hidden xl:flex"
           />
           <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-right mr-2 justify-end">
-            <EllipsisWithTooltip text={t("eventName." + task.func_name)} />
+            <EllipsisWithTooltip text={t(eventNameKey(task.func_name))} />
           </div>
         </>
       )}
@@ -179,7 +181,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     <div className="h-full flex flex-col gap-4 min-h-0">
       {/* Page heading with the active profile reference. */}
       <div className="flex">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("scheduler")}</h2>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("nav.scheduler")}</h2>
         <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
       </div>
 
@@ -188,7 +190,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
-              {t("taskOverview")}
+              {t("task.overview")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -197,11 +199,11 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                 {runningTask ? (
                   <div className="px-3 py-2 bg-primary-100 dark:bg-primary-800 rounded-md">
                     <span className="text-primary-700 dark:text-primary-300 font-semibold">
-                      {t("runningTask")}: {t(runningTask)}
+                      {t("task.running")}: {t(eventNameKey(runningTask))}
                     </span>
                   </div>
                 ) : (
-                  <p className="text-slate-500 dark:text-slate-400">{t("noTaskRunning")}</p>
+                  <p className="text-slate-500 dark:text-slate-400">{t("task.noneRunning")}</p>
                 )}
               </div>
               {taskQueue && taskQueue.length > 0 ? (
@@ -211,13 +213,15 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                       key={index}
                       className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-md"
                     >
-                      <span className="text-slate-700 dark:text-slate-300">{task}</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {t(eventNameKey(task))}
+                      </span>
                     </div>
                   ))}
                 </ul>
               ) : (
                 <p className="h-35 max-h-35 text-slate-500 dark:text-slate-400">
-                  {t("noTasksQueued")}
+                  {t("task.noneQueued")}
                 </p>
               )}
             </div>

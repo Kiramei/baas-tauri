@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/Separator";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
+import { i18nKey } from "@/shared/I18nKeys";
+import type { TranslationKey } from "@/types/i18n";
 
 type CafeConfigProps = {
   onClose: () => void;
@@ -135,7 +137,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
               ["cafe_reward_has_no2_cafe", "cafe.hasNo2Cafe"],
             ].map(([key, label]) => (
               <SwitchButton
-                label={t(label)}
+                label={t(i18nKey(label as TranslationKey))}
                 checked={draft[key as keyof Draft] as boolean}
                 onChange={onBoolChange(key as keyof Draft)}
                 key={label}
@@ -148,7 +150,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <FormInput
               label={t("cafe.patRounds")}
-              tooltip={t("cafe.patRoundsDesc")}
+              tooltip={t("description.cafe.patRounds")}
               type="number"
               value={draft.cafe_reward_affection_pat_round}
               onChange={onNumberChange}
@@ -217,7 +219,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
                   onClick={() => setShowSelector1(true)}
                   className="px-3 py-1 text-sm border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                 >
-                  {t("Add Student")}
+                  {t("student.add")}
                 </button>
               </div>
             </div>
@@ -277,7 +279,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
                     onClick={() => setShowSelector2(true)}
                     className="px-3 py-1 text-sm border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                   >
-                    {t("Add Student")}
+                    {t("student.add")}
                   </button>
                 </div>
               </div>
@@ -313,7 +315,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
           disabled={!dirty || draft.cafe_reward_affection_pat_round === ""}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

@@ -256,9 +256,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "baas-i18n"
+version = "0.1.0"
+
+[[package]]
 name = "baas-tauri"
 version = "0.1.0"
 dependencies = [
+ "baas-i18n",
  "baas-term",
  "baas-updater",
  "chrono",

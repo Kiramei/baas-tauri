@@ -214,7 +214,7 @@ const HotkeySettingsModal: React.FC<{
     // 最终校验：格式 + 重复
     const bad: Record<string, string> = {};
     draft.forEach((k) => {
-      if (!isHotkeyValid(k.value)) bad[k.id] = t("Invalid hotkey format") as string;
+      if (!isHotkeyValid(k.value)) bad[k.id] = t("hotkey.invalidFormat") as string;
     });
     if (Object.keys(bad).length) {
       setErrors(bad);
@@ -223,7 +223,7 @@ const HotkeySettingsModal: React.FC<{
     if (Object.keys(duplicates).length) {
       // 给重复项标红
       const dupErr: Record<string, string> = {};
-      Object.keys(duplicates).forEach((id) => (dupErr[id] = t("Duplicated hotkey") as string));
+      Object.keys(duplicates).forEach((id) => (dupErr[id] = t("hotkey.duplicate") as string));
       setErrors(dupErr);
       return;
     }
@@ -238,16 +238,16 @@ const HotkeySettingsModal: React.FC<{
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={() => onClose(false)} title={t("hotkeys")}>
+    <Modal isOpen={isOpen} onClose={() => onClose(false)} title={t("hotkey")}>
       <div className="space-y-6">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {t("Use combinations like")}{" "}
+          {t("hotkey.usage")}{" "}
           <code className="px-1 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 rounded">
             Ctrl+Shift+K
           </code>
           , <code className="px-1 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 rounded">Alt+S</code>,{" "}
           <code className="px-1 py-0.5 bg-slate-200/70 dark:bg-slate-700/60 rounded">F5</code>.{" "}
-          {t("Leave empty to unbind")}.
+          {t("hotkey.leaveEmpty")}.
         </p>
 
         <div className="mb-2 p-1">
@@ -255,7 +255,7 @@ const HotkeySettingsModal: React.FC<{
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("Search hotkeys")}
+            placeholder={t("hotkey.search")}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                    px-3 py-2 text-sm bg-white dark:bg-slate-900
                    text-slate-900 dark:text-slate-100
@@ -278,12 +278,12 @@ const HotkeySettingsModal: React.FC<{
                   );
                   setErrors((prev) => {
                     const next = { ...prev };
-                    if (!isHotkeyValid(v)) next[cfg.id] = t("Invalid hotkey format") as string;
+                    if (!isHotkeyValid(v)) next[cfg.id] = t("hotkey.invalidFormat") as string;
                     else delete next[cfg.id];
                     return next;
                   });
                 }}
-                error={err || (hasDup ? (t("Duplicated hotkey") as string) : "")}
+                error={err || (hasDup ? (t("hotkey.duplicate") as string) : "")}
                 className="mb-3"
               />
             );
@@ -293,16 +293,16 @@ const HotkeySettingsModal: React.FC<{
         {/* 错误提示（若有） */}
         {Object.keys(errors).length > 0 && (
           <div className="text-sm text-red-500">
-            {t("Please fix invalid or duplicated hotkeys.")}
+            {t("hotkey.fixInvalid")}
           </div>
         )}
 
         <div className="flex justify-end gap-2 pt-2">
           <CButton variant="secondary" onClick={() => onClose(false)}>
-            {t("cancel")}
+            {t("common.cancel")}
           </CButton>
           <CButton variant="primary" onClick={handleSave}>
-            {t("save")}
+            {t("common.save")}
           </CButton>
         </div>
       </div>

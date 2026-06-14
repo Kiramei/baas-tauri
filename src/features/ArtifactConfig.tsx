@@ -17,6 +17,7 @@ import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
 import CButton from "@/components/ui/CButton.tsx";
+import { artifactPhaseKey } from "@/shared/I18nKeys";
 
 type ArtifactConfigProps = {
   onClose: () => void;
@@ -96,7 +97,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) =
           <TabsTrigger value="global">{t("artifact.global")}</TabsTrigger>
           {Array.from({ length: draft.create_phase }).map((_, i) => (
             <TabsTrigger key={i} value={`phase${i + 1}`}>
-              {t(`artifact.phase_${i + 1}`)}
+              {t(artifactPhaseKey(i + 1))}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -105,7 +106,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) =
         <TabsContent value="global">
           <div className="flex flex-col justify-between gap-4 mt-4">
             <SwitchButton
-              label={t("artifact.useTicketDesc")}
+              label={t("description.artifact.useTicket")}
               checked={draft.use_acceleration_ticket}
               onChange={(v) => setDraft((d) => ({ ...d, use_acceleration_ticket: v }))}
             />
@@ -157,7 +158,7 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) =
           disabled={!dirty}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-60"
         >
-          {t("save")}
+          {t("common.save")}
         </button>
       </div>
     </div>

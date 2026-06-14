@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+import { wikiCategoryKey } from "@/shared/I18nKeys";
 
 // ========= Utils Functions ==========
 interface PreparedArticle extends WikiArticle {
@@ -270,17 +271,17 @@ const WikiPage: React.FC = () => {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("wiki.searchPlaceholder") ?? ""}
+          placeholder={t("wiki.searchPlaceholder")}
           className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition cursor-text"
-          aria-label={t("wiki.searchPlaceholder") ?? "Search"}
+          aria-label={t("wiki.searchPlaceholder")}
         />
       </div>
 
       {/* Classification */}
       <div className="flex flex-wrap gap-2">
-        {renderCategoryChip("all", t("wiki.category.all") ?? "All", preparedArticles.length)}
+        {renderCategoryChip("all", t("wiki.category.all"), preparedArticles.length)}
         {categoriesWithCounts.map(([cat, count]) =>
-          renderCategoryChip(cat, t(`wiki.category.${cat}` as const) ?? cat, count)
+          renderCategoryChip(cat, t(wikiCategoryKey(cat)), count)
         )}
       </div>
 

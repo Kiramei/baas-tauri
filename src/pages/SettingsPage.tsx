@@ -28,6 +28,15 @@ import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import {
+  i18nKey,
+  mirrorcMessageKey,
+  shaMethodKey,
+  themeKey,
+  updateMethodKey,
+} from "@/shared/I18nKeys";
+import type { TranslationKey } from "@/types/i18n";
+import LanguageSelect from "@/components/LanguageSelect.tsx";
 
 type RepoConfig = {
   label: string;
@@ -35,7 +44,7 @@ type RepoConfig = {
 };
 
 type ShaTestResult = {
-  method: string;
+  method: TranslationKey;
   status: "pending" | "success" | "error" | "testing";
   time?: number;
   sha?: string;
@@ -67,11 +76,11 @@ const shaMethodsInit = [
   { label: "shaMethod.mirrorc", value: "mirrorc" },
   { label: "shaMethod.gitee", value: "gitee" },
   { label: "shaMethod.gitcode", value: "gitcode" },
-  { label: "shaMethod.tencent_c_coding", value: "tencent_c_coding" },
+  { label: "shaMethod.tencentCoding", value: "tencent_c_coding" },
 ];
 
 const SettingsPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
   const trigger = useWebSocketStore((state) => state.trigger);
@@ -108,7 +117,7 @@ const SettingsPage: React.FC = () => {
 
   const [localVersion, setLocalVersion] = useState(t("version.fetching"));
   const [remoteVersion, setRemoteVersion] = useState(t("version.fetching"));
-  const [updateStatus, setUpdateStatus] = useState(t("version.tapToTest"));
+  const [updateStatus, setUpdateStatus] = useState<TranslationKey>("version.tapToTest");
 
   const [shaLocal, setShaLocal] = useState(versionStore["local"]);
   const [shaRemote, setShaRemote] = useState(versionStore["remote"]);
@@ -125,18 +134,18 @@ const SettingsPage: React.FC = () => {
 
   const infos = [
     {
-      label: t("localVersion"),
+      label: t("version.local"),
       value: localVersion,
       icon: <HardDrive className="w-8 h-8 text-cyan-500" />,
     },
     {
-      label: t("remoteVersion"),
+      label: t("version.remote"),
       value: remoteVersion,
       icon: <Cloud className="w-8 h-8 text-indigo-500" />,
     },
     {
-      label: t("updateMethod"),
-      value: t(updateStatus),
+      label: t("update.method"),
+      value: t(i18nKey(updateStatus)),
       icon: (
         <RefreshCcw
           className={`w-8 h-8 text-purple-500 ${versionChecking ? "animate-spin" : ""}`}
@@ -146,7 +155,7 @@ const SettingsPage: React.FC = () => {
   ];
   const [cdk, setCdk] = useState(updateConfig["mirrorcCdk"]);
   const [shaResults, setShaResults] = useState<ShaTestResult[]>(
-    shaMethodsInit.map((m) => ({ method: m.label, status: "pending" }))
+    shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
 
   const fetchVersion = () => {
@@ -158,7 +167,7 @@ const SettingsPage: React.FC = () => {
 
     setLocalVersion(t("version.fetching"));
     setRemoteVersion(t("version.fetching"));
-    setUpdateStatus(t("version.testing"));
+    setUpdateStatus("version.testing");
 
     trigger(
       {
@@ -178,7 +187,7 @@ const SettingsPage: React.FC = () => {
   const handleTestCdk = (_: any, showMessage: boolean = true) => {
     if (!cdk) {
       if (showMessage) {
-        toast.error(t("cdk.noCDKInput"));
+        toast.error(t("mirrorc.cdk.noInput"));
       }
     }
     setMcLoading(true);
@@ -195,15 +204,17 @@ const SettingsPage: React.FC = () => {
           const expires_at_iso = e.data.expires_at_iso;
           console.log(expires_at_iso);
           const message = expires_at_iso
-            ? (t(e.data.message, { expire_date: formatIsoToReadable(expires_at_iso) }) as string)
-            : t(e.data.message);
-          if (showMessage) toast.success(t("CDK Test OK"), { description: message });
+            ? (t(mirrorcMessageKey(e.data.message), {
+                expire_date: formatIsoToReadable(expires_at_iso),
+              }) as string)
+            : t(mirrorcMessageKey(e.data.message));
+          if (showMessage) toast.success(t("mirrorc.cdk.testOk"), { description: message });
           setDueDate(expires_at_iso);
           modify("global::setup_toml", { mirrorcCdk: cdk }, false);
         } else {
           if (cdk !== "" && showMessage) {
-            toast.error(t(e.data.message), {
-              description: t(e.data.mirrorc_message),
+            toast.error(t(mirrorcMessageKey(e.data.message)), {
+              description: t(mirrorcMessageKey(e.data.mirrorc_message)),
             });
           }
           setCdk("");
@@ -262,7 +273,7 @@ const SettingsPage: React.FC = () => {
         setShaResults(
           e.data.map((el: { success: any; name: any; duration: number; value: any }) => ({
             status: el.success ? "success" : "error",
-            method: t(`shaMethod.${el.name}`),
+            method: shaMethodKey(el.name),
             time: el.duration.toFixed(3),
             sha: el.value,
           }))
@@ -293,7 +304,7 @@ const SettingsPage: React.FC = () => {
         <CardHeader className="flex flex-row items-center gap-2">
           <Info className="w-5 h-5 text-cyan-400" />
           <CardTitle className="text-lg font-semibold tracking-wide bg-linear-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            {t("versionInfo")}
+            {t("version.info")}
           </CardTitle>
         </CardHeader>
 
@@ -301,8 +312,8 @@ const SettingsPage: React.FC = () => {
           {infos.map((info, i) => (
             <div
               key={i}
-              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${info.label === t("updateMethod") ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50" : ""}`}
-              onClick={info.label === t("updateMethod") ? fetchVersion : undefined}
+              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${info.label === t("update.method") ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50" : ""}`}
+              onClick={info.label === t("update.method") ? fetchVersion : undefined}
             >
               {info.icon}
               <div className="flex flex-col">
@@ -321,13 +332,13 @@ const SettingsPage: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center gap-2">
           <AppWindow className="w-5 h-5" />
-          <CardTitle>{t("uiSettings")}</CardTitle>
+          <CardTitle>{t("settings.ui")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Theme Settings */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-              {t("theme")}
+              {t("common.theme")}
             </label>
             <div className="flex space-x-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-lg">
               {(["light", "dark", "system"] as Theme[]).map((value) => (
@@ -340,27 +351,14 @@ const SettingsPage: React.FC = () => {
                       : "hover:bg-white/50 dark:hover:bg-slate-700/50"
                   }`}
                 >
-                  {t(value)}
+                  {t(themeKey(value))}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Language Settings */}
-          <FormSelect
-            value={i18n.language}
-            label={t("language")}
-            onChange={handleLanguageChange}
-            options={[
-              { value: "en", label: t("english") },
-              { value: "zh", label: t("chinese") },
-              { value: "ja", label: t("japanese") },
-              { value: "ko", label: t("korean") },
-              { value: "de", label: t("deutsch") },
-              { value: "ru", label: t("russian") },
-              { value: "fr", label: t("french") },
-            ]}
-          />
+          <LanguageSelect handleLanguageChange={handleLanguageChange} />
 
           {/* Zoom Settings */}
           <FormSelect
@@ -376,7 +374,7 @@ const SettingsPage: React.FC = () => {
           {/* Player Settings */}
           <FormSelect
             value={uiSettings?.remoteSettings.streamPlayer}
-            label={t("uisettings.player")}
+            label={t("settings.ui.player")}
             onChange={handlePlayerChange}
             options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
               value: v.toString(),
@@ -395,21 +393,21 @@ const SettingsPage: React.FC = () => {
               }}
             />
             <SwitchButton
-              label={t("assetsDisplay.detail")}
+              label={t("settings.ui.assets")}
               checked={uiSettings?.assetsDisplay}
               onChange={(value) => {
                 setUiSettings((state) => ({ ...state, assetsDisplay: value }));
               }}
             />
             <SwitchButton
-              label={t("uisettings.enableBAComet")}
+              label={t("settings.ui.enableBAComet")}
               checked={uiSettings?.enableBAComet}
               onChange={(value) => {
                 setUiSettings((state) => ({ ...state, enableBAComet: value }));
               }}
             />
             <SwitchButton
-              label={t("uisettings.enableSafeStream")}
+              label={t("settings.ui.enableSafeStream")}
               checked={uiSettings?.remoteSettings.enableSafeStream}
               onChange={(value) => {
                 setUiSettings((state) => ({
@@ -425,14 +423,14 @@ const SettingsPage: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center gap-2">
           <GitBranch className="w-5 h-5" />
-          <CardTitle>{t("globalUpdateSettings")}</CardTitle>
+          <CardTitle>{t("update.settingsTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-1">
             <div className="grid sm:flex gap-2 items-center">
               <FormInput
-                label={t("mirrorCdk")}
-                placeholder={t("enterCdk")}
+                label={t("update.mirrorCdk")}
+                placeholder={t("update.enterCdk")}
                 value={cdk}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -469,18 +467,24 @@ const SettingsPage: React.FC = () => {
           <Separator />
 
           <FormSelect
-            label={t("updateChannel")}
+            label={t("update.channel")}
             value={updateMethod}
             onChange={handleUpdateMethod}
-            options={reposInitState.map((r) => ({ value: r.method, label: t(r.label) }))}
+            options={reposInitState.map((r) => ({
+              value: r.method,
+              label: t(updateMethodKey(r.method)),
+            }))}
           />
 
           <div className="grid sm:flex gap-2">
             <FormSelect
-              label={t("shaConnectivityTest")}
+              label={t("update.shaConnectivityTest")}
               value={updateConfig["shaMethod"]}
               onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
-              options={shaMethodsInit.map((m) => ({ value: m.value, label: t(m.label) }))}
+              options={shaMethodsInit.map((m) => ({
+                value: m.value,
+                label: t(shaMethodKey(m.value)),
+              }))}
               className="grow"
             />
 
@@ -525,7 +529,7 @@ const SettingsPage: React.FC = () => {
                     className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <td className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex">
-                      <EllipsisWithTooltip text={t(r.method)} />
+                      <EllipsisWithTooltip text={t(i18nKey(r.method))} />
                       <div className="grow"></div>
                     </td>
 

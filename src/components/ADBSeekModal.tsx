@@ -87,7 +87,7 @@ const ADBSeekModal: React.FC<ADBSeekProps> = ({ onSelect }) => {
               </Card>
             ))}
             {results.length === 0 && !loading && (
-              <p className="text-sm text-slate-500">{t("adb.noData") || "No results found"}</p>
+              <p className="text-sm text-slate-500">{t("adb.noData")}</p>
             )}
           </div>
         </div>
