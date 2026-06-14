@@ -20,6 +20,7 @@ struct TaskTemplate {
     name: String,
     description: String,
     command: String,
+    running_region_max_lines: Option<usize>,
 }
 
 impl WorkflowBuilder {
@@ -69,13 +70,7 @@ impl WorkflowBuilder {
     /// Adds several tasks as consecutive serial stages.
     pub fn serial(mut self, tasks: Vec<WorkflowTask>) -> Self {
         for task in tasks {
-            self.push_stage(vec![TaskTemplate::new(
-                &task.task_id,
-                &task.region_id,
-                &task.name,
-                &task.description,
-                &task.command,
-            )]);
+            self.push_stage(vec![TaskTemplate::from_workflow_task(task)]);
         }
         self
     }
@@ -85,15 +80,7 @@ impl WorkflowBuilder {
         self.push_stage(
             tasks
                 .into_iter()
-                .map(|task| {
-                    TaskTemplate::new(
-                        &task.task_id,
-                        &task.region_id,
-                        &task.name,
-                        &task.description,
-                        &task.command,
-                    )
-                })
+                .map(TaskTemplate::from_workflow_task)
                 .collect(),
         );
         self
@@ -122,6 +109,7 @@ impl WorkflowBuilder {
             name: task.name,
             description: task.description,
             command: task.command,
+            running_region_max_lines: task.running_region_max_lines,
         };
         for dependency in dependencies {
             self.edges.push(WorkflowEdge {
@@ -154,6 +142,7 @@ impl WorkflowBuilder {
                 name: task.name,
                 description: task.description,
                 command: task.command,
+                running_region_max_lines: task.running_region_max_lines,
             })
             .collect();
         WorkflowPlan {
@@ -197,6 +186,7 @@ pub struct WorkflowTask {
     name: String,
     description: String,
     command: String,
+    running_region_max_lines: Option<usize>,
 }
 
 impl WorkflowTask {
@@ -214,7 +204,14 @@ impl WorkflowTask {
             name: name.to_string(),
             description: description.to_string(),
             command: command.to_string(),
+            running_region_max_lines: None,
         }
+    }
+
+    /// Sets the maximum number of recent output lines shown while this task is running.
+    pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
+        self.running_region_max_lines = Some(max_lines.max(1));
+        self
     }
 }
 
@@ -228,6 +225,20 @@ impl TaskTemplate {
             name: name.to_string(),
             description: description.to_string(),
             command: command.to_string(),
+            running_region_max_lines: None,
+        }
+    }
+
+    fn from_workflow_task(task: WorkflowTask) -> Self {
+        Self {
+            task_id: task.task_id,
+            region_id: task.region_id,
+            stage: 0,
+            lane: 0,
+            name: task.name,
+            description: task.description,
+            command: task.command,
+            running_region_max_lines: task.running_region_max_lines,
         }
     }
 }
@@ -245,6 +256,7 @@ pub fn thread_task_spec(plan: &WorkflowPlan, task_id: &str) -> Option<TaskSpec> 
         args: Vec::new(),
         cwd: ".".to_string(),
         env: Vec::new(),
+        running_region_max_lines: node.running_region_max_lines,
     })
 }
 

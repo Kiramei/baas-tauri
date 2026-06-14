@@ -72,6 +72,7 @@ pub fn create_process_task_with_total(
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        running_region_max_lines: None,
     }
 }
 
@@ -289,7 +290,7 @@ mod tests {
             ],
             display: display.to_string(),
             cwd: "./".to_string(),
-            env: vec![]
+            env: vec![],
         }
     }
 
@@ -299,6 +300,8 @@ mod tests {
             program: "/bin/sh".to_string(),
             args: vec!["-c".to_string(), command.to_string()],
             display: display.to_string(),
+            cwd: ".".to_string(),
+            env: vec![],
         }
     }
 
@@ -337,7 +340,7 @@ mod tests {
                 args: vec!["arg".to_string()],
                 display: "program arg".to_string(),
                 cwd: ".".to_string(),
-                env: vec![]
+                env: vec![],
             },
         );
 

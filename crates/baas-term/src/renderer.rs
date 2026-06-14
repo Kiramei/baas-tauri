@@ -5,10 +5,10 @@
 //! rendered dashboard snapshots.
 
 use crate::constants::{
-    ANSI_DASHBOARD_RESET, ANSI_RESET, EVENT_TERM_CHUNK, EVENT_TERM_SESSION_FINISHED,
-    EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS, EVENT_TERM_WORKFLOW_PLANNED,
-    EVENT_UPDATER_BACKEND_READY, MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS, REGION_MAX_KEPT_LINES,
-    RUNNING_REGION_MAX_LINES, STATUS_RUNNING, TAB_WIDTH,
+    ANSI_DASHBOARD_RESET, ANSI_RESET, DEFAULT_RUNNING_REGION_MAX_LINES, EVENT_TERM_CHUNK,
+    EVENT_TERM_SESSION_FINISHED, EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS,
+    EVENT_TERM_WORKFLOW_PLANNED, EVENT_UPDATER_BACKEND_READY, MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS,
+    REGION_MAX_KEPT_LINES, STATUS_RUNNING, TAB_WIDTH,
 };
 use crate::types::{
     BackendReadyPayload, DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec,
@@ -383,6 +383,7 @@ struct RegionBuffer {
     col: usize,
     escape_buffer: Option<EscapeBuffer>,
     max_kept_lines: usize,
+    running_max_lines: usize,
 }
 
 impl RegionBuffer {
@@ -393,6 +394,7 @@ impl RegionBuffer {
             col: 0,
             escape_buffer: None,
             max_kept_lines: REGION_MAX_KEPT_LINES,
+            running_max_lines: DEFAULT_RUNNING_REGION_MAX_LINES,
         }
     }
 
@@ -715,7 +717,11 @@ impl SessionRenderer {
         );
         self.regions
             .entry(spec.region_id.clone())
-            .or_insert_with(RegionBuffer::new);
+            .or_insert_with(RegionBuffer::new)
+            .running_max_lines = spec
+            .running_region_max_lines
+            .unwrap_or(DEFAULT_RUNNING_REGION_MAX_LINES)
+            .max(1);
         self.titles.insert(spec.region_id.clone(), title);
         self.task_regions
             .insert(spec.task_id.clone(), spec.region_id.clone());
@@ -784,9 +790,6 @@ impl SessionRenderer {
             if block.is_empty() {
                 continue;
             }
-            if !lines.is_empty() {
-                lines.push(String::new());
-            }
             lines.extend(block);
         }
 
@@ -812,7 +815,7 @@ impl SessionRenderer {
             .map(|region| {
                 region.render_lines(
                     if running {
-                        Some(RUNNING_REGION_MAX_LINES)
+                        Some(region.running_max_lines)
                     } else {
                         None
                     },
@@ -855,6 +858,7 @@ mod tests {
             args: Vec::new(),
             cwd: ".".to_string(),
             env: Vec::new(),
+            running_region_max_lines: None,
         }
     }
 
@@ -979,6 +983,34 @@ mod tests {
         assert!(snapshot.contains("[02/04] Beta"));
         assert!(snapshot.contains("a6"));
         assert!(!snapshot.contains("a1"));
+    }
+
+    #[test]
+    fn session_renderer_does_not_insert_blank_lines_between_regions() {
+        let mut renderer = SessionRenderer::new(20, 80);
+        renderer.start_region(&spec("task-a", "region-a", 1, "Alpha"));
+        renderer.push_output("task-a", "region-a", b"a1");
+        renderer.start_region(&spec("task-b", "region-b", 2, "Beta"));
+        renderer.push_output("task-b", "region-b", b"b1");
+
+        let snapshot = renderer.render_running_snapshot();
+
+        assert!(!snapshot.contains("a1\x1b[0m\r\n\r\n\x1b[1;36m[02/04] Beta"));
+        assert!(snapshot.contains("a1\x1b[0m\r\n\x1b[1;36m[02/04] Beta"));
+    }
+
+    #[test]
+    fn session_renderer_uses_task_running_line_limit() {
+        let mut renderer = SessionRenderer::new(20, 80);
+        let spec = spec("task", "region", 1, "Lines").with_running_region_max_lines(5);
+        renderer.start_region(&spec);
+        renderer.push_output("task", "region", b"1\n2\n3\n4\n5\n6");
+
+        let snapshot = renderer.render_running_snapshot();
+
+        assert!(snapshot.contains("2"));
+        assert!(snapshot.contains("6"));
+        assert!(!snapshot.contains("\r\n1\x1b[0m"));
     }
 
     #[test]
