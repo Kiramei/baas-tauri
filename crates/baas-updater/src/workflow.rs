@@ -840,6 +840,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         args: Vec::new(),
         cwd: ".".to_string(),
         env: Vec::new(),
+        after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
     }
 }
@@ -857,8 +858,43 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
     }
+}
+
+fn planned_direct_process_task(
+    plan: &WorkflowPlan,
+    task_id: &str,
+    command: &CommandSpec,
+) -> TaskSpec {
+    planned_command_process_task(plan, task_id, command, direct_script)
+}
+
+fn planned_shell_process_task(
+    plan: &WorkflowPlan,
+    task_id: &str,
+    command: &CommandSpec,
+) -> TaskSpec {
+    planned_command_process_task(plan, task_id, command, script_from_command)
+}
+
+fn planned_command_process_task(
+    plan: &WorkflowPlan,
+    task_id: &str,
+    command: &CommandSpec,
+    build_script: fn(&CommandSpec) -> ScriptCommand,
+) -> TaskSpec {
+    let mut scripts = command
+        .command_sequence()
+        .into_iter()
+        .map(|command| build_script(&command));
+    let first = scripts.next().unwrap_or_else(|| build_script(command));
+    let mut spec = planned_process_task(plan, task_id, first);
+    for script in scripts {
+        spec = spec.after(script);
+    }
+    spec
 }
 
 fn run_terminal_update_and_prepare_stage(
@@ -1030,16 +1066,9 @@ fn run_terminal_repo_stage(
         }
     };
 
-    let main_spec = planned_process_task(
-        workflow_plan,
-        "main-repository",
-        direct_script(&main_plan.command),
-    );
-    let cpp_spec = planned_process_task(
-        workflow_plan,
-        "cpp-repository",
-        direct_script(&cpp_plan.command),
-    );
+    let main_spec =
+        planned_direct_process_task(workflow_plan, "main-repository", &main_plan.command);
+    let cpp_spec = planned_direct_process_task(workflow_plan, "cpp-repository", &cpp_plan.command);
     let main_id = main_spec.task_id.clone();
     let cpp_id = cpp_spec.task_id.clone();
     let _ = renderer_tx.send(RendererEvent::BufferRegions {
@@ -1264,8 +1293,44 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
         .arg("origin")
         .arg(url)
         .env("GIT_TERMINAL_PROMPT", "0")
-        .env("BAAS_UPDATER_GIT_UPDATE_BRANCH", branch)
-        .env("BAAS_UPDATER_GIT_UPDATE_DIR", target_dir.to_string_lossy())
+        .after(
+            CommandSpec::new("git")
+                .arg("-C")
+                .arg(target_dir.to_string_lossy())
+                .arg("fetch")
+                .arg("--depth")
+                .arg("1")
+                .arg("origin")
+                .arg(branch)
+                .env("GIT_TERMINAL_PROMPT", "0"),
+        )
+        .after(
+            CommandSpec::new("git")
+                .arg("-C")
+                .arg(target_dir.to_string_lossy())
+                .arg("reset")
+                .arg("--hard")
+                .arg("FETCH_HEAD")
+                .env("GIT_TERMINAL_PROMPT", "0"),
+        )
+        .after(
+            CommandSpec::new("git")
+                .arg("-C")
+                .arg(target_dir.to_string_lossy())
+                .arg("reflog")
+                .arg("expire")
+                .arg("--expire=now")
+                .arg("--all")
+                .env("GIT_TERMINAL_PROMPT", "0"),
+        )
+        .after(
+            CommandSpec::new("git")
+                .arg("-C")
+                .arg(target_dir.to_string_lossy())
+                .arg("gc")
+                .arg("--prune=now")
+                .env("GIT_TERMINAL_PROMPT", "0"),
+        )
 }
 
 fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
@@ -1517,13 +1582,10 @@ fn run_terminal_environment_prepare_stage(
     if !run_process_and_wait(
         inner,
         session_id,
-        planned_process_task(
+        planned_direct_process_task(
             workflow_plan,
             "uv-python-install",
-            direct_script(&uv_python_install_command_with_mirror(
-                &config,
-                &cpython_mirror,
-            )),
+            &uv_python_install_command_with_mirror(&config, &cpython_mirror),
         ),
         renderer_tx,
         completion_tx,
@@ -1536,11 +1598,7 @@ fn run_terminal_environment_prepare_stage(
         && !run_process_and_wait(
             inner,
             session_id,
-            planned_process_task(
-                workflow_plan,
-                "uv-venv",
-                direct_script(&uv_venv_command(&config)),
-            ),
+            planned_direct_process_task(workflow_plan, "uv-venv", &uv_venv_command(&config)),
             renderer_tx,
             completion_tx,
             completion_rx,
@@ -1685,14 +1743,10 @@ fn run_terminal_dependency_stage(
     } else if !run_process_and_wait(
         inner,
         session_id,
-        planned_process_task(
+        planned_direct_process_task(
             workflow_plan,
             "uv-compile",
-            direct_script(&uv_compile_command_with_index(
-                &config,
-                &requirements,
-                &pypi_index,
-            )),
+            &uv_compile_command_with_index(&config, &requirements, &pypi_index),
         ),
         renderer_tx,
         completion_tx,
@@ -1704,7 +1758,7 @@ fn run_terminal_dependency_stage(
             ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
             ("uv-cache-clean", uv_cache_clean_command(&config)),
         ] {
-            let task = planned_process_task(workflow_plan, task_id, direct_script(&command))
+            let task = planned_direct_process_task(workflow_plan, task_id, &command)
                 .with_running_region_max_lines(4);
             if !run_process_and_wait(
                 inner,
@@ -1796,11 +1850,7 @@ fn run_terminal_launch_stage(
     let success = run_process_and_wait(
         inner,
         session_id,
-        planned_process_task(
-            workflow_plan,
-            "launch-backend",
-            script_from_command(&command),
-        ),
+        planned_shell_process_task(workflow_plan, "launch-backend", &command),
         renderer_tx,
         completion_tx,
         completion_rx,
@@ -2132,25 +2182,6 @@ fn powershell_script(command: &CommandSpec) -> ScriptCommand {
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
-    } else if command.program.to_string_lossy() == "git"
-        && command
-            .env
-            .iter()
-            .any(|(key, _)| key == "BAAS_UPDATER_GIT_UPDATE_BRANCH")
-    {
-        let dir = env_value(command, "BAAS_UPDATER_GIT_UPDATE_DIR").unwrap_or_default();
-        let branch = env_value(command, "BAAS_UPDATER_GIT_UPDATE_BRANCH").unwrap_or("master");
-        let url = command.args.last().map(String::as_str).unwrap_or_default();
-        script.push_str(&format!(
-            "& git -C '{}' remote set-url origin '{}'; if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}; & git -C '{}' fetch --depth 1 origin '{}'; if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}; & git -C '{}' reset --hard FETCH_HEAD; if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}; & git -C '{}' reflog expire --expire=now --all; & git -C '{}' gc --prune=now; exit 0",
-            escape_powershell(dir),
-            escape_powershell(url),
-            escape_powershell(dir),
-            escape_powershell(branch),
-            escape_powershell(dir),
-            escape_powershell(dir),
-            escape_powershell(dir),
-        ));
     } else {
         script.push_str(&format!(
             "& '{}' {}; exit $LASTEXITCODE",
@@ -2202,25 +2233,6 @@ fn sh_script(command: &CommandSpec) -> ScriptCommand {
                 .collect::<Vec<_>>()
                 .join(" ")
         ));
-    } else if command.program.to_string_lossy() == "git"
-        && command
-            .env
-            .iter()
-            .any(|(key, _)| key == "BAAS_UPDATER_GIT_UPDATE_BRANCH")
-    {
-        let dir = env_value(command, "BAAS_UPDATER_GIT_UPDATE_DIR").unwrap_or_default();
-        let branch = env_value(command, "BAAS_UPDATER_GIT_UPDATE_BRANCH").unwrap_or("master");
-        let url = command.args.last().map(String::as_str).unwrap_or_default();
-        script.push_str(&format!(
-            "git -C {} remote set-url origin {} && git -C {} fetch --depth 1 origin {} && git -C {} reset --hard FETCH_HEAD && git -C {} reflog expire --expire=now --all; git -C {} gc --prune=now",
-            shell_quote(dir),
-            shell_quote(url),
-            shell_quote(dir),
-            shell_quote(branch),
-            shell_quote(dir),
-            shell_quote(dir),
-            shell_quote(dir),
-        ));
     } else {
         script.push_str(&format!(
             "{} {}",
@@ -2254,14 +2266,6 @@ fn escape_powershell(value: &str) -> String {
 #[cfg(not(windows))]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
-}
-
-fn env_value<'a>(command: &'a CommandSpec, key: &str) -> Option<&'a str> {
-    command
-        .env
-        .iter()
-        .find(|(candidate, _)| candidate == key)
-        .map(|(_, value)| value.as_str())
 }
 
 fn display_command(command: &CommandSpec) -> String {
@@ -2463,6 +2467,42 @@ mod tests {
                 .any(|edge| edge.from == "git-record-sha" && edge.to == "updater-finalize-repos")
         );
         assert_eq!(plan.nodes.len() as u8, compile.step_total);
+    }
+
+    #[test]
+    fn git_update_command_uses_serial_command_chain() {
+        let command = git_update_command(
+            "https://example.invalid/repo.git",
+            "master",
+            Path::new("repo"),
+        );
+        let sequence = command.command_sequence();
+
+        assert_eq!(sequence.len(), 5);
+        assert_eq!(
+            sequence[0].args,
+            [
+                "-C",
+                "repo",
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.invalid/repo.git"
+            ]
+        );
+        assert_eq!(
+            sequence[1].args,
+            ["-C", "repo", "fetch", "--depth", "1", "origin", "master"]
+        );
+        assert_eq!(
+            sequence[2].args,
+            ["-C", "repo", "reset", "--hard", "FETCH_HEAD"]
+        );
+        assert_eq!(
+            sequence[3].args,
+            ["-C", "repo", "reflog", "expire", "--expire=now", "--all"]
+        );
+        assert_eq!(sequence[4].args, ["-C", "repo", "gc", "--prune=now"]);
     }
 
     #[test]

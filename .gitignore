@@ -13,7 +13,7 @@ dist-ssr
 *.local
 .cache
 target
-public/fonts/*.woff
+public/fonts/*.woff2
 
 # Editor directories and files
 .vscode/*

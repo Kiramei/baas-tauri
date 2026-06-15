@@ -36,6 +36,8 @@ pub struct CommandSpec {
     pub env: Vec<(String, String)>,
     /// Whether the process should be spawned and detached instead of waited on.
     pub detached: bool,
+    /// Additional commands executed serially after this command succeeds.
+    pub after: Vec<CommandSpec>,
 }
 
 impl CommandSpec {
@@ -47,6 +49,7 @@ impl CommandSpec {
             cwd: None,
             env: Vec::new(),
             detached: false,
+            after: Vec::new(),
         }
     }
 
@@ -73,6 +76,23 @@ impl CommandSpec {
         self.detached = true;
         self
     }
+
+    /// Appends a command to run after this command succeeds.
+    pub fn after(mut self, command: CommandSpec) -> Self {
+        self.after.push(command);
+        self
+    }
+
+    /// Returns this command followed by all appended commands as a flat sequence.
+    pub fn command_sequence(&self) -> Vec<CommandSpec> {
+        let mut primary = self.clone();
+        let after = std::mem::take(&mut primary.after);
+        let mut commands = vec![primary];
+        for command in after {
+            commands.extend(command.command_sequence());
+        }
+        commands
+    }
 }
 
 /// Runs process commands for environment setup.
@@ -93,6 +113,19 @@ pub struct RealProcessRunner;
 
 impl ProcessRunner for RealProcessRunner {
     fn run<O: OutputSink + ?Sized>(&self, command: &CommandSpec, output: &O) -> UpdaterResult<()> {
+        for command in command.command_sequence() {
+            self.run_single(&command, output)?;
+        }
+        Ok(())
+    }
+}
+
+impl RealProcessRunner {
+    fn run_single<O: OutputSink + ?Sized>(
+        &self,
+        command: &CommandSpec,
+        output: &O,
+    ) -> UpdaterResult<()> {
         output.line(
             OutputStyle::Info,
             &format!("Running {}", display_command(command)),
@@ -1033,6 +1066,24 @@ mod tests {
         assert!(sync.args.contains(&"--no-progress".to_string()));
         assert!(sync.args.contains(&"sync".to_string()));
         assert!(clean.args.contains(&"--no-progress".to_string()));
+    }
+
+    #[test]
+    fn command_spec_appends_serial_commands() {
+        let command = CommandSpec::new("first")
+            .arg("one")
+            .after(CommandSpec::new("second").arg("two"))
+            .after(CommandSpec::new("third").after(CommandSpec::new("fourth")));
+
+        let sequence = command.command_sequence();
+
+        assert_eq!(sequence.len(), 4);
+        assert_eq!(sequence[0].program, PathBuf::from("first"));
+        assert_eq!(sequence[0].args, ["one"]);
+        assert_eq!(sequence[1].program, PathBuf::from("second"));
+        assert_eq!(sequence[2].program, PathBuf::from("third"));
+        assert_eq!(sequence[3].program, PathBuf::from("fourth"));
+        assert!(sequence.iter().all(|command| command.after.is_empty()));
     }
 
     #[test]
