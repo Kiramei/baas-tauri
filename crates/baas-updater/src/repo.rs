@@ -9,6 +9,7 @@ use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc,
@@ -180,6 +181,7 @@ impl SourceProbe for GitSourceProbe {
     fn measure(&self, url: &str) -> UpdaterResult<Duration> {
         let start = Instant::now();
         let status = Command::new("git")
+            .creation_flags(0x08000000)
             .arg("ls-remote")
             .arg("--heads")
             .arg(url)

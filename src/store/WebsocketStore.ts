@@ -46,6 +46,10 @@ const resolveHttpBase = () => {
 };
 
 const { appendGlobalLog } = useGlobalLogStore.getState();
+const TAURI_UPDATER_POLL_INTERVAL_MS = 30 * 60 * 1000;
+let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
+let tauriUpdaterChecking = false;
+let tauriUpdaterNotifiedVersion: string | null = null;
 
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
@@ -166,6 +170,95 @@ export const useWebSocketStore = create<WebSocketState>()(
     _pwd_epoch: 0,
     _control: null,
     _session: null,
+
+    checkTauriUpdater: async (notify = false) => {
+      if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      tauriUpdaterChecking = true;
+      set((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          tauri: {
+            ...(state.versionStore.tauri ?? {}),
+            checking: true,
+            error: null,
+          },
+        },
+      }));
+
+      try {
+        const [{ check }, { getVersion }] = await Promise.all([
+          import("@tauri-apps/plugin-updater"),
+          import("@tauri-apps/api/app"),
+        ]);
+        const currentVersion = await getVersion().catch(() => undefined);
+        const update = await check();
+        const nextTauriVersion = update
+          ? {
+              updateAvailable: true,
+              checking: false,
+              currentVersion,
+              version: update.version,
+              body: update.body ?? "",
+              date: update.date ?? "",
+              lastChecked: Date.now(),
+              error: null,
+            }
+          : {
+              updateAvailable: false,
+              checking: false,
+              currentVersion,
+              version: null,
+              body: "",
+              date: "",
+              lastChecked: Date.now(),
+              error: null,
+            };
+
+        set((state) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            tauri: nextTauriVersion,
+          },
+        }));
+
+        if (update) {
+          if (notify && tauriUpdaterNotifiedVersion !== update.version) {
+            toast.info(t("update.tauriAvailable"), {
+              description: update.version,
+            });
+            tauriUpdaterNotifiedVersion = update.version;
+          }
+        } else {
+          tauriUpdaterNotifiedVersion = null;
+        }
+      } catch (error) {
+        set((state) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            tauri: {
+              ...(state.versionStore.tauri ?? {}),
+              checking: false,
+              updateAvailable: false,
+              lastChecked: Date.now(),
+              error: error instanceof Error ? error.message : String(error),
+            },
+          },
+        }));
+      } finally {
+        tauriUpdaterChecking = false;
+      }
+    },
+
+    startTauriUpdaterPolling: () => {
+      if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
+      void get().checkTauriUpdater(true);
+      tauriUpdaterPollTimer = setInterval(() => {
+        void get().checkTauriUpdater(true);
+      }, TAURI_UPDATER_POLL_INTERVAL_MS);
+    },
 
     startAuthFlow: async () => {
       const phase = get()._auth_phase;
@@ -484,6 +577,19 @@ export const useWebSocketStore = create<WebSocketState>()(
           if (typeof data === "string" || !data) return;
           if ("is_all_data_initialized" in data) {
             set((state) => ({ ...state, _all_data_initialized: true }));
+          } else if ("version" in data) {
+            const version = (data as any).version;
+            set((state) => ({
+              ...state,
+              versionStore: {
+                ...state.versionStore,
+                local: version.local,
+                remote: version.remote,
+                updateAvailable: version.update_available,
+                channel: version.channel,
+                method: version.method,
+              },
+            }));
           } else {
             const firstKey = Object.keys(data)[0];
             if (typeof data[firstKey] === "object" && "config_id" in data[firstKey]) {
@@ -693,6 +799,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             set((state) => ({
               ...state,
               versionStore: {
+                ...state.versionStore,
                 local: event.data.local,
                 remote: event.data.remote,
               },

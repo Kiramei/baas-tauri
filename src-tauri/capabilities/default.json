@@ -27,6 +27,7 @@
     "store:allow-save",
     "store:allow-load",
     "store:allow-entries",
+    "updater:default",
     "process:default"
   ]
 }

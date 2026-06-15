@@ -25,8 +25,7 @@
       "dark": "Тёмная",
       "light": "Светлая",
       "system": "Системная"
-    },
-    "update": "Обновления"
+    }
   },
   "language": {
     "$self": "Язык",
@@ -72,17 +71,24 @@
     "updateSuccess": "Настройки успешно обновлены"
   },
   "update": {
-    "available": "Доступна новая версия",
+    "backendAction": "Update BAAS",
+    "backendStarted": "BAAS update started",
+    "backendStartFailed": "Failed to start BAAS update",
     "channel": "Канал обновления",
-    "confirmTitle": "Подтвердить обновление",
     "dueDate": "Срок действия",
     "enterCdk": "Введите CDK",
     "method": "Действие",
     "mirrorCdk": "CDK MirrorC (необязательно)",
-    "notice": "Пожалуйста, остановите все выполняемые задачи перед обновлением.",
-    "prompt": "Обнаружена новая версия, обновить сейчас?",
     "settingsTitle": "Настройки обновления",
-    "shaConnectivityTest": "Метод получения SHA"
+    "shaConnectivityTest": "Метод получения SHA",
+    "tauriAction": "Client",
+    "tauriAvailable": "Client update available",
+    "tauriChecking": "Checking for client update...",
+    "tauriDownloading": "Downloading {{version}}...",
+    "tauriFailed": "Client update failed",
+    "tauriInstalling": "Installing and restarting...",
+    "tauriInstallTitle": "Client update",
+    "tauriUpToDate": "Client is already up to date"
   },
   "version": {
     "checkError": "Не удалось получить версию",
@@ -486,11 +492,17 @@
     "unknown": "Неизвестная задача"
   },
   "shaMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "Репозиторий GitCode",
     "gitee": "Репозиторий Gitee",
     "github": "API GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "Бесплатный API MirrorC",
-    "tencentCoding": "Репозиторий Tencent Cloud Coding"
+    "sevencdn": "SevenCDN"
   },
   "shaTest": {
     "method": "Метод",
@@ -585,11 +597,21 @@
   "ui": {
     "zoom": "Настройки масштабирования интерфейса"
   },
+  "updateChannel": {
+    "dev": "Development",
+    "stable": "Stable"
+  },
   "updateMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
     "gitee": "Gitee",
     "github": "GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
-    "tencent": "Tencent Coding"
+    "sevencdn": "SevenCDN"
   }
 }

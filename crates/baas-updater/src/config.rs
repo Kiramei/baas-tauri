@@ -30,7 +30,7 @@ pub fn default_pypi_sources() -> Vec<String> {
 
 /// Complete persisted updater configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct UpdaterConfig {
     /// Schema version used for future migrations.
     #[serde(rename = "schema_version", alias = "schemaVersion")]
@@ -93,25 +93,31 @@ impl UpdaterConfig {
 
 /// General updater behavior and version state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct GeneralConfig {
     /// MirrorC CDK. Empty means Git update mode.
+    #[serde(alias = "mirrorc_cdk")]
     pub mirrorc_cdk: String,
     /// Update channel used to select repository and MirrorC sources.
     pub channel: UpdateChannel,
     /// Current main repository SHA recorded after Git or MirrorC updates.
+    #[serde(alias = "current_baas_sha")]
     pub current_baas_sha: String,
     /// Current Cpp repository SHA recorded after Git or MirrorC updates.
+    #[serde(alias = "current_baas_cpp_sha")]
     pub current_baas_cpp_sha: String,
     /// Preferred remote SHA method learned from previous runs.
+    #[serde(alias = "get_remote_sha_method")]
     pub get_remote_sha_method: String,
     /// Whether to launch after synchronization.
     pub launch: bool,
     /// Whether an existing process may be force-launched/replaced.
+    #[serde(alias = "force_launch")]
     pub force_launch: bool,
     /// Whether debug logging is enabled.
     pub debug: bool,
     /// Python package indexes used by UV.
+    #[serde(alias = "source_list")]
     pub source_list: Vec<String>,
 }
 
@@ -133,13 +139,16 @@ impl Default for GeneralConfig {
 
 /// Path settings persisted in setup.toml.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct PathConfig {
     /// BAAS installation root directory.
+    #[serde(alias = "baas_root_path")]
     pub baas_root_path: String,
     /// Cache directory relative to `baas_root_path` unless absolute.
+    #[serde(alias = "tmp_path")]
     pub tmp_path: String,
     /// Toolkit directory relative to `baas_root_path` unless absolute.
+    #[serde(alias = "toolkit_path")]
     pub toolkit_path: String,
 }
 
@@ -155,11 +164,13 @@ impl Default for PathConfig {
 
 /// Repository source ranking state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct RepositoryConfig {
     /// Ranked sources for the main repository.
+    #[serde(alias = "main_sources")]
     pub main_sources: Vec<RankedSource>,
     /// Ranked sources for the Cpp repository.
+    #[serde(alias = "cpp_sources")]
     pub cpp_sources: Vec<RankedSource>,
 }
 
@@ -183,12 +194,14 @@ impl RepositoryConfig {
 
 /// Python runtime and UV environment settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default)]
 pub struct PythonConfig {
     /// `"default"` uses the updater-managed UV environment; otherwise this is
     /// a Python interpreter path.
+    #[serde(alias = "runtime_path")]
     pub runtime_path: String,
     /// Python version installed by UV.
+    #[serde(alias = "python_version")]
     pub python_version: String,
 }
 
@@ -331,7 +344,13 @@ fn exe_adjacent_config_path() -> UpdaterResult<PathBuf> {
 /// Parses current or legacy setup.toml into the current schema.
 pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
     let value: toml::Value = toml::from_str(content)?;
-    if value.get("schema_version").is_some() || value.get("schemaVersion").is_some() {
+    if value.get("schema_version").is_some()
+        || value.get("schemaVersion").is_some()
+        || value.get("general").is_some()
+        || value.get("paths").is_some()
+        || value.get("python").is_some()
+        || value.get("repositories").is_some()
+    {
         let config: UpdaterConfig = value.try_into()?;
         return Ok(config);
     }
@@ -349,7 +368,10 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         config.general.launch = bool_value(general, "launch", false);
         config.general.force_launch = bool_value(general, "force_launch", false);
         config.general.debug = bool_value(general, "debug", false);
-        if bool_value(general, "dev", false) {
+        let channel = string_value(general, "channel");
+        if !channel.is_empty() {
+            config.general.channel = UpdateChannel::parse(&channel)?;
+        } else if bool_value(general, "dev", false) {
             config.general.channel = UpdateChannel::Dev;
         }
         if let Some(sources) = general.get("source_list").and_then(toml::Value::as_array) {
@@ -458,6 +480,50 @@ TOOL_KIT_PATH = "tools"
     }
 
     #[test]
+    fn reads_current_snake_case_setup_toml() {
+        let config = migrate_toml(
+            r#"
+schema_version = 1
+
+[general]
+mirrorc_cdk = "abc"
+channel = "dev"
+current_baas_sha = "main-sha"
+current_baas_cpp_sha = "cpp-sha"
+get_remote_sha_method = "github"
+force_launch = true
+source_list = ["https://example.invalid/simple"]
+
+[paths]
+baas_root_path = "D:/BAAS"
+tmp_path = "cache"
+toolkit_path = "tools"
+
+[python]
+runtime_path = "C:/Python/python.exe"
+python_version = "3.11.0"
+
+[repositories]
+main_sources = []
+cpp_sources = []
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.general.mirrorc_cdk, "abc");
+        assert_eq!(config.general.channel, UpdateChannel::Dev);
+        assert_eq!(config.general.current_baas_sha, "main-sha");
+        assert_eq!(config.general.current_baas_cpp_sha, "cpp-sha");
+        assert_eq!(config.general.get_remote_sha_method, "github");
+        assert!(config.general.force_launch);
+        assert_eq!(config.paths.baas_root_path, "D:/BAAS");
+        assert_eq!(config.paths.tmp_path, "cache");
+        assert_eq!(config.paths.toolkit_path, "tools");
+        assert_eq!(config.python.runtime_path, "C:/Python/python.exe");
+        assert_eq!(config.python.python_version, "3.11.0");
+    }
+
+    #[test]
     fn load_save_round_trip_and_setters_work() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("setup.toml");
@@ -476,6 +542,14 @@ TOOL_KIT_PATH = "tools"
             loaded.config.paths.baas_root_path,
             dir.path().to_string_lossy()
         );
+
+        let saved = fs::read_to_string(&path).unwrap();
+        assert!(saved.contains("baas_root_path"));
+        assert!(saved.contains("mirrorc_cdk"));
+        assert!(saved.contains("runtime_path"));
+        assert!(!saved.contains("baasRootPath"));
+        assert!(!saved.contains("mirrorcCdk"));
+        assert!(!saved.contains("runtimePath"));
     }
 
     #[test]

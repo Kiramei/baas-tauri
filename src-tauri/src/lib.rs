@@ -12,9 +12,9 @@ use crate::{
     },
     commands::{
         ensure_default_config, updater_abort_workflow, updater_get_startup_state,
-        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
-        updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
-        BackendProcessManager,
+        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
+        updater_start_workflow, updater_terminal_snapshot, updater_update_config,
+        updater_validate_mirrorc_cdk, BackendProcessManager,
     },
 };
 
@@ -39,6 +39,7 @@ pub fn run() {
             splash_off,
             set_backend_locale,
             updater_get_startup_state,
+            updater_path_exists_non_empty,
             updater_update_config,
             updater_validate_mirrorc_cdk,
             updater_start_workflow,

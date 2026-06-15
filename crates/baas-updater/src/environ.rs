@@ -576,6 +576,7 @@ pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec 
         .arg(config.baas_root().join("main.service.py").to_string_lossy())
         .arg("--port")
         .arg(port.to_string())
+        .arg("--no-ocr-update-check")
         .env(
             "BAAS_BACKEND_PID_FILE",
             backend_pid_path(config).to_string_lossy(),
