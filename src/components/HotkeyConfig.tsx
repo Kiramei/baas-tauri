@@ -9,25 +9,51 @@ export interface HotkeyFieldProps {
   label?: string;
   value: string; // Current hotkey value (e.g. Ctrl+Shift+K)
   onChange: (next: string) => void; // Callback invoked when recording completes
+  onRecordingChange?: (recording: boolean) => void;
   error?: string;
   className?: string;
 }
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
 
-function normalizeCombo(e: KeyboardEvent): string | null {
-  // Require at least one non-modifier key; modifier-only presses are ignored.
-  const { key, ctrlKey, shiftKey, altKey, metaKey } = e;
+function displayKeyFromEvent(e: KeyboardEvent): string | null {
+  if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return null;
 
-  // Normalise the main key representation.
-  let main = key;
+  if (/^Digit[0-9]$/.test(e.code)) return e.code.slice("Digit".length);
+  if (/^Numpad[0-9]$/.test(e.code)) return e.code.slice("Numpad".length);
+  if (/^Key[A-Z]$/.test(e.code)) return e.code.slice("Key".length);
+  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(e.code)) return e.code;
 
-  // Skip pure modifier keys.
-  if (["Shift", "Control", "Alt", "Meta"].includes(main)) return null;
+  const byCode: Record<string, string> = {
+    Space: "Space",
+    Enter: "Enter",
+    Tab: "Tab",
+    Escape: "Escape",
+    ArrowUp: "ArrowUp",
+    ArrowDown: "ArrowDown",
+    ArrowLeft: "ArrowLeft",
+    ArrowRight: "ArrowRight",
+    Minus: "-",
+    Equal: "=",
+    Comma: ",",
+    Period: ".",
+    Slash: "/",
+    Semicolon: ";",
+    Quote: "'",
+    BracketLeft: "[",
+    BracketRight: "]",
+    Backslash: "\\",
+    Backquote: "`",
+  };
 
-  // Standardise casing for readability while keeping special keys intact.
-  if (main.length === 1) main = main.toUpperCase();
-  if (main === " ") main = "Space";
+  if (byCode[e.code]) return byCode[e.code];
+  if (e.key.length === 1) return e.key.toUpperCase();
+  return e.key || null;
+}
+
+function comboFromEvent(e: KeyboardEvent, includeModifierOnly = false): string | null {
+  const { ctrlKey, shiftKey, altKey, metaKey } = e;
+  const main = displayKeyFromEvent(e);
 
   const parts: string[] = [];
   if (isMac) {
@@ -41,6 +67,7 @@ function normalizeCombo(e: KeyboardEvent): string | null {
   }
   if (shiftKey) parts.push("Shift");
 
+  if (!main) return includeModifierOnly && parts.length ? parts.join("+") : null;
   parts.push(main);
   return parts.join("+");
 }
@@ -49,6 +76,7 @@ export default function HotkeyField({
   label,
   value,
   onChange,
+  onRecordingChange,
   error,
   className = "",
 }: HotkeyFieldProps) {
@@ -58,11 +86,20 @@ export default function HotkeyField({
   const placeholder = t("placeholder.nobinding");
 
   useEffect(() => {
+    onRecordingChange?.(recording);
+    return () => {
+      if (recording) onRecordingChange?.(false);
+    };
+  }, [onRecordingChange, recording]);
+
+  useEffect(() => {
     if (!recording) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       // Prevent the host page from executing its default shortcut handlers.
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
 
       // Allow escape to cancel the recording session.
       if (e.key === "Escape") {
@@ -71,22 +108,37 @@ export default function HotkeyField({
         return;
       }
 
-      const combo = normalizeCombo(e);
+      const liveCombo = comboFromEvent(e, true);
+      if (liveCombo) setHint(liveCombo);
+
+      const combo = comboFromEvent(e);
       if (!combo) {
         setHint(isMac ? "Press a main key…" : "Press a non-modifier key…");
         return;
       }
 
-      onChange(combo);
-      setRecording(false);
-      setHint("");
+      window.setTimeout(() => {
+        onChange(combo);
+        setRecording(false);
+        setHint("");
+      }, 120);
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
     };
 
     // Surface contextual hints while recording.
     setHint(isMac ? "Press the key combination, Esc to cancel" : "Press keys, Esc to cancel");
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("keyup", onKeyUp, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("keyup", onKeyUp, { capture: true });
+    };
   }, [recording, onChange]);
 
   const borderClass = error
@@ -159,7 +211,13 @@ export default function HotkeyField({
   );
 }
 
-type HotkeyConfig = { id: string; label: string; value: string };
+type HotkeyConfig = {
+  id: string;
+  label: string;
+  value: string;
+  configId?: string;
+  enabled?: boolean;
+};
 
 // 小工具：快捷键格式简校验（允许空；或者像 "Ctrl+Shift+K"、"Alt+S"、"F5" 等）
 const isHotkeyValid = (v: string) => {
@@ -184,8 +242,9 @@ const isHotkeyValid = (v: string) => {
 const HotkeySettingsModal: React.FC<{
   isOpen: boolean;
   onClose: (toSave: boolean, draft?: HotkeyConfig[]) => void;
+  onRecordingChange?: (recording: boolean) => void;
   value: HotkeyConfig[];
-}> = ({ isOpen, onClose, value }) => {
+}> = ({ isOpen, onClose, onRecordingChange, value }) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<HotkeyConfig[]>(value);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -283,6 +342,7 @@ const HotkeySettingsModal: React.FC<{
                     return next;
                   });
                 }}
+                onRecordingChange={onRecordingChange}
                 error={err || (hasDup ? (t("hotkey.duplicate") as string) : "")}
                 className="mb-3"
               />
@@ -292,9 +352,7 @@ const HotkeySettingsModal: React.FC<{
 
         {/* 错误提示（若有） */}
         {Object.keys(errors).length > 0 && (
-          <div className="text-sm text-red-500">
-            {t("hotkey.fixInvalid")}
-          </div>
+          <div className="text-sm text-red-500">{t("hotkey.fixInvalid")}</div>
         )}
 
         <div className="flex justify-end gap-2 pt-2">

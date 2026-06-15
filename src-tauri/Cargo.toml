@@ -22,6 +22,7 @@ tauri-build = { version = "2.6.2", features = [] }
 baas-updater = { workspace = true }
 baas-term = { workspace = true }
 baas-i18n = { workspace = true }
+baas-shortcut = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
@@ -35,6 +36,7 @@ tauri-plugin-store = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-single-instance = "2"
+tauri-plugin-global-shortcut = "2"
 
 [dev-dependencies]
 tempfile = { workspace = true }

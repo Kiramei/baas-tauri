@@ -3,6 +3,7 @@
  */
 import type { TFunction } from "i18next";
 import type { HotkeyConfig } from "@/components/HotkeyConfig";
+import type { ConfigProfile } from "@/types/app";
 
 export function getDefaultHotkeys(t: TFunction): HotkeyConfig[] {
   return [
@@ -10,6 +11,45 @@ export function getDefaultHotkeys(t: TFunction): HotkeyConfig[] {
     { id: "clear-logs", label: t("hotkey.clear.logs"), value: "" },
     { id: "help", label: t("hotkey.help.about"), value: "" },
   ];
+}
+
+export const profileToggleHotkeyId = (configId: string) => `toggle-run:${configId}`;
+
+export function defaultProfileAccelerator(index: number): string {
+  if (index >= 0 && index < 9) return `Ctrl+Alt+Shift+${index + 1}`;
+  if (index === 9) return "Ctrl+Alt+Shift+0";
+  if (index >= 10 && index < 22) return `Ctrl+Alt+Shift+F${index - 9}`;
+  return "";
+}
+
+export function reconcileProfileHotkeys(
+  profiles: ConfigProfile[],
+  stored: HotkeyConfig[] | null | undefined,
+  toggleLabel = "Start/Stop"
+): HotkeyConfig[] {
+  const storedByConfigId = new Map<string, HotkeyConfig>();
+
+  for (const hotkey of stored ?? []) {
+    const configId = hotkey.configId ?? configIdFromHotkeyId(hotkey.id);
+    if (!configId) continue;
+    storedByConfigId.set(configId, hotkey);
+  }
+
+  return profiles.map((profile, index) => {
+    const existing = storedByConfigId.get(profile.id);
+    return {
+      id: profileToggleHotkeyId(profile.id),
+      configId: profile.id,
+      label: `${toggleLabel} - ${profile.name}`,
+      value: existing?.value ?? defaultProfileAccelerator(index),
+      enabled: existing?.enabled ?? true,
+    };
+  });
+}
+
+function configIdFromHotkeyId(id: string): string | null {
+  const prefix = "toggle-run:";
+  return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
 export function normalizeCombo(s: string): string {

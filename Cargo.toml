@@ -3,7 +3,8 @@ members = [
   "src-tauri",
   "crates/baas-updater",
   "crates/baas-term",
-  "crates/baas-i18n"
+  "crates/baas-i18n",
+  "crates/baas-shortcut"
 ]
 resolver = "2"
 
@@ -11,6 +12,7 @@ resolver = "2"
 baas-updater = { path = "crates/baas-updater" }
 baas-term = { path = "crates/baas-term" }
 baas-i18n = { path = "crates/baas-i18n" }
+baas-shortcut = { path = "crates/baas-shortcut" }
 
 tauri = { version = "2.11.2", features = ["tray-icon"] }
 tokio = { version = "1.48.0", features = ["full"] }
