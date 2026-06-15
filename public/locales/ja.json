@@ -25,8 +25,7 @@
       "dark": "ダーク",
       "light": "ライト",
       "system": "システム"
-    },
-    "update": "更新"
+    }
   },
   "language": {
     "$self": "言語",
@@ -72,17 +71,24 @@
     "updateSuccess": "設定の更新に成功しました"
   },
   "update": {
-    "available": "新しいバージョン発見",
+    "backendAction": "Update BAAS",
+    "backendStarted": "BAAS update started",
+    "backendStartFailed": "Failed to start BAAS update",
     "channel": "更新チャンネル",
-    "confirmTitle": "更新の確認",
     "dueDate": "有効期限",
     "enterCdk": "CDKを入力",
     "method": "操作",
     "mirrorCdk": "MirrorC CDK (任意)",
-    "notice": "更新する前に、実行中のタスクをすべて停止してください。",
-    "prompt": "新しいバージョンが検出されました。今すぐ更新しますか？",
     "settingsTitle": "更新設定",
-    "shaConnectivityTest": "SHA取得方法"
+    "shaConnectivityTest": "SHA取得方法",
+    "tauriAction": "Client",
+    "tauriAvailable": "Client update available",
+    "tauriChecking": "Checking for client update...",
+    "tauriDownloading": "Downloading {{version}}...",
+    "tauriFailed": "Client update failed",
+    "tauriInstalling": "Installing and restarting...",
+    "tauriInstallTitle": "Client update",
+    "tauriUpToDate": "Client is already up to date"
   },
   "version": {
     "checkError": "バージョンの取得に失敗しました",
@@ -486,11 +492,17 @@
     "unknown": "不明なタスク"
   },
   "shaMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "GitCodeリポジトリ",
     "gitee": "Giteeリポジトリ",
     "github": "GitHub API",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC無料API",
-    "tencentCoding": "Tencent Cloud Codingリポジトリ"
+    "sevencdn": "SevenCDN"
   },
   "shaTest": {
     "method": "方法",
@@ -585,11 +597,21 @@
   "ui": {
     "zoom": "UIズーム設定"
   },
+  "updateChannel": {
+    "dev": "Development",
+    "stable": "Stable"
+  },
   "updateMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
     "gitee": "Gitee",
     "github": "GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
-    "tencent": "Tencent Coding"
+    "sevencdn": "SevenCDN"
   }
 }

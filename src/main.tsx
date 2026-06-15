@@ -4,6 +4,7 @@ import "@xterm/xterm/css/xterm.css";
 import App from "@/App.tsx";
 import { initI18n } from "@/shared/I18nTranslator.ts";
 import { Buffer } from "buffer";
+import { useWebSocketStore } from "@/store/WebsocketStore.ts";
 
 (globalThis as any).Buffer = Buffer;
 
@@ -19,6 +20,7 @@ const closeSplash = async () => {
 
 const bootstrap = async () => {
   await initI18n();
+  useWebSocketStore.getState().startTauriUpdaterPolling();
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />

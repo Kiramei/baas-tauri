@@ -25,8 +25,7 @@
       "dark": "Sombre",
       "light": "Clair",
       "system": "Système"
-    },
-    "update": "Mises à jour"
+    }
   },
   "language": {
     "$self": "Langue",
@@ -72,17 +71,24 @@
     "updateSuccess": "Paramètres mis à jour avec succès"
   },
   "update": {
-    "available": "Nouvelle version disponible",
+    "backendAction": "Update BAAS",
+    "backendStarted": "BAAS update started",
+    "backendStartFailed": "Failed to start BAAS update",
     "channel": "Canal de mise à jour",
-    "confirmTitle": "Confirmer la mise à jour",
     "dueDate": "Date d'expiration",
     "enterCdk": "Entrez le CDK",
     "method": "Méthode",
     "mirrorCdk": "CDK MirrorC (Optionnel)",
-    "notice": "Veuillez arrêter toutes les tâches en cours avant de mettre à jour.",
-    "prompt": "Une nouvelle version a été détectée, mettre à jour maintenant ?",
     "settingsTitle": "Paramètres de mise à jour",
-    "shaConnectivityTest": "Méthode de récupération SHA"
+    "shaConnectivityTest": "Méthode de récupération SHA",
+    "tauriAction": "Client",
+    "tauriAvailable": "Client update available",
+    "tauriChecking": "Checking for client update...",
+    "tauriDownloading": "Downloading {{version}}...",
+    "tauriFailed": "Client update failed",
+    "tauriInstalling": "Installing and restarting...",
+    "tauriInstallTitle": "Client update",
+    "tauriUpToDate": "Client is already up to date"
   },
   "version": {
     "checkError": "Échec de la récupération de la version",
@@ -486,11 +492,17 @@
     "unknown": "Tâche inconnue"
   },
   "shaMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "Dépôt GitCode",
     "gitee": "Dépôt Gitee",
     "github": "API GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "API gratuite MirrorC",
-    "tencentCoding": "Dépôt Tencent Cloud Coding"
+    "sevencdn": "SevenCDN"
   },
   "shaTest": {
     "method": "Méthode",
@@ -585,11 +597,21 @@
   "ui": {
     "zoom": "Paramètres de zoom de l'interface"
   },
+  "updateChannel": {
+    "dev": "Development",
+    "stable": "Stable"
+  },
   "updateMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
     "gitee": "Gitee",
     "github": "GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN Proxy",
+    "githubProxyV4": "GitHub v4 Proxy",
+    "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
-    "tencent": "Tencent Coding"
+    "sevencdn": "SevenCDN"
   }
 }

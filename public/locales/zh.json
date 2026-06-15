@@ -25,8 +25,7 @@
       "dark": "深色",
       "light": "浅色",
       "system": "跟随系统"
-    },
-    "update": "更新"
+    }
   },
   "language": {
     "$self": "语言",
@@ -72,17 +71,24 @@
     "updateSuccess": "设置更新成功"
   },
   "update": {
-    "available": "发现新版本",
+    "backendAction": "更新 BAAS",
+    "backendStarted": "BAAS 更新已开始",
+    "backendStartFailed": "BAAS 更新启动失败",
     "channel": "更新通道",
-    "confirmTitle": "确认更新",
     "dueDate": "到期时间",
     "enterCdk": "输入CDK",
     "method": "操作",
     "mirrorCdk": "Mirror酱的CDK (可选)",
-    "notice": "更新前请停止当前运行中的任务。",
-    "prompt": "检测到新版本，是否现在更新？",
     "settingsTitle": "更新设置",
-    "shaConnectivityTest": "SHA获取方式"
+    "shaConnectivityTest": "SHA获取方式",
+    "tauriAction": "客户端",
+    "tauriAvailable": "发现客户端新版本",
+    "tauriChecking": "正在检查客户端更新...",
+    "tauriDownloading": "正在下载 {{version}}...",
+    "tauriFailed": "客户端更新失败",
+    "tauriInstalling": "正在安装并重启...",
+    "tauriInstallTitle": "客户端更新",
+    "tauriUpToDate": "客户端已是最新版本"
   },
   "version": {
     "checkError": "版本获取失败",
@@ -486,11 +492,17 @@
     "unknown": "未知任务"
   },
   "shaMethod": {
+    "baasCdn": "BAAS CDN 加速读取",
+    "ghProxy": "gh-proxy.org 加速读取",
     "gitcode": "GitCode仓库读取",
     "gitee": "Gitee仓库读取",
     "github": "GitHub API",
+    "githubfast": "GitHubFast 加速读取",
+    "githubProxyCdn": "GitHub CDN 加速读取",
+    "githubProxyV4": "GitHub v4 加速读取",
+    "githubProxyV6": "GitHub v6 加速读取",
     "mirrorc": "Mirror酱免费API",
-    "tencentCoding": "腾讯工蜂仓库读取"
+    "sevencdn": "SevenCDN 加速读取"
   },
   "shaTest": {
     "method": "方式",
@@ -585,11 +597,21 @@
   "ui": {
     "zoom": "UI 缩放设置"
   },
+  "updateChannel": {
+    "dev": "开发版",
+    "stable": "稳定版"
+  },
   "updateMethod": {
+    "baasCdn": "BAAS CDN",
+    "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
     "gitee": "Gitee",
     "github": "GitHub",
+    "githubfast": "GitHubFast",
+    "githubProxyCdn": "GitHub CDN 加速",
+    "githubProxyV4": "GitHub v4 加速",
+    "githubProxyV6": "GitHub v6 加速",
     "mirrorc": "Mirror酱",
-    "tencent": "腾讯工蜂"
+    "sevencdn": "SevenCDN"
   }
 }

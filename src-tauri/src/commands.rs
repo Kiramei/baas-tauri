@@ -79,6 +79,13 @@ pub struct BackendReadyPayload {
     pub base_backend_port: u16,
 }
 
+/// Simple path probe used by the setup page to recover from older configs
+/// where the install root was lost but the frontend still has a cached path.
+#[tauri::command]
+pub fn updater_path_exists_non_empty(path: PathBuf) -> bool {
+    path_exists_non_empty(&path)
+}
+
 /// Tracks backend processes started by updater workflows so the Tauri process
 /// owns their lifetime.
 #[derive(Default)]

@@ -141,6 +141,8 @@ interface WebSocketState {
   statusStore: { [id: string]: StatusItem };
   startAuthFlow: () => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
+  checkTauriUpdater: (notify?: boolean) => Promise<void>;
+  startTauriUpdaterPolling: () => void;
   connect: (name: WsName) => Promise<void>;
   disconnect: (name: WsName) => void;
   send: (name: WsName, data: any) => void;

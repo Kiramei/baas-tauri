@@ -9,7 +9,9 @@ use crate::constants::{
     DEVICE_STATUS_REPORT_TAIL_BYTES, PROCESS_FINISH_SETTLE_MS, PROCESS_READ_BUFFER_BYTES,
     PROCESS_WAIT_POLL_MS, PTY_PIXEL_HEIGHT, PTY_PIXEL_WIDTH, STATUS_FAILED, STATUS_SUCCESS,
 };
-use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
+use crate::types::{
+    RendererEvent, TaskCommandSpec, TaskCompletion, TaskHandle, TaskSpec, TermState,
+};
 use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::sync::mpsc::Receiver;
 use std::{
@@ -19,6 +21,7 @@ use std::{
 };
 
 /// Command configuration for a process task.
+#[derive(Clone)]
 pub struct ScriptCommand {
     /// Program executable to spawn.
     pub program: String,
@@ -30,6 +33,18 @@ pub struct ScriptCommand {
     pub cwd: String,
     /// Script Run Env Var
     pub env: Vec<(String, String)>,
+}
+
+impl From<ScriptCommand> for TaskCommandSpec {
+    fn from(script: ScriptCommand) -> Self {
+        Self {
+            command: script.display,
+            program: script.program,
+            args: script.args,
+            cwd: script.cwd,
+            env: script.env,
+        }
+    }
 }
 
 /// Builds a [`TaskSpec`] for a PTY-backed process task.
@@ -72,6 +87,7 @@ pub fn create_process_task_with_total(
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        after: Vec::new(),
         running_region_max_lines: None,
     }
 }
@@ -98,6 +114,83 @@ pub fn spawn_process_task(
     renderer_tx: &Sender<RendererEvent>,
     completion_tx: &Sender<TaskCompletion>,
 ) -> Result<(), String> {
+    {
+        let state = inner.lock().map_err(|_| "term manager lock poisoned")?;
+        if state.current_session_id.as_deref() != Some(session_id) {
+            return Err("stale term session".to_string());
+        }
+    }
+
+    renderer_tx
+        .send(RendererEvent::TaskStarted(spec.clone()))
+        .map_err(|error| error.to_string())?;
+
+    let wait_tx = renderer_tx.clone();
+    let wait_completion_tx = completion_tx.clone();
+    let wait_inner = Arc::clone(inner);
+    let wait_task_id = spec.task_id.clone();
+    let wait_region_id = spec.region_id.clone();
+    let wait_session_id = session_id.to_string();
+    let commands = spec.process_commands();
+    thread::spawn(move || {
+        let mut status = STATUS_SUCCESS.to_string();
+        let mut exit_code = Some(0);
+        let mut error = None;
+
+        for command in commands {
+            match run_one_process_command(
+                &wait_inner,
+                &wait_session_id,
+                &wait_task_id,
+                &wait_region_id,
+                command,
+                &wait_tx,
+            ) {
+                Ok(code) if code == 0 => {
+                    exit_code = Some(code);
+                }
+                Ok(code) => {
+                    status = STATUS_FAILED.to_string();
+                    exit_code = Some(code);
+                    break;
+                }
+                Err(command_error) => {
+                    status = STATUS_FAILED.to_string();
+                    exit_code = None;
+                    error = Some(command_error);
+                    break;
+                }
+            }
+        }
+
+        if let Ok(mut state) = wait_inner.lock() {
+            state.tasks.remove(&wait_task_id);
+        }
+        let success = status == STATUS_SUCCESS;
+        let _ = wait_tx.send(RendererEvent::TaskFinished {
+            task_id: wait_task_id.clone(),
+            region_id: wait_region_id,
+            status,
+            exit_code,
+            error,
+        });
+        let _ = wait_completion_tx.send(TaskCompletion {
+            task_id: wait_task_id,
+            success,
+        });
+    });
+
+    Ok(())
+}
+
+fn run_one_process_command(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    task_id: &str,
+    region_id: &str,
+    command_spec: TaskCommandSpec,
+    renderer_tx: &Sender<RendererEvent>,
+) -> Result<i32, String> {
     let (rows, cols) = {
         let state = inner.lock().map_err(|_| "term manager lock poisoned")?;
         if state.current_session_id.as_deref() != Some(session_id) {
@@ -124,12 +217,12 @@ pub fn spawn_process_task(
         .take_writer()
         .map_err(|error| error.to_string())?;
 
-    let mut command = CommandBuilder::new(&spec.program);
-    command.cwd(&spec.cwd);
-    for (key, value) in &spec.env {
+    let mut command = CommandBuilder::new(&command_spec.program);
+    command.cwd(&command_spec.cwd);
+    for (key, value) in &command_spec.env {
         command.env(key.as_str(), value.as_str());
     }
-    command.args(spec.args.clone());
+    command.args(command_spec.args);
     let child = pair
         .slave
         .spawn_command(command)
@@ -146,16 +239,12 @@ pub fn spawn_process_task(
 
     {
         let mut state = inner.lock().map_err(|_| "term manager lock poisoned")?;
-        state.tasks.insert(spec.task_id.clone(), handle);
+        state.tasks.insert(task_id.to_string(), handle);
     }
 
-    renderer_tx
-        .send(RendererEvent::TaskStarted(spec.clone()))
-        .map_err(|error| error.to_string())?;
-
     let read_tx = renderer_tx.clone();
-    let read_task_id = spec.task_id.clone();
-    let read_region_id = spec.region_id.clone();
+    let read_task_id = task_id.to_string();
+    let read_region_id = region_id.to_string();
     let read_writer = Arc::clone(&writer);
     thread::spawn(move || {
         let mut buffer = [0_u8; PROCESS_READ_BUFFER_BYTES];
@@ -181,74 +270,28 @@ pub fn spawn_process_task(
         }
     });
 
-    let wait_tx = renderer_tx.clone();
-    let wait_completion_tx = completion_tx.clone();
-    let wait_inner = Arc::clone(inner);
-    let wait_task_id = spec.task_id.clone();
-    let wait_region_id = spec.region_id.clone();
-    thread::spawn(move || {
-        let (status, exit_code, success, error) = loop {
-            let wait_result = {
-                match child.lock() {
-                    Ok(mut child) => child.try_wait(),
-                    Err(_) => {
-                        break (
-                            STATUS_FAILED.to_string(),
-                            None,
-                            false,
-                            Some("term child lock poisoned".to_string()),
-                        );
-                    }
-                }
-            };
-
-            match wait_result {
-                Ok(Some(exit_status)) => {
-                    let code = exit_status.exit_code() as i32;
-                    let success = code == 0;
-                    break (
-                        if success {
-                            STATUS_SUCCESS
-                        } else {
-                            STATUS_FAILED
-                        }
-                        .to_string(),
-                        Some(code),
-                        success,
-                        None,
-                    );
-                }
-                Ok(None) => thread::sleep(Duration::from_millis(PROCESS_WAIT_POLL_MS)),
-                Err(error) => {
-                    break (
-                        STATUS_FAILED.to_string(),
-                        None,
-                        false,
-                        Some(error.to_string()),
-                    );
-                }
+    let exit_code = loop {
+        let wait_result = {
+            match child.lock() {
+                Ok(mut child) => child.try_wait(),
+                Err(_) => return Err("term child lock poisoned".to_string()),
             }
         };
 
-        thread::sleep(Duration::from_millis(PROCESS_FINISH_SETTLE_MS));
-
-        if let Ok(mut state) = wait_inner.lock() {
-            state.tasks.remove(&wait_task_id);
+        match wait_result {
+            Ok(Some(exit_status)) => break exit_status.exit_code() as i32,
+            Ok(None) => thread::sleep(Duration::from_millis(PROCESS_WAIT_POLL_MS)),
+            Err(error) => return Err(error.to_string()),
         }
-        let _ = wait_tx.send(RendererEvent::TaskFinished {
-            task_id: wait_task_id.clone(),
-            region_id: wait_region_id,
-            status,
-            exit_code,
-            error,
-        });
-        let _ = wait_completion_tx.send(TaskCompletion {
-            task_id: wait_task_id,
-            success,
-        });
-    });
+    };
 
-    Ok(())
+    thread::sleep(Duration::from_millis(PROCESS_FINISH_SETTLE_MS));
+
+    if let Ok(mut state) = inner.lock() {
+        state.tasks.remove(task_id);
+    }
+
+    Ok(exit_code)
 }
 
 /// Spawns a process task and blocks until that specific task completes.
@@ -317,6 +360,16 @@ mod tests {
 
     fn failure_script() -> ScriptCommand {
         script("exit 7", "failure")
+    }
+
+    #[cfg(windows)]
+    fn output_script(text: &str, display: &str) -> ScriptCommand {
+        script(&format!("Write-Output {text}; exit 0"), display)
+    }
+
+    #[cfg(not(windows))]
+    fn output_script(text: &str, display: &str) -> ScriptCommand {
+        script(&format!("printf '{text}\\n'; exit 0"), display)
     }
 
     fn active_state() -> Arc<Mutex<TermState>> {
@@ -403,6 +456,54 @@ mod tests {
             renderer_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
             RendererEvent::TaskStarted(_)
         ));
+        assert!(inner.lock().unwrap().tasks.is_empty());
+    }
+
+    #[test]
+    fn process_task_runs_appended_commands_in_same_region() {
+        let inner = active_state();
+        let (renderer_tx, renderer_rx) = mpsc::channel();
+        let (completion_tx, completion_rx) = mpsc::channel();
+        let spec = create_process_task(
+            "chain",
+            "chain-region",
+            1,
+            "Chain",
+            output_script("first", "first"),
+        )
+        .after(output_script("second", "second"));
+
+        assert!(run_process_and_wait(
+            &inner,
+            "session",
+            spec,
+            &renderer_tx,
+            &completion_tx,
+            &completion_rx
+        ));
+
+        let mut output = String::new();
+        loop {
+            match renderer_rx.recv_timeout(Duration::from_secs(2)).unwrap() {
+                RendererEvent::TaskStarted(spec) => {
+                    assert_eq!(spec.region_id, "chain-region");
+                }
+                RendererEvent::Output {
+                    region_id, chunk, ..
+                } => {
+                    assert_eq!(region_id, "chain-region");
+                    output.push_str(&String::from_utf8_lossy(&chunk));
+                }
+                RendererEvent::TaskFinished { status, .. } => {
+                    assert_eq!(status, STATUS_SUCCESS);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(output.contains("first"));
+        assert!(output.contains("second"));
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 

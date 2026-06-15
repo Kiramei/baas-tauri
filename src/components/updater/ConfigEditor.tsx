@@ -34,6 +34,7 @@ interface MirrorCStatus {
 interface UpdaterConfig {
   general?: {
     channel?: Channel;
+    mirrorc_cdk?: string;
     mirrorcCdk?: string;
   };
 }
@@ -50,19 +51,22 @@ interface ConfigEditorProps {
 const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
+const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
+  config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
+
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const [cdkInput, setCdkInput] = useState(props.config?.general?.mirrorcCdk ?? "");
+  const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
   const [validating, setValidating] = useState(false);
   const [cdkStatus, setCdkStatus] = useState<MirrorCStatus | null>(null);
 
   useEffect(() => {
     if (props.open) {
-      setCdkInput(props.config?.general?.mirrorcCdk ?? "");
+      setCdkInput(setupMirrorcCdk(props.config));
       setCdkStatus(null);
     }
-  }, [props.open, props.config?.general?.mirrorcCdk]);
+  }, [props.open, props.config]);
 
   if (!props.open) return null;
 
@@ -120,7 +124,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
       });
       const detail = describeMirrorCReport(report);
       if (report.success) {
-        patchGeneral({ mirrorcCdk: cdkInput.trim() });
+        patchGeneral({ mirrorc_cdk: cdkInput.trim() });
         setCdkStatus({
           tone: "success",
           title: "MirrorC CDK valid",
@@ -131,7 +135,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
         });
       } else {
         setCdkInput("");
-        patchGeneral({ mirrorcCdk: "" });
+        patchGeneral({ mirrorc_cdk: "" });
         setCdkStatus({
           tone: "error",
           title: "MirrorC CDK invalid",
@@ -143,7 +147,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
       }
     } catch (error) {
       setCdkInput("");
-      patchGeneral({ mirrorcCdk: "" });
+      patchGeneral({ mirrorc_cdk: "" });
       const detail = error instanceof Error ? error.message : String(error);
       setCdkStatus({
         tone: "error",

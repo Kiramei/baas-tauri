@@ -53,6 +53,22 @@ pub enum TaskHandle {
     },
 }
 
+/// One process command executed inside a [`TaskSpec`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskCommandSpec {
+    /// Display command shown to the UI.
+    pub command: String,
+    /// Program executable for process tasks.
+    pub program: String,
+    /// Program arguments for process tasks.
+    pub args: Vec<String>,
+    /// Program run directory.
+    pub cwd: String,
+    /// Program run env var.
+    pub env: Vec<(String, String)>,
+}
+
 /// Metadata used to start and render a task.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,11 +93,35 @@ pub struct TaskSpec {
     pub cwd: String,
     /// Program run env var
     pub env: Vec<(String, String)>,
+    /// Additional process commands executed serially in this same task region.
+    pub after: Vec<TaskCommandSpec>,
     /// Optional maximum number of recent output lines shown while this task is running.
     pub running_region_max_lines: Option<usize>,
 }
 
 impl TaskSpec {
+    /// Appends a process command to run after the primary command.
+    ///
+    /// The appended command shares this task's renderer region and final status.
+    /// If any command exits unsuccessfully, later commands are not executed.
+    pub fn after(mut self, command: impl Into<TaskCommandSpec>) -> Self {
+        self.after.push(command.into());
+        self
+    }
+
+    /// Returns the primary command followed by appended commands.
+    pub fn process_commands(&self) -> Vec<TaskCommandSpec> {
+        let mut commands = vec![TaskCommandSpec {
+            command: self.command.clone(),
+            program: self.program.clone(),
+            args: self.args.clone(),
+            cwd: self.cwd.clone(),
+            env: self.env.clone(),
+        }];
+        commands.extend(self.after.clone());
+        commands
+    }
+
     /// Sets the maximum number of recent output lines shown while this task is running.
     pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
         self.running_region_max_lines = Some(max_lines.max(1));
@@ -386,6 +426,38 @@ mod tests {
                 "durationMs": 1234
             })
         );
+    }
+
+    #[test]
+    fn task_spec_appends_process_commands() {
+        let spec = TaskSpec {
+            task_id: "task".to_string(),
+            region_id: "region".to_string(),
+            step_index: 1,
+            step_total: 2,
+            name: "Task".to_string(),
+            command: "first".to_string(),
+            program: "program".to_string(),
+            args: vec!["one".to_string()],
+            cwd: ".".to_string(),
+            env: vec![("A".to_string(), "1".to_string())],
+            after: Vec::new(),
+            running_region_max_lines: None,
+        }
+        .after(TaskCommandSpec {
+            command: "second".to_string(),
+            program: "program".to_string(),
+            args: vec!["two".to_string()],
+            cwd: ".".to_string(),
+            env: vec![("B".to_string(), "2".to_string())],
+        });
+
+        let commands = spec.process_commands();
+
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].command, "first");
+        assert_eq!(commands[1].command, "second");
+        assert_eq!(commands[1].args, ["two"]);
     }
 
     #[test]

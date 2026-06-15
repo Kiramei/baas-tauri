@@ -22,9 +22,11 @@ import InstallerLayout from "@/components/updater/InstallerLayout";
 interface UpdaterConfig {
   general?: {
     channel?: "stable" | "dev";
+    mirrorc_cdk?: string;
     mirrorcCdk?: string;
   };
   paths?: {
+    baas_root_path?: string;
     baasRootPath?: string;
   };
 }
@@ -48,6 +50,12 @@ interface FailureInfo {
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const setupBaasRootPath = (config: UpdaterConfig | null | undefined) =>
+  config?.paths?.baas_root_path || config?.paths?.baasRootPath || "";
+
+const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
+  config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
 const randomPassword = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -109,7 +117,7 @@ const SetupPage = () => {
         request: {
           baasRootPath: path,
           channel: nextConfig?.general?.channel ?? "stable",
-          mirrorcCdk: nextConfig?.general?.mirrorcCdk ?? "",
+          mirrorcCdk: setupMirrorcCdk(nextConfig),
         },
       });
       setConfig(updated);
@@ -288,11 +296,20 @@ const SetupPage = () => {
           },
         }).catch(() => undefined);
         const startup = await invoke<StartupState>("updater_get_startup_state");
-        const root = startup.config.paths?.baasRootPath || startup.defaultInstallPath;
+        const storedRoot = StorageUtil.get<string>("base_dir");
+        const configRoot = setupBaasRootPath(startup.config);
+        const root = configRoot || storedRoot || startup.defaultInstallPath;
         setInstallPath(root);
         setConfig(startup.config);
 
-        if (startup.baasRootExistsNonEmpty && root) {
+        const storedRootExists =
+          !startup.baasRootExistsNonEmpty &&
+          Boolean(storedRoot) &&
+          (await invoke<boolean>("updater_path_exists_non_empty", { path: storedRoot }).catch(
+            () => false
+          ));
+
+        if ((startup.baasRootExistsNonEmpty || storedRootExists) && root) {
           await startInstall(root, startup.config);
         }
       } catch (error) {

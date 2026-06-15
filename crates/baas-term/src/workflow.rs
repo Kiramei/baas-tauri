@@ -256,6 +256,7 @@ pub fn thread_task_spec(plan: &WorkflowPlan, task_id: &str) -> Option<TaskSpec> 
         args: Vec::new(),
         cwd: ".".to_string(),
         env: Vec::new(),
+        after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
     })
 }

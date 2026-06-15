@@ -257,7 +257,10 @@ const WikiPage: React.FC = () => {
   }, []);
 
   const openWebWiki = useCallback(async () => {
-    if (!__WITH_TAURI__) return;
+    if (!__WITH_TAURI__) {
+      window.open("https://baas.wiki", "_blank");
+      return;
+    }
     const detachedWindow = await getWebWikiWindow();
     if (detachedWindow) {
       setWebWikiMode("detached");
@@ -500,7 +503,6 @@ const WikiPage: React.FC = () => {
           type="button"
           size="sm"
           onClick={() => openWebWiki().catch(console.error)}
-          disabled={!__WITH_TAURI__}
           title={t("wiki.web.title")}
           className="shrink-0"
         >

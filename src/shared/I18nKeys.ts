@@ -84,7 +84,13 @@ const shaMethodMap: Record<string, TranslationKey> = {
   gitcode: "shaMethod.gitcode",
   github: "shaMethod.github",
   mirrorc: "shaMethod.mirrorc",
-  tencent_c_coding: "shaMethod.tencentCoding",
+  github_proxy_v4: "shaMethod.githubProxyV4",
+  github_proxy_v6: "shaMethod.githubProxyV6",
+  github_proxy_cdn: "shaMethod.githubProxyCdn",
+  gh_proxy: "shaMethod.ghProxy",
+  sevencdn: "shaMethod.sevencdn",
+  githubfast: "shaMethod.githubfast",
+  baas_cdn: "shaMethod.baasCdn",
 };
 
 const updateMethodMap: Record<string, TranslationKey> = {
@@ -92,7 +98,13 @@ const updateMethodMap: Record<string, TranslationKey> = {
   gitcode: "updateMethod.gitcode",
   github: "updateMethod.github",
   mirrorc: "updateMethod.mirrorc",
-  tencent_c_coding: "updateMethod.tencent",
+  github_proxy_v4: "updateMethod.githubProxyV4",
+  github_proxy_v6: "updateMethod.githubProxyV6",
+  github_proxy_cdn: "updateMethod.githubProxyCdn",
+  gh_proxy: "updateMethod.ghProxy",
+  sevencdn: "updateMethod.sevencdn",
+  githubfast: "updateMethod.githubfast",
+  baas_cdn: "updateMethod.baasCdn",
 };
 
 const mirrorcMessageMap: Record<string, TranslationKey> = {

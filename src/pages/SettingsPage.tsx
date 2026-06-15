@@ -64,8 +64,32 @@ const reposInit: RepoConfig[] = [
     method: "gitcode",
   },
   {
-    label: "updateMethod.tencent",
-    method: "tencent_c_coding",
+    label: "updateMethod.githubProxyV4",
+    method: "github_proxy_v4",
+  },
+  {
+    label: "updateMethod.githubProxyV6",
+    method: "github_proxy_v6",
+  },
+  {
+    label: "updateMethod.githubProxyCdn",
+    method: "github_proxy_cdn",
+  },
+  {
+    label: "updateMethod.ghProxy",
+    method: "gh_proxy",
+  },
+  {
+    label: "updateMethod.sevencdn",
+    method: "sevencdn",
+  },
+  {
+    label: "updateMethod.githubfast",
+    method: "githubfast",
+  },
+  {
+    label: "updateMethod.baasCdn",
+    method: "baas_cdn",
   },
 ];
 
@@ -76,7 +100,13 @@ const shaMethodsInit = [
   { label: "shaMethod.mirrorc", value: "mirrorc" },
   { label: "shaMethod.gitee", value: "gitee" },
   { label: "shaMethod.gitcode", value: "gitcode" },
-  { label: "shaMethod.tencentCoding", value: "tencent_c_coding" },
+  { label: "shaMethod.githubProxyV4", value: "github_proxy_v4" },
+  { label: "shaMethod.githubProxyV6", value: "github_proxy_v6" },
+  { label: "shaMethod.githubProxyCdn", value: "github_proxy_cdn" },
+  { label: "shaMethod.ghProxy", value: "gh_proxy" },
+  { label: "shaMethod.sevencdn", value: "sevencdn" },
+  { label: "shaMethod.githubfast", value: "githubfast" },
+  { label: "shaMethod.baasCdn", value: "baas_cdn" },
 ];
 
 const SettingsPage: React.FC = () => {
@@ -130,6 +160,7 @@ const SettingsPage: React.FC = () => {
   const [versionChecking, setVersionChecking] = useState(false);
 
   const [updateMethod, setUpdateMethod] = useState<string>(updateConfig["updateMethod"]);
+  const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
 
   const infos = [
@@ -173,7 +204,9 @@ const SettingsPage: React.FC = () => {
       {
         timestamp: getTimestampMs(),
         command: "check_for_update",
-        payload: {},
+        payload: {
+          channel: updateChannel,
+        },
       },
       (e) => {
         setShaLocal(e.data.local);
@@ -197,6 +230,7 @@ const SettingsPage: React.FC = () => {
         command: "valid_cdk",
         payload: {
           cdk: cdk,
+          channel: updateChannel,
         },
       },
       (e) => {
@@ -249,6 +283,7 @@ const SettingsPage: React.FC = () => {
       setUpdateMethod(updateConfig["updateMethod"]);
       setReposInitState(reposInit.filter((ele) => ele.method !== "mirrorc"));
     }
+    setUpdateChannel(updateConfig["channel"] ?? "stable");
   }, [updateConfig]);
 
   useEffect(() => {
@@ -267,7 +302,9 @@ const SettingsPage: React.FC = () => {
       {
         timestamp: getTimestampMs(),
         command: "test_all_sha",
-        payload: {},
+        payload: {
+          channel: updateChannel,
+        },
       },
       (e) => {
         setShaResults(
@@ -285,6 +322,7 @@ const SettingsPage: React.FC = () => {
 
   const handleUpdateMethod = (value: string) => {
     if (value === "mirrorc") {
+      modify("global::setup_toml", { updateMethod: value });
       setUpdateMethod(value);
       return;
     } else if (value !== "mirrorc" && updateConfig["mirrorcCdk"]) {
@@ -294,6 +332,12 @@ const SettingsPage: React.FC = () => {
     modify("global::setup_toml", { mirrorcCdk: "" }, false);
     modify("global::setup_toml", { updateMethod: value });
     setUpdateMethod(value);
+  };
+
+  const handleUpdateChannel = (value: string) => {
+    const channel = value === "dev" ? "dev" : "stable";
+    setUpdateChannel(channel);
+    modify("global::setup_toml", { channel });
   };
 
   return (
@@ -467,13 +511,23 @@ const SettingsPage: React.FC = () => {
           <Separator />
 
           <FormSelect
-            label={t("update.channel")}
+            label={t("update.method")}
             value={updateMethod}
             onChange={handleUpdateMethod}
             options={reposInitState.map((r) => ({
               value: r.method,
               label: t(updateMethodKey(r.method)),
             }))}
+          />
+
+          <FormSelect
+            label={t("update.channel")}
+            value={updateChannel}
+            onChange={handleUpdateChannel}
+            options={[
+              { value: "stable", label: t("updateChannel.stable") },
+              { value: "dev", label: t("updateChannel.dev") },
+            ]}
           />
 
           <div className="grid sm:flex gap-2">
