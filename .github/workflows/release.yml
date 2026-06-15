@@ -406,8 +406,10 @@ jobs:
             rpm_arch: aarch64
             linker: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
+            gcc_package: gcc-aarch64-linux-gnu
+            gxx_package: g++-aarch64-linux-gnu
+            multiarch_triplet: aarch64-linux-gnu
             pkg_config_path: /usr/lib/aarch64-linux-gnu/pkgconfig
-            pkg_config_sysroot: /usr/aarch64-linux-gnu
           - os: ubuntu-22.04
             target: armv7-unknown-linux-gnueabihf
             arch: armhf
@@ -415,8 +417,10 @@ jobs:
             rpm_arch: armv7hl
             linker: arm-linux-gnueabihf-gcc
             cxx: arm-linux-gnueabihf-g++
+            gcc_package: gcc-arm-linux-gnueabihf
+            gxx_package: g++-arm-linux-gnueabihf
+            multiarch_triplet: arm-linux-gnueabihf
             pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
-            pkg_config_sysroot: /usr/arm-linux-gnueabihf
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -467,16 +471,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat > /tmp/sources.list <<'EOF'
-          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy main multiverse universe restricted
-          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-security main multiverse universe restricted
-          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-updates main multiverse universe restricted
-          deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu jammy-backports main multiverse universe restricted
+          sudo mkdir -p /etc/apt/sources.list.d.disabled
+          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) \
+            -exec mv {} /etc/apt/sources.list.d.disabled/ \;
 
-          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy main multiverse universe restricted
-          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main multiverse universe restricted
-          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main multiverse universe restricted
-          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main multiverse universe restricted
+          cat > /tmp/sources.list <<'EOF'
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main multiverse universe restricted
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main multiverse universe restricted
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main multiverse universe restricted
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-backports main multiverse universe restricted
+
+          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy main multiverse universe restricted
+          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-security main multiverse universe restricted
+          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-updates main multiverse universe restricted
+          deb [arch=${{ matrix.arch }}] http://ports.ubuntu.com/ubuntu-ports jammy-backports main multiverse universe restricted
           EOF
 
           if [ -f /etc/apt/sources.list ]; then
@@ -487,30 +495,19 @@ jobs:
           sudo dpkg --add-architecture ${{ matrix.arch }}
           sudo apt-get update
 
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
+            ${{ matrix.gcc_package }} \
+            ${{ matrix.gxx_package }} \
+            pkg-config \
             libxslt1.1:${{ matrix.arch }} \
+            libcups2:${{ matrix.arch }} \
+            libgtk-3-dev:${{ matrix.arch }} \
             libwebkit2gtk-4.1-dev:${{ matrix.arch }} \
             libayatana-appindicator3-dev:${{ matrix.arch }} \
             libssl-dev:${{ matrix.arch }} \
             librsvg2-dev:${{ matrix.arch }} \
             patchelf \
             rpm
-
-      - name: Install aarch64 tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        shell: bash
-        run: |
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu
-
-      - name: Install armv7 tools
-        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        shell: bash
-        run: |
-          sudo apt-get install -y \
-            gcc-arm-linux-gnueabihf \
-            g++-arm-linux-gnueabihf
 
       - name: Configure Linux ARM cross env
         shell: bash
@@ -519,7 +516,8 @@ jobs:
 
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=${{ matrix.pkg_config_path }}" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_SYSROOT_DIR=${{ matrix.pkg_config_sysroot }}" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_LIBDIR=/usr/lib/${{ matrix.multiarch_triplet }}/pkgconfig:/usr/share/pkgconfig" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_SYSROOT_DIR=/" >> "$GITHUB_ENV"
 
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
