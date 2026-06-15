@@ -5,7 +5,7 @@ import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
 import AssetsDisplay from "@/components/AssetsDisplay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { FileUp, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
+import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
@@ -14,6 +14,9 @@ import { formatIsoToReadable, getTimestamp, getTimestampMs } from "@/shared/Glob
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
+import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
+import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
+import { toast } from "sonner";
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -21,6 +24,7 @@ import StorageUtil from "@/shared/StorageManager.ts";
 const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
   const { uiSettings, setUiSettings } = useUISettings();
+  const { hotkeys, saveHotkeys, setShortcutsSuspended } = useTauriShortcuts();
   const { profiles, activeProfile } = useApp();
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
@@ -34,6 +38,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
   const scriptRunning = statusStore[profileId!]?.running || false;
   const [remoteVisible, setRemoteVisible] = useState<boolean>(false);
+  const [hotkeyOpen, setHotkeyOpen] = useState(false);
 
   /**
    * Issues the scheduler start command for the active profile.
@@ -104,6 +109,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           >
             <Webcam size={20} className="rounded w-4 h-4 -translate-x-2" />
           </SwitchButton>
+          {__WITH_TAURI__ && (
+            <CButton
+              onClick={() => setHotkeyOpen(true)}
+              variant="secondary"
+              className="w-8 h-8 pl-2 pr-2 flex items-center justify-center"
+            >
+              <Keyboard className="w-4 h-4" />
+            </CButton>
+          )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
@@ -123,6 +137,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           >
             <Webcam size={20} className="rounded w-4 h-4 -translate-x-2" />
           </SwitchButton>
+          {__WITH_TAURI__ && (
+            <CButton
+              onClick={() => setHotkeyOpen(true)}
+              variant="secondary"
+              className="w-8 h-8 pl-2 pr-2 flex items-center justify-center"
+            >
+              <Keyboard className="w-4 h-4" />
+            </CButton>
+          )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
@@ -137,6 +160,33 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           </CButton>
         </div>
       </div>
+
+      {__WITH_TAURI__ && (
+        <HotkeySettingsModal
+          isOpen={hotkeyOpen}
+          value={hotkeys}
+          onRecordingChange={setShortcutsSuspended}
+          onClose={async (toSave, draft) => {
+            setShortcutsSuspended(false);
+            if (!toSave) {
+              setHotkeyOpen(false);
+              return;
+            }
+
+            const report = await saveHotkeys(draft ?? hotkeys);
+            if (report.rejected.length > 0) {
+              toast.error(t("hotkey.fixInvalid"), {
+                description: report.rejected
+                  .map((item) => `${item.accelerator}: ${item.reason}`)
+                  .join("; "),
+              });
+              return;
+            }
+            setHotkeyOpen(false);
+            toast.success(t("settings.updateSuccess"));
+          }}
+        />
+      )}
 
       {/* Live status for the active task pipeline. */}
       <TaskStatus profileId={profileId!} />

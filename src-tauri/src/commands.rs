@@ -1,3 +1,6 @@
+use baas_shortcut::{
+    apply_shortcut_bindings, ShortcutBindingRequest, ShortcutRegistrationReport, ShortcutRegistry,
+};
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
@@ -77,6 +80,15 @@ pub struct UpdaterWorkflowRequest {
 pub struct BackendReadyPayload {
     pub base_backend_addr: String,
     pub base_backend_port: u16,
+}
+
+#[tauri::command]
+pub fn shortcut_apply_bindings(
+    app: AppHandle,
+    registry: State<'_, ShortcutRegistry>,
+    bindings: Vec<ShortcutBindingRequest>,
+) -> Result<ShortcutRegistrationReport, String> {
+    apply_shortcut_bindings(app, &registry, bindings)
 }
 
 /// Simple path probe used by the setup page to recover from older configs

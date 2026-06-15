@@ -11,13 +11,15 @@ use crate::{
         disable_f5_press_event, inject_tray_icon, set_backend_locale, splash_off, BehaviorState,
     },
     commands::{
-        ensure_default_config, updater_abort_workflow, updater_get_startup_state,
-        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-        updater_start_workflow, updater_terminal_snapshot, updater_update_config,
-        updater_validate_mirrorc_cdk, BackendProcessManager,
+        ensure_default_config, shortcut_apply_bindings, updater_abort_workflow,
+        updater_get_startup_state, updater_path_exists_non_empty,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
+        BackendProcessManager,
     },
 };
 
+use baas_shortcut::{install_global_shortcut_plugin, ShortcutRegistry};
 use tauri::{Manager, RunEvent, WindowEvent};
 
 use baas_updater::app::UpdaterTermManager;
@@ -46,11 +48,15 @@ pub fn run() {
             updater_reset_backend_auth_and_restart,
             updater_abort_workflow,
             updater_terminal_snapshot,
-            updater_resize_term
+            updater_resize_term,
+            shortcut_apply_bindings
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            app.manage(ShortcutRegistry::default());
+            install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
+
             // Add tray icon to the app
             let tray_menu = inject_tray_icon(app).ok();
             app.manage(BehaviorState::with_tray_menu(tray_menu));
