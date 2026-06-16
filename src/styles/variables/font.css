@@ -1,22 +1,30 @@
 @theme {
-  --font-sans: "Source Han Sans SC", system-ui, sans-serif;
+  --font-sans: "Blueaka", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
 }
 
 @font-face {
-  font-family: "Source Han Sans SC";
+  font-family: "Blueaka";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/SourceHanSans-Subset-SC.woff2") format("woff2");
+  src: url("/fonts/Blueaka-Subset.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "Source Han Sans JP";
+  font-family: "NanumSquareRound";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/SourceHanSans-Subset-JP.woff2") format("woff2");
+  src: url("/fonts/NanumSquareRound-Subset.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Rubik";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Rubik-Subset.woff2") format("woff2");
 }
 
 @font-face {
@@ -28,19 +36,22 @@
 }
 
 :lang(zh),
-:lang(ko),
 :lang(en),
 :lang(fr),
-:lang(ru),
 :lang(de),
 :lang(zh-CN),
 :lang(zh-TW),
-:lang(zh-HK) {
-  font-family: "Source Han Sans SC", var(--font-sans), sans-serif;
+:lang(zh-HK),
+:lang(ja) {
+  font-family: "Blueaka", var(--font-sans), sans-serif;
 }
 
-:lang(ja) {
-  font-family: "Source Han Sans JP", var(--font-sans), sans-serif;
+:lang(ko) {
+  font-family: "NanumSquareRound", "Blueaka", var(--font-sans), sans-serif;
+}
+
+:lang(ru) {
+  font-family: "Rubik", "Blueaka", var(--font-sans), sans-serif;
 }
 
 /* 强化选择器权重 */
@@ -51,5 +62,5 @@
 
 /* 默认（非中文、日文） */
 html {
-  font-family: var(--font-sans) sans-serif;
+  font-family: var(--font-sans), sans-serif;
 }
