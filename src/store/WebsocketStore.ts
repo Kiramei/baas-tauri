@@ -46,7 +46,7 @@ const resolveHttpBase = () => {
 };
 
 const { appendGlobalLog } = useGlobalLogStore.getState();
-const TAURI_UPDATER_POLL_INTERVAL_MS = 30 * 60 * 1000;
+const TAURI_UPDATER_POLL_INTERVAL_MS = 10 * 1000;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
