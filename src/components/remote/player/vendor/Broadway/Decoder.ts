@@ -45,7 +45,7 @@ export interface DecoderConstructor {
   new (options?: DecoderOptions | string): DecoderInstance;
 }
 
-declare let module: any;
+// declare let module: any;
 declare let process: any;
 declare let importScripts: any;
 declare let read: any;
@@ -56,7 +56,7 @@ declare let print: any;
 declare let printErr: any;
 declare let FS: any;
 
-let global;
+let global: any;
 
 function initglobal() {
   global = this;
@@ -157,9 +157,10 @@ let getModule = function (par_broadwayOnHeadersDecoded, par_broadwayOnPictureDec
       Module["thisProgram"] = process["argv"][1].replace(/\\/g, "/");
     }
     Module["arguments"] = process["argv"].slice(2);
-    if (typeof module !== "undefined") {
-      module["exports"] = Module;
-    }
+    // Browser/Vite ESM build: do not assign CommonJS exports here.
+    // if (typeof module !== "undefined") {
+    //   module["exports"] = Module;
+    // }
     process["on"]("uncaughtException", function (ex) {
       if (!(ex instanceof ExitStatus)) {
         throw ex;
