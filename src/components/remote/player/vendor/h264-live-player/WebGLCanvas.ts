@@ -1,9 +1,7 @@
 import Size from "./utils/Size";
 import Texture from "./Texture";
 import error from "./utils/error";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error
-import { Matrix, Vector } from "sylvester.js";
+import { Matrix, Vector } from "./utils/Matrix";
 import Program from "./Program";
 import Shader from "./Shader";
 import { makePerspective } from "./utils/glUtils";
@@ -38,11 +36,11 @@ export default abstract class WebGLCanvas extends Canvas {
   );
   public quadVPBuffer?: WebGLBuffer | null;
   public quadVTCBuffer?: WebGLBuffer | null;
-  public mvMatrix: Matrix;
+  public mvMatrix!: Matrix;
   public glNames?: Record<string, string>;
   public textureCoordAttribute?: number;
   public vertexPositionAttribute?: number;
-  public perspectiveMatrix: Matrix;
+  public perspectiveMatrix!: Matrix;
   protected gl?: WebGLRenderingContext | null;
   protected framebuffer?: WebGLFramebuffer | null;
   protected framebufferTexture?: Texture;
@@ -146,7 +144,7 @@ export default abstract class WebGLCanvas extends Canvas {
     this.mvMatrix = Matrix.I(4);
   }
 
-  protected mvMultiply(m: number): void {
+  protected mvMultiply(m: Matrix): void {
     this.mvMatrix = this.mvMatrix.x(m);
   }
 

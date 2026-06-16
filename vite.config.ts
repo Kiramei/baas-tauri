@@ -99,6 +99,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      chunkSizeWarningLimit: 1000
     },
     resolve: {
       alias: {

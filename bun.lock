@@ -67,7 +67,6 @@
         "h264-converter": "^0.1.4",
         "prettier": "^3.8.3",
         "rollup-plugin-visualizer": "^6.0.5",
-        "sylvester.js": "^0.1.1",
         "tinyh264": "^0.0.7",
         "tw-animate-css": "^1.3.8",
         "typescript": "~5.8.2",
@@ -1292,8 +1291,6 @@
     "supports-color": ["supports-color@7.2.0", "", { "dependencies": { "has-flag": "4.0.0" } }, "sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw=="],
 
     "supports-preserve-symlinks-flag": ["supports-preserve-symlinks-flag@1.0.0", "", {}, "sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w=="],
-
-    "sylvester.js": ["sylvester.js@0.1.1", "", {}, "sha512-BDJneP4tUmzFR4jrgANtuozDWHBnVyYW7aMTZsnp1zLUhv2xsk4K3sEE0YlJguSCz2lST7KLq3GYLNFacA9SmQ=="],
 
     "tabbable": ["tabbable@6.4.0", "", {}, "sha512-05PUHKSNE8ou2dwIxTngl4EzcnsCDZGJ/iCLtDflR/SHB/ny14rXc+qU5P4mG9JkusiV7EivzY9Mhm55AzAvCg=="],
 
