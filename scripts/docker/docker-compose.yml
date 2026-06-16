@@ -1,0 +1,44 @@
+# Before you use the image, some tips:
+# 1. Sometimes you may find the python generates error. In
+#    this case you should re-pull the image to update it to
+#    the latest version.
+# 2. You'd choose the entry to go in the command arg. We
+#    suggest using the Dev Ver as the service mode has not
+#    been merged into the stable repo yet. If these do not
+#    work, we suggest reading the page below to select a
+#    Faster mirror for substitution. (At the Page End)
+#    https://baas.wiki/usage_doc/install/Windows.html
+
+services:
+  baas-webui:
+    image: ghcr.io/kiramei/baas-webui:latest
+    # Important: This is used for adb detection and connection
+    network_mode: host
+    # Deprecated, if you used host mode, do not
+    # use the ports mapping below.
+    # ports:
+    #   # Backend entry
+    #   - "8190:8190"
+    #   # Frontend entry
+    #   - "8191:8191"
+    volumes:
+      # Used for Repo Up-to-date
+      - ./app:/app
+    restart: always
+    command:
+      # Original Repo (Dev Ver.)
+      - https://github.com/Kiramei/baas-dev.git
+      # A CN Mirror (Dev Ver.)
+      # - https://gitee.com/kiramei/baas-dev.git
+
+      # Original Repo (Stable Ver.)
+      # - https://github.com/pur1fying/blue_archive_auto_script.git
+      # A CN Mirror (Stable Ver.)
+      # - https://gitee.com/pur1fy/blue_archive_auto_script.git
+
+# You can use docker to start this:
+#   >>> docker compose up -d
+# Or you may use podman:
+#   >>> podman compose up -d
+# After running, you can visit url below to use:
+#   http://127.0.0.1:8191
