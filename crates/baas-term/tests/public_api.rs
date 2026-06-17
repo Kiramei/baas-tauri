@@ -26,6 +26,8 @@ fn public_process_task_constructor_preserves_command_metadata() {
             display: "cargo test".to_string(),
             cwd: ".".to_string(),
             env: vec![],
+            detached: false,
+            detached_pid_file: None,
         },
     );
 

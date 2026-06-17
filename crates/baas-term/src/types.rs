@@ -67,6 +67,10 @@ pub struct TaskCommandSpec {
     pub cwd: String,
     /// Program run env var.
     pub env: Vec<(String, String)>,
+    /// Whether this command should be spawned and detached instead of waited on.
+    pub detached: bool,
+    /// Optional pid file written when a detached command starts.
+    pub detached_pid_file: Option<String>,
 }
 
 /// Metadata used to start and render a task.
@@ -93,6 +97,10 @@ pub struct TaskSpec {
     pub cwd: String,
     /// Program run env var
     pub env: Vec<(String, String)>,
+    /// Whether the primary command should be spawned and detached instead of waited on.
+    pub detached: bool,
+    /// Optional pid file written when the primary detached command starts.
+    pub detached_pid_file: Option<String>,
     /// Additional process commands executed serially in this same task region.
     pub after: Vec<TaskCommandSpec>,
     /// Optional maximum number of recent output lines shown while this task is running.
@@ -117,6 +125,8 @@ impl TaskSpec {
             args: self.args.clone(),
             cwd: self.cwd.clone(),
             env: self.env.clone(),
+            detached: self.detached,
+            detached_pid_file: self.detached_pid_file.clone(),
         }];
         commands.extend(self.after.clone());
         commands
@@ -441,6 +451,8 @@ mod tests {
             args: vec!["one".to_string()],
             cwd: ".".to_string(),
             env: vec![("A".to_string(), "1".to_string())],
+            detached: false,
+            detached_pid_file: None,
             after: Vec::new(),
             running_region_max_lines: None,
         }
@@ -450,6 +462,8 @@ mod tests {
             args: vec!["two".to_string()],
             cwd: ".".to_string(),
             env: vec![("B".to_string(), "2".to_string())],
+            detached: true,
+            detached_pid_file: Some("pid.txt".to_string()),
         });
 
         let commands = spec.process_commands();
@@ -458,6 +472,8 @@ mod tests {
         assert_eq!(commands[0].command, "first");
         assert_eq!(commands[1].command, "second");
         assert_eq!(commands[1].args, ["two"]);
+        assert!(commands[1].detached);
+        assert_eq!(commands[1].detached_pid_file.as_deref(), Some("pid.txt"));
     }
 
     #[test]

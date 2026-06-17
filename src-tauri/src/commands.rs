@@ -420,7 +420,10 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
         process.creation_flags(0x08000000);
     }
     let child = process.spawn().map_err(|error| error.to_string())?;
-    let pid_file = backend_pid_path(config);
+    let pid_file = command
+        .detached_pid_file
+        .clone()
+        .unwrap_or_else(|| backend_pid_path(config));
     if let Some(parent) = pid_file.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }

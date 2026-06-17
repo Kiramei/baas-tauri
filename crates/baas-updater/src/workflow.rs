@@ -840,6 +840,8 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         args: Vec::new(),
         cwd: ".".to_string(),
         env: Vec::new(),
+        detached: false,
+        detached_pid_file: None,
         after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
     }
@@ -858,6 +860,8 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        detached: script.detached,
+        detached_pid_file: script.detached_pid_file,
         after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
     }
@@ -869,14 +873,6 @@ fn planned_direct_process_task(
     command: &CommandSpec,
 ) -> TaskSpec {
     planned_command_process_task(plan, task_id, command, direct_script)
-}
-
-fn planned_shell_process_task(
-    plan: &WorkflowPlan,
-    task_id: &str,
-    command: &CommandSpec,
-) -> TaskSpec {
-    planned_command_process_task(plan, task_id, command, script_from_command)
 }
 
 fn planned_command_process_task(
@@ -1850,7 +1846,7 @@ fn run_terminal_launch_stage(
     let success = run_process_and_wait(
         inner,
         session_id,
-        planned_shell_process_task(workflow_plan, "launch-backend", &command),
+        planned_direct_process_task(workflow_plan, "launch-backend", &command),
         renderer_tx,
         completion_tx,
         completion_rx,
@@ -2108,17 +2104,6 @@ fn fail_terminal_session(
     finish_terminal_session(inner, session_id, renderer_tx, false);
 }
 
-fn script_from_command(command: &CommandSpec) -> ScriptCommand {
-    #[cfg(windows)]
-    {
-        powershell_script(command)
-    }
-    #[cfg(not(windows))]
-    {
-        sh_script(command)
-    }
-}
-
 fn direct_script(command: &CommandSpec) -> ScriptCommand {
     let program = command.program.to_string_lossy().to_string();
     let display = std::iter::once(program.as_str())
@@ -2136,142 +2121,12 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
             .map(|cwd| cwd.to_string_lossy().to_string())
             .unwrap_or_else(|| ".".to_string()),
         env: command.env.clone(),
-    }
-}
-
-#[cfg(windows)]
-fn powershell_script(command: &CommandSpec) -> ScriptCommand {
-    use std::os::windows::process::CommandExt;
-
-    let shell = if std::process::Command::new("pwsh")
-        .creation_flags(0x08000000)
-        .arg("-NoLogo")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg("$PSVersionTable.PSVersion")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
-    {
-        "pwsh"
-    } else {
-        "powershell.exe"
-    };
-    let mut script = String::new();
-    for (key, value) in &command.env {
-        script.push_str(&format!(
-            "$env:{} = '{}'; ",
-            escape_powershell(key),
-            escape_powershell(value)
-        ));
-    }
-    if let Some(cwd) = &command.cwd {
-        script.push_str(&format!(
-            "Set-Location -LiteralPath '{}'; ",
-            escape_powershell(&cwd.to_string_lossy())
-        ));
-    }
-    if command.detached {
-        script.push_str(&format!(
-            "$backendProcess = Start-Process -WindowStyle Hidden -PassThru -FilePath '{}' -ArgumentList @({}); if ($env:BAAS_BACKEND_PID_FILE) {{ $pidDir = Split-Path -Parent $env:BAAS_BACKEND_PID_FILE; if ($pidDir) {{ New-Item -ItemType Directory -Force -Path $pidDir | Out-Null }}; Set-Content -LiteralPath $env:BAAS_BACKEND_PID_FILE -Value $backendProcess.Id -Encoding ASCII }}; exit 0",
-            escape_powershell(&command.program.to_string_lossy()),
-            command
-                .args
-                .iter()
-                .map(|arg| format!("'{}'", escape_powershell(arg)))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    } else {
-        script.push_str(&format!(
-            "& '{}' {}; exit $LASTEXITCODE",
-            escape_powershell(&command.program.to_string_lossy()),
-            command
-                .args
-                .iter()
-                .map(|arg| format!("'{}'", escape_powershell(arg)))
-                .collect::<Vec<_>>()
-                .join(" ")
-        ));
-    }
-    ScriptCommand {
-        program: shell.to_string(),
-        args: vec![
-            "-NoLogo".to_string(),
-            "-NoProfile".to_string(),
-            "-NonInteractive".to_string(),
-            "-Command".to_string(),
-            script,
-        ],
-        display: display_command(command),
-        cwd: command
-            .cwd
+        detached: command.detached,
+        detached_pid_file: command
+            .detached_pid_file
             .as_ref()
-            .map(|cwd| cwd.to_string_lossy().to_string())
-            .unwrap_or_else(|| ".".to_string()),
-        env: command.env.clone(),
+            .map(|path| path.to_string_lossy().to_string()),
     }
-}
-
-#[cfg(not(windows))]
-fn sh_script(command: &CommandSpec) -> ScriptCommand {
-    let mut script = String::new();
-    for (key, value) in &command.env {
-        script.push_str(&format!("{key}={} ", shell_quote(value)));
-    }
-    if let Some(cwd) = &command.cwd {
-        script.push_str(&format!("cd {} && ", shell_quote(&cwd.to_string_lossy())));
-    }
-    if command.detached {
-        script.push_str(&format!(
-            "nohup {} {} >/dev/null 2>&1 & backend_pid=$!; if [ -n \"$BAAS_BACKEND_PID_FILE\" ]; then mkdir -p \"$(dirname \"$BAAS_BACKEND_PID_FILE\")\" && printf '%s\\n' \"$backend_pid\" > \"$BAAS_BACKEND_PID_FILE\"; fi",
-            shell_quote(&command.program.to_string_lossy()),
-            command
-                .args
-                .iter()
-                .map(|arg| shell_quote(arg))
-                .collect::<Vec<_>>()
-                .join(" ")
-        ));
-    } else {
-        script.push_str(&format!(
-            "{} {}",
-            shell_quote(&command.program.to_string_lossy()),
-            command
-                .args
-                .iter()
-                .map(|arg| shell_quote(arg))
-                .collect::<Vec<_>>()
-                .join(" ")
-        ));
-    }
-    ScriptCommand {
-        program: std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
-        args: vec!["-lc".to_string(), script],
-        display: display_command(command),
-        cwd: command
-            .cwd
-            .as_ref()
-            .map(|cwd| cwd.to_string_lossy().to_string())
-            .unwrap_or_else(|| ".".to_string()),
-        env: command.env.clone(),
-    }
-}
-
-#[cfg(windows)]
-fn escape_powershell(value: &str) -> String {
-    value.replace('\'', "''")
-}
-
-#[cfg(not(windows))]
-fn shell_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\\''"))
-}
-
-fn display_command(command: &CommandSpec) -> String {
-    let mut parts = vec![command.program.to_string_lossy().to_string()];
-    parts.extend(command.args.iter().cloned());
-    parts.join(" ")
 }
 
 #[cfg(test)]

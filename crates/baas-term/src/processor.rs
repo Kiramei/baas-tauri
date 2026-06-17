@@ -15,6 +15,9 @@ use crate::types::{
 use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::sync::mpsc::Receiver;
 use std::{
+    fs,
+    path::Path,
+    process::{Command as StdCommand, Stdio},
     sync::{Arc, Mutex, mpsc::Sender},
     thread,
     time::Duration,
@@ -33,6 +36,10 @@ pub struct ScriptCommand {
     pub cwd: String,
     /// Script Run Env Var
     pub env: Vec<(String, String)>,
+    /// Whether the process should be spawned and detached instead of waited on.
+    pub detached: bool,
+    /// Optional pid file written when a detached process starts.
+    pub detached_pid_file: Option<String>,
 }
 
 impl From<ScriptCommand> for TaskCommandSpec {
@@ -43,6 +50,8 @@ impl From<ScriptCommand> for TaskCommandSpec {
             args: script.args,
             cwd: script.cwd,
             env: script.env,
+            detached: script.detached,
+            detached_pid_file: script.detached_pid_file,
         }
     }
 }
@@ -87,6 +96,8 @@ pub fn create_process_task_with_total(
         args: script.args,
         cwd: script.cwd,
         env: script.env,
+        detached: script.detached,
+        detached_pid_file: script.detached_pid_file,
         after: Vec::new(),
         running_region_max_lines: None,
     }
@@ -199,6 +210,10 @@ fn run_one_process_command(
         (state.rows, state.cols)
     };
 
+    if command_spec.detached {
+        return spawn_detached_process_command(task_id, region_id, command_spec, renderer_tx);
+    }
+
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -294,6 +309,104 @@ fn run_one_process_command(
     Ok(exit_code)
 }
 
+fn spawn_detached_process_command(
+    task_id: &str,
+    region_id: &str,
+    command_spec: TaskCommandSpec,
+    renderer_tx: &Sender<RendererEvent>,
+) -> Result<i32, String> {
+    let mut command = StdCommand::new(&command_spec.program);
+    command
+        .args(&command_spec.args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    if !command_spec.cwd.is_empty() {
+        command.current_dir(&command_spec.cwd);
+    }
+    for (key, value) in &command_spec.env {
+        command.env(key, value);
+    }
+    hide_process_window(&mut command);
+
+    let mut child = command.spawn().map_err(|error| error.to_string())?;
+    let pid = child.id();
+    if let Some(pid_file) = &command_spec.detached_pid_file {
+        write_pid_file(Path::new(pid_file), pid)?;
+    }
+
+    if let Some(stdout) = child.stdout.take() {
+        spawn_detached_output_reader(
+            stdout,
+            task_id.to_string(),
+            region_id.to_string(),
+            renderer_tx.clone(),
+        );
+    }
+    if let Some(stderr) = child.stderr.take() {
+        spawn_detached_output_reader(
+            stderr,
+            task_id.to_string(),
+            region_id.to_string(),
+            renderer_tx.clone(),
+        );
+    }
+
+    thread::spawn(move || {
+        let _ = child.wait();
+    });
+
+    let _ = renderer_tx.send(RendererEvent::Output {
+        task_id: task_id.to_string(),
+        region_id: region_id.to_string(),
+        chunk: format!("Detached process started with pid {pid}\r\n").into_bytes(),
+    });
+
+    Ok(0)
+}
+
+fn spawn_detached_output_reader<R>(
+    mut reader: R,
+    task_id: String,
+    region_id: String,
+    renderer_tx: Sender<RendererEvent>,
+) where
+    R: std::io::Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut buffer = [0_u8; PROCESS_READ_BUFFER_BYTES];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(size) => {
+                    let _ = renderer_tx.send(RendererEvent::Output {
+                        task_id: task_id.clone(),
+                        region_id: region_id.clone(),
+                        chunk: buffer[..size].to_vec(),
+                    });
+                }
+                Err(_) => break,
+            }
+        }
+    });
+}
+
+fn write_pid_file(path: &Path, pid: u32) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    fs::write(path, pid.to_string()).map_err(|error| error.to_string())
+}
+
+#[cfg(windows)]
+fn hide_process_window(command: &mut StdCommand) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(0x08000000);
+}
+
+#[cfg(not(windows))]
+fn hide_process_window(_command: &mut StdCommand) {}
+
 /// Spawns a process task and blocks until that specific task completes.
 ///
 /// Returns `false` when spawning fails, the completion channel closes, or the
@@ -334,6 +447,8 @@ mod tests {
             display: display.to_string(),
             cwd: "./".to_string(),
             env: vec![],
+            detached: false,
+            detached_pid_file: None,
         }
     }
 
@@ -345,6 +460,8 @@ mod tests {
             display: display.to_string(),
             cwd: ".".to_string(),
             env: vec![],
+            detached: false,
+            detached_pid_file: None,
         }
     }
 
@@ -394,6 +511,8 @@ mod tests {
                 display: "program arg".to_string(),
                 cwd: ".".to_string(),
                 env: vec![],
+                detached: false,
+                detached_pid_file: None,
             },
         );
 
@@ -504,6 +623,58 @@ mod tests {
 
         assert!(output.contains("first"));
         assert!(output.contains("second"));
+        assert!(inner.lock().unwrap().tasks.is_empty());
+    }
+
+    #[test]
+    fn detached_process_task_writes_pid_file_and_finishes() {
+        let inner = active_state();
+        let (renderer_tx, renderer_rx) = mpsc::channel();
+        let (completion_tx, completion_rx) = mpsc::channel();
+        let pid_file =
+            std::env::temp_dir().join(format!("baas-term-detached-{}.pid", uuid::Uuid::new_v4()));
+        let mut script = success_script();
+        script.detached = true;
+        script.detached_pid_file = Some(pid_file.to_string_lossy().to_string());
+        let spec = create_process_task("detached", "detached-region", 1, "Detached", script);
+
+        assert!(run_process_and_wait(
+            &inner,
+            "session",
+            spec,
+            &renderer_tx,
+            &completion_tx,
+            &completion_rx
+        ));
+
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        assert!(pid.trim().parse::<u32>().unwrap() > 0);
+        let _ = std::fs::remove_file(pid_file);
+        let mut saw_start = false;
+        let mut saw_detached_output = false;
+        let mut saw_process_output = false;
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(2) {
+            match renderer_rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(RendererEvent::TaskStarted(_)) => saw_start = true,
+                Ok(RendererEvent::Output {
+                    region_id, chunk, ..
+                }) => {
+                    assert_eq!(region_id, "detached-region");
+                    let text = String::from_utf8_lossy(&chunk);
+                    saw_detached_output |= text.contains("Detached process started with pid");
+                    saw_process_output |= text.contains("ok");
+                }
+                Ok(_) => {}
+                Err(_) => {}
+            }
+            if saw_start && saw_detached_output && saw_process_output {
+                break;
+            }
+        }
+        assert!(saw_start);
+        assert!(saw_detached_output);
+        assert!(saw_process_output);
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 

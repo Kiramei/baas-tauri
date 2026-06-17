@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -307,7 +307,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "baas-term",
  "flate2",

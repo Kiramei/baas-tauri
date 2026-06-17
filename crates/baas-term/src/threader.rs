@@ -63,6 +63,8 @@ pub fn create_thread_task_with_total(
         args: Vec::new(),
         cwd: String::new(),
         env: Vec::new(),
+        detached: false,
+        detached_pid_file: None,
         after: Vec::new(),
         running_region_max_lines: None,
     }

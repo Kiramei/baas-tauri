@@ -858,6 +858,8 @@ mod tests {
             args: Vec::new(),
             cwd: ".".to_string(),
             env: Vec::new(),
+            detached: false,
+            detached_pid_file: None,
             after: Vec::new(),
             running_region_max_lines: None,
         }
