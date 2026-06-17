@@ -1,0 +1,79 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":disableDependencyDashboard"],
+  "baseBranchPatterns": ["dev"],
+  "enabledManagers": ["cargo", "npm", "github-actions", "dockerfile"],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "rangeStrategy": "replace",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/__fixtures__/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    ".cache/**",
+    "dist/**",
+    "target/**",
+    "public/fonts/**",
+    "scripts/docker/dist/**",
+    "shared/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge low-risk patch updates",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Disable runtime/package-manager version updates managed by CI images",
+      "matchPackageNames": ["node", "bun", "pnpm"],
+      "matchDepTypes": ["engines", "packageManager"],
+      "enabled": false
+    },
+    {
+      "description": "Group all Cargo dependencies into a single PR and bump Cargo.toml ranges",
+      "matchManagers": ["cargo"],
+      "groupName": "cargo dependencies",
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Group Tauri JavaScript packages together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@tauri-apps\\//"],
+      "groupName": "tauri npm dependencies"
+    },
+    {
+      "description": "Group Radix UI packages together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@radix-ui\\//", "radix-ui"],
+      "groupName": "radix ui dependencies"
+    },
+    {
+      "description": "Group all remaining npm dependencies into a single PR",
+      "matchManagers": ["npm"],
+      "excludePackageNames": ["/^@tauri-apps\\//", "/^@radix-ui\\//", "radix-ui"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "description": "Group all GitHub Actions updates into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Group Dockerfile base image updates into a single PR",
+      "matchManagers": ["dockerfile"],
+      "groupName": "docker images"
+    }
+  ],
+  "ignoreDeps": ["criterion"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "description": "Refresh lockfiles on a monthly maintenance window",
+    "schedule": ["* 0-4 1 * *"],
+    "automerge": true
+  }
+}
