@@ -2,6 +2,8 @@ name: Sync to CNB
 
 on:
   push:
+    branches:
+      - master
 
 jobs:
   sync:
