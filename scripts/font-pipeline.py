@@ -40,10 +40,10 @@ FONT_TARGETS = [
         ],
     },
     {
-        "key": "nanum_square_round",
-        "family": "NanumSquareRound",
-        "source": FONT_SOURCE_DIR / "NanumSquareRound.ttf",
-        "output": OUTPUT_FONT_DIR / "NanumSquareRound-Subset.woff2",
+        "key": "gmarket_sans",
+        "family": "GmarketSans",
+        "source": FONT_SOURCE_DIR / "GmarketSans.ttf",
+        "output": OUTPUT_FONT_DIR / "GmarketSans-Subset.woff2",
         "ranges": LATIN_RANGES + [(0xAC00, 0xD7AF)],
     },
     {

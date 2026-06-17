@@ -118,7 +118,7 @@ jobs:
           name: generated-fonts
           path: |
             public/fonts/Blueaka-Subset.woff2
-            public/fonts/NanumSquareRound-Subset.woff2
+            public/fonts/GmarketSans-Subset.woff2
             public/fonts/Rubik-Subset.woff2
           if-no-files-found: error
 

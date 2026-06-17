@@ -1,5 +1,5 @@
 @theme {
-  --font-sans: "Blueaka", system-ui, sans-serif;
+  --font-sans: "Blueaka", "GmarketSans", "Rubik", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
 }
 
@@ -12,11 +12,11 @@
 }
 
 @font-face {
-  font-family: "NanumSquareRound";
+  font-family: "GmarketSans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/NanumSquareRound-Subset.woff2") format("woff2");
+  src: url("/fonts/GmarketSans-Subset.woff2") format("woff2");
 }
 
 @font-face {
@@ -35,32 +35,12 @@
   src: url("/fonts/JetBrainsMono.ttf");
 }
 
-:lang(zh),
-:lang(en),
-:lang(fr),
-:lang(de),
-:lang(zh-CN),
-:lang(zh-TW),
-:lang(zh-HK),
-:lang(ja) {
-  font-family: "Blueaka", var(--font-sans), sans-serif;
-}
-
-:lang(ko) {
-  font-family: "NanumSquareRound", "Blueaka", var(--font-sans), sans-serif;
-}
-
-:lang(ru) {
-  font-family: "Rubik", "Blueaka", var(--font-sans), sans-serif;
-}
-
 /* 强化选择器权重 */
 .font-mono,
 .font-mono * {
   font-family: var(--font-mono), monospace !important;
 }
 
-/* 默认（非中文、日文） */
 html {
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans), sans-serif !important;
 }
