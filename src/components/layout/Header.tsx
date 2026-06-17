@@ -237,6 +237,7 @@ const Header: React.FC = () => {
                 }}
                 onContextMenu={(e: any) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                 }}
               >

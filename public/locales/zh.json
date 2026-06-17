@@ -530,6 +530,13 @@
       "validExpires": "该 CDK 有效期至 {{expire_date}}。"
     }
   },
+  "contextMenu": {
+    "copy": "复制",
+    "inspect": "检查",
+    "inspectWebuiHint": "请按 F12 打开开发者工具。",
+    "paste": "粘贴",
+    "reload": "重载"
+  },
   "adb": {
     "detectBtn": "检测 ADB",
     "detecting": "正在检测 ADB...",

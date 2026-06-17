@@ -530,6 +530,13 @@
       "validExpires": "Ce CDK est valide jusqu'au {{expire_date}}."
     }
   },
+  "contextMenu": {
+    "copy": "Copier",
+    "inspect": "Inspecter",
+    "inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
+    "paste": "Coller",
+    "reload": "Recharger"
+  },
   "adb": {
     "detectBtn": "Détecter ADB",
     "detecting": "Détection d'ADB...",

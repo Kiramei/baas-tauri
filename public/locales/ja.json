@@ -530,6 +530,13 @@
       "validExpires": "このCDKは{{expire_date}}まで有効です。"
     }
   },
+  "contextMenu": {
+    "copy": "コピー",
+    "inspect": "検査",
+    "inspectWebuiHint": "F12で開発者ツールを開きます。",
+    "paste": "貼り付け",
+    "reload": "再読み込み"
+  },
   "adb": {
     "detectBtn": "ADBを検出",
     "detecting": "ADBを検出中...",

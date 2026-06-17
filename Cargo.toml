@@ -14,7 +14,7 @@ baas-term = { path = "crates/baas-term" }
 baas-i18n = { path = "crates/baas-i18n" }
 baas-shortcut = { path = "crates/baas-shortcut" }
 
-tauri = { version = "2.11.2", features = ["tray-icon"] }
+tauri = { version = "2.11.2", features = ["devtools", "tray-icon"] }
 tokio = { version = "1.48.0", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }

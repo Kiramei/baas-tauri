@@ -54,6 +54,7 @@ const namespaceOrder = [
   "shaTest",
   "mirror",
   "mirrorc",
+  "contextMenu",
 ];
 
 const exactMigrations = {
@@ -150,6 +151,11 @@ const manualTranslations = {
     "common.create": "创建",
     "common.delete": "删除",
     "common.edit": "编辑",
+    "contextMenu.copy": "复制",
+    "contextMenu.inspect": "检查",
+    "contextMenu.inspectWebuiHint": "请按 F12 打开开发者工具。",
+    "contextMenu.paste": "粘贴",
+    "contextMenu.reload": "重载",
     "configAdd.saveFailed": "保存失败",
     "desc.getEmulator": "选择模拟器路径",
     "dark": "深色",
@@ -251,6 +257,11 @@ const manualTranslations = {
     "common.create": "Create",
     "common.delete": "Delete",
     "common.edit": "Edit",
+    "contextMenu.copy": "Copy",
+    "contextMenu.inspect": "Inspect",
+    "contextMenu.inspectWebuiHint": "Press F12 to open developer tools.",
+    "contextMenu.paste": "Paste",
+    "contextMenu.reload": "Reload",
     "configAdd.saveFailed": "Save failed",
     "desc.getEmulator": "Select emulator path",
     "dark": "Dark",
@@ -352,6 +363,11 @@ for (const lang of ["de", "fr", "ja", "ko", "ru"]) {
 }
 
 Object.assign(manualTranslations.de, {
+  "contextMenu.copy": "Kopieren",
+  "contextMenu.inspect": "Pruefen",
+  "contextMenu.inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
+  "contextMenu.paste": "Einfuegen",
+  "contextMenu.reload": "Neu laden",
   "wiki.web.close": "Schliessen",
   "wiki.web.detach": "Abtrennen",
   "wiki.web.failed": "Web-Wiki konnte nicht laden",
@@ -362,6 +378,11 @@ Object.assign(manualTranslations.de, {
 });
 
 Object.assign(manualTranslations.fr, {
+  "contextMenu.copy": "Copier",
+  "contextMenu.inspect": "Inspecter",
+  "contextMenu.inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
+  "contextMenu.paste": "Coller",
+  "contextMenu.reload": "Recharger",
   "wiki.web.close": "Fermer",
   "wiki.web.detach": "Detacher",
   "wiki.web.failed": "Echec du chargement du Wiki web",
@@ -372,6 +393,11 @@ Object.assign(manualTranslations.fr, {
 });
 
 Object.assign(manualTranslations.ja, {
+  "contextMenu.copy": "コピー",
+  "contextMenu.inspect": "検査",
+  "contextMenu.inspectWebuiHint": "F12で開発者ツールを開きます。",
+  "contextMenu.paste": "貼り付け",
+  "contextMenu.reload": "再読み込み",
   "wiki.web.close": "閉じる",
   "wiki.web.detach": "別ウィンドウ",
   "wiki.web.failed": "Web Wikiの読み込みに失敗",
@@ -382,6 +408,11 @@ Object.assign(manualTranslations.ja, {
 });
 
 Object.assign(manualTranslations.ko, {
+  "contextMenu.copy": "복사",
+  "contextMenu.inspect": "검사",
+  "contextMenu.inspectWebuiHint": "F12로 개발자 도구를 여세요.",
+  "contextMenu.paste": "붙여넣기",
+  "contextMenu.reload": "새로고침",
   "wiki.web.close": "닫기",
   "wiki.web.detach": "분리",
   "wiki.web.failed": "웹 Wiki 로드 실패",
@@ -392,6 +423,11 @@ Object.assign(manualTranslations.ko, {
 });
 
 Object.assign(manualTranslations.ru, {
+  "contextMenu.copy": "Копировать",
+  "contextMenu.inspect": "Проверить",
+  "contextMenu.inspectWebuiHint": "Нажмите F12, чтобы открыть DevTools.",
+  "contextMenu.paste": "Вставить",
+  "contextMenu.reload": "Обновить",
   "wiki.web.close": "Закрыть",
   "wiki.web.detach": "Отделить",
   "wiki.web.failed": "Не удалось загрузить Web Wiki",

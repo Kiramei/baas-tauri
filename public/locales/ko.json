@@ -530,6 +530,13 @@
       "validExpires": "이 CDK는 {{expire_date}}까지 유효합니다."
     }
   },
+  "contextMenu": {
+    "copy": "복사",
+    "inspect": "검사",
+    "inspectWebuiHint": "F12로 개발자 도구를 여세요.",
+    "paste": "붙여넣기",
+    "reload": "새로고침"
+  },
   "adb": {
     "detectBtn": "ADB 감지",
     "detecting": "ADB 감지 중...",

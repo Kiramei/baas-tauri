@@ -12,7 +12,7 @@ use crate::{
     },
     commands::{
         ensure_default_config, shortcut_apply_bindings, updater_abort_workflow,
-        updater_get_startup_state, updater_path_exists_non_empty,
+        open_main_devtools, updater_get_startup_state, updater_path_exists_non_empty,
         updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
         updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
         BackendProcessManager,
@@ -49,7 +49,8 @@ pub fn run() {
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term,
-            shortcut_apply_bindings
+            shortcut_apply_bindings,
+            open_main_devtools
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

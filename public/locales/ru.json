@@ -530,6 +530,13 @@
       "validExpires": "Этот CDK действителен до {{expire_date}}."
     }
   },
+  "contextMenu": {
+    "copy": "Копировать",
+    "inspect": "Проверить",
+    "inspectWebuiHint": "Нажмите F12, чтобы открыть DevTools.",
+    "paste": "Вставить",
+    "reload": "Обновить"
+  },
   "adb": {
     "detectBtn": "Обнаружить ADB",
     "detecting": "Обнаружение ADB...",
