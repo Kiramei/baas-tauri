@@ -817,13 +817,16 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "Clean UV cache after dependency synchronization.",
             "uv cache clean",
         )
-        .process_task(
-            "launch-backend",
-            "launch-backend",
-            "Launch Backend",
-            "Start the backend service and wait for it to accept connections.",
-            "spawn backend service",
-        )
+        .serial(vec![
+            WorkflowTask::new(
+                "launch-backend",
+                "launch-backend",
+                "Launch Backend",
+                "Start the backend service and wait for it to accept connections.",
+                "spawn backend service",
+            )
+            .without_running_region_limit(),
+        ])
         .build()
 }
 
@@ -844,6 +847,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
         detached_pid_file: None,
         after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
+        running_region_unlimited: node.running_region_unlimited,
     }
 }
 
@@ -864,6 +868,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
         detached_pid_file: script.detached_pid_file,
         after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
+        running_region_unlimited: node.running_region_unlimited,
     }
 }
 
@@ -2301,6 +2306,7 @@ mod tests {
         let git_record = plan.node("git-record-sha").unwrap();
         let finalize = plan.node("updater-finalize-repos").unwrap();
         let compile = plan.node("uv-compile").unwrap();
+        let launch = plan.node("launch-backend").unwrap();
 
         assert_eq!(main.stage, cpp.stage);
         assert_eq!(main.stage, uv.stage);
@@ -2322,6 +2328,8 @@ mod tests {
                 .any(|edge| edge.from == "git-record-sha" && edge.to == "updater-finalize-repos")
         );
         assert_eq!(plan.nodes.len() as u8, compile.step_total);
+        assert!(launch.running_region_unlimited);
+        assert_eq!(launch.running_region_max_lines, None);
     }
 
     #[test]

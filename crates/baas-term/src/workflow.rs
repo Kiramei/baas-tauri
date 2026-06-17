@@ -21,6 +21,7 @@ struct TaskTemplate {
     description: String,
     command: String,
     running_region_max_lines: Option<usize>,
+    running_region_unlimited: bool,
 }
 
 impl WorkflowBuilder {
@@ -110,6 +111,7 @@ impl WorkflowBuilder {
             description: task.description,
             command: task.command,
             running_region_max_lines: task.running_region_max_lines,
+            running_region_unlimited: task.running_region_unlimited,
         };
         for dependency in dependencies {
             self.edges.push(WorkflowEdge {
@@ -143,6 +145,7 @@ impl WorkflowBuilder {
                 description: task.description,
                 command: task.command,
                 running_region_max_lines: task.running_region_max_lines,
+                running_region_unlimited: task.running_region_unlimited,
             })
             .collect();
         WorkflowPlan {
@@ -187,6 +190,7 @@ pub struct WorkflowTask {
     description: String,
     command: String,
     running_region_max_lines: Option<usize>,
+    running_region_unlimited: bool,
 }
 
 impl WorkflowTask {
@@ -205,12 +209,21 @@ impl WorkflowTask {
             description: description.to_string(),
             command: command.to_string(),
             running_region_max_lines: None,
+            running_region_unlimited: false,
         }
     }
 
     /// Sets the maximum number of recent output lines shown while this task is running.
     pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
         self.running_region_max_lines = Some(max_lines.max(1));
+        self.running_region_unlimited = false;
+        self
+    }
+
+    /// Disables per-region line clipping while this task is running.
+    pub fn without_running_region_limit(mut self) -> Self {
+        self.running_region_max_lines = None;
+        self.running_region_unlimited = true;
         self
     }
 }
@@ -226,6 +239,7 @@ impl TaskTemplate {
             description: description.to_string(),
             command: command.to_string(),
             running_region_max_lines: None,
+            running_region_unlimited: false,
         }
     }
 
@@ -239,6 +253,7 @@ impl TaskTemplate {
             description: task.description,
             command: task.command,
             running_region_max_lines: task.running_region_max_lines,
+            running_region_unlimited: task.running_region_unlimited,
         }
     }
 }
@@ -260,6 +275,7 @@ pub fn thread_task_spec(plan: &WorkflowPlan, task_id: &str) -> Option<TaskSpec> 
         detached_pid_file: None,
         after: Vec::new(),
         running_region_max_lines: node.running_region_max_lines,
+        running_region_unlimited: node.running_region_unlimited,
     })
 }
 
@@ -330,5 +346,25 @@ mod tests {
                 .iter()
                 .any(|edge| edge.from == "python" && edge.to == "finalize")
         );
+    }
+
+    #[test]
+    fn builder_preserves_running_region_limit_policy() {
+        let plan = WorkflowBuilder::new()
+            .serial(vec![
+                WorkflowTask::new("limited", "limited", "Limited", "limited", "run")
+                    .with_running_region_max_lines(8),
+                WorkflowTask::new("unlimited", "unlimited", "Unlimited", "unlimited", "run")
+                    .without_running_region_limit(),
+            ])
+            .build();
+
+        let limited = plan.node("limited").unwrap();
+        let unlimited = plan.node("unlimited").unwrap();
+
+        assert_eq!(limited.running_region_max_lines, Some(8));
+        assert!(!limited.running_region_unlimited);
+        assert_eq!(unlimited.running_region_max_lines, None);
+        assert!(unlimited.running_region_unlimited);
     }
 }

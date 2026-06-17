@@ -100,6 +100,7 @@ pub fn create_process_task_with_total(
         detached_pid_file: script.detached_pid_file,
         after: Vec::new(),
         running_region_max_lines: None,
+        running_region_unlimited: false,
     }
 }
 

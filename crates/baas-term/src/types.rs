@@ -105,6 +105,8 @@ pub struct TaskSpec {
     pub after: Vec<TaskCommandSpec>,
     /// Optional maximum number of recent output lines shown while this task is running.
     pub running_region_max_lines: Option<usize>,
+    /// Whether running output should be rendered without per-region line clipping.
+    pub running_region_unlimited: bool,
 }
 
 impl TaskSpec {
@@ -135,6 +137,14 @@ impl TaskSpec {
     /// Sets the maximum number of recent output lines shown while this task is running.
     pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
         self.running_region_max_lines = Some(max_lines.max(1));
+        self.running_region_unlimited = false;
+        self
+    }
+
+    /// Disables per-region line clipping while this task is running.
+    pub fn without_running_region_limit(mut self) -> Self {
+        self.running_region_max_lines = None;
+        self.running_region_unlimited = true;
         self
     }
 }
@@ -163,6 +173,8 @@ pub struct WorkflowNode {
     pub command: String,
     /// Optional maximum number of recent output lines shown while this task is running.
     pub running_region_max_lines: Option<usize>,
+    /// Whether running output should be rendered without per-region line clipping.
+    pub running_region_unlimited: bool,
 }
 
 /// A directed edge between workflow task nodes.
@@ -455,6 +467,7 @@ mod tests {
             detached_pid_file: None,
             after: Vec::new(),
             running_region_max_lines: None,
+            running_region_unlimited: false,
         }
         .after(TaskCommandSpec {
             command: "second".to_string(),
