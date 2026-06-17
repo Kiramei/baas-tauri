@@ -71,21 +71,34 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
 
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
   const listRef = useRef<any>(null);
+  const previousLengthRef = useRef(0);
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: 28 });
 
   useLayoutEffect(() => {
     if (!scrollToEnd || !listRef.current) return;
-    let rafId = 0;
+    const previousLength = previousLengthRef.current;
+    previousLengthRef.current = logs.length;
 
-    const tick = () => {
+    if (logs.length === 0 || logs.length < previousLength) return;
+
+    let rafId = 0;
+    let secondRafId = 0;
+    const scrollToLastRow = () => {
       if (listRef.current && logs.length > 0) {
         listRef.current.scrollToRow({ index: logs.length - 1, align: "end" });
       }
-      rafId = requestAnimationFrame(tick);
     };
 
-    tick();
-    return () => cancelAnimationFrame(rafId);
+    scrollToLastRow();
+    rafId = requestAnimationFrame(() => {
+      scrollToLastRow();
+      secondRafId = requestAnimationFrame(scrollToLastRow);
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      cancelAnimationFrame(secondRafId);
+    };
   }, [scrollToEnd, logs.length]);
 
   return (
