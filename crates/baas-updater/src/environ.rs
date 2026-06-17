@@ -36,6 +36,8 @@ pub struct CommandSpec {
     pub env: Vec<(String, String)>,
     /// Whether the process should be spawned and detached instead of waited on.
     pub detached: bool,
+    /// Optional pid file written when a detached process starts.
+    pub detached_pid_file: Option<PathBuf>,
     /// Additional commands executed serially after this command succeeds.
     pub after: Vec<CommandSpec>,
 }
@@ -49,6 +51,7 @@ impl CommandSpec {
             cwd: None,
             env: Vec::new(),
             detached: false,
+            detached_pid_file: None,
             after: Vec::new(),
         }
     }
@@ -74,6 +77,12 @@ impl CommandSpec {
     /// Marks this command as detached.
     pub fn detached(mut self) -> Self {
         self.detached = true;
+        self
+    }
+
+    /// Sets the pid file written after a detached process starts.
+    pub fn detached_pid_file(mut self, path: impl Into<PathBuf>) -> Self {
+        self.detached_pid_file = Some(path.into());
         self
     }
 
@@ -144,9 +153,15 @@ impl RealProcessRunner {
             process.creation_flags(0x08000000);
         }
         if command.detached {
-            process
+            let mut child = process
                 .spawn()
                 .map_err(|error| UpdaterError::Environment(error.to_string()))?;
+            if let Some(pid_file) = &command.detached_pid_file {
+                write_detached_pid_file(pid_file, child.id())?;
+            }
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
             return Ok(());
         }
 
@@ -162,6 +177,14 @@ impl RealProcessRunner {
             )))
         }
     }
+}
+
+fn write_detached_pid_file(path: &Path, pid: u32) -> UpdaterResult<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, pid.to_string())?;
+    Ok(())
 }
 
 /// Real asset downloader using blocking reqwest.
@@ -577,12 +600,9 @@ pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec 
         .arg("--port")
         .arg(port.to_string())
         .arg("--no-ocr-update-check")
-        .env(
-            "BAAS_BACKEND_PID_FILE",
-            backend_pid_path(config).to_string_lossy(),
-        )
         .cwd(config.baas_root())
         .detached()
+        .detached_pid_file(backend_pid_path(config))
 }
 
 /// Returns the pid file used for the currently launched backend process.
@@ -1123,6 +1143,10 @@ mod tests {
 
         assert_eq!(command.program, PathBuf::from("python-custom"));
         assert!(command.detached);
+        assert_eq!(
+            command.detached_pid_file.as_deref(),
+            Some(backend_pid_path(&config).as_path())
+        );
         assert!(command.args.contains(&"--port".to_string()));
         assert!(command.args.contains(&"48888".to_string()));
     }

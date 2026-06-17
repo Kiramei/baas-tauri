@@ -352,6 +352,8 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
         display: display.to_string(),
         cwd: ".".to_string(),
         env: vec![],
+        detached: false,
+        detached_pid_file: None,
     }
 }
 
@@ -383,6 +385,8 @@ fn shell_script(script: &str, display: &str) -> ScriptCommand {
         display: display.to_string(),
         cwd: ".".to_string(),
         env: vec![],
+        detached: false,
+        detached_pid_file: None,
     }
 }
 

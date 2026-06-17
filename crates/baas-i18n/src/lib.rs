@@ -74,12 +74,12 @@ pub fn normalize_language(value: &str) -> Language {
 /// Returns a localized backend string.
 pub fn translate(language: Language, key: I18nKey) -> &'static str {
     match (language, key) {
-        (Language::En, I18nKey::TrayShowMainWindow) => "Show Main Window",
-        (Language::En, I18nKey::TrayExit) => "Exit",
-        (Language::Zh, I18nKey::TrayShowMainWindow) => "显示主窗口",
-        (Language::Zh, I18nKey::TrayExit) => "退出",
-        (Language::Ja, I18nKey::TrayShowMainWindow) => "メインウィンドウを表示",
-        (Language::Ja, I18nKey::TrayExit) => "終了",
+        (Language::En, I18nKey::TrayShowMainWindow) => "Show Window",
+        (Language::En, I18nKey::TrayExit) => "Exit App",
+        (Language::Zh, I18nKey::TrayShowMainWindow) => "显示窗口",
+        (Language::Zh, I18nKey::TrayExit) => "退出程序",
+        (Language::Ja, I18nKey::TrayShowMainWindow) => "画面表示",
+        (Language::Ja, I18nKey::TrayExit) => "アプリ終了",
         (Language::Ko, I18nKey::TrayShowMainWindow) => "메인 창 표시",
         (Language::Ko, I18nKey::TrayExit) => "종료",
         (Language::De, I18nKey::TrayShowMainWindow) => "Hauptfenster anzeigen",
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn tray_labels_are_grouped_by_language() {
         let labels = tray_menu_labels(Language::Zh);
-        assert_eq!(labels.show_main_window, "显示主窗口");
-        assert_eq!(labels.exit, "退出");
+        assert_eq!(labels.show_main_window, "显示窗口");
+        assert_eq!(labels.exit, "退出程序");
     }
 }

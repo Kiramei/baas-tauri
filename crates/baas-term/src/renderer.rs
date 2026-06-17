@@ -384,6 +384,7 @@ struct RegionBuffer {
     escape_buffer: Option<EscapeBuffer>,
     max_kept_lines: usize,
     running_max_lines: usize,
+    running_unlimited: bool,
 }
 
 impl RegionBuffer {
@@ -395,6 +396,7 @@ impl RegionBuffer {
             escape_buffer: None,
             max_kept_lines: REGION_MAX_KEPT_LINES,
             running_max_lines: DEFAULT_RUNNING_REGION_MAX_LINES,
+            running_unlimited: false,
         }
     }
 
@@ -715,10 +717,12 @@ impl SessionRenderer {
             "[{:02}/{:02}] {}",
             spec.step_index, spec.step_total, spec.name
         );
-        self.regions
+        let region = self
+            .regions
             .entry(spec.region_id.clone())
-            .or_insert_with(RegionBuffer::new)
-            .running_max_lines = spec
+            .or_insert_with(RegionBuffer::new);
+        region.running_unlimited = spec.running_region_unlimited;
+        region.running_max_lines = spec
             .running_region_max_lines
             .unwrap_or(DEFAULT_RUNNING_REGION_MAX_LINES)
             .max(1);
@@ -814,7 +818,7 @@ impl SessionRenderer {
             .get(region_id)
             .map(|region| {
                 region.render_lines(
-                    if running {
+                    if running && !region.running_unlimited {
                         Some(region.running_max_lines)
                     } else {
                         None
@@ -858,8 +862,11 @@ mod tests {
             args: Vec::new(),
             cwd: ".".to_string(),
             env: Vec::new(),
+            detached: false,
+            detached_pid_file: None,
             after: Vec::new(),
             running_region_max_lines: None,
+            running_region_unlimited: false,
         }
     }
 
@@ -1012,6 +1019,19 @@ mod tests {
         assert!(snapshot.contains("2"));
         assert!(snapshot.contains("6"));
         assert!(!snapshot.contains("\r\n1\x1b[0m"));
+    }
+
+    #[test]
+    fn session_renderer_can_disable_task_running_line_limit() {
+        let mut renderer = SessionRenderer::new(20, 80);
+        let spec = spec("task", "region", 1, "Lines").without_running_region_limit();
+        renderer.start_region(&spec);
+        renderer.push_output("task", "region", b"1\n2\n3\n4\n5\n6");
+
+        let snapshot = renderer.render_running_snapshot();
+
+        assert!(snapshot.contains("\r\n1\x1b[0m"));
+        assert!(snapshot.contains("\r\n6\x1b[0m"));
     }
 
     #[test]

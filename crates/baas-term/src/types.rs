@@ -67,6 +67,10 @@ pub struct TaskCommandSpec {
     pub cwd: String,
     /// Program run env var.
     pub env: Vec<(String, String)>,
+    /// Whether this command should be spawned and detached instead of waited on.
+    pub detached: bool,
+    /// Optional pid file written when a detached command starts.
+    pub detached_pid_file: Option<String>,
 }
 
 /// Metadata used to start and render a task.
@@ -93,10 +97,16 @@ pub struct TaskSpec {
     pub cwd: String,
     /// Program run env var
     pub env: Vec<(String, String)>,
+    /// Whether the primary command should be spawned and detached instead of waited on.
+    pub detached: bool,
+    /// Optional pid file written when the primary detached command starts.
+    pub detached_pid_file: Option<String>,
     /// Additional process commands executed serially in this same task region.
     pub after: Vec<TaskCommandSpec>,
     /// Optional maximum number of recent output lines shown while this task is running.
     pub running_region_max_lines: Option<usize>,
+    /// Whether running output should be rendered without per-region line clipping.
+    pub running_region_unlimited: bool,
 }
 
 impl TaskSpec {
@@ -117,6 +127,8 @@ impl TaskSpec {
             args: self.args.clone(),
             cwd: self.cwd.clone(),
             env: self.env.clone(),
+            detached: self.detached,
+            detached_pid_file: self.detached_pid_file.clone(),
         }];
         commands.extend(self.after.clone());
         commands
@@ -125,6 +137,14 @@ impl TaskSpec {
     /// Sets the maximum number of recent output lines shown while this task is running.
     pub fn with_running_region_max_lines(mut self, max_lines: usize) -> Self {
         self.running_region_max_lines = Some(max_lines.max(1));
+        self.running_region_unlimited = false;
+        self
+    }
+
+    /// Disables per-region line clipping while this task is running.
+    pub fn without_running_region_limit(mut self) -> Self {
+        self.running_region_max_lines = None;
+        self.running_region_unlimited = true;
         self
     }
 }
@@ -153,6 +173,8 @@ pub struct WorkflowNode {
     pub command: String,
     /// Optional maximum number of recent output lines shown while this task is running.
     pub running_region_max_lines: Option<usize>,
+    /// Whether running output should be rendered without per-region line clipping.
+    pub running_region_unlimited: bool,
 }
 
 /// A directed edge between workflow task nodes.
@@ -441,8 +463,11 @@ mod tests {
             args: vec!["one".to_string()],
             cwd: ".".to_string(),
             env: vec![("A".to_string(), "1".to_string())],
+            detached: false,
+            detached_pid_file: None,
             after: Vec::new(),
             running_region_max_lines: None,
+            running_region_unlimited: false,
         }
         .after(TaskCommandSpec {
             command: "second".to_string(),
@@ -450,6 +475,8 @@ mod tests {
             args: vec!["two".to_string()],
             cwd: ".".to_string(),
             env: vec![("B".to_string(), "2".to_string())],
+            detached: true,
+            detached_pid_file: Some("pid.txt".to_string()),
         });
 
         let commands = spec.process_commands();
@@ -458,6 +485,8 @@ mod tests {
         assert_eq!(commands[0].command, "first");
         assert_eq!(commands[1].command, "second");
         assert_eq!(commands[1].args, ["two"]);
+        assert!(commands[1].detached);
+        assert_eq!(commands[1].detached_pid_file.as_deref(), Some("pid.txt"));
     }
 
     #[test]
