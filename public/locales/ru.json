@@ -81,14 +81,14 @@
     "mirrorCdk": "CDK MirrorC (необязательно)",
     "settingsTitle": "Настройки обновления",
     "shaConnectivityTest": "Метод получения SHA",
-    "tauriAction": "Client",
-    "tauriAvailable": "Client update available",
-    "tauriChecking": "Checking for client update...",
-    "tauriDownloading": "Downloading {{version}}...",
-    "tauriFailed": "Client update failed",
-    "tauriInstalling": "Installing and restarting...",
-    "tauriInstallTitle": "Client update",
-    "tauriUpToDate": "Client is already up to date"
+    "tauriAction": "Клиент",
+    "tauriAvailable": "Доступно обновление клиента",
+    "tauriChecking": "Проверка обновления клиента...",
+    "tauriDownloading": "Загрузка {{version}}...",
+    "tauriFailed": "Ошибка обновления клиента",
+    "tauriInstalling": "Установка и перезапуск...",
+    "tauriInstallTitle": "Обновление клиента",
+    "tauriUpToDate": "Клиент уже обновлён"
   },
   "version": {
     "checkError": "Не удалось получить версию",
@@ -97,6 +97,9 @@
     "local": "Текущая версия",
     "remote": "Последняя версия",
     "tapToTest": "Проверить",
+    "tauriLocal": "Клиент сейчас",
+    "tauriRemote": "Клиент новый",
+    "tauriStatus": "Статус клиента",
     "testing": "Проверка..."
   },
   "profile": {

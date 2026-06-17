@@ -82,13 +82,13 @@
     "settingsTitle": "Update-Einstellungen",
     "shaConnectivityTest": "SHA-Abrufmethode",
     "tauriAction": "Client",
-    "tauriAvailable": "Client update available",
-    "tauriChecking": "Checking for client update...",
-    "tauriDownloading": "Downloading {{version}}...",
-    "tauriFailed": "Client update failed",
-    "tauriInstalling": "Installing and restarting...",
-    "tauriInstallTitle": "Client update",
-    "tauriUpToDate": "Client is already up to date"
+    "tauriAvailable": "Client-Update verfügbar",
+    "tauriChecking": "Client-Update wird geprüft...",
+    "tauriDownloading": "{{version}} wird heruntergeladen...",
+    "tauriFailed": "Client-Update fehlgeschlagen",
+    "tauriInstalling": "Installiert und startet neu...",
+    "tauriInstallTitle": "Client-Update",
+    "tauriUpToDate": "Client ist aktuell"
   },
   "version": {
     "checkError": "Version konnte nicht abgerufen werden",
@@ -97,6 +97,9 @@
     "local": "Aktuelle Version",
     "remote": "Neueste Version",
     "tapToTest": "Updates prüfen",
+    "tauriLocal": "Client aktuell",
+    "tauriRemote": "Client neu",
+    "tauriStatus": "Clientstatus",
     "testing": "Wird getestet..."
   },
   "profile": {

@@ -81,14 +81,14 @@
     "mirrorCdk": "MirrorC CDK (선택 사항)",
     "settingsTitle": "업데이트 설정",
     "shaConnectivityTest": "SHA 검색 방법",
-    "tauriAction": "Client",
-    "tauriAvailable": "Client update available",
-    "tauriChecking": "Checking for client update...",
-    "tauriDownloading": "Downloading {{version}}...",
-    "tauriFailed": "Client update failed",
-    "tauriInstalling": "Installing and restarting...",
-    "tauriInstallTitle": "Client update",
-    "tauriUpToDate": "Client is already up to date"
+    "tauriAction": "클라이언트",
+    "tauriAvailable": "클라이언트 업데이트 있음",
+    "tauriChecking": "클라이언트 업데이트 확인 중...",
+    "tauriDownloading": "{{version}} 다운로드 중...",
+    "tauriFailed": "클라이언트 업데이트 실패",
+    "tauriInstalling": "설치 후 재시작 중...",
+    "tauriInstallTitle": "클라이언트 업데이트",
+    "tauriUpToDate": "클라이언트가 최신입니다"
   },
   "version": {
     "checkError": "버전 정보를 가져오는 데 실패했습니다",
@@ -97,6 +97,9 @@
     "local": "현재 버전",
     "remote": "최신 버전",
     "tapToTest": "업데이트 확인",
+    "tauriLocal": "클라이언트 현재",
+    "tauriRemote": "클라이언트 최신",
+    "tauriStatus": "클라이언트 상태",
     "testing": "테스트 중..."
   },
   "profile": {

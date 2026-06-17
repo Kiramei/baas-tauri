@@ -81,14 +81,14 @@
     "mirrorCdk": "MirrorC CDK (任意)",
     "settingsTitle": "更新設定",
     "shaConnectivityTest": "SHA取得方法",
-    "tauriAction": "Client",
-    "tauriAvailable": "Client update available",
-    "tauriChecking": "Checking for client update...",
-    "tauriDownloading": "Downloading {{version}}...",
-    "tauriFailed": "Client update failed",
-    "tauriInstalling": "Installing and restarting...",
-    "tauriInstallTitle": "Client update",
-    "tauriUpToDate": "Client is already up to date"
+    "tauriAction": "クライアント",
+    "tauriAvailable": "クライアント更新あり",
+    "tauriChecking": "クライアント更新を確認中...",
+    "tauriDownloading": "{{version}} をダウンロード中...",
+    "tauriFailed": "クライアント更新失敗",
+    "tauriInstalling": "インストールして再起動中...",
+    "tauriInstallTitle": "クライアント更新",
+    "tauriUpToDate": "クライアントは最新です"
   },
   "version": {
     "checkError": "バージョンの取得に失敗しました",
@@ -97,6 +97,9 @@
     "local": "現在のバージョン",
     "remote": "最新バージョン",
     "tapToTest": "更新確認",
+    "tauriLocal": "クライアント現在",
+    "tauriRemote": "クライアント最新",
+    "tauriStatus": "クライアント状態",
     "testing": "テスト中..."
   },
   "profile": {

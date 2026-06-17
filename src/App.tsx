@@ -17,6 +17,7 @@ import BAComet from "@/components/ui/BAComet.tsx";
 import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
+import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -156,11 +157,13 @@ const WrappedApp: React.FC = () => {
       <Suspense fallback={null}>
         <AppProvider setReady={setReady}>
           {hasReadyOnce && (
-            <TauriShortcutProvider>
-              <Main />
-              {!ready && <ReconnectingOverlay />}
-              <Toaster />
-            </TauriShortcutProvider>
+            <TauriSelfUpdateProvider>
+              <TauriShortcutProvider>
+                <Main />
+                {!ready && <ReconnectingOverlay />}
+                <Toaster />
+              </TauriShortcutProvider>
+            </TauriSelfUpdateProvider>
           )}
         </AppProvider>
       </Suspense>

@@ -171,20 +171,22 @@ export const useWebSocketStore = create<WebSocketState>()(
     _control: null,
     _session: null,
 
-    checkTauriUpdater: async (notify = false) => {
+    checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
       tauriUpdaterChecking = true;
-      set((state) => ({
-        ...state,
-        versionStore: {
-          ...state.versionStore,
-          tauri: {
-            ...(state.versionStore.tauri ?? {}),
-            checking: true,
-            error: null,
+      if (visible) {
+        set((state) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            tauri: {
+              ...(state.versionStore.tauri ?? {}),
+              checking: true,
+              error: null,
+            },
           },
-        },
-      }));
+        }));
+      }
 
       try {
         const [{ check }, { getVersion }] = await Promise.all([
@@ -254,9 +256,9 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     startTauriUpdaterPolling: () => {
       if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
-      void get().checkTauriUpdater(true);
+      void get().checkTauriUpdater(true, false);
       tauriUpdaterPollTimer = setInterval(() => {
-        void get().checkTauriUpdater(true);
+        void get().checkTauriUpdater(true, false);
       }, TAURI_UPDATER_POLL_INTERVAL_MS);
     },
 

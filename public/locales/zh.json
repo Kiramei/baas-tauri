@@ -97,6 +97,9 @@
     "local": "当前版本",
     "remote": "最新版本",
     "tapToTest": "检查更新",
+    "tauriLocal": "客户端当前",
+    "tauriRemote": "客户端最新",
+    "tauriStatus": "客户端状态",
     "testing": "测试中..."
   },
   "profile": {
