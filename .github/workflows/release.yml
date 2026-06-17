@@ -86,7 +86,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
         run: |
           set -euo pipefail
 
@@ -391,7 +391,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -591,7 +591,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -723,7 +723,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -738,7 +738,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
 
@@ -812,7 +812,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -842,7 +842,7 @@ jobs:
             --silent
 
   release-update:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
     name: Release Update
     runs-on: ubuntu-latest
     needs: [update_tag]
@@ -864,7 +864,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-update-for-fixed-webview2:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
     name: Release Update for Fixed WebView2
     runs-on: ubuntu-latest
     needs: [update_tag]
@@ -884,3 +884,30 @@ jobs:
         run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  submit-to-winget:
+    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    name: Submit to Winget
+    runs-on: ubuntu-latest
+    needs: [update_tag, release-update]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get Version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -pe 'require("./package.json").version')"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Submit to Winget
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: Kiramei.BAASTauri
+          version: ${{ env.VERSION }}
+          release-tag: v${{ env.VERSION }}
+          installers-regex: '_(arm64|x64)-setup\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

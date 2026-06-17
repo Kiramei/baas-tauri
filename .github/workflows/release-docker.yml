@@ -16,6 +16,7 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/kiramei/baas-webui
+  CNB_IMAGE_NAME: docker.cnb.cool/kiramei/baas-tauri/baas-webui
 
 jobs:
   check_tag_version:
@@ -207,14 +208,75 @@ jobs:
             type=ref,event=tag
             type=semver,pattern={{version}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc')) }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: ./scripts/docker
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc'))) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Log in to Docker Hub
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+        uses: docker/login-action@v4
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker Hub metadata
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+        id: dockerhub-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/baas-webui
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}},value=${{ github.ref_name }}
+            type=raw,value=latest
+
+      - name: Build and push Docker Hub image
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+        uses: docker/build-push-action@v7
+        with:
+          context: ./scripts/docker
+          push: true
+          tags: ${{ steps.dockerhub-meta.outputs.tags }}
+          labels: ${{ steps.dockerhub-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install skopeo
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Mirror Docker Hub image to CNB
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          CNB_DOCKER_TOKEN: ${{ secrets.CNB_DOCKER_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          version="${GITHUB_REF_NAME#v}"
+          source_image="docker.io/${DOCKERHUB_USERNAME}/baas-webui"
+
+          for tag in "$version" latest; do
+            echo "Mirroring ${source_image}:${tag} to ${CNB_IMAGE_NAME}:${tag}"
+            skopeo copy --all \
+              "docker://${source_image}:${tag}" \
+              "docker://${CNB_IMAGE_NAME}:${tag}" \
+              --src-creds "${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}" \
+              --dest-creds "cnb:${CNB_DOCKER_TOKEN}"
+            echo "::notice title=Image Published::https://${CNB_IMAGE_NAME}:${tag}"
+          done
