@@ -1,0 +1,17 @@
+name: Download Font Assets
+description: Download generated font assets into public/fonts.
+
+inputs:
+  artifact-name:
+    description: Font artifact name.
+    required: false
+    default: generated-fonts
+
+runs:
+  using: composite
+  steps:
+    - name: Download generated font assets
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: public/fonts
