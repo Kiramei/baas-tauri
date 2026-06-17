@@ -97,6 +97,9 @@
     "local": "Current Version",
     "remote": "Latest Version",
     "tapToTest": "Check for updates",
+    "tauriLocal": "Client Current",
+    "tauriRemote": "Client Latest",
+    "tauriStatus": "Client Status",
     "testing": "Testing..."
   },
   "profile": {

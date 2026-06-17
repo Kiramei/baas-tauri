@@ -4,7 +4,6 @@ import {
   BookOpenText,
   Download,
   Home,
-  Info,
   ListChecks,
   Loader2,
   PackageOpen,
@@ -17,6 +16,8 @@ import { toast } from "sonner";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import { PageKey } from "@/types/app";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
+import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -30,10 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
   const [backendUpdating, setBackendUpdating] = useState(false);
-  const [tauriUpdating, setTauriUpdating] = useState(false);
-  const [tauriProgress, setTauriProgress] = useState(0);
-  const [tauriStatus, setTauriStatus] = useState("");
-  const [tauriProgressOpen, setTauriProgressOpen] = useState(false);
+  const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
   const hasBackendUpdate =
     Boolean(versionConfig["remote"]) && versionConfig["local"] !== versionConfig["remote"];
@@ -80,51 +78,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         description: error instanceof Error ? error.message : String(error),
       });
       setBackendUpdating(false);
-    }
-  };
-
-  const handleTauriSelfUpdate = async (): Promise<void> => {
-    if (!__WITH_TAURI__) return;
-    setTauriUpdating(true);
-    setTauriProgressOpen(true);
-    setTauriProgress(0);
-    setTauriStatus(t("update.tauriChecking"));
-    try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      const update = await check();
-      if (!update) {
-        setTauriStatus(t("update.tauriUpToDate"));
-        toast.success(t("update.tauriUpToDate"));
-        return;
-      }
-      await stopAllTasks();
-      let downloaded = 0;
-      let contentLength = 0;
-      setTauriStatus(t("update.tauriDownloading", { version: update.version }));
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started") {
-          contentLength = event.data.contentLength ?? 0;
-          downloaded = 0;
-          setTauriProgress(0);
-        } else if (event.event === "Progress") {
-          downloaded += event.data.chunkLength;
-          if (contentLength > 0) {
-            setTauriProgress(Math.min(100, Math.round((downloaded / contentLength) * 100)));
-          }
-        } else if (event.event === "Finished") {
-          setTauriProgress(100);
-          setTauriStatus(t("update.tauriInstalling"));
-        }
-      });
-      await relaunch();
-    } catch (error) {
-      setTauriStatus(t("update.tauriFailed"));
-      toast.error(t("update.tauriFailed"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setTauriUpdating(false);
     }
   };
 
@@ -181,8 +134,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
                   label={t("update.tauriAction")}
                   title={t("update.tauriAvailable")}
                   icon={Download}
-                  busy={tauriUpdating}
-                  onClick={handleTauriSelfUpdate}
+                  busy={tauriUpdate.updating}
+                  onClick={tauriUpdate.runUpdate}
                   tone="blue"
                 />
               )}
@@ -226,8 +179,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
             <FloatingUpdateButton
               title={t("update.tauriAvailable")}
               icon={Download}
-              busy={tauriUpdating}
-              onClick={handleTauriSelfUpdate}
+              busy={tauriUpdate.updating}
+              onClick={tauriUpdate.runUpdate}
               tone="blue"
             />
           )}
@@ -235,20 +188,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
       )}
 
       <TauriUpdateProgressModal
-        open={tauriProgressOpen}
-        onClose={() => setTauriProgressOpen(false)}
-        updating={tauriUpdating}
-        tauriProgress={tauriProgress}
-        tauriStatus={tauriStatus}
+        open={tauriUpdate.progressOpen}
+        onClose={() => tauriUpdate.setProgressOpen(false)}
+        updating={tauriUpdate.updating}
+        tauriProgress={tauriUpdate.progress}
+        tauriStatus={tauriUpdate.status}
       />
     </div>
   );
 };
 
 export default Sidebar;
-
-const overlayCls =
-  "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50";
 
 type UpdateTone = "red" | "blue";
 
@@ -308,69 +258,3 @@ const FloatingUpdateButton: React.FC<{
     {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
   </motion.button>
 );
-
-export const TauriUpdateProgressModal: React.FC<{
-  open: boolean;
-  onClose: () => void;
-  updating: boolean;
-  tauriProgress: number;
-  tauriStatus: string;
-}> = ({
-  open,
-  onClose,
-  updating,
-  tauriProgress,
-  tauriStatus,
-}) => {
-  const { t } = useTranslation();
-  if (!open) return null;
-
-  return (
-    <div
-      className={overlayCls}
-      onMouseDown={(e) => {
-        if (!updating && e.target === e.currentTarget) onClose();
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-90 max-w-[calc(100vw-2rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 p-3">
-            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Info className="w-5 h-5" />}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {t("update.tauriInstallTitle")}
-            </h2>
-            {tauriStatus && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">{tauriStatus}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-          <div
-            className="h-full bg-sky-600 transition-all"
-            style={{ width: `${tauriProgress}%` }}
-          />
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <button
-            onClick={onClose}
-            disabled={updating}
-            className="px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-200 transition-colors"
-          >
-            {t("common.cancel")}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};

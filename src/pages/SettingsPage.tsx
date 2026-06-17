@@ -13,6 +13,7 @@ import {
   AppWindow,
   CheckCircle2,
   Cloud,
+  Download,
   GitBranch,
   HardDrive,
   Info,
@@ -37,6 +38,8 @@ import {
 } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
+import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
+import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 
 type RepoConfig = {
   label: string;
@@ -116,7 +119,9 @@ const SettingsPage: React.FC = () => {
   const trigger = useWebSocketStore((state) => state.trigger);
   const updateConfig = useWebSocketStore((state) => state.updateStore);
   const versionStore = useWebSocketStore((state) => state.versionStore);
+  const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
   const modify = useWebSocketStore((state) => state.modify);
+  const tauriUpdate = useTauriSelfUpdate();
   const [reposInitState, setReposInitState] = useState(reposInit);
 
   const handleThemeChange = (newTheme: Theme) => {
@@ -162,6 +167,29 @@ const SettingsPage: React.FC = () => {
   const [updateMethod, setUpdateMethod] = useState<string>(updateConfig["updateMethod"]);
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
+  const tauriVersion = versionStore["tauri"] ?? {};
+  const tauriCurrentVersion = tauriVersion.currentVersion ?? t("version.fetching");
+  const tauriRemoteVersion = tauriVersion.checking
+    ? t("version.fetching")
+    : tauriVersion.error
+      ? t("version.checkError")
+      : (tauriVersion.version ?? tauriVersion.currentVersion ?? t("version.fetching"));
+  const tauriStatus = tauriVersion.checking
+    ? t("update.tauriChecking")
+    : tauriVersion.error
+      ? t("update.tauriFailed")
+      : tauriVersion.updateAvailable
+        ? t("update.tauriAvailable")
+        : t("update.tauriUpToDate");
+
+  const handleTauriVersionAction = async () => {
+    if (!__WITH_TAURI__) return;
+    if (tauriVersion.updateAvailable) {
+      await tauriUpdate.runUpdate();
+      return;
+    }
+    await checkTauriUpdater(true, true);
+  };
 
   const infos = [
     {
@@ -183,6 +211,32 @@ const SettingsPage: React.FC = () => {
         />
       ),
     },
+    ...(__WITH_TAURI__
+      ? [
+          {
+            label: t("version.tauriLocal"),
+            value: tauriCurrentVersion,
+            icon: <AppWindow className="w-8 h-8 text-sky-500" />,
+          },
+          {
+            label: t("version.tauriRemote"),
+            value: tauriRemoteVersion,
+            icon: <Download className="w-8 h-8 text-blue-500" />,
+          },
+          {
+            label: t("version.tauriStatus"),
+            value: tauriStatus,
+            icon: (
+              <RefreshCcw
+                className={`w-8 h-8 text-blue-500 ${
+                  tauriVersion.checking || tauriUpdate.updating ? "animate-spin" : ""
+                }`}
+              />
+            ),
+            onClick: handleTauriVersionAction,
+          },
+        ]
+      : []),
   ];
   const [cdk, setCdk] = useState(updateConfig["mirrorcCdk"]);
   const [shaResults, setShaResults] = useState<ShaTestResult[]>(
@@ -356,8 +410,18 @@ const SettingsPage: React.FC = () => {
           {infos.map((info, i) => (
             <div
               key={i}
-              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${info.label === t("update.method") ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50" : ""}`}
-              onClick={info.label === t("update.method") ? fetchVersion : undefined}
+              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${
+                info.label === t("update.method") || info.onClick
+                  ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50"
+                  : ""
+              }`}
+              onClick={
+                info.onClick
+                  ? info.onClick
+                  : info.label === t("update.method")
+                    ? fetchVersion
+                    : undefined
+              }
             >
               {info.icon}
               <div className="flex flex-col">
@@ -372,6 +436,14 @@ const SettingsPage: React.FC = () => {
           ))}
         </CardContent>
       </Card>
+
+      <TauriUpdateProgressModal
+        open={tauriUpdate.progressOpen}
+        onClose={() => tauriUpdate.setProgressOpen(false)}
+        updating={tauriUpdate.updating}
+        tauriProgress={tauriUpdate.progress}
+        tauriStatus={tauriUpdate.status}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-2">

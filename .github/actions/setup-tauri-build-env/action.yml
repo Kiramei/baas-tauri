@@ -1,0 +1,57 @@
+name: Setup Tauri Build Environment
+description: Download generated fonts, install Rust target, cache Cargo artifacts, and install Bun dependencies.
+
+inputs:
+  target:
+    description: Rust target triple.
+    required: true
+  rust-toolchain:
+    description: Rust toolchain version.
+    required: false
+    default: "1.95.0"
+  font-artifact-name:
+    description: Font artifact name.
+    required: false
+    default: generated-fonts
+
+runs:
+  using: composite
+  steps:
+    - name: Download generated font assets
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.font-artifact-name }}
+        path: public/fonts
+
+    - name: Install Rust Stable
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.rust-toolchain }}
+        targets: ${{ inputs.target }}
+
+    - name: Add Rust Target
+      shell: bash
+      run: |
+        rustup target add ${{ inputs.target }} --toolchain ${{ inputs.rust-toolchain }} || rustup target add ${{ inputs.target }}
+        rustup target list --installed
+        echo "Rust target ${{ inputs.target }} installed."
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        save-if: false
+        prefix-key: "v1-rust"
+        key: "rust-shared-stable-${{ runner.os }}-${{ inputs.target }}"
+        workspaces: |
+          . -> target
+        cache-all-crates: true
+        cache-workspace-crates: true
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Bun install
+      shell: bash
+      run: bun install --frozen-lockfile

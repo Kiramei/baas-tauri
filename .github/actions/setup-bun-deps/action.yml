@@ -1,0 +1,25 @@
+name: Setup Bun Dependencies
+description: Setup Bun and optionally install project dependencies.
+
+inputs:
+  bun-version:
+    description: Bun version passed to oven-sh/setup-bun.
+    required: false
+    default: latest
+  install:
+    description: Whether to run bun install.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Bun install
+      if: ${{ inputs.install == 'true' }}
+      shell: bash
+      run: bun install --frozen-lockfile

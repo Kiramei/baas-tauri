@@ -1,0 +1,74 @@
+name: Check Release Tag
+description: Validate release tag ancestry and package.json version consistency.
+
+inputs:
+  branch:
+    description: Release source branch.
+    required: false
+    default: master
+  allow-non-tag:
+    description: Skip checks when the workflow is not running on a tag.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Check if tag is from release branch
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+          if [[ "${{ inputs.allow-non-tag }}" = "true" ]]; then
+            echo "Current ref is not a release tag: ${GITHUB_REF}"
+            echo "Skip release tag branch check."
+            exit 0
+          fi
+
+          echo "::error::Current ref is not a release tag: ${GITHUB_REF}"
+          exit 1
+        fi
+
+        TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
+        echo "Checking if tag ${TAG_REF} is from ${{ inputs.branch }} branch..."
+
+        git fetch origin ${{ inputs.branch }} --tags --force
+        TAG_COMMIT="$(git rev-list -n 1 "${TAG_REF}")"
+
+        if git merge-base --is-ancestor "${TAG_COMMIT}" "origin/${{ inputs.branch }}"; then
+          echo "Tag ${TAG_REF} is from ${{ inputs.branch }} branch."
+        else
+          echo "::error::Tag ${TAG_REF} is not from ${{ inputs.branch }} branch."
+          exit 1
+        fi
+
+    - name: Check tag and package.json version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+          if [[ "${{ inputs.allow-non-tag }}" = "true" ]]; then
+            echo "Current ref is not a release tag: ${GITHUB_REF}"
+            echo "Skip package.json version check."
+            exit 0
+          fi
+
+          echo "::error::Current ref is not a release tag: ${GITHUB_REF}"
+          exit 1
+        fi
+
+        TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
+        PKG_VERSION="$(jq -r .version package.json)"
+        EXPECTED_TAG="v${PKG_VERSION}"
+
+        echo "Current tag: ${TAG_REF}"
+        echo "package.json version: ${PKG_VERSION}"
+
+        if [[ "${TAG_REF}" != "${EXPECTED_TAG}" ]]; then
+          echo "::error::Version mismatch. Git tag is ${TAG_REF}, package.json expects ${EXPECTED_TAG}."
+          exit 1
+        fi
+
+        echo "Tag and package.json version are consistent."
