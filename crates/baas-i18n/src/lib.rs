@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn tray_labels_are_grouped_by_language() {
         let labels = tray_menu_labels(Language::Zh);
-        assert_eq!(labels.show_main_window, "显示主窗口");
-        assert_eq!(labels.exit, "退出");
+        assert_eq!(labels.show_main_window, "显示窗口");
+        assert_eq!(labels.exit, "退出程序");
     }
 }
