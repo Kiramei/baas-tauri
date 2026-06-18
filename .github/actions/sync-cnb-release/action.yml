@@ -9,7 +9,7 @@ inputs:
     description: CNB access token with repo-code read/write permissions.
     required: true
   tag-name:
-    description: Release tag to sync. Defaults to the current tag ref, or the latest GitHub release.
+    description: Release tag to sync. Defaults to the current tag ref, then package.json version, then the latest GitHub release.
     required: false
     default: ""
   cnb-repo-slug:
@@ -129,6 +129,13 @@ runs:
         tag="$INPUT_TAG"
         if [ -z "$tag" ] && [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
           tag="${GITHUB_REF_NAME}"
+        fi
+
+        if [ -z "$tag" ] && [ -f package.json ]; then
+          version="$(jq -r '.version // empty' package.json)"
+          if [ -n "$version" ]; then
+            tag="v${version}"
+          fi
         fi
 
         if [ -z "$tag" ]; then
@@ -372,6 +379,10 @@ runs:
 
         attachments="$(find release-assets -maxdepth 1 -type f -printf '%p\n' | sort | paste -sd, -)"
 
+        stop_marker="cnb_attachments_$(date +%s%N)"
+        echo "::stop-commands::$stop_marker"
+
+        set +e
         docker run --rm \
           -e TZ=Asia/Shanghai \
           -e CNB_TOKEN \
@@ -384,3 +395,8 @@ runs:
           -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
           -w "${GITHUB_WORKSPACE}" \
           cnbcool/attachments:latest
+        docker_status=$?
+        set -e
+
+        echo "::$stop_marker::"
+        exit "$docker_status"

@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       tag-name:
-        description: "Release tag to sync. Defaults to the pushed tag, or the latest GitHub release for manual runs."
+        description: "Release tag to sync. Defaults to package.json version tag for manual runs."
         required: false
         type: string
       asset-pattern:
