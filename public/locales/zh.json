@@ -323,6 +323,16 @@
     "multiInstance": "模拟器多开",
     "multiType": "模拟器类型",
     "openOnLaunch": "启动脚本时打开模拟器",
+    "types": {
+      "bluestacksCn": "蓝叠模拟器",
+      "bluestacksGlobal": "蓝叠国际版",
+      "leidian": "雷电模拟器",
+      "mumu": "MuMu模拟器",
+      "mumuGlobal": "MuMu模拟器全球版",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "逍遥模拟器 (NAT)",
+      "yeshen": "夜神模拟器"
+    },
     "waitTime": "等待模拟器启动时间 (秒)"
   },
   "push": {

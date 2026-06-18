@@ -323,6 +323,16 @@
     "multiInstance": "에뮬레이터 멀티 인스턴스",
     "multiType": "에뮬레이터 종류",
     "openOnLaunch": "스크립트 실행 시 에뮬레이터 열기",
+    "types": {
+      "bluestacksCn": "BlueStacks CN",
+      "bluestacksGlobal": "BlueStacks Global",
+      "leidian": "LDPlayer",
+      "mumu": "MuMu Player",
+      "mumuGlobal": "MuMu Player Global",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "MEmu (NAT)",
+      "yeshen": "NoxPlayer"
+    },
     "waitTime": "에뮬레이터 시작 대기 시간 (초)"
   },
   "push": {

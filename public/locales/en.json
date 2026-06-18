@@ -323,6 +323,16 @@
     "multiInstance": "Emulator Multi-instance",
     "multiType": "Emulator Type",
     "openOnLaunch": "Open emulator on script launch",
+    "types": {
+      "bluestacksCn": "BlueStacks CN",
+      "bluestacksGlobal": "BlueStacks Global",
+      "leidian": "LDPlayer",
+      "mumu": "MuMu Player",
+      "mumuGlobal": "MuMu Player Global",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "MEmu (NAT)",
+      "yeshen": "NoxPlayer"
+    },
     "waitTime": "Emulator launch wait time (seconds)"
   },
   "push": {
