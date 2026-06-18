@@ -124,6 +124,7 @@ interface WsMessageItem {
   resource_id?: string;
   ops?: SyncOperation[];
   command?: string;
+  error?: string;
 }
 
 interface LogStoreSet {
@@ -150,6 +151,7 @@ interface WebSocketState {
   modify: (path: string, value: any, showToast?: boolean) => void;
   patch: (path: string, value: any) => void;
   trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
+  triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => void;
   triggerBinary: (
     payload: CommandPayload,
     binary: ArrayBuffer | Uint8Array,
@@ -157,6 +159,7 @@ interface WebSocketState {
   ) => void;
   connectRemote: () => Promise<SecureWebSocket>;
   pendingCallbacks: Record<string, (data?: any) => void>;
+  pendingStreamCallbacks: Record<string, (data?: any) => void>;
   pendingBinaryCallbacks: Record<string, (data: ArrayBuffer) => void>;
   pendingBinaryQueue: number[];
 

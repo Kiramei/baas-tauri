@@ -46,14 +46,57 @@ const resolveHttpBase = () => {
 };
 
 const { appendGlobalLog } = useGlobalLogStore.getState();
-const TAURI_UPDATER_POLL_INTERVAL_MS = 10 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+let backendUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
+let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
 
+const checkBackendUpdater = () => {
+  const store = useWebSocketStore.getState();
+  if (backendUpdaterChecking || store._auth_phase !== "authenticated" || !store.connections.trigger) {
+    return;
+  }
+  backendUpdaterChecking = true;
+  const resetTimer = setTimeout(() => {
+    backendUpdaterChecking = false;
+  }, 30_000);
+  store.trigger(
+    {
+      timestamp: getTimestampMs(),
+      command: "check_for_update",
+      payload: {},
+    },
+    (event) => {
+      clearTimeout(resetTimer);
+      backendUpdaterChecking = false;
+      useWebSocketStore.setState((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          local: event.data.local,
+          remote: event.data.remote,
+          updateAvailable: event.data.update_available ?? event.data.local !== event.data.remote,
+          channel: event.data.channel ?? state.versionStore.channel,
+          method: event.data.method ?? state.versionStore.method,
+          lastChecked: Date.now(),
+        },
+      }));
+    }
+  );
+};
+
+const startBackendUpdaterPolling = () => {
+  if (backendUpdaterPollTimer) return;
+  checkBackendUpdater();
+  backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+};
+
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
   pendingCallbacks: {},
+  pendingStreamCallbacks: {},
   pendingBinaryCallbacks: {},
   pendingBinaryQueue: [],
   _all_data_initialized: false,
@@ -161,6 +204,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     statusStore: {},
     versionStore: {},
     pendingCallbacks: {},
+    pendingStreamCallbacks: {},
     pendingBinaryCallbacks: {},
     pendingBinaryQueue: [],
 
@@ -263,7 +307,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       void get().checkTauriUpdater(true, false);
       tauriUpdaterPollTimer = setInterval(() => {
         void get().checkTauriUpdater(true, false);
-      }, TAURI_UPDATER_POLL_INTERVAL_MS);
+      }, UPDATE_CHECK_INTERVAL_MS);
     },
 
     startAuthFlow: async () => {
@@ -622,7 +666,15 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
 
         "command_response": (message: WsMessageItem) => {
-          const { timestamp, command, data, status } = message;
+          const { timestamp, command, data, status, error } = message;
+          const streamCallback = get().pendingStreamCallbacks[timestamp!];
+          if (streamCallback) {
+            streamCallback({ command, data, status, error });
+            if (data?.done || status === "error") {
+              delete get().pendingStreamCallbacks[timestamp!];
+            }
+            return;
+          }
           const callback = get().pendingCallbacks[timestamp!];
           if (callback) {
             if (data?.binary) {
@@ -812,25 +864,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         await connectWithRetry("trigger");
 
-        get().trigger(
-          {
-            timestamp: getTimestampMs(),
-            command: "check_for_update",
-            payload: {},
-          },
-          (event) => {
-            // console.log("===============================")
-            // console.log(`${event}`);
-            set((state) => ({
-              ...state,
-              versionStore: {
-                ...state.versionStore,
-                local: event.data.local,
-                remote: event.data.remote,
-              },
-            }));
-          }
-        );
+        startBackendUpdaterPolling();
 
         await waitFor(
           get,
@@ -950,6 +984,21 @@ export const useWebSocketStore = create<WebSocketState>()(
       const timestamp = payload.timestamp || Date.now();
       if (callback) {
         get().pendingCallbacks[timestamp] = callback;
+      }
+      const normalizedPayload = {
+        ...payload,
+        timestamp,
+      };
+      get().send("trigger", {
+        type: "command",
+        ...normalizedPayload,
+      });
+    },
+
+    triggerStream: (payload, callback) => {
+      const timestamp = payload.timestamp || Date.now();
+      if (callback) {
+        get().pendingStreamCallbacks[timestamp] = callback;
       }
       const normalizedPayload = {
         ...payload,
