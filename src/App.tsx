@@ -8,6 +8,7 @@ import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
 import WebWikiViewer from "@/components/WebWikiViewer";
+import GlobalContextMenu from "@/components/GlobalContextMenu";
 import type { Variants } from "framer-motion";
 import { motion } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
@@ -135,6 +136,7 @@ const WrappedApp: React.FC = () => {
   return (
     <>
       {uiSettings.enableBAComet && <BAComet />}
+      <GlobalContextMenu />
 
       {!hideLoading && (
         <motion.div

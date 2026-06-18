@@ -105,10 +105,17 @@
   "profile": {
     "add": "Profil hinzufügen",
     "cannotDeleteLast": "Letztes Profil kann nicht gelöscht werden.",
+    "copy": "Profil kopieren",
+    "copyFailed": "Profil konnte nicht kopiert werden",
     "create": "Profil erstellen",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie das Profil '{{name}}' löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!",
     "deleteConfirmTitle": "Löschung bestätigen",
     "edit": "Profil bearbeiten",
+    "export": "Profil exportieren",
+    "exportFailed": "Profil konnte nicht exportiert werden",
+    "import": "Profilarchiv importieren",
+    "importArchive": "Profilarchiv auswählen",
+    "importFailed": "Profil konnte nicht importiert werden",
     "name": "Profilname",
     "nameExists": "Name existiert bereits"
   },
@@ -316,6 +323,16 @@
     "multiInstance": "Emulator-Multi-Instanz",
     "multiType": "Emulatortyp",
     "openOnLaunch": "Emulator bei Skriptstart öffnen",
+    "types": {
+      "bluestacksCn": "BlueStacks CN",
+      "bluestacksGlobal": "BlueStacks Global",
+      "leidian": "LDPlayer",
+      "mumu": "MuMu Player",
+      "mumuGlobal": "MuMu Player Global",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "MEmu (NAT)",
+      "yeshen": "NoxPlayer"
+    },
     "waitTime": "Wartezeit für Emulatorstart (Sekunden)"
   },
   "push": {
@@ -529,6 +546,13 @@
       "expired": "CDK ist abgelaufen.",
       "validExpires": "Dieser CDK ist gültig bis {{expire_date}}."
     }
+  },
+  "contextMenu": {
+    "copy": "Kopieren",
+    "inspect": "Pruefen",
+    "inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
+    "paste": "Einfuegen",
+    "reload": "Neu laden"
   },
   "adb": {
     "detectBtn": "ADB erkennen",

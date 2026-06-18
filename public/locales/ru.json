@@ -105,10 +105,17 @@
   "profile": {
     "add": "Добавить профиль",
     "cannotDeleteLast": "Нельзя удалить последний профиль.",
+    "copy": "Копировать профиль",
+    "copyFailed": "Не удалось скопировать профиль",
     "create": "Создать профиль",
     "deleteConfirmMessage": "Вы уверены, что хотите удалить профиль '{{name}}'? Это действие необратимо!",
     "deleteConfirmTitle": "Подтверждение удаления",
     "edit": "Редактировать профиль",
+    "export": "Экспортировать профиль",
+    "exportFailed": "Не удалось экспортировать профиль",
+    "import": "Импортировать архив профиля",
+    "importArchive": "Выберите архив профиля",
+    "importFailed": "Не удалось импортировать профиль",
     "name": "Имя профиля",
     "nameExists": "Имя уже существует"
   },
@@ -316,6 +323,16 @@
     "multiInstance": "Мульти-инстанс эмулятора",
     "multiType": "Тип эмулятора",
     "openOnLaunch": "Открывать эмулятор при запуске скрипта",
+    "types": {
+      "bluestacksCn": "BlueStacks CN",
+      "bluestacksGlobal": "BlueStacks Global",
+      "leidian": "LDPlayer",
+      "mumu": "MuMu Player",
+      "mumuGlobal": "MuMu Player Global",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "MEmu (NAT)",
+      "yeshen": "NoxPlayer"
+    },
     "waitTime": "Время ожидания запуска эмулятора (секунды)"
   },
   "push": {
@@ -529,6 +546,13 @@
       "expired": "Срок действия CDK истек.",
       "validExpires": "Этот CDK действителен до {{expire_date}}."
     }
+  },
+  "contextMenu": {
+    "copy": "Копировать",
+    "inspect": "Проверить",
+    "inspectWebuiHint": "Нажмите F12, чтобы открыть DevTools.",
+    "paste": "Вставить",
+    "reload": "Обновить"
   },
   "adb": {
     "detectBtn": "Обнаружить ADB",

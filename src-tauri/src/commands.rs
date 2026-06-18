@@ -91,6 +91,15 @@ pub fn shortcut_apply_bindings(
     apply_shortcut_bindings(app, &registry, bindings)
 }
 
+#[tauri::command]
+pub fn open_main_devtools(app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    window.open_devtools();
+    Ok(())
+}
+
 /// Simple path probe used by the setup page to recover from older configs
 /// where the install root was lost but the frontend still has a cached path.
 #[tauri::command]

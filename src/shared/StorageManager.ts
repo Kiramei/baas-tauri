@@ -2,6 +2,7 @@ import { Store } from "@tauri-apps/plugin-store";
 import { TFunction } from "i18next";
 
 type DownloadData = string | Blob | ArrayBuffer | Uint8Array;
+type UploadData = Uint8Array;
 
 function getExtension(filename: string): string {
   const match = filename.match(/\.([^.]+)$/);
@@ -19,6 +20,7 @@ function getFileFilter(filename: string) {
     jpg: "JPEG Image",
     jpeg: "JPEG Image",
     webp: "WebP Image",
+    zip: "Zip Archive",
   };
   return [
     {
@@ -121,6 +123,41 @@ class StorageUtilWebUI {
     }
   }
 
+  static async upload(_translator: TFunction, accept = ".zip"): Promise<UploadData | null> {
+    return await new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      let settled = false;
+      const finish = (value: UploadData | null) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("focus", onFocus);
+        resolve(value);
+      };
+      const onFocus = () => {
+        setTimeout(() => {
+          if (!input.files?.length) finish(null);
+        }, 500);
+      };
+      input.type = "file";
+      input.accept = accept;
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) {
+          finish(null);
+          return;
+        }
+        try {
+          finish(new Uint8Array(await file.arrayBuffer()));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      (input as HTMLInputElement & { oncancel?: () => void }).oncancel = () => finish(null);
+      window.addEventListener("focus", onFocus, { once: true });
+      input.click();
+    });
+  }
+
   static async retrievePath(_description: string, _filters: any) {
     // As the browser ban the visit of local file path,
     // we don't implement the webui interface for file path retrieval.
@@ -182,6 +219,32 @@ class StorageUtilTauri {
     if (!target) return;
     const bytes = await toUint8Array(data);
     await writeFile(target, bytes);
+  }
+
+  static async upload(translator: TFunction, accept = ".zip"): Promise<UploadData | null> {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const { readFile } = await import("@tauri-apps/plugin-fs");
+    const extensions = accept
+      .split(",")
+      .map((item) => item.trim().replace(/^\./, ""))
+      .filter(Boolean);
+    const file = await open({
+      title: translator("profile.importArchive"),
+      multiple: false,
+      filters: extensions.length
+        ? [
+            {
+              name: "Zip Archive",
+              extensions,
+            },
+          ]
+        : undefined,
+    });
+
+    if (typeof file !== "string") {
+      return null;
+    }
+    return await readFile(file);
   }
 
   static async retrievePath(description: string, filters: any) {

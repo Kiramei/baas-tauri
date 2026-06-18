@@ -105,10 +105,17 @@
   "profile": {
     "add": "Add Profile",
     "cannotDeleteLast": "Cannot delete the last profile.",
+    "copy": "Copy Profile",
+    "copyFailed": "Failed to copy profile",
     "create": "Create Profile",
     "deleteConfirmMessage": "Are you sure you want to delete the profile '{{name}}'? This action cannot be undone!",
     "deleteConfirmTitle": "Confirm Deletion",
     "edit": "Edit Profile",
+    "export": "Export Profile",
+    "exportFailed": "Failed to export profile",
+    "import": "Import Profile Archive",
+    "importArchive": "Choose profile archive",
+    "importFailed": "Failed to import profile",
     "name": "Profile Name",
     "nameExists": "Name already exists"
   },
@@ -316,6 +323,16 @@
     "multiInstance": "Emulator Multi-instance",
     "multiType": "Emulator Type",
     "openOnLaunch": "Open emulator on script launch",
+    "types": {
+      "bluestacksCn": "BlueStacks CN",
+      "bluestacksGlobal": "BlueStacks Global",
+      "leidian": "LDPlayer",
+      "mumu": "MuMu Player",
+      "mumuGlobal": "MuMu Player Global",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "MEmu (NAT)",
+      "yeshen": "NoxPlayer"
+    },
     "waitTime": "Emulator launch wait time (seconds)"
   },
   "push": {
@@ -529,6 +546,13 @@
       "expired": "CDK has expired.",
       "validExpires": "This CDK is valid until {{expire_date}}."
     }
+  },
+  "contextMenu": {
+    "copy": "Copy",
+    "inspect": "Inspect",
+    "inspectWebuiHint": "Press F12 to open developer tools.",
+    "paste": "Paste",
+    "reload": "Reload"
   },
   "adb": {
     "detectBtn": "Detect ADB",

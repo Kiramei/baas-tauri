@@ -22,10 +22,14 @@ interface Draft {
 }
 
 const multiMap: Record<string, string> = {
-  mumu: "MuMu模拟器",
-  mumu_global: "MuMu模拟器全球版",
-  bluestacks_nxt_cn: "蓝叠模拟器",
-  bluestacks_nxt: "蓝叠国际版",
+  mumu: "mumu",
+  mumu_global: "mumu_global",
+  bluestacks_nxt_cn: "bluestacks_nxt_cn",
+  bluestacks_nxt: "bluestacks_nxt",
+  yeshen: "yeshen",
+  xiaoyao_nat: "xiaoyao_nat",
+  leidian: "leidian",
+  wsa: "wsa",
 };
 
 const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) => {
@@ -53,6 +57,29 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
 
   const handleChange = (key: keyof Draft) => (value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value as any }));
+  };
+
+  const emulatorTypeLabel = (key: string) => {
+    switch (key) {
+      case "mumu":
+        return t("emulator.types.mumu");
+      case "mumu_global":
+        return t("emulator.types.mumuGlobal");
+      case "bluestacks_nxt_cn":
+        return t("emulator.types.bluestacksCn");
+      case "bluestacks_nxt":
+        return t("emulator.types.bluestacksGlobal");
+      case "yeshen":
+        return t("emulator.types.yeshen");
+      case "xiaoyao_nat":
+        return t("emulator.types.xiaoyaoNat");
+      case "leidian":
+        return t("emulator.types.leidian");
+      case "wsa":
+        return t("emulator.types.wsa");
+      default:
+        return key;
+    }
   };
 
   const handleSave = async () => {
@@ -141,9 +168,9 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
             label={t("emulator.multiType")}
             value={draft.multiEmulatorName}
             onChange={handleChange("multiEmulatorName")}
-            options={Object.entries(multiMap).map(([k, v]) => ({
+            options={Object.keys(multiMap).map((k) => ({
               value: k,
-              label: v,
+              label: emulatorTypeLabel(k),
             }))}
           />
 

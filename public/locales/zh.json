@@ -105,10 +105,17 @@
   "profile": {
     "add": "新增配置",
     "cannotDeleteLast": "不能删除最后一个配置。",
+    "copy": "复制配置",
+    "copyFailed": "复制配置失败",
     "create": "新增配置",
     "deleteConfirmMessage": "确认删除配置“{{name}}”？该操作不可撤销！",
     "deleteConfirmTitle": "删除确认",
     "edit": "编辑配置",
+    "export": "导出配置",
+    "exportFailed": "导出配置失败",
+    "import": "导入配置压缩包",
+    "importArchive": "选择配置压缩包",
+    "importFailed": "导入配置失败",
     "name": "配置名",
     "nameExists": "配置名已存在"
   },
@@ -316,6 +323,16 @@
     "multiInstance": "模拟器多开",
     "multiType": "模拟器类型",
     "openOnLaunch": "启动脚本时打开模拟器",
+    "types": {
+      "bluestacksCn": "蓝叠模拟器",
+      "bluestacksGlobal": "蓝叠国际版",
+      "leidian": "雷电模拟器",
+      "mumu": "MuMu模拟器",
+      "mumuGlobal": "MuMu模拟器全球版",
+      "wsa": "Windows Subsystem for Android",
+      "xiaoyaoNat": "逍遥模拟器 (NAT)",
+      "yeshen": "夜神模拟器"
+    },
     "waitTime": "等待模拟器启动时间 (秒)"
   },
   "push": {
@@ -529,6 +546,13 @@
       "expired": "CDK 已过期。",
       "validExpires": "该 CDK 有效期至 {{expire_date}}。"
     }
+  },
+  "contextMenu": {
+    "copy": "复制",
+    "inspect": "检查",
+    "inspectWebuiHint": "请按 F12 打开开发者工具。",
+    "paste": "粘贴",
+    "reload": "重载"
   },
   "adb": {
     "detectBtn": "检测 ADB",

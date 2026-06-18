@@ -54,6 +54,8 @@ let tauriUpdaterNotifiedVersion: string | null = null;
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
   pendingCallbacks: {},
+  pendingBinaryCallbacks: {},
+  pendingBinaryQueue: [],
   _all_data_initialized: false,
   _heartbeat_time: 0,
   _initiating: false,
@@ -159,6 +161,8 @@ export const useWebSocketStore = create<WebSocketState>()(
     statusStore: {},
     versionStore: {},
     pendingCallbacks: {},
+    pendingBinaryCallbacks: {},
+    pendingBinaryQueue: [],
 
     _all_data_initialized: false,
     _heartbeat_time: 0,
@@ -621,6 +625,14 @@ export const useWebSocketStore = create<WebSocketState>()(
           const { timestamp, command, data, status } = message;
           const callback = get().pendingCallbacks[timestamp!];
           if (callback) {
+            if (data?.binary) {
+              get().pendingBinaryCallbacks[timestamp!] = (binary: ArrayBuffer) => {
+                callback({ command, data, status, binary });
+                delete get().pendingCallbacks[timestamp!];
+              };
+              get().pendingBinaryQueue.push(timestamp!);
+              return;
+            }
             callback({ command, data, status });
             delete get().pendingCallbacks[timestamp!];
           } else {
@@ -671,6 +683,17 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       const ws = new SecureWebSocket(url, name, session, "arraybuffer");
       await ws.connect((message: any) => {
+        if (message instanceof ArrayBuffer) {
+          const timestamp = get().pendingBinaryQueue.shift();
+          if (timestamp !== undefined) {
+            const callback = get().pendingBinaryCallbacks[timestamp];
+            if (callback) {
+              callback(message);
+              delete get().pendingBinaryCallbacks[timestamp];
+            }
+          }
+          return;
+        }
         callbackDict[message.type]?.(message as WsMessageItem);
       });
 
@@ -936,6 +959,27 @@ export const useWebSocketStore = create<WebSocketState>()(
         type: "command",
         ...normalizedPayload,
       });
+    },
+
+    triggerBinary: (payload, binary, callback) => {
+      const timestamp = payload.timestamp || Date.now();
+      if (callback) {
+        get().pendingCallbacks[timestamp] = callback;
+      }
+      const normalizedPayload = {
+        ...payload,
+        timestamp,
+        payload: {
+          ...payload.payload,
+          binary: true,
+        },
+      };
+      const conn = get().connections.trigger;
+      conn?.sendJson({
+        type: "command",
+        ...normalizedPayload,
+      });
+      conn?.sendBytes(binary);
     },
   }))
 );
