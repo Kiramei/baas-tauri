@@ -1,0 +1,55 @@
+name: Sync CNB Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "updater"
+      - "20201020"
+      - "uv-down"
+  workflow_dispatch:
+    inputs:
+      tag-name:
+        description: "Release tag to sync. Defaults to the pushed tag, or the latest GitHub release for manual runs."
+        required: false
+        type: string
+      asset-pattern:
+        description: "GitHub release asset pattern passed to gh release download."
+        required: false
+        default: "*"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-cnb-release-${{ inputs.tag-name || github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
+    name: Sync release to CNB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync CNB release
+        uses: ./.github/actions/sync-cnb-release
+        with:
+          github-token: ${{ github.token }}
+          cnb-token: ${{ secrets.RELEASE_TO_CNB }}
+          tag-name: ${{ inputs.tag-name || '' }}
+          cnb-repo-slug: kiramei/baas-tauri
+          asset-pattern: ${{ inputs.asset-pattern || '*' }}
+          wait-timeout-minutes: "240"
+          poll-interval-seconds: "60"
+          minimum-assets: "1"
+          make-latest: legacy
+          sync-tag: "true"
+          upload-assets: "true"
+          overwrite-assets: "true"

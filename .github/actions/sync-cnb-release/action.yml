@@ -1,0 +1,386 @@
+name: Sync CNB Release
+description: Sync a GitHub release to a CNB repository release.
+
+inputs:
+  github-token:
+    description: GitHub token used to read release metadata and assets.
+    required: true
+  cnb-token:
+    description: CNB access token with repo-code read/write permissions.
+    required: true
+  tag-name:
+    description: Release tag to sync. Defaults to the current tag ref, or the latest GitHub release.
+    required: false
+    default: ""
+  cnb-repo-slug:
+    description: Target CNB repository slug, for example kiramei/baas-tauri.
+    required: true
+  cnb-repo-url:
+    description: Target CNB Git URL. Defaults to https://cnb.cool/<cnb-repo-slug>.git.
+    required: false
+    default: ""
+  cnb-api-endpoint:
+    description: CNB OpenAPI endpoint.
+    required: false
+    default: https://api.cnb.cool
+  cnb-web-endpoint:
+    description: CNB web endpoint.
+    required: false
+    default: https://cnb.cool
+  cnb-username:
+    description: CNB Git HTTPS username.
+    required: false
+    default: cnb
+  asset-pattern:
+    description: GitHub release asset pattern passed to gh release download.
+    required: false
+    default: "*"
+  wait-timeout-minutes:
+    description: How long to wait for the GitHub release to exist and have enough assets.
+    required: false
+    default: "180"
+  poll-interval-seconds:
+    description: Polling interval while waiting for GitHub release readiness.
+    required: false
+    default: "60"
+  minimum-assets:
+    description: Minimum GitHub release asset count before syncing.
+    required: false
+    default: "1"
+  make-latest:
+    description: CNB make_latest value, one of true, false, or legacy.
+    required: false
+    default: legacy
+  sync-tag:
+    description: Push the release tag to the target CNB Git repository before syncing release metadata.
+    required: false
+    default: "true"
+  upload-assets:
+    description: Upload GitHub release assets to the CNB release.
+    required: false
+    default: "true"
+  overwrite-assets:
+    description: Delete same-name CNB release assets before uploading.
+    required: false
+    default: "true"
+
+outputs:
+  tag-name:
+    description: Synced release tag.
+    value: ${{ steps.tag.outputs.tag }}
+  target-commit:
+    description: Commit pointed to by the synced tag.
+    value: ${{ steps.tag.outputs.target-commit }}
+  cnb-release-id:
+    description: CNB release id.
+    value: ${{ steps.cnb-release.outputs.release-id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        CNB_TOKEN: ${{ inputs.cnb-token }}
+        WAIT_TIMEOUT_MINUTES: ${{ inputs.wait-timeout-minutes }}
+        POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
+        MINIMUM_ASSETS: ${{ inputs.minimum-assets }}
+        CNB_MAKE_LATEST: ${{ inputs.make-latest }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${CNB_TOKEN:-}" ]; then
+          echo "::error::CNB token is required."
+          exit 1
+        fi
+
+        if ! [[ "$WAIT_TIMEOUT_MINUTES" =~ ^[0-9]+$ ]]; then
+          echo "::error::wait-timeout-minutes must be an integer."
+          exit 1
+        fi
+
+        if ! [[ "$POLL_INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || [ "$POLL_INTERVAL_SECONDS" -lt 5 ]; then
+          echo "::error::poll-interval-seconds must be an integer >= 5."
+          exit 1
+        fi
+
+        if ! [[ "$MINIMUM_ASSETS" =~ ^[0-9]+$ ]]; then
+          echo "::error::minimum-assets must be an integer."
+          exit 1
+        fi
+
+        case "$CNB_MAKE_LATEST" in
+          true|false|legacy) ;;
+          *)
+            echo "::error::make-latest must be one of: true, false, legacy."
+            exit 1
+            ;;
+        esac
+
+    - name: Resolve release tag
+      id: tag
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        INPUT_TAG: ${{ inputs.tag-name }}
+      run: |
+        set -euo pipefail
+
+        tag="$INPUT_TAG"
+        if [ -z "$tag" ] && [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+          tag="${GITHUB_REF_NAME}"
+        fi
+
+        if [ -z "$tag" ]; then
+          tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
+        fi
+
+        if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+          echo "::error::Could not resolve a release tag."
+          exit 1
+        fi
+
+        git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+        target_commit="$(git rev-list -n 1 "$tag")"
+
+        {
+          echo "tag=$tag"
+          echo "target-commit=$target_commit"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Wait for GitHub release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TAG_NAME: ${{ steps.tag.outputs.tag }}
+        WAIT_TIMEOUT_MINUTES: ${{ inputs.wait-timeout-minutes }}
+        POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
+        MINIMUM_ASSETS: ${{ inputs.minimum-assets }}
+      run: |
+        set -euo pipefail
+
+        deadline=$((SECONDS + WAIT_TIMEOUT_MINUTES * 60))
+
+        while true; do
+          if gh release view "$TAG_NAME" \
+            --json tagName,name,body,isDraft,isPrerelease,assets \
+            > github-release.json 2>/tmp/gh-release-error.log; then
+            is_draft="$(jq -r '.isDraft' github-release.json)"
+            asset_count="$(jq '.assets | length' github-release.json)"
+
+            if [ "$is_draft" != "true" ] && [ "$asset_count" -ge "$MINIMUM_ASSETS" ]; then
+              echo "GitHub release $TAG_NAME is ready with $asset_count assets."
+              break
+            fi
+
+            echo "Release $TAG_NAME exists, draft=$is_draft, assets=$asset_count. Waiting..."
+          else
+            echo "Release $TAG_NAME is not available yet. Waiting..."
+          fi
+
+          if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "::error::Timed out waiting for GitHub release $TAG_NAME to be published with at least $MINIMUM_ASSETS assets."
+            cat /tmp/gh-release-error.log || true
+            exit 1
+          fi
+
+          sleep "$POLL_INTERVAL_SECONDS"
+        done
+
+    - name: Download GitHub release assets
+      if: inputs.upload-assets == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TAG_NAME: ${{ steps.tag.outputs.tag }}
+        ASSET_PATTERN: ${{ inputs.asset-pattern }}
+      run: |
+        set -euo pipefail
+
+        rm -rf release-assets
+        mkdir -p release-assets
+
+        asset_count="$(jq '.assets | length' github-release.json)"
+        if [ "$asset_count" -eq 0 ]; then
+          echo "No GitHub release assets to download."
+          exit 0
+        fi
+
+        gh release download "$TAG_NAME" \
+          --dir release-assets \
+          --pattern "$ASSET_PATTERN" \
+          --clobber
+
+        find release-assets -maxdepth 1 -type f -print | sort
+
+    - name: Push tag to CNB
+      if: inputs.sync-tag == 'true'
+      shell: bash
+      env:
+        TAG_NAME: ${{ steps.tag.outputs.tag }}
+        CNB_REPO_URL_INPUT: ${{ inputs.cnb-repo-url }}
+        CNB_WEB_ENDPOINT: ${{ inputs.cnb-web-endpoint }}
+        CNB_REPO_SLUG: ${{ inputs.cnb-repo-slug }}
+        CNB_USERNAME: ${{ inputs.cnb-username }}
+        CNB_TOKEN: ${{ inputs.cnb-token }}
+      run: |
+        set -euo pipefail
+
+        cnb_repo_url="$CNB_REPO_URL_INPUT"
+        if [ -z "$cnb_repo_url" ]; then
+          cnb_repo_url="${CNB_WEB_ENDPOINT%/}/${CNB_REPO_SLUG}.git"
+        fi
+
+        askpass="$RUNNER_TEMP/cnb-git-askpass.sh"
+        cat > "$askpass" <<'EOF'
+        #!/usr/bin/env bash
+        case "$1" in
+          *Username*) printf '%s\n' "$CNB_USERNAME" ;;
+          *Password*) printf '%s\n' "$CNB_TOKEN" ;;
+          *) printf '\n' ;;
+        esac
+        EOF
+        chmod 700 "$askpass"
+
+        GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+          git push --force "$cnb_repo_url" "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+
+    - name: Create or update CNB release
+      id: cnb-release
+      shell: bash
+      env:
+        TAG_NAME: ${{ steps.tag.outputs.tag }}
+        TARGET_COMMIT: ${{ steps.tag.outputs.target-commit }}
+        CNB_MAKE_LATEST: ${{ inputs.make-latest }}
+        CNB_API_ENDPOINT: ${{ inputs.cnb-api-endpoint }}
+        CNB_REPO_SLUG: ${{ inputs.cnb-repo-slug }}
+        CNB_TOKEN: ${{ inputs.cnb-token }}
+      run: |
+        set -euo pipefail
+
+        jq -c \
+          --arg make_latest "$CNB_MAKE_LATEST" \
+          --arg target_commitish "$TARGET_COMMIT" \
+          '{
+            body: (.body // ""),
+            draft: (.isDraft // false),
+            make_latest: $make_latest,
+            name: ((.name // "") as $name | if $name == "" then .tagName else $name end),
+            prerelease: (.isPrerelease // false),
+            tag_name: .tagName,
+            target_commitish: $target_commitish
+          }' \
+          github-release.json > cnb-release.json
+
+        jq -c 'del(.tag_name, .target_commitish)' cnb-release.json > cnb-release-patch.json
+
+        api_base="${CNB_API_ENDPOINT%/}/${CNB_REPO_SLUG}/-/releases"
+        encoded_tag="$(jq -rn --arg tag "$TAG_NAME" '$tag | @uri')"
+
+        response="$(curl -sS -w $'\n%{http_code}' \
+          -H "Accept: application/vnd.cnb.api+json" \
+          -H "Authorization: Bearer ${CNB_TOKEN}" \
+          "${api_base}/tags/${encoded_tag}")"
+        status="${response##*$'\n'}"
+        body="${response%$'\n'*}"
+
+        if [ "$status" = "200" ]; then
+          release_id="$(jq -r '.id' <<< "$body")"
+          curl -sS --fail-with-body -X PATCH \
+            -H "Accept: application/vnd.cnb.api+json" \
+            -H "Authorization: Bearer ${CNB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @cnb-release-patch.json \
+            "${api_base}/${release_id}" \
+            >/dev/null
+          printf '%s\n' "$body" > cnb-existing-release.json
+          echo "Updated CNB release $release_id for $TAG_NAME."
+        elif [ "$status" = "404" ]; then
+          curl -sS --fail-with-body -X POST \
+            -H "Accept: application/vnd.cnb.api+json" \
+            -H "Authorization: Bearer ${CNB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @cnb-release.json \
+            "${api_base}" \
+            > cnb-existing-release.json
+          release_id="$(jq -r '.id' cnb-existing-release.json)"
+          echo "Created CNB release $release_id for $TAG_NAME."
+        else
+          echo "::error::Failed to query CNB release $TAG_NAME. HTTP $status"
+          printf '%s\n' "$body"
+          exit 1
+        fi
+
+        echo "release-id=$release_id" >> "$GITHUB_OUTPUT"
+
+    - name: Delete same-name CNB assets
+      if: inputs.upload-assets == 'true' && inputs.overwrite-assets == 'true'
+      shell: bash
+      env:
+        CNB_API_ENDPOINT: ${{ inputs.cnb-api-endpoint }}
+        CNB_REPO_SLUG: ${{ inputs.cnb-repo-slug }}
+        CNB_TOKEN: ${{ inputs.cnb-token }}
+        RELEASE_ID: ${{ steps.cnb-release.outputs.release-id }}
+      run: |
+        set -euo pipefail
+
+        if ! find release-assets -maxdepth 1 -type f | grep -q .; then
+          echo "No local assets to overwrite."
+          exit 0
+        fi
+
+        mapfile -t local_names < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
+        names_json="$(printf '%s\n' "${local_names[@]}" | jq -R . | jq -s .)"
+        api_base="${CNB_API_ENDPOINT%/}/${CNB_REPO_SLUG}/-/releases"
+
+        mapfile -t asset_ids < <(
+          jq -r --argjson names "$names_json" \
+            '.assets[]? | select(.name as $name | $names | index($name)) | .id' \
+            cnb-existing-release.json
+        )
+
+        if [ "${#asset_ids[@]}" -eq 0 ]; then
+          echo "No same-name CNB assets found."
+          exit 0
+        fi
+
+        for asset_id in "${asset_ids[@]}"; do
+          curl -sS --fail-with-body -X DELETE \
+            -H "Accept: application/vnd.cnb.api+json" \
+            -H "Authorization: Bearer ${CNB_TOKEN}" \
+            "${api_base}/${RELEASE_ID}/assets/${asset_id}" \
+            >/dev/null
+          echo "Deleted CNB asset $asset_id."
+        done
+
+    - name: Upload assets to CNB release
+      if: inputs.upload-assets == 'true'
+      shell: bash
+      env:
+        TAG_NAME: ${{ steps.tag.outputs.tag }}
+        CNB_TOKEN: ${{ inputs.cnb-token }}
+        CNB_API_ENDPOINT: ${{ inputs.cnb-api-endpoint }}
+        CNB_WEB_ENDPOINT: ${{ inputs.cnb-web-endpoint }}
+        CNB_REPO_SLUG: ${{ inputs.cnb-repo-slug }}
+      run: |
+        set -euo pipefail
+
+        if ! find release-assets -maxdepth 1 -type f | grep -q .; then
+          echo "No local assets to upload."
+          exit 0
+        fi
+
+        attachments="$(find release-assets -maxdepth 1 -type f -printf '%p\n' | sort | paste -sd, -)"
+
+        docker run --rm \
+          -e TZ=Asia/Shanghai \
+          -e CNB_TOKEN \
+          -e CNB_API_ENDPOINT \
+          -e CNB_WEB_ENDPOINT \
+          -e CNB_REPO_SLUG \
+          -e PLUGIN_TAG="$TAG_NAME" \
+          -e PLUGIN_ATTACHMENTS="$attachments" \
+          -e CNB_IS_TAG=true \
+          -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+          -w "${GITHUB_WORKSPACE}" \
+          cnbcool/attachments:latest
