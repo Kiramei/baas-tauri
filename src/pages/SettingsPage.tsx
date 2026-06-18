@@ -49,7 +49,7 @@ type RepoConfig = {
 type ShaTestResult = {
   method: TranslationKey;
   status: "pending" | "success" | "error" | "testing";
-  time?: number;
+  time?: string;
   sha?: string;
 };
 
@@ -117,6 +117,7 @@ const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
   const trigger = useWebSocketStore((state) => state.trigger);
+  const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const updateConfig = useWebSocketStore((state) => state.updateStore);
   const versionStore = useWebSocketStore((state) => state.versionStore);
   const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
@@ -351,25 +352,36 @@ const SettingsPage: React.FC = () => {
 
   const handleTestSha = () => {
     setApiLoading(true);
-    setShaResults(shaResults.map((r) => ({ ...r, status: "testing" })));
-    trigger(
+    setShaResults(shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" })));
+    triggerStream(
       {
         timestamp: getTimestampMs(),
-        command: "test_all_sha",
+        command: "test_all_sha_stream",
         payload: {
           channel: updateChannel,
         },
       },
       (e) => {
-        setShaResults(
-          e.data.map((el: { success: any; name: any; duration: number; value: any }) => ({
-            status: el.success ? "success" : "error",
-            method: shaMethodKey(el.name),
-            time: el.duration.toFixed(3),
-            sha: el.value,
-          }))
+        if (e.data?.done) {
+          setApiLoading(false);
+          if (e.status === "error") {
+            toast.error(String(e.error ?? t("version.checkError")));
+          }
+          return;
+        }
+        const result = e.data as { success: boolean; name: string; duration: number; value: string | null };
+        setShaResults((prev) =>
+          prev.map((item) =>
+            item.method === shaMethodKey(result.name)
+              ? {
+                  ...item,
+                  status: result.success ? "success" : "error",
+                  time: result.duration.toFixed(3),
+                  sha: result.value ?? undefined,
+                }
+              : item
+          )
         );
-        setApiLoading(false);
       }
     );
   };

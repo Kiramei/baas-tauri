@@ -96,6 +96,7 @@ const startBackendUpdaterPolling = () => {
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
   pendingCallbacks: {},
+  pendingStreamCallbacks: {},
   pendingBinaryCallbacks: {},
   pendingBinaryQueue: [],
   _all_data_initialized: false,
@@ -203,6 +204,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     statusStore: {},
     versionStore: {},
     pendingCallbacks: {},
+    pendingStreamCallbacks: {},
     pendingBinaryCallbacks: {},
     pendingBinaryQueue: [],
 
@@ -664,7 +666,15 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
 
         "command_response": (message: WsMessageItem) => {
-          const { timestamp, command, data, status } = message;
+          const { timestamp, command, data, status, error } = message;
+          const streamCallback = get().pendingStreamCallbacks[timestamp!];
+          if (streamCallback) {
+            streamCallback({ command, data, status, error });
+            if (data?.done || status === "error") {
+              delete get().pendingStreamCallbacks[timestamp!];
+            }
+            return;
+          }
           const callback = get().pendingCallbacks[timestamp!];
           if (callback) {
             if (data?.binary) {
@@ -974,6 +984,21 @@ export const useWebSocketStore = create<WebSocketState>()(
       const timestamp = payload.timestamp || Date.now();
       if (callback) {
         get().pendingCallbacks[timestamp] = callback;
+      }
+      const normalizedPayload = {
+        ...payload,
+        timestamp,
+      };
+      get().send("trigger", {
+        type: "command",
+        ...normalizedPayload,
+      });
+    },
+
+    triggerStream: (payload, callback) => {
+      const timestamp = payload.timestamp || Date.now();
+      if (callback) {
+        get().pendingStreamCallbacks[timestamp] = callback;
       }
       const normalizedPayload = {
         ...payload,
