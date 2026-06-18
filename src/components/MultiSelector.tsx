@@ -63,10 +63,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      translateName(s.toString())
-        .toString()
-        .toLowerCase()
-        .includes(query.toLowerCase())
+      translateName(s.toString()).toString().toLowerCase().includes(query.toLowerCase())
     );
   }, [query, alternatives]);
 
@@ -192,9 +189,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                     {index + 1}
                   </span>
 
-                  <span className="text-sm">
-                    {translateName(name)}
-                  </span>
+                  <span className="text-sm">{translateName(name)}</span>
 
                   {/* Remove button */}
                   <button

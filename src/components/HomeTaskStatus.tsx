@@ -71,7 +71,9 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
                 ))}
               </ul>
             ) : (
-              <div className="text-sm text-slate-500 dark:text-slate-400">{t("task.noneQueued")}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                {t("task.noneQueued")}
+              </div>
             )}
           </PopoverContent>
         </Popover>

@@ -1,12 +1,6 @@
 name: Sync CNB Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-      - "updater"
-      - "20201020"
-      - "uv-down"
   workflow_dispatch:
     inputs:
       tag-name:

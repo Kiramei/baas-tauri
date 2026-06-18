@@ -1,10 +1,11 @@
 import { context, getOctokit } from "@actions/github";
 
-import { resolveUpdateLog } from "./update-log.mjs";
+import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
 
 const UPDATE_TAG_NAME = "updater";
 const UPDATE_JSON_FILE = "update-fixed-webview2.json";
 const UPDATE_JSON_PROXY = "update-fixed-webview2-proxy.json";
+const UPDATE_JSON_CNB = "update-fixed-webview2-cnb.json";
 
 /// generate update.json
 /// upload to update tag's release asset
@@ -16,15 +17,29 @@ async function resolveUpdater() {
   const options = { owner: context.repo.owner, repo: context.repo.repo };
   const github = getOctokit(process.env.GITHUB_TOKEN);
 
-  const { data: tags } = await github.rest.repos.listTags({
-    ...options,
-    per_page: 100,
-    page: 1,
-  });
+  let allTags = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    const { data: pageTags } = await github.rest.repos.listTags({
+      ...options,
+      per_page: perPage,
+      page,
+    });
+
+    allTags = allTags.concat(pageTags);
+
+    if (pageTags.length < perPage) {
+      break;
+    }
+
+    page++;
+  }
 
   // Get the latest stable publish tag only.
   const stableTagRegex = /^v\d+\.\d+\.\d+$/;
-  const tag = tags.find((t) => stableTagRegex.test(t.name));
+  const tag = allTags.find((t) => stableTagRegex.test(t.name));
 
   if (!tag) {
     throw new Error("No stable release tag found.");
@@ -40,7 +55,9 @@ async function resolveUpdater() {
 
   const updateData = {
     name: tag.name,
-    notes: await resolveUpdateLog(tag.name), // use Changelog.md
+    notes: await resolveUpdateLog(tag.name).catch(() =>
+      resolveUpdateLogDefault().catch(() => "No changelog available")
+    ),
     pub_date: new Date().toISOString(),
     platforms: {
       "windows-x86_64": { signature: "", url: "" },
@@ -107,6 +124,19 @@ async function resolveUpdater() {
     }
   });
 
+  const updateDataCNB = JSON.parse(JSON.stringify(updateData));
+
+  Object.entries(updateDataCNB.platforms).forEach(([key, value]) => {
+    if (value.url) {
+      updateDataCNB.platforms[key].url = value.url.replace(
+        "https://github.com/Kiramei/baas-tauri",
+        "https://cnb.cool/kiramei/baas-tauri/-"
+      );
+    } else {
+      console.log(`[Error]: updateDataCNB.platforms.${key} is null`);
+    }
+  });
+
   // Get or create the updater release.
   let updateRelease;
   try {
@@ -147,6 +177,12 @@ async function resolveUpdater() {
         .deleteReleaseAsset({ ...options, asset_id: asset.id })
         .catch(console.error); // do not break the pipeline
     }
+
+    if (asset.name === UPDATE_JSON_CNB) {
+      await github.rest.repos
+        .deleteReleaseAsset({ ...options, asset_id: asset.id })
+        .catch(console.error); // do not break the pipeline
+    }
   }
 
   // upload new assets
@@ -162,6 +198,13 @@ async function resolveUpdater() {
     release_id: updateRelease.id,
     name: UPDATE_JSON_PROXY,
     data: JSON.stringify(updateDataNew, null, 2),
+  });
+
+  await github.rest.repos.uploadReleaseAsset({
+    ...options,
+    release_id: updateRelease.id,
+    name: UPDATE_JSON_CNB,
+    data: JSON.stringify(updateDataCNB, null, 2),
   });
 }
 

@@ -6,10 +6,12 @@ import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
 const UPDATE_TAG_NAME = "updater";
 const UPDATE_JSON_FILE = "update.json";
 const UPDATE_JSON_PROXY = "update-proxy.json";
+const UPDATE_JSON_CNB = "update-cnb.json";
 // Add alpha update JSON filenames
 const ALPHA_TAG_NAME = "updater-alpha";
 const ALPHA_UPDATE_JSON_FILE = "update.json";
 const ALPHA_UPDATE_JSON_PROXY = "update-proxy.json";
+const ALPHA_UPDATE_JSON_CNB = "update-cnb.json";
 
 /// generate update.json
 /// upload to update tag's release asset
@@ -200,6 +202,19 @@ async function processRelease(github, options, tag, isAlpha) {
       }
     });
 
+    const updateDataCNB = JSON.parse(JSON.stringify(updateData));
+
+    Object.entries(updateDataCNB.platforms).forEach(([key, value]) => {
+      if (value.url) {
+        updateDataCNB.platforms[key].url = value.url.replace(
+          "https://github.com/Kiramei/baas-tauri",
+          "https://cnb.cool/kiramei/baas-tauri/-"
+        );
+      } else {
+        console.log(`[Error]: updateDataCNB.platforms.${key} is null`);
+      }
+    });
+
     // Get the appropriate updater release based on isAlpha flag
     const releaseTag = isAlpha ? ALPHA_TAG_NAME : UPDATE_TAG_NAME;
     console.log(`Processing ${isAlpha ? "alpha" : "stable"} release:`, releaseTag);
@@ -236,6 +251,7 @@ async function processRelease(github, options, tag, isAlpha) {
       // File names based on release type
       const jsonFile = isAlpha ? ALPHA_UPDATE_JSON_FILE : UPDATE_JSON_FILE;
       const proxyFile = isAlpha ? ALPHA_UPDATE_JSON_PROXY : UPDATE_JSON_PROXY;
+      const cnbFile = isAlpha ? ALPHA_UPDATE_JSON_CNB : UPDATE_JSON_CNB;
 
       // Delete existing assets with these names
       for (const asset of updateRelease.assets) {
@@ -247,6 +263,12 @@ async function processRelease(github, options, tag, isAlpha) {
         }
 
         if (asset.name === proxyFile) {
+          await github.rest.repos
+            .deleteReleaseAsset({ ...options, asset_id: asset.id })
+            .catch(console.error); // do not break the pipeline
+        }
+
+        if (asset.name === cnbFile) {
           await github.rest.repos
             .deleteReleaseAsset({ ...options, asset_id: asset.id })
             .catch(console.error); // do not break the pipeline
@@ -266,6 +288,13 @@ async function processRelease(github, options, tag, isAlpha) {
         release_id: updateRelease.id,
         name: proxyFile,
         data: JSON.stringify(updateDataNew, null, 2),
+      });
+
+      await github.rest.repos.uploadReleaseAsset({
+        ...options,
+        release_id: updateRelease.id,
+        name: cnbFile,
+        data: JSON.stringify(updateDataCNB, null, 2),
       });
 
       console.log(

@@ -352,7 +352,9 @@ const SettingsPage: React.FC = () => {
 
   const handleTestSha = () => {
     setApiLoading(true);
-    setShaResults(shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" })));
+    setShaResults(
+      shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" }))
+    );
     triggerStream(
       {
         timestamp: getTimestampMs(),
@@ -369,7 +371,12 @@ const SettingsPage: React.FC = () => {
           }
           return;
         }
-        const result = e.data as { success: boolean; name: string; duration: number; value: string | null };
+        const result = e.data as {
+          success: boolean;
+          name: string;
+          duration: number;
+          value: string | null;
+        };
         setShaResults((prev) =>
           prev.map((item) =>
             item.method === shaMethodKey(result.name)

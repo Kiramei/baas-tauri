@@ -55,4 +55,3 @@
 5. Fixed detached backend launch support in `baas-term` process tasks.
 6. Fixed release workflow compatibility for Linux ARM and channel-specific publishing.
 7. Fixed CNB sync so it only runs for the intended repository/branch.
-

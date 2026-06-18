@@ -29,7 +29,9 @@
       "active": true,
       "dialog": false,
       "endpoints": [
+        "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-fixed-webview2-cnb.json",
         "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2-proxy.json",
+        "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2-proxy.json",
         "https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NzNGODlERTkxNUJDMDEKUldRQnZCWHBuZmh6eERYUWs0dFowYUNYcFRFNmZIZGk5WStWZWI3Z0dGRmphQnFNbFM2MHhpTloK"
