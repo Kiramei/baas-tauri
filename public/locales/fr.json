@@ -105,10 +105,17 @@
   "profile": {
     "add": "Ajouter un profil",
     "cannotDeleteLast": "Impossible de supprimer le dernier profil.",
+    "copy": "Copier le profil",
+    "copyFailed": "Échec de la copie du profil",
     "create": "Créer un profil",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer le profil '{{name}}' ? Cette action est irréversible !",
     "deleteConfirmTitle": "Confirmer la suppression",
     "edit": "Modifier le profil",
+    "export": "Exporter le profil",
+    "exportFailed": "Échec de l'export du profil",
+    "import": "Importer une archive de profil",
+    "importArchive": "Choisir une archive de profil",
+    "importFailed": "Échec de l'import du profil",
     "name": "Nom du profil",
     "nameExists": "Nom déjà utilisé"
   },

@@ -1,7 +1,18 @@
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
-import { ChevronLeft, ChevronRight, FilePlus2, Loader2, Pencil, Trash2, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  FilePlus2,
+  Loader2,
+  Pencil,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
@@ -9,6 +20,7 @@ import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { toast } from "sonner";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -23,7 +35,7 @@ const Header: React.FC = () => {
   const tabsRef = useRef(tabs);
 
   const configStore = useWebSocketStore((s) => s.configStore);
-  const { modify, trigger } = useWebSocketStore();
+  const { modify, trigger, triggerBinary } = useWebSocketStore();
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
@@ -133,6 +145,82 @@ const Header: React.FC = () => {
 
     const next = tabsRef.current.find((p) => p.id === serialName);
     if (next) setActiveProfile(next);
+  };
+
+  const runTrigger = React.useCallback(
+    (command: string, payload: Record<string, any>) =>
+      new Promise<any>((resolve, reject) => {
+        trigger(
+          {
+            timestamp: getTimestampMs() + Math.random() * 1000,
+            command,
+            payload,
+          },
+          (event) => {
+            if (event?.status === "error") {
+              reject(new Error(event.error || `${command} failed`));
+              return;
+            }
+            resolve(event?.binary ? event : event?.data);
+          }
+        );
+      }),
+    [trigger]
+  );
+
+  const waitForConfig = async (serialName: string) => {
+    await waitForNormal(
+      () => tabsRef.current.filter((p) => p.id === serialName),
+      (val) => val.length !== 0
+    );
+    const next = tabsRef.current.find((p) => p.id === serialName);
+    if (next) setActiveProfile(next);
+  };
+
+  const handleCopy = async (tab: Tab) => {
+    try {
+      const result = await runTrigger("copy_config", { id: tab.id });
+      await waitForConfig(result.serial);
+    } catch (error: any) {
+      toast.error(t("profile.copyFailed"), { description: error?.message });
+    }
+  };
+
+  const handleExport = async (tab: Tab) => {
+    try {
+      const result = await runTrigger("export_config", { id: tab.id });
+      await StorageUtil.download(result.data?.filename || result.filename || `${tab.name}.zip`, result.binary, t);
+    } catch (error: any) {
+      toast.error(t("profile.exportFailed"), { description: error?.message });
+    }
+  };
+
+  const handleImport = async () => {
+    try {
+      const bytes = await StorageUtil.upload(t, ".zip");
+      if (!bytes) return;
+      const result = await new Promise<any>((resolve, reject) => {
+        triggerBinary(
+          {
+            timestamp: getTimestampMs() + Math.random() * 1000,
+            command: "import_config",
+            payload: {},
+          },
+          bytes,
+          (event) => {
+            if (event?.status === "error") {
+              reject(new Error(event.error || "import_config failed"));
+              return;
+            }
+            resolve(event?.data);
+          }
+        );
+      });
+      await waitForConfig(result.serial);
+      setEditor(null);
+    } catch (error: any) {
+      toast.error(t("profile.importFailed"), { description: error?.message });
+    }
   };
 
   const handleEdit = async (tab: Tab, name: string, server: string) => {
@@ -307,6 +395,24 @@ const Header: React.FC = () => {
               <Pencil className="w-4 h-4" /> {t("common.edit")}
             </button>
             <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={() => {
+                void handleCopy(ctxMenu.tab!);
+                setCtxMenu(null);
+              }}
+            >
+              <Copy className="w-4 h-4" /> {t("profile.copy")}
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+              onClick={() => {
+                void handleExport(ctxMenu.tab!);
+                setCtxMenu(null);
+              }}
+            >
+              <Download className="w-4 h-4" /> {t("profile.export")}
+            </button>
+            <button
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
               onClick={() => {
                 setConfirmDelete(ctxMenu.tab!);
@@ -333,6 +439,7 @@ const Header: React.FC = () => {
           }
           setEditor(null);
         }}
+        onImport={handleImport}
         // 重名校验（本地）
         checkName={(name, selfId) =>
           tabs.some((t) => t.id !== selfId && t.name.trim() === name.trim())
@@ -365,6 +472,7 @@ const ProfileEditorModal = (props: {
   initial: ProfileDTO | null;
   onClose: () => void;
   onSubmit: (vals: { name: string; server: string }) => Promise<void>;
+  onImport: () => Promise<void>;
   checkName: (name: string, selfId?: string) => boolean;
 }) => {
   const { t } = useTranslation();
@@ -372,6 +480,7 @@ const ProfileEditorModal = (props: {
   const [server, setServer] = React.useState("CN");
   const [err, setErr] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
 
   React.useEffect(() => {
     if (props.open) {
@@ -399,6 +508,17 @@ const ProfileEditorModal = (props: {
     }
   };
 
+  const handleImport = async () => {
+    try {
+      setImporting(true);
+      await props.onImport();
+    } catch (e: any) {
+      setErr(e?.message || t("profile.importFailed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (!props.open) return null;
   return (
     <div
@@ -420,6 +540,18 @@ const ProfileEditorModal = (props: {
         </div>
 
         <div className="space-y-4">
+          {props.mode === "create" && (
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importing || submitting}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+            >
+              {importing ? <Loader2 className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              <span>{t("profile.import")}</span>
+            </button>
+          )}
+
           <FormInput
             value={name}
             label={t("profile.name")}

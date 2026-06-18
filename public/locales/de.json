@@ -105,10 +105,17 @@
   "profile": {
     "add": "Profil hinzufügen",
     "cannotDeleteLast": "Letztes Profil kann nicht gelöscht werden.",
+    "copy": "Profil kopieren",
+    "copyFailed": "Profil konnte nicht kopiert werden",
     "create": "Profil erstellen",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie das Profil '{{name}}' löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!",
     "deleteConfirmTitle": "Löschung bestätigen",
     "edit": "Profil bearbeiten",
+    "export": "Profil exportieren",
+    "exportFailed": "Profil konnte nicht exportiert werden",
+    "import": "Profilarchiv importieren",
+    "importArchive": "Profilarchiv auswählen",
+    "importFailed": "Profil konnte nicht importiert werden",
     "name": "Profilname",
     "nameExists": "Name existiert bereits"
   },

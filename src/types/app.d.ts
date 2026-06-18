@@ -150,8 +150,15 @@ interface WebSocketState {
   modify: (path: string, value: any, showToast?: boolean) => void;
   patch: (path: string, value: any) => void;
   trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
+  triggerBinary: (
+    payload: CommandPayload,
+    binary: ArrayBuffer | Uint8Array,
+    callback?: (e: any) => void
+  ) => void;
   connectRemote: () => Promise<SecureWebSocket>;
   pendingCallbacks: Record<string, (data?: any) => void>;
+  pendingBinaryCallbacks: Record<string, (data: ArrayBuffer) => void>;
+  pendingBinaryQueue: number[];
 
   _all_data_initialized: boolean;
   _heartbeat_time: number;

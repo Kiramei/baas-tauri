@@ -20,7 +20,16 @@
     "process:default",
     "opener:default",
     "dialog:default",
+    "dialog:allow-open",
     "dialog:allow-save",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [{ "path": "**" }]
+    },
     "store:default",
     "store:allow-get",
     "store:allow-set",

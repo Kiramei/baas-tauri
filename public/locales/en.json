@@ -105,10 +105,17 @@
   "profile": {
     "add": "Add Profile",
     "cannotDeleteLast": "Cannot delete the last profile.",
+    "copy": "Copy Profile",
+    "copyFailed": "Failed to copy profile",
     "create": "Create Profile",
     "deleteConfirmMessage": "Are you sure you want to delete the profile '{{name}}'? This action cannot be undone!",
     "deleteConfirmTitle": "Confirm Deletion",
     "edit": "Edit Profile",
+    "export": "Export Profile",
+    "exportFailed": "Failed to export profile",
+    "import": "Import Profile Archive",
+    "importArchive": "Choose profile archive",
+    "importFailed": "Failed to import profile",
     "name": "Profile Name",
     "nameExists": "Name already exists"
   },

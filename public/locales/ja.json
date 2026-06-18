@@ -105,10 +105,17 @@
   "profile": {
     "add": "プロファイルを追加",
     "cannotDeleteLast": "最後のプロファイルは削除できません。",
+    "copy": "プロファイルをコピー",
+    "copyFailed": "プロファイルのコピーに失敗しました",
     "create": "プロファイルを作成",
     "deleteConfirmMessage": "プロファイル「{{name}}」を削除してもよろしいですか？この操作は元に戻せません！",
     "deleteConfirmTitle": "削除の確認",
     "edit": "プロファイルを編集",
+    "export": "プロファイルをエクスポート",
+    "exportFailed": "プロファイルのエクスポートに失敗しました",
+    "import": "プロファイルアーカイブをインポート",
+    "importArchive": "プロファイルアーカイブを選択",
+    "importFailed": "プロファイルのインポートに失敗しました",
     "name": "プロファイル名",
     "nameExists": "名前は既に存在します"
   },

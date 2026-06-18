@@ -105,10 +105,17 @@
   "profile": {
     "add": "新增配置",
     "cannotDeleteLast": "不能删除最后一个配置。",
+    "copy": "复制配置",
+    "copyFailed": "复制配置失败",
     "create": "新增配置",
     "deleteConfirmMessage": "确认删除配置“{{name}}”？该操作不可撤销！",
     "deleteConfirmTitle": "删除确认",
     "edit": "编辑配置",
+    "export": "导出配置",
+    "exportFailed": "导出配置失败",
+    "import": "导入配置压缩包",
+    "importArchive": "选择配置压缩包",
+    "importFailed": "导入配置失败",
     "name": "配置名",
     "nameExists": "配置名已存在"
   },
