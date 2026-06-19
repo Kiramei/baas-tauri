@@ -530,6 +530,10 @@ pub fn uv_python_install_command_with_mirror(
         .arg("python")
         .arg("install")
         .arg(&config.python.python_version)
+        .env(
+            "UV_PYTHON_INSTALL_DIR",
+            uv_python_install_dir(config).to_string_lossy().as_ref(),
+        )
         .env("UV_PYTHON_INSTALL_MIRROR", cpython_mirror)
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
 }
@@ -541,6 +545,10 @@ pub fn uv_venv_command(config: &UpdaterConfig) -> CommandSpec {
         .arg(config.baas_root().join(".venv").to_string_lossy())
         .arg("--python")
         .arg(&config.python.python_version)
+        .env(
+            "UV_PYTHON_INSTALL_DIR",
+            uv_python_install_dir(config).to_string_lossy().as_ref(),
+        )
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
         .cwd(config.baas_root())
 }
@@ -581,6 +589,10 @@ pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> C
                 .join("requirements.service.lock")
                 .to_string_lossy(),
         )
+        .env(
+            "UV_PYTHON_INSTALL_DIR",
+            uv_python_install_dir(config).to_string_lossy().as_ref(),
+        )
 }
 
 /// Builds the UV cache clean command.
@@ -590,6 +602,10 @@ pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
         .arg("cache")
         .arg("clean")
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
+        .env(
+            "UV_PYTHON_INSTALL_DIR",
+            uv_python_install_dir(config).to_string_lossy().as_ref(),
+        )
         .cwd(config.baas_root())
 }
 
@@ -719,6 +735,10 @@ fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec
         .env("UV_INDEX", index)
         .env("UV_DEFAULT_INDEX", index)
         .env("UV_CACHE_DIR", uv_cache_dir(config).to_string_lossy())
+        .env(
+            "UV_PYTHON_INSTALL_DIR",
+            uv_python_install_dir(config).to_string_lossy().as_ref(),
+        )
         .env(
             "VIRTUAL_ENV",
             config.baas_root().join(".venv").to_string_lossy(),
@@ -954,6 +974,10 @@ fn first_active_source(ranking: &SourceRanking) -> Option<String> {
 
 fn uv_cache_dir(config: &UpdaterConfig) -> PathBuf {
     config.toolkit_dir().join("uv").join("cache")
+}
+
+fn uv_python_install_dir(config: &UpdaterConfig) -> PathBuf {
+    config.toolkit_dir().join("uv").join("cpython")
 }
 
 fn display_command(command: &CommandSpec) -> String {
