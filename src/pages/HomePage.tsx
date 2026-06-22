@@ -10,7 +10,7 @@ import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { formatIsoToReadable, getTimestamp, getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
@@ -66,7 +66,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     if (!profile || !scriptRunning) return;
     trigger(
       {
-        timestamp: getTimestamp(),
+        timestamp: getTimestampMs(),
         command: "stop_scheduler",
         config_id: profileId,
         payload: {},
