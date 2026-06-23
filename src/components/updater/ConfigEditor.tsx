@@ -9,6 +9,7 @@ import type { Theme } from "@/types/app";
 import { useTheme } from "@/context/ThemeProvider";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
@@ -36,6 +37,8 @@ interface UpdaterConfig {
     channel?: Channel;
     mirrorc_cdk?: string;
     mirrorcCdk?: string;
+    no_update?: boolean;
+    noUpdate?: boolean;
   };
 }
 
@@ -54,6 +57,9 @@ const overlayCls =
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
+const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
+  Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
+
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -71,6 +77,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
   if (!props.open) return null;
 
   const channel = props.config?.general?.channel ?? "stable";
+  const noUpdate = setupNoUpdate(props.config);
 
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
     props.setConfig({
@@ -210,6 +217,20 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
               { value: "dev", label: "dev" },
             ]}
           />
+          <div className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2">
+            <label
+              htmlFor="setup-no-update"
+              className="text-sm font-medium text-slate-700 dark:text-slate-200"
+            >
+              Skip updates
+            </label>
+            <Switch
+              id="setup-no-update"
+              checked={noUpdate}
+              onCheckedChange={(checked) => patchGeneral({ no_update: checked })}
+              disabled={props.disabled}
+            />
+          </div>
           <div className="flex gap-2 items-end">
             <FormInput
               label="MirrorC CDK"

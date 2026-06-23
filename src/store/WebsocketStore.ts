@@ -53,6 +53,18 @@ let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
 
+export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
+  if (!__WITH_TAURI__) return false;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const startup = await invoke<any>("updater_get_startup_state");
+    const general = startup?.config?.general ?? {};
+    return Boolean(general.no_update ?? general.noUpdate ?? false);
+  } catch {
+    return false;
+  }
+};
+
 const checkBackendUpdater = () => {
   const store = useWebSocketStore.getState();
   if (backendUpdaterChecking || store._auth_phase !== "authenticated" || !store.connections.trigger) {
@@ -221,6 +233,23 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      if (await isTauriNoUpdateEnabled()) {
+        tauriUpdaterNotifiedVersion = null;
+        set((state) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            tauri: {
+              ...(state.versionStore.tauri ?? {}),
+              checking: false,
+              updateAvailable: false,
+              lastChecked: Date.now(),
+              error: null,
+            },
+          },
+        }));
+        return;
+      }
       tauriUpdaterChecking = true;
       if (visible) {
         set((state) => ({

@@ -24,6 +24,8 @@ interface UpdaterConfig {
     channel?: "stable" | "dev";
     mirrorc_cdk?: string;
     mirrorcCdk?: string;
+    no_update?: boolean;
+    noUpdate?: boolean;
   };
   paths?: {
     baas_root_path?: string;
@@ -56,6 +58,9 @@ const setupBaasRootPath = (config: UpdaterConfig | null | undefined) =>
 
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
+
+const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
+  Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
 const randomPassword = () => {
   if (globalThis.crypto?.randomUUID) {
@@ -118,6 +123,7 @@ const SetupPage = () => {
           baasRootPath: path,
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
+          noUpdate: setupNoUpdate(nextConfig),
         },
       });
       setConfig(updated);

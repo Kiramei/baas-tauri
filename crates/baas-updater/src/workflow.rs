@@ -301,8 +301,10 @@ fn run_workflow_with_services_inner(
     if let Some(path) = &options.install_path {
         manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
     }
-    validate_mirrorc_cdk_before_workflow(&manager.config)
-        .map_err(|error| WorkflowFailure::from_error("mirrorc_cdk", error))?;
+    if !manager.config.general.no_update {
+        validate_mirrorc_cdk_before_workflow(&manager.config)
+            .map_err(|error| WorkflowFailure::from_error("mirrorc_cdk", error))?;
+    }
     manager
         .save()
         .map_err(|error| WorkflowFailure::from_error("config", error))?;
@@ -310,6 +312,35 @@ fn run_workflow_with_services_inner(
     let root = config.baas_root();
     fs::create_dir_all(&root)
         .map_err(|error| WorkflowFailure::from_error("prepare_paths", error.into()))?;
+
+    if config.general.no_update {
+        output.line(
+            OutputStyle::Info,
+            "no_update is enabled; skipping repository synchronization",
+        );
+        services
+            .prepare_environment(&config, &*output)
+            .map_err(|error| WorkflowFailure::from_error("environment", error))?;
+        copy_setup_to_install_root(&manager)
+            .map_err(|error| WorkflowFailure::from_error("config", error))?;
+        services
+            .sync_dependencies(&manager.config, &*output)
+            .map_err(|error| WorkflowFailure::from_error("dependencies", error))?;
+
+        let should_launch = options.launch && manager.config.general.launch;
+        if should_launch {
+            services
+                .launch_backend(&manager.config, &*output)
+                .map_err(|error| WorkflowFailure::from_error("launch", error))?;
+        }
+
+        return Ok(WorkflowReport {
+            config_path: manager.config_path,
+            main_status: UpdateStatus::Skipped,
+            cpp_status: UpdateStatus::Skipped,
+            launched: should_launch,
+        });
+    }
 
     output.line(
         OutputStyle::Info,
@@ -478,6 +509,18 @@ fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob
                 }
             }
         }
+    }
+}
+
+fn skipped_repository_outcome(kind: RepositoryKind, config: &UpdaterConfig) -> RepositoryOutcome {
+    let sha = match kind {
+        RepositoryKind::Main => config.general.current_baas_sha.clone(),
+        RepositoryKind::Cpp => config.general.current_baas_cpp_sha.clone(),
+    };
+    RepositoryOutcome {
+        kind,
+        status: UpdateStatus::Skipped,
+        sha,
     }
 }
 
@@ -966,7 +1009,9 @@ fn terminal_config_task(
             spinner.set_detail("applying selected install path");
             manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
         }
-        if !manager.config.general.mirrorc_cdk.trim().is_empty() {
+        if !manager.config.general.no_update
+            && !manager.config.general.mirrorc_cdk.trim().is_empty()
+        {
             spinner.set_detail("validating MirrorC CDK");
             validate_mirrorc_cdk_before_workflow(&manager.config)
                 .map_err(|error| error.message())?;
@@ -1015,6 +1060,18 @@ fn run_terminal_repo_stage(
             return false;
         }
     };
+
+    if config.general.no_update {
+        return run_terminal_thread_repo_stage(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            state,
+        );
+    }
 
     if !config.general.mirrorc_cdk.is_empty() || !RealGitExecutor.has_cli() {
         return run_terminal_thread_repo_stage(
@@ -1197,6 +1254,10 @@ fn terminal_repo_thread_task(
         format!("{} repository", args.kind.as_str()),
         format!("{} repository ready", args.kind.as_str()),
         |spinner| {
+            if config.general.no_update {
+                spinner.set_detail("no_update enabled; skipping repository sync");
+                return Ok(skipped_repository_outcome(args.kind, &config));
+            }
             spinner.set_detail("choosing MirrorC or Git source");
             RealWorkflowServices
                 .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
@@ -1407,10 +1468,6 @@ fn terminal_finalize_repos_task(
                 .cpp_job
                 .clone()
                 .ok_or_else(|| "cpp repository job missing".to_string())?;
-            spinner.set_detail("placing main repository files");
-            finalize_job(&main_job).map_err(|error| error.message())?;
-            spinner.set_detail("placing Cpp repository files");
-            finalize_job(&cpp_job).map_err(|error| error.message())?;
             let main_sha = state
                 .main_outcome
                 .as_ref()
@@ -1425,9 +1482,19 @@ fn terminal_finalize_repos_task(
                 .manager
                 .as_mut()
                 .ok_or_else(|| "configuration manager missing".to_string())?;
+            if !manager.config.general.no_update {
+                spinner.set_detail("placing main repository files");
+                finalize_job(&main_job).map_err(|error| error.message())?;
+                spinner.set_detail("placing Cpp repository files");
+                finalize_job(&cpp_job).map_err(|error| error.message())?;
+            } else {
+                spinner.set_detail("no_update enabled; keeping existing repository files");
+            }
             spinner.set_detail("saving repository versions");
-            manager.config.general.current_baas_sha = main_sha;
-            manager.config.general.current_baas_cpp_sha = cpp_sha;
+            if !manager.config.general.no_update {
+                manager.config.general.current_baas_sha = main_sha;
+                manager.config.general.current_baas_cpp_sha = cpp_sha;
+            }
             manager.save().map_err(|error| error.message())?;
             copy_setup_to_install_root(manager).map_err(|error| error.message())?;
             Ok(())

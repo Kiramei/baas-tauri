@@ -43,6 +43,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub mirrorc_cdk: Option<String>,
     pub channel: Option<String>,
     pub runtime_path: Option<String>,
+    pub no_update: Option<bool>,
 }
 
 /// MirrorC CDK validation request.
@@ -193,6 +194,9 @@ pub fn updater_update_config(
             }
             if let Some(runtime) = request.runtime_path {
                 config.python.runtime_path = runtime;
+            }
+            if let Some(no_update) = request.no_update {
+                config.general.no_update = no_update;
             }
         })
         .map_err(|error| error.message())?;
