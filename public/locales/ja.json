@@ -77,7 +77,7 @@
     "channel": "更新チャンネル",
     "dueDate": "有効期限",
     "enterCdk": "CDKを入力",
-    "method": "操作",
+    "method": "更新元",
     "mirrorCdk": "MirrorC CDK (任意)",
     "settingsTitle": "更新設定",
     "shaConnectivityTest": "SHA取得方法",
@@ -458,7 +458,7 @@
     "ap": "AP",
     "burst": "爆発",
     "coin": {
-      "arena": "対抗戦コイン",
+      "arena": "戦術コイン",
       "commission": "交流会コイン"
     },
     "credits": "クレジットポイント",
@@ -530,6 +530,7 @@
     "status": "ステータス",
     "testAll": "すべての方法をテスト",
     "testing": "SHAテスト中...",
+    "timeout": "更新元テストがタイムアウトしました",
     "time": "所要時間"
   },
   "mirror": {

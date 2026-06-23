@@ -2,7 +2,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useState } fr
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { isTauriNoUpdateEnabled, useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 
 interface TauriSelfUpdateContextType {
   updating: boolean;
@@ -38,6 +38,10 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
 
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
+    if (await isTauriNoUpdateEnabled()) {
+      toast.info(t("update.tauriUpToDate"));
+      return;
+    }
     setUpdating(true);
     setProgressOpen(true);
     setProgress(0);

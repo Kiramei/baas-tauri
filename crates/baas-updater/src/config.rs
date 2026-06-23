@@ -116,6 +116,8 @@ pub struct GeneralConfig {
     pub force_launch: bool,
     /// Whether debug logging is enabled.
     pub debug: bool,
+    /// Whether repository and client update checks should be skipped.
+    pub no_update: bool,
     /// Python package indexes used by UV.
     #[serde(alias = "source_list")]
     pub source_list: Vec<String>,
@@ -132,6 +134,7 @@ impl Default for GeneralConfig {
             launch: false,
             force_launch: false,
             debug: false,
+            no_update: false,
             source_list: default_pypi_sources(),
         }
     }
@@ -368,6 +371,7 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         config.general.launch = bool_value(general, "launch", false);
         config.general.force_launch = bool_value(general, "force_launch", false);
         config.general.debug = bool_value(general, "debug", false);
+        config.general.no_update = bool_value(general, "no_update", false);
         let channel = string_value(general, "channel");
         if !channel.is_empty() {
             config.general.channel = UpdateChannel::parse(&channel)?;
@@ -454,6 +458,7 @@ dev = true
 launch = true
 force_launch = true
 debug = true
+no_update = true
 source_list = ["https://example.invalid/simple"]
 runtime_path = "C:/Python/python.exe"
 
@@ -469,6 +474,7 @@ TOOL_KIT_PATH = "tools"
         assert_eq!(config.general.channel, UpdateChannel::Dev);
         assert_eq!(config.general.current_baas_sha, "main-sha");
         assert_eq!(config.general.current_baas_cpp_sha, "cpp-sha");
+        assert!(config.general.no_update);
         assert_eq!(
             config.general.source_list,
             ["https://example.invalid/simple"]
@@ -492,6 +498,7 @@ current_baas_sha = "main-sha"
 current_baas_cpp_sha = "cpp-sha"
 get_remote_sha_method = "github"
 force_launch = true
+no_update = true
 source_list = ["https://example.invalid/simple"]
 
 [paths]
@@ -516,6 +523,7 @@ cpp_sources = []
         assert_eq!(config.general.current_baas_cpp_sha, "cpp-sha");
         assert_eq!(config.general.get_remote_sha_method, "github");
         assert!(config.general.force_launch);
+        assert!(config.general.no_update);
         assert_eq!(config.paths.baas_root_path, "D:/BAAS");
         assert_eq!(config.paths.tmp_path, "cache");
         assert_eq!(config.paths.toolkit_path, "tools");

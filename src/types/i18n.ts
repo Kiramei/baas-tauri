@@ -410,6 +410,7 @@ export type TranslationKey =
   | "shaTest.status"
   | "shaTest.testAll"
   | "shaTest.testing"
+  | "shaTest.timeout"
   | "shaTest.time"
   | "mirror.verify"
   | "mirror.verifying"

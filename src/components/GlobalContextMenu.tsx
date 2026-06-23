@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardPaste, Copy, RotateCw, SearchCode } from "lucide-react";
 import { toast } from "sonner";
 
+import { reloadWithoutPrompt } from "@/shared/reload";
+
 type MenuState = {
   x: number;
   y: number;
@@ -152,7 +154,7 @@ const GlobalContextMenu: React.FC = () => {
 
   const reloadPage = () => {
     close();
-    window.location.reload();
+    reloadWithoutPrompt();
   };
 
   const inspectPage = () => {

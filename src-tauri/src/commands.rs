@@ -43,6 +43,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub mirrorc_cdk: Option<String>,
     pub channel: Option<String>,
     pub runtime_path: Option<String>,
+    pub no_update: Option<bool>,
 }
 
 /// MirrorC CDK validation request.
@@ -193,6 +194,9 @@ pub fn updater_update_config(
             }
             if let Some(runtime) = request.runtime_path {
                 config.python.runtime_path = runtime;
+            }
+            if let Some(no_update) = request.no_update {
+                config.general.no_update = no_update;
             }
         })
         .map_err(|error| error.message())?;
@@ -360,11 +364,37 @@ pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
 fn default_install_path() -> PathBuf {
     if cfg!(target_os = "windows") {
         std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    } else if cfg!(target_os = "macos") {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| macos_app_adjacent_install_path_from_exe(&exe))
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .map(|dir| dir.join("BAAS"))
+                    .unwrap_or_else(|_| PathBuf::from("BAAS"))
+            })
     } else {
         directories::BaseDirs::new()
             .map(|dirs| dirs.home_dir().join(".baas"))
             .unwrap_or_else(|| PathBuf::from(".baas"))
     }
+}
+
+fn macos_app_adjacent_install_path_from_exe(exe: &Path) -> Option<PathBuf> {
+    let mut ancestors = exe.ancestors();
+    let _exe_path = ancestors.next()?;
+    let macos_dir = ancestors.next()?;
+    let contents_dir = ancestors.next()?;
+    let app_dir = ancestors.next()?;
+
+    if macos_dir.file_name()? != "MacOS"
+        || contents_dir.file_name()? != "Contents"
+        || app_dir.extension()? != "app"
+    {
+        return None;
+    }
+
+    app_dir.parent().map(|parent| parent.join("BAAS"))
 }
 
 fn path_exists_non_empty(path: &Path) -> bool {
@@ -615,5 +645,19 @@ mod tests {
         assert_eq!(non_empty_path(""), None);
         assert_eq!(non_empty_path("   "), None);
         assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
+    }
+
+    #[test]
+    fn derives_macos_install_root_next_to_app_bundle() {
+        let exe = Path::new("/Applications/Blue Archive Auto Script.app/Contents/MacOS/baas");
+        assert_eq!(
+            macos_app_adjacent_install_path_from_exe(exe),
+            Some(PathBuf::from("/Applications/BAAS"))
+        );
+
+        assert_eq!(
+            macos_app_adjacent_install_path_from_exe(Path::new("/tmp/baas")),
+            None
+        );
     }
 }

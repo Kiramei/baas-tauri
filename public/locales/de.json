@@ -77,7 +77,7 @@
     "channel": "Update-Kanal",
     "dueDate": "Ablaufdatum",
     "enterCdk": "CDK eingeben",
-    "method": "Aktion",
+    "method": "Update-Quelle",
     "mirrorCdk": "MirrorC-CDK",
     "settingsTitle": "Update-Einstellungen",
     "shaConnectivityTest": "SHA-Abrufmethode",
@@ -458,7 +458,7 @@
     "ap": "AP",
     "burst": "Explosiv",
     "coin": {
-      "arena": "Arena-Münze",
+      "arena": "Taktikmünze",
       "commission": "Kommissions-Münze"
     },
     "credits": "Kreditpunkte",
@@ -530,6 +530,7 @@
     "status": "Status",
     "testAll": "Alle Methoden testen",
     "testing": "Teste SHA...",
+    "timeout": "Test der Update-Quelle ist abgelaufen",
     "time": "Benötigte Zeit"
   },
   "mirror": {

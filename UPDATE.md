@@ -1,57 +1,46 @@
-## v0.0.3
+## v0.0.4
 
-> This is a test version.
+> This release focuses on installer stability, update controls, WebUI deployment behavior, and several setup/settings polish fixes since v0.0.3.
 
 ### New Features
 
-1. **Keyboard shortcut support**
-   Added a home-page shortcut settings panel and Tauri global shortcut integration for common profile actions.
+1. **`no_update` setup option**
+   Added `general.no_update` in `setup.toml`. When enabled, Tauri skips main repo, OCR repo, and client initialization updates; WebUI blocks OCR updates; Docker startup skips main repo update.
 
-2. **Client self-update status**
-   Added Tauri client update information to the version panel, including local version, latest version, update status,
-   download progress, and install/relaunch flow.
+2. **Advanced setup control**
+   The Tauri setup modal can now edit the `no_update` option together with the other advanced setup values.
 
-3. **Normal context menu**
-   Added a right-click menu for common page areas with reload, copy, paste, and inspect actions. Tauri release builds
-   can open WebView devtools, while WebUI prompts users to open browser devtools with F12.
-
-4. **Configuration import/export UI**
-   Added UI support for importing and exporting profile configuration data.
-
-5. **More emulator support**
-   Expanded supported emulator options in the configuration UI.
-
-6. **Docker/WebUI deployment**
-   Added Docker build assets and release workflow support for the WebUI image.
+3. **Expanded font subset generation**
+   The font generation pipeline now tries to fetch BAAS `default_config.py` and includes its text in the generated font subset when available.
 
 ### Improvements
 
-1. **Workflow and terminal execution**
-   Added reusable workflow task support in `baas-term`, including chained process commands, detached process support,
-   captured output for detached processes, and unlimited running-region output where needed.
+1. **macOS installer defaults**
+   Fresh macOS installs now default to a `BAAS` directory next to the `.app` bundle instead of writing under the home directory.
 
-2. **Release automation**
-   Refactored duplicated GitHub Actions steps into reusable composite actions, improved release channel handling, added
-   Docker/CNB publishing support, and added Renovate configuration.
+2. **Installer error recovery**
+   Setup errors now show clearer next-step guidance, keep logs scrollable, and provide an explicit return-to-setup action.
 
-3. **Font pipeline**
-   Switched the primary font to Blueaka, changed Korean fallback to GmarketSans, and kept Rubik as the Russian fallback.
+3. **Installer layout stability**
+   The installer page now uses a constrained viewport layout with a scrollable main region to avoid footer/content overflow on smaller windows.
 
-4. **Version checks**
-   Backend update checks and Tauri client update checks now run every 1 minute in the background.
+4. **macOS tray behavior**
+   The tray icon is marked as a macOS template icon so the system can render it in the native menu bar style.
 
-5. **Logger stability**
-   Optimized the Home logger auto-scroll behavior to avoid visual jitter while logs are streaming.
+5. **Reload behavior**
+   App-triggered reloads no longer show the Windows WebView "reload site" confirmation prompt while normal accidental reload protection remains in place.
 
-6. **Remote player build**
-   Fixed frontend player build warnings and improved WebGL utility compatibility.
+6. **Update source testing**
+   SHA/update-source API tests now use a 10-second upper timeout and the settings copy now labels the selector as "Update Source" instead of "Action".
+
+7. **Shop currency display**
+   Tactical shop prices now show tactical coins instead of pyroxene, with updated localized currency names.
 
 ### Fixes
 
-1. Fixed BAAS update check interval behavior.
-2. Fixed logger display and auto-scroll stability.
-3. Fixed frontend player build warnings.
-4. Fixed task output rendering limits for long-running backend launch tasks.
-5. Fixed detached backend launch support in `baas-term` process tasks.
-6. Fixed release workflow compatibility for Linux ARM and channel-specific publishing.
-7. Fixed CNB sync so it only runs for the intended repository/branch.
+1. Fixed repository/client update paths so `no_update` consistently prevents update checks and sync work across Tauri, WebUI, and Docker flows.
+2. Fixed setup error modals that could truncate logs or hide follow-up actions.
+3. Fixed installer viewport overflow reported on macOS screenshots.
+4. Fixed right-click reload opening an unnecessary confirmation prompt on Windows.
+5. Fixed tactical challenge shop item prices displaying the wrong currency.
+6. Fixed slow update-source tests keeping the settings page in a loading state indefinitely.

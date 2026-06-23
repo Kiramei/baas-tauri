@@ -77,6 +77,7 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
 
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
+        .icon_as_template(cfg!(target_os = "macos"))
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -140,6 +141,9 @@ pub fn disable_f5_press_event(app: &mut App) {
                     }, { capture: true });
 
                     addEventListener('beforeunload', function (e) {
+                      if (window.__BAAS_ALLOW_RELOAD__) {
+                        return;
+                      }
                       e.preventDefault();
                       e.returnValue = '';
                     }, { capture: true });

@@ -77,7 +77,7 @@
     "channel": "Canal de mise à jour",
     "dueDate": "Date d'expiration",
     "enterCdk": "Entrez le CDK",
-    "method": "Méthode",
+    "method": "Source de mise à jour",
     "mirrorCdk": "CDK MirrorC (Optionnel)",
     "settingsTitle": "Paramètres de mise à jour",
     "shaConnectivityTest": "Méthode de récupération SHA",
@@ -458,7 +458,7 @@
     "ap": "PA",
     "burst": "Explosif",
     "coin": {
-      "arena": "Pièce d'Arène",
+      "arena": "Pièce tactique",
       "commission": "Pièce de Commission"
     },
     "credits": "Points de crédit",
@@ -530,6 +530,7 @@
     "status": "Statut",
     "testAll": "Tester toutes les méthodes",
     "testing": "Test SHA en cours...",
+    "timeout": "Le test de source de mise à jour a expiré",
     "time": "Temps pris"
   },
   "mirror": {

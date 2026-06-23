@@ -77,7 +77,7 @@
     "channel": "업데이트 채널",
     "dueDate": "만료일",
     "enterCdk": "CDK 입력",
-    "method": "작업",
+    "method": "업데이트 소스",
     "mirrorCdk": "MirrorC CDK (선택 사항)",
     "settingsTitle": "업데이트 설정",
     "shaConnectivityTest": "SHA 검색 방법",
@@ -458,7 +458,7 @@
     "ap": "AP",
     "burst": "폭발",
     "coin": {
-      "arena": "대항전 코인",
+      "arena": "전술 코인",
       "commission": "교류회 코인"
     },
     "credits": "크레딧 포인트",
@@ -530,6 +530,7 @@
     "status": "상태",
     "testAll": "모든 방법 테스트",
     "testing": "SHA 테스트 중...",
+    "timeout": "업데이트 소스 테스트 시간이 초과되었습니다",
     "time": "소요 시간"
   },
   "mirror": {

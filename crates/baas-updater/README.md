@@ -34,6 +34,7 @@ get_remote_sha_method = ""
 launch = false
 force_launch = false
 debug = false
+no_update = false
 source_list = ["https://mirrors.aliyun.com/pypi/simple"]
 
 [paths]
@@ -72,6 +73,9 @@ MirrorC is used when `general.mirrorc_cdk` is non-empty. Otherwise the updater
 uses Git. Git operations prefer system `git` through `baas-term` process tasks;
 when Git CLI is unavailable or planning fails, Rust `git2` work runs through
 `baas-term` thread tasks.
+
+When `general.no_update = true`, repository synchronization is skipped and the
+workflow keeps using the current main and Cpp/OCR files.
 
 ## Repository Sources
 

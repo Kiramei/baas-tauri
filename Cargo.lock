@@ -257,11 +257,11 @@ dependencies = [
 
 [[package]]
 name = "baas-i18n"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "baas-shortcut"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "serde",
  "tauri",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "baas-tauri"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "baas-i18n",
  "baas-shortcut",
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -308,7 +308,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "baas-term",
  "flate2",
