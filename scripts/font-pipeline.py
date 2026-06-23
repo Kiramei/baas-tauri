@@ -5,11 +5,17 @@ import json
 import hashlib
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
+from typing import Optional
 
 # 配置区 -------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCAN_DIRS = [PROJECT_ROOT / "src", PROJECT_ROOT / "public"]
+REMOTE_TEXT_SOURCES = [
+    "https://raw.githubusercontent.com/pur1fying/blue_archive_auto_script/master/core/config/default_config.py",
+]
+REMOTE_FETCH_TIMEOUT_SECONDS = 8
 FONT_SOURCE_DIR = PROJECT_ROOT / "scripts" / "fonts-src"
 OUTPUT_DIR = PROJECT_ROOT / ".cache" / "fonts"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,6 +69,26 @@ FONT_TARGETS = [
 # --------------------------------------------------------
 
 
+def add_matching_chars(chars, pattern, text: str):
+    for match in pattern.findall(text):
+        chars.add(match)
+
+
+def fetch_remote_text(url: str) -> Optional[str]:
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "baas-tauri-font-builder",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=REMOTE_FETCH_TIMEOUT_SECONDS) as response:
+            return response.read().decode("utf-8")
+    except Exception as exc:
+        print(f"Warn: failed to fetch {url}; skip. {exc}")
+        return None
+
+
 def collect_chars():
     chars = set()
     pattern = re.compile(
@@ -94,8 +120,11 @@ def collect_chars():
                     text = p.read_text(encoding="utf-8")
                 except Exception:
                     continue
-                for m in pattern.findall(text):
-                    chars.add(m)
+                add_matching_chars(chars, pattern, text)
+    for url in REMOTE_TEXT_SOURCES:
+        text = fetch_remote_text(url)
+        if text is not None:
+            add_matching_chars(chars, pattern, text)
     return "".join(sorted(chars))
 
 
