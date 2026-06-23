@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import { PageKey } from "@/types/app";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 
@@ -64,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
     try {
       await stopAllTasks();
       if (__WITH_TAURI__) {
-        window.location.reload();
+        reloadWithoutPrompt();
         return;
       }
       trigger({

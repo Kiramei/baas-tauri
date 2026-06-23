@@ -141,6 +141,9 @@ pub fn disable_f5_press_event(app: &mut App) {
                     }, { capture: true });
 
                     addEventListener('beforeunload', function (e) {
+                      if (window.__BAAS_ALLOW_RELOAD__) {
+                        return;
+                      }
                       e.preventDefault();
                       e.returnValue = '';
                     }, { capture: true });
