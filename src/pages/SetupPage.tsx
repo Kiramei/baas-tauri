@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { exit } from "@tauri-apps/plugin-process";
-import { Copy } from "lucide-react";
+import { Copy, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -262,6 +262,15 @@ const SetupPage = () => {
     toast.success("Logs copied to clipboard");
   };
 
+  const returnToSetup = async () => {
+    setFailure(null);
+    try {
+      await handleAbort();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   useEffect(() => {
     const unlisten = listen<BackendReadyPayload>("updater://backend-ready", async (event) => {
       try {
@@ -409,14 +418,18 @@ const SetupPage = () => {
         title="Setup Error"
         width={72}
       >
-        <div className="space-y-3 max-h-[78vh] overflow-hidden">
+        <div className="space-y-3 max-h-[78vh] overflow-y-auto pr-1">
           <div className="text-sm max-h-36 overflow-auto pr-1">
             <div className="font-medium text-red-500">{failure?.step}</div>
             <div className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
               {failure?.message}
             </div>
           </div>
-          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-[52vh] overflow-auto text-xs font-mono whitespace-pre-wrap break-words">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
+            Return to setup to change the install path or retry. Copy logs before reporting this
+            issue.
+          </div>
+          <div className="rounded-md bg-slate-950 text-slate-100 p-3 max-h-[44vh] overflow-auto text-xs font-mono whitespace-pre-wrap break-words">
             {terminalLogData.length === 0
               ? "No structured logs captured."
               : terminalLogData.map((log, index) => (
@@ -425,7 +438,11 @@ const SetupPage = () => {
                   </div>
                 ))}
           </div>
-          <div className="flex justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={returnToSetup}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Back to Setup
+            </Button>
             <Button variant="outline" onClick={copyFailureLogs}>
               <Copy className="w-4 h-4 mr-2" />
               Copy Logs
