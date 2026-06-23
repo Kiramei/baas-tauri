@@ -77,7 +77,7 @@
     "channel": "更新通道",
     "dueDate": "到期时间",
     "enterCdk": "输入CDK",
-    "method": "操作",
+    "method": "更新源",
     "mirrorCdk": "Mirror酱的CDK (可选)",
     "settingsTitle": "更新设置",
     "shaConnectivityTest": "SHA获取方式",
@@ -530,6 +530,7 @@
     "status": "状态",
     "testAll": "测试所有方法",
     "testing": "SHA 测试中",
+    "timeout": "更新源测试已超时",
     "time": "耗时"
   },
   "mirror": {

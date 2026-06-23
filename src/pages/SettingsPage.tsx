@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useTheme } from "@/context/ThemeProvider";
@@ -97,6 +97,8 @@ const reposInit: RepoConfig[] = [
 ];
 
 let hybrid = true;
+const SHA_TEST_TIMEOUT_MS = 10_000;
+const SHA_TEST_TIMEOUT_SECONDS = SHA_TEST_TIMEOUT_MS / 1000;
 
 const shaMethodsInit = [
   { label: "shaMethod.github", value: "github" },
@@ -243,6 +245,8 @@ const SettingsPage: React.FC = () => {
   const [shaResults, setShaResults] = useState<ShaTestResult[]>(
     shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
+  const shaTestRunRef = useRef<number | null>(null);
+  const shaTestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchVersion = () => {
     setVersionChecking(true);
@@ -350,26 +354,71 @@ const SettingsPage: React.FC = () => {
     }
   }, [verLocal, shaLocal, verRemote, shaRemote]);
 
+  useEffect(() => {
+    return () => {
+      if (shaTestTimeoutRef.current) {
+        clearTimeout(shaTestTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleTestSha = () => {
+    const timestamp = getTimestampMs();
+    shaTestRunRef.current = timestamp;
+    if (shaTestTimeoutRef.current) {
+      clearTimeout(shaTestTimeoutRef.current);
+    }
     setApiLoading(true);
-    setShaResults(shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" })));
+    setShaResults(
+      shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "testing" }))
+    );
+    shaTestTimeoutRef.current = setTimeout(() => {
+      if (shaTestRunRef.current !== timestamp) return;
+      shaTestRunRef.current = null;
+      shaTestTimeoutRef.current = null;
+      setApiLoading(false);
+      setShaResults((prev) =>
+        prev.map((item) =>
+          item.status === "testing"
+            ? {
+                ...item,
+                status: "error",
+                time: item.time ?? SHA_TEST_TIMEOUT_SECONDS.toFixed(3),
+              }
+            : item
+        )
+      );
+      toast.error(t("shaTest.timeout"));
+    }, SHA_TEST_TIMEOUT_MS);
     triggerStream(
       {
-        timestamp: getTimestampMs(),
+        timestamp,
         command: "test_all_sha_stream",
         payload: {
           channel: updateChannel,
+          timeout: SHA_TEST_TIMEOUT_SECONDS,
         },
       },
       (e) => {
+        if (shaTestRunRef.current !== timestamp) return;
         if (e.data?.done) {
+          if (shaTestTimeoutRef.current) {
+            clearTimeout(shaTestTimeoutRef.current);
+            shaTestTimeoutRef.current = null;
+          }
+          shaTestRunRef.current = null;
           setApiLoading(false);
           if (e.status === "error") {
             toast.error(String(e.error ?? t("version.checkError")));
           }
           return;
         }
-        const result = e.data as { success: boolean; name: string; duration: number; value: string | null };
+        const result = e.data as {
+          success: boolean;
+          name: string;
+          duration: number;
+          value: string | null;
+        };
         setShaResults((prev) =>
           prev.map((item) =>
             item.method === shaMethodKey(result.name)

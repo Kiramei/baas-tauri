@@ -77,7 +77,7 @@
     "channel": "Update Channel",
     "dueDate": "Expiration Date",
     "enterCdk": "Enter CDK",
-    "method": "Action",
+    "method": "Update Source",
     "mirrorCdk": "MirrorC CDK (Optional)",
     "settingsTitle": "Update Settings",
     "shaConnectivityTest": "SHA Retrieval Method",
@@ -530,6 +530,7 @@
     "status": "Status",
     "testAll": "Test All Methods",
     "testing": "Testing SHA...",
+    "timeout": "Update source test timed out",
     "time": "Time taken"
   },
   "mirror": {
