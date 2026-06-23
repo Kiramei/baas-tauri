@@ -10,6 +10,7 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type TabKey = "common" | "tactical";
+type ShopCurrency = "creditpoints" | "pyroxene" | "tactical_challenge_coin" | "bounty_coin";
 
 interface Draft {
   CommonShopList: number[];
@@ -52,6 +53,13 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
       defaultGoods: _default_tactical_shop_goods_,
     },
   } as const;
+
+  const currencyLabelByCoin: Record<ShopCurrency, string> = {
+    creditpoints: t("property.credits"),
+    pyroxene: t("property.pyroxene"),
+    tactical_challenge_coin: t("property.coin.arena"),
+    bounty_coin: t("property.coin.commission"),
+  };
 
   const [activeTab, setActiveTab] = useState<TabKey>("common");
 
@@ -173,10 +181,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                     (tab === "common" ? draft.CommonShopList : draft.TacticalChallengeShopList)[
                       i
                     ] === 1;
-                  const priceText =
-                    coin === "creditpoints"
-                      ? `${price} ${t("property.credits")}`
-                      : `${price} ${t("property.pyroxene")}`;
+                  const priceText = `${price} ${currencyLabelByCoin[coin as ShopCurrency] ?? coin}`;
 
                   return (
                     <div
