@@ -703,11 +703,58 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  sync-to-cnb-release:
+    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    name: Sync release to CNB
+    runs-on: ubuntu-latest
+    needs:
+      - release-update
+      - release-update-for-fixed-webview2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync CNB release
+        uses: ./.github/actions/sync-cnb-release
+        with:
+          github-token: ${{ github.token }}
+          cnb-token: ${{ secrets.RELEASE_TO_CNB }}
+          tag-name: ${{ github.ref_name }}
+          cnb-repo-slug: kiramei/baas-tauri
+          asset-pattern: "*"
+          wait-timeout-minutes: "240"
+          poll-interval-seconds: "60"
+          minimum-assets: "1"
+          make-latest: legacy
+          sync-tag: "true"
+          upload-assets: "true"
+          overwrite-assets: "true"
+
+      - name: Sync CNB release
+        uses: ./.github/actions/sync-cnb-release
+        with:
+          github-token: ${{ github.token }}
+          cnb-token: ${{ secrets.RELEASE_TO_CNB }}
+          tag-name: updater
+          cnb-repo-slug: kiramei/baas-tauri
+          asset-pattern: "*"
+          wait-timeout-minutes: "240"
+          poll-interval-seconds: "60"
+          minimum-assets: "1"
+          make-latest: legacy
+          sync-tag: "true"
+          upload-assets: "true"
+          overwrite-assets: "true"
+
   submit-to-winget:
     if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
-    needs: [update_tag, release-update]
+    needs: [sync-to-cnb-release]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

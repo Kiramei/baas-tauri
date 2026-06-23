@@ -96,7 +96,10 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
         {/* DailySweep Tab */}
         <TabsContent value="daily" className="space-y-4">
           <div>
-            <LabelWithTooltip label={t("stage.normalLabel")} tooltip={t("description.stage.normal")} />
+            <LabelWithTooltip
+              label={t("stage.normalLabel")}
+              tooltip={t("description.stage.normal")}
+            />
             <FormInput
               type="text"
               value={draft.mainlinePriority}

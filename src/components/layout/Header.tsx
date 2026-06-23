@@ -189,7 +189,11 @@ const Header: React.FC = () => {
   const handleExport = async (tab: Tab) => {
     try {
       const result = await runTrigger("export_config", { id: tab.id });
-      await StorageUtil.download(result.data?.filename || result.filename || `${tab.name}.zip`, result.binary, t);
+      await StorageUtil.download(
+        result.data?.filename || result.filename || `${tab.name}.zip`,
+        result.binary,
+        t
+      );
     } catch (error: any) {
       toast.error(t("profile.exportFailed"), { description: error?.message });
     }
@@ -494,8 +498,7 @@ const ProfileEditorModal = (props: {
     const nm = name.trim();
     if (!nm) return setErr(t("configAdd.nameRequired"));
     if (server === "NULL") return setErr(t("configAdd.serverRequired"));
-    if (props.checkName(nm, props.initial?.id))
-      return setErr(t("configAdd.nameDuplicate"));
+    if (props.checkName(nm, props.initial?.id)) return setErr(t("configAdd.nameDuplicate"));
     try {
       setSubmitting(true);
       await props.onSubmit({ name: nm, server });
@@ -547,7 +550,11 @@ const ProfileEditorModal = (props: {
               disabled={importing || submitting}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
             >
-              {importing ? <Loader2 className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              {importing ? (
+                <Loader2 className="animate-spin h-4 w-4" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
               <span>{t("profile.import")}</span>
             </button>
           )}

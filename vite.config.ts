@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
       __WITH_TAURI__: mode === "tauri",
     },
     server: {
-      host: "0.0.0.0",
+      host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
       port: mode === "tauri" ? 8191 : 8192,
       strictPort: true,
     },
@@ -99,7 +99,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      chunkSizeWarningLimit: 1000
+      chunkSizeWarningLimit: 1000,
     },
     resolve: {
       alias: {

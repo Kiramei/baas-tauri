@@ -67,7 +67,11 @@ export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
 
 const checkBackendUpdater = () => {
   const store = useWebSocketStore.getState();
-  if (backendUpdaterChecking || store._auth_phase !== "authenticated" || !store.connections.trigger) {
+  if (
+    backendUpdaterChecking ||
+    store._auth_phase !== "authenticated" ||
+    !store.connections.trigger
+  ) {
     return;
   }
   backendUpdaterChecking = true;
