@@ -11,7 +11,6 @@ type MenuState = {
   x: number;
   y: number;
   selectedText: string;
-  clipboardText: string;
   target: EventTarget | null;
 };
 
@@ -46,15 +45,6 @@ const getSelectedText = (target: EventTarget | null): string => {
   const activeText = selectedTextFromEditable(document.activeElement);
   if (activeText) return activeText;
   return window.getSelection()?.toString() ?? "";
-};
-
-const readClipboardText = async (): Promise<string> => {
-  try {
-    if (!navigator.clipboard?.readText) return "";
-    return await navigator.clipboard.readText();
-  } catch {
-    return "";
-  }
 };
 
 const menuPosition = (event: MouseEvent) => ({
@@ -110,15 +100,7 @@ const GlobalContextMenu: React.FC = () => {
         x: position.x,
         y: position.y,
         selectedText,
-        clipboardText: "",
         target: event.target,
-      });
-      void readClipboardText().then((clipboardText) => {
-        setMenu((current) =>
-          current && current.x === position.x && current.y === position.y
-            ? { ...current, clipboardText }
-            : current
-        );
       });
     };
 
@@ -149,9 +131,14 @@ const GlobalContextMenu: React.FC = () => {
     close();
   };
 
-  const pasteClipboard = () => {
-    if (!menu?.clipboardText) return;
-    insertText(menu.target, menu.clipboardText);
+  const pasteClipboard = async () => {
+    if (!menu) return;
+    try {
+      const text = await navigator.clipboard?.readText();
+      if (text) insertText(menu.target, text);
+    } catch {
+      toast.error(t("contextMenu.pasteFailed", "Clipboard is not available."));
+    }
     close();
   };
 
@@ -164,6 +151,8 @@ const GlobalContextMenu: React.FC = () => {
     close();
     void openInspector(t("contextMenu.inspectWebuiHint"));
   };
+
+  const canPaste = Boolean(menu && getEditableElement(menu.target));
 
   return (
     <AnimatePresence>
@@ -185,7 +174,7 @@ const GlobalContextMenu: React.FC = () => {
             <Copy className="w-4 h-4" />
             {t("contextMenu.copy")}
           </button>
-          <button className={itemClass} disabled={!menu.clipboardText} onClick={pasteClipboard}>
+          <button className={itemClass} disabled={!canPaste} onClick={() => void pasteClipboard()}>
             <ClipboardPaste className="w-4 h-4" />
             {t("contextMenu.paste")}
           </button>
