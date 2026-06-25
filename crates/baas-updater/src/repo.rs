@@ -1,7 +1,7 @@
 //! Git repository synchronization and source ranking.
 
 use crate::{
-    OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
+    GitBackend, OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
     UpdaterResult, constants,
 };
 use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
@@ -132,6 +132,8 @@ pub struct RepoSyncOptions {
     pub target_dir: PathBuf,
     /// Optional JSON file used to persist source ranking.
     pub ranking_path: Option<PathBuf>,
+    /// Git implementation used for synchronization.
+    pub git_backend: GitBackend,
 }
 
 /// Measures whether source URLs are reachable and how long they take.
@@ -181,7 +183,10 @@ impl SourceProbe for GitSourceProbe {
         let start = Instant::now();
         let mut command = Command::new("git");
         hide_command_window(&mut command);
+        configure_git_cli_command(&mut command);
         let status = command
+            .arg("-c")
+            .arg("credential.interactive=never")
             .arg("ls-remote")
             .arg("--heads")
             .arg(url)
@@ -205,6 +210,7 @@ impl GitExecutor for RealGitExecutor {
     fn has_cli(&self) -> bool {
         let mut command = Command::new("git");
         hide_command_window(&mut command);
+        configure_git_cli_command(&mut command);
         command
             .arg("--version")
             .output()
@@ -239,6 +245,7 @@ impl GitExecutor for RealGitExecutor {
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
         hide_command_window(&mut cmd);
+        configure_git_cli_command(&mut cmd);
         let output = cmd
             .arg("rev-parse")
             .arg("HEAD")
@@ -258,7 +265,10 @@ impl GitExecutor for RealGitExecutor {
     fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
         hide_command_window(&mut cmd);
+        configure_git_cli_command(&mut cmd);
         let output = cmd
+            .arg("-c")
+            .arg("credential.interactive=never")
             .arg("ls-remote")
             .arg("--heads")
             .arg(url)
@@ -345,12 +355,28 @@ impl<E: GitExecutor> RepoManager<E> {
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<RepoSyncResult> {
         let expected_urls = repository_urls(options.kind, options.channel);
-        let mut ranking = load_or_benchmark_ranking_with_output(
-            options.ranking_path.as_deref(),
-            &expected_urls,
-            probe,
-            output,
-        )?;
+        if options.git_backend == GitBackend::GitCli && !self.executor.has_cli() {
+            return Err(UpdaterError::Git(
+                "Git CLI backend selected, but system git is unavailable".to_string(),
+            ));
+        }
+        let mut ranking = if options.git_backend == GitBackend::Git2 || !self.executor.has_cli() {
+            load_or_default_ranking(options.ranking_path.as_deref(), &expected_urls)?
+        } else {
+            load_or_benchmark_ranking_with_output(
+                options.ranking_path.as_deref(),
+                &expected_urls,
+                probe,
+                output,
+            )?
+        };
+        if options.git_backend == GitBackend::Auto && ranking.all_disabled() {
+            output.line(
+                OutputStyle::Warning,
+                "Git CLI source probing failed for every source; trying sources in configured order",
+            );
+            ranking = SourceRanking::from_urls(&expected_urls);
+        }
         let branch = repository_branch(options.kind)?;
 
         for source in ranking.active_sources() {
@@ -362,9 +388,15 @@ impl<E: GitExecutor> RepoManager<E> {
                     source.url
                 ),
             );
-            match self.try_source(&source.url, &branch, &options.target_dir, output) {
+            match self.try_source(
+                &source.url,
+                &branch,
+                &options.target_dir,
+                options.git_backend,
+                output,
+            ) {
                 Ok(status) => {
-                    let sha = self.local_sha(&options.target_dir)?;
+                    let sha = self.local_sha(&options.target_dir, options.git_backend)?;
                     if let Some(path) = &options.ranking_path {
                         save_ranking(path, &ranking)?;
                     }
@@ -410,11 +442,14 @@ impl<E: GitExecutor> RepoManager<E> {
         url: &str,
         branch: &str,
         target: &Path,
+        git_backend: GitBackend,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<UpdateStatus> {
         let is_update = target.join(".git").exists();
+        let can_check_remote = git_backend != GitBackend::Git2 && self.executor.has_cli();
         if is_update
-            && let Ok(local_sha) = self.local_sha(target)
+            && can_check_remote
+            && let Ok(local_sha) = self.local_sha(target, git_backend)
             && let Ok(remote_sha) = self.executor.remote_sha(url, branch)
             && local_sha == remote_sha
         {
@@ -424,21 +459,57 @@ impl<E: GitExecutor> RepoManager<E> {
             );
             return Ok(UpdateStatus::Skipped);
         }
-        if self.executor.has_cli() {
-            let cli_result = if is_update {
-                self.executor.update_cli(url, branch, target)
-            } else {
-                self.executor.clone_cli(url, branch, target)
-            };
-            if cli_result.is_ok() {
-                return Ok(if is_update {
-                    UpdateStatus::Updated
-                } else {
-                    UpdateStatus::Installed
-                });
-            }
-        }
 
+        match git_backend {
+            GitBackend::GitCli => {
+                if !self.executor.has_cli() {
+                    return Err(UpdaterError::Git(
+                        "Git CLI backend selected, but system git is unavailable".to_string(),
+                    ));
+                }
+                if is_update {
+                    self.executor.update_cli(url, branch, target)?;
+                    Ok(UpdateStatus::Updated)
+                } else {
+                    self.executor.clone_cli(url, branch, target)?;
+                    Ok(UpdateStatus::Installed)
+                }
+            }
+            GitBackend::Auto => {
+                if self.executor.has_cli() {
+                    let cli_result = if is_update {
+                        self.executor.update_cli(url, branch, target)
+                    } else {
+                        self.executor.clone_cli(url, branch, target)
+                    };
+                    match cli_result {
+                        Ok(()) => {
+                            return Ok(if is_update {
+                                UpdateStatus::Updated
+                            } else {
+                                UpdateStatus::Installed
+                            });
+                        }
+                        Err(error) => output.line(
+                            OutputStyle::Warning,
+                            &format!("Git CLI failed; falling back to git2: {error}"),
+                        ),
+                    }
+                }
+                self.try_source_git2(url, branch, target, is_update, output)
+            }
+            GitBackend::Git2 => self.try_source_git2(url, branch, target, is_update, output),
+        }
+    }
+
+    fn try_source_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        is_update: bool,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<UpdateStatus> {
         if is_update {
             self.executor.update_git2(url, branch, target, output)?;
             Ok(UpdateStatus::Updated)
@@ -448,13 +519,19 @@ impl<E: GitExecutor> RepoManager<E> {
         }
     }
 
-    fn local_sha(&self, target: &Path) -> UpdaterResult<String> {
-        if self.executor.has_cli() {
-            self.executor
-                .local_sha_cli(target)
-                .or_else(|_| self.executor.local_sha_git2(target))
-        } else {
-            self.executor.local_sha_git2(target)
+    fn local_sha(&self, target: &Path, git_backend: GitBackend) -> UpdaterResult<String> {
+        match git_backend {
+            GitBackend::GitCli => self.executor.local_sha_cli(target),
+            GitBackend::Git2 => self.executor.local_sha_git2(target),
+            GitBackend::Auto => {
+                if self.executor.has_cli() {
+                    self.executor
+                        .local_sha_cli(target)
+                        .or_else(|_| self.executor.local_sha_git2(target))
+                } else {
+                    self.executor.local_sha_git2(target)
+                }
+            }
         }
     }
 }
@@ -519,6 +596,24 @@ pub fn load_or_benchmark_ranking_with_output(
         }
     }
     Ok(benchmark_sources_with_output(expected_urls, probe, output))
+}
+
+/// Loads a ranking file or returns the expected URLs in their configured order.
+pub fn load_or_default_ranking(
+    path: Option<&Path>,
+    expected_urls: &[String],
+) -> UpdaterResult<SourceRanking> {
+    if let Some(path) = path
+        && path.exists()
+    {
+        let content = fs::read_to_string(path)?;
+        let ranking: SourceRanking = serde_json::from_str(&content)
+            .map_err(|error| UpdaterError::Config(error.to_string()))?;
+        if ranking.matches_urls(expected_urls) && !ranking.all_disabled() {
+            return Ok(ranking);
+        }
+    }
+    Ok(SourceRanking::from_urls(expected_urls))
 }
 
 /// Benchmarks sources and returns a sorted ranking.
@@ -639,7 +734,11 @@ pub fn save_ranking(path: &Path, ranking: &SourceRanking) -> UpdaterResult<()> {
 fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
     let mut command = Command::new("git");
     hide_command_window(&mut command);
-    command.args(args).env("GIT_TERMINAL_PROMPT", "0");
+    configure_git_cli_command(&mut command);
+    command
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .args(args);
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
@@ -653,6 +752,15 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
             String::from_utf8_lossy(&output.stderr).trim().to_string(),
         ))
     }
+}
+
+fn configure_git_cli_command(command: &mut Command) {
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
+        .env("GCM_MODAL_PROMPT", "0")
+        .env("GIT_ASKPASS", "")
+        .env("SSH_ASKPASS", "");
 }
 
 #[cfg(target_os = "windows")]
@@ -933,6 +1041,7 @@ mod tests {
                     channel: UpdateChannel::Stable,
                     target_dir: target,
                     ranking_path: Some(ranking),
+                    git_backend: GitBackend::Auto,
                 },
                 &Probe {
                     ok: vec![url.clone()],
@@ -971,6 +1080,7 @@ mod tests {
                     channel: UpdateChannel::Stable,
                     target_dir: target,
                     ranking_path: Some(ranking),
+                    git_backend: GitBackend::Auto,
                 },
                 &Probe { ok: vec![url] },
                 &crate::NoopOutput,
