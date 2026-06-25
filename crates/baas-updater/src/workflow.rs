@@ -14,8 +14,9 @@ use crate::{
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
-        GitExecutor, GitSourceProbe, RealGitExecutor, RepoManager, RepoSyncOptions,
-        load_or_benchmark_ranking, repository_branch, repository_urls, save_ranking,
+        GitExecutor, GitHttpSourceProbe, GitSourceProbe, RealGitExecutor, RepoManager,
+        RepoSyncOptions, load_or_benchmark_ranking, repository_branch, repository_urls,
+        save_ranking,
     },
 };
 use baas_term::{
@@ -210,18 +211,22 @@ impl WorkflowServices for RealWorkflowServices {
             });
         }
 
-        let repo = RepoManager::new(RealGitExecutor);
-        let result = repo.sync(
-            &RepoSyncOptions {
-                kind,
-                channel: config.general.channel,
-                target_dir: target_dir.to_path_buf(),
-                ranking_path: Some(ranking_path.to_path_buf()),
-                git_backend: config.general.git_backend,
-            },
-            &GitSourceProbe,
-            output,
-        )?;
+        let executor = RealGitExecutor;
+        let repo = RepoManager::new(executor);
+        let options = RepoSyncOptions {
+            kind,
+            channel: config.general.channel,
+            target_dir: target_dir.to_path_buf(),
+            ranking_path: Some(ranking_path.to_path_buf()),
+            git_backend: config.general.git_backend,
+        };
+        let result = if config.general.git_backend == GitBackend::Git2
+            || (config.general.git_backend == GitBackend::Auto && !executor.has_cli())
+        {
+            repo.sync(&options, &GitHttpSourceProbe, output)?
+        } else {
+            repo.sync(&options, &GitSourceProbe, output)?
+        };
         Ok(RepositoryOutcome {
             kind,
             status: result.status,
@@ -1318,20 +1323,32 @@ fn terminal_repo_thread_task(
             ),
         );
     }
-    let outcome = output.with_spinner(
-        format!("{} repository", args.kind.as_str()),
-        format!("{} repository ready", args.kind.as_str()),
-        |spinner| {
-            if config.general.no_update {
-                spinner.set_detail("no_update enabled; skipping repository sync");
-                return Ok(skipped_repository_outcome(args.kind, &config));
-            }
-            spinner.set_detail("choosing MirrorC or Git source");
-            RealWorkflowServices
-                .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
-                .map_err(|error| error.message())
-        },
-    )?;
+    let outcome = if config.general.no_update {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: no_update enabled; skipping repository sync",
+                args.kind.as_str()
+            ),
+        );
+        skipped_repository_outcome(args.kind, &config)
+    } else {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: choosing MirrorC or Git source",
+                args.kind.as_str()
+            ),
+        );
+        let outcome = RealWorkflowServices
+            .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
+            .map_err(|error| error.message())?;
+        output.line(
+            OutputStyle::Success,
+            &format!("{} repository ready", args.kind.as_str()),
+        );
+        outcome
+    };
     let mut state = args
         .state
         .lock()

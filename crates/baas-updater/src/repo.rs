@@ -202,6 +202,34 @@ impl SourceProbe for GitSourceProbe {
     }
 }
 
+/// Real source probe for git2-only environments that cannot rely on Git CLI.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GitHttpSourceProbe;
+
+impl SourceProbe for GitHttpSourceProbe {
+    fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let probe_url = git_smart_http_probe_url(url);
+        let start = Instant::now();
+        let response = client
+            .get(&probe_url)
+            .header("Git-Protocol", "version=2")
+            .send()
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        if response.status().is_success() || response.status().is_redirection() {
+            Ok(start.elapsed())
+        } else {
+            Err(UpdaterError::Network(format!(
+                "source probe failed for {url}: HTTP {}",
+                response.status()
+            )))
+        }
+    }
+}
+
 /// Real Git executor that prefers CLI commands and provides git2 fallback.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RealGitExecutor;
@@ -360,25 +388,22 @@ impl<E: GitExecutor> RepoManager<E> {
                 "Git CLI backend selected, but system git is unavailable".to_string(),
             ));
         }
-        let mut ranking = if options.git_backend == GitBackend::Git2 || !self.executor.has_cli() {
-            load_or_default_ranking(options.ranking_path.as_deref(), &expected_urls)?
-        } else {
-            load_or_benchmark_ranking_with_output(
-                options.ranking_path.as_deref(),
-                &expected_urls,
-                probe,
-                output,
-            )?
-        };
-        if options.git_backend == GitBackend::Auto && ranking.all_disabled() {
+        let mut ranking = load_or_benchmark_ranking_with_output(
+            options.ranking_path.as_deref(),
+            &expected_urls,
+            probe,
+            output,
+        )?;
+        if ranking.all_disabled() {
             output.line(
                 OutputStyle::Warning,
-                "Git CLI source probing failed for every source; trying sources in configured order",
+                "Git source probing failed for every source; trying sources in configured order",
             );
             ranking = SourceRanking::from_urls(&expected_urls);
         }
         let branch = repository_branch(options.kind)?;
         let uses_git2_only = options.git_backend == GitBackend::Git2 || !self.executor.has_cli();
+        let attempted_ranking = ranking.clone();
         let mut last_error: Option<UpdaterError> = None;
 
         for source in ranking.active_sources() {
@@ -423,7 +448,7 @@ impl<E: GitExecutor> RepoManager<E> {
 
         if uses_git2_only {
             if let Some(path) = &options.ranking_path {
-                save_ranking(path, &SourceRanking::from_urls(&expected_urls))?;
+                save_ranking(path, &attempted_ranking)?;
             }
             let backend = if options.git_backend == GitBackend::Auto {
                 GitBackend::Git2.as_str()
@@ -465,7 +490,7 @@ impl<E: GitExecutor> RepoManager<E> {
         git_backend: GitBackend,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<UpdateStatus> {
-        let is_update = target.join(".git").exists();
+        let is_update = prepare_repository_target(target, output)?;
         let can_check_remote = git_backend != GitBackend::Git2 && self.executor.has_cli();
         if is_update
             && can_check_remote
@@ -783,6 +808,13 @@ fn configure_git_cli_command(command: &mut Command) {
         .env("SSH_ASKPASS", "");
 }
 
+fn git_smart_http_probe_url(url: &str) -> String {
+    format!(
+        "{}/info/refs?service=git-upload-pack",
+        url.trim_end_matches('/')
+    )
+}
+
 #[cfg(target_os = "windows")]
 fn hide_command_window(command: &mut Command) {
     use std::os::windows::process::CommandExt;
@@ -821,18 +853,110 @@ fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
 }
 
 fn cleanup_failed_clone(target: &Path) -> UpdaterResult<()> {
-    if target.exists() && target.join(".git").exists() {
+    if is_valid_git_repository(target) {
         return Ok(());
     }
-    if target.exists()
-        && fs::read_dir(target)
-            .map(|mut entries| entries.next().is_none())
-            .unwrap_or(false)
-    {
-        fs::remove_dir_all(target)?;
+    if target.exists() {
+        remove_dir_all_retry(target)?;
     }
     Ok(())
 }
+
+fn prepare_repository_target(
+    target: &Path,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<bool> {
+    if !target.exists() {
+        return Ok(false);
+    }
+    if is_valid_git_repository(target) {
+        return Ok(true);
+    }
+    output.line(
+        OutputStyle::Warning,
+        &format!(
+            "Removing incomplete repository staging directory: {}",
+            target.display()
+        ),
+    );
+    remove_dir_all_retry(target).map_err(|error| {
+        UpdaterError::Io(format!(
+            "failed to remove incomplete repository at {}; close any process using this directory and retry: {}",
+            target.display(),
+            error.message()
+        ))
+    })?;
+    Ok(false)
+}
+
+fn is_valid_git_repository(target: &Path) -> bool {
+    target.join(".git").exists() && Repository::open(target).is_ok()
+}
+
+fn remove_dir_all_retry(target: &Path) -> UpdaterResult<()> {
+    let mut last_error = None;
+    for attempt in 0..5 {
+        match fs::remove_dir_all(target) {
+            Ok(()) => return Ok(()),
+            Err(_) if !target.exists() => return Ok(()),
+            Err(error) => {
+                last_error = Some(error);
+                clear_readonly_recursive(target);
+                release_repository_locks(target);
+                thread::sleep(Duration::from_millis(50 * (attempt + 1)));
+            }
+        }
+    }
+    match fs::remove_dir_all(target) {
+        Ok(()) => Ok(()),
+        Err(_) if !target.exists() => Ok(()),
+        Err(error) => Err(last_error.unwrap_or(error).into()),
+    }
+}
+
+fn clear_readonly_recursive(target: &Path) {
+    if let Ok(metadata) = fs::metadata(target) {
+        let mut permissions = metadata.permissions();
+        if permissions.readonly() {
+            permissions.set_readonly(false);
+            let _ = fs::set_permissions(target, permissions);
+        }
+    }
+    if let Ok(entries) = fs::read_dir(target) {
+        for entry in entries.flatten() {
+            clear_readonly_recursive(&entry.path());
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn release_repository_locks(target: &Path) {
+    let script = r#"
+$target = [System.IO.Path]::GetFullPath($args[0]).ToLowerInvariant()
+$names = @('git.exe', 'git-remote-http.exe', 'git-remote-https.exe', 'ssh.exe')
+Get-CimInstance Win32_Process |
+  Where-Object {
+    $_.CommandLine -and
+    $names -contains $_.Name.ToLowerInvariant() -and
+    $_.CommandLine.ToLowerInvariant().Contains($target)
+  } |
+  ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+"#;
+    let mut command = Command::new("powershell");
+    hide_command_window(&mut command);
+    let _ = command
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-Command")
+        .arg(script)
+        .arg(target)
+        .status();
+}
+
+#[cfg(not(target_os = "windows"))]
+fn release_repository_locks(_target: &Path) {}
 
 #[cfg(test)]
 mod tests {
@@ -1045,6 +1169,14 @@ mod tests {
     }
 
     #[test]
+    fn git_http_probe_uses_smart_http_refs_endpoint() {
+        assert_eq!(
+            git_smart_http_probe_url("https://example.com/repo.git/"),
+            "https://example.com/repo.git/info/refs?service=git-upload-pack"
+        );
+    }
+
+    #[test]
     fn cpp_branch_mapping_matches_reference_script() {
         assert_eq!(cpp_branch_for("windows", "x86_64").unwrap(), "windows-x64");
         assert_eq!(cpp_branch_for("linux", "x86_64").unwrap(), "linux-x64");
@@ -1131,17 +1263,97 @@ mod tests {
     }
 
     #[test]
-    fn git2_only_failure_preserves_git2_error_without_rebenchmarking() {
-        struct PanicProbe;
+    fn sync_with_git2_uses_ranked_sources() {
+        struct FastSourceProbe {
+            fast_url: String,
+        }
 
-        impl SourceProbe for PanicProbe {
-            fn measure(&self, _url: &str) -> UpdaterResult<Duration> {
-                panic!("git2-only sync should not probe sources with Git CLI");
+        impl SourceProbe for FastSourceProbe {
+            fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+                if url == self.fast_url {
+                    Ok(Duration::from_millis(1))
+                } else {
+                    Ok(Duration::from_millis(50))
+                }
             }
         }
 
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("repo");
+        let ranking = dir.path().join("ranking.json");
+        let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
+        let fast_url = urls[1].clone();
+        let git = MockGit::default();
+        let calls = Arc::clone(&git.calls);
+        let manager = RepoManager::new(git);
+
+        let result = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target,
+                    ranking_path: Some(ranking),
+                    git_backend: GitBackend::Git2,
+                },
+                &FastSourceProbe {
+                    fast_url: fast_url.clone(),
+                },
+                &crate::NoopOutput,
+            )
+            .unwrap();
+
+        assert_eq!(result.source_url, fast_url);
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![format!("clone_git2:{fast_url}:master")]
+        );
+    }
+
+    #[test]
+    fn sync_removes_incomplete_staging_directory_before_clone() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        fs::create_dir_all(target.join("objects")).unwrap();
+        fs::write(target.join("objects").join("partial.pack"), "partial").unwrap();
+        let ranking = dir.path().join("ranking.json");
+        let url = repository_urls(RepositoryKind::Main, UpdateChannel::Stable)
+            .into_iter()
+            .next()
+            .unwrap();
+        let git = MockGit::default();
+        let calls = Arc::clone(&git.calls);
+        let manager = RepoManager::new(git);
+
+        let result = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target.clone(),
+                    ranking_path: Some(ranking),
+                    git_backend: GitBackend::Git2,
+                },
+                &Probe {
+                    ok: vec![url.clone()],
+                },
+                &crate::NoopOutput,
+            )
+            .unwrap();
+
+        assert_eq!(result.status, UpdateStatus::Installed);
+        assert!(!target.exists());
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![format!("clone_git2:{url}:master")]
+        );
+    }
+
+    #[test]
+    fn git2_only_failure_preserves_git2_error_without_rebenchmarking() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
         let tls_error = "there is no TLS stream available; class=Ssl (16)";
         let git = MockGit::git2_failure(tls_error);
         let manager = RepoManager::new(git);
@@ -1155,7 +1367,7 @@ mod tests {
                     ranking_path: None,
                     git_backend: GitBackend::Git2,
                 },
-                &PanicProbe,
+                &Probe { ok: urls },
                 &crate::NoopOutput,
             )
             .unwrap_err();

@@ -613,6 +613,8 @@ pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
 pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec {
     CommandSpec::new(runtime_python(config))
         .arg(config.baas_root().join("main.service.py").to_string_lossy())
+        .arg("--host")
+        .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
         .arg("--no-ocr-update-check")
@@ -1171,6 +1173,8 @@ mod tests {
             command.detached_pid_file.as_deref(),
             Some(backend_pid_path(&config).as_path())
         );
+        assert!(command.args.contains(&"--host".to_string()));
+        assert!(command.args.contains(&"127.0.0.1".to_string()));
         assert!(command.args.contains(&"--port".to_string()));
         assert!(command.args.contains(&"48888".to_string()));
     }
