@@ -37,7 +37,9 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   >;
   const _default_tactical_shop_goods_ = staticConfig.tactical_challenge_shop_price_list[
     serverType
-  ] as Array<[string, number, string]>;
+  ].map((e: [string, number, string][]) => {
+    return e.length > 2 ? e : [...e, "tactical_challenge_coin"];
+  }) as Array<[string, number, string]>;
 
   const shopDefs = {
     common: {

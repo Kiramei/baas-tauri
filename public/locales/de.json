@@ -66,6 +66,7 @@
       "assets": "Ressourcendetails anzeigen",
       "enableBAComet": "BAComet aktivieren",
       "enableSafeStream": "Sicheren Stream aktivieren",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Wiedergabe"
     },
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
@@ -530,8 +531,8 @@
     "status": "Status",
     "testAll": "Alle Methoden testen",
     "testing": "Teste SHA...",
-    "timeout": "Test der Update-Quelle ist abgelaufen",
-    "time": "Benötigte Zeit"
+    "time": "Benötigte Zeit",
+    "timeout": "Test der Update-Quelle ist abgelaufen"
   },
   "mirror": {
     "verify": "CDK überprüfen",

@@ -66,6 +66,7 @@
       "assets": "显示资产详细信息",
       "enableBAComet": "启用 BAComet",
       "enableSafeStream": "远程模拟器画面启用流加密",
+      "lowPerformanceMode": "低性能模式",
       "player": "远程模拟器解码器"
     },
     "updateSuccess": "设置更新成功"
@@ -530,8 +531,8 @@
     "status": "状态",
     "testAll": "测试所有方法",
     "testing": "SHA 测试中",
-    "timeout": "更新源测试已超时",
-    "time": "耗时"
+    "time": "耗时",
+    "timeout": "更新源测试已超时"
   },
   "mirror": {
     "verify": "验证CDK",

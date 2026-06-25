@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 interface ModalProps {
   isOpen: boolean;
@@ -19,6 +20,9 @@ export const Modal: React.FC<ModalProps> = ({
   titleNode = undefined,
   width = 40,
 }) => {
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -46,10 +50,10 @@ export const Modal: React.FC<ModalProps> = ({
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        transition={{ duration: 0.16 }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
         className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5 px-3"
         style={{ width: `${width}%`, minWidth: "320px" }}
       >

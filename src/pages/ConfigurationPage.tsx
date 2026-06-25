@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 import { useApp } from "@/context/AppContext";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { ProfileProps } from "@/types/app";
 import WhiteListConfig from "@/features/WhiteListConfig.tsx";
 import ArtifactConfig from "@/features/ArtifactConfig.tsx";
@@ -129,16 +130,20 @@ const cardVariants: Variants = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.18, ease: "easeOut" } },
 };
 
-const MotionCard: React.FC<React.PropsWithChildren<{ onClick?: () => void }>> = ({
+const MotionCard: React.FC<
+  React.PropsWithChildren<{ lowPerformanceMode: boolean; onClick?: () => void }>
+> = ({
   children,
+  lowPerformanceMode,
   onClick,
 }) => (
   <motion.div
-    variants={cardVariants}
-    initial="hidden"
-    animate="show"
-    whileHover={{ y: -2 }}
-    whileTap={{ scale: 0.99 }}
+    variants={lowPerformanceMode ? undefined : cardVariants}
+    initial={lowPerformanceMode ? false : "hidden"}
+    animate={lowPerformanceMode ? undefined : "show"}
+    whileHover={lowPerformanceMode ? undefined : { y: -2 }}
+    whileTap={lowPerformanceMode ? undefined : { scale: 0.99 }}
+    transition={{ duration: 0 }}
     className="cursor-pointer"
     onClick={onClick}
   >
@@ -153,6 +158,8 @@ const MotionCard: React.FC<React.PropsWithChildren<{ onClick?: () => void }>> = 
 const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
@@ -190,7 +197,11 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const renderFeatureCard = (feature: Feature) => {
     const { icon: Icon, descKey } = featureMap[feature];
     return (
-      <MotionCard key={feature} onClick={() => openModal(feature)}>
+      <MotionCard
+        key={feature}
+        lowPerformanceMode={lowPerformanceMode}
+        onClick={() => openModal(feature)}
+      >
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="bg-primary-100 dark:bg-primary-900/50 p-3 rounded-lg">
@@ -220,7 +231,12 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       </div>
 
       {/* Feature catalog rendered as motion-enabled tiles. */}
-      <motion.div variants={gridVariants} initial="show" animate="show" className="space-y-8">
+      <motion.div
+        variants={lowPerformanceMode ? undefined : gridVariants}
+        initial={lowPerformanceMode ? false : "show"}
+        animate={lowPerformanceMode ? undefined : "show"}
+        className="space-y-8"
+      >
         {Object.entries(featureGroups).map(([groupTitle, features]) => (
           <section key={groupTitle}>
             <h3 className="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-200">

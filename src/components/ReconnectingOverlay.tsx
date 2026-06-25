@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import PasswordInputModal from "@/components/PasswordInputModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const reconnectingMessages: Record<string, string> = {
   idle: "Opening secure control channel...",
@@ -21,6 +22,8 @@ const ReconnectingOverlay: React.FC = () => {
   const serverVerified = useWebSocketStore((state) => state._server_verified);
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const requiresPassword =
     authPhase === "server_verified" ||
     authPhase === "waiting_password" ||
@@ -37,10 +40,10 @@ const ReconnectingOverlay: React.FC = () => {
     <>
       <motion.div
         className="fixed inset-0 z-100 overflow-hidden bg-slate-950/55 backdrop-blur-[2px] backdrop-saturate-150"
-        initial={{ opacity: 0 }}
+        initial={lowPerformanceMode ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.24, ease: "easeOut" }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.24, ease: "easeOut" }}
         aria-live="polite"
         role="status"
       >
@@ -73,10 +76,14 @@ const ReconnectingOverlay: React.FC = () => {
                 <motion.span
                   key={index}
                   className="h-2 w-9 rounded-full bg-cyan-100/80 shadow-[0_0_18px_rgba(125,211,252,0.9)]"
-                  animate={{ opacity: [0.25, 1, 0.25], scaleX: [0.65, 1.2, 0.65] }}
+                  animate={
+                    lowPerformanceMode
+                      ? { opacity: 1, scaleX: 1 }
+                      : { opacity: [0.25, 1, 0.25], scaleX: [0.65, 1.2, 0.65] }
+                  }
                   transition={{
-                    duration: 1.1,
-                    repeat: Infinity,
+                    duration: lowPerformanceMode ? 0 : 1.1,
+                    repeat: lowPerformanceMode ? 0 : Infinity,
                     delay: index * 0.18,
                     ease: "easeInOut",
                   }}

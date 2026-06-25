@@ -21,6 +21,7 @@ import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -30,6 +31,8 @@ type Tab = ProfileDTO;
 const Header: React.FC = () => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
@@ -63,7 +66,7 @@ const Header: React.FC = () => {
   }, [updateScrollButtons]);
 
   const scrollBy = (dx: number) => {
-    stripRef.current?.scrollBy({ left: dx, behavior: "smooth" });
+    stripRef.current?.scrollBy({ left: dx, behavior: lowPerformanceMode ? "auto" : "smooth" });
   };
 
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; tab?: Tab } | null>(null);
@@ -99,10 +102,14 @@ const Header: React.FC = () => {
       setTimeout(() => {
         if (!(exists ?? list[0])) return;
         const el = document.getElementById(`tab-${exists ?? list[0].id}`);
-        el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        el?.scrollIntoView({
+          behavior: lowPerformanceMode ? "auto" : "smooth",
+          inline: "center",
+          block: "nearest",
+        });
       }, 0);
     })();
-  }, [configStore]);
+  }, [configStore, lowPerformanceMode]);
 
   const onReorder = (next: Tab[]) => {
     setTabs(next);
@@ -116,7 +123,11 @@ const Header: React.FC = () => {
     setActiveProfile(tab);
     // 确保选中项出现在视野内
     const el = document.getElementById(`tab-${tab.id}`);
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    el?.scrollIntoView({
+      behavior: lowPerformanceMode ? "auto" : "smooth",
+      inline: "center",
+      block: "nearest",
+    });
   };
 
   useEffect(() => {
@@ -312,6 +323,8 @@ const Header: React.FC = () => {
                 id={`tab-${tab.id}`}
                 key={tab.id}
                 value={tab}
+                layout={lowPerformanceMode ? undefined : true}
+                transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
                 className={`group relative flex items-center max-w-xs shrink-0 rounded-lg px-3 h-10 select-none
                     border cursor-pointer transition-colors
                     ${
@@ -382,10 +395,10 @@ const Header: React.FC = () => {
       <AnimatePresence>
         {ctxMenu && ctxMenu.tab && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
+            initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ type: "tween", duration: 0.12 }}
+            exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.96 }}
+            transition={{ type: "tween", duration: lowPerformanceMode ? 0 : 0.12 }}
             className="fixed z-50 min-w-40 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1"
             style={{ top: ctxMenu.y + 2, left: ctxMenu.x + 2 }}
           >
@@ -480,6 +493,8 @@ const ProfileEditorModal = (props: {
   checkName: (name: string, selfId?: string) => boolean;
 }) => {
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const [name, setName] = React.useState(props.initial?.name ?? "");
   const [server, setServer] = React.useState("CN");
   const [err, setErr] = React.useState<string | null>(null);
@@ -531,10 +546,10 @@ const ProfileEditorModal = (props: {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        transition={{ duration: 0.18, type: "tween", ease: "easeOut" }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.18, type: "tween", ease: "easeOut" }}
         className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -616,6 +631,8 @@ const ConfirmDeleteModal = (props: {
   onConfirm: () => void | Promise<void>;
 }) => {
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   if (!props.open) return null;
   return (
     <div
@@ -625,10 +642,10 @@ const ConfirmDeleteModal = (props: {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        transition={{ duration: 0.16 }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
         className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >

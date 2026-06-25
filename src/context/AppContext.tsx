@@ -42,7 +42,14 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
       setUiSettings(DEFAULT_UI_SETTINGS);
       StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
     } else {
-      setUiSettings(_uiSettings);
+      setUiSettings({
+        ...DEFAULT_UI_SETTINGS,
+        ..._uiSettings,
+        remoteSettings: {
+          ...DEFAULT_UI_SETTINGS.remoteSettings,
+          ..._uiSettings.remoteSettings,
+        },
+      });
     }
     setStageInitiated(true);
   }, []);

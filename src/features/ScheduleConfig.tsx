@@ -10,6 +10,7 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
 import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
 import { scheduleLevelKey } from "@/shared/I18nKeys";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -30,6 +31,8 @@ const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced
 
 const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const settings: Partial<DynamicConfig> = useWebSocketStore(
     (state) => state.configStore[profileId!]
   );
@@ -191,6 +194,8 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
                 <Reorder.Item
                   key={name}
                   value={name}
+                  layout={lowPerformanceMode ? undefined : true}
+                  transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
                   className="
                     flex items-center gap-2 px-3 py-0.5 shrink-0
                     rounded-full border border-slate-300 dark:border-slate-600

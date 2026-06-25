@@ -66,6 +66,7 @@
       "assets": "資産詳細を表示",
       "enableBAComet": "BAComet有効",
       "enableSafeStream": "安全ストリーム",
+      "lowPerformanceMode": "Low performance mode",
       "player": "プレイヤー"
     },
     "updateSuccess": "設定の更新に成功しました"
@@ -530,8 +531,8 @@
     "status": "ステータス",
     "testAll": "すべての方法をテスト",
     "testing": "SHAテスト中...",
-    "timeout": "更新元テストがタイムアウトしました",
-    "time": "所要時間"
+    "time": "所要時間",
+    "timeout": "更新元テストがタイムアウトしました"
   },
   "mirror": {
     "verify": "CDKを検証",

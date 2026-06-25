@@ -584,6 +584,13 @@ const SettingsPage: React.FC = () => {
               }}
             />
             <SwitchButton
+              label={t("settings.ui.lowPerformanceMode")}
+              checked={uiSettings?.lowPerformanceMode}
+              onChange={(value) => {
+                setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
+              }}
+            />
+            <SwitchButton
               label={t("settings.ui.enableSafeStream")}
               checked={uiSettings?.remoteSettings.enableSafeStream}
               onChange={(value) => {

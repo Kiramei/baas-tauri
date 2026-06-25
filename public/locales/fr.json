@@ -66,6 +66,7 @@
       "assets": "Afficher les détails des ressources",
       "enableBAComet": "Activer BAComet",
       "enableSafeStream": "Stream sécurisé",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Lecteur"
     },
     "updateSuccess": "Paramètres mis à jour avec succès"
@@ -530,8 +531,8 @@
     "status": "Statut",
     "testAll": "Tester toutes les méthodes",
     "testing": "Test SHA en cours...",
-    "timeout": "Le test de source de mise à jour a expiré",
-    "time": "Temps pris"
+    "time": "Temps pris",
+    "timeout": "Le test de source de mise à jour a expiré"
   },
   "mirror": {
     "verify": "Vérifier le CDK",

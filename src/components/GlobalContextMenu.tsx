@@ -5,6 +5,7 @@ import { ClipboardPaste, Copy, RotateCw, SearchCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { reloadWithoutPrompt } from "@/shared/reload";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 type MenuState = {
   x: number;
@@ -68,8 +69,8 @@ const insertText = (target: EventTarget | null, text: string) => {
   if (editable instanceof HTMLInputElement || editable instanceof HTMLTextAreaElement) {
     const start = editable.selectionStart ?? editable.value.length;
     const end = editable.selectionEnd ?? editable.value.length;
-    const nextValue = `${editable.value.slice(0, start)}${text}${editable.value.slice(end)}`;
-    editable.value = nextValue;
+
+    editable.value = `${editable.value.slice(0, start)}${text}${editable.value.slice(end)}`;
     const nextPosition = start + text.length;
     editable.setSelectionRange(nextPosition, nextPosition);
     editable.dispatchEvent(new Event("input", { bubbles: true }));
@@ -93,6 +94,8 @@ const openInspector = async (webuiHint: string) => {
 
 const GlobalContextMenu: React.FC = () => {
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const [menu, setMenu] = React.useState<MenuState | null>(null);
 
   const close = React.useCallback(() => setMenu(null), []);
@@ -167,10 +170,10 @@ const GlobalContextMenu: React.FC = () => {
       {menu && (
         <motion.div
           data-context-menu
-          initial={{ opacity: 0, scale: 0.96 }}
+          initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
-          transition={{ type: "tween", duration: 0.12 }}
+          exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.96 }}
+          transition={{ type: "tween", duration: lowPerformanceMode ? 0 : 0.12 }}
           className={menuClass}
           style={{ top: menu.y, left: menu.x }}
         >

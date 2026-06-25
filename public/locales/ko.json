@@ -66,6 +66,7 @@
       "assets": "자산 세부 정보 표시",
       "enableBAComet": "BAComet 켜기",
       "enableSafeStream": "보안 스트림",
+      "lowPerformanceMode": "Low performance mode",
       "player": "플레이어"
     },
     "updateSuccess": "설정이 성공적으로 업데이트되었습니다"
@@ -530,8 +531,8 @@
     "status": "상태",
     "testAll": "모든 방법 테스트",
     "testing": "SHA 테스트 중...",
-    "timeout": "업데이트 소스 테스트 시간이 초과되었습니다",
-    "time": "소요 시간"
+    "time": "소요 시간",
+    "timeout": "업데이트 소스 테스트 시간이 초과되었습니다"
   },
   "mirror": {
     "verify": "CDK 확인",

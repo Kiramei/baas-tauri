@@ -13,6 +13,7 @@ import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 type Channel = "stable" | "dev";
 
@@ -63,6 +64,8 @@ const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
   const [validating, setValidating] = useState(false);
   const [cdkStatus, setCdkStatus] = useState<MirrorCStatus | null>(null);
@@ -177,10 +180,10 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        transition={{ duration: 0.16 }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
         className="w-full mx-2 md:mx-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >

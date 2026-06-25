@@ -66,6 +66,7 @@
       "assets": "Display Asset Details",
       "enableBAComet": "Enable BAComet",
       "enableSafeStream": "Enable safe stream",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Player"
     },
     "updateSuccess": "Settings Updated Successfully"
@@ -530,8 +531,8 @@
     "status": "Status",
     "testAll": "Test All Methods",
     "testing": "Testing SHA...",
-    "timeout": "Update source test timed out",
-    "time": "Time taken"
+    "time": "Time taken",
+    "timeout": "Update source test timed out"
   },
   "mirror": {
     "verify": "Verify CDK",
