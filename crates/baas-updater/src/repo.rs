@@ -378,6 +378,8 @@ impl<E: GitExecutor> RepoManager<E> {
             ranking = SourceRanking::from_urls(&expected_urls);
         }
         let branch = repository_branch(options.kind)?;
+        let uses_git2_only = options.git_backend == GitBackend::Git2 || !self.executor.has_cli();
+        let mut last_error: Option<UpdaterError> = None;
 
         for source in ranking.active_sources() {
             output.line(
@@ -410,12 +412,30 @@ impl<E: GitExecutor> RepoManager<E> {
                 Err(error) => {
                     output.line(OutputStyle::Warning, &format!("{error}"));
                     ranking.demote_failed(&source.url);
+                    last_error = Some(error);
                     if let Some(path) = &options.ranking_path {
                         save_ranking(path, &ranking)?;
                     }
                     cleanup_failed_clone(&options.target_dir)?;
                 }
             }
+        }
+
+        if uses_git2_only {
+            if let Some(path) = &options.ranking_path {
+                save_ranking(path, &SourceRanking::from_urls(&expected_urls))?;
+            }
+            let backend = if options.git_backend == GitBackend::Auto {
+                GitBackend::Git2.as_str()
+            } else {
+                options.git_backend.as_str()
+            };
+            let detail = last_error
+                .map(|error| format!("; last error: {}", error.message()))
+                .unwrap_or_default();
+            return Err(UpdaterError::Git(format!(
+                "all repository sources failed using {backend}{detail}"
+            )));
         }
 
         ranking.all_failed_cycles = ranking.all_failed_cycles.saturating_add(1);
@@ -849,6 +869,7 @@ mod tests {
         has_cli: bool,
         remote_sha: String,
         cli_results: Mutex<VecDeque<UpdaterResult<()>>>,
+        git2_error: Option<String>,
         calls: Arc<Mutex<Vec<String>>>,
     }
 
@@ -860,6 +881,7 @@ mod tests {
                 has_cli: true,
                 remote_sha: "remote-sha".to_string(),
                 cli_results: Mutex::new(cli_results),
+                git2_error: None,
                 calls: Arc::new(Mutex::new(Vec::new())),
             }
         }
@@ -869,6 +891,17 @@ mod tests {
                 has_cli: true,
                 remote_sha: "cli-sha".to_string(),
                 cli_results: Mutex::new(VecDeque::new()),
+                git2_error: None,
+                calls: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn git2_failure(message: &str) -> Self {
+            Self {
+                has_cli: true,
+                remote_sha: "remote-sha".to_string(),
+                cli_results: Mutex::new(VecDeque::new()),
+                git2_error: Some(message.to_string()),
                 calls: Arc::new(Mutex::new(Vec::new())),
             }
         }
@@ -922,6 +955,9 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("clone_git2:{url}:{branch}"));
+            if let Some(error) = &self.git2_error {
+                return Err(UpdaterError::Git(error.clone()));
+            }
             Ok(())
         }
 
@@ -936,6 +972,9 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("update_git2:{url}:{branch}"));
+            if let Some(error) = &self.git2_error {
+                return Err(UpdaterError::Git(error.clone()));
+            }
             Ok(())
         }
 
@@ -1089,6 +1128,42 @@ mod tests {
 
         assert_eq!(result.status, UpdateStatus::Skipped);
         assert!(calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn git2_only_failure_preserves_git2_error_without_rebenchmarking() {
+        struct PanicProbe;
+
+        impl SourceProbe for PanicProbe {
+            fn measure(&self, _url: &str) -> UpdaterResult<Duration> {
+                panic!("git2-only sync should not probe sources with Git CLI");
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("repo");
+        let tls_error = "there is no TLS stream available; class=Ssl (16)";
+        let git = MockGit::git2_failure(tls_error);
+        let manager = RepoManager::new(git);
+
+        let error = manager
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Stable,
+                    target_dir: target,
+                    ranking_path: None,
+                    git_backend: GitBackend::Git2,
+                },
+                &PanicProbe,
+                &crate::NoopOutput,
+            )
+            .unwrap_err();
+
+        let message = error.message();
+        assert!(message.contains("all repository sources failed using git2"));
+        assert!(message.contains(tls_error));
+        assert!(!message.contains("ranking was rebuilt"));
     }
 
     #[test]
