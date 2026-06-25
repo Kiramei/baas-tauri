@@ -117,6 +117,13 @@
     "import": "Import Profile Archive",
     "importArchive": "Choose profile archive",
     "importFailed": "Failed to import profile",
+    "dropAuthRequired": "Connect and authenticate before importing a profile archive.",
+    "dropImportHint": "Release the .zip file to add it as a new profile.",
+    "dropImporting": "Importing profile archive...",
+    "dropImportSuccess": "Profile archive imported.",
+    "dropImportTitle": "Drop to import profile archive",
+    "dropInvalid": "Only .zip profile archives can be imported.",
+    "dropInvalidTitle": "Unsupported file type",
     "name": "Profile Name",
     "nameExists": "Name already exists"
   },

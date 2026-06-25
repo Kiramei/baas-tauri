@@ -117,6 +117,13 @@
     "import": "导入配置压缩包",
     "importArchive": "选择配置压缩包",
     "importFailed": "导入配置失败",
+    "dropAuthRequired": "请先连接并完成认证后再导入配置压缩包。",
+    "dropImportHint": "松开 .zip 文件，将其添加为新的配置。",
+    "dropImporting": "正在导入配置压缩包...",
+    "dropImportSuccess": "配置压缩包导入完成。",
+    "dropImportTitle": "松开以导入配置压缩包",
+    "dropInvalid": "仅支持导入 .zip 配置压缩包。",
+    "dropInvalidTitle": "不支持的文件类型",
     "name": "配置名",
     "nameExists": "配置名已存在"
   },

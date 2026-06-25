@@ -117,6 +117,13 @@
     "import": "プロファイルアーカイブをインポート",
     "importArchive": "プロファイルアーカイブを選択",
     "importFailed": "プロファイルのインポートに失敗しました",
+    "dropAuthRequired": "プロファイルアーカイブをインポートする前に接続して認証してください。",
+    "dropImportHint": ".zip ファイルを離すと、新しいプロファイルとして追加されます。",
+    "dropImporting": "プロファイルアーカイブをインポート中...",
+    "dropImportSuccess": "プロファイルアーカイブをインポートしました。",
+    "dropImportTitle": "離してプロファイルアーカイブをインポート",
+    "dropInvalid": ".zip のプロファイルアーカイブのみインポートできます。",
+    "dropInvalidTitle": "対応していないファイル形式です",
     "name": "プロファイル名",
     "nameExists": "名前は既に存在します"
   },

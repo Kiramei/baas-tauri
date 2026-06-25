@@ -19,6 +19,7 @@ import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
+import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -193,6 +194,7 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <Main />
+                <ConfigArchiveDropOverlay />
                 {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
                 <Toaster />
               </TauriShortcutProvider>
