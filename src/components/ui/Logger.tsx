@@ -41,27 +41,40 @@ const getMessageStyle = (level: string) => {
   }
 };
 
+const getLogLevelDisplay = (level: string) => {
+  switch (level) {
+    case "INFO":
+      return "INFO";
+    case "WARNING":
+      return "WARN";
+    case "ERROR":
+      return "FAIL";
+    case "CRITICAL":
+      return "CRIT";
+    default:
+      return "DBUG";
+  }
+};
+
 const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => {
   const log: LogItem = logs[index];
   return (
     <div style={style} className="flex items-start cursor-text px-2">
       {/* 时间 */}
-      <span className="text-gray-500 whitespace-nowrap min-w-[100px] hidden sm:block">
+      <span className="text-gray-500 whitespace-nowrap min-w-25 hidden sm:block">
         {formatIsoToReadableTime(log.time)}
       </span>
 
       {/* Level */}
-      <span
-        className={`sm:min-w-[75px] ${getLevelColor(log.level)} font-bold flex justify-end mr-2`}
-      >
+      <span className={`sm:min-w-11 ${getLevelColor(log.level)} font-bold flex justify-end mr-2`}>
         {/* 在小屏幕下只显示第一个字母, 大屏幕显示完整内容 */}
-        <span className="block sm:hidden">{log.level.trim().charAt(0)}</span>
-        <span className="hidden sm:block">{log.level}</span>
+        <span className="block sm:hidden">{getLogLevelDisplay(log.level).trim().charAt(0)}</span>
+        <span className="hidden sm:block">{getLogLevelDisplay(log.level)}</span>
       </span>
 
       {/* Message */}
       <div
-        className={`flex-1 pl-2 sm:pl-2 whitespace-pre-wrap break-words ${getMessageStyle(log.level)}`}
+        className={`flex-1 pl-2 sm:pl-2 whitespace-pre-wrap wrap-break-word ${getMessageStyle(log.level)}`}
       >
         {log.message}
       </div>
