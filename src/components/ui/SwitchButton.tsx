@@ -7,6 +7,7 @@ interface SwitchButtonProps {
   onChange: (checked: boolean) => void; // 状态切换的回调
   className?: string;
   children?: ReactNode;
+  disabled?: boolean;
 }
 
 const SwitchButton: React.FC<SwitchButtonProps> = ({
@@ -15,6 +16,7 @@ const SwitchButton: React.FC<SwitchButtonProps> = ({
   label,
   onChange,
   className = "",
+  disabled = false,
   ...props
 }) => {
   return children ? (
@@ -25,6 +27,7 @@ const SwitchButton: React.FC<SwitchButtonProps> = ({
           ? "bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500"
           : "bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 focus:ring-slate-500"
       } ${className}`}
+      disabled={disabled}
       {...props}
     >
       {children}

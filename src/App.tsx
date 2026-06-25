@@ -162,7 +162,7 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <Main />
-                {!ready && <ReconnectingOverlay />}
+                {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
                 <Toaster />
               </TauriShortcutProvider>
             </TauriSelfUpdateProvider>

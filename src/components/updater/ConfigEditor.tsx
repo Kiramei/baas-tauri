@@ -9,7 +9,7 @@ import type { Theme } from "@/types/app";
 import { useTheme } from "@/context/ThemeProvider";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
-import { Switch } from "@/components/ui/switch.tsx";
+import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
@@ -224,10 +224,9 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             >
               Skip updates
             </label>
-            <Switch
-              id="setup-no-update"
+            <SwitchButton
               checked={noUpdate}
-              onCheckedChange={(checked) => patchGeneral({ no_update: checked })}
+              onChange={(checked) => patchGeneral({ no_update: checked })}
               disabled={props.disabled}
             />
           </div>
