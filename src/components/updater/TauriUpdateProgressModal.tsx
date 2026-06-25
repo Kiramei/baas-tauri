@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Info, Loader2 } from "lucide-react";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const overlayCls =
   "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50";
@@ -14,6 +15,8 @@ export const TauriUpdateProgressModal: React.FC<{
   tauriStatus: string;
 }> = ({ open, onClose, updating, tauriProgress, tauriStatus }) => {
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   if (!open) return null;
 
   return (
@@ -24,10 +27,10 @@ export const TauriUpdateProgressModal: React.FC<{
       }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
         onMouseDown={(event) => event.stopPropagation()}
         className="w-90 max-w-[calc(100vw-2rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
       >

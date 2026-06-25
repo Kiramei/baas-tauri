@@ -35,6 +35,7 @@ launch = false
 force_launch = false
 debug = false
 no_update = false
+git_backend = "auto"
 source_list = ["https://mirrors.aliyun.com/pypi/simple"]
 
 [paths]
@@ -70,9 +71,9 @@ flow:
 6. Launch the backend when both workflow options and config allow it.
 
 MirrorC is used when `general.mirrorc_cdk` is non-empty. Otherwise the updater
-uses Git. Git operations prefer system `git` through `baas-term` process tasks;
-when Git CLI is unavailable or planning fails, Rust `git2` work runs through
-`baas-term` thread tasks.
+uses Git. `general.git_backend` selects the Git implementation: `auto` prefers
+system `git` and falls back to `git2`, `git_cli` uses only system `git`, and
+`git2` uses Rust `git2`/libgit2 only.
 
 When `general.no_update = true`, repository synchronization is skipped and the
 workflow keeps using the current main and Cpp/OCR files.
@@ -89,6 +90,8 @@ consecutive ranking cycles, the updater reports an error.
 
 All Git clone and update operations are shallow. CLI updates use
 `fetch --depth 1`, `reset --hard FETCH_HEAD`, and a best-effort history prune.
+CLI commands run with interactive credential prompts disabled so the installer
+fails or falls back instead of waiting on an external credential window.
 
 ## Environment
 

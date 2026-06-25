@@ -7,7 +7,7 @@ use baas_updater::{
     config::{ConfigManager, UpdaterConfig},
     environ::{backend_pid_path, launch_backend_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
-    RepositoryKind, UpdateChannel, WorkflowOptions,
+    GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub channel: Option<String>,
     pub runtime_path: Option<String>,
     pub no_update: Option<bool>,
+    pub git_backend: Option<String>,
 }
 
 /// MirrorC CDK validation request.
@@ -176,9 +177,14 @@ pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
 ) -> Result<UpdaterConfig, String> {
-    let mut manager = ensure_default_config(&app)?;
+    let request_baas_root_path = request.baas_root_path.clone();
+    let mut manager = ensure_config_for_install_path(&app, request_baas_root_path.as_deref())?;
     let parsed_channel = match request.channel.as_deref() {
         Some(value) => Some(UpdateChannel::parse(value).map_err(|error| error.message())?),
+        None => None,
+    };
+    let parsed_git_backend = match request.git_backend.as_deref() {
+        Some(value) => Some(GitBackend::parse(value).map_err(|error| error.message())?),
         None => None,
     };
     manager
@@ -197,6 +203,9 @@ pub fn updater_update_config(
             }
             if let Some(no_update) = request.no_update {
                 config.general.no_update = no_update;
+            }
+            if let Some(git_backend) = parsed_git_backend {
+                config.general.git_backend = git_backend;
             }
         })
         .map_err(|error| error.message())?;
@@ -272,12 +281,13 @@ pub fn updater_start_workflow(
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
 ) -> Result<SessionMetadata, String> {
-    let mut config_manager = ensure_default_config(&app)?;
-    backend.stop_for_config(&config_manager.config)?;
+    let initial_config_manager = ensure_default_config(&app)?;
     let install_path = request
         .install_path
-        .or_else(|| non_empty_path(&config_manager.config.paths.baas_root_path))
+        .or_else(|| non_empty_path(&initial_config_manager.config.paths.baas_root_path))
         .unwrap_or_else(default_install_path);
+    let mut config_manager = ensure_config_for_install_path(&app, Some(&install_path))?;
+    backend.stop_for_config(&config_manager.config)?;
     let mut next_config = config_manager.config.clone();
     next_config.paths.baas_root_path = install_path.to_string_lossy().to_string();
     backend.stop_for_config(&next_config)?;
@@ -358,6 +368,27 @@ pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
     let manager = ConfigManager::load_default_path_in_app_data(app_data_dir)
         .map_err(|error| error.message())?;
     manager.save().map_err(|error| error.message())?;
+    Ok(manager)
+}
+
+fn ensure_config_for_install_path(
+    app: &AppHandle,
+    install_path: Option<&Path>,
+) -> Result<ConfigManager, String> {
+    let default_manager = ensure_default_config(app)?;
+    let Some(install_path) = install_path else {
+        return Ok(default_manager);
+    };
+    let install_config = install_path.join("setup.toml");
+    if !install_config.exists() || default_manager.config_path == install_config {
+        return Ok(default_manager);
+    }
+    let mut manager = ConfigManager::load_from(install_config).map_err(|error| error.message())?;
+    manager
+        .update(|config| {
+            config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+        })
+        .map_err(|error| error.message())?;
     Ok(manager)
 }
 

@@ -12,6 +12,7 @@ import {
 } from "@/components/LocalWikiContent.tsx";
 import { AlertCircle, BookOpen, ExternalLink, Loader2, Search, Tag, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -142,6 +143,8 @@ const ArticleModal: React.FC<{
   onClose: () => void;
 }> = ({ open, article, onClose }) => {
   const { i18n } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   // ESCAPE Key to Close
   useEffect(() => {
     if (!open) return;
@@ -160,10 +163,10 @@ const ArticleModal: React.FC<{
   return (
     <div className={overlayCls} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 10 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.97, y: 10 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.2, ease: "easeOut" }}
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-h-[95vh] m-5 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col"
       >
@@ -208,6 +211,8 @@ const ArticleModal: React.FC<{
 // ========= Wiki Page Main Component ==========
 const WikiPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const language = mapLanguage(i18n.language);
 
   const [query, setQuery] = useState("");
@@ -550,11 +555,11 @@ const WikiPage: React.FC = () => {
           {filteredArticles.map((article) => (
             <motion.div
               key={article.id}
-              layout
-              initial={{ opacity: 0, y: 6 }}
+              layout={lowPerformanceMode ? undefined : true}
+              initial={lowPerformanceMode ? false : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
+              exit={lowPerformanceMode ? undefined : { opacity: 0, y: -6 }}
+              transition={{ duration: lowPerformanceMode ? 0 : 0.15, ease: "easeOut" }}
             >
               <Card
                 onClick={() => setSelectedArticle(article)}

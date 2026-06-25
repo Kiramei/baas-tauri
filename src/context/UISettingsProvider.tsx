@@ -15,6 +15,7 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   scrollToEnd: true,
   assetsDisplay: true,
   enableBAComet: false,
+  lowPerformanceMode: false,
   remoteSettings: {
     streamPlayer: "mse",
     enableSafeStream: true,

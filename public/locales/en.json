@@ -66,6 +66,7 @@
       "assets": "Display Asset Details",
       "enableBAComet": "Enable BAComet",
       "enableSafeStream": "Enable safe stream",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Player"
     },
     "updateSuccess": "Settings Updated Successfully"
@@ -116,6 +117,13 @@
     "import": "Import Profile Archive",
     "importArchive": "Choose profile archive",
     "importFailed": "Failed to import profile",
+    "dropAuthRequired": "Connect and authenticate before importing a profile archive.",
+    "dropImportHint": "Release the .zip file to add it as a new profile.",
+    "dropImporting": "Importing profile archive...",
+    "dropImportSuccess": "Profile archive imported.",
+    "dropImportTitle": "Drop to import profile archive",
+    "dropInvalid": "Only .zip profile archives can be imported.",
+    "dropInvalidTitle": "Unsupported file type",
     "name": "Profile Name",
     "nameExists": "Name already exists"
   },
@@ -530,8 +538,8 @@
     "status": "Status",
     "testAll": "Test All Methods",
     "testing": "Testing SHA...",
-    "timeout": "Update source test timed out",
-    "time": "Time taken"
+    "time": "Time taken",
+    "timeout": "Update source test timed out"
   },
   "mirror": {
     "verify": "Verify CDK",
@@ -553,6 +561,7 @@
     "inspect": "Inspect",
     "inspectWebuiHint": "Press F12 to open developer tools.",
     "paste": "Paste",
+    "pasteFailed": "Clipboard is not available.",
     "reload": "Reload"
   },
   "adb": {

@@ -6,13 +6,13 @@
 
 use crate::constants::{
     ANSI_DASHBOARD_RESET, ANSI_RESET, DEFAULT_RUNNING_REGION_MAX_LINES, EVENT_TERM_CHUNK,
-    EVENT_TERM_SESSION_FINISHED, EVENT_TERM_TASK_STARTED, EVENT_TERM_TASK_STATUS,
-    EVENT_TERM_WORKFLOW_PLANNED, EVENT_UPDATER_BACKEND_READY, MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS,
-    REGION_MAX_KEPT_LINES, STATUS_RUNNING, TAB_WIDTH,
+    EVENT_TERM_REGION_STABLE, EVENT_TERM_SESSION_FINISHED, EVENT_TERM_TASK_STARTED,
+    EVENT_TERM_TASK_STATUS, EVENT_TERM_WORKFLOW_PLANNED, EVENT_UPDATER_BACKEND_READY,
+    MIN_TERMINAL_COLS, MIN_TERMINAL_ROWS, REGION_MAX_KEPT_LINES, STATUS_RUNNING, TAB_WIDTH,
 };
 use crate::types::{
-    BackendReadyPayload, DashboardLogPayload, RendererEvent, SessionFinishedPayload, TaskSpec,
-    TaskStartedPayload, TaskStatusPayload, WorkflowPlannedPayload,
+    BackendReadyPayload, DashboardLogPayload, RendererEvent, SessionFinishedPayload,
+    StableRegionPayload, TaskSpec, TaskStartedPayload, TaskStatusPayload, WorkflowPlannedPayload,
 };
 use chrono::{DateTime, Utc};
 use std::{
@@ -187,6 +187,27 @@ fn emit_dashboard_chunk(app: &AppHandle, session_id: &str, pending_chunk: &mut S
     );
 }
 
+fn emit_stable_region(
+    app: &AppHandle,
+    session_id: &str,
+    task_id: &str,
+    snapshot: Option<StableRegionSnapshot>,
+) {
+    let Some(snapshot) = snapshot else {
+        return;
+    };
+    let _ = app.emit(
+        EVENT_TERM_REGION_STABLE,
+        StableRegionPayload {
+            session_id: session_id.to_string(),
+            task_id: task_id.to_string(),
+            region_id: snapshot.region_id,
+            title: snapshot.title,
+            lines: snapshot.lines,
+        },
+    );
+}
+
 /// Runs the renderer event loop for a single session.
 ///
 /// The loop receives [`RendererEvent`] values, updates the in-memory dashboard,
@@ -303,6 +324,12 @@ pub fn renderer_loop(
                 } else {
                     region_id
                 };
+                emit_stable_region(
+                    &app,
+                    &session_id,
+                    &task_id,
+                    renderer.stable_region_snapshot(&region_id),
+                );
                 let finished = Utc::now();
                 let started_at = task_started_at.remove(&task_id);
                 let duration_ms = started_at
@@ -357,6 +384,17 @@ pub fn renderer_loop(
                 if !chunk.is_empty() {
                     pending_chunk.push_str(&chunk);
                     emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
+                }
+                for region_id in region_ids {
+                    let task_id = renderer
+                        .task_id_for_region(&region_id)
+                        .unwrap_or_else(|| region_id.clone());
+                    emit_stable_region(
+                        &app,
+                        &session_id,
+                        &task_id,
+                        renderer.stable_region_snapshot(&region_id),
+                    );
                 }
             }
             RendererEvent::Resize { rows, cols } => {
@@ -678,11 +716,18 @@ impl RegionBuffer {
     }
 }
 
+struct StableRegionSnapshot {
+    region_id: String,
+    title: String,
+    lines: Vec<String>,
+}
+
 struct SessionRenderer {
     regions: HashMap<String, RegionBuffer>,
     titles: HashMap<String, String>,
     task_regions: HashMap<String, String>,
     buffered_regions: HashSet<String>,
+    stable_regions_emitted: HashSet<String>,
     region_order: Vec<String>,
     rows: usize,
     cols: usize,
@@ -695,6 +740,7 @@ impl SessionRenderer {
             titles: HashMap::new(),
             task_regions: HashMap::new(),
             buffered_regions: HashSet::new(),
+            stable_regions_emitted: HashSet::new(),
             region_order: Vec::new(),
             rows: usize::from(rows.max(MIN_TERMINAL_ROWS)),
             cols: usize::from(cols.max(MIN_TERMINAL_COLS)),
@@ -777,6 +823,41 @@ impl SessionRenderer {
 
     fn region_id_for(&self, task_id: &str) -> Option<String> {
         self.task_regions.get(task_id).cloned()
+    }
+
+    fn task_id_for_region(&self, region_id: &str) -> Option<String> {
+        self.task_regions
+            .iter()
+            .find_map(|(task_id, known_region)| {
+                if known_region == region_id {
+                    Some(task_id.clone())
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn stable_region_snapshot(&mut self, region_id: &str) -> Option<StableRegionSnapshot> {
+        if region_id.is_empty() || !self.stable_regions_emitted.insert(region_id.to_string()) {
+            return None;
+        }
+
+        let title = self.titles.get(region_id).cloned().unwrap_or_default();
+        let lines = self
+            .regions
+            .get(region_id)
+            .map(|region| region.render_lines(None, usize::MAX))
+            .unwrap_or_default();
+
+        if title.is_empty() && lines.is_empty() {
+            return None;
+        }
+
+        Some(StableRegionSnapshot {
+            region_id: region_id.to_string(),
+            title,
+            lines,
+        })
     }
 
     fn render_running_snapshot(&self) -> String {
@@ -1068,5 +1149,21 @@ mod tests {
 
         assert!(snapshot.contains("1"));
         assert!(snapshot.contains("4"));
+    }
+
+    #[test]
+    fn stable_region_snapshot_is_full_and_emitted_once() {
+        let mut renderer = SessionRenderer::new(3, 80);
+        renderer.start_region(&spec("task", "region", 1, "History"));
+        renderer.push_output("task", "region", b"1\n2\n3\n4");
+        renderer.finish_region("task");
+
+        let snapshot = renderer.stable_region_snapshot("region").unwrap();
+
+        assert_eq!(snapshot.region_id, "region");
+        assert!(snapshot.title.contains("History"));
+        assert_eq!(snapshot.lines.len(), 4);
+        assert!(snapshot.lines[0].contains("1"));
+        assert!(renderer.stable_region_snapshot("region").is_none());
     }
 }

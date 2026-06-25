@@ -66,6 +66,7 @@
       "assets": "Ressourcendetails anzeigen",
       "enableBAComet": "BAComet aktivieren",
       "enableSafeStream": "Sicheren Stream aktivieren",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Wiedergabe"
     },
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
@@ -116,6 +117,13 @@
     "import": "Profilarchiv importieren",
     "importArchive": "Profilarchiv auswählen",
     "importFailed": "Profil konnte nicht importiert werden",
+    "dropAuthRequired": "Verbinde dich und authentifiziere dich, bevor du ein Profilarchiv importierst.",
+    "dropImportHint": "Lasse die .zip-Datei los, um sie als neues Profil hinzuzufügen.",
+    "dropImporting": "Profilarchiv wird importiert...",
+    "dropImportSuccess": "Profilarchiv importiert.",
+    "dropImportTitle": "Loslassen, um Profilarchiv zu importieren",
+    "dropInvalid": "Es können nur .zip-Profilarchive importiert werden.",
+    "dropInvalidTitle": "Nicht unterstützter Dateityp",
     "name": "Profilname",
     "nameExists": "Name existiert bereits"
   },
@@ -530,8 +538,8 @@
     "status": "Status",
     "testAll": "Alle Methoden testen",
     "testing": "Teste SHA...",
-    "timeout": "Test der Update-Quelle ist abgelaufen",
-    "time": "Benötigte Zeit"
+    "time": "Benötigte Zeit",
+    "timeout": "Test der Update-Quelle ist abgelaufen"
   },
   "mirror": {
     "verify": "CDK überprüfen",
@@ -553,6 +561,7 @@
     "inspect": "Pruefen",
     "inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
     "paste": "Einfuegen",
+    "pasteFailed": "Zwischenablage ist nicht verfuegbar.",
     "reload": "Neu laden"
   },
   "adb": {

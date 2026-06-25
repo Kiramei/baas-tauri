@@ -257,11 +257,11 @@ dependencies = [
 
 [[package]]
 name = "baas-i18n"
-version = "0.0.4"
+version = "0.0.5"
 
 [[package]]
 name = "baas-shortcut"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "serde",
  "tauri",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "baas-tauri"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "baas-i18n",
  "baas-shortcut",
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -308,7 +308,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "baas-term",
  "flate2",
@@ -1623,6 +1623,9 @@ dependencies = [
  "libc",
  "libgit2-sys",
  "log",
+ "openssl-probe 0.1.6",
+ "openssl-sys",
+ "url",
 ]
 
 [[package]]
@@ -2390,6 +2393,7 @@ dependencies = [
  "cc",
  "libc",
  "libz-sys",
+ "openssl-sys",
  "pkg-config",
 ]
 
@@ -2853,9 +2857,37 @@ dependencies = [
 
 [[package]]
 name = "openssl-probe"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
+
+[[package]]
+name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
+
+[[package]]
+name = "openssl-src"
+version = "300.6.1+3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46eb8fb9fb3b61ce1c0f8a026c4c1a0714d3a9e138e7fbde78753ce2babc3846"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "openssl-sys"
+version = "0.9.116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f28a22dc7140cda5f096e5e7724a6962ca81a7f8bfd2979f9b18c11af56318c4"
+dependencies = [
+ "cc",
+ "libc",
+ "openssl-src",
+ "pkg-config",
+ "vcpkg",
+]
 
 [[package]]
 name = "option-ext"
@@ -3542,7 +3574,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dab5152771c58876a2146916e53e35057e1a4dfa2b9df0f0305b07f611fdea4d"
 dependencies = [
- "openssl-probe",
+ "openssl-probe 0.2.1",
  "rustls-pki-types",
  "schannel",
  "security-framework",

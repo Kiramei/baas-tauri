@@ -10,7 +10,7 @@ import WikiPage from "@/pages/WikiPage.tsx";
 import WebWikiViewer from "@/components/WebWikiViewer";
 import GlobalContextMenu from "@/components/GlobalContextMenu";
 import type { Variants } from "framer-motion";
-import { motion } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
 import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
@@ -19,6 +19,7 @@ import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
+import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -34,6 +35,21 @@ const variants: Variants = {
     opacity: 0,
     x: -24,
     transition: { type: "tween" as const, duration: 0.2, ease: "easeOut" as const },
+    transitionEnd: { display: "none" },
+  },
+};
+
+const lowPerformanceVariants: Variants = {
+  show: {
+    opacity: 1,
+    x: 0,
+    display: "block" as const,
+    transition: { duration: 0 },
+  },
+  hide: {
+    opacity: 0,
+    x: 0,
+    transition: { duration: 0 },
     transitionEnd: { display: "none" },
   },
 };
@@ -60,6 +76,8 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   const activePid = activeProfile!.id;
   const currentKey = instanceKeyOf(activePage, activePid);
@@ -101,7 +119,7 @@ const Main: React.FC = () => {
             <motion.div
               key={instKey}
               className="absolute inset-0 overflow-y-auto scroll-embedded pr-2"
-              variants={variants}
+              variants={lowPerformanceMode ? lowPerformanceVariants : variants}
               initial={isActive ? "show" : "hide"}
               animate={isActive ? "show" : "hide"}
               style={{ pointerEvents: isActive ? "auto" : "none" }}
@@ -126,6 +144,7 @@ const WrappedApp: React.FC = () => {
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
   const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   useEffect(() => {
     if (ready) {
@@ -133,16 +152,29 @@ const WrappedApp: React.FC = () => {
     }
   }, [ready]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("low-performance-mode", lowPerformanceMode);
+    return () => {
+      document.documentElement.classList.remove("low-performance-mode");
+    };
+  }, [lowPerformanceMode]);
+
+  useEffect(() => {
+    if (lowPerformanceMode && hasReadyOnce) {
+      setHideLoading(true);
+    }
+  }, [hasReadyOnce, lowPerformanceMode]);
+
   return (
-    <>
-      {uiSettings.enableBAComet && <BAComet />}
+    <MotionConfig reducedMotion={lowPerformanceMode ? "always" : "never"}>
+      {uiSettings.enableBAComet && !lowPerformanceMode && <BAComet />}
       <GlobalContextMenu />
 
       {!hideLoading && (
         <motion.div
           initial={false}
           animate={{ opacity: hasReadyOnce ? 0 : 1 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: lowPerformanceMode ? 0 : 0.2 }}
           onAnimationComplete={(definition) => {
             if (hasReadyOnce && (definition as any).opacity === 0) {
               setHideLoading(true);
@@ -162,14 +194,15 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <Main />
-                {!ready && <ReconnectingOverlay />}
+                <ConfigArchiveDropOverlay />
+                {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
                 <Toaster />
               </TauriShortcutProvider>
             </TauriSelfUpdateProvider>
           )}
         </AppProvider>
       </Suspense>
-    </>
+    </MotionConfig>
   );
 };
 

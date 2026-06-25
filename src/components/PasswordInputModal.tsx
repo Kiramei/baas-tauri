@@ -23,7 +23,8 @@ const PasswordInputModal: React.FC<{
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
-  const { setUiSettings } = useUISettings();
+  const { uiSettings, setUiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   useEffect(() => {
     if (!open) {
@@ -57,10 +58,10 @@ const PasswordInputModal: React.FC<{
   return (
     <div className={overlayCls}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
         className="w-110 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
       >
         <form onSubmit={(e) => e.preventDefault()}>

@@ -7,7 +7,7 @@
 //! over the app-data copy while the app-data config points to it.
 
 use crate::{
-    RepositoryKind, UpdateChannel, UpdaterError, UpdaterResult,
+    GitBackend, RepositoryKind, UpdateChannel, UpdaterError, UpdaterResult,
     constants::PYPI_SOURCE_LIST,
     repo::{RankedSource, SourceRanking},
 };
@@ -118,6 +118,9 @@ pub struct GeneralConfig {
     pub debug: bool,
     /// Whether repository and client update checks should be skipped.
     pub no_update: bool,
+    /// Git implementation used when MirrorC is disabled.
+    #[serde(alias = "gitBackend")]
+    pub git_backend: GitBackend,
     /// Python package indexes used by UV.
     #[serde(alias = "source_list")]
     pub source_list: Vec<String>,
@@ -135,6 +138,7 @@ impl Default for GeneralConfig {
             force_launch: false,
             debug: false,
             no_update: false,
+            git_backend: GitBackend::Auto,
             source_list: default_pypi_sources(),
         }
     }
@@ -354,7 +358,15 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         || value.get("python").is_some()
         || value.get("repositories").is_some()
     {
-        let config: UpdaterConfig = value.try_into()?;
+        let mut config: UpdaterConfig = value.clone().try_into()?;
+        if config.general.git_backend == GitBackend::Auto
+            && let Some(general) = value.get("General").and_then(toml::Value::as_table)
+        {
+            let git_backend = first_string_value(general, &["git_backend", "gitBackend"]);
+            if !git_backend.is_empty() {
+                config.general.git_backend = GitBackend::parse(&git_backend)?;
+            }
+        }
         return Ok(config);
     }
 
@@ -372,6 +384,10 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         config.general.force_launch = bool_value(general, "force_launch", false);
         config.general.debug = bool_value(general, "debug", false);
         config.general.no_update = bool_value(general, "no_update", false);
+        let git_backend = first_string_value(general, &["git_backend", "gitBackend"]);
+        if !git_backend.is_empty() {
+            config.general.git_backend = GitBackend::parse(&git_backend)?;
+        }
         let channel = string_value(general, "channel");
         if !channel.is_empty() {
             config.general.channel = UpdateChannel::parse(&channel)?;
@@ -441,6 +457,7 @@ mod tests {
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
+        assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
         assert!(!config.general.source_list.is_empty());
     }
@@ -459,6 +476,7 @@ launch = true
 force_launch = true
 debug = true
 no_update = true
+git_backend = "git2"
 source_list = ["https://example.invalid/simple"]
 runtime_path = "C:/Python/python.exe"
 
@@ -475,6 +493,7 @@ TOOL_KIT_PATH = "tools"
         assert_eq!(config.general.current_baas_sha, "main-sha");
         assert_eq!(config.general.current_baas_cpp_sha, "cpp-sha");
         assert!(config.general.no_update);
+        assert_eq!(config.general.git_backend, GitBackend::Git2);
         assert_eq!(
             config.general.source_list,
             ["https://example.invalid/simple"]
@@ -499,6 +518,7 @@ current_baas_cpp_sha = "cpp-sha"
 get_remote_sha_method = "github"
 force_launch = true
 no_update = true
+git_backend = "git_cli"
 source_list = ["https://example.invalid/simple"]
 
 [paths]
@@ -524,11 +544,43 @@ cpp_sources = []
         assert_eq!(config.general.get_remote_sha_method, "github");
         assert!(config.general.force_launch);
         assert!(config.general.no_update);
+        assert_eq!(config.general.git_backend, GitBackend::GitCli);
         assert_eq!(config.paths.baas_root_path, "D:/BAAS");
         assert_eq!(config.paths.tmp_path, "cache");
         assert_eq!(config.paths.toolkit_path, "tools");
         assert_eq!(config.python.runtime_path, "C:/Python/python.exe");
         assert_eq!(config.python.python_version, "3.11.0");
+    }
+
+    #[test]
+    fn current_schema_preserves_legacy_git_backend_override() {
+        let config = migrate_toml(
+            r#"
+schema_version = 1
+
+[general]
+git_backend = "auto"
+
+[General]
+git_backend = "git2"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.general.git_backend, GitBackend::Git2);
+    }
+
+    #[test]
+    fn legacy_setup_toml_reads_camel_case_git_backend() {
+        let config = migrate_toml(
+            r#"
+[General]
+gitBackend = "git_cli"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.general.git_backend, GitBackend::GitCli);
     }
 
     #[test]

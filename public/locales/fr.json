@@ -66,6 +66,7 @@
       "assets": "Afficher les détails des ressources",
       "enableBAComet": "Activer BAComet",
       "enableSafeStream": "Stream sécurisé",
+      "lowPerformanceMode": "Low performance mode",
       "player": "Lecteur"
     },
     "updateSuccess": "Paramètres mis à jour avec succès"
@@ -116,6 +117,13 @@
     "import": "Importer une archive de profil",
     "importArchive": "Choisir une archive de profil",
     "importFailed": "Échec de l'import du profil",
+    "dropAuthRequired": "Connectez-vous et authentifiez-vous avant d'importer une archive de profil.",
+    "dropImportHint": "Relâchez le fichier .zip pour l'ajouter comme nouveau profil.",
+    "dropImporting": "Import de l'archive de profil...",
+    "dropImportSuccess": "Archive de profil importée.",
+    "dropImportTitle": "Déposez pour importer l'archive de profil",
+    "dropInvalid": "Seules les archives de profil .zip peuvent être importées.",
+    "dropInvalidTitle": "Type de fichier non pris en charge",
     "name": "Nom du profil",
     "nameExists": "Nom déjà utilisé"
   },
@@ -530,8 +538,8 @@
     "status": "Statut",
     "testAll": "Tester toutes les méthodes",
     "testing": "Test SHA en cours...",
-    "timeout": "Le test de source de mise à jour a expiré",
-    "time": "Temps pris"
+    "time": "Temps pris",
+    "timeout": "Le test de source de mise à jour a expiré"
   },
   "mirror": {
     "verify": "Vérifier le CDK",
@@ -553,6 +561,7 @@
     "inspect": "Inspecter",
     "inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
     "paste": "Coller",
+    "pasteFailed": "Le presse-papiers n'est pas disponible.",
     "reload": "Recharger"
   },
   "adb": {

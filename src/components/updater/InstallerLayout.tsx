@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 interface InstallerLayoutProps {
   children: React.ReactNode;
@@ -7,6 +8,9 @@ interface InstallerLayoutProps {
 }
 
 const InstallerLayout: React.FC<InstallerLayoutProps> = ({ children, title }) => {
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+
   return (
     <div className="h-dvh overflow-hidden bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
       <header className="shrink-0 p-4 border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-1">
@@ -21,9 +25,9 @@ const InstallerLayout: React.FC<InstallerLayoutProps> = ({ children, title }) =>
 
       <main className="min-h-0 flex-1 container mx-auto p-4 md:p-6 flex flex-col gap-6 z-10 overflow-auto">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={lowPerformanceMode ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: lowPerformanceMode ? 0 : 0.5 }}
           className="min-h-full flex flex-col justify-center py-4"
         >
           {children}

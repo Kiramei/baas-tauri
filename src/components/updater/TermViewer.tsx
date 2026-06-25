@@ -30,6 +30,14 @@ interface TermChunkPayload {
   chunk: string;
 }
 
+interface TermStableRegionPayload {
+  sessionId: string;
+  taskId: string;
+  regionId: string;
+  title: string;
+  lines: string[];
+}
+
 interface TermTaskStartedPayload {
   sessionId: string;
   taskId: string;
@@ -268,7 +276,7 @@ const formatTime = (value?: string) => {
 const stripAnsi = (value: string) =>
   value.replace(
     // eslint-disable-next-line no-control-regex
-    /[\u001b\u009b][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g,
+    /[\u001b\u009b][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007|(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])/g,
     ""
   );
 
@@ -528,8 +536,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
     let disposed = false;
     let chunkBuffer = "";
     let chunkFrame: number | null = null;
-    let logLineBuffer = "";
-    let logFlushTimer: ReturnType<typeof setTimeout> | null = null;
+    const capturedStableRegions = new Set<string>();
 
     const flushChunks = () => {
       chunkFrame = null;
@@ -539,38 +546,10 @@ const TermViewer: React.FC<TermViewerProps> = ({
       terminalRef.current?.write(chunk);
     };
 
-    const flushChunkLogs = () => {
-      logFlushTimer = null;
-      const text = logLineBuffer.trimEnd();
-      logLineBuffer = "";
-      if (!text) return;
-      const time = new Date().toLocaleTimeString();
-      appendTerminalLogsRef.current(
-        text
-          .split("\n")
-          .map((line) => line.trimEnd())
-          .filter(Boolean)
-          .map((message) => ({
-            message,
-            level: "terminal",
-            time,
-          }))
-      );
-    };
-
     const writeChunk = (chunk: string) => {
       chunkBuffer += chunk;
       if (chunkFrame === null) {
         chunkFrame = requestAnimationFrame(flushChunks);
-      }
-    };
-
-    const captureChunkLog = (chunk: string) => {
-      const normalized = stripAnsi(chunk).replace(/\r/g, "\n");
-      if (!normalized.trim()) return;
-      logLineBuffer += normalized;
-      if (logFlushTimer === null) {
-        logFlushTimer = setTimeout(flushChunkLogs, 250);
       }
     };
 
@@ -580,6 +559,27 @@ const TermViewer: React.FC<TermViewerProps> = ({
         level,
         time: new Date().toLocaleTimeString(),
       });
+    };
+
+    const appendStableRegionLog = (payload: TermStableRegionPayload) => {
+      if (capturedStableRegions.has(payload.regionId)) return;
+      capturedStableRegions.add(payload.regionId);
+
+      const title = stripAnsi(payload.title).trim();
+      const lines = payload.lines
+        .map((line) => stripAnsi(line).trimEnd())
+        .filter((line) => line.trim().length > 0);
+      const messages = title ? [title, ...lines] : lines;
+      if (messages.length === 0) return;
+
+      const time = new Date().toLocaleTimeString();
+      appendTerminalLogsRef.current(
+        messages.map((message) => ({
+          message,
+          level: "terminal",
+          time,
+        }))
+      );
     };
 
     async function bindEvents() {
@@ -592,7 +592,10 @@ const TermViewer: React.FC<TermViewerProps> = ({
         listen<TermChunkPayload>("term:chunk", (event) => {
           if (disposed) return;
           writeChunk(event.payload.chunk);
-          captureChunkLog(event.payload.chunk);
+        }),
+        listen<TermStableRegionPayload>("term:region-stable", (event) => {
+          if (disposed) return;
+          appendStableRegionLog(event.payload);
         }),
         listen<TermTaskStartedPayload>("term:task-started", (event) => {
           if (disposed) return;
@@ -659,7 +662,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
         listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
           if (disposed) return;
           flushChunks();
-          flushChunkLogs();
           terminalRef.current?.setRunning(false);
           onSessionFinishedRef.current?.(event.payload.success);
           if (!event.payload.success && !concreteFailureRef.current) {
@@ -674,6 +676,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
           concreteFailureRef.current = false;
+          capturedStableRegions.clear();
           setTasks({});
           setEdges([]);
         }),
@@ -715,11 +718,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
         cancelAnimationFrame(chunkFrame);
         chunkFrame = null;
       }
-      if (logFlushTimer !== null) {
-        clearTimeout(logFlushTimer);
-        logFlushTimer = null;
-      }
-      flushChunkLogs();
       chunkBuffer = "";
       for (const unlisten of unlisteners) {
         unlisten();

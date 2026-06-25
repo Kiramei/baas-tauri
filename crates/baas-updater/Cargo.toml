@@ -1,6 +1,6 @@
 [package]
 name = "baas-updater"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2024"
 readme = "README.md"
 description = "Package used for baas-tauri backend update"
@@ -16,7 +16,7 @@ tempfile = { workspace = true }
 uuid = { workspace = true }
 portable-pty = { workspace = true }
 # Updater Specified Packages
-git2 = { version = "0.21.0" }
+git2 = { version = "0.21.0", features = ["https", "vendored-openssl"] }
 zip = { version = "8.6.0" }
 tar = { version = "0.4.44" }
 toml = { version = "1.1.2" }

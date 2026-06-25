@@ -66,6 +66,7 @@
       "assets": "資産詳細を表示",
       "enableBAComet": "BAComet有効",
       "enableSafeStream": "安全ストリーム",
+      "lowPerformanceMode": "Low performance mode",
       "player": "プレイヤー"
     },
     "updateSuccess": "設定の更新に成功しました"
@@ -116,6 +117,13 @@
     "import": "プロファイルアーカイブをインポート",
     "importArchive": "プロファイルアーカイブを選択",
     "importFailed": "プロファイルのインポートに失敗しました",
+    "dropAuthRequired": "プロファイルアーカイブをインポートする前に接続して認証してください。",
+    "dropImportHint": ".zip ファイルを離すと、新しいプロファイルとして追加されます。",
+    "dropImporting": "プロファイルアーカイブをインポート中...",
+    "dropImportSuccess": "プロファイルアーカイブをインポートしました。",
+    "dropImportTitle": "離してプロファイルアーカイブをインポート",
+    "dropInvalid": ".zip のプロファイルアーカイブのみインポートできます。",
+    "dropInvalidTitle": "対応していないファイル形式です",
     "name": "プロファイル名",
     "nameExists": "名前は既に存在します"
   },
@@ -530,8 +538,8 @@
     "status": "ステータス",
     "testAll": "すべての方法をテスト",
     "testing": "SHAテスト中...",
-    "timeout": "更新元テストがタイムアウトしました",
-    "time": "所要時間"
+    "time": "所要時間",
+    "timeout": "更新元テストがタイムアウトしました"
   },
   "mirror": {
     "verify": "CDKを検証",
@@ -553,6 +561,7 @@
     "inspect": "検査",
     "inspectWebuiHint": "F12で開発者ツールを開きます。",
     "paste": "貼り付け",
+    "pasteFailed": "クリップボードを使用できません。",
     "reload": "再読み込み"
   },
   "adb": {

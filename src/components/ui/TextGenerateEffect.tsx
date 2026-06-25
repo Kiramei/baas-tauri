@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { motion, stagger, useAnimate } from "framer-motion";
 import { cn } from "@/shared/GlobalUtilities.ts";
 import React from "react";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 export const TextGenerateEffect = ({
   words,
@@ -18,11 +19,14 @@ export const TextGenerateEffect = ({
   mode?: "word" | "all";
 }) => {
   const [scope, animate] = useAnimate();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   // 按空格拆分，但仅在 word 模式下用
   const wordsArray = React.useMemo(() => (mode === "word" ? words.split(" ") : []), [words, mode]);
 
   useEffect(() => {
+    if (lowPerformanceMode) return;
     animate(
       "span",
       {
@@ -34,9 +38,25 @@ export const TextGenerateEffect = ({
         delay: mode === "word" ? stagger(0.2) : 0,
       }
     );
-  }, [scope, words, mode, filter, duration]);
+  }, [scope, words, mode, filter, duration, lowPerformanceMode]);
 
   if (mode === "all") {
+    if (lowPerformanceMode) {
+      return (
+        <div>
+          <span
+            className={className}
+            style={{
+              filter: "none",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {words}
+          </span>
+        </div>
+      );
+    }
+
     // 🚀 一次性渲染，减少 DOM 数量
     return (
       <motion.div ref={scope}>
@@ -54,6 +74,33 @@ export const TextGenerateEffect = ({
   }
 
   // ✅ word 模式下才逐词分动画
+  if (lowPerformanceMode) {
+    return (
+      <div>
+        {wordsArray.map((word, idx) => {
+          const parts = word.split("\n");
+          return (
+            <span
+              key={word + idx}
+              className={className}
+              style={{
+                filter: "none",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {parts.map((part, i) => (
+                <React.Fragment key={i}>
+                  {part}
+                  {i < parts.length - 1 && <br />}
+                </React.Fragment>
+              ))}{" "}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <motion.div ref={scope}>
       {wordsArray.map((word, idx) => {

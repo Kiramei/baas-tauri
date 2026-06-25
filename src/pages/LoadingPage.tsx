@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeProvider.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import PasswordInputModal from "@/components/PasswordInputModal.tsx";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -22,10 +23,13 @@ const statusColorMap: Record<string, string> = {
 
 export function AutoScrollTerminal({ children }: { children: React.ReactNode }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const { uiSettings } = useUISettings();
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [children]);
+    endRef.current?.scrollIntoView({
+      behavior: uiSettings.lowPerformanceMode ? "auto" : "smooth",
+    });
+  }, [children, uiSettings.lowPerformanceMode]);
 
   return (
     <div className="w-full h-full opacity-50 scrollbar-hide font-mono overflow-auto p-2 text-sm">
@@ -44,6 +48,8 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
   const { theme } = useTheme();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   useEffect(() => {
     if (authPhase === "idle" || authPhase === "revoked") {
@@ -97,9 +103,9 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
                     color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
                     fontWeight: log.level === "INFO" ? "inherit" : "bold",
                   }}
-                  initial={{ opacity: 0, filter: "blur(10px)" }}
+                  initial={lowPerformanceMode ? false : { opacity: 0, filter: "blur(10px)" }}
                   animate={{ opacity: 1, filter: "blur(0px)" }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: lowPerformanceMode ? 0 : 0.5 }}
                 >
                   {log.message}
                 </motion.div>

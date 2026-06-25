@@ -141,6 +141,58 @@ impl UpdateChannel {
     }
 }
 
+/// Git implementation used for repository synchronization.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default, Hash,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum GitBackend {
+    /// Prefer Git CLI and fall back to git2 when CLI work fails.
+    #[default]
+    #[serde(alias = "Auto", alias = "AUTO")]
+    Auto,
+    /// Use system Git CLI only.
+    #[serde(
+        rename = "git_cli",
+        alias = "Git CLI",
+        alias = "git-cli",
+        alias = "gitcli",
+        alias = "cli"
+    )]
+    GitCli,
+    /// Use Rust git2/libgit2 only.
+    #[serde(rename = "git2", alias = "Git2", alias = "GIT2")]
+    Git2,
+}
+
+impl GitBackend {
+    /// Parses a user-provided Git backend name.
+    pub fn parse(value: &str) -> UpdaterResult<Self> {
+        match value
+            .trim()
+            .to_ascii_lowercase()
+            .replace([' ', '-'], "_")
+            .as_str()
+        {
+            "auto" => Ok(Self::Auto),
+            "git_cli" | "gitcli" | "cli" => Ok(Self::GitCli),
+            "git2" => Ok(Self::Git2),
+            other => Err(UpdaterError::Config(format!(
+                "unsupported git backend: {other}"
+            ))),
+        }
+    }
+
+    /// Returns the persisted setup.toml value.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::GitCli => "git_cli",
+            Self::Git2 => "git2",
+        }
+    }
+}
+
 /// Repository managed by the updater.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]

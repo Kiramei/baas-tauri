@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { eventNameKey } from "@/shared/I18nKeys";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 interface MultiSelectorProps {
   label?: string;
@@ -132,6 +133,8 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -176,6 +179,8 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                 <Reorder.Item
                   key={name}
                   value={name}
+                  layout={lowPerformanceMode ? undefined : true}
+                  transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
                   className={cn(
                     "flex items-center gap-2 px-3 py-0.5 shrink-0",
                     "rounded-full border border-slate-300 dark:border-slate-600",

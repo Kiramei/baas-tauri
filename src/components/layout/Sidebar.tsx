@@ -19,6 +19,7 @@ import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
+import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -243,19 +244,28 @@ const FloatingUpdateButton: React.FC<{
   busy: boolean;
   onClick: () => void | Promise<void>;
   tone: UpdateTone;
-}> = ({ title, icon: Icon, busy, onClick, tone }) => (
-  <motion.button
-    type="button"
-    title={title}
-    aria-label={title}
-    onClick={onClick}
-    disabled={busy}
-    whileHover={{ scale: 1.08 }}
-    whileTap={{ scale: 0.95 }}
-    animate={{ y: [0, -4, 0] }}
-    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-    className={`flex h-13 w-13 items-center justify-center rounded-full shadow-lg transition disabled:opacity-60 ${toneClasses[tone].floating}`}
-  >
-    {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
-  </motion.button>
-);
+}> = ({ title, icon: Icon, busy, onClick, tone }) => {
+  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+
+  return (
+    <motion.button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      disabled={busy}
+      whileHover={lowPerformanceMode ? undefined : { scale: 1.08 }}
+      whileTap={lowPerformanceMode ? undefined : { scale: 0.95 }}
+      animate={lowPerformanceMode ? { y: 0 } : { y: [0, -4, 0] }}
+      transition={{
+        duration: lowPerformanceMode ? 0 : 2,
+        repeat: lowPerformanceMode ? 0 : Infinity,
+        ease: "easeInOut",
+      }}
+      className={`flex h-13 w-13 items-center justify-center rounded-full shadow-lg transition disabled:opacity-60 ${toneClasses[tone].floating}`}
+    >
+      {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
+    </motion.button>
+  );
+};

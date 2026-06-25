@@ -1,8 +1,8 @@
 //! End-to-end updater workflow orchestration.
 
 use crate::{
-    NoopOutput, OutputSink, OutputStyle, RepositoryKind, UpdateStatus, UpdaterError, UpdaterResult,
-    WorkflowOptions,
+    GitBackend, NoopOutput, OutputSink, OutputStyle, RepositoryKind, UpdateStatus, UpdaterError,
+    UpdaterResult, WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
@@ -14,8 +14,9 @@ use crate::{
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
-        GitExecutor, GitSourceProbe, RealGitExecutor, RepoManager, RepoSyncOptions,
-        load_or_benchmark_ranking, repository_branch, repository_urls, save_ranking,
+        GitExecutor, GitHttpSourceProbe, GitSourceProbe, RealGitExecutor, RepoManager,
+        RepoSyncOptions, load_or_benchmark_ranking, repository_branch, repository_urls,
+        save_ranking,
     },
 };
 use baas_term::{
@@ -210,17 +211,22 @@ impl WorkflowServices for RealWorkflowServices {
             });
         }
 
-        let repo = RepoManager::new(RealGitExecutor);
-        let result = repo.sync(
-            &RepoSyncOptions {
-                kind,
-                channel: config.general.channel,
-                target_dir: target_dir.to_path_buf(),
-                ranking_path: Some(ranking_path.to_path_buf()),
-            },
-            &GitSourceProbe,
-            output,
-        )?;
+        let executor = RealGitExecutor;
+        let repo = RepoManager::new(executor);
+        let options = RepoSyncOptions {
+            kind,
+            channel: config.general.channel,
+            target_dir: target_dir.to_path_buf(),
+            ranking_path: Some(ranking_path.to_path_buf()),
+            git_backend: config.general.git_backend,
+        };
+        let result = if config.general.git_backend == GitBackend::Git2
+            || (config.general.git_backend == GitBackend::Auto && !executor.has_cli())
+        {
+            repo.sync(&options, &GitHttpSourceProbe, output)?
+        } else {
+            repo.sync(&options, &GitSourceProbe, output)?
+        };
         Ok(RepositoryOutcome {
             kind,
             status: result.status,
@@ -1070,10 +1076,21 @@ fn run_terminal_repo_stage(
             completion_rx,
             workflow_plan,
             state,
+            None,
         );
     }
 
-    if !config.general.mirrorc_cdk.is_empty() || !RealGitExecutor.has_cli() {
+    if !config.general.mirrorc_cdk.is_empty()
+        || config.general.git_backend == GitBackend::Git2
+        || !RealGitExecutor.has_cli()
+    {
+        let git_backend_override = if config.general.git_backend == GitBackend::Auto
+            && config.general.mirrorc_cdk.is_empty()
+        {
+            Some(GitBackend::Git2)
+        } else {
+            None
+        };
         return run_terminal_thread_repo_stage(
             inner,
             session_id,
@@ -1082,6 +1099,7 @@ fn run_terminal_repo_stage(
             completion_rx,
             workflow_plan,
             state,
+            git_backend_override,
         );
     }
 
@@ -1093,15 +1111,29 @@ fn run_terminal_repo_stage(
     ) {
         Ok(plan) => plan,
         Err(_) => {
-            return run_terminal_thread_repo_stage(
-                inner,
-                session_id,
-                renderer_tx,
-                completion_tx,
-                completion_rx,
-                workflow_plan,
-                state,
-            );
+            return if config.general.git_backend == GitBackend::Auto {
+                run_terminal_thread_repo_stage(
+                    inner,
+                    session_id,
+                    renderer_tx,
+                    completion_tx,
+                    completion_rx,
+                    workflow_plan,
+                    state,
+                    Some(GitBackend::Git2),
+                )
+            } else {
+                run_terminal_thread_repo_stage(
+                    inner,
+                    session_id,
+                    renderer_tx,
+                    completion_tx,
+                    completion_rx,
+                    workflow_plan,
+                    state,
+                    None,
+                )
+            };
         }
     };
     let cpp_plan = match plan_git_cli_process(
@@ -1112,15 +1144,29 @@ fn run_terminal_repo_stage(
     ) {
         Ok(plan) => plan,
         Err(_) => {
-            return run_terminal_thread_repo_stage(
-                inner,
-                session_id,
-                renderer_tx,
-                completion_tx,
-                completion_rx,
-                workflow_plan,
-                state,
-            );
+            return if config.general.git_backend == GitBackend::Auto {
+                run_terminal_thread_repo_stage(
+                    inner,
+                    session_id,
+                    renderer_tx,
+                    completion_tx,
+                    completion_rx,
+                    workflow_plan,
+                    state,
+                    Some(GitBackend::Git2),
+                )
+            } else {
+                run_terminal_thread_repo_stage(
+                    inner,
+                    session_id,
+                    renderer_tx,
+                    completion_tx,
+                    completion_rx,
+                    workflow_plan,
+                    state,
+                    None,
+                )
+            };
         }
     };
 
@@ -1142,6 +1188,18 @@ fn run_terminal_repo_stage(
         region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
     });
     if !success || !session_is_current(inner, session_id) {
+        if config.general.git_backend == GitBackend::Auto && session_is_current(inner, session_id) {
+            return run_terminal_thread_repo_stage(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                state,
+                Some(GitBackend::Git2),
+            );
+        }
         return false;
     }
 
@@ -1171,6 +1229,7 @@ fn run_terminal_thread_repo_stage(
     completion_rx: &mpsc::Receiver<TaskCompletion>,
     workflow_plan: &WorkflowPlan,
     state: Arc<Mutex<TerminalWorkflowState>>,
+    git_backend_override: Option<GitBackend>,
 ) -> bool {
     let main = planned_thread_task(workflow_plan, "main-repository");
     let cpp = planned_thread_task(workflow_plan, "cpp-repository");
@@ -1188,6 +1247,7 @@ fn run_terminal_thread_repo_stage(
         TerminalRepoArgs {
             kind: RepositoryKind::Main,
             state: Arc::clone(&state),
+            git_backend_override,
         },
         terminal_repo_thread_task,
     );
@@ -1200,6 +1260,7 @@ fn run_terminal_thread_repo_stage(
         TerminalRepoArgs {
             kind: RepositoryKind::Cpp,
             state,
+            git_backend_override,
         },
         terminal_repo_thread_task,
     );
@@ -1216,6 +1277,7 @@ fn run_terminal_thread_repo_stage(
 struct TerminalRepoArgs {
     kind: RepositoryKind,
     state: Arc<Mutex<TerminalWorkflowState>>,
+    git_backend_override: Option<GitBackend>,
 }
 
 fn terminal_repo_thread_task(
@@ -1226,7 +1288,7 @@ fn terminal_repo_thread_task(
     if cancelled.load(Ordering::Relaxed) {
         return Err("repository task cancelled".to_string());
     }
-    let (config, job, ranking_path) = {
+    let (mut config, job, ranking_path) = {
         let state = args
             .state
             .lock()
@@ -1250,20 +1312,43 @@ fn terminal_repo_thread_task(
             ranking_dir.join(format!("{}.json", args.kind.as_str())),
         )
     };
-    let outcome = output.with_spinner(
-        format!("{} repository", args.kind.as_str()),
-        format!("{} repository ready", args.kind.as_str()),
-        |spinner| {
-            if config.general.no_update {
-                spinner.set_detail("no_update enabled; skipping repository sync");
-                return Ok(skipped_repository_outcome(args.kind, &config));
-            }
-            spinner.set_detail("choosing MirrorC or Git source");
-            RealWorkflowServices
-                .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
-                .map_err(|error| error.message())
-        },
-    )?;
+    if let Some(git_backend) = args.git_backend_override {
+        config.general.git_backend = git_backend;
+        output.line(
+            OutputStyle::Warning,
+            &format!(
+                "Retrying {} repository with {}",
+                args.kind.as_str(),
+                git_backend.as_str()
+            ),
+        );
+    }
+    let outcome = if config.general.no_update {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: no_update enabled; skipping repository sync",
+                args.kind.as_str()
+            ),
+        );
+        skipped_repository_outcome(args.kind, &config)
+    } else {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: choosing MirrorC or Git source",
+                args.kind.as_str()
+            ),
+        );
+        let outcome = RealWorkflowServices
+            .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
+            .map_err(|error| error.message())?;
+        output.line(
+            OutputStyle::Success,
+            &format!("{} repository ready", args.kind.as_str()),
+        );
+        outcome
+    };
     let mut state = args
         .state
         .lock()
@@ -1335,7 +1420,7 @@ fn plan_git_cli_process(
 }
 
 fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
-    CommandSpec::new("git")
+    git_cli_command()
         .arg("clone")
         .arg("--depth")
         .arg("1")
@@ -1343,65 +1428,69 @@ fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec 
         .arg(branch)
         .arg(url)
         .arg(target_dir.to_string_lossy())
-        .env("GIT_TERMINAL_PROMPT", "0")
 }
 
 fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
-    CommandSpec::new("git")
+    git_cli_command()
         .arg("-C")
         .arg(target_dir.to_string_lossy())
         .arg("remote")
         .arg("set-url")
         .arg("origin")
         .arg(url)
-        .env("GIT_TERMINAL_PROMPT", "0")
         .after(
-            CommandSpec::new("git")
+            git_cli_command()
                 .arg("-C")
                 .arg(target_dir.to_string_lossy())
                 .arg("fetch")
                 .arg("--depth")
                 .arg("1")
                 .arg("origin")
-                .arg(branch)
-                .env("GIT_TERMINAL_PROMPT", "0"),
+                .arg(branch),
         )
         .after(
-            CommandSpec::new("git")
+            git_cli_command()
                 .arg("-C")
                 .arg(target_dir.to_string_lossy())
                 .arg("reset")
                 .arg("--hard")
-                .arg("FETCH_HEAD")
-                .env("GIT_TERMINAL_PROMPT", "0"),
+                .arg("FETCH_HEAD"),
         )
         .after(
-            CommandSpec::new("git")
+            git_cli_command()
                 .arg("-C")
                 .arg(target_dir.to_string_lossy())
                 .arg("reflog")
                 .arg("expire")
                 .arg("--expire=now")
-                .arg("--all")
-                .env("GIT_TERMINAL_PROMPT", "0"),
+                .arg("--all"),
         )
         .after(
-            CommandSpec::new("git")
+            git_cli_command()
                 .arg("-C")
                 .arg(target_dir.to_string_lossy())
                 .arg("gc")
-                .arg("--prune=now")
-                .env("GIT_TERMINAL_PROMPT", "0"),
+                .arg("--prune=now"),
         )
 }
 
 fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
-    CommandSpec::new("git")
+    git_cli_command()
         .arg("-C")
         .arg(target_dir.to_string_lossy())
         .arg("rev-parse")
         .arg("HEAD")
+}
+
+fn git_cli_command() -> CommandSpec {
+    CommandSpec::new("git")
+        .arg("-c")
+        .arg("credential.interactive=never")
         .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
+        .env("GCM_MODAL_PROMPT", "0")
+        .env("GIT_ASKPASS", "")
+        .env("SSH_ASKPASS", "")
 }
 
 struct TerminalGitRecordArgs {
@@ -2412,6 +2501,8 @@ mod tests {
         assert_eq!(
             sequence[0].args,
             [
+                "-c",
+                "credential.interactive=never",
                 "-C",
                 "repo",
                 "remote",
@@ -2422,17 +2513,54 @@ mod tests {
         );
         assert_eq!(
             sequence[1].args,
-            ["-C", "repo", "fetch", "--depth", "1", "origin", "master"]
+            [
+                "-c",
+                "credential.interactive=never",
+                "-C",
+                "repo",
+                "fetch",
+                "--depth",
+                "1",
+                "origin",
+                "master"
+            ]
         );
         assert_eq!(
             sequence[2].args,
-            ["-C", "repo", "reset", "--hard", "FETCH_HEAD"]
+            [
+                "-c",
+                "credential.interactive=never",
+                "-C",
+                "repo",
+                "reset",
+                "--hard",
+                "FETCH_HEAD"
+            ]
         );
         assert_eq!(
             sequence[3].args,
-            ["-C", "repo", "reflog", "expire", "--expire=now", "--all"]
+            [
+                "-c",
+                "credential.interactive=never",
+                "-C",
+                "repo",
+                "reflog",
+                "expire",
+                "--expire=now",
+                "--all"
+            ]
         );
-        assert_eq!(sequence[4].args, ["-C", "repo", "gc", "--prune=now"]);
+        assert_eq!(
+            sequence[4].args,
+            [
+                "-c",
+                "credential.interactive=never",
+                "-C",
+                "repo",
+                "gc",
+                "--prune=now"
+            ]
+        );
     }
 
     #[test]

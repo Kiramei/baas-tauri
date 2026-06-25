@@ -97,6 +97,9 @@ pub const EVENT_TERM_WORKFLOW_PLANNED: &str = "term:workflow-planned";
 /// Tauri event carrying rendered terminal chunks.
 pub const EVENT_TERM_CHUNK: &str = "term:chunk";
 
+/// Tauri event carrying one stable, no-longer-repainting terminal region.
+pub const EVENT_TERM_REGION_STABLE: &str = "term:region-stable";
+
 /// Tauri event emitted when task status changes.
 pub const EVENT_TERM_TASK_STATUS: &str = "term:task-status";
 

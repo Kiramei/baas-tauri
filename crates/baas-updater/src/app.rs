@@ -5,7 +5,7 @@
 //! workflow independent from Tauri event emitters.
 
 use crate::{
-    WorkflowOptions,
+    GitBackend, WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     workflow::{
         WorkflowCleanupState, WorkflowFailure, WorkflowReport, cleanup_workflow_state,
@@ -40,6 +40,8 @@ pub struct ConfigUpdateRequest {
     pub mirrorc_cdk: Option<String>,
     /// Optional runtime path.
     pub runtime_path: Option<String>,
+    /// Optional Git backend.
+    pub git_backend: Option<String>,
 }
 
 /// Returns the default updater configuration.
@@ -67,6 +69,10 @@ pub fn updater_update_config(request: ConfigUpdateRequest) -> Result<UpdaterConf
         ConfigManager::load_default_path()
     }
     .map_err(|error| error.message())?;
+    let parsed_git_backend = match request.git_backend.as_deref() {
+        Some(value) => Some(GitBackend::parse(value).map_err(|error| error.message())?),
+        None => None,
+    };
 
     manager
         .update(|config| {
@@ -78,6 +84,9 @@ pub fn updater_update_config(request: ConfigUpdateRequest) -> Result<UpdaterConf
             }
             if let Some(runtime) = request.runtime_path {
                 config.python.runtime_path = runtime;
+            }
+            if let Some(git_backend) = parsed_git_backend {
+                config.general.git_backend = git_backend;
             }
         })
         .map_err(|error| error.message())?;

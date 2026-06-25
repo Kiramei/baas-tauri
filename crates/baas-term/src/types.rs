@@ -244,6 +244,22 @@ pub struct DashboardLogPayload {
     pub chunk: String,
 }
 
+/// Payload emitted when a terminal region has stopped repainting.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StableRegionPayload {
+    /// Unique session id.
+    pub session_id: String,
+    /// Stable task identifier.
+    pub task_id: String,
+    /// Renderer region that stopped repainting.
+    pub region_id: String,
+    /// Final region title shown in the terminal dashboard.
+    pub title: String,
+    /// Final region lines without running-view clipping.
+    pub lines: Vec<String>,
+}
+
 /// Payload emitted when a task starts.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

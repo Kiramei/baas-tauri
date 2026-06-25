@@ -32,6 +32,7 @@ export interface UISettings {
   scrollToEnd: boolean;
   assetsDisplay: boolean;
   enableBAComet: boolean;
+  lowPerformanceMode: boolean;
   remoteSettings: RemoteSettings;
 }
 
