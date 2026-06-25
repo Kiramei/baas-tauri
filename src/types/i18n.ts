@@ -424,6 +424,7 @@ export type TranslationKey =
   | "contextMenu.inspect"
   | "contextMenu.inspectWebuiHint"
   | "contextMenu.paste"
+  | "contextMenu.pasteFailed"
   | "contextMenu.reload"
   | "adb.detectBtn"
   | "adb.detecting"

@@ -554,6 +554,7 @@
     "inspect": "Inspecter",
     "inspectWebuiHint": "Appuyez sur F12 pour ouvrir les outils dev.",
     "paste": "Coller",
+    "pasteFailed": "Le presse-papiers n'est pas disponible.",
     "reload": "Recharger"
   },
   "adb": {

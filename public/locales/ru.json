@@ -554,6 +554,7 @@
     "inspect": "Проверить",
     "inspectWebuiHint": "Нажмите F12, чтобы открыть DevTools.",
     "paste": "Вставить",
+    "pasteFailed": "Буфер обмена недоступен.",
     "reload": "Обновить"
   },
   "adb": {

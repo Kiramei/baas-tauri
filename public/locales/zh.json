@@ -554,6 +554,7 @@
     "inspect": "检查",
     "inspectWebuiHint": "请按 F12 打开开发者工具。",
     "paste": "粘贴",
+    "pasteFailed": "剪贴板不可用。",
     "reload": "重载"
   },
   "adb": {

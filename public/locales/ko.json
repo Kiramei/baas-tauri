@@ -554,6 +554,7 @@
     "inspect": "검사",
     "inspectWebuiHint": "F12로 개발자 도구를 여세요.",
     "paste": "붙여넣기",
+    "pasteFailed": "클립보드를 사용할 수 없습니다.",
     "reload": "새로고침"
   },
   "adb": {

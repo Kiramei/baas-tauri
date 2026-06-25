@@ -554,6 +554,7 @@
     "inspect": "Pruefen",
     "inspectWebuiHint": "F12 druecken, um Entwicklertools zu oeffnen.",
     "paste": "Einfuegen",
+    "pasteFailed": "Zwischenablage ist nicht verfuegbar.",
     "reload": "Neu laden"
   },
   "adb": {
