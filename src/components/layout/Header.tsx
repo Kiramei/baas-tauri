@@ -121,7 +121,7 @@ const Header: React.FC = () => {
 
   const onSelect = (tab: Tab) => {
     setActiveProfile(tab);
-    // 确保选中项出现在视野内
+    // Keep the selected tab in view.
     const el = document.getElementById(`tab-${tab.id}`);
     el?.scrollIntoView({
       behavior: lowPerformanceMode ? "auto" : "smooth",
@@ -277,7 +277,7 @@ const Header: React.FC = () => {
     });
   };
 
-  // 关闭右键菜单
+  // Close the context menu.
   React.useEffect(() => {
     window.addEventListener("click", hideCtxMenu);
     // window.addEventListener('contextmenu', hide);
@@ -291,7 +291,7 @@ const Header: React.FC = () => {
 
   return (
     <header className="h-16 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-3">
-      {/* 左侧：滚动控制 */}
+      {/* Left side: scroll controls */}
       <div className="flex items-center gap-1 mr-2">
         <button
           className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "opacity-40 pointer-events-none" : ""}`}
@@ -352,10 +352,10 @@ const Header: React.FC = () => {
                   <></>
                 )}
 
-                {/* 配置名 */}
+                {/* Profile name */}
                 <span className="truncate pr-5">{tab.name}</span>
 
-                {/* 关闭按钮：hover 时显示 */}
+                {/* Close button, shown on hover. */}
                 <button
                   title={t("common.delete")}
                   className="absolute right-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition"
@@ -374,7 +374,7 @@ const Header: React.FC = () => {
         </Reorder.Group>
       </div>
 
-      {/* 右侧：新建按钮 */}
+      {/* Right side: create button */}
       <div className="ml-3">
         <button
           onClick={() => setEditor({ mode: "create" })}
@@ -391,7 +391,7 @@ const Header: React.FC = () => {
         </button>
       </div>
 
-      {/* 右键菜单 */}
+      {/* Context menu */}
       <AnimatePresence>
         {ctxMenu && ctxMenu.tab && (
           <motion.div
@@ -442,7 +442,7 @@ const Header: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* 编辑/新建 Modal */}
+      {/* Edit/create modal */}
       <ProfileEditorModal
         open={!!editor}
         mode={editor?.mode || "create"}
@@ -457,13 +457,13 @@ const Header: React.FC = () => {
           setEditor(null);
         }}
         onImport={handleImport}
-        // 重名校验（本地）
+        // Local duplicate-name validation.
         checkName={(name, selfId) =>
           tabs.some((t) => t.id !== selfId && t.name.trim() === name.trim())
         }
       />
 
-      {/* 删除确认 Modal（第 2 点，带图标） */}
+      {/* Delete confirmation modal with icon. */}
       <ConfirmDeleteModal
         open={!!confirmDelete}
         name={confirmDelete?.name || ""}

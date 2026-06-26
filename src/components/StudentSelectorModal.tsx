@@ -38,7 +38,7 @@ const StudentSelectorModal: React.FC<Props> = ({
     return s.JP_name;
   };
 
-  // 搜索过滤
+  // Search filter.
   const filtered = useMemo(() => {
     return allStudents.filter((s) => {
       if (typeof s === "string") return s.toLowerCase().includes(query.toLowerCase());
@@ -76,7 +76,7 @@ const StudentSelectorModal: React.FC<Props> = ({
             className="w-full mb-4 px-3 py-2 border rounded-md focus:ring-primary-500 focus:border-primary-500"
           />
 
-          {/* 学生列表 */}
+          {/* Student list */}
           <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto">
             {filtered.map((s) => {
               const name = typeof s === "string" ? s : displayName(s);

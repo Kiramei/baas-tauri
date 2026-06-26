@@ -28,7 +28,7 @@ export function useZoom(scale: number) {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
   const { uiSettings } = useUISettings();
-  const zoomRef = useZoom(uiSettings?.zoomScale / 100); // 缩放 110%
+  const zoomRef = useZoom(uiSettings?.zoomScale / 100);
   return (
     <div
       className="flex h-full w-full overflow-hidden text-slate-800 dark:text-slate-200"

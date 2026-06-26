@@ -70,7 +70,7 @@ export const CornerBox = ({
         }}
       />
 
-      {/* hover 控制 */}
+      {/* Hover control */}
       <style>{`
         .group\\/inner:hover .corner-tl {
           transform: translate(-${expand}px, -${expand}px) !important;

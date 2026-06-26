@@ -8,7 +8,7 @@ import { type RowComponentProps, useDynamicRowHeight } from "react-window";
 
 interface LoggerProps {
   logs: LogItem[];
-  scrollToEnd: boolean; // 控制是否滑动到底部
+  scrollToEnd: boolean; // Controls whether the logger scrolls to the bottom.
 }
 
 const getLevelColor = (level: string) => {
@@ -60,14 +60,14 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
   const log: LogItem = logs[index];
   return (
     <div style={style} className="flex items-start cursor-text px-2">
-      {/* 时间 */}
+      {/* Time */}
       <span className="text-gray-500 whitespace-nowrap min-w-25 hidden sm:block">
         {formatIsoToReadableTime(log.time)}
       </span>
 
       {/* Level */}
       <span className={`sm:min-w-11 ${getLevelColor(log.level)} font-bold flex justify-end mr-2`}>
-        {/* 在小屏幕下只显示第一个字母, 大屏幕显示完整内容 */}
+        {/* Show only the first letter on small screens and the full label on larger screens. */}
         <span className="block sm:hidden">{getLogLevelDisplay(log.level).trim().charAt(0)}</span>
         <span className="hidden sm:block">{getLogLevelDisplay(log.level)}</span>
       </span>

@@ -76,18 +76,18 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
     };
   }, [settings]);
 
-  /** draft = 本地编辑状态 */
+  /** draft = local editing state */
   const [draft, setDraft] = useState<Draft>(ext);
 
-  /** 保证外部更新时同步 draft */
+  /** Keep the draft in sync when external updates arrive. */
   useEffect(() => {
     setDraft(ext);
   }, [ext]);
 
-  /** 脏检查 */
+  /** Dirty check. */
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
-  /** 切换商品启用/禁用 */
+  /** Toggle whether an item is enabled. */
   const toggleItem = (tab: TabKey, i: number) => {
     setDraft((d) => {
       const list = tab === "common" ? [...d.CommonShopList] : [...d.TacticalChallengeShopList];
@@ -98,7 +98,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
     });
   };
 
-  /** 修改刷新次数 */
+  /** Update refresh count. */
   const handleRefreshChange = (tab: TabKey, e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     if (raw === "") {
@@ -152,7 +152,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
           const def = shopDefs[tab];
           return (
             <TabsContent key={tab} value={tab} className="space-y-2">
-              {/* 刷新次数 */}
+              {/* Refresh count */}
               <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                 <div>
                   <label className="text-slate-700 dark:text-slate-200 font-medium">
@@ -176,7 +176,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                 />
               </div>
 
-              {/* 商品列表 */}
+              {/* Item list */}
               <div className="max-h-[40vh] overflow-y-auto pr-1 grid grid-cols-2 gap-1">
                 {def.defaultGoods.map(([nameKey, price, coin], i) => {
                   const enabled =

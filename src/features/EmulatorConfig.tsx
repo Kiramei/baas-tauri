@@ -102,7 +102,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
   return (
     <div className="@container space-y-2">
       <div className="flex @lg:flex-row @max-lg:flex-col gap-2">
-        {/* 是否启动时打开模拟器 */}
+        {/* Whether to open the emulator on launch. */}
         <SwitchButton
           label={t("emulator.openOnLaunch")}
           checked={draft.open_emulator_stat}
@@ -110,7 +110,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
           className="w-full"
         />
 
-        {/* 是否多开 */}
+        {/* Whether to use multiple emulator instances. */}
         <SwitchButton
           label={t("emulator.multiInstance")}
           checked={draft.emulatorIsMultiInstance}
@@ -119,7 +119,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
         />
       </div>
 
-      {/* 启动等待时间 */}
+      {/* Launch wait time. */}
       <FormInput
         type="number"
         label={t("emulator.waitTime")}
@@ -128,7 +128,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
         placeholder="5"
       />
 
-      {/* 单开模式 */}
+      {/* Single-instance mode. */}
       {!draft.emulatorIsMultiInstance && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -161,7 +161,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
         </div>
       )}
 
-      {/* 多开模式 */}
+      {/* Multi-instance mode. */}
       {draft.emulatorIsMultiInstance && (
         <div className="space-y-4">
           <FormSelect
@@ -183,7 +183,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
         </div>
       )}
 
-      {/* 保存按钮 */}
+      {/* Save button. */}
       <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
         <button
           onClick={handleSave}

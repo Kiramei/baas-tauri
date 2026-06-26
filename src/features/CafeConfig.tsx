@@ -167,7 +167,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
           </div>
         </TabsContent>
 
-        {/* 咖啡馆1 */}
+        {/* Cafe 1 */}
         <TabsContent value="cafe1" className="space-y-6 pt-4">
           <FormSelect
             label={t("cafe.invite1Mode")}
@@ -226,7 +226,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
           )}
         </TabsContent>
 
-        {/* 咖啡馆2 */}
+        {/* Cafe 2 */}
         {draft.cafe_reward_has_no2_cafe && (
           <TabsContent value="cafe2" className="space-y-6 pt-4">
             <FormSelect

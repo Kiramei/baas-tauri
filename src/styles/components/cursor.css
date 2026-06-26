@@ -1,4 +1,4 @@
-/* 默认指针（普通状态） */
+/* Default pointer. */
 * {
   cursor: url("/cursors/normal.cur"), auto;
 }
@@ -16,7 +16,7 @@ input[type="text"],
   user-select: text;
 }
 
-/* 链接/按钮（手指） */
+/* Link and button pointer. */
 a,
 a *,
 button,

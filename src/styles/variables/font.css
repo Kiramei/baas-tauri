@@ -35,7 +35,7 @@
   src: url("/fonts/JetBrainsMono.ttf");
 }
 
-/* 强化选择器权重 */
+/* Increase selector specificity. */
 .font-mono,
 .font-mono * {
   font-family: var(--font-mono), monospace !important;
