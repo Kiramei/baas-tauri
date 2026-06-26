@@ -68,27 +68,37 @@ const baseSlateScale: Record<SlateShade, string> = {
 };
 
 const slateThemeMixWeights: Record<SlateShade, number> = {
-  50: 0.035,
-  100: 0.04,
-  200: 0.045,
-  300: 0.055,
-  400: 0.07,
-  500: 0.085,
-  600: 0.1,
-  700: 0.115,
-  800: 0.13,
-  900: 0.145,
-  950: 0.16,
+  50: 0.02,
+  100: 0.024,
+  200: 0.03,
+  300: 0.038,
+  400: 0.048,
+  500: 0.055,
+  600: 0.06,
+  700: 0.05,
+  800: 0.045,
+  900: 0.035,
+  950: 0.025,
 };
 
 const buildSlateScale = (baseHex: string) => {
   const theme = hexToRgb(baseHex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
+  const black = { r: 0, g: 0, b: 0 };
 
   return Object.fromEntries(
-    slateShades.map((shade) => [
-      shade,
-      rgbToHex(mix(hexToRgb(baseSlateScale[shade])!, theme, slateThemeMixWeights[shade])),
-    ])
+    slateShades.map((shade) => {
+      const themeTone =
+        Number(shade) >= 800
+          ? mix(theme, black, 0.58)
+          : Number(shade) >= 700
+            ? mix(theme, black, 0.42)
+            : theme;
+
+      return [
+        shade,
+        rgbToHex(mix(hexToRgb(baseSlateScale[shade])!, themeTone, slateThemeMixWeights[shade])),
+      ];
+    })
   ) as Record<SlateShade, string>;
 };
 
