@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/GlobalUtilities";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {

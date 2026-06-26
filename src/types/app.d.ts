@@ -28,6 +28,9 @@ export interface RemoteSettings {
 export interface UISettings {
   lang: string;
   theme: string;
+  themeColor: string;
+  backgroundImageBase64: string | null;
+  backgroundImageOpacity: number;
   zoomScale: number;
   scrollToEnd: boolean;
   assetsDisplay: boolean;
