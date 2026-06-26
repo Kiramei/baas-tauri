@@ -212,36 +212,29 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             </div>
           </div>
           <FormSelect
-            label="Channel"
+            label={t("update.channel")}
             value={channel}
             onChange={(value) => patchGeneral({ channel: value as Channel })}
             options={[
-              { value: "stable", label: "stable" },
-              { value: "dev", label: "dev" },
+              { value: "stable", label: t("updateChannel.stable") },
+              { value: "dev", label: t("updateChannel.dev") },
             ]}
           />
-          <div className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2">
-            <label
-              htmlFor="setup-no-update"
-              className="text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              Skip updates
-            </label>
-            <SwitchButton
-              checked={noUpdate}
-              onChange={(checked) => patchGeneral({ no_update: checked })}
-              disabled={props.disabled}
-            />
-          </div>
+          <SwitchButton
+            label={t("update.skip")}
+            checked={noUpdate}
+            onChange={(checked) => patchGeneral({ no_update: checked })}
+            disabled={props.disabled}
+          />
           <div className="flex gap-2 items-end">
             <FormInput
-              label="MirrorC CDK"
+              label={t("update.mirrorCdk")}
               value={cdkInput}
               onChange={(event) => {
                 setCdkInput(event.target.value);
                 setCdkStatus(null);
               }}
-              placeholder="Paste MirrorC CDK"
+              placeholder={t("update.enterCdk")}
               className="flex-1"
               disabled={validating}
             />
@@ -252,7 +245,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
               onClick={validateMirrorC}
               className="min-w-24"
             >
-              {validating ? "..." : "Validate"}
+              {validating ? t("mirror.verifying") : t("mirror.verify")}
             </CButton>
           </div>
           {cdkStatus && (

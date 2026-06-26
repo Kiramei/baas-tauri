@@ -88,6 +88,7 @@
     "backendStarted": "BAAS update started",
     "backendStartFailed": "Failed to start BAAS update",
     "channel": "更新チャンネル",
+    "skip": "更新スキップ",
     "dueDate": "有効期限",
     "enterCdk": "CDKを入力",
     "method": "更新元",

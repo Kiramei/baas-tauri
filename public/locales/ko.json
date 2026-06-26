@@ -88,6 +88,7 @@
     "backendStarted": "BAAS update started",
     "backendStartFailed": "Failed to start BAAS update",
     "channel": "업데이트 채널",
+    "skip": "이번 업데이트 건너뛰기",
     "dueDate": "만료일",
     "enterCdk": "CDK 입력",
     "method": "업데이트 소스",

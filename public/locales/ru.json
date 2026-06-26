@@ -88,6 +88,7 @@
     "backendStarted": "BAAS update started",
     "backendStartFailed": "Failed to start BAAS update",
     "channel": "Канал обновления",
+    "skip": "Пропустить это обновление",
     "dueDate": "Срок действия",
     "enterCdk": "Введите CDK",
     "method": "Источник обновления",

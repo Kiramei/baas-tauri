@@ -66,6 +66,7 @@ export type TranslationKey =
   | "update.backendStarted"
   | "update.backendStartFailed"
   | "update.channel"
+  | "update.skip"
   | "update.dueDate"
   | "update.enterCdk"
   | "update.method"

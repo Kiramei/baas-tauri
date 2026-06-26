@@ -88,6 +88,7 @@
     "backendStarted": "BAAS update started",
     "backendStartFailed": "Failed to start BAAS update",
     "channel": "Update Channel",
+    "skip": "Skip updates",
     "dueDate": "Expiration Date",
     "enterCdk": "Enter CDK",
     "method": "Update Source",
