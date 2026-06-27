@@ -19,7 +19,12 @@ export default async function Layout({ children, params }: LayoutProps) {
     <DocsLayout
       tree={source.getPageTree(locale)}
       nav={{
-        title: locale === "zh" ? "BAAS 文档" : "BAAS Docs",
+        title: (
+          <span className="baas-doc-nav-brand">
+            <img src="/baas-icon.png" alt="" />
+            <span>{locale === "zh" ? "BAAS 文档" : "BAAS Docs"}</span>
+          </span>
+        ),
       }}
       sidebar={{
         defaultOpenLevel: 1,
