@@ -15,13 +15,10 @@
   </p>
 
   <p>
-    <a href="README_zh.md">Chinese README</a>
-    ·
-    <a href="https://github.com/Kiramei/baas-tauri/releases/latest">Download</a>
-    ·
-    <a href="https://kiramei.cn/baas-tauri">Documentation</a>
-    ·
-    <a href="LICENSE">License</a>
+    <a href="README_zh.md"><kbd>Chinese README</kbd></a>
+    <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>Download</kbd></a>
+    <a href="https://kiramei.cn/baas-tauri"><kbd>Documentation</kbd></a>
+    <a href="LICENSE"><kbd>License</kbd></a>
   </p>
 
 </div>

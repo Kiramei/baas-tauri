@@ -1,6 +1,11 @@
 # BAAS Tauri
 
-[English README](README.md) · [下载最新版](https://github.com/Kiramei/baas-tauri/releases/latest) · [文档站](docs) · [GPL-3.0-only](LICENSE)
+<p>
+  <a href="README.md"><kbd>English README</kbd></a>
+  <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>下载最新版</kbd></a>
+  <a href="docs"><kbd>文档站</kbd></a>
+  <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
+</p>
 
 BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、调度、功能配置、运行日志、远程模拟器画面、更新器和网页文档入口收进一个 Tauri 应用里；BAAS 后端则负责 ADB、截图、识别、模拟器控制和任务执行。
 
