@@ -1,6 +1,6 @@
 [package]
 name = "baas-updater"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2024"
 readme = "README.md"
 description = "Package used for baas-tauri backend update"
