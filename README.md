@@ -1,245 +1,218 @@
 <div align="center">
-<h1> 🌌 BAAS Tauri App </h1>
 
-_Automation command app for multi-profile Blue Archive orchestration_
+  <img alt="BAAS icon" height="64" src="docs/public/baas-icon.png" width="64" />
 
-![Tauri](https://img.shields.io/badge/Tauri-2.0-38BD78.svg?logo=tauri&logoColor=white) [![React](https://img.shields.io/badge/React-19.1-61DAFB?logo=react&logoColor=white)](https://react.dev/) [![Tailwind](https://img.shields.io/badge/Tailwind-4.1-38BDF8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/) [![License: GPL v3](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+  <h1>BAAS Tauri App</h1>
+
+  <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
+
+  <p>
+    <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
+    <img alt="React 19.2" src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" />
+    <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white" />
+    <img alt="Tailwind CSS 4.1" src="https://img.shields.io/badge/Tailwind-4.1-38BDF8?logo=tailwindcss&logoColor=white" />
+    <img alt="License GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" />
+  </p>
+
+  <p>
+    <a href="README_zh.md">Chinese README</a>
+    ·
+    <a href="https://github.com/Kiramei/baas-tauri/releases/latest">Download</a>
+    ·
+    <a href="https://kiramei.cn/baas-tauri">Documentation</a>
+    ·
+    <a href="LICENSE">License</a>
+  </p>
 
 </div>
 
-|            ☀️ Light Mode            |           🌙 Dark Mode            |
-| :---------------------------------: | :-------------------------------: |
-| ![Light Mode](docs/cover-light.png) | ![Dark Mode](docs/cover-dark.png) |
+| Light Mode | Dark Mode |
+| --- | --- |
+| <img src="docs/public/en/home-light-logs.png" alt="BAAS Tauri home page in light mode" /> | <img src="docs/public/en/home-dark-logs.png" alt="BAAS Tauri home page in dark mode" /> |
 
 ---
 
 ## 🚀 Overview
 
-BAAS Tauri App is a React-driven desktop dashboard that wraps the Blue Archive automation core with a
-polished, responsive control surface. It keeps pilots in control of multi-instance farming by blending real-time
-telemetry, drag-and-drop scheduling, and richly localized documentation in one place.
+BAAS Tauri is the desktop control client for [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script). It turns the BAAS backend into a daily-use desktop workbench: profile management, scheduling, feature configuration, runtime logs, remote emulator display, updater controls, and web documentation all live in one app.
 
-Under the hood the app binds secure WebSocket channels (`provider`, `sync`, `trigger`, `heartbeat`, ``) to a local
-automation service, persists UI preferences, and renders fine-grained configuration panels for every daily activity —
-from cafés and arenas to tactical drills and whitelist management.
+The boundary is intentional:
 
-```
-✨ Multi-profile orchestration with drag-to-reorder tabs
-⚡ Real-time task queue and log streaming over secure WebSockets
-🧠 Built-in multilingual wiki (EN/JA/KO/ZH/RU/FR/DE) with syntax-highlighted guides
-🧩 Modular configuration modals for every automation domain
-```
+- **Tauri orchestrates** profiles, task settings, UI state, logs, update choices, and documentation.
+- **The backend executes** ADB connection, screenshots, recognition, emulator control, task execution, and state synchronization.
 
----
-
-<details open>
-<summary><b>📑 Table of Contents</b></summary>
-
-<div style="text-align: left">
-
-| Section                                   | Description                             |
-| :---------------------------------------- | :-------------------------------------- |
-| [🚀 Overview](#-overview)                 | Project summary & key features          |
-| [🏗️ Architecture](#-architecture)         | Structural design and workflow          |
-| [⚙️ Installation](#-installation)         | Setup instructions and environment      |
-| [🧩 Usage](#-usage)                       | How to run and interact with the system |
-| [🛠️ Configuration](#-configuration)       | Customization and environment variables |
-| [🧠 Tech Stack](#-tech-stack)             | Frameworks, libraries, and tools        |
-| [🗂️ Folder Structure](#-folder-structure) | Directory layout and file roles         |
-| [📸 Visuals](#-visuals)                   | UI previews and architecture diagrams   |
-| [🤝 Contributing](#-contributing)         | Guidelines for contributors             |
-| [📜 License](#-license)                   | Licensing details and credits           |
-
-</div>
-
-</details>
-
----
-
-## 🧠 Architecture
-
-| Layer                  | Technology                          | Description                                                                             |
-| :--------------------- | :---------------------------------- | :-------------------------------------------------------------------------------------- |
-| Interface              | React 19 + Tailwind CSS 4           | Componentized dashboard with motion-enhanced layouts                                    |
-| State Sync             | Zustand + SecureWebSocket           | Multi-socket store that decrypts payloads and normalizes config/event/status streams    |
-| Automation Core Bridge | Command & Trigger Channels          | Dispatches scheduler commands (`start`, `stop`, `patch`, `trigger`) to the BAAS runtime |
-| Knowledge Surface      | i18next + Markdown + React Markdown | Localized wiki with syntax highlighting and offline docs                                |
-
-- **Profile-centric workflow** — `src/components/layout/Header.tsx` handles tab creation, drag sorting, and
-  storage-backed persistence.
-- **Task engine** — `src/pages/SchedulerPage.tsx` manages the dual-column event queue with `FeatureSwitchModal` to edit
-  task payloads.
-- **Telemetry pipeline** — `src/components/ui/Logger.tsx` streams thousands of log lines using `react-window`
-  virtualization while `HeartbeatIndicator.tsx` visualizes socket health.
-- **Secure handshake** — `src/lib/SecureWebSocket.ts` performs negotiation before any payload is
-  exchanged.
-
----
-
-## 🛠️ Installation
-
-> **Prerequisites:** Node.js 20+ and bun ≥ 9 are recommended for Vite 7 and React 19 compatibility.
-
-```bash
-# Clone repository
-git clone https://github.com/Kiramei/baas-web.git
-cd baas-web
-
-# Install dependencies
-bun install
-
-# Start development server
-bun dev
+```text
+✨ Multi-profile orchestration for different accounts, servers, and emulator instances
+⚡ Real-time task queue, status cards, assets, and log streaming
+🧩 Independent configuration panels for every automation domain
+📺 Remote emulator display with decoder and stream tuning controls
+🌐 Multilingual application UI with maintained Chinese and English documentation
+📚 Fumadocs documentation site, available in-app and as a detached Tauri window
 ```
 
-- The app expects the Blue Archive Auto Script backend to be reachable at `ws://localhost:8190`.
-- Run `bun build` to produce a production bundle (output in `dist/`).
+## 🧭 Runtime Flow
 
----
+```mermaid
+flowchart LR
+  User["User / Profile"] --> Client["BAAS Tauri"]
+  Client --> Scheduler["Scheduler"]
+  Client --> Config["Feature Configuration"]
+  Client --> Logs["Logs & Remote Display"]
+  Scheduler --> Backend["BAAS Backend"]
+  Config --> Backend
+  Backend --> ADB["ADB / Emulator"]
+  Backend --> Game["Blue Archive"]
+  Backend --> Client
+```
 
-## ⚙️ Usage
+## 🧩 What It Controls
 
-1. Please prepare [BAAS](https://github.com/pur1fying/blue_archive_auto_script) done
-   by [pur1fy](https://github.com/pur1fying) and switch to Branch `feature/service`.
-2. Prepare the environment with `requirements.service.txt`.
-3. Launch the local automation daemon (`main.service.py`) so WebSocket handshakes succeed.
-4. Start the GUI with `bun dev` and open the served URL (default `http://127.0.0.1:5173`).
-5. Use the top tab bar to create profiles per emulator/server; drag tabs to reorder and persist via `localStorage`.
-6. Kick off automation from the **Home** page — watch `TaskStatus` chips, live asset snapshots, and stream logs.
-7. Tune the lineup in **Scheduler**: search, sort, toggle tasks, edit run windows, and apply `FeatureSwitchModal`
-   overrides.
-8. Dive into **Configuration** to refine cafés, arenas, stages, artifacts, push notifications, whitelists, and more.
-9. Visit **Settings** for theme, zoom, language (`i18next`), update channel checks, and SHA mirror diagnostics.
-10. Consult **Wiki** for localized guides rendered via `react-markdown` with `rehype-highlight`.
+| Area | What You Can Do |
+| --- | --- |
+| 🗂️ Profiles | Separate accounts, servers, emulator instances, and task strategies. |
+| ▶️ Home | Start or stop scheduling, inspect the running task, next task, queue, logs, assets, and remote display. |
+| 🗓️ Scheduler | Enable tasks, edit next run time, search, sort, set intervals, daily reset windows, pre-tasks, and post-tasks. |
+| 🧩 Configuration | Configure server, emulator, script, stages, sweeps, teams, cafe, lessons, shop, crafting, combat, maintenance, push, and more. |
+| 🎛️ Settings | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
+| 📚 Docs | Load the Fumadocs documentation site inside the app Wiki page or detach it into a normal Tauri window. |
 
----
+## 🖼️ Screenshots
 
-## 📸 Visuals
+| Scheduler | Feature Configuration |
+| --- | --- |
+| <img src="docs/public/en/scheduler-overview.png" alt="Scheduler overview with inactive and active task columns" /> | <img src="docs/public/en/configuration-overview.png" alt="Feature configuration overview" /> |
 
-<table style="table-layout: fixed; width: 100%; border-collapse: collapse;">
-  <thead>
-    <tr>
-      <th style="text-align: center;">①</th>
-      <th style="text-align: center;">②</th>
-      <th style="text-align: center;">③</th>
-    </tr>
-  </thead>
-  <tr>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/page-wiki.png" alt="Wiki Page" id="image1" width="100%" />
-    </td>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/page-setting-2.png" alt="Settings Page 2" id="image2" width="100%" />
-    </td>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/page-setting-1.png" alt="Settings Page 1" id="image3" width="100%" />
-    </td>
-  </tr>
-  <thead>
-    <tr>
-      <th style="text-align: center;">④</th>
-      <th style="text-align: center;">⑤</th>
-      <th style="text-align: center;">⑥</th>
-    </tr>
-  </thead>
-  <tr>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/page-config.png" alt="Configuration" id="image4" width="100%" />
-    </td>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/page-scheduler.png" alt="Scheduler Page" id="image5" width="100%" />
-    </td>
-    <td style="text-align: center; height: 300px;">
-      <img src="docs/feature-cafe.png" alt="Cafe Feature" id="image6" width="100%" />
-    </td>
-  </tr>
-</table>
+| Remote Emulator | Settings and Updates |
+| --- | --- |
+| <img src="docs/public/en/remote-display-player.png" alt="Remote emulator display player" /> | <img src="docs/public/en/settings-version-overview.png" alt="Settings and version overview" /> |
 
-- **📖 Wiki Page**: This page serves as the documentation hub for the project, providing users with easy access to the
-  project's instructions, API documentation, and general guidelines. See image ①.
-- **⚙️ Settings Page 2**: Settings Page 2 allows users to configure additional options, such as advanced preferences,
-  notifications, and more detailed system settings. See image ②.
-- **⚙️ Settings Page 1**: Settings Page 1 focuses on user account settings, where users can modify their personal
-  information, change their password, and set language preferences. See image ③.
-- **🧩 Configuration**: The configuration page is used by system administrators to set up core system features, including
-  managing database connections, API keys, and backend services. See image ④.
-- **⏱ Scheduler**: The scheduler feature allows users to automate tasks such as running reports, sending notifications,
-  or syncing data with other systems. Check image ⑤.
-- **☕ Café Feature**: The café feature enables users to explore coffee options and place orders directly through the
-  app, integrating the café's menu and ordering system into the user's interface. See image ⑥.
+## 📥 Download
 
----
+Installers are published on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases). Use the latest Release and choose the package that matches your operating system and CPU architecture.
 
-## 🔧 Configuration
+| System | Package |
+| --- | --- |
+| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` |
+| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` |
+| Windows x64 fixed WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` |
+| Windows ARM64 fixed WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
+| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` |
+| macOS Intel | `BAAS.Tauri_*_x64.dmg` |
+| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb` |
+| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm` |
 
-- **WebSocket endpoints:** Adjust `BASE` or channel names in `src/store/WebsocketStore.ts:19` if your automation service
-  runs elsewhere.
-- **UI defaults:** Persisted via `StorageUtil` (`src/lib/StorageManager.ts`); initial values are injected in
-  `AppContext.tsx`.
-- **Localization:** Update `src/assets/locales/*.json` for new languages; wiki articles live in
-  `src/assets/docs/<locale>`.
-- **Hotkeys:** Extend `src/services/hotkeyService.ts` once the backend API is ready; UI bindings are powered by
-  `useRemoteHotkeys`.
-- **Themes & zoom:** Controlled in `src/pages/SettingsPage.tsx`, leveraging `useTheme` and global CSS variables.
-
-> Need a new automation feature? Create a modal component under `src/features/` and register it in
-> `ConfigurationPage.tsx`.
-
----
+The documentation site also includes a dynamic download panel that reads the latest GitHub Release and lists direct installer links.
 
 ## 📦 Tech Stack
 
-| Category          | Tools                                        | Notes                                                        |
-| :---------------- | :------------------------------------------- | :----------------------------------------------------------- |
-| Core Framework    | React 19, Vite 7                             | Fast dev server, modern JSX transforms                       |
-| Styling           | Tailwind CSS 4, CSS variables                | Dark/light modes, custom cursor & scrollbar skins            |
-| State & Data      | Zustand, React Context, localStorage         | Profile store, config snapshots, UI preferences              |
-| Realtime & Crypto | SecureWebSocket                              | Authenticated sockets for `provider/sync/trigger/heartbeat`  |
-| UX Enhancements   | Framer Motion, Radix UI, Sonner              | Animated layouts, accessible primitives, toast notifications |
-| Content           | React Markdown, remark-gfm, rehype-highlight | Wiki rendering with fenced code highlighting                 |
+| Category | Tools | Notes |
+| --- | --- | --- |
+| Desktop Shell | Tauri 2, Rust | Native windowing, commands, capabilities, and packaging. |
+| Frontend | React 19.2, Vite 8, TypeScript | Fast UI iteration and typed client code. |
+| Styling | Tailwind CSS 4, CSS variables | Dark/light themes, accent color, background image, zoom, and responsive layout. |
+| State & Data | Zustand, React Context, localStorage | Profile state, config snapshots, UI preferences, and runtime state. |
+| Realtime | SecureWebSocket | Authenticated channels for provider, sync, trigger, heartbeat, and remote display. |
+| UX | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls. |
+| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
 
----
+## 📚 Documentation Site
 
-## 📁 Folder Structure
+The documentation site lives in `docs/` and is built as a separate Fumadocs/Next.js app.
 
-```text
-📦 Project Root
-├─ 📂 src
-│  ├─ 📂 assets        # 🎨 icons, fonts, locale bundles, wiki markdown
-│  ├─ 📂 components    # 🧩 layout shell, UI kit, feature modals
-│  ├─ 📂 contexts      # 🧠 global providers (AppContext)
-│  ├─ 📂 features      # ⚙️ domain-specific configuration panels
-│  ├─ 📂 hooks         # 🪝 reusable theme & hotkey hooks
-│  ├─ 📂 lib           # 🧰 utilities (i18n, storage, SecureWebSocket, wiki data)
-│  ├─ 📂 pages         # 📄 routed surfaces (Home, Scheduler, Configuration, Settings, Wiki)
-│  ├─ 📂 services      # 🛰️ backend abstractions (hotkey service stubs)
-│  ├─ 📂 store         # 💾 Zustand stores (WebSocket bridge, global logs)
-│  └─ 📂 types         # 📘 shared TypeScript definitions for configs & events
-│
-├─ 📜 package.json
-├─ 📜 tsconfig.json
-├─ 📄 index.html
-└─ 📄 README.md
+```bash
+cd docs
+bun install
+bun run dev
+bun run build
 ```
 
----
+| Language | Local URL |
+| --- | --- |
+| Chinese | `http://localhost:3000/docs/zh/` |
+| English | `http://localhost:3000/docs/en/` |
 
-## 🤝 Contributing
+Documentation policy:
 
-| Name    | Role         | Contact                                |
-| :------ | :----------- | :------------------------------------- |
-| Kiramei | Project Lead | [@Kiramei](https://github.com/Kiramei) |
+- Only Chinese and English documentation are maintained.
+- Other in-app documentation languages fall back to English.
+- Screenshots are named by visible content under `docs/public/cn` and `docs/public/en`.
+- GitHub Pages deployment is handled by `.github/workflows/docs-pages.yml`.
 
-1. Fork the repository and create a feature branch.
-2. Follow the existing code style (Tailwind utility-first, TypeScript strict).
-3. Add or update localized strings when introducing new UI copy.
-4. Open a pull request with screenshots or clips for UI-facing changes.
+## 🛠️ Development
 
----
+Prerequisites:
 
-## 📜 License
+- Bun 1.3 or later.
+- A Node.js version compatible with the current Vite and Next.js toolchain.
+- Rust toolchain and Tauri 2 prerequisites.
+- A BAAS backend service for full runtime interaction.
 
-> Licensed under the **GNU General Public License v3.0 (GPLv3)** © 2025 BAAS Dev Team
->
-> This project is open source and free to use, modify, and distribute under the terms of the GPLv3.  
-> Contributions are always welcome 💡
+### Quick Start
+
+```bash
+bun install
+
+# Development
+bun run tauri dev
+
+# Release build
+bun run tauri build
+```
+
+### Command List
+
+```bash
+# Web UI
+bun run dev:webui
+bun run build:webui
+
+# Tauri frontend assets
+bun run dev:tauri
+bun run build:tauri
+
+# Full Tauri app
+bun run tauri dev
+bun run tauri build
+
+# Target-specific Tauri build
+bun run tauri dev --target <TARGET>
+bun run tauri build --target <TARGET>
+
+# Checks and formatting
+bun run lint
+bun run format
+bun run i18n:check
+```
+
+| Command | Purpose |
+| --- | --- |
+| `bun run dev:webui` | Start the Vite development server in Web UI mode. |
+| `bun run dev:tauri` | Start the frontend in Tauri mode. |
+| `bun run build:webui` | Build Web UI assets. |
+| `bun run build:tauri` | Build Tauri-mode frontend assets. |
+| `bun run tauri dev` | Run the full Tauri app in development mode. |
+| `bun run tauri build` | Build the full Tauri app. |
+| `bun run lint` | Run ESLint and i18n checks. |
+| `bun run i18n:check` | Verify locale key consistency. |
+
+## 🧱 Project Layout
+
+```text
+baas-tauri/
+|-- src/                    # React client
+|-- src-tauri/              # Tauri 2 Rust shell, commands, windows, capabilities
+|-- public/                 # application assets, fonts, locales, compatibility docs
+|-- docs/                   # Fumadocs documentation site
+|-- scripts/                # packaging, updater, font, and maintenance scripts
+`-- .github/workflows/      # release and documentation deployment workflows
+```
+
+## 📖 Wiki Behavior
+
+The app no longer uses the old local Wiki as the primary documentation surface. The Wiki page loads the web documentation site by default.
+
+In Tauri mode, Detach opens a normal independent window titled `Wiki Docs`. The main window then shows that documentation is already open separately and offers actions to focus the detached window or return the page to the main window.
+
+## License
+
+Licensed only under the **GNU General Public License v3.0 (GPLv3)**. See [LICENSE](LICENSE).

@@ -50,7 +50,19 @@ const buildPrimaryScale = (baseHex: string) => {
   };
 };
 
-const slateShades = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"] as const;
+const slateShades = [
+  "50",
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+  "950",
+] as const;
 type SlateShade = (typeof slateShades)[number];
 
 const baseSlateScale: Record<SlateShade, string> = {

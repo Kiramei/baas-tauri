@@ -1,0 +1,87 @@
+---
+title: 后端开发规范
+description: BAAS 后端开发环境、日志规范、配置文件和文档迁移后的维护边界。
+---
+
+这个页面整合自旧 `develop_doc/env.md`、`develop_doc/log.md` 和开发说明，面向后端贡献者和 Tauri/后端联调维护者。
+
+## 开发环境
+
+推荐编辑器：
+
+- PyCharm
+- VS Code
+
+推荐 Python 版本按后端仓库当前要求执行；旧文档使用 Python `3.9.21`：
+
+```bash
+conda create -n baas_env python=3.9.21
+conda activate baas_env
+pip install -r requirements.txt
+```
+
+Linux/macOS 可按后端项目选择 `requirements-linux.txt`。如果项目已经切换到 `uv` 或 `pdm`，以仓库当前锁文件和 README 为准。
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/develop_env/use_baas_env_in_pycharm_1.png"
+  alt="PyCharm 中配置 BAAS conda 环境的步骤一"
+/>
+
+## 后端设计循环
+
+旧开发文档把 BAAS 的任务循环概括为三步：
+
+```mermaid
+flowchart LR
+  A["获取游戏截图"] --> B["识别游戏状态"]
+  B --> C["决定点击、滑动或输入"]
+  C --> A
+```
+
+Tauri 客户端不直接执行这个循环。它负责配置、调度、日志和状态展示；后端负责截图、识别、控制和任务逻辑。
+
+## 日志规范
+
+旧后端的 `Logger` 位于 `core/utils.py`。日志会发送到 UI 或终端。静态日志字符串应使用英文，便于跨语言用户和开发者排查。
+
+| 级别 | 使用场景 |
+| ---- | -------- |
+| `info` | 正常运行状态 |
+| `warning` | 出现异常但后端可自行恢复 |
+| `error` | 当前任务无法自行解决，需要重启任务或停止 BAAS |
+| `critical` | 参数错误、无法启动或任务完全不可执行 |
+| `line` | 分隔任务上下文 |
+
+```python
+self.logger.info("Info Message")
+self.logger.warning("Warning Message")
+self.logger.error("Error Message")
+self.logger.critical("Critical Message")
+self.logger.line()
+```
+
+## 配置文件维护
+
+后端配置通常包含：
+
+- 模拟器连接：ADB IP、ADB 端口、多开编号。
+- 截图和控制方式：`nemu`、`adb`、`uiautomator2`、`scrcpy`、`mss`、`pyautogui` 等。
+- 功能参数：咖啡厅、日程、制造、推图、扫荡、商店、竞技场。
+- 调度参数：启用状态、间隔、每日重置、禁用时间段、前置任务、后置任务。
+- 资源状态：AP、信用点、青辉石、票券、商店代币等。
+- 推送设置：ServerChan、飞书、自定义 JSON Webhook。
+
+新增配置时要同时考虑：
+
+| 位置 | 需要做什么 |
+| ---- | ---------- |
+| 后端默认配置 | 定义默认值和迁移逻辑 |
+| Tauri UI | 添加表单控件、校验和文案 |
+| 调度器 | 确认是否影响任务启用和执行时间 |
+| 文档 | 更新中文和英文说明 |
+| 日志 | 增加可排查的英文日志 |
+
+## 文档边界
+
+后端开发细节放在 `reference`，普通用户操作放在 `guide` 和 `features`。不要把源码类成员列表塞进用户页；用户页只保留“这个配置如何影响运行”和“如何验证”。

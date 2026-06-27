@@ -1,0 +1,13 @@
+{
+  "title": "Reference",
+  "pages": [
+    "troubleshooting",
+    "report-uninstall",
+    "setup-toml",
+    "cli-service",
+    "backend-service",
+    "backend-development",
+    "auto-fight-dev",
+    "development"
+  ]
+}

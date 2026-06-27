@@ -1,0 +1,182 @@
+---
+title: BAAS 文档
+description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、更新器与网页 Wiki 的中文文档入口。
+---
+
+<div className="baas-doc-home">
+  <section className="baas-doc-hero">
+    <div className="baas-doc-hero-copy">
+      <div className="baas-brand-lockup">
+        <img src="/baas-icon.png" alt="BAAS 图标" />
+        <span>Blue Archive Auto Script</span>
+      </div>
+      <h2>把蔚蓝档案日常自动化整理成一个可控的桌面工作台</h2>
+      <p>
+        BAAS Tauri 负责配置档、调度、日志、远程模拟器画面、更新和文档入口；后端负责 ADB
+        连接、截图识别、脚本执行和状态同步。这里是当前桌面端的完整使用说明。
+      </p>
+      <div className="baas-doc-actions">
+        <a href="#download">下载客户端</a>
+        <a href="./guide/install">开始安装</a>
+        <a href="./guide/interface">认识界面</a>
+        <a href="./features/server">配置功能</a>
+      </div>
+    </div>
+    <figure className="baas-doc-hero-shot">
+      <img
+        src="/cn/home-dark-logs.png"
+        alt="BAAS Tauri 主页，展示任务状态、日志、远程模拟器按钮和运行控制"
+      />
+      <figcaption>
+        BAAS Tauri 主页：左侧导航、顶部配置档与区服、任务状态、日志和运行控制。
+      </figcaption>
+    </figure>
+  </section>
+</div>
+
+<div id="download" />
+
+<ReleaseDownloadPanel locale="zh" />
+
+<details className="baas-macos-note baas-macos-note-compact">
+  <summary>⚠️ macOS 用户需要手动放行</summary>
+  <div>
+    <p>
+      当前 macOS 安装包不会进行 Apple 公证。首次打开时，如果系统提示无法验证开发者、应用已损坏或要求移到废纸篓，请先确认安装包来自官方 GitHub
+      Releases，再按 <a href="./guide/install#下载客户端安装包">安装与连接</a> 中的 macOS 说明处理。
+    </p>
+  </div>
+</details>
+
+<Callout type="info" title="先看这里">
+  BAAS 的核心分工是“桌面端负责编排，后端负责任务执行”。排查问题时，优先看配置档、调度状态、ADB
+  连接、截图识别和日志。
+</Callout>
+
+<div className="baas-home-strip">
+  <div>
+    <strong>🧭 主入口</strong>主页、调度、配置、设置、文档五个主页面。
+  </div>
+  <div>
+    <strong>🧩 配置档</strong>按账号、区服、模拟器实例隔离参数。
+  </div>
+  <div>
+    <strong>🧪 验证策略</strong>先跑低风险任务，再加入资源消耗任务。
+  </div>
+  <div>
+    <strong>📚 文档语言</strong>只维护中文和英文，其他语言回退英文。
+  </div>
+</div>
+
+```mermaid
+flowchart LR
+  User["用户 / 配置档"] --> Client["BAAS Tauri 桌面端"]
+  Client --> Home["主页运行控制"]
+  Client --> Scheduler["调度器"]
+  Client --> Config["独立功能配置"]
+  Client --> Docs["网页文档 / Wiki"]
+  Scheduler --> Backend["BAAS 后端服务"]
+  Config --> Backend
+  Backend --> ADB["ADB / 模拟器"]
+  Backend --> Game["蔚蓝档案客户端"]
+  Backend --> Client
+```
+
+## 阅读路径
+
+| 场景         | 优先阅读                                | 你应该确认                             |
+| ------------ | --------------------------------------- | -------------------------------------- |
+| 第一次安装   | [安装与连接](./guide/install)           | 后端已启动、密钥正确、服务已连接       |
+| 刚进入主界面 | [界面总览](./guide/interface)           | 配置档、日志、远程画面、侧边栏入口     |
+| 准备自动运行 | [调度](./guide/scheduler)               | 任务启用状态、下次执行时间、前后置任务 |
+| 配置功能     | 下方独立功能页                          | 每个任务会消耗什么、如何验证           |
+| 出现异常     | [故障排查](./reference/troubleshooting) | 日志、截图、配置、区服和模拟器信息     |
+
+## 功能配置
+
+<div className="baas-feature-grid">
+  <a href="./features/profile">
+    <strong>🗂️ 配置档</strong>
+    <span>创建、复制、导入、导出和删除配置档。</span>
+  </a>
+  <a href="./features/home-runtime">
+    <strong>▶️ 主页与运行状态</strong>
+    <span>启动停止、当前任务、队列、日志、资产和远程画面。</span>
+  </a>
+  <a href="./features/server">
+    <strong>🌐 服务器</strong>
+    <span>国服、国际服、日服等区服规则和任务差异。</span>
+  </a>
+  <a href="./features/emulator">
+    <strong>📱 模拟器</strong>
+    <span>模拟器路径、启动等待、多开和 ADB 连接。</span>
+  </a>
+  <a href="./features/script">
+    <strong>🧾 脚本</strong>
+    <span>启动参数、截图方式、控制方式和后端执行参数。</span>
+  </a>
+  <a href="./features/pc-platform">
+    <strong>🖥️ PC 客户端</strong>
+    <span>Steam 国际服、日服 PC 端、HDR、窗口比例和桌面控制。</span>
+  </a>
+  <a href="./features/stages">
+    <strong>🗺️ 推图</strong>
+    <span>普通、困难、剧情和活动关卡。</span>
+  </a>
+  <a href="./features/sweeps">
+    <strong>⚡ 扫荡</strong>
+    <span>普通图、困难图、悬赏、学院交流会和活动扫荡。</span>
+  </a>
+  <a href="./features/team">
+    <strong>👥 编队</strong>
+    <span>侧栏顺序、预设编队和属性编队。</span>
+  </a>
+  <a href="./features/cafe">
+    <strong>☕ 咖啡厅</strong>
+    <span>邀请学生、领取收益、互动和舒适度相关操作。</span>
+  </a>
+  <a href="./features/lesson">
+    <strong>🏫 日程</strong>
+    <span>区域、票券、优先级和扫荡策略。</span>
+  </a>
+  <a href="./features/shop">
+    <strong>🛒 商店</strong>
+    <span>普通、竞技场、总力战、熟练证书等商店购买。</span>
+  </a>
+  <a href="./features/crafting">
+    <strong>🏭 制造</strong>
+    <span>节点选择、材料投入和领取结果。</span>
+  </a>
+  <a href="./features/combat">
+    <strong>⚔️ 战斗</strong>
+    <span>竞技场、总力战、战术测试和高风险战斗任务。</span>
+  </a>
+  <a href="./features/maintenance">
+    <strong>🧰 维护</strong>
+    <span>好友、通知、启动游戏、领取奖励和辅助任务。</span>
+  </a>
+  <a href="./features/system">
+    <strong>🎛️ 系统设置</strong>
+    <span>主题、语言、缩放、背景图、远程画面和快捷键。</span>
+  </a>
+  <a href="./features/update">
+    <strong>🔄 更新</strong>
+    <span>后端更新、客户端更新、更新源、通道和 SHA 测试。</span>
+  </a>
+  <a href="./reference/setup-toml">
+    <strong>🧷 安装配置</strong>
+    <span>setup.toml、MirrorC CDK、更新源和后端安装参数。</span>
+  </a>
+  <a href="./reference/backend-service">
+    <strong>🔌 后端服务</strong>
+    <span>HTTP、WebSocket、认证、配置同步和远程画面接口。</span>
+  </a>
+  <a href="./reference/auto-fight-dev">
+    <strong>🤖 自动战斗开发</strong>
+    <span>轴文件、状态机、模板匹配、OCR 和识别资源维护。</span>
+  </a>
+</div>
+
+## 维护原则
+
+旧的本地 Wiki 不再作为主要维护入口。当前文档主源位于 `baas-tauri/docs`，使用 Fumadocs 生成网页文档站；Tauri 文档页默认加载这个网页文档站，并可在 Tauri 中弹出独立“百科文档”窗口。

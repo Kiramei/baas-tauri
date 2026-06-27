@@ -1,15 +1,10 @@
 const baseUrl = import.meta.env.BASE_URL;
 
-export type LanguageCode = "en" | "zh" | "ja" | "ko" | "fr" | "de" | "ru";
+export type LanguageCode = "en" | "zh";
 
 export interface LocalizedField {
   en: string;
   zh?: string;
-  ja?: string;
-  ko?: string;
-  fr?: string;
-  de?: string;
-  ru?: string;
 }
 
 interface ArticleBase {
@@ -39,11 +34,6 @@ export interface WikiArticle extends RefArticle {
 const LANG_PATHS: Record<LanguageCode, string> = {
   en: "en_US",
   zh: "zh_CN",
-  ja: "ja_JP",
-  ko: "ko_KR",
-  fr: "fr_FR",
-  de: "de_DE",
-  ru: "ru_RU",
 };
 
 // Load Docs from local
@@ -76,11 +66,6 @@ export const getWikiArticles: (language: LanguageCode) => Promise<WikiArticle[]>
 // ----------------------
 export const mapLanguage = (language: string): LanguageCode => {
   if (language.startsWith("zh")) return "zh";
-  if (language.startsWith("ja")) return "ja";
-  if (language.startsWith("ko")) return "ko";
-  if (language.startsWith("fr")) return "fr";
-  if (language.startsWith("de")) return "de";
-  if (language.startsWith("ru")) return "ru";
   return "en";
 };
 

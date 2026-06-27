@@ -351,7 +351,8 @@ const manualTranslations = {
     "settings.ui.backgroundImage": "Background image",
     "settings.ui.backgroundImageChoose": "Choose background",
     "settings.ui.backgroundImageEmpty": "No background image set",
-    "settings.ui.backgroundImageInvalidType": "Only PNG, JPG, JPEG, WEBP, or GIF images are supported.",
+    "settings.ui.backgroundImageInvalidType":
+      "Only PNG, JPG, JPEG, WEBP, or GIF images are supported.",
     "settings.ui.backgroundImageOpacity": "Background opacity",
     "settings.ui.backgroundImageReadFailed": "Failed to read background image",
     "settings.ui.backgroundImageRemove": "Remove background",

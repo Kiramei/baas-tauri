@@ -6,12 +6,22 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PipetteIcon } from "lucide-react";
-import { Direction as DirectionPrimitive, Slider as SliderPrimitive, Slot as SlotPrimitive, } from "radix-ui";
+import {
+  Direction as DirectionPrimitive,
+  Slider as SliderPrimitive,
+  Slot as SlotPrimitive,
+} from "radix-ui";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { cn } from "@/shared/GlobalUtilities.ts";
 
 type PossibleRef<T> = React.Ref<T> | undefined;
@@ -323,7 +333,6 @@ function rgbToHsv(color: ColorValue): HSVColorValue {
   if (h < 0) h += 360;
 
   const s = max === 0 ? 0 : diff / max;
-
 
   return {
     h,

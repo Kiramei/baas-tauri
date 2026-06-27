@@ -132,11 +132,7 @@ const cardVariants: Variants = {
 
 const MotionCard: React.FC<
   React.PropsWithChildren<{ lowPerformanceMode: boolean; onClick?: () => void }>
-> = ({
-  children,
-  lowPerformanceMode,
-  onClick,
-}) => (
+> = ({ children, lowPerformanceMode, onClick }) => (
   <motion.div
     variants={lowPerformanceMode ? undefined : cardVariants}
     initial={lowPerformanceMode ? false : "hidden"}

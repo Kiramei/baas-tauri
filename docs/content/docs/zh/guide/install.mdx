@@ -1,0 +1,177 @@
+---
+title: 安装与连接
+description: 安装 BAAS Tauri、准备后端、设置密钥、创建配置档并完成模拟器连接。
+---
+
+安装流程的目标是让三个部分同时可用：Tauri 客户端、BAAS 后端服务、游戏所在的模拟器或客户端。只有主页左下角显示“服务已连接”，并且服务器/ADB 配置能连接到目标实例后，调度任务才有实际执行条件。
+
+<Callout type="warn" title="不要跳过连接验证">
+  安装完成不等于可以直接挂机。请先确认后端连接、密钥认证、ADB
+  设备和一个低风险任务都正常，再启用扫荡、商店、竞技场等会消耗资源的任务。
+</Callout>
+
+## 流程总览
+
+### 下载并运行客户端安装包 [step]
+
+从 GitHub Releases 下载与你的系统和 CPU 架构匹配的安装包，然后启动 BAAS Tauri 安装器。
+
+### 选择后端目录与安装选项 [step]
+
+选择稳定、可写、路径简单的后端安装目录；网络不稳定时，先进入高级设置调整语言、主题、更新源或 MirrorC CDK。
+
+### 开始安装并等待后端启动 [step]
+
+安装器会同步依赖、写入运行状态并启动后端服务。失败时优先保留安装日志截图。
+
+### 初始化密钥并创建配置档 [step]
+
+首次连接后端时初始化或输入 BAAS 密钥，然后创建当前账号或模拟器实例对应的配置档。
+
+### 配置服务器与 ADB [step]
+
+设置游戏服务器、ADB IP、ADB 端口、模拟器路径、截图方式和控制方式，并用 ADB 检测确认目标设备在线。
+
+### 运行低风险任务验证 [step]
+
+先运行咖啡厅、邮箱、收集奖励等低风险任务。确认日志、远程画面、识别和点击都正常后，再启用会消耗资源的任务。
+
+<div id="download" />
+
+## 下载客户端安装包
+
+先到 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases) 下载与你的系统和 CPU 架构匹配的 BAAS Tauri 客户端安装包。文档站会自动读取最新 Release 并列出可直接下载的安装包；如果自动列表加载失败，打开 Releases 页面手动选择即可。
+
+<ReleaseDownloadPanel locale="zh" />
+
+<details className="baas-macos-note">
+  <summary>⚠️ macOS 未公证安装说明</summary>
+  <div>
+    <p>
+      当前 BAAS Tauri 的 macOS 安装包不会进行 Apple notarization（公证）。因此第一次打开时，macOS Gatekeeper
+      可能提示“无法验证开发者”“已损坏，无法打开”或要求移到废纸篓。请只从本页链接到的官方 GitHub Releases
+      下载；确认来源可信后，再按下面方式放行。
+    </p>
+    <ol>
+      <li>打开 <code>.dmg</code>，把 <code>BAAS Tauri.app</code> 拖到“应用程序”文件夹。</li>
+      <li>在 Finder 中按住 Control 点击应用，选择“打开”，再在弹窗中点“打开”。</li>
+      <li>
+        如果仍然被拦截，先尝试打开一次应用，然后进入“系统设置” -&gt; “隐私与安全性”，在安全区域点击“仍要打开 / Open
+        Anyway”。Apple 说明这个按钮通常只会在尝试打开后的短时间内出现，详见
+        <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac"> Apple 官方说明</a>。
+      </li>
+      <li>如果提示“已损坏，无法打开”，并且你确认文件来自官方 Releases，可以在终端移除下载隔离属性：</li>
+    </ol>
+    <pre><code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code></pre>
+    <p>
+      不要关闭 Gatekeeper、不要关闭 SIP，也不要对来路不明的应用执行上面的命令。路径不一致时，可以在终端输入
+      <code>xattr -dr com.apple.quarantine </code> 后把应用图标拖进终端自动填入路径。
+    </p>
+  </div>
+</details>
+
+| 系统 | 推荐安装包 | 什么时候选择 |
+| ---- | ---------- | ------------ |
+| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` | 大多数 Windows 电脑 |
+| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` | ARM 架构 Windows 设备 |
+| Windows x64 固定 WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` | x64 设备上系统 WebView2 缺失、损坏或普通安装包启动异常 |
+| Windows ARM64 固定 WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` | ARM64 设备上系统 WebView2 缺失、损坏或普通安装包启动异常 |
+| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` | M 系列芯片 Mac |
+| macOS Intel | `BAAS.Tauri_*_x64.dmg` | Intel 芯片 Mac |
+| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb` | Debian、Ubuntu 及其衍生发行版 |
+| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm` | Fedora、RHEL、openSUSE 等 RPM 系发行版 |
+
+下载完成后再运行安装包启动 BAAS Tauri。进入安装器后，才开始选择后端目录、更新源和 MirrorC CDK。
+
+## 安装器首页
+
+安装器用于选择后端目录、进入高级设置并开始准备环境。建议把后端安装到路径稳定、权限正常、没有特殊字符的目录中，避免放在需要管理员权限才能写入的系统目录。
+
+<img
+  className="baas-screenshot"
+  src="/cn/installer-welcome-dark.png"
+  alt="BAAS 安装器首页，包含安装目录、取消安装、高级设置和开始安装"
+/>
+
+| 控件     | 作用                                         | 建议                           |
+| -------- | -------------------------------------------- | ------------------------------ |
+| 安装目录 | 后端服务、依赖和运行文件的存放位置           | 使用稳定、可写、路径简单的目录 |
+| 取消安装 | 退出安装向导                                 | 安装中断后再次启动前先看日志   |
+| 高级设置 | 语言、主题、更新通道、测试更新和 MirrorC CDK | 网络不稳定时先配置这里         |
+| 开始安装 | 按当前配置准备后端环境                       | 保留失败时的日志截图           |
+
+## 高级安装配置
+
+高级设置用于在安装前决定安装器语言、主题、更新通道、是否测试更新源，以及是否填写 MirrorC CDK。网络环境不稳定时，先在这里切换更新通道或镜像源，比安装失败后再排查更省时间。
+
+<img
+  className="baas-screenshot"
+  src="/cn/installer-advanced-settings.png"
+  alt="安装器高级设置，包含语言、主题、更新通道、测试更新和 MirrorC CDK"
+/>
+
+| 设置        | 说明                 | 什么时候改                 |
+| ----------- | -------------------- | -------------------------- |
+| 语言        | 安装器和后续界面语言 | 首次安装前                 |
+| 主题        | 浅色、深色或跟随系统 | 看个人偏好                 |
+| 更新通道    | 稳定版或开发版       | 日常用稳定版，测试用开发版 |
+| 测试更新    | 安装前测试更新源     | 网络质量不确定时           |
+| MirrorC CDK | MirrorC 下载加速凭据 | 使用 MirrorC 源时          |
+
+## 安装执行与日志
+
+点击开始安装后，安装器会执行仓库确认、Python/PyPI 源选择、依赖同步、缓存清理和后端启动等步骤。安装日志窗口会显示每一步状态和耗时，失败时优先保留这张日志截图。
+
+<img
+  className="baas-screenshot"
+  src="/cn/installer-progress-log-dark.png"
+  alt="安装器正在执行后端环境准备，显示步骤图和安装日志"
+/>
+
+安装完成后，后端会以独立进程启动。首次启动可能需要等待依赖同步完成；如果安装器显示依赖未变化并跳过同步，说明复用到了已有环境。
+
+## 密钥与认证
+
+首次连接后端时，客户端会要求初始化或输入 BAAS 密钥。这个密钥用于本地服务身份验证，不是游戏账号密码。忘记密钥时需要按后端重置流程处理。
+
+认证相关建议：
+
+- 只在可信设备上保存密钥。
+- 反馈问题时不要截图或发送密钥内容。
+- 如果主页长时间停留在连接中，检查后端是否启动、端口是否被占用、密钥是否一致。
+
+## 创建配置档
+
+配置档保存服务器、ADB、模拟器、脚本和任务设置。首次进入主界面后，点击右上角“新增配置”，填写配置名并选择游戏服务器。
+
+<img
+  className="baas-screenshot"
+  src="/cn/profile-create-import-dialog.png"
+  alt="新增配置弹窗，包含导入配置压缩包、配置名和游戏服务器"
+/>
+
+配置档建议：
+
+- 一个游戏账号或一个模拟器实例对应一个配置档。
+- 国服官服、B 服、国际服、日服、韩服 ONE 等区服不要混用同一个配置档。
+- 已调好的配置可以导出为 `.zip`，迁移到其他电脑或反馈问题时使用。
+
+## 连接模拟器
+
+创建配置档后，依次进入 [服务器](../features/server)、[模拟器](../features/emulator) 和 [脚本](../features/script) 设置游戏服务器、ADB IP、ADB 端口、模拟器路径、模拟器类型、截图方式和控制方式。服务器配置中的 ADB 检测按钮可以帮助确认当前可用设备。
+
+常见连接失败原因：
+
+- 模拟器没有打开 ADB 或开发者调试。
+- 多开实例端口和配置档不对应。
+- 其他 ADB 服务占用了连接。
+- 防火墙或安全软件拦截本地端口。
+- 后端日志中出现权限、路径或认证错误。
+
+## 首次运行建议
+
+第一次不要直接启用大量任务。建议只启用咖啡厅、邮箱、领取奖励这类低风险任务，确认日志、截图、识别和点击都正常后，再逐步加入扫荡、商店、竞技场、活动和战斗类任务。
+
+<Callout type="success" title="首次成功标准">
+  主页能启动任务、日志持续输出、远程画面能看到正确游戏页面、任务结束后资源或状态符合预期，就可以继续配置更多任务。
+</Callout>

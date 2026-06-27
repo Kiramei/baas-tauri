@@ -1,0 +1,52 @@
+---
+title: Stages
+description: Normal stages, hard stages, main story, mini story, group story, and event stages.
+---
+
+Stage settings enter stages or combat, so they are high-impact. After changes, run once manually and confirm stage number, count, team, and logs.
+
+<img
+  className="baas-screenshot"
+  src="/en/stages-main-settings.png"
+  alt="Stage configuration main tab with manual boss, normal stages, hard stages, and story execution buttons"
+/>
+
+Normal and hard stage input uses English commas, for example `1-1-1,1-2-3`.
+
+## Event Stages
+
+<img
+  className="baas-screenshot"
+  src="/en/stages-event-settings.png"
+  alt="Event stage configuration showing current activity, event story, event mission, and event challenge"
+/>
+
+Before enabling event tasks, confirm event recognition, task type, stage number, server progress, and whether boss handling needs manual work.
+
+## Stage Input Rules
+
+Legacy backend input rules are still useful for understanding stage parameters:
+
+| Scenario | Format | Example |
+| -------- | ------ | ------- |
+| Normal stages | Area or area-stage | `15,16-3` runs area 15 and stage 16-3 |
+| Hard stages | Same as normal stages | `15,16-3` runs H15 and H16-3 |
+| Main story | Chapter numbers separated by commas | `2,3,6` means chapter 1, chapter 2, final chapter |
+
+Stage automation checks SSS, challenge tasks, and gift collection where applicable. Completed stages are skipped. Some hard stages in chapters 1-13 may be entered more than once to satisfy all goals; later chapters usually finish in one pass.
+
+## Event Recognition
+
+Event stages are generally stable for Story / Quest / Challenge structures. Challenge stages that are not route-map stages may require manual boss or combat handling.
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/activity/has_activity.png"
+  alt="Legacy BAAS event setting showing an active event"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/activity/null_activity.png"
+  alt="Legacy BAAS event setting showing no active event"
+/>
