@@ -34,7 +34,7 @@ html[data-theme="dark"] {
 }
 
 html {
-  font-family: "Blueaka", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif;
   cursor: url("/cursors/normal.cur"), auto;
 }
 
@@ -166,7 +166,12 @@ html:not(.dark):not([data-theme="dark"]) .baas-site-home {
   --site-border: rgb(15 23 42 / 12%);
   --site-hero-bg-opacity: 0.24;
   --site-hero-scrim:
-    linear-gradient(90deg, rgb(248 250 252 / 95%) 0%, rgb(248 250 252 / 78%) 45%, rgb(248 250 252 / 36%) 100%),
+    linear-gradient(
+      90deg,
+      rgb(248 250 252 / 95%) 0%,
+      rgb(248 250 252 / 78%) 45%,
+      rgb(248 250 252 / 36%) 100%
+    ),
     linear-gradient(180deg, rgb(248 250 252 / 18%) 0%, rgb(248 250 252 / 92%) 100%);
   --site-nav-surface: rgb(255 255 255 / 72%);
   --site-hover: rgb(15 23 42 / 7%);
@@ -516,9 +521,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-site-section-head p {
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 .baas-site-preview img {
-  cursor:
-    url("/cursors/alternativeselect.cur"),
-    zoom-in;
+  cursor: url("/cursors/alternativeselect.cur"), zoom-in;
 }
 
 .baas-image-zoom-open {
@@ -534,9 +537,7 @@ img.baas-screenshot,
   background: rgb(2 6 23 / 82%);
   padding: clamp(16px, 3vw, 36px);
   backdrop-filter: blur(10px);
-  cursor:
-    url("/cursors/link.cur"),
-    zoom-out;
+  cursor: url("/cursors/link.cur"), zoom-out;
 }
 
 .baas-image-zoom figure {
@@ -571,7 +572,6 @@ img.baas-screenshot,
   display: inline-grid;
   width: 40px;
   height: 40px;
-  cursor: pointer;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 18%);
   border-radius: 999px;
@@ -606,8 +606,7 @@ html.light .baas-mermaid,
 html[data-theme="light"] .baas-mermaid,
 html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
   --baas-mermaid-bg:
-    linear-gradient(180deg, rgb(14 165 233 / 7%), transparent),
-    rgb(255 255 255 / 86%);
+    linear-gradient(180deg, rgb(14 165 233 / 7%), transparent), rgb(255 255 255 / 86%);
   --baas-mermaid-border: rgb(15 23 42 / 12%);
 }
 
@@ -1132,7 +1131,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 }
 
 .baas-macos-note code {
-  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 .baas-macos-note-compact {

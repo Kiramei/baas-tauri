@@ -9,28 +9,29 @@ When reporting an issue, the goal is not to describe a feeling; it is to help ma
 
 Before opening an issue or asking for help, confirm:
 
-| Check | Notes |
-| ----- | ----- |
-| Version | Client and backend are up to date |
+| Check         | Notes                                                                  |
+| ------------- | ---------------------------------------------------------------------- |
+| Version       | Client and backend are up to date                                      |
 | Configuration | Emulator, server, screenshot method, and control method match the docs |
-| Reproduction | The issue is repeatable or its pattern is clear |
-| Logs | Full logs are preserved, not only the final line |
-| Screenshots | Game screen, config dialog, and BAAS logs are included |
-| Risk | Resource-spending tasks are stopped |
+| Reproduction  | The issue is repeatable or its pattern is clear                        |
+| Logs          | Full logs are preserved, not only the final line                       |
+| Screenshots   | Game screen, config dialog, and BAAS logs are included                 |
+| Risk          | Resource-spending tasks are stopped                                    |
 
 ## What to Provide
 
-| Issue Type | Required Material |
-| ---------- | ----------------- |
-| Stuck on a page | 1280x720 game screenshot, BAAS logs, task name |
-| Stage route stuck | Screen recording from task start to stuck point, with game and logs visible |
-| Configured task did not run | Feature config screenshot, scheduler screenshot, logs |
-| Unconfigured task ran | Current profile, queue, scheduler settings, logs |
-| ADB cannot connect | Emulator type, ADB port, detection result, backend logs |
-| Update failed | Update source, SHA test result, installer logs |
+| Issue Type                  | Required Material                                                           |
+| --------------------------- | --------------------------------------------------------------------------- |
+| Stuck on a page             | 1280x720 game screenshot, BAAS logs, task name                              |
+| Stage route stuck           | Screen recording from task start to stuck point, with game and logs visible |
+| Configured task did not run | Feature config screenshot, scheduler screenshot, logs                       |
+| Unconfigured task ran       | Current profile, queue, scheduler settings, logs                            |
+| ADB cannot connect          | Emulator type, ADB port, detection result, backend logs                     |
+| Update failed               | Update source, SHA test result, installer logs                              |
 
 <Callout type="info" title="Screenshot guidance">
-  Prefer lossless PNG for game screenshots. For recordings, keep the game window and BAAS logs visible together.
+  Prefer lossless PNG for game screenshots. For recordings, keep the game window and BAAS logs
+  visible together.
 </Callout>
 
 ## Locate Profile Files
@@ -61,9 +62,9 @@ If maintainers need a profile, send it privately and include the task name plus 
 
 BAAS has two parts:
 
-| Part | Uninstall Method |
-| ---- | ---------------- |
-| Tauri client | Use the system app uninstaller, or delete the portable directory |
+| Part                   | Uninstall Method                                                          |
+| ---------------------- | ------------------------------------------------------------------------- |
+| Tauri client           | Use the system app uninstaller, or delete the portable directory          |
 | BAAS backend directory | Stop backend and ADB processes, then delete the backend install directory |
 
 If the backend directory cannot be removed:

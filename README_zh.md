@@ -41,16 +41,16 @@ BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、
 
 安装包发布在 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases)。下载最新版时，请按你的操作系统和 CPU 架构选择对应文件。
 
-| 系统 | 安装包 |
-| ---- | ------ |
-| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` |
-| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` |
-| Windows x64 固定 WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` |
+| 系统                        | 安装包                                        |
+| --------------------------- | --------------------------------------------- |
+| Windows x64                 | `BAAS.Tauri_*_x64-setup.exe`                  |
+| Windows ARM64               | `BAAS.Tauri_*_arm64-setup.exe`                |
+| Windows x64 固定 WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   |
 | Windows ARM64 固定 WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
-| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` |
-| macOS Intel | `BAAS.Tauri_*_x64.dmg` |
-| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb` |
-| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm` |
+| macOS Apple Silicon         | `BAAS.Tauri_*_aarch64.dmg`                    |
+| macOS Intel                 | `BAAS.Tauri_*_x64.dmg`                        |
+| Linux Debian/Ubuntu         | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb`     |
+| Linux Fedora/RHEL           | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm`  |
 
 文档站中也提供动态下载面板，会读取最新 GitHub Release 并展示可直接下载的安装包。
 

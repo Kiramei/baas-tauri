@@ -23,32 +23,32 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
     </div>
   </section>
 
-  <Cards className="baas-doc-focus-cards">
-    <Card
-      icon={<DocHomeIcon name="install" />}
-      title="First Run"
-      href="./guide/install"
-      description="Download the client, start the backend, initialize the key, and validate the first connection."
-    />
-    <Card
-      icon={<DocHomeIcon name="interface" />}
-      title="Understand the UI"
-      href="./guide/interface"
-      description="Learn the home page, sidebar, profiles, logs, remote display, and context menu."
-    />
-    <Card
-      icon={<DocHomeIcon name="scheduler" />}
-      title="Automate Safely"
-      href="./guide/scheduler"
-      description="Configure task state, next run time, prerequisites, and low-risk validation order."
-    />
-    <Card
-      icon={<DocHomeIcon name="settings" />}
-      title="Feature Configuration"
-      href="./features/server"
-      description="Server, emulator, script, stages, sweeps, cafe, shop, crafting, and combat are documented separately."
-    />
-  </Cards>
+<Cards className="baas-doc-focus-cards">
+  <Card
+    icon={<DocHomeIcon name="install" />}
+    title="First Run"
+    href="./guide/install"
+    description="Download the client, start the backend, initialize the key, and validate the first connection."
+  />
+  <Card
+    icon={<DocHomeIcon name="interface" />}
+    title="Understand the UI"
+    href="./guide/interface"
+    description="Learn the home page, sidebar, profiles, logs, remote display, and context menu."
+  />
+  <Card
+    icon={<DocHomeIcon name="scheduler" />}
+    title="Automate Safely"
+    href="./guide/scheduler"
+    description="Configure task state, next run time, prerequisites, and low-risk validation order."
+  />
+  <Card
+    icon={<DocHomeIcon name="settings" />}
+    title="Feature Configuration"
+    href="./features/server"
+    description="Server, emulator, script, stages, sweeps, cafe, shop, crafting, and combat are documented separately."
+  />
+</Cards>
 
   <Callout type="info" title="Start Here">
     BAAS is split into orchestration and execution: the desktop client coordinates, while the backend
@@ -65,9 +65,10 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
   <summary>⚠️ macOS Requires Manual Approval</summary>
   <div>
     <div>
-      BAAS Tauri macOS packages are not Apple-notarized. If macOS says the developer cannot be verified, the app is damaged,
-      or the app should be moved to Trash, confirm that the file came from official GitHub Releases first, then follow the
-      macOS notes in <a href="./guide/install#download-the-desktop-installer">Installation and Connection</a>.
+      BAAS Tauri macOS packages are not Apple-notarized. If macOS says the developer cannot be
+      verified, the app is damaged, or the app should be moved to Trash, confirm that the file came
+      from official GitHub Releases first, then follow the macOS notes in{" "}
+      <a href="./guide/install#download-the-desktop-installer">Installation and Connection</a>.
     </div>
   </div>
 </details>
@@ -113,83 +114,143 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
 
 <div className="baas-feature-grid">
   <a href="./features/profile">
-    <strong><DocHomeIcon name="profile" />Profiles</strong>
+    <strong>
+      <DocHomeIcon name="profile" />
+      Profiles
+    </strong>
     <span>Create, copy, import, export, and remove profiles.</span>
   </a>
   <a href="./features/home-runtime">
-    <strong><DocHomeIcon name="runtime" />Home Runtime</strong>
+    <strong>
+      <DocHomeIcon name="runtime" />
+      Home Runtime
+    </strong>
     <span>Start, stop, queue, logs, assets, and remote display.</span>
   </a>
   <a href="./features/server">
-    <strong><DocHomeIcon name="server" />Server</strong>
+    <strong>
+      <DocHomeIcon name="server" />
+      Server
+    </strong>
     <span>CN, Global, JP, and server-specific behavior.</span>
   </a>
   <a href="./features/emulator">
-    <strong><DocHomeIcon name="emulator" />Emulator</strong>
+    <strong>
+      <DocHomeIcon name="emulator" />
+      Emulator
+    </strong>
     <span>Executable path, launch delay, multi-instance, and ADB.</span>
   </a>
   <a href="./features/script">
-    <strong><DocHomeIcon name="script" />Script</strong>
+    <strong>
+      <DocHomeIcon name="script" />
+      Script
+    </strong>
     <span>Backend launch options, screenshot method, and control method.</span>
   </a>
   <a href="./features/pc-platform">
-    <strong><DocHomeIcon name="pc" />PC Client</strong>
+    <strong>
+      <DocHomeIcon name="pc" />
+      PC Client
+    </strong>
     <span>Steam Global, JP PC, HDR, window ratio, and desktop control.</span>
   </a>
   <a href="./features/stages">
-    <strong><DocHomeIcon name="stages" />Stages</strong>
+    <strong>
+      <DocHomeIcon name="stages" />
+      Stages
+    </strong>
     <span>Normal, hard, story, and event stages.</span>
   </a>
   <a href="./features/sweeps">
-    <strong><DocHomeIcon name="sweeps" />Sweeps</strong>
+    <strong>
+      <DocHomeIcon name="sweeps" />
+      Sweeps
+    </strong>
     <span>Daily maps, commissions, scrimmage, events, and tickets.</span>
   </a>
   <a href="./features/team">
-    <strong><DocHomeIcon name="team" />Teams</strong>
+    <strong>
+      <DocHomeIcon name="team" />
+      Teams
+    </strong>
     <span>Sidebar order, preset teams, and attack-type teams.</span>
   </a>
   <a href="./features/cafe">
-    <strong><DocHomeIcon name="cafe" />Cafe</strong>
+    <strong>
+      <DocHomeIcon name="cafe" />
+      Cafe
+    </strong>
     <span>Invite students, collect rewards, and handle cafe actions.</span>
   </a>
   <a href="./features/lesson">
-    <strong><DocHomeIcon name="lesson" />Lessons</strong>
+    <strong>
+      <DocHomeIcon name="lesson" />
+      Lessons
+    </strong>
     <span>Areas, tickets, priority, and lesson sweep strategy.</span>
   </a>
   <a href="./features/shop">
-    <strong><DocHomeIcon name="shop" />Shop</strong>
+    <strong>
+      <DocHomeIcon name="shop" />
+      Shop
+    </strong>
     <span>Normal, arena, raid, expert permit, and other shops.</span>
   </a>
   <a href="./features/crafting">
-    <strong><DocHomeIcon name="crafting" />Crafting</strong>
+    <strong>
+      <DocHomeIcon name="crafting" />
+      Crafting
+    </strong>
     <span>Node choices, material input, and result collection.</span>
   </a>
   <a href="./features/combat">
-    <strong><DocHomeIcon name="combat" />Combat</strong>
+    <strong>
+      <DocHomeIcon name="combat" />
+      Combat
+    </strong>
     <span>Arena, Total Assault, Joint Drill, and high-risk combat tasks.</span>
   </a>
   <a href="./features/maintenance">
-    <strong><DocHomeIcon name="maintenance" />Maintenance</strong>
+    <strong>
+      <DocHomeIcon name="maintenance" />
+      Maintenance
+    </strong>
     <span>Friends, notifications, launch game, rewards, and helper tasks.</span>
   </a>
   <a href="./features/system">
-    <strong><DocHomeIcon name="system" />System Settings</strong>
+    <strong>
+      <DocHomeIcon name="system" />
+      System Settings
+    </strong>
     <span>Theme, language, zoom, background, remote display, and hotkeys.</span>
   </a>
   <a href="./features/update">
-    <strong><DocHomeIcon name="update" />Updates</strong>
+    <strong>
+      <DocHomeIcon name="update" />
+      Updates
+    </strong>
     <span>Backend updates, client updates, mirrors, channels, and SHA tests.</span>
   </a>
   <a href="./reference/setup-toml">
-    <strong><DocHomeIcon name="settings" />Installer Config</strong>
+    <strong>
+      <DocHomeIcon name="settings" />
+      Installer Config
+    </strong>
     <span>setup.toml, MirrorC CDK, update sources, and backend install options.</span>
   </a>
   <a href="./reference/backend-service">
-    <strong><DocHomeIcon name="backend" />Backend Service</strong>
+    <strong>
+      <DocHomeIcon name="backend" />
+      Backend Service
+    </strong>
     <span>HTTP, WebSocket, auth, config sync, and remote-display interfaces.</span>
   </a>
   <a href="./reference/auto-fight-dev">
-    <strong><DocHomeIcon name="autoFight" />Auto Fight Dev</strong>
+    <strong>
+      <DocHomeIcon name="autoFight" />
+      Auto Fight Dev
+    </strong>
     <span>Workflows, state machines, template matching, OCR, and assets.</span>
   </a>
 </div>

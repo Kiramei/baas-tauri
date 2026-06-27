@@ -26,8 +26,8 @@
 
 </div>
 
-| Light Mode | Dark Mode |
-| --- | --- |
+| Light Mode                                                                                | Dark Mode                                                                               |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | <img src="docs/public/en/home-light-logs.png" alt="BAAS Tauri home page in light mode" /> | <img src="docs/public/en/home-dark-logs.png" alt="BAAS Tauri home page in dark mode" /> |
 
 ---
@@ -67,53 +67,53 @@ flowchart LR
 
 ## 🧩 What It Controls
 
-| Area | What You Can Do |
-| --- | --- |
-| 🗂️ Profiles | Separate accounts, servers, emulator instances, and task strategies. |
-| ▶️ Home | Start or stop scheduling, inspect the running task, next task, queue, logs, assets, and remote display. |
-| 🗓️ Scheduler | Enable tasks, edit next run time, search, sort, set intervals, daily reset windows, pre-tasks, and post-tasks. |
-| 🧩 Configuration | Configure server, emulator, script, stages, sweeps, teams, cafe, lessons, shop, crafting, combat, maintenance, push, and more. |
-| 🎛️ Settings | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
-| 📚 Docs | Load the Fumadocs documentation site inside the app Wiki page or detach it into a normal Tauri window. |
+| Area             | What You Can Do                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🗂️ Profiles      | Separate accounts, servers, emulator instances, and task strategies.                                                                               |
+| ▶️ Home          | Start or stop scheduling, inspect the running task, next task, queue, logs, assets, and remote display.                                            |
+| 🗓️ Scheduler     | Enable tasks, edit next run time, search, sort, set intervals, daily reset windows, pre-tasks, and post-tasks.                                     |
+| 🧩 Configuration | Configure server, emulator, script, stages, sweeps, teams, cafe, lessons, shop, crafting, combat, maintenance, push, and more.                     |
+| 🎛️ Settings      | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
+| 📚 Docs          | Load the Fumadocs documentation site inside the app Wiki page or detach it into a normal Tauri window.                                             |
 
 ## 🖼️ Screenshots
 
-| Scheduler | Feature Configuration |
-| --- | --- |
+| Scheduler                                                                                                          | Feature Configuration                                                                        |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
 | <img src="docs/public/en/scheduler-overview.png" alt="Scheduler overview with inactive and active task columns" /> | <img src="docs/public/en/configuration-overview.png" alt="Feature configuration overview" /> |
 
-| Remote Emulator | Settings and Updates |
-| --- | --- |
+| Remote Emulator                                                                             | Settings and Updates                                                                           |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | <img src="docs/public/en/remote-display-player.png" alt="Remote emulator display player" /> | <img src="docs/public/en/settings-version-overview.png" alt="Settings and version overview" /> |
 
 ## 📥 Download
 
 Installers are published on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases). Use the latest Release and choose the package that matches your operating system and CPU architecture.
 
-| System | Package |
-| --- | --- |
-| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` |
-| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` |
-| Windows x64 fixed WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` |
+| System                       | Package                                       |
+| ---------------------------- | --------------------------------------------- |
+| Windows x64                  | `BAAS.Tauri_*_x64-setup.exe`                  |
+| Windows ARM64                | `BAAS.Tauri_*_arm64-setup.exe`                |
+| Windows x64 fixed WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   |
 | Windows ARM64 fixed WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
-| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` |
-| macOS Intel | `BAAS.Tauri_*_x64.dmg` |
-| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb` |
-| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm` |
+| macOS Apple Silicon          | `BAAS.Tauri_*_aarch64.dmg`                    |
+| macOS Intel                  | `BAAS.Tauri_*_x64.dmg`                        |
+| Linux Debian/Ubuntu          | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb`     |
+| Linux Fedora/RHEL            | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm`  |
 
 The documentation site also includes a dynamic download panel that reads the latest GitHub Release and lists direct installer links.
 
 ## 📦 Tech Stack
 
-| Category | Tools | Notes |
-| --- | --- | --- |
-| Desktop Shell | Tauri 2, Rust | Native windowing, commands, capabilities, and packaging. |
-| Frontend | React 19.2, Vite 8, TypeScript | Fast UI iteration and typed client code. |
-| Styling | Tailwind CSS 4, CSS variables | Dark/light themes, accent color, background image, zoom, and responsive layout. |
-| State & Data | Zustand, React Context, localStorage | Profile state, config snapshots, UI preferences, and runtime state. |
-| Realtime | SecureWebSocket | Authenticated channels for provider, sync, trigger, heartbeat, and remote display. |
-| UX | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls. |
-| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
+| Category      | Tools                                         | Notes                                                                                |
+| ------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Desktop Shell | Tauri 2, Rust                                 | Native windowing, commands, capabilities, and packaging.                             |
+| Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                             |
+| Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.      |
+| State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                  |
+| Realtime      | SecureWebSocket                               | Authenticated channels for provider, sync, trigger, heartbeat, and remote display.   |
+| UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.               |
+| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
 
 ## 📚 Documentation Site
 
@@ -126,10 +126,10 @@ bun run dev
 bun run build
 ```
 
-| Language | Local URL |
-| --- | --- |
-| Chinese | `http://localhost:3000/docs/zh/` |
-| English | `http://localhost:3000/docs/en/` |
+| Language | Local URL                        |
+| -------- | -------------------------------- |
+| Chinese  | `http://localhost:3000/docs/zh/` |
+| English  | `http://localhost:3000/docs/en/` |
 
 Documentation policy:
 
@@ -184,16 +184,16 @@ bun run format
 bun run i18n:check
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `bun run dev:webui` | Start the Vite development server in Web UI mode. |
-| `bun run dev:tauri` | Start the frontend in Tauri mode. |
-| `bun run build:webui` | Build Web UI assets. |
-| `bun run build:tauri` | Build Tauri-mode frontend assets. |
-| `bun run tauri dev` | Run the full Tauri app in development mode. |
-| `bun run tauri build` | Build the full Tauri app. |
-| `bun run lint` | Run ESLint and i18n checks. |
-| `bun run i18n:check` | Verify locale key consistency. |
+| Command               | Purpose                                           |
+| --------------------- | ------------------------------------------------- |
+| `bun run dev:webui`   | Start the Vite development server in Web UI mode. |
+| `bun run dev:tauri`   | Start the frontend in Tauri mode.                 |
+| `bun run build:webui` | Build Web UI assets.                              |
+| `bun run build:tauri` | Build Tauri-mode frontend assets.                 |
+| `bun run tauri dev`   | Run the full Tauri app in development mode.       |
+| `bun run tauri build` | Build the full Tauri app.                         |
+| `bun run lint`        | Run ESLint and i18n checks.                       |
+| `bun run i18n:check`  | Verify locale key consistency.                    |
 
 ## 🧱 Project Layout
 

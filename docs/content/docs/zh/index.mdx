@@ -22,32 +22,32 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
     </div>
   </section>
 
-  <Cards className="baas-doc-focus-cards">
-    <Card
-      icon={<DocHomeIcon name="install" />}
-      title="第一次使用"
-      href="./guide/install"
-      description="下载客户端、启动后端、初始化密钥，并完成第一次连接验证。"
-    />
-    <Card
-      icon={<DocHomeIcon name="interface" />}
-      title="理解桌面端"
-      href="./guide/interface"
-      description="看懂主页、侧边栏、配置档、日志、远程画面和上下文菜单。"
-    />
-    <Card
-      icon={<DocHomeIcon name="scheduler" />}
-      title="开始自动化"
-      href="./guide/scheduler"
-      description="设置任务启用状态、下次运行时间、前置任务和低风险验证顺序。"
-    />
-    <Card
-      icon={<DocHomeIcon name="settings" />}
-      title="功能配置"
-      href="./features/server"
-      description="服务器、模拟器、脚本、推图、扫荡、咖啡厅、商店、制造和战斗都独立维护。"
-    />
-  </Cards>
+<Cards className="baas-doc-focus-cards">
+  <Card
+    icon={<DocHomeIcon name="install" />}
+    title="第一次使用"
+    href="./guide/install"
+    description="下载客户端、启动后端、初始化密钥，并完成第一次连接验证。"
+  />
+  <Card
+    icon={<DocHomeIcon name="interface" />}
+    title="理解桌面端"
+    href="./guide/interface"
+    description="看懂主页、侧边栏、配置档、日志、远程画面和上下文菜单。"
+  />
+  <Card
+    icon={<DocHomeIcon name="scheduler" />}
+    title="开始自动化"
+    href="./guide/scheduler"
+    description="设置任务启用状态、下次运行时间、前置任务和低风险验证顺序。"
+  />
+  <Card
+    icon={<DocHomeIcon name="settings" />}
+    title="功能配置"
+    href="./features/server"
+    description="服务器、模拟器、脚本、推图、扫荡、咖啡厅、商店、制造和战斗都独立维护。"
+  />
+</Cards>
 
   <Callout type="info" title="先看这里">
     BAAS 的核心分工是“桌面端负责编排，后端负责任务执行”。排查问题时，优先看配置档、调度状态、ADB
@@ -63,8 +63,10 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
   <summary>⚠️ macOS 用户需要手动放行</summary>
   <div>
     <div>
-      当前 macOS 安装包不会进行 Apple 公证。首次打开时，如果系统提示无法验证开发者、应用已损坏或要求移到废纸篓，请先确认安装包来自官方 GitHub
-      Releases，再按 <a href="./guide/install#下载客户端安装包">安装与连接</a> 中的 macOS 说明处理。
+      当前 macOS 安装包不会进行 Apple
+      公证。首次打开时，如果系统提示无法验证开发者、应用已损坏或要求移到废纸篓，请先确认安装包来自官方
+      GitHub Releases，再按 <a href="./guide/install#下载客户端安装包">安装与连接</a> 中的 macOS
+      说明处理。
     </div>
   </div>
 </details>
@@ -76,9 +78,7 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
     src="/cn/home-dark-logs.png"
     alt="BAAS Tauri 主页，展示任务状态、日志、远程模拟器按钮和运行控制"
   />
-  <figcaption>
-    BAAS Tauri 主页：左侧导航、顶部配置档与区服、任务状态、日志和运行控制。
-  </figcaption>
+  <figcaption>BAAS Tauri 主页：左侧导航、顶部配置档与区服、任务状态、日志和运行控制。</figcaption>
 </figure>
 
 <div className="baas-home-strip">
@@ -110,83 +110,143 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
 
 <div className="baas-feature-grid">
   <a href="./features/profile">
-    <strong><DocHomeIcon name="profile" />配置档</strong>
+    <strong>
+      <DocHomeIcon name="profile" />
+      配置档
+    </strong>
     <span>创建、复制、导入、导出和删除配置档。</span>
   </a>
   <a href="./features/home-runtime">
-    <strong><DocHomeIcon name="runtime" />主页与运行状态</strong>
+    <strong>
+      <DocHomeIcon name="runtime" />
+      主页与运行状态
+    </strong>
     <span>启动停止、当前任务、队列、日志、资产和远程画面。</span>
   </a>
   <a href="./features/server">
-    <strong><DocHomeIcon name="server" />服务器</strong>
+    <strong>
+      <DocHomeIcon name="server" />
+      服务器
+    </strong>
     <span>国服、国际服、日服等区服规则和任务差异。</span>
   </a>
   <a href="./features/emulator">
-    <strong><DocHomeIcon name="emulator" />模拟器</strong>
+    <strong>
+      <DocHomeIcon name="emulator" />
+      模拟器
+    </strong>
     <span>模拟器路径、启动等待、多开和 ADB 连接。</span>
   </a>
   <a href="./features/script">
-    <strong><DocHomeIcon name="script" />脚本</strong>
+    <strong>
+      <DocHomeIcon name="script" />
+      脚本
+    </strong>
     <span>启动参数、截图方式、控制方式和后端执行参数。</span>
   </a>
   <a href="./features/pc-platform">
-    <strong><DocHomeIcon name="pc" />PC 客户端</strong>
+    <strong>
+      <DocHomeIcon name="pc" />
+      PC 客户端
+    </strong>
     <span>Steam 国际服、日服 PC 端、HDR、窗口比例和桌面控制。</span>
   </a>
   <a href="./features/stages">
-    <strong><DocHomeIcon name="stages" />推图</strong>
+    <strong>
+      <DocHomeIcon name="stages" />
+      推图
+    </strong>
     <span>普通、困难、剧情和活动关卡。</span>
   </a>
   <a href="./features/sweeps">
-    <strong><DocHomeIcon name="sweeps" />扫荡</strong>
+    <strong>
+      <DocHomeIcon name="sweeps" />
+      扫荡
+    </strong>
     <span>普通图、困难图、悬赏、学院交流会和活动扫荡。</span>
   </a>
   <a href="./features/team">
-    <strong><DocHomeIcon name="team" />编队</strong>
+    <strong>
+      <DocHomeIcon name="team" />
+      编队
+    </strong>
     <span>侧栏顺序、预设编队和属性编队。</span>
   </a>
   <a href="./features/cafe">
-    <strong><DocHomeIcon name="cafe" />咖啡厅</strong>
+    <strong>
+      <DocHomeIcon name="cafe" />
+      咖啡厅
+    </strong>
     <span>邀请学生、领取收益、互动和舒适度相关操作。</span>
   </a>
   <a href="./features/lesson">
-    <strong><DocHomeIcon name="lesson" />日程</strong>
+    <strong>
+      <DocHomeIcon name="lesson" />
+      日程
+    </strong>
     <span>区域、票券、优先级和扫荡策略。</span>
   </a>
   <a href="./features/shop">
-    <strong><DocHomeIcon name="shop" />商店</strong>
+    <strong>
+      <DocHomeIcon name="shop" />
+      商店
+    </strong>
     <span>普通、竞技场、总力战、熟练证书等商店购买。</span>
   </a>
   <a href="./features/crafting">
-    <strong><DocHomeIcon name="crafting" />制造</strong>
+    <strong>
+      <DocHomeIcon name="crafting" />
+      制造
+    </strong>
     <span>节点选择、材料投入和领取结果。</span>
   </a>
   <a href="./features/combat">
-    <strong><DocHomeIcon name="combat" />战斗</strong>
+    <strong>
+      <DocHomeIcon name="combat" />
+      战斗
+    </strong>
     <span>竞技场、总力战、战术测试和高风险战斗任务。</span>
   </a>
   <a href="./features/maintenance">
-    <strong><DocHomeIcon name="maintenance" />维护</strong>
+    <strong>
+      <DocHomeIcon name="maintenance" />
+      维护
+    </strong>
     <span>好友、通知、启动游戏、领取奖励和辅助任务。</span>
   </a>
   <a href="./features/system">
-    <strong><DocHomeIcon name="system" />系统设置</strong>
+    <strong>
+      <DocHomeIcon name="system" />
+      系统设置
+    </strong>
     <span>主题、语言、缩放、背景图、远程画面和快捷键。</span>
   </a>
   <a href="./features/update">
-    <strong><DocHomeIcon name="update" />更新</strong>
+    <strong>
+      <DocHomeIcon name="update" />
+      更新
+    </strong>
     <span>后端更新、客户端更新、更新源、通道和 SHA 测试。</span>
   </a>
   <a href="./reference/setup-toml">
-    <strong><DocHomeIcon name="settings" />安装配置</strong>
+    <strong>
+      <DocHomeIcon name="settings" />
+      安装配置
+    </strong>
     <span>setup.toml、MirrorC CDK、更新源和后端安装参数。</span>
   </a>
   <a href="./reference/backend-service">
-    <strong><DocHomeIcon name="backend" />后端服务</strong>
+    <strong>
+      <DocHomeIcon name="backend" />
+      后端服务
+    </strong>
     <span>HTTP、WebSocket、认证、配置同步和远程画面接口。</span>
   </a>
   <a href="./reference/auto-fight-dev">
-    <strong><DocHomeIcon name="autoFight" />自动战斗开发</strong>
+    <strong>
+      <DocHomeIcon name="autoFight" />
+      自动战斗开发
+    </strong>
     <span>轴文件、状态机、模板匹配、OCR 和识别资源维护。</span>
   </a>
 </div>

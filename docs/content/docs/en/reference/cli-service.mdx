@@ -7,9 +7,9 @@ The BAAS backend can be started by the Tauri installer or run directly from the 
 
 ## Two Runtime Modes
 
-| Mode | Behavior | Use Case |
-| ---- | -------- | -------- |
-| One-shot CLI | Runs tasks listed in a script, then exits | cron, launchd, temporary batch jobs |
+| Mode                 | Behavior                                          | Use Case                                                |
+| -------------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| One-shot CLI         | Runs tasks listed in a script, then exits         | cron, launchd, temporary batch jobs                     |
 | Long-running Service | Starts the backend service and built-in scheduler | Tauri client, unattended service, development debugging |
 
 ```mermaid
@@ -46,12 +46,12 @@ python main.service.py --host 0.0.0.0 --port 8190 --log-level info
 
 Supported flags:
 
-| Flag | Purpose |
-| ---- | ------- |
-| `--host` | Listen address |
-| `--port` | Listen port |
-| `--reload` | Development reload |
-| `--log-level` | Logging level |
+| Flag          | Purpose            |
+| ------------- | ------------------ |
+| `--host`      | Listen address     |
+| `--port`      | Listen port        |
+| `--reload`    | Development reload |
+| `--log-level` | Logging level      |
 
 ## Relationship with the Tauri Client
 

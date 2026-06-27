@@ -49,38 +49,52 @@ First download the BAAS Tauri client package for your operating system and CPU a
   <summary>⚠️ macOS Notarization Notice</summary>
   <div>
     <div>
-      BAAS Tauri macOS packages are not Apple-notarized. On first launch, macOS Gatekeeper may report that the developer
-      cannot be verified, the app is damaged, or the app should be moved to Trash. Download only from the official GitHub
-      Releases linked here; if you trust that source, use the steps below to allow the app.
+      BAAS Tauri macOS packages are not Apple-notarized. On first launch, macOS Gatekeeper may
+      report that the developer cannot be verified, the app is damaged, or the app should be moved
+      to Trash. Download only from the official GitHub Releases linked here; if you trust that
+      source, use the steps below to allow the app.
     </div>
     <ol>
-      <li>Open the <code>.dmg</code> and drag <code>BAAS Tauri.app</code> into Applications.</li>
+      <li>
+        Open the <code>.dmg</code> and drag <code>BAAS Tauri.app</code> into Applications.
+      </li>
       <li>In Finder, Control-click the app, choose Open, then confirm Open in the dialog.</li>
       <li>
-        If macOS still blocks it, try opening the app once, then go to System Settings -&gt; Privacy &amp; Security and click
-        Open Anyway in the security section. Apple notes that this option appears only for a limited time after a launch attempt;
-        see <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac">Apple's Gatekeeper instructions</a>.
+        If macOS still blocks it, try opening the app once, then go to System Settings -&gt; Privacy
+        &amp; Security and click Open Anyway in the security section. Apple notes that this option
+        appears only for a limited time after a launch attempt; see{" "}
+        <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac">
+          Apple's Gatekeeper instructions
+        </a>
+        .
       </li>
-      <li>If macOS says the app is damaged and you confirmed the file came from official Releases, remove the download quarantine attribute:</li>
+      <li>
+        If macOS says the app is damaged and you confirmed the file came from official Releases,
+        remove the download quarantine attribute:
+      </li>
     </ol>
-    <pre><code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code></pre>
+    <pre>
+      <code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code>
+    </pre>
     <div>
-      Do not disable Gatekeeper, do not disable SIP, and do not run the command above for apps from unknown sources. If the app path is
-      different, type <code>xattr -dr com.apple.quarantine </code> in Terminal, then drag the app icon into Terminal to insert the path.
+      Do not disable Gatekeeper, do not disable SIP, and do not run the command above for apps from
+      unknown sources. If the app path is different, type{" "}
+      <code>xattr -dr com.apple.quarantine </code> in Terminal, then drag the app icon into Terminal
+      to insert the path.
     </div>
   </div>
 </details>
 
-| System | Recommended Package | When to Choose |
-| ------ | ------------------- | -------------- |
-| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` | Most Windows PCs |
-| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` | ARM-based Windows devices |
-| Windows x64 fixed WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` | WebView2 is missing, damaged, or the normal installer cannot launch the app on x64 devices |
+| System                       | Recommended Package                           | When to Choose                                                                               |
+| ---------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Windows x64                  | `BAAS.Tauri_*_x64-setup.exe`                  | Most Windows PCs                                                                             |
+| Windows ARM64                | `BAAS.Tauri_*_arm64-setup.exe`                | ARM-based Windows devices                                                                    |
+| Windows x64 fixed WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   | WebView2 is missing, damaged, or the normal installer cannot launch the app on x64 devices   |
 | Windows ARM64 fixed WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` | WebView2 is missing, damaged, or the normal installer cannot launch the app on ARM64 devices |
-| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` | M-series Macs |
-| macOS Intel | `BAAS.Tauri_*_x64.dmg` | Intel Macs |
-| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb` | Debian, Ubuntu, and derivatives |
-| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm` | Fedora, RHEL, openSUSE, and other RPM distributions |
+| macOS Apple Silicon          | `BAAS.Tauri_*_aarch64.dmg`                    | M-series Macs                                                                                |
+| macOS Intel                  | `BAAS.Tauri_*_x64.dmg`                        | Intel Macs                                                                                   |
+| Linux Debian/Ubuntu          | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb`     | Debian, Ubuntu, and derivatives                                                              |
+| Linux Fedora/RHEL            | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm`  | Fedora, RHEL, openSUSE, and other RPM distributions                                          |
 
 After downloading, run the installer package to start BAAS Tauri. The backend directory, update source, and MirrorC CDK are configured inside the installer afterward.
 

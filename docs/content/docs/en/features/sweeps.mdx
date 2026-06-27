@@ -28,20 +28,20 @@ Sweeps spend AP, tickets, or purchase counts. Test with small targets before add
 
 ## Parameter Format
 
-| Type | Format | Example |
-| ---- | ------ | ------- |
-| Normal sweep | `area-stage-times` | `15-3-3,20-3-max` |
-| Hard sweep | `area-stage-times` | `15-1-3,16-3-max` |
-| Event sweep | stage list and count list are configured separately | stages `9,10,11`, counts `0.5,3,1/3` |
+| Type         | Format                                              | Example                              |
+| ------------ | --------------------------------------------------- | ------------------------------------ |
+| Normal sweep | `area-stage-times`                                  | `15-3-3,20-3-max`                    |
+| Hard sweep   | `area-stage-times`                                  | `15-1-3,16-3-max`                    |
+| Event sweep  | stage list and count list are configured separately | stages `9,10,11`, counts `0.5,3,1/3` |
 
 Count values can be:
 
-| Value | Meaning |
-| ----- | ------- |
-| Positive integer | Fixed sweep count |
-| `max` | Spend as much available AP as possible |
-| Decimal | Use a fraction of current AP, such as `0.5` |
-| Fraction | Use a fraction of current AP, such as `1/3` |
-| `-1` | For event stages, distribute AP evenly among selected stages |
+| Value            | Meaning                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| Positive integer | Fixed sweep count                                            |
+| `max`            | Spend as much available AP as possible                       |
+| Decimal          | Use a fraction of current AP, such as `0.5`                  |
+| Fraction         | Use a fraction of current AP, such as `1/3`                  |
+| `-1`             | For event stages, distribute AP evenly among selected stages |
 
 Sweeps spend AP, sweep counts, and sometimes purchase resources. Validate new settings with small counts first.

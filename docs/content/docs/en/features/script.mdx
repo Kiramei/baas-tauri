@@ -25,15 +25,15 @@ If recognition fails or clicks do not work, check 16:9 aspect ratio, HDR, screen
 
 Legacy backend guidance remains useful for troubleshooting:
 
-| Item | Option | Notes |
-| ---- | ------ | ----- |
-| Screenshot | `nemu` | Fast and lossless for MuMu 12 when the environment matches |
-| Screenshot | `scrcpy` | Fast, but not lossless |
-| Screenshot | `adb` / `uiautomator2` | Conservative and stable, but slower |
-| Screenshot | `mss` / `pyautogui` | PC-client window capture |
-| Control | `adb` / `uiautomator2` / `scrcpy` | ADB emulator control |
-| Control | `nemu` | Low-latency MuMu 12 control |
-| Control | `pyautogui` | Desktop mouse control for PC client |
+| Item       | Option                            | Notes                                                      |
+| ---------- | --------------------------------- | ---------------------------------------------------------- |
+| Screenshot | `nemu`                            | Fast and lossless for MuMu 12 when the environment matches |
+| Screenshot | `scrcpy`                          | Fast, but not lossless                                     |
+| Screenshot | `adb` / `uiautomator2`            | Conservative and stable, but slower                        |
+| Screenshot | `mss` / `pyautogui`               | PC-client window capture                                   |
+| Control    | `adb` / `uiautomator2` / `scrcpy` | ADB emulator control                                       |
+| Control    | `nemu`                            | Low-latency MuMu 12 control                                |
+| Control    | `pyautogui`                       | Desktop mouse control for PC client                        |
 
 If logs repeatedly show `tentative click` but the page does not change, check MuMu background keep-alive, game settings, control method, and window focus.
 

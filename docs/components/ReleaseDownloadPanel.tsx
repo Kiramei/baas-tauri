@@ -80,10 +80,12 @@ const copy: Record<Locale, Copy> = {
   en: {
     title: "Download BAAS Tauri",
     compactTitle: "Get the client",
-    description: "The recommended package is selected from your system. You can switch OS and package type manually.",
+    description:
+      "The recommended package is selected from your system. You can switch OS and package type manually.",
     open: "Open Releases",
     loading: "Loading latest release...",
-    fallback: "If the latest release cannot be loaded automatically, open Releases and choose the package manually.",
+    fallback:
+      "If the latest release cannot be loaded automatically, open Releases and choose the package manually.",
     latest: "Latest version",
     detected: "Detected",
     chooseSystem: "System",
@@ -143,7 +145,8 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
       platform?: string;
     };
   };
-  const rawPlatform = `${nav.userAgentData?.platform ?? navigator.platform ?? ""} ${navigator.userAgent}`.toLowerCase();
+  const rawPlatform =
+    `${nav.userAgentData?.platform ?? navigator.platform ?? ""} ${navigator.userAgent}`.toLowerCase();
   const rawArch = `${navigator.platform ?? ""} ${navigator.userAgent}`.toLowerCase();
 
   let platform: Platform = "windows";
@@ -154,14 +157,21 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
   let arch: Architecture = "x64";
   if (rawArch.includes("arm64") || rawArch.includes("aarch64")) arch = "arm64";
   else if (rawArch.includes("armv7") || rawArch.includes("armhf")) arch = "arm32";
-  else if (rawArch.includes("x86_64") || rawArch.includes("x64") || rawArch.includes("win64") || rawArch.includes("amd64")) arch = "x64";
+  else if (
+    rawArch.includes("x86_64") ||
+    rawArch.includes("x64") ||
+    rawArch.includes("win64") ||
+    rawArch.includes("amd64")
+  )
+    arch = "x64";
 
   return { platform, arch };
 }
 
 function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null {
   const lower = asset.name.toLowerCase();
-  if (lower.endsWith(".sig") || lower.endsWith(".app.tar.gz") || lower.endsWith(".nsis.zip")) return null;
+  if (lower.endsWith(".sig") || lower.endsWith(".app.tar.gz") || lower.endsWith(".nsis.zip"))
+    return null;
 
   const zh = locale === "zh";
   let platform: Platform | null = null;
@@ -187,7 +197,9 @@ function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null
     platform = "windows";
     kind = "installer";
     arch = lower.includes("arm64") ? "arm64" : "x64";
-    label = zh ? `Windows ${arch === "arm64" ? "ARM64" : "x64"} 安装包` : `Windows ${arch === "arm64" ? "ARM64" : "x64"} installer`;
+    label = zh
+      ? `Windows ${arch === "arm64" ? "ARM64" : "x64"} 安装包`
+      : `Windows ${arch === "arm64" ? "ARM64" : "x64"} installer`;
   } else if (lower.endsWith(".dmg")) {
     platform = "macos";
     kind = "dmg";
@@ -239,7 +251,10 @@ function itemRank(item: DownloadItem, desiredArch: Architecture) {
 }
 
 function sortItems(a: DownloadItem, b: DownloadItem) {
-  return platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform) || a.label.localeCompare(b.label);
+  return (
+    platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform) ||
+    a.label.localeCompare(b.label)
+  );
 }
 
 function DownloadDropdown({
@@ -366,12 +381,12 @@ export function ReleaseDownloadPanel({
         .map((asset) => classifyAsset(asset, locale))
         .filter((item): item is DownloadItem => Boolean(item))
         .sort(sortItems) ?? [],
-    [locale, release],
+    [locale, release]
   );
 
   const availablePlatforms = useMemo(
     () => platformOrder.filter((platform) => downloads.some((item) => item.platform === platform)),
-    [downloads],
+    [downloads]
   );
 
   useEffect(() => {
@@ -382,8 +397,11 @@ export function ReleaseDownloadPanel({
   }, [availablePlatforms, downloads, selectedPlatform]);
 
   const platformItems = useMemo(
-    () => downloads.filter((item) => item.platform === selectedPlatform).sort((a, b) => itemRank(a, detected.arch) - itemRank(b, detected.arch)),
-    [detected.arch, downloads, selectedPlatform],
+    () =>
+      downloads
+        .filter((item) => item.platform === selectedPlatform)
+        .sort((a, b) => itemRank(a, detected.arch) - itemRank(b, detected.arch)),
+    [detected.arch, downloads, selectedPlatform]
   );
 
   useEffect(() => {
@@ -400,7 +418,10 @@ export function ReleaseDownloadPanel({
   const isDetectedPlatform = selectedPlatform === detected.platform;
 
   return (
-    <section className={`baas-download-panel${compact ? " baas-download-panel-compact" : ""}`} aria-labelledby="baas-download-title">
+    <section
+      className={`baas-download-panel${compact ? " baas-download-panel-compact" : ""}`}
+      aria-labelledby="baas-download-title"
+    >
       <div className="baas-download-head">
         <div>
           <p className="baas-download-kicker">
@@ -426,7 +447,11 @@ export function ReleaseDownloadPanel({
               <PlatformLogo platform={selectedPlatform} />
             </div>
             <div>
-              <span>{isDetectedPlatform ? `${t.detected} ${t.platforms[selectedPlatform]}` : t.platforms[selectedPlatform]}</span>
+              <span>
+                {isDetectedPlatform
+                  ? `${t.detected} ${t.platforms[selectedPlatform]}`
+                  : t.platforms[selectedPlatform]}
+              </span>
               <strong>{selectedItem.label}</strong>
               <small>{formatSize(selectedItem.size)}</small>
             </div>

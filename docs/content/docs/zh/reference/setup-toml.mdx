@@ -41,32 +41,32 @@ description: 后端安装器 setup.toml 的用途、常用参数、更新源、M
 
 ## 常用 General 参数
 
-| 参数 | 类型 | 作用 | 建议 |
-| ---- | ---- | ---- | ---- |
-| `mirrorc_cdk` | string | MirrorC 下载加速凭据 | 只在你购买或获得 CDK 后填写 |
-| `current_BAAS_version` | string | 当前后端版本 | 通常自动维护 |
-| `current_BAAS_Cpp_version` | string | 当前 C++ 组件版本 | 通常自动维护 |
-| `get_remote_sha_method` | string | 获取远程 SHA 的方式 | GitHub 不通时切换到镜像 |
-| `dev` | bool | 不从远程更新代码 | 本地开发或临时冻结版本时使用 |
-| `refresh` | bool | 覆盖本地后端修改 | 会丢弃本地改动，谨慎使用 |
-| `launch` | bool | 跳过安装步骤直接启动 | 已确认环境完整时使用 |
-| `force_launch` | bool | 是否关闭已启动的旧进程 | 多实例排查时注意 |
-| `debug` | bool | 更新后保留终端窗口 | 排查安装失败时有用 |
-| `source_list` | list | PyPI 源重试列表 | 网络不稳定时调整 |
-| `runtime_path` | string | 自定义 Python 运行时 | 只有理解后端环境时再改 |
+| 参数                       | 类型   | 作用                   | 建议                         |
+| -------------------------- | ------ | ---------------------- | ---------------------------- |
+| `mirrorc_cdk`              | string | MirrorC 下载加速凭据   | 只在你购买或获得 CDK 后填写  |
+| `current_BAAS_version`     | string | 当前后端版本           | 通常自动维护                 |
+| `current_BAAS_Cpp_version` | string | 当前 C++ 组件版本      | 通常自动维护                 |
+| `get_remote_sha_method`    | string | 获取远程 SHA 的方式    | GitHub 不通时切换到镜像      |
+| `dev`                      | bool   | 不从远程更新代码       | 本地开发或临时冻结版本时使用 |
+| `refresh`                  | bool   | 覆盖本地后端修改       | 会丢弃本地改动，谨慎使用     |
+| `launch`                   | bool   | 跳过安装步骤直接启动   | 已确认环境完整时使用         |
+| `force_launch`             | bool   | 是否关闭已启动的旧进程 | 多实例排查时注意             |
+| `debug`                    | bool   | 更新后保留终端窗口     | 排查安装失败时有用           |
+| `source_list`              | list   | PyPI 源重试列表        | 网络不稳定时调整             |
+| `runtime_path`             | string | 自定义 Python 运行时   | 只有理解后端环境时再改       |
 
 ## URL 与路径参数
 
-| 参数 | 说明 |
-| ---- | ---- |
-| `REPO_URL_HTTP` | 后端源码获取地址，可切换 GitHub、Gitee、GitCode 或其他镜像 |
-| `GET_PIP_URL` | `get-pip.py` 下载地址 |
-| `GET_UPX_URL` | UPX 下载地址 |
-| `GET_ENV_PATCH_URL` | 环境补丁下载地址 |
-| `GET_PYTHON_URL` | Python 运行时下载地址 |
-| `BAAS_ROOT_PATH` | 后端安装根目录，修改时必须使用绝对路径 |
-| `TMP_PATH` | 临时文件目录 |
-| `TOOL_KIT_PATH` | 工具目录 |
+| 参数                | 说明                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| `REPO_URL_HTTP`     | 后端源码获取地址，可切换 GitHub、Gitee、GitCode 或其他镜像 |
+| `GET_PIP_URL`       | `get-pip.py` 下载地址                                      |
+| `GET_UPX_URL`       | UPX 下载地址                                               |
+| `GET_ENV_PATCH_URL` | 环境补丁下载地址                                           |
+| `GET_PYTHON_URL`    | Python 运行时下载地址                                      |
+| `BAAS_ROOT_PATH`    | 后端安装根目录，修改时必须使用绝对路径                     |
+| `TMP_PATH`          | 临时文件目录                                               |
+| `TOOL_KIT_PATH`     | 工具目录                                                   |
 
 ## MirrorC CDK
 
@@ -85,12 +85,12 @@ mirrorc_cdk = "your-cdk"
 
 ## 何时手动修改
 
-| 场景 | 可以修改 |
-| ---- | -------- |
+| 场景            | 可以修改                                 |
+| --------------- | ---------------------------------------- |
 | GitHub 访问失败 | `REPO_URL_HTTP`、`get_remote_sha_method` |
-| PyPI 下载慢 | `source_list` |
-| 想临时跳过更新 | `launch = true` 或 `dev = true` |
-| 调试安装失败 | `debug = true` |
-| 使用 MirrorC | `mirrorc_cdk` |
+| PyPI 下载慢     | `source_list`                            |
+| 想临时跳过更新  | `launch = true` 或 `dev = true`          |
+| 调试安装失败    | `debug = true`                           |
+| 使用 MirrorC    | `mirrorc_cdk`                            |
 
 如果你只是普通使用 BAAS Tauri，优先使用安装器里的“高级设置”和“更新源”控件，不要直接编辑 `setup.toml`。
