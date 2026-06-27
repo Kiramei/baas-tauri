@@ -98,7 +98,7 @@ export function Mermaid({ chart }: MermaidProps) {
       .render(`mermaid-${id}-${theme}`, chart)
       .then((result) => {
         if (cancelled) return;
-        setSvg(result.svg);
+        setSvg(result.svg.replace(/<script[\s\S]*?<\/script>/gi, ""));
         setError(null);
       })
       .catch((reason: unknown) => {

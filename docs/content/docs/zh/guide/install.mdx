@@ -47,11 +47,11 @@ description: 安装 BAAS Tauri、准备后端、设置密钥、创建配置档�
 <details className="baas-macos-note">
   <summary>⚠️ macOS 未公证安装说明</summary>
   <div>
-    <p>
+    <div>
       当前 BAAS Tauri 的 macOS 安装包不会进行 Apple notarization（公证）。因此第一次打开时，macOS Gatekeeper
       可能提示“无法验证开发者”“已损坏，无法打开”或要求移到废纸篓。请只从本页链接到的官方 GitHub Releases
       下载；确认来源可信后，再按下面方式放行。
-    </p>
+    </div>
     <ol>
       <li>打开 <code>.dmg</code>，把 <code>BAAS Tauri.app</code> 拖到“应用程序”文件夹。</li>
       <li>在 Finder 中按住 Control 点击应用，选择“打开”，再在弹窗中点“打开”。</li>
@@ -63,10 +63,10 @@ description: 安装 BAAS Tauri、准备后端、设置密钥、创建配置档�
       <li>如果提示“已损坏，无法打开”，并且你确认文件来自官方 Releases，可以在终端移除下载隔离属性：</li>
     </ol>
     <pre><code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code></pre>
-    <p>
+    <div>
       不要关闭 Gatekeeper、不要关闭 SIP，也不要对来路不明的应用执行上面的命令。路径不一致时，可以在终端输入
       <code>xattr -dr com.apple.quarantine </code> 后把应用图标拖进终端自动填入路径。
-    </p>
+    </div>
   </div>
 </details>
 
@@ -158,7 +158,7 @@ description: 安装 BAAS Tauri、准备后端、设置密钥、创建配置档�
 
 ## 连接模拟器
 
-创建配置档后，依次进入 [服务器](../features/server)、[模拟器](../features/emulator) 和 [脚本](../features/script) 设置游戏服务器、ADB IP、ADB 端口、模拟器路径、模拟器类型、截图方式和控制方式。服务器配置中的 ADB 检测按钮可以帮助确认当前可用设备。
+创建配置档后，依次进入 [服务器](../../features/server)、[模拟器](../../features/emulator) 和 [脚本](../../features/script) 设置游戏服务器、ADB IP、ADB 端口、模拟器路径、模拟器类型、截图方式和控制方式。服务器配置中的 ADB 检测按钮可以帮助确认当前可用设备。
 
 常见连接失败原因：
 

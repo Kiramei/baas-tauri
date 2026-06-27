@@ -1,8 +1,29 @@
 :root {
-  --baas-accent: #0891b2;
-  --baas-accent-2: #7c3aed;
-  --baas-cyan: #22d3ee;
-  --baas-pink: #ec4899;
+  --baas-accent: #2563eb;
+  --baas-accent-2: #1d4ed8;
+  --baas-cyan: #60a5fa;
+  --baas-pink: #2563eb;
+
+  --color-fd-primary: hsl(221, 83%, 53%);
+  --color-fd-primary-foreground: hsl(0, 0%, 98%);
+  --color-fd-accent: hsla(221, 83%, 53%, 0.12);
+  --color-fd-accent-foreground: hsl(221, 83%, 42%);
+  --color-fd-ring: hsl(221, 83%, 53%);
+  --color-fd-info: oklch(62.3% 0.214 259.815);
+}
+
+.dark,
+html[data-theme="dark"] {
+  --baas-accent: #60a5fa;
+  --baas-accent-2: #3b82f6;
+  --baas-cyan: #93c5fd;
+  --baas-pink: #60a5fa;
+
+  --color-fd-primary: hsl(213, 94%, 68%);
+  --color-fd-primary-foreground: hsl(222, 47%, 11%);
+  --color-fd-accent: hsla(213, 94%, 68%, 0.14);
+  --color-fd-accent-foreground: hsl(213, 94%, 80%);
+  --color-fd-ring: hsl(213, 94%, 68%);
 }
 
 @font-face {
@@ -83,6 +104,33 @@ textarea:disabled,
 .cursor-grab,
 [draggable="true"] {
   cursor: url("/cursors/move.cur"), grab;
+}
+
+.baas-doc-nav-brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  font-weight: 780;
+}
+
+.baas-doc-nav-brand img {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.baas-page-tree-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: currentColor;
+  opacity: 0.72;
+}
+
+[data-active="true"] .baas-page-tree-icon {
+  opacity: 1;
 }
 
 .baas-site-home {
@@ -611,6 +659,42 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
   --home-border: color-mix(in srgb, currentColor 13%, transparent);
 }
 
+.baas-doc-intro {
+  display: grid;
+  max-width: 760px;
+  gap: 14px;
+  margin: 0 0 1.1rem;
+}
+
+.baas-doc-intro h2 {
+  margin: 0;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+.baas-doc-intro-text {
+  margin: 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.baas-doc-focus-cards {
+  margin: 1rem 0 1.25rem;
+}
+
+.baas-doc-focus-cards [data-card] {
+  min-height: 118px;
+}
+
+.baas-doc-card-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--color-fd-primary) 82%, currentColor);
+}
+
 .baas-doc-hero {
   display: grid;
   gap: 22px;
@@ -1023,6 +1107,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 }
 
 .baas-macos-note p,
+.baas-macos-note > div > div,
 .baas-macos-note ol {
   margin: 0;
   color: var(--color-fd-muted-foreground);
@@ -1074,6 +1159,11 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
   text-align: center;
 }
 
+.baas-doc-hero-shot-compact {
+  max-width: 860px;
+  margin: 1rem 0 1.5rem;
+}
+
 .baas-feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -1099,7 +1189,15 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 }
 
 .baas-feature-grid strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 0.98rem;
+}
+
+.baas-feature-grid strong .baas-doc-card-icon {
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 .baas-feature-grid span {
