@@ -1,6 +1,11 @@
 # BAAS Tauri
 
-[English README](README.md) · [下载最新版](https://github.com/Kiramei/baas-tauri/releases/latest) · [文档站](docs) · [GPL-3.0-only](LICENSE)
+<p>
+  <a href="README.md"><kbd>English README</kbd></a>
+  <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>下载最新版</kbd></a>
+  <a href="docs"><kbd>文档站</kbd></a>
+  <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
+</p>
 
 BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、调度、功能配置、运行日志、远程模拟器画面、更新器和网页文档入口收进一个 Tauri 应用里；BAAS 后端则负责 ADB、截图、识别、模拟器控制和任务执行。
 
@@ -41,16 +46,16 @@ BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、
 
 安装包发布在 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases)。下载最新版时，请按你的操作系统和 CPU 架构选择对应文件。
 
-| 系统 | 安装包 |
-| ---- | ------ |
-| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` |
-| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` |
-| Windows x64 固定 WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` |
+| 系统                        | 安装包                                        |
+| --------------------------- | --------------------------------------------- |
+| Windows x64                 | `BAAS.Tauri_*_x64-setup.exe`                  |
+| Windows ARM64               | `BAAS.Tauri_*_arm64-setup.exe`                |
+| Windows x64 固定 WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   |
 | Windows ARM64 固定 WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` |
-| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` |
-| macOS Intel | `BAAS.Tauri_*_x64.dmg` |
-| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb` |
-| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm` |
+| macOS Apple Silicon         | `BAAS.Tauri_*_aarch64.dmg`                    |
+| macOS Intel                 | `BAAS.Tauri_*_x64.dmg`                        |
+| Linux Debian/Ubuntu         | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb`     |
+| Linux Fedora/RHEL           | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm`  |
 
 文档站中也提供动态下载面板，会读取最新 GitHub Release 并展示可直接下载的安装包。
 

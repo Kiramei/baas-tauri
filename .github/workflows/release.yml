@@ -167,6 +167,34 @@ jobs:
           }
           Copy-Item $exe.FullName "$dst\BAAS.Tauri_${version}_${arch}-setup.exe" -Force
 
+          $releaseDir = "target\${{ matrix.target }}\release"
+          $portableCandidates = @(
+            "baas-tauri.exe",
+            "BAAS Tauri.exe",
+            "BAAS.Tauri.exe"
+          )
+          $portable = $null
+          foreach ($candidate in $portableCandidates) {
+            $candidatePath = Join-Path $releaseDir $candidate
+            if (Test-Path $candidatePath) {
+              $portable = Get-Item $candidatePath
+              break
+            }
+          }
+          if (-not $portable) {
+            $portable = Get-ChildItem $releaseDir -File -Filter "*.exe" |
+              Where-Object {
+                $_.Name -notlike "*setup*" -and
+                $_.Name -notlike "unins*" -and
+                $_.Name -notlike "*bootstrapper*"
+              } |
+              Select-Object -First 1
+          }
+          if (-not $portable) {
+            throw "No portable application exe found in $releaseDir"
+          }
+          Copy-Item $portable.FullName "$dst\BAAS.Tauri_${version}_${arch}_portable.exe" -Force
+
           $sig = Get-ChildItem $src -File -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($sig) {
             Copy-Item $sig.FullName "$dst\BAAS.Tauri_${version}_${arch}-setup.exe.sig" -Force
@@ -612,7 +640,9 @@ jobs:
 
           ### Windows
           - [Windows x64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64-setup.exe)
+          - [Windows x64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_portable.exe)
           - [Windows arm64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64-setup.exe)
+          - [Windows arm64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64_portable.exe)
           - [Windows x64 fixed WebView2 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2-setup.exe)
           - [Windows x64 fixed WebView2 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2_portable.zip)
 

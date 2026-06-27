@@ -30,9 +30,21 @@ const content = {
       ["安装", "/docs/zh/guide/install", "后端启动、配置档创建和首次连接。"],
       ["界面", "/docs/zh/guide/interface", "主页、调度、功能配置、设置和文档窗口。"],
       ["调度", "/docs/zh/guide/scheduler", "任务启用、下次运行时间、依赖和间隔。"],
-      ["功能", "/docs/zh/features/server", "服务器、模拟器、PC 客户端、脚本、推图、扫荡、编队、咖啡厅、商店和战斗。"],
-      ["故障排查", "/docs/zh/reference/troubleshooting", "日志、ADB、截图、远程画面、更新和路由检查。"],
-      ["后端参考", "/docs/zh/reference/backend-service", "Service 模式、setup.toml、CLI、自动战斗、识别和开发说明。"],
+      [
+        "功能",
+        "/docs/zh/features/server",
+        "服务器、模拟器、PC 客户端、脚本、推图、扫荡、编队、咖啡厅、商店和战斗。",
+      ],
+      [
+        "故障排查",
+        "/docs/zh/reference/troubleshooting",
+        "日志、ADB、截图、远程画面、更新和路由检查。",
+      ],
+      [
+        "后端参考",
+        "/docs/zh/reference/backend-service",
+        "Service 模式、setup.toml、CLI、自动战斗、识别和开发说明。",
+      ],
       ["开发", "/docs/zh/reference/development", "文档维护、部署 workflow 和项目说明。"],
     ],
   },
@@ -57,13 +69,41 @@ const content = {
     mapKicker: "Start here",
     mapTitle: "Choose a documentation path",
     links: [
-      ["Install", "/docs/en/guide/install", "Backend startup, profile creation, and first connection."],
-      ["Interface", "/docs/en/guide/interface", "Home, scheduler, configuration, settings, and docs window."],
-      ["Scheduler", "/docs/en/guide/scheduler", "Task enablement, next run time, dependencies, and intervals."],
-      ["Features", "/docs/en/features/server", "Server, emulator, PC client, script, stages, sweeps, teams, cafe, shop, and combat."],
-      ["Troubleshooting", "/docs/en/reference/troubleshooting", "Logs, ADB, screenshots, remote display, updates, and route checks."],
-      ["Backend Reference", "/docs/en/reference/backend-service", "Service mode, setup.toml, CLI, auto fight, recognition, and development notes."],
-      ["Development", "/docs/en/reference/development", "Docs maintenance, deployment workflow, and project notes."],
+      [
+        "Install",
+        "/docs/en/guide/install",
+        "Backend startup, profile creation, and first connection.",
+      ],
+      [
+        "Interface",
+        "/docs/en/guide/interface",
+        "Home, scheduler, configuration, settings, and docs window.",
+      ],
+      [
+        "Scheduler",
+        "/docs/en/guide/scheduler",
+        "Task enablement, next run time, dependencies, and intervals.",
+      ],
+      [
+        "Features",
+        "/docs/en/features/server",
+        "Server, emulator, PC client, script, stages, sweeps, teams, cafe, shop, and combat.",
+      ],
+      [
+        "Troubleshooting",
+        "/docs/en/reference/troubleshooting",
+        "Logs, ADB, screenshots, remote display, updates, and route checks.",
+      ],
+      [
+        "Backend Reference",
+        "/docs/en/reference/backend-service",
+        "Service mode, setup.toml, CLI, auto fight, recognition, and development notes.",
+      ],
+      [
+        "Development",
+        "/docs/en/reference/development",
+        "Docs maintenance, deployment workflow, and project notes.",
+      ],
     ],
   },
 };
@@ -129,8 +169,7 @@ export function SiteHome() {
           <h1>
             {locale === "zh" ? (
               <>
-                <span>BAAS Tauri</span>{" "}
-                <span className="baas-site-title-keep">文档</span>
+                <span>BAAS Tauri</span> <span className="baas-site-title-keep">文档</span>
               </>
             ) : (
               t.title
@@ -140,9 +179,7 @@ export function SiteHome() {
           <div className="baas-site-actions">
             <Link href={`/docs/${locale}`}>{t.docsLabel}</Link>
             <Link href={`/docs/${t.otherLocale}`}>{t.otherDocsLabel}</Link>
-            <Link href={`/docs/${locale}/guide/install#download`}>
-              {t.download}
-            </Link>
+            <Link href={`/docs/${locale}/guide/install#download`}>{t.download}</Link>
           </div>
         </div>
       </section>
@@ -150,11 +187,17 @@ export function SiteHome() {
       <section className="baas-site-preview" aria-label="Application previews">
         <div>
           <p>{t.lightMode}</p>
-          <img src={`/${assetLocale}/home-light-logs.png`} alt={locale === "zh" ? "BAAS Tauri 浅色主页" : "BAAS Tauri home page in light mode"} />
+          <img
+            src={`/${assetLocale}/home-light-logs.png`}
+            alt={locale === "zh" ? "BAAS Tauri 浅色主页" : "BAAS Tauri home page in light mode"}
+          />
         </div>
         <div>
           <p>{t.darkMode}</p>
-          <img src={`/${assetLocale}/home-dark-logs.png`} alt={locale === "zh" ? "BAAS Tauri 深色主页" : "BAAS Tauri home page in dark mode"} />
+          <img
+            src={`/${assetLocale}/home-dark-logs.png`}
+            alt={locale === "zh" ? "BAAS Tauri 深色主页" : "BAAS Tauri home page in dark mode"}
+          />
         </div>
       </section>
 

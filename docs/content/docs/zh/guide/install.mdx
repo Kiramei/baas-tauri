@@ -48,38 +48,50 @@ description: 安装 BAAS Tauri、准备后端、设置密钥、创建配置档�
   <summary>⚠️ macOS 未公证安装说明</summary>
   <div>
     <div>
-      当前 BAAS Tauri 的 macOS 安装包不会进行 Apple notarization（公证）。因此第一次打开时，macOS Gatekeeper
-      可能提示“无法验证开发者”“已损坏，无法打开”或要求移到废纸篓。请只从本页链接到的官方 GitHub Releases
-      下载；确认来源可信后，再按下面方式放行。
+      当前 BAAS Tauri 的 macOS 安装包不会进行 Apple notarization（公证）。因此第一次打开时，macOS
+      Gatekeeper 可能提示“无法验证开发者”“已损坏，无法打开”或要求移到废纸篓。请只从本页链接到的官方
+      GitHub Releases 下载；确认来源可信后，再按下面方式放行。
     </div>
     <ol>
-      <li>打开 <code>.dmg</code>，把 <code>BAAS Tauri.app</code> 拖到“应用程序”文件夹。</li>
+      <li>
+        打开 <code>.dmg</code>，把 <code>BAAS Tauri.app</code> 拖到“应用程序”文件夹。
+      </li>
       <li>在 Finder 中按住 Control 点击应用，选择“打开”，再在弹窗中点“打开”。</li>
       <li>
-        如果仍然被拦截，先尝试打开一次应用，然后进入“系统设置” -&gt; “隐私与安全性”，在安全区域点击“仍要打开 / Open
-        Anyway”。Apple 说明这个按钮通常只会在尝试打开后的短时间内出现，详见
-        <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac"> Apple 官方说明</a>。
+        如果仍然被拦截，先尝试打开一次应用，然后进入“系统设置” -&gt;
+        “隐私与安全性”，在安全区域点击“仍要打开 / Open Anyway”。Apple
+        说明这个按钮通常只会在尝试打开后的短时间内出现，详见
+        <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac">
+          {" "}
+          Apple 官方说明
+        </a>
+        。
       </li>
-      <li>如果提示“已损坏，无法打开”，并且你确认文件来自官方 Releases，可以在终端移除下载隔离属性：</li>
+      <li>
+        如果提示“已损坏，无法打开”，并且你确认文件来自官方 Releases，可以在终端移除下载隔离属性：
+      </li>
     </ol>
-    <pre><code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code></pre>
+    <pre>
+      <code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code>
+    </pre>
     <div>
-      不要关闭 Gatekeeper、不要关闭 SIP，也不要对来路不明的应用执行上面的命令。路径不一致时，可以在终端输入
+      不要关闭 Gatekeeper、不要关闭
+      SIP，也不要对来路不明的应用执行上面的命令。路径不一致时，可以在终端输入
       <code>xattr -dr com.apple.quarantine </code> 后把应用图标拖进终端自动填入路径。
     </div>
   </div>
 </details>
 
-| 系统 | 推荐安装包 | 什么时候选择 |
-| ---- | ---------- | ------------ |
-| Windows x64 | `BAAS.Tauri_*_x64-setup.exe` | 大多数 Windows 电脑 |
-| Windows ARM64 | `BAAS.Tauri_*_arm64-setup.exe` | ARM 架构 Windows 设备 |
-| Windows x64 固定 WebView2 | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe` | x64 设备上系统 WebView2 缺失、损坏或普通安装包启动异常 |
+| 系统                        | 推荐安装包                                    | 什么时候选择                                             |
+| --------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| Windows x64                 | `BAAS.Tauri_*_x64-setup.exe`                  | 大多数 Windows 电脑                                      |
+| Windows ARM64               | `BAAS.Tauri_*_arm64-setup.exe`                | ARM 架构 Windows 设备                                    |
+| Windows x64 固定 WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   | x64 设备上系统 WebView2 缺失、损坏或普通安装包启动异常   |
 | Windows ARM64 固定 WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` | ARM64 设备上系统 WebView2 缺失、损坏或普通安装包启动异常 |
-| macOS Apple Silicon | `BAAS.Tauri_*_aarch64.dmg` | M 系列芯片 Mac |
-| macOS Intel | `BAAS.Tauri_*_x64.dmg` | Intel 芯片 Mac |
-| Linux Debian/Ubuntu | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb` | Debian、Ubuntu 及其衍生发行版 |
-| Linux Fedora/RHEL | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm` | Fedora、RHEL、openSUSE 等 RPM 系发行版 |
+| macOS Apple Silicon         | `BAAS.Tauri_*_aarch64.dmg`                    | M 系列芯片 Mac                                           |
+| macOS Intel                 | `BAAS.Tauri_*_x64.dmg`                        | Intel 芯片 Mac                                           |
+| Linux Debian/Ubuntu         | `BAAS.Tauri_*_amd64.deb` 或 `*_arm64.deb`     | Debian、Ubuntu 及其衍生发行版                            |
+| Linux Fedora/RHEL           | `BAAS.Tauri_*_x86_64.rpm` 或 `*_aarch64.rpm`  | Fedora、RHEL、openSUSE 等 RPM 系发行版                   |
 
 下载完成后再运行安装包启动 BAAS Tauri。进入安装器后，才开始选择后端目录、更新源和 MirrorC CDK。
 

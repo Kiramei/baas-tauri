@@ -1,40 +1,40 @@
-## v0.0.5
+## v0.0.6
 
-> This release focuses on update-source reliability, lower-overhead UI behavior, terminal robustness, and configuration import ergonomics since v0.0.4.
+> This release focuses on documentation rebuilds, appearance customization, Windows release packaging, and wiki/install polish since v0.0.5.
 
 ### New Features
 
-1. **Drag-to-add configuration**
-   Added a config archive drop overlay so profile/config archives can be added by dragging them into the app.
+1. **Rebuilt documentation site**
+   Added the new multilingual documentation site with feature guides, install guides, reference pages, screenshots, release download panels, and generated font subsets.
 
-2. **Git update mode selection**
-   Added support for selecting Git update modes in setup/update configuration, including backend config plumbing and updater workflow integration.
+2. **Appearance customization**
+   Added image background and color customization support, including the global appearance effect layer and color picker controls.
 
-3. **Low performance mode**
-   Added a low performance UI mode that reduces visual cost across overlays, layout chrome, modals, progress UI, and animated text.
+3. **Portable Windows release**
+   Enabled portable Windows artifacts in the release workflow.
 
 ### Improvements
 
-1. **Git source speed tests**
-   Git2-based update sources are now included in speed/connectivity testing, so source selection reflects Git2 availability and performance.
+1. **Wiki display**
+   Improved the in-app wiki viewer, local wiki content rendering, docs navigation, home layout, top logo display, and scrollbar styling.
 
-2. **Terminal error handling**
-   Improved terminal renderer error catching and line handling for updater/install workflows.
+2. **Installer configuration resolution**
+   Improved Tauri install config path resolution and setup storage handling.
 
-3. **WebUI overlay behavior**
-   Unified switch behavior and reconnecting overlay handling for WebUI mode.
+3. **Docs and README quality**
+   Reformatted and polished README content, docs pages, feature descriptions, setup.toml references, and install instructions in English and Chinese.
 
-4. **Clipboard context menu**
-   Reduced unnecessary clipboard permission/tip prompts when opening the normal context menu.
+4. **Release and docs CI**
+   Updated release/docs workflows, removed the dev-triggered docs deployment path, and installed docs font subset tooling in CI.
 
-5. **Localization coverage**
-   Added missing paste failure and drag-add configuration translations across supported locales.
+5. **UI copy and comments**
+   Normalized Chinese comments to English and shortened log level names for denser terminal display.
 
 ### Fixes
 
-1. Fixed Git2 crashes when no TLS backend is available.
-2. Fixed missing Git2 speed-test coverage.
-3. Fixed missing paste failure i18n entries.
-4. Fixed clipboard tip alerts appearing during normal context menu usage.
-5. Fixed terminal renderer error handling in updater logs.
-6. Fixed WebUI reconnecting overlay behavior and switch component consistency.
+1. Fixed setup page i18n coverage.
+2. Fixed incorrect install guide links.
+3. Fixed Tauri install config resolution.
+4. Fixed wiki display and docs source behavior.
+5. Fixed selected link styling and related docs link presentation.
+6. Fixed site styling and scrollbar polish regressions.

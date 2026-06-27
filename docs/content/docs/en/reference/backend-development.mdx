@@ -45,13 +45,13 @@ The Tauri client does not execute this loop directly. It owns configuration, sch
 
 The legacy backend `Logger` lives in `core/utils.py`. Logs are sent to the UI or terminal. Static log strings should be written in English to help cross-language users and developers debug issues.
 
-| Level | Use Case |
-| ----- | -------- |
-| `info` | Normal runtime status |
-| `warning` | Abnormal state that can be recovered automatically |
-| `error` | Current task cannot recover; restart task or stop BAAS |
+| Level      | Use Case                                                |
+| ---------- | ------------------------------------------------------- |
+| `info`     | Normal runtime status                                   |
+| `warning`  | Abnormal state that can be recovered automatically      |
+| `error`    | Current task cannot recover; restart task or stop BAAS  |
 | `critical` | Invalid parameters, startup failure, or task cannot run |
-| `line` | Separate task contexts |
+| `line`     | Separate task contexts                                  |
 
 ```python
 self.logger.info("Info Message")
@@ -74,13 +74,13 @@ Backend config commonly covers:
 
 When adding a config key, update:
 
-| Area | Required Work |
-| ---- | ------------- |
-| Backend defaults | Default value and migration logic |
-| Tauri UI | Form control, validation, copy |
-| Scheduler | Whether it affects enablement or timing |
-| Docs | Chinese and English descriptions |
-| Logs | Debuggable English log messages |
+| Area             | Required Work                           |
+| ---------------- | --------------------------------------- |
+| Backend defaults | Default value and migration logic       |
+| Tauri UI         | Form control, validation, copy          |
+| Scheduler        | Whether it affects enablement or timing |
+| Docs             | Chinese and English descriptions        |
+| Logs             | Debuggable English log messages         |
 
 ## Documentation Boundary
 

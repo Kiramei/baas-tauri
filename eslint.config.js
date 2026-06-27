@@ -7,16 +7,28 @@ import prettier from "eslint-config-prettier";
 export default [
   {
     ignores: [
-      "node_modules",
+      "**/node_modules/**",
       "dist",
       "build",
       "public",
       "src/components/remote/player/vendor/**",
       "scripts/**",
       "**/target/**",
+      "**/.next/**",
+      "**/.source/**",
+      "docs/out/**",
     ],
   },
   js.configs.recommended,
+  {
+    files: ["**/*.mjs", "**/*.cjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+      },
+    },
+  },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.ts", "**/*.tsx"],
