@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build:fonts": "bun scripts/build-fonts.mjs",
+    "build:next": "next build",
     "build": "bun run build:fonts && next build",
     "start": "next start"
   },
