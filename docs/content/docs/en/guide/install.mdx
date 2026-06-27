@@ -48,11 +48,11 @@ First download the BAAS Tauri client package for your operating system and CPU a
 <details className="baas-macos-note">
   <summary>⚠️ macOS Notarization Notice</summary>
   <div>
-    <p>
+    <div>
       BAAS Tauri macOS packages are not Apple-notarized. On first launch, macOS Gatekeeper may report that the developer
       cannot be verified, the app is damaged, or the app should be moved to Trash. Download only from the official GitHub
       Releases linked here; if you trust that source, use the steps below to allow the app.
-    </p>
+    </div>
     <ol>
       <li>Open the <code>.dmg</code> and drag <code>BAAS Tauri.app</code> into Applications.</li>
       <li>In Finder, Control-click the app, choose Open, then confirm Open in the dialog.</li>
@@ -64,10 +64,10 @@ First download the BAAS Tauri client package for your operating system and CPU a
       <li>If macOS says the app is damaged and you confirmed the file came from official Releases, remove the download quarantine attribute:</li>
     </ol>
     <pre><code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code></pre>
-    <p>
+    <div>
       Do not disable Gatekeeper, do not disable SIP, and do not run the command above for apps from unknown sources. If the app path is
       different, type <code>xattr -dr com.apple.quarantine </code> in Terminal, then drag the app icon into Terminal to insert the path.
-    </p>
+    </div>
   </div>
 </details>
 

@@ -28,7 +28,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       }}
       sidebar={{
         defaultOpenLevel: 1,
-        footer: <LanguageMenu locale={locale as Locale} />,
+        footer: <LanguageMenu key="baas-sidebar-language-menu" locale={locale as Locale} />,
       }}
     >
       {children}
