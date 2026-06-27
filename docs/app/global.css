@@ -10,6 +10,10 @@
   --color-fd-accent-foreground: hsl(221, 83%, 42%);
   --color-fd-ring: hsl(221, 83%, 53%);
   --color-fd-info: oklch(62.3% 0.214 259.815);
+  --baas-scrollbar-track: color-mix(in srgb, var(--color-fd-primary) 5%, transparent);
+  --baas-scrollbar-thumb: color-mix(in srgb, var(--color-fd-primary) 46%, #94a3b8);
+  --baas-scrollbar-thumb-hover: color-mix(in srgb, var(--color-fd-primary) 82%, #64748b);
+  --baas-scrollbar-border: var(--color-fd-background);
 }
 
 .dark,
@@ -24,6 +28,10 @@ html[data-theme="dark"] {
   --color-fd-accent: hsla(213, 94%, 68%, 0.14);
   --color-fd-accent-foreground: hsl(213, 94%, 80%);
   --color-fd-ring: hsl(213, 94%, 68%);
+  --baas-scrollbar-track: color-mix(in srgb, var(--color-fd-primary) 9%, transparent);
+  --baas-scrollbar-thumb: color-mix(in srgb, var(--color-fd-primary) 58%, #475569);
+  --baas-scrollbar-thumb-hover: color-mix(in srgb, var(--color-fd-primary) 88%, #e2e8f0);
+  --baas-scrollbar-border: var(--color-fd-background);
 }
 
 @font-face {
@@ -42,6 +50,65 @@ body {
   min-height: 100vh;
   font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif !important;
   cursor: url("/cursors/normal.cur"), auto;
+}
+
+html {
+  scrollbar-color: var(--baas-scrollbar-thumb) var(--baas-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+* {
+  scrollbar-color: var(--baas-scrollbar-thumb) var(--baas-scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--baas-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid var(--baas-scrollbar-border);
+  border-radius: 999px;
+  background-color: var(--baas-scrollbar-thumb);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 12%, transparent);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--baas-scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.fd-scroll-container,
+#nd-sidebar,
+#nd-toc,
+[data-sidebar-panel],
+[data-toc-popover-content] {
+  scrollbar-width: thin;
+}
+
+.fd-scroll-container::-webkit-scrollbar,
+#nd-sidebar::-webkit-scrollbar,
+#nd-toc::-webkit-scrollbar,
+[data-sidebar-panel]::-webkit-scrollbar,
+[data-toc-popover-content]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.fd-scroll-container::-webkit-scrollbar-thumb,
+#nd-sidebar::-webkit-scrollbar-thumb,
+#nd-toc::-webkit-scrollbar-thumb,
+[data-sidebar-panel]::-webkit-scrollbar-thumb,
+[data-toc-popover-content]::-webkit-scrollbar-thumb {
+  border-width: 1px;
 }
 
 button,

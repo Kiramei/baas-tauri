@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-export const WEB_WIKI_URL = import.meta.env.VITE_BAAS_WIKI_URL || "https://baas.wiki";
+export const WEB_WIKI_URL = import.meta.env.VITE_BAAS_WIKI_URL || "https://baas.kiramei.cn";
 export const WEB_WIKI_WINDOW_LABEL = "baas-wiki-viewer";
 export const WEB_WIKI_MAIN_LABEL = "main";
 export const WEB_WIKI_QUERY = "view=web-wiki";
@@ -122,11 +122,17 @@ const WebWikiViewer: React.FC = () => {
     if (!__WITH_TAURI__) return;
 
     let cleanup: Array<() => void> = [];
+    let closing = false;
     (async () => {
-      const window = await currentWindow();
+      const appWindow = await currentWindow();
       cleanup = [
-        await window.listen("tauri://close-requested", () => {
-          emitToMain(webWikiEvents.closed).catch(console.error);
+        await appWindow.onCloseRequested(async (event) => {
+          event.preventDefault();
+          if (closing) return;
+
+          closing = true;
+          await emitToMain(webWikiEvents.closed).catch(console.error);
+          await appWindow.destroy().catch(console.error);
         }),
       ];
     })().catch(console.error);
