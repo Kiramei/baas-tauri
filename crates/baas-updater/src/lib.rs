@@ -229,9 +229,8 @@ pub enum UpdateStatus {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowOptions {
-    /// Optional explicit setup.toml path. Tauri callers pass the resolved
-    /// app-data/install-root config path here after applying the default search
-    /// order.
+    /// Optional explicit setup.toml path. Tauri callers pass the active
+    /// portable or install-root config path here.
     pub config_path: Option<PathBuf>,
     /// Optional override for the BAAS installation directory.
     pub install_path: Option<PathBuf>,

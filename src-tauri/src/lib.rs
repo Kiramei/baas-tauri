@@ -11,8 +11,9 @@ use crate::{
         disable_f5_press_event, inject_tray_icon, set_backend_locale, splash_off, BehaviorState,
     },
     commands::{
-        ensure_default_config, open_main_devtools, shortcut_apply_bindings, updater_abort_workflow,
-        updater_get_startup_state, updater_path_exists_non_empty,
+        configure_portable_working_dir, ensure_default_config, open_main_devtools,
+        shortcut_apply_bindings, updater_abort_workflow, updater_get_startup_state,
+        updater_get_storage_state, updater_path_exists_non_empty,
         updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
         updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
         BackendProcessManager,
@@ -40,6 +41,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             splash_off,
             set_backend_locale,
+            updater_get_storage_state,
             updater_get_startup_state,
             updater_path_exists_non_empty,
             updater_update_config,
@@ -56,6 +58,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            configure_portable_working_dir().map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
             install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
 

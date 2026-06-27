@@ -8,11 +8,13 @@ import { useTranslation } from "react-i18next";
 interface PathSelectorProps {
   path: string;
   setPath: (path: string) => void;
+  disabled?: boolean;
 }
 
-const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath }) => {
+const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath, disabled = false }) => {
   const { t } = useTranslation();
   const handleBrowse = async () => {
+    if (disabled) return;
     const selected = await open({
       directory: true,
       multiple: false,
@@ -34,6 +36,7 @@ const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath }) => {
           placeholder="Select installation directory..."
           className="w-full flex-col"
           childClassName="text-sm bg-background/30"
+          disabled={disabled}
         />
         <Button
           variant="outline"
@@ -41,6 +44,7 @@ const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath }) => {
           onClick={handleBrowse}
           title="Browse"
           className="bg-background/30"
+          disabled={disabled}
         >
           <FolderOpen className="h-4 w-4" />
         </Button>

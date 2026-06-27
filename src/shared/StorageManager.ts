@@ -171,10 +171,26 @@ class StorageUtilTauri {
 
   static async init() {
     if (this.initialized) return;
-    this.store = await Store.load(".app_storage.json");
+    const storageState = await this.resolveStorageState();
+    this.store = await Store.load(storageState.storePath);
     const entries = await this.store.entries();
     this.cache = Object.fromEntries(entries);
+    if (storageState.portable && this.cache.base_dir !== ".") {
+      this.cache.base_dir = ".";
+      await this.store.set("base_dir", ".");
+      await this.store.save();
+    }
     this.initialized = true;
+  }
+
+  private static async resolveStorageState(): Promise<{ storePath: string; portable: boolean }> {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return await invoke<{ storePath: string; portable: boolean }>("updater_get_storage_state");
+    } catch (error) {
+      console.warn("[StorageUtil:init] storage state fallback:", error);
+      return { storePath: ".app_storage.json", portable: false };
+    }
   }
 
   static get<T = any>(key: string): T | null {

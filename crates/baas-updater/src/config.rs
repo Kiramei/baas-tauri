@@ -1,10 +1,8 @@
 //! Configuration loading, migration, and persistence.
 //!
-//! The updater first honors an executable-adjacent `setup.toml` for portable
-//! deployments. If it is not present, Tauri callers can provide the writable
-//! app data directory used for normal configuration storage. Once an install
-//! has written a copy into the BAAS root, that install-root copy is preferred
-//! over the app-data copy while the app-data config points to it.
+//! Tauri callers should pass an explicit `setup.toml` path. Normal installs
+//! use the target installation directory, while portable installs use an
+//! executable-adjacent `setup.toml`.
 
 use crate::{
     GitBackend, RepositoryKind, UpdateChannel, UpdaterError, UpdaterResult,
@@ -237,9 +235,9 @@ impl ConfigManager {
         Self::load_from(default_config_path()?)
     }
 
-    /// Loads setup.toml using a caller-provided app data directory fallback.
-    pub fn load_default_path_in_app_data(app_data_dir: impl AsRef<Path>) -> UpdaterResult<Self> {
-        Self::load_from(default_config_path_in_app_data(app_data_dir)?)
+    /// Loads setup.toml from the executable-adjacent default path.
+    pub fn load_default_path_in_app_data(_app_data_dir: impl AsRef<Path>) -> UpdaterResult<Self> {
+        Self::load_default_path()
     }
 
     /// Loads a configuration from an explicit setup.toml path.
@@ -303,44 +301,18 @@ impl ConfigManager {
     }
 }
 
-/// Returns the default setup.toml path.
-///
-/// This library-level fallback preserves portable behavior by using
-/// executable-adjacent `setup.toml`. Tauri callers should prefer
-/// [`default_config_path_in_app_data`] so fresh installs write to app data.
+/// Returns the default setup.toml path next to the executable.
 pub fn default_config_path() -> UpdaterResult<PathBuf> {
     exe_adjacent_config_path()
 }
 
-/// Returns the default setup.toml path using the app data directory fallback.
-///
-/// Resolution order:
-///
-/// 1. Existing executable-adjacent `setup.toml`.
-/// 2. Existing `$BAAS_ROOT_PATH/setup.toml` when app-data setup points to it.
-/// 3. `setup.toml` in the provided app data directory.
-pub fn default_config_path_in_app_data(app_data_dir: impl AsRef<Path>) -> UpdaterResult<PathBuf> {
-    let exe_config = exe_adjacent_config_path()?;
-    if exe_config.exists() {
-        return Ok(exe_config);
-    }
-
-    let app_config = app_data_dir.as_ref().join("setup.toml");
-    if app_config.exists() {
-        if let Ok(content) = fs::read_to_string(&app_config) {
-            if let Ok(config) = migrate_toml(&content) {
-                let install_config = config.baas_root().join("setup.toml");
-                if !config.paths.baas_root_path.trim().is_empty() && install_config.exists() {
-                    return Ok(install_config);
-                }
-            }
-        }
-    }
-
-    Ok(app_config)
+/// Returns the executable-adjacent default setup.toml path.
+pub fn default_config_path_in_app_data(_app_data_dir: impl AsRef<Path>) -> UpdaterResult<PathBuf> {
+    default_config_path()
 }
 
-fn exe_adjacent_config_path() -> UpdaterResult<PathBuf> {
+/// Returns the executable-adjacent setup.toml path.
+pub fn exe_adjacent_config_path() -> UpdaterResult<PathBuf> {
     let exe = std::env::current_exe()?;
     Ok(exe
         .parent()
@@ -613,30 +585,13 @@ gitBackend = "git_cli"
     }
 
     #[test]
-    fn app_data_default_path_prefers_install_root_copy_when_present() {
+    fn app_data_compat_default_path_uses_exe_adjacent_path() {
         let dir = tempfile::tempdir().unwrap();
         let app_data = dir.path().join("app-data");
-        let install_root = dir.path().join("install-root");
-        let app_config = app_data.join("setup.toml");
-        let install_config = install_root.join("setup.toml");
 
         assert_eq!(
             default_config_path_in_app_data(&app_data).unwrap(),
-            app_config
-        );
-
-        let mut manager = ConfigManager::load_from(&app_config).unwrap();
-        manager.set_baas_root_path(&install_root).unwrap();
-        fs::create_dir_all(&install_root).unwrap();
-        fs::write(
-            &install_config,
-            toml::to_string_pretty(&manager.config).unwrap(),
-        )
-        .unwrap();
-
-        assert_eq!(
-            default_config_path_in_app_data(&app_data).unwrap(),
-            install_config
+            exe_adjacent_config_path().unwrap()
         );
     }
 
