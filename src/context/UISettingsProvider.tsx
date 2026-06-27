@@ -11,6 +11,9 @@ interface UISettingsContextType {
 const DEFAULT_UI_SETTINGS: UISettings = {
   lang: "",
   theme: "",
+  themeColor: "#0891b2",
+  backgroundImageBase64: null,
+  backgroundImageOpacity: 0.18,
   zoomScale: 100,
   scrollToEnd: true,
   assetsDisplay: true,

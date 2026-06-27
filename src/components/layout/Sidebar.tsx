@@ -85,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 
   return (
     <div className="relative">
-      {/* 侧边栏 - 桌面端 */}
+      {/* Desktop sidebar */}
       <aside className="w-64 h-full shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-col lg:block hidden">
         <div className="h-16 flex items-center border-b border-slate-200 dark:border-slate-700 px-4">
           <img src={`${baseUrl}images/logo.png`} alt="Logo" className="h-8 w-8" />
@@ -147,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         </nav>
       </aside>
 
-      {/* 移动端底部导航栏 */}
+      {/* Mobile bottom navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center py-2 px-4 z-40">
         {navItems.map((item) => (
           <button
@@ -165,7 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         ))}
       </nav>
 
-      {/* 移动端悬浮更新按钮 */}
+      {/* Mobile floating update buttons */}
       {hasAnyUpdate && (
         <div className="lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
           {hasBackendUpdate && (

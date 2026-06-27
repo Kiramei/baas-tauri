@@ -363,7 +363,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
             </div>
           ))}
 
-          {/* 添加按钮 */}
+          {/* Add button */}
           <button
             onClick={mode === "time" ? handleTimeAdd : handleRangeAdd}
             className={cn(

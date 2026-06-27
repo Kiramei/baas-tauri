@@ -35,7 +35,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
   return (
     <Modal isOpen={true} onClose={onClose} title={t("scheduler.detailConfig")} width={80}>
       <div className="space-y-2">
-        {/* 事件名称（只读） */}
+        {/* Event name (read-only) */}
         <FormInput label={t("scheduler.eventName")} value={form.event_name} disabled />
 
         <label className="block text-sm font-medium">{t("scheduler.nextTick")}</label>
@@ -47,7 +47,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
         />
 
         <div className="grid grid-cols-1 gap-y-2 lg:grid-cols-2 gap-2">
-          {/* 优先级 */}
+          {/* Priority */}
           <FormInput
             label={t("scheduler.priority")}
             type="number"
@@ -55,7 +55,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
             onChange={(e) => handleChange("priority", Number(e.target.value))}
           />
 
-          {/* 执行间隔 */}
+          {/* Execution interval */}
           <FormInput
             label={t("scheduler.interval")}
             type="number"
@@ -64,7 +64,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
             min={0}
           />
 
-          {/* 每日重置 */}
+          {/* Daily reset */}
           <TimeSelectorModal
             label={t("scheduler.dailyReset")}
             values={form.daily_reset ?? []}
@@ -74,7 +74,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
             mode="time"
           />
 
-          {/* 禁用时间段 */}
+          {/* Disabled time range */}
           <TimeSelectorModal
             label={t("scheduler.disabledRange")}
             values={form.disabled_time_range ?? []}
@@ -84,7 +84,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
             mode="range"
           />
 
-          {/* 前置任务 */}
+          {/* Prerequisite task */}
           <OrderedMultiSelector
             label={t("scheduler.preTask")}
             values={form.pre_task ?? []}
@@ -95,7 +95,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
             translatePrefix="eventName"
           />
 
-          {/* 后置任务 */}
+          {/* Post-task */}
           <OrderedMultiSelector
             label={t("scheduler.postTask")}
             values={form.post_task ?? []}
@@ -108,7 +108,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
         </div>
 
         <Separator />
-        {/* 按钮 */}
+        {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
           <CButton onClick={handleSave}>{t("common.confirm")}</CButton>
         </div>

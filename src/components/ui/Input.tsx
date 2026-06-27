@@ -1,9 +1,9 @@
 import * as React from "react";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/GlobalUtilities";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-  // 判断是否是数字输入
+  // Check whether this is a numeric input.
   if (type === "number") {
     return (
       <div className="relative w-full">
@@ -11,7 +11,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
           type="number"
           data-slot="input"
           className={cn(
-            // 先屏蔽原生箭头
+            // Hide native number input steppers first.
             "appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
             "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground " +
               "dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent pr-8 px-3 py-1 text-base shadow-xs " +
@@ -23,7 +23,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
           )}
           {...props}
         />
-        {/* 自定义上下箭头 */}
+        {/* Custom increment and decrement buttons */}
         <div className="absolute inset-y-0 right-1 flex flex-col justify-center">
           <button
             type="button"
@@ -56,7 +56,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
     );
   }
 
-  // 其他类型保持不变
+  // Keep other input types unchanged.
   return (
     <input
       type={type ?? "text"}

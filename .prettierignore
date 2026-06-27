@@ -2,3 +2,6 @@ public
 node_modules
 coverage
 bun.lock
+.next*
+.source
+docs/out

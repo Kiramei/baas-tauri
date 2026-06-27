@@ -1,0 +1,132 @@
+---
+title: 开发与文档维护
+description: Tauri 客户端结构、后端通信、Fumadocs 文档站、截图维护和 GitHub Pages 部署。
+---
+
+这个页面面向维护者。BAAS Tauri 的用户文档现在集中维护在 `baas-tauri/docs`，旧 `baas-dev/docs` 的仍适用内容需要逐步吸收到这里，而不是继续维护两套用户入口。
+
+## 客户端结构
+
+主要目录：
+
+```text
+baas-tauri/
+├─ src/                    # React 客户端
+├─ src-tauri/              # Tauri 2 Rust 外壳、命令和窗口能力
+├─ public/locales/         # 应用 UI 文案
+├─ public/docs/            # 旧本地文档，仅保留中英文兼容内容
+├─ docs/                   # Fumadocs 网页文档站
+└─ .github/workflows/      # 发布和文档部署工作流
+```
+
+前端主要使用 React、Vite、Tailwind CSS、Zustand、i18next、lucide-react 和 Tauri 2。后端通过 WebSocket 同步状态、配置、事件、日志、版本和触发命令。
+
+## 文档站结构
+
+网页文档站位于：
+
+```text
+baas-tauri/docs
+```
+
+关键文件：
+
+```text
+docs/app/docs/[lang]/[[...slug]]/page.tsx
+docs/app/docs/[lang]/layout.tsx
+docs/content/docs/zh
+docs/content/docs/en
+docs/lib/source.ts
+docs/lib/i18n.ts
+docs/public/cn
+docs/public/en
+```
+
+路由规则：
+
+- `/docs` 重定向到 `/docs/zh`。
+- 中文文档位于 `/docs/zh/...`。
+- 英文文档位于 `/docs/en/...`。
+- 非中文语言在应用内应回退英文。
+
+## 截图维护规则
+
+截图来自当前 BAAS Tauri 界面。中文文档使用 `docs/public/cn`，英文文档使用 `docs/public/en`。
+
+维护时必须先确认截图语义，再插入文档：
+
+- 主页截图只用于主页、日志、运行状态。
+- 安装器截图只用于安装。
+- 咖啡厅截图只用于咖啡厅。
+- 商店截图只用于商店。
+- 制造截图只用于制造。
+- 服务器、脚本、模拟器截图只用于连接和脚本配置。
+- 推图、扫荡、编队截图只用于对应功能。
+- 设置、更新、快捷键和远程画面截图只用于系统设置章节。
+
+不要为了“图文并茂”把不相关截图插入页面。
+
+## 本地开发
+
+文档站命令：
+
+```bash
+cd docs
+bun install
+bun run dev
+bun run build
+```
+
+本地开发默认地址：
+
+```text
+http://localhost:3000/docs/zh/
+http://localhost:3000/docs/en/
+```
+
+构建产物输出到 `docs/out`。
+
+## GitHub Pages
+
+文档站通过 `.github/workflows/docs-pages.yml` 构建和部署。工作流会：
+
+1. Checkout 仓库。
+2. 配置 GitHub Pages。
+3. 安装 Bun。
+4. 在 `docs` 目录执行 `bun install --frozen-lockfile`。
+5. 传入 `NEXT_PUBLIC_BASE_PATH`。
+6. 执行 `bun run build`。
+7. 上传 `docs/out`。
+8. 部署到 GitHub Pages。
+
+`NEXT_PUBLIC_BASE_PATH` 很重要。仓库 Pages 通常不是部署在域名根路径，如果不传 base path，静态资源和路由可能在 GitHub Pages 上 404。
+
+## 从 baas-dev/docs 迁移
+
+旧 `baas-dev/docs` 中仍有价值的内容包括：
+
+- 安装和更新问题。
+- PC 平台截图、HDR、窗口比例和控制方式说明。
+- 活动配置、推图配置和编队格式。
+- 脚本开发、日志、服务模式和图像资源说明。
+
+迁移原则：
+
+- 用户文档优先写“如何使用当前 Tauri 客户端”。
+- 开发细节放在参考页，不混入普通用户流程。
+- 旧 UI 截图不直接放入新文档，除非当前界面仍然一致。
+- 新功能合并时同步更新中英文文档和截图。
+
+## 文案维护
+
+应用 UI 文案在 `public/locales`，文档文案在 `docs/content/docs`。两者不需要完全同句，但术语要一致，例如：
+
+- 配置档 / Profile
+- 调度 / Scheduler
+- 服务器 / Server
+- 模拟器 / Emulator
+- 脚本设置 / Script settings
+- 远程模拟器 / Remote emulator
+- 推送通知 / Push notifications
+
+中文和英文文档应覆盖同样的功能范围。

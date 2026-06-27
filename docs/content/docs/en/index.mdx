@@ -1,0 +1,185 @@
+---
+title: BAAS Docs
+description: Documentation for the BAAS Tauri desktop client, scheduler, feature configuration, remote emulator display, updater, and web Wiki.
+---
+
+<div className="baas-doc-home">
+  <section className="baas-doc-hero">
+    <div className="baas-doc-hero-copy">
+      <div className="baas-brand-lockup">
+        <img src="/baas-icon.png" alt="BAAS icon" />
+        <span>Blue Archive Auto Script</span>
+      </div>
+      <h2>A desktop workbench for controlled Blue Archive automation</h2>
+      <p>
+        BAAS Tauri manages profiles, scheduling, logs, remote emulator display, updates, and
+        documentation. The backend handles ADB, screenshots, recognition, task execution, and state
+        synchronization.
+      </p>
+      <div className="baas-doc-actions">
+        <a href="#download">Download</a>
+        <a href="./guide/install">Install</a>
+        <a href="./guide/interface">Interface</a>
+        <a href="./features/server">Configure</a>
+      </div>
+    </div>
+    <figure className="baas-doc-hero-shot">
+      <img
+        src="/en/home-dark-logs.png"
+        alt="BAAS Tauri home page with navigation, profile controls, task status, logs, and remote emulator controls"
+      />
+      <figcaption>
+        BAAS Tauri Home: navigation, profile shortcuts, task status, logs, and run controls.
+      </figcaption>
+    </figure>
+  </section>
+</div>
+
+<div id="download" />
+
+<ReleaseDownloadPanel locale="en" />
+
+<details className="baas-macos-note baas-macos-note-compact">
+  <summary>⚠️ macOS Requires Manual Approval</summary>
+  <div>
+    <p>
+      BAAS Tauri macOS packages are not Apple-notarized. If macOS says the developer cannot be verified, the app is damaged,
+      or the app should be moved to Trash, confirm that the file came from official GitHub Releases first, then follow the
+      macOS notes in <a href="./guide/install#download-the-desktop-installer">Installation and Connection</a>.
+    </p>
+  </div>
+</details>
+
+<Callout type="info" title="Start Here">
+  BAAS is split into orchestration and execution: the desktop client coordinates, while the backend
+  performs device control and automation. When something goes wrong, inspect profiles, scheduler
+  state, ADB, recognition, and logs first.
+</Callout>
+
+<div className="baas-home-strip">
+  <div>
+    <strong>🧭 Entry Points</strong>Home, Scheduler, Configuration, Settings, and Docs.
+  </div>
+  <div>
+    <strong>🧩 Profiles</strong>Separate accounts, servers, emulators, and strategies.
+  </div>
+  <div>
+    <strong>🧪 Validation</strong>Start with low-risk tasks before resource-spending tasks.
+  </div>
+  <div>
+    <strong>📚 Languages</strong>Only Chinese and English are maintained.
+  </div>
+</div>
+
+```mermaid
+flowchart LR
+  User["User / Profile"] --> Client["BAAS Tauri Desktop"]
+  Client --> Home["Home Controls"]
+  Client --> Scheduler["Scheduler"]
+  Client --> Config["Independent Feature Config"]
+  Client --> Docs["Web Docs / Wiki"]
+  Scheduler --> Backend["BAAS Backend Service"]
+  Config --> Backend
+  Backend --> ADB["ADB / Emulator"]
+  Backend --> Game["Blue Archive Client"]
+  Backend --> Client
+```
+
+## Reading Path
+
+| Scenario              | Read First                                     | Confirm                                          |
+| --------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| First installation    | [Installation and Connection](./guide/install) | Backend started, key accepted, service connected |
+| First main-window use | [Interface Overview](./guide/interface)        | Profiles, logs, remote display, sidebar          |
+| Daily automation      | [Scheduler](./guide/scheduler)                 | Enabled tasks, next run time, dependencies       |
+| Feature setup         | Individual feature pages below                 | Resource cost and validation method              |
+| Something broke       | [Troubleshooting](./reference/troubleshooting) | Logs, screenshots, profile, server, emulator     |
+
+## Feature Configuration
+
+<div className="baas-feature-grid">
+  <a href="./features/profile">
+    <strong>🗂️ Profiles</strong>
+    <span>Create, copy, import, export, and remove profiles.</span>
+  </a>
+  <a href="./features/home-runtime">
+    <strong>▶️ Home Runtime</strong>
+    <span>Start, stop, queue, logs, assets, and remote display.</span>
+  </a>
+  <a href="./features/server">
+    <strong>🌐 Server</strong>
+    <span>CN, Global, JP, and server-specific behavior.</span>
+  </a>
+  <a href="./features/emulator">
+    <strong>📱 Emulator</strong>
+    <span>Executable path, launch delay, multi-instance, and ADB.</span>
+  </a>
+  <a href="./features/script">
+    <strong>🧾 Script</strong>
+    <span>Backend launch options, screenshot method, and control method.</span>
+  </a>
+  <a href="./features/pc-platform">
+    <strong>🖥️ PC Client</strong>
+    <span>Steam Global, JP PC, HDR, window ratio, and desktop control.</span>
+  </a>
+  <a href="./features/stages">
+    <strong>🗺️ Stages</strong>
+    <span>Normal, hard, story, and event stages.</span>
+  </a>
+  <a href="./features/sweeps">
+    <strong>⚡ Sweeps</strong>
+    <span>Daily maps, commissions, scrimmage, events, and tickets.</span>
+  </a>
+  <a href="./features/team">
+    <strong>👥 Teams</strong>
+    <span>Sidebar order, preset teams, and attack-type teams.</span>
+  </a>
+  <a href="./features/cafe">
+    <strong>☕ Cafe</strong>
+    <span>Invite students, collect rewards, and handle cafe actions.</span>
+  </a>
+  <a href="./features/lesson">
+    <strong>🏫 Lessons</strong>
+    <span>Areas, tickets, priority, and lesson sweep strategy.</span>
+  </a>
+  <a href="./features/shop">
+    <strong>🛒 Shop</strong>
+    <span>Normal, arena, raid, expert permit, and other shops.</span>
+  </a>
+  <a href="./features/crafting">
+    <strong>🏭 Crafting</strong>
+    <span>Node choices, material input, and result collection.</span>
+  </a>
+  <a href="./features/combat">
+    <strong>⚔️ Combat</strong>
+    <span>Arena, Total Assault, Joint Drill, and high-risk combat tasks.</span>
+  </a>
+  <a href="./features/maintenance">
+    <strong>🧰 Maintenance</strong>
+    <span>Friends, notifications, launch game, rewards, and helper tasks.</span>
+  </a>
+  <a href="./features/system">
+    <strong>🎛️ System Settings</strong>
+    <span>Theme, language, zoom, background, remote display, and hotkeys.</span>
+  </a>
+  <a href="./features/update">
+    <strong>🔄 Updates</strong>
+    <span>Backend updates, client updates, mirrors, channels, and SHA tests.</span>
+  </a>
+  <a href="./reference/setup-toml">
+    <strong>🧷 Installer Config</strong>
+    <span>setup.toml, MirrorC CDK, update sources, and backend install options.</span>
+  </a>
+  <a href="./reference/backend-service">
+    <strong>🔌 Backend Service</strong>
+    <span>HTTP, WebSocket, auth, config sync, and remote-display interfaces.</span>
+  </a>
+  <a href="./reference/auto-fight-dev">
+    <strong>🤖 Auto Fight Dev</strong>
+    <span>Workflows, state machines, template matching, OCR, and assets.</span>
+  </a>
+</div>
+
+## Maintenance Model
+
+The old local Wiki is no longer the primary documentation surface. The canonical source is `baas-tauri/docs`, generated by Fumadocs. The Tauri Docs page loads this web documentation site by default and can detach it into a standalone "Wiki Documentation" window.

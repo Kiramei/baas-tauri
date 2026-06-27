@@ -1,0 +1,123 @@
+---
+title: Development and Documentation Maintenance
+description: Tauri client structure, backend bridge, Fumadocs site, screenshot maintenance, and GitHub Pages deployment.
+---
+
+This page is for maintainers. BAAS Tauri user documentation is now maintained under `baas-tauri/docs`. Still-relevant content from the old `baas-dev/docs` should be migrated here instead of maintaining two user-facing documentation surfaces.
+
+## Client Structure
+
+Main directories:
+
+```text
+baas-tauri/
+├─ src/                    # React client
+├─ src-tauri/              # Tauri 2 Rust shell, commands, windows
+├─ public/locales/         # Application UI strings
+├─ public/docs/            # Legacy local docs, English/Chinese compatibility only
+├─ docs/                   # Fumadocs web documentation site
+└─ .github/workflows/      # Release and documentation deployment workflows
+```
+
+The frontend uses React, Vite, Tailwind CSS, Zustand, i18next, lucide-react, and Tauri 2. The backend synchronizes status, configuration, events, logs, versions, and trigger commands over WebSocket.
+
+## Documentation Site Structure
+
+The web docs site lives at:
+
+```text
+baas-tauri/docs
+```
+
+Key files:
+
+```text
+docs/app/docs/[lang]/[[...slug]]/page.tsx
+docs/app/docs/[lang]/layout.tsx
+docs/content/docs/zh
+docs/content/docs/en
+docs/lib/source.ts
+docs/lib/i18n.ts
+docs/public/cn
+docs/public/en
+```
+
+Routes:
+
+- `/docs` redirects to `/docs/zh`.
+- Chinese docs use `/docs/zh/...`.
+- English docs use `/docs/en/...`.
+- Non-Chinese in-app languages should fall back to English.
+
+## Screenshot Maintenance
+
+Screenshots come from the current BAAS Tauri interface. Chinese docs use `docs/public/cn`; English docs use `docs/public/en`.
+
+Rules:
+
+- Home screenshots are only for home, logs, and runtime state.
+- Installer screenshots are only for installation.
+- Cafe screenshots are only for cafe.
+- Shop screenshots are only for shop.
+- Crafting screenshots are only for crafting.
+- Server, script, and emulator screenshots are only for connection and script setup.
+- Stage, sweep, and team screenshots are only for those features.
+- Settings, update, hotkey, and remote display screenshots are only for system settings.
+
+Do not insert unrelated screenshots just to make a page look illustrated.
+
+## Local Development
+
+Commands:
+
+```bash
+cd docs
+bun install
+bun run dev
+bun run build
+```
+
+Local URLs:
+
+```text
+http://localhost:3000/docs/zh/
+http://localhost:3000/docs/en/
+```
+
+Static output is written to `docs/out`.
+
+## GitHub Pages
+
+`.github/workflows/docs-pages.yml` builds and deploys the docs. It checks out the repository, configures Pages, installs Bun, runs `bun install --frozen-lockfile` in `docs`, passes `NEXT_PUBLIC_BASE_PATH`, builds, uploads `docs/out`, and deploys it.
+
+`NEXT_PUBLIC_BASE_PATH` matters because repository Pages is often not hosted at the domain root. Without it, routes and static assets may 404.
+
+## Migrating from baas-dev/docs
+
+Still-useful topics include:
+
+- Installation and update failures.
+- PC platform screenshots, HDR, aspect ratio, and control method notes.
+- Activity configuration, stage format, and team format.
+- Script development, logs, service mode, and image resources.
+
+Migration rules:
+
+- User docs should explain the current Tauri client first.
+- Development details belong under Reference.
+- Old UI screenshots should not be copied unless the current UI still matches.
+- New features should update both Chinese and English docs.
+
+## Terminology
+
+Keep terminology consistent between `public/locales` and `docs/content/docs`:
+
+- Profile
+- Scheduler
+- Server
+- Emulator
+- Script settings
+- Remote emulator
+- Push notifications
+
+Chinese and English docs should cover the same feature scope.

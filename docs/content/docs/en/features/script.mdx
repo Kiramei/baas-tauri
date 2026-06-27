@@ -1,0 +1,44 @@
+---
+title: Script
+description: Screenshot interval, autostart, completion action, screenshot method, and control method.
+---
+
+Script settings decide how the backend screenshots, clicks, and handles the environment after tasks finish.
+
+<img
+  className="baas-screenshot"
+  src="/en/script-runtime-settings.png"
+  alt="Script settings dialog with screenshot interval, autostart, completion action, screenshot method, and control method"
+/>
+
+| Option                     | Description                                                   |
+| -------------------------- | ------------------------------------------------------------- |
+| Screenshot interval        | Shorter reacts faster but costs more resources                |
+| Autostart on script launch | Start scheduling when the script launches                     |
+| Completion action          | Do nothing, exit BAAS, exit emulator, exit both, or shut down |
+| Screenshot method          | Affects capture stability                                     |
+| Control method             | Affects click, drag, and input behavior                       |
+
+If recognition fails or clicks do not work, check 16:9 aspect ratio, HDR, screenshot method, control method, and emulator foreground state.
+
+## Screenshot and Control Methods
+
+Legacy backend guidance remains useful for troubleshooting:
+
+| Item | Option | Notes |
+| ---- | ------ | ----- |
+| Screenshot | `nemu` | Fast and lossless for MuMu 12 when the environment matches |
+| Screenshot | `scrcpy` | Fast, but not lossless |
+| Screenshot | `adb` / `uiautomator2` | Conservative and stable, but slower |
+| Screenshot | `mss` / `pyautogui` | PC-client window capture |
+| Control | `adb` / `uiautomator2` / `scrcpy` | ADB emulator control |
+| Control | `nemu` | Low-latency MuMu 12 control |
+| Control | `pyautogui` | Desktop mouse control for PC client |
+
+If logs repeatedly show `tentative click` but the page does not change, check MuMu background keep-alive, game settings, control method, and window focus.
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/faq/log_continuous_tentative_click.png"
+  alt="Example log repeatedly outputting tentative click"
+/>

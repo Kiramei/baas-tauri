@@ -23,11 +23,7 @@ const filesFromDrop = (event: DragEvent): File[] =>
 const archiveNameFromPath = (path: string) => path.split(/[\\/]/).pop() || path;
 
 const waitForImportedConfig = async (serial: string) => {
-  await waitForNormal(
-    () => useWebSocketStore.getState().configStore?.[serial],
-    Boolean,
-    8000
-  );
+  await waitForNormal(() => useWebSocketStore.getState().configStore?.[serial], Boolean, 8000);
   return useWebSocketStore.getState().configStore?.[serial];
 };
 

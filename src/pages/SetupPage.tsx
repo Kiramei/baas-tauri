@@ -37,6 +37,8 @@ interface StartupState {
   configPath: string;
   config: UpdaterConfig;
   defaultInstallPath: string;
+  installPath: string;
+  portable: boolean;
   baasRootExistsNonEmpty: boolean;
 }
 
@@ -52,9 +54,6 @@ interface FailureInfo {
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const setupBaasRootPath = (config: UpdaterConfig | null | undefined) =>
-  config?.paths?.baas_root_path || config?.paths?.baasRootPath || "";
 
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
@@ -100,6 +99,7 @@ const SetupPage = () => {
   const [settingModal, setSettingModal] = useState(false);
   const [config, setConfig] = useState<UpdaterConfig | null>(null);
   const [installPath, setInstallPath] = useState("");
+  const [portable, setPortable] = useState(false);
   const [setupPhase, setSetupPhase] = useState(true);
   const [failure, setFailure] = useState<FailureInfo | null>(null);
   const setupCompletedRef = useRef(false);
@@ -134,7 +134,7 @@ const SetupPage = () => {
 
   const startInstall = useCallback(
     async (path = installPath, nextConfig = config) => {
-      const targetPath = path || installPath;
+      const targetPath = portable ? "." : path || installPath;
       abortingRef.current = false;
       workflowStartedRef.current = false;
       pendingWorkflowRef.current = { path: targetPath, config: nextConfig };
@@ -143,7 +143,7 @@ const SetupPage = () => {
       setStarted(true);
       StorageUtil.set("base_dir", targetPath);
     },
-    [config, installPath]
+    [config, installPath, portable]
   );
 
   const startWorkflowWhenTerminalReady = useCallback(async () => {
@@ -160,7 +160,6 @@ const SetupPage = () => {
         },
       });
     } catch (error) {
-      StorageUtil.remove("base_dir");
       showWorkflowFailure({
         step: "start",
         message: error instanceof Error ? error.message : String(error),
@@ -311,20 +310,12 @@ const SetupPage = () => {
           },
         }).catch(() => undefined);
         const startup = await invoke<StartupState>("updater_get_startup_state");
-        const storedRoot = StorageUtil.get<string>("base_dir");
-        const configRoot = setupBaasRootPath(startup.config);
-        const root = configRoot || storedRoot || startup.defaultInstallPath;
+        const root = startup.installPath || startup.defaultInstallPath;
+        setPortable(startup.portable);
         setInstallPath(root);
         setConfig(startup.config);
 
-        const storedRootExists =
-          !startup.baasRootExistsNonEmpty &&
-          Boolean(storedRoot) &&
-          (await invoke<boolean>("updater_path_exists_non_empty", { path: storedRoot }).catch(
-            () => false
-          ));
-
-        if ((startup.baasRootExistsNonEmpty || storedRootExists) && root) {
+        if (startup.baasRootExistsNonEmpty && root) {
           await startInstall(root, startup.config);
         }
       } catch (error) {
@@ -357,7 +348,7 @@ const SetupPage = () => {
           <div className="space-y-1">
             {setupPhase && config && (
               <div className="space-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <PathSelector path={installPath} setPath={setInstallPath} />
+                <PathSelector path={installPath} setPath={setInstallPath} disabled={portable} />
                 <div className="flex justify-around pt-4 gap-2 flex-col md:flex-row max-md:w-full">
                   <CButton onClick={async () => await exit(0)} className="md:w-48" variant="danger">
                     {t("installer.exit")}

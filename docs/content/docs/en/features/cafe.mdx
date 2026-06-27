@@ -1,0 +1,48 @@
+---
+title: Cafe
+description: Cafe rewards, invitation tickets, student lists, second cafe, and patting settings.
+---
+
+Cafe automation mostly collects rewards and manages affection. It is low-risk, but invitation strategy still affects training targets.
+
+<img
+  className="baas-screenshot"
+  src="/en/cafe-base-settings.png"
+  alt="Cafe base settings with reward collection, invitation ticket, outfit change, repeat invite, second cafe, pat count, and pat style"
+/>
+
+| Option                | Purpose                                      |
+| --------------------- | -------------------------------------------- |
+| Collect rewards       | Collect cafe income                          |
+| Use invitation ticket | Invite students by configured strategy       |
+| Allow outfit change   | Include alternate outfits in invite flow     |
+| Enable second cafe    | Enable cafe 2 settings                       |
+| Pat count             | Higher count reduces misses but takes longer |
+
+## Student List
+
+<img
+  className="baas-screenshot"
+  src="/en/cafe-one-invite-by-name.png"
+  alt="Cafe 1 setting with invite by student name and student list"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/en/student-picker-cafe.png"
+  alt="Student picker dialog with searchable student tags"
+/>
+
+Invite modes include student name, highest affection, lowest affection, and favorite students. For fixed training targets, use student names and maintain the list.
+
+## Targeted Affection Strategy
+
+Legacy guidance still applies:
+
+| Goal | Method |
+| ---- | ------ |
+| Invite a target student | Use invite-by-name, or favorite only the target student and use favorite-student invite |
+| Pat a target student multiple times per day | Configure both cafe 1 and cafe 2 for the target; disable automatic invitation-ticket use; enable the related cafe invitation tasks in Scheduler |
+| Reduce wrong invites | Avoid long candidate lists; confirm whether alternate outfits are allowed |
+
+To maximize one student's affection, configure cafe, lessons, and crafting together: cafe handles pats and invitations, lessons target the student when possible, and crafting prioritizes preferred gifts.

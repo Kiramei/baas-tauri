@@ -1,0 +1,96 @@
+---
+title: Installer Configuration setup.toml
+description: Backend installer setup.toml, common keys, update sources, MirrorC CDK, and safety notes.
+---
+
+`setup.toml` is used by the BAAS backend installer and updater. The Tauri installer exposes common options in the UI, but this file is still useful when debugging update sources, MirrorC CDK, runtime paths, or direct backend startup.
+
+<Callout type="warn" title="Do not publish setup.toml">
+  If it contains a MirrorC CDK, private mirror, or local machine paths, do not post the full `setup.toml` publicly.
+</Callout>
+
+## Installer Flow
+
+The backend installer can be summarized as:
+
+### Check Python and Runtime [step]
+
+Confirm that the local or bundled runtime is available, and download or patch the Python environment when required.
+
+### Prepare pip and Download Sources [step]
+
+Prepare pip from the source configuration in `setup.toml`, retrying through the configured source list when the network fails.
+
+### Clone or Update Backend Source [step]
+
+Fetch BAAS backend code from GitHub, a mirror, or MirrorC, then use the remote SHA to decide whether a refresh is needed.
+
+### Install Python Dependencies [step]
+
+Synchronize backend runtime dependencies. If dependencies have not changed, the installer may skip this step.
+
+### Persist Version and Path State [step]
+
+Record the current BAAS version, C++ component version, backend directory, and runtime path for later startup and updates.
+
+### Start Backend Service [step]
+
+After installation, start the backend process and wait for the Tauri client to finish local connection and key authentication.
+
+The current Tauri installer still performs these steps, with directory selection, update sources, MirrorC CDK, and logs exposed in the desktop UI.
+
+## Common General Keys
+
+| Key | Type | Purpose | Recommendation |
+| --- | ---- | ------- | -------------- |
+| `mirrorc_cdk` | string | MirrorC acceleration credential | Fill only when you have a CDK |
+| `current_BAAS_version` | string | Current backend version | Usually maintained automatically |
+| `current_BAAS_Cpp_version` | string | Current C++ component version | Usually maintained automatically |
+| `get_remote_sha_method` | string | Remote SHA lookup method | Switch when GitHub is unreachable |
+| `dev` | bool | Do not update from remote source | Use for local development or version freeze |
+| `refresh` | bool | Overwrite local backend changes | Destructive to local edits; use carefully |
+| `launch` | bool | Skip install steps and start directly | Use only after environment is ready |
+| `force_launch` | bool | Close an already running process | Be careful during multi-instance debugging |
+| `debug` | bool | Keep terminal window open after update | Useful for installer failures |
+| `source_list` | list | PyPI source retry list | Tune for unstable networks |
+| `runtime_path` | string | Custom Python runtime path | Change only when you understand the backend env |
+
+## URL and Path Keys
+
+| Key | Description |
+| --- | ----------- |
+| `REPO_URL_HTTP` | Backend source URL, such as GitHub, Gitee, GitCode, or another mirror |
+| `GET_PIP_URL` | `get-pip.py` download URL |
+| `GET_UPX_URL` | UPX download URL |
+| `GET_ENV_PATCH_URL` | Environment patch URL |
+| `GET_PYTHON_URL` | Python runtime download URL |
+| `BAAS_ROOT_PATH` | Backend root path; use an absolute path when changed |
+| `TMP_PATH` | Temporary directory |
+| `TOOL_KIT_PATH` | Toolkit directory |
+
+## MirrorC CDK
+
+MirrorC is a third-party distribution and acceleration service. With a CDK, backend updates can use MirrorC. Without it, BAAS can still use the normal sources, depending on your network.
+
+```toml
+[General]
+mirrorc_cdk = "your-cdk"
+```
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/install/mirrorc_install_success.png"
+  alt="Legacy installer log showing a successful MirrorC install"
+/>
+
+## When to Edit Manually
+
+| Scenario | Key to Check |
+| -------- | ------------ |
+| GitHub is unreachable | `REPO_URL_HTTP`, `get_remote_sha_method` |
+| PyPI download is slow | `source_list` |
+| Temporarily skip updates | `launch = true` or `dev = true` |
+| Debug installer failure | `debug = true` |
+| Use MirrorC | `mirrorc_cdk` |
+
+For normal BAAS Tauri usage, prefer the installer Advanced Settings and update-source controls instead of editing `setup.toml` directly.

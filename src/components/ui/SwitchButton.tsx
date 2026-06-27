@@ -3,8 +3,8 @@ import { t } from "i18next";
 
 interface SwitchButtonProps {
   checked: boolean;
-  label?: string; // 按钮文字变化
-  onChange: (checked: boolean) => void; // 状态切换的回调
+  label?: string; // Button label text.
+  onChange: (checked: boolean) => void; // State toggle callback.
   className?: string;
   children?: ReactNode;
   disabled?: boolean;

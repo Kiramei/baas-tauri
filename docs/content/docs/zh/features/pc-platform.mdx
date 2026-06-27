@@ -1,0 +1,79 @@
+---
+title: PC 客户端平台
+description: Steam 国际服、日服 PC 端、窗口比例、HDR、截图方式和控制方式配置。
+---
+
+PC 客户端不是 ADB 模拟器场景。BAAS 需要通过桌面截图和鼠标控制识别游戏窗口，因此窗口比例、HDR、权限和控制方式比普通模拟器更敏感。
+
+<Callout type="warn" title="先确认画面条件">
+  PC 客户端必须保持 16:9 画面比例。窗口被拉伸、HDR 开启、游戏被遮挡或被移动到屏幕外时，识别和点击都可能失败。
+</Callout>
+
+## 系统与游戏设置
+
+| 项目 | 推荐值 | 原因 |
+| ---- | ------ | ---- |
+| Windows HDR | 关闭 | HDR 会改变截图色彩，影响模板匹配 |
+| 游戏显示模式 | 窗口模式或 16:9 全屏 | 截图区域必须稳定 |
+| 窗口比例 | 16:9，推荐 1280x720 | BAAS 的识别区域按 16:9 设计 |
+| 帧率 | 60 | 兼顾稳定和响应 |
+| 加速渲染模式 | 兼容 | 降低截图异常概率 |
+| 战斗画面上下黑边 | 关闭 | 避免识别区域偏移 |
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/turn_off_hdr.png"
+  alt="Windows 设置中关闭 HDR"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png"
+  alt="Blue Archive PC 客户端窗口模式和 16:9 比例设置"
+/>
+
+## BAAS 配置
+
+PC 客户端场景建议按下面顺序配置：
+
+| 配置位置 | 推荐设置 | 说明 |
+| -------- | -------- | ---- |
+| 服务器 | `Steam 国际服` 或 `日服 PC 端` | 区服决定识别资源和任务差异 |
+| 脚本设置 / 截图方式 | `mss` 或 `pyautogui` | PC 窗口截图不走 ADB |
+| 脚本设置 / 控制方式 | `pyautogui` | 通过桌面鼠标键盘控制窗口 |
+| 权限 | 必要时以管理员权限运行 BAAS | 点击日志持续输出但窗口无响应时优先检查 |
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/BAAS_setting_game_server_steam_global_or_JP_pc.png"
+  alt="旧 BAAS 文档中的 PC 端服务器选择示例"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/BAAS_setting_screenshot_method_mss_or_pyautogui.png"
+  alt="旧 BAAS 文档中的 PC 端截图方式示例"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/BAAS_setting_control_method_pyautogui.png"
+  alt="旧 BAAS 文档中的 PC 端控制方式示例"
+/>
+
+## 常见问题
+
+| 现象 | 优先检查 |
+| ---- | -------- |
+| 日志有点击但游戏无反应 | 以管理员权限重启 BAAS，确认窗口没有被遮挡 |
+| 日志提示画面比例异常 | 恢复窗口模式 16:9，不要手动拉伸到非标准比例 |
+| 识别频繁失败 | 关闭 HDR，确认游戏语言和服务器与配置一致 |
+| 鼠标被 BAAS 占用 | PC 控制方式会真实操作鼠标，运行期间避免手动抢焦点 |
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/pc_platform/BAAS_log_screen_ratio_not_16_9.png"
+  alt="日志提示 PC 客户端画面比例不是 16:9"
+/>
+
+PC 客户端运行期间，BAAS 会尝试保持目标窗口在前台。如果你需要同时使用电脑，建议优先使用模拟器和 ADB 控制方式。

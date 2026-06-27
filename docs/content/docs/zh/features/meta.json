@@ -1,0 +1,22 @@
+{
+  "title": "功能配置",
+  "pages": [
+    "profile",
+    "home-runtime",
+    "server",
+    "emulator",
+    "script",
+    "pc-platform",
+    "stages",
+    "sweeps",
+    "team",
+    "cafe",
+    "lesson",
+    "shop",
+    "crafting",
+    "combat",
+    "maintenance",
+    "system",
+    "update"
+  ]
+}

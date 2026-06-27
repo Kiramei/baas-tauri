@@ -22,7 +22,7 @@ export const TextGenerateEffect = ({
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
-  // 按空格拆分，但仅在 word 模式下用
+  // Split on spaces only in word mode.
   const wordsArray = React.useMemo(() => (mode === "word" ? words.split(" ") : []), [words, mode]);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export const TextGenerateEffect = ({
       );
     }
 
-    // 🚀 一次性渲染，减少 DOM 数量
+    // Render once to reduce DOM size.
     return (
       <motion.div ref={scope}>
         <motion.span
@@ -73,7 +73,7 @@ export const TextGenerateEffect = ({
     );
   }
 
-  // ✅ word 模式下才逐词分动画
+  // Animate word by word only in word mode.
   if (lowPerformanceMode) {
     return (
       <div>

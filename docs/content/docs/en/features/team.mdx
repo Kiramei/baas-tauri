@@ -1,0 +1,44 @@
+---
+title: Teams
+description: Sidebar order, preset teams, sidebar attribute teams, and attack-type team settings.
+---
+
+Team settings decide how combat tasks choose teams. Wrong team selection can fail combat, time out, or stall automation.
+
+<img
+  className="baas-screenshot"
+  src="/en/team-method-settings.png"
+  alt="Team configuration basic page choosing sidebar order, preset team, or attribute-based team"
+/>
+
+| Method            | Best For                         |
+| ----------------- | -------------------------------- |
+| Sidebar order     | Stable account and team order    |
+| Preset team       | Teams already maintained in game |
+| Sidebar attribute | Switching by enemy armor type    |
+
+## Attribute Teams
+
+<img
+  className="baas-screenshot"
+  src="/en/team-attribute-settings.png"
+  alt="Attribute-based team settings for Burst, Pierce, Mystic, Shock, and unused slots"
+/>
+
+Use attribute teams for stages, event challenges, or accounts with uneven team strength. Validate with a low-risk stage after changes.
+
+## Team Selection Logic
+
+| Method | Rule | Notes |
+| ------ | ---- | ----- |
+| Preset team | Select by in-game presets and required attack type | Do not rename presets; avoid student conflicts between teams |
+| Sidebar attribute | Select Burst, Pierce, Mystic, or Shock teams by enemy armor | Prioritize the boss team's advantage |
+| Sidebar order | Select sidebar teams 1, 2, 3, 4 in order | Good when you manually arranged teams for the target stage |
+
+The legacy docs recommend sidebar order for some normal/hard stage workflows when you already arranged teams in game. For example, normal area 20 commonly uses team 1 Burst and team 2 Pierce; hard stages may require a third team.
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/config/employ_team_method.png"
+  alt="Legacy BAAS team-selection method setting"
+/>

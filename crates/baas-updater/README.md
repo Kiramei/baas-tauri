@@ -11,12 +11,15 @@ tasks so stdout/stderr is captured by the terminal renderer.
 
 ## Configuration
 
-By default, Tauri callers resolve configuration in this order:
+Tauri callers pass the active configuration path explicitly:
 
-1. Existing `setup.toml` next to the executable for portable/debug deployments.
-2. Existing `$BAAS_ROOT_PATH/setup.toml` when the app-data config points to it.
-3. `setup.toml` in the writable Tauri app data directory, next to
-   `.app_storage.json`.
+1. Portable deployments are detected by an existing executable-adjacent
+   `setup.toml`; `.app_storage.json` is kept next to the executable and
+   `baas_root_path` is normalized to `"."`.
+2. Normal deployments remember the chosen install directory in
+   `.app_storage.json`; updates load and save only `<install-dir>/setup.toml`.
+3. If the remembered install directory is missing or empty, the frontend shows
+   the setup wizard instead of creating app-data `setup.toml`.
 
 Tests and UI callers can pass an explicit path through `ConfigManager::load_from`.
 

@@ -1,0 +1,47 @@
+---
+title: Updates
+description: Version information, update source, update channel, MirrorC CDK, SHA tests, and client update.
+---
+
+Update settings show backend and Tauri client version state, and choose update source and channel.
+
+<img
+  className="baas-screenshot"
+  src="/en/settings-version-overview.png"
+  alt="Settings page version information and interface settings with backend and client version cards"
+/>
+
+## Update Settings
+
+<img
+  className="baas-screenshot"
+  src="/en/settings-update-source-sha.png"
+  alt="Update settings with MirrorC CDK, update source, update channel, SHA mode, and SHA test table"
+/>
+
+| Channel     | Audience              | Notes                                 |
+| ----------- | --------------------- | ------------------------------------- |
+| Stable      | Daily users           | Prefer stability                      |
+| Development | Testers / maintainers | Faster features, more regression risk |
+
+## Recommended Update Order
+
+### Check Version Information [step]
+
+Confirm backend version, client version, and current profile state before updating. Avoid replacing files while tasks are running.
+
+### Choose Update Channel and Source [step]
+
+Use Stable for daily use. If GitHub access is unreliable, switch to an available mirror or MirrorC.
+
+### Run the SHA Test [step]
+
+Use the SHA test to confirm that the selected source can fetch version metadata. If it fails, switch source and test again before updating.
+
+### Stop Scheduling and Update [step]
+
+Stop running tasks before updating, so backend files, logs, and runtime state are not changed mid-task.
+
+### Restart and Verify Version [step]
+
+After the update finishes, restart the client or backend and return to the version area to confirm the new version is active.

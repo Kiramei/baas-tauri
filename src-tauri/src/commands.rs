@@ -4,7 +4,7 @@ use baas_shortcut::{
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
-    config::{ConfigManager, UpdaterConfig},
+    config::{exe_adjacent_config_path, ConfigManager, UpdaterConfig},
     environ::{backend_pid_path, launch_backend_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
@@ -23,15 +23,29 @@ use std::{
 };
 use tauri::{AppHandle, Manager, State};
 
+const STORAGE_FILE_NAME: &str = ".app_storage.json";
+const STORAGE_INSTALL_DIR_KEY: &str = "base_dir";
+
+/// Frontend storage location. Portable installs keep this next to the
+/// executable, normal installs keep Tauri's default app-data store.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageStartupState {
+    pub store_path: PathBuf,
+    pub storage_file_path: PathBuf,
+    pub portable: bool,
+}
+
 /// Frontend startup snapshot for deciding whether to show the setup wizard or
-/// immediately run the updater. The setup file is still the source of truth;
-/// storage is intentionally not consulted here.
+/// immediately run the updater.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdaterStartupState {
     pub config_path: PathBuf,
     pub config: UpdaterConfig,
     pub default_install_path: PathBuf,
+    pub install_path: PathBuf,
+    pub portable: bool,
     pub baas_root_exists_non_empty: bool,
 }
 
@@ -109,6 +123,21 @@ pub fn updater_path_exists_non_empty(path: PathBuf) -> bool {
     path_exists_non_empty(&path)
 }
 
+#[tauri::command]
+pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
+    let portable = is_portable_install();
+    let storage_file_path = storage_file_path(&app, portable)?;
+    Ok(StorageStartupState {
+        store_path: if portable {
+            storage_file_path.clone()
+        } else {
+            PathBuf::from(STORAGE_FILE_NAME)
+        },
+        storage_file_path,
+        portable,
+    })
+}
+
 /// Tracks backend processes started by updater workflows so the Tauri process
 /// owns their lifetime.
 #[derive(Default)]
@@ -159,15 +188,29 @@ impl Drop for BackendProcessManager {
 
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, String> {
-    let manager = ensure_default_config(&app)?;
+    let portable = is_portable_install();
     let default_install_path = default_install_path();
-    let root = manager.config.baas_root();
-    let baas_root_exists_non_empty = path_exists_non_empty(&root);
+    let stored_install_path = if portable {
+        None
+    } else {
+        read_stored_install_path(&app, portable)?.filter(|path| path_exists_non_empty(path))
+    };
+    let install_path = if portable {
+        PathBuf::from(".")
+    } else {
+        stored_install_path
+            .clone()
+            .unwrap_or_else(|| default_install_path.clone())
+    };
+    let manager = config_manager_for_install_path(&install_path, portable)?;
+    let baas_root_exists_non_empty = portable || stored_install_path.is_some();
 
     Ok(UpdaterStartupState {
         config_path: manager.config_path,
         config: manager.config,
         default_install_path,
+        install_path,
+        portable,
         baas_root_exists_non_empty,
     })
 }
@@ -177,7 +220,12 @@ pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
 ) -> Result<UpdaterConfig, String> {
-    let request_baas_root_path = request.baas_root_path.clone();
+    let portable = is_portable_install();
+    let request_baas_root_path = if portable {
+        Some(PathBuf::from("."))
+    } else {
+        request.baas_root_path.clone()
+    };
     let mut manager = ensure_config_for_install_path(&app, request_baas_root_path.as_deref())?;
     let parsed_channel = match request.channel.as_deref() {
         Some(value) => Some(UpdateChannel::parse(value).map_err(|error| error.message())?),
@@ -189,8 +237,8 @@ pub fn updater_update_config(
     };
     manager
         .update(|config| {
-            if let Some(path) = request.baas_root_path {
-                config.paths.baas_root_path = path.to_string_lossy().to_string();
+            if let Some(path) = request_baas_root_path {
+                config.paths.baas_root_path = persisted_baas_root_path(&path, portable);
             }
             if let Some(cdk) = request.mirrorc_cdk {
                 config.general.mirrorc_cdk = cdk.trim().to_string();
@@ -266,11 +314,6 @@ pub fn updater_validate_mirrorc_cdk(
         }
     };
 
-    let mut manager = ensure_default_config(&app)?;
-    manager
-        .set_mirrorc_cdk(if report.success { cdk } else { String::new() })
-        .map_err(|error| error.message())?;
-
     Ok(report)
 }
 
@@ -281,15 +324,21 @@ pub fn updater_start_workflow(
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
 ) -> Result<SessionMetadata, String> {
+    let portable = is_portable_install();
     let initial_config_manager = ensure_default_config(&app)?;
     let install_path = request
         .install_path
         .or_else(|| non_empty_path(&initial_config_manager.config.paths.baas_root_path))
         .unwrap_or_else(default_install_path);
+    let install_path = if portable {
+        PathBuf::from(".")
+    } else {
+        install_path
+    };
     let mut config_manager = ensure_config_for_install_path(&app, Some(&install_path))?;
     backend.stop_for_config(&config_manager.config)?;
     let mut next_config = config_manager.config.clone();
-    next_config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+    next_config.paths.baas_root_path = persisted_baas_root_path(&install_path, portable);
     backend.stop_for_config(&next_config)?;
     backend.remember_config(&next_config)?;
 
@@ -297,7 +346,7 @@ pub fn updater_start_workflow(
     // general.launch. Persisting this makes setup.toml reflect the app mode.
     config_manager
         .update(|config| {
-            config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+            config.paths.baas_root_path = persisted_baas_root_path(&install_path, portable);
             config.general.launch = request.launch.unwrap_or(true);
         })
         .map_err(|error| error.message())?;
@@ -357,39 +406,143 @@ pub fn updater_resize_term(
     manager.resize(rows, cols)
 }
 
-/// Creates the selected setup.toml if it is missing, then returns the loaded
-/// manager. Existing exe-adjacent setup.toml is honored for portable
-/// deployments; fresh configs are written to Tauri app data.
+/// Returns the active setup.toml manager without using app-data setup storage.
 pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
-    let manager = ConfigManager::load_default_path_in_app_data(app_data_dir)
-        .map_err(|error| error.message())?;
-    manager.save().map_err(|error| error.message())?;
-    Ok(manager)
+    let portable = is_portable_install();
+    let default_install_path = default_install_path();
+    let install_path = startup_install_path(app, portable, &default_install_path)?;
+    config_manager_for_install_path(&install_path, portable)
 }
 
 fn ensure_config_for_install_path(
     app: &AppHandle,
     install_path: Option<&Path>,
 ) -> Result<ConfigManager, String> {
-    let default_manager = ensure_default_config(app)?;
-    let Some(install_path) = install_path else {
-        return Ok(default_manager);
-    };
-    let install_config = install_path.join("setup.toml");
-    if !install_config.exists() || default_manager.config_path == install_config {
-        return Ok(default_manager);
+    let portable = is_portable_install();
+    if portable {
+        let mut manager =
+            ConfigManager::load_from(portable_config_path()?).map_err(|error| error.message())?;
+        normalize_portable_config(&mut manager)?;
+        return Ok(manager);
     }
-    let mut manager = ConfigManager::load_from(install_config).map_err(|error| error.message())?;
+
+    let install_path = match install_path {
+        Some(path) => path.to_path_buf(),
+        None => startup_install_path(app, false, &default_install_path())?,
+    };
+    let mut manager = config_manager_for_install_path(&install_path, false)?;
     manager
         .update(|config| {
             config.paths.baas_root_path = install_path.to_string_lossy().to_string();
         })
         .map_err(|error| error.message())?;
     Ok(manager)
+}
+
+fn config_manager_for_install_path(
+    install_path: &Path,
+    portable: bool,
+) -> Result<ConfigManager, String> {
+    if portable {
+        let mut manager =
+            ConfigManager::load_from(portable_config_path()?).map_err(|error| error.message())?;
+        normalize_portable_config(&mut manager)?;
+        return Ok(manager);
+    }
+
+    let config_path = install_path.join("setup.toml");
+    let mut manager = ConfigManager::load_from(config_path).map_err(|error| error.message())?;
+    manager.config.paths.baas_root_path = install_path.to_string_lossy().to_string();
+    Ok(manager)
+}
+
+fn startup_install_path(
+    app: &AppHandle,
+    portable: bool,
+    default_install_path: &Path,
+) -> Result<PathBuf, String> {
+    if portable {
+        return Ok(PathBuf::from("."));
+    }
+
+    Ok(read_stored_install_path(app, portable)?
+        .filter(|path| path_exists_non_empty(path))
+        .unwrap_or_else(|| default_install_path.to_path_buf()))
+}
+
+pub fn configure_portable_working_dir() -> Result<(), String> {
+    if !is_portable_install() {
+        return Ok(());
+    }
+    let Some(dir) = current_exe_dir() else {
+        return Ok(());
+    };
+    std::env::set_current_dir(&dir).map_err(|error| error.to_string())
+}
+
+fn normalize_portable_config(manager: &mut ConfigManager) -> Result<(), String> {
+    if manager.config.paths.baas_root_path == "." {
+        return Ok(());
+    }
+    manager
+        .update(|config| {
+            config.paths.baas_root_path = ".".to_string();
+        })
+        .map_err(|error| error.message())
+}
+
+fn persisted_baas_root_path(path: &Path, portable: bool) -> String {
+    if portable {
+        ".".to_string()
+    } else {
+        path.to_string_lossy().to_string()
+    }
+}
+
+fn is_portable_install() -> bool {
+    exe_adjacent_config_path()
+        .map(|path| path.exists())
+        .unwrap_or(false)
+}
+
+fn portable_config_path() -> Result<PathBuf, String> {
+    exe_adjacent_config_path().map_err(|error| error.message())
+}
+
+fn current_exe_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+}
+
+fn storage_file_path(app: &AppHandle, portable: bool) -> Result<PathBuf, String> {
+    if portable {
+        return Ok(current_exe_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(STORAGE_FILE_NAME));
+    }
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join(STORAGE_FILE_NAME))
+}
+
+fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<PathBuf>, String> {
+    let path = storage_file_path(app, portable)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return Ok(None);
+    };
+    Ok(value
+        .get(STORAGE_INSTALL_DIR_KEY)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from))
 }
 
 fn default_install_path() -> PathBuf {

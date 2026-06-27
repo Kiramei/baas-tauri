@@ -100,7 +100,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
 
   return (
     <div className="space-y-6">
-      {/* 编队方式 */}
+      {/* Formation method */}
       <FormSelect
         label={t("team.chooseMethod")}
         value={draft.choose_team_method}

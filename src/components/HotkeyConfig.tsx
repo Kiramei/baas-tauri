@@ -157,7 +157,7 @@ export default function HotkeyField({
 
       <div
         className={`relative flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100
-                       border transition border-2 ${borderClass}`}
+                       transition border-2 ${borderClass}`}
       >
         {/* Read-only display slot */}
         <input
@@ -219,26 +219,26 @@ type HotkeyConfig = {
   enabled?: boolean;
 };
 
-// 小工具：快捷键格式简校验（允许空；或者像 "Ctrl+Shift+K"、"Alt+S"、"F5" 等）
+// Utility: basic hotkey format validation. Empty values are allowed, as are values like "Ctrl+Shift+K", "Alt+S", and "F5".
 const isHotkeyValid = (v: string) => {
-  if (!v.trim()) return true; // 允许留空，表示未绑定
+  if (!v.trim()) return true; // Allow empty values to mean unbound.
 
-  // 修饰键
+  // Modifier keys.
   const modifier = "(ctrl|alt|shift|meta|cmd|command|option|opt|super|win)";
 
-  // 特殊命名键
+  // Named special keys.
   const special = "(enter|tab|escape|space|arrow(up|down|left|right)|f[1-9]|f1[0-9]|f2[0-4])";
 
-  // 主键：字母、数字或常见符号
+  // Main key: a letter, digit, or common symbol.
   const main = "([a-z0-9]|[~`!@#$%^&*()_\\-+={}\\[\\]\\\\|;:'\",<.>/?])";
 
-  // 组合规则：至少一个 main 或 special，前后可带修饰键
+  // Combination rule: at least one main or special key, optionally surrounded by modifiers.
   const hotkeyRegex = new RegExp(`^(${modifier}\\+)*(${special}|${main})(\\+${modifier})*$`, "i");
 
   return hotkeyRegex.test(v.trim());
 };
 
-// ========== 快捷键设置模态框 ========== //
+// ========== Hotkey configuration modal ========== //
 const HotkeySettingsModal: React.FC<{
   isOpen: boolean;
   onClose: (toSave: boolean, draft?: HotkeyConfig[]) => void;
@@ -254,7 +254,7 @@ const HotkeySettingsModal: React.FC<{
     setErrors({});
   }, [value, isOpen]);
 
-  // 检测重复
+  // Detect duplicates.
   const duplicates = useMemo(() => {
     const map = new Map<string, string[]>();
     draft.forEach((k) => {
@@ -270,7 +270,7 @@ const HotkeySettingsModal: React.FC<{
   }, [draft]);
 
   const handleSave = () => {
-    // 最终校验：格式 + 重复
+    // Final validation: format and duplicates.
     const bad: Record<string, string> = {};
     draft.forEach((k) => {
       if (!isHotkeyValid(k.value)) bad[k.id] = t("hotkey.invalidFormat") as string;
@@ -280,7 +280,7 @@ const HotkeySettingsModal: React.FC<{
       return;
     }
     if (Object.keys(duplicates).length) {
-      // 给重复项标红
+      // Highlight duplicate entries.
       const dupErr: Record<string, string> = {};
       Object.keys(duplicates).forEach((id) => (dupErr[id] = t("hotkey.duplicate") as string));
       setErrors(dupErr);
@@ -324,7 +324,7 @@ const HotkeySettingsModal: React.FC<{
 
         <div className="grid grid-cols-1 gap-2 h-64 max-h-64 overflow-y-auto mt-4 p-2 scroll-embedded">
           {filteredDraft.map((cfg) => {
-            const hasDup = !!duplicates[cfg.id];
+            const hasDup = duplicates[cfg.id];
             const err = errors[cfg.id];
             return (
               <HotkeyField
@@ -350,7 +350,7 @@ const HotkeySettingsModal: React.FC<{
           })}
         </div>
 
-        {/* 错误提示（若有） */}
+        {/* Error message, if any. */}
         {Object.keys(errors).length > 0 && (
           <div className="text-sm text-red-500">{t("hotkey.fixInvalid")}</div>
         )}

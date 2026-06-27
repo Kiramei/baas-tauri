@@ -20,9 +20,7 @@ const ProgressBar: React.FC = () => {
           initial={lowPerformanceMode ? false : { width: 0 }}
           animate={{ width: `${globalProgress.progress}%` }}
           transition={
-            lowPerformanceMode
-              ? { duration: 0 }
-              : { type: "spring", stiffness: 50, damping: 15 }
+            lowPerformanceMode ? { duration: 0 } : { type: "spring", stiffness: 50, damping: 15 }
           }
         />
       </div>

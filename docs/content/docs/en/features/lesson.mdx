@@ -1,0 +1,38 @@
+---
+title: Lessons
+description: Lesson areas, execution count, favorite students, and high-affection priority.
+---
+
+Lesson configuration uses an area matrix to decide which areas run and how many times each area has been executed.
+
+<img
+  className="baas-screenshot"
+  src="/en/lesson-area-matrix.png"
+  alt="Lesson configuration showing each lesson area enabled state and execution count"
+/>
+
+| Option                    | Description                         |
+| ------------------------- | ----------------------------------- |
+| Lesson count              | Controls this run's execution count |
+| Lesson areas              | Enables or disables areas by tier   |
+| Favorite student priority | Prefer favorite-student lessons     |
+| High affection priority   | Prefer high-affection targets       |
+
+If you only want fixed areas, disable unneeded columns. When priority options are enabled, confirm in-game favorites first.
+
+## Target Student Lessons
+
+The legacy "target student lesson" workflow is: define the target student in game or config, then let BAAS prefer lesson areas containing that student.
+
+| Scenario | Recommendation |
+| -------- | -------------- |
+| Fixed areas only | Disable other areas and keep only target areas |
+| Target affection | Enable favorite-student or target-student priority, and confirm in-game favorites |
+| Global / JP recognition issue | Confirm the current version supports that lesson UI |
+| Missing template | Provide a 1280x720 PNG where the target student is visible and unobstructed |
+
+<img
+  className="baas-screenshot"
+  src="/backend-assets/config/lesson_affection_example.png"
+  alt="Legacy screenshot example for adapting target-student lesson recognition"
+/>

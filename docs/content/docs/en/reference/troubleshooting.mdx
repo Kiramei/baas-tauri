@@ -1,0 +1,159 @@
+---
+title: Troubleshooting
+description: Common issues for installation, connection, ADB, emulator, screenshot recognition, scheduler, updates, remote display, and docs.
+---
+
+When troubleshooting BAAS, first identify the failing layer: installer, Tauri client, backend service, ADB/emulator, game recognition, scheduler configuration, or update source. Logs usually point to the actual failing step.
+
+## Installer Stuck or Failed
+
+The installer shows setup steps and Installation Logs.
+
+<img
+  className="baas-screenshot"
+  src="/en/installer-progress-log-dark.png"
+  alt="Installer log page showing installation steps and command output"
+/>
+
+Check:
+
+- Whether the install directory is writable.
+- Whether the path contains unusual characters or permission restrictions.
+- Whether the current update source and PyPI source are reachable.
+- Whether MirrorC CDK is valid.
+- Which step the logs stopped at.
+
+## Service Keeps Connecting
+
+If the lower-left heartbeat stays connecting, the client has not completed backend connection or authentication.
+
+Check:
+
+1. Backend process is running.
+2. Local port is not occupied or blocked by firewall.
+3. BAAS key matches the backend.
+4. Installer or backend logs do not show a crash.
+5. Backend is not still preparing after an update.
+
+## ADB Cannot Connect
+
+Use ADB detection from Server settings.
+
+<img
+  className="baas-screenshot"
+  src="/en/server-adb-settings.png"
+  alt="Server settings with ADB IP, ADB port, and detection button"
+/>
+
+Common causes:
+
+- ADB or developer debugging is disabled.
+- Multi-instance port is wrong.
+- Target emulator is not fully started.
+- Another ADB service occupies the connection.
+- WSA network or developer mode is disabled.
+- Backend lacks permission to access ADB.
+
+Test with one emulator instance first, then configure multi-instance.
+
+## Screenshot or Recognition Errors
+
+If logs show recognition failure or wrong click coordinates:
+
+- Keep game aspect ratio close to 16:9.
+- Disable HDR on PC clients.
+- Avoid scaling that changes screenshot proportions.
+- Try another screenshot method.
+- Try another control method.
+- Keep the emulator visible and not minimized.
+
+Remote display issues and script screenshot issues are related but separate; troubleshoot them separately.
+
+## Task Does Not Run
+
+Check:
+
+- Task is in the Active Tasks column.
+- Next run time has arrived.
+- Disabled range does not block it.
+- Pre-task is not blocking it.
+- Interval is not too long.
+- You are viewing the correct profile.
+- Scheduler is started.
+
+## Task Runs but Result Is Wrong
+
+If a task buys, sweeps, or enters the wrong target:
+
+- Stop the scheduler to avoid further spending.
+- Export logs.
+- Capture the current game page and configuration dialog.
+- Check stage format, counts, purchase priority, and team number.
+- For event tasks, confirm current event name and stage number.
+
+## Remote Display Problems
+
+For stutter or blank stream, reduce parameters in advanced settings.
+
+<img
+  className="baas-screenshot"
+  src="/en/remote-display-advanced-settings.png"
+  alt="Remote emulator advanced settings for resolution, FPS, bitrate, and clipboard"
+/>
+
+Try:
+
+- Lower width and height.
+- Lower FPS.
+- Lower bitrate.
+- Switch decoder.
+- Disable safe stream temporarily for testing.
+- Check backend stream logs.
+
+## Update Failures
+
+Use Settings to inspect update source and SHA test results.
+
+<img
+  className="baas-screenshot"
+  src="/en/settings-update-source-sha.png"
+  alt="Update settings and SHA test table"
+/>
+
+Recommendations:
+
+- If GitHub is unavailable, test Gitee, GitCode, BAAS CDN, or MirrorC.
+- Verify MirrorC CDK before using MirrorC.
+- Switch SHA method when tests time out.
+- Restart the Tauri client before retrying failed client updates.
+- Preserve installer and backend logs for backend update failures.
+
+## Docs 404 or Missing Images
+
+Local development URLs should be:
+
+```text
+http://localhost:3000/docs/zh/
+http://localhost:3000/docs/en/
+```
+
+If sidebar links go to `/zh/docs/...`, Fumadocs i18n URL generation is wrong. This project should generate `/docs/zh/...` and `/docs/en/...`.
+
+If images do not render:
+
+- Confirm images are under `docs/public/cn` or `docs/public/en`.
+- Use MDX paths starting with `/cn/...` or `/en/...`.
+- For GitHub Pages, confirm `NEXT_PUBLIC_BASE_PATH` is passed during build.
+
+## Support Report Checklist
+
+Provide:
+
+- BAAS Tauri and backend versions.
+- OS and emulator type.
+- Game server.
+- Task name.
+- Exported logs.
+- Relevant configuration dialog screenshot.
+- Game or remote display screenshot at failure.
+- Whether the client or backend was just updated.

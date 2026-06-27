@@ -1,0 +1,28 @@
+{
+  "name": "baas-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build:fonts": "bun scripts/build-fonts.mjs",
+    "build": "bun run build:fonts && next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "fumadocs-core": "^16.10.5",
+    "fumadocs-mdx": "^15.0.12",
+    "fumadocs-ui": "^16.10.5",
+    "lucide-react": "^0.542.0",
+    "mermaid": "^11.16.0",
+    "next": "^16.2.9",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "~5.8.2"
+  }
+}

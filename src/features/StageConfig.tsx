@@ -130,7 +130,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
           <TabsTrigger value="event">{t("stage.eventTab")}</TabsTrigger>
         </TabsList>
 
-        {/* 普通推图 */}
+        {/* Normal stages */}
         <TabsContent value="explore" className="space-y-2">
           <SwitchButton
             label={t("stage.manualBoss")}
@@ -181,7 +181,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
           </div>
         </TabsContent>
 
-        {/* 活动推图 */}
+        {/* Event stages */}
         <TabsContent value="event" className="space-y-4">
           <Card className="p-3">
             <p className="text-sm">
