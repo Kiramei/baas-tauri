@@ -24,9 +24,6 @@ android {
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
-        }
     }
     buildTypes {
         getByName("debug") {
@@ -73,6 +70,7 @@ chaquopy {
             install("adbutils==2.2.1")
             install("uiautomator2==2.16.23")
             install("numpy<2.0")
+            install("Pillow")
         }
     }
 }

@@ -10,6 +10,13 @@ mod commands;
 mod mobile_commands;
 
 use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
+#[cfg(mobile)]
+use crate::mobile_commands::{
+    open_main_devtools, shortcut_apply_bindings, updater_abort_workflow, updater_get_startup_state,
+    updater_get_storage_state, updater_path_exists_non_empty,
+    updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+    updater_terminal_snapshot, updater_update_config, updater_validate_mirrorc_cdk,
+};
 #[cfg(not(mobile))]
 use crate::{
     behavior::inject_tray_icon,
@@ -22,22 +29,15 @@ use crate::{
         BackendProcessManager,
     },
 };
-#[cfg(mobile)]
-use crate::mobile_commands::{
-    open_main_devtools, shortcut_apply_bindings, updater_abort_workflow, updater_get_startup_state,
-    updater_get_storage_state, updater_path_exists_non_empty, updater_reset_backend_auth_and_restart,
-    updater_resize_term, updater_start_workflow, updater_terminal_snapshot, updater_update_config,
-    updater_validate_mirrorc_cdk,
-};
 
 #[cfg(not(mobile))]
 use baas_shortcut::{install_global_shortcut_plugin, ShortcutRegistry};
 #[cfg(not(mobile))]
-use tauri::{Manager, RunEvent, WindowEvent};
+use baas_updater::app::UpdaterTermManager;
 #[cfg(mobile)]
 use tauri::Manager;
 #[cfg(not(mobile))]
-use baas_updater::app::UpdaterTermManager;
+use tauri::{Manager, RunEvent, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -121,14 +121,14 @@ pub fn run() {
 
     #[cfg(not(mobile))]
     builder.run(|app, event| match event {
-            RunEvent::ExitRequested { .. } | RunEvent::Exit => {
-                let updater = app.state::<UpdaterTermManager>();
-                let _ = updater.abort(Default::default());
-                let backend = app.state::<BackendProcessManager>();
-                let _ = backend.stop_all();
-            }
-            _ => {}
-        });
+        RunEvent::ExitRequested { .. } | RunEvent::Exit => {
+            let updater = app.state::<UpdaterTermManager>();
+            let _ = updater.abort(Default::default());
+            let backend = app.state::<BackendProcessManager>();
+            let _ = backend.stop_all();
+        }
+        _ => {}
+    });
 
     #[cfg(mobile)]
     builder.run(|_app, _event| {});

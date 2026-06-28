@@ -1,5 +1,7 @@
 param(
-  [switch]$SkipWebBuild
+  [switch]$SkipWebBuild,
+  [ValidateSet("arm64", "arm", "x86", "x86_64")]
+  [string]$Abi = "x86_64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,12 +46,13 @@ $localProperties = Join-Path $androidRoot "local.properties"
 $sdkDir = $env:ANDROID_HOME.Replace("\", "/")
 Set-Content -LiteralPath $localProperties -Value "sdk.dir=$sdkDir" -Encoding ASCII
 
-$targets = @(
-  @{ Rust = "aarch64-linux-android"; Abi = "arm64-v8a" },
-  @{ Rust = "armv7-linux-androideabi"; Abi = "armeabi-v7a" },
-  @{ Rust = "i686-linux-android"; Abi = "x86" },
-  @{ Rust = "x86_64-linux-android"; Abi = "x86_64" }
-)
+$targets = @{
+  "arm64" = @{ Rust = "aarch64-linux-android"; AndroidAbi = "arm64-v8a"; Gradle = "Arm64"; NdkLibcxx = "aarch64-linux-android" }
+  "arm" = @{ Rust = "armv7-linux-androideabi"; AndroidAbi = "armeabi-v7a"; Gradle = "Arm"; NdkLibcxx = "arm-linux-androideabi" }
+  "x86" = @{ Rust = "i686-linux-android"; AndroidAbi = "x86"; Gradle = "X86"; NdkLibcxx = "i686-linux-android" }
+  "x86_64" = @{ Rust = "x86_64-linux-android"; AndroidAbi = "x86_64"; Gradle = "X86_64"; NdkLibcxx = "x86_64-linux-android" }
+}
+$target = $targets[$Abi]
 
 Push-Location $repoRoot
 try {
@@ -59,9 +62,9 @@ try {
       throw "Frontend Android build failed with exit code $LASTEXITCODE"
     }
   } else {
-    powershell -ExecutionPolicy Bypass -File "scripts\sync-android-backend.ps1"
+    powershell -ExecutionPolicy Bypass -File "scripts\prepare-android-runtime.ps1"
     if ($LASTEXITCODE -ne 0) {
-      throw "Android backend sync failed with exit code $LASTEXITCODE"
+      throw "Android runtime preparation failed with exit code $LASTEXITCODE"
     }
   }
 
@@ -80,35 +83,52 @@ try {
   New-Item -ItemType Directory -Force -Path $androidAssets | Out-Null
   Copy-Item -Path (Join-Path $webDist "*") -Destination $androidAssets -Recurse -Force
 
-  foreach ($target in $targets) {
-    cargo build `
-      --package baas-tauri `
-      --manifest-path "src-tauri\Cargo.toml" `
-      --target $target.Rust `
-      --features "tauri/custom-protocol"
-    if ($LASTEXITCODE -ne 0) {
-      throw "Rust Android build failed for $($target.Rust) with exit code $LASTEXITCODE"
+  if (Test-Path -LiteralPath $jniRoot) {
+    $resolvedJni = (Resolve-Path -LiteralPath $jniRoot).Path
+    if (-not $resolvedJni.StartsWith($resolvedRepo)) {
+      throw "Refusing to delete JNI libraries outside repo: $resolvedJni"
     }
-
-    $source = Join-Path $repoRoot "target\$($target.Rust)\debug\libbaas_tauri_lib.so"
-    if (-not (Test-Path -LiteralPath $source)) {
-      throw "Missing Rust Android library: $source"
-    }
-
-    $destinationDir = Join-Path $jniRoot $target.Abi
-    New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
-    Copy-Item -LiteralPath $source -Destination (Join-Path $destinationDir "libbaas_tauri_lib.so") -Force
+    Remove-Item -LiteralPath $resolvedJni -Recurse -Force
   }
+
+  cargo build `
+    --package baas-tauri `
+    --manifest-path "src-tauri\Cargo.toml" `
+    --target $target.Rust `
+    --features "tauri/custom-protocol"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Rust Android build failed for $($target.Rust) with exit code $LASTEXITCODE"
+  }
+
+  $source = Join-Path $repoRoot "target\$($target.Rust)\debug\libbaas_tauri_lib.so"
+  if (-not (Test-Path -LiteralPath $source)) {
+    throw "Missing Rust Android library: $source"
+  }
+
+  $destinationDir = Join-Path $jniRoot $target.AndroidAbi
+  New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
+  Copy-Item -LiteralPath $source -Destination (Join-Path $destinationDir "libbaas_tauri_lib.so") -Force
+
+  $ndkRoot = Get-ChildItem -LiteralPath (Join-Path $env:ANDROID_HOME "ndk") -Directory |
+    Sort-Object Name -Descending |
+    Select-Object -First 1
+  if (-not $ndkRoot) {
+    throw "Android NDK is required to package libc++_shared.so."
+  }
+  $libcxx = Join-Path $ndkRoot.FullName "toolchains\llvm\prebuilt\windows-x86_64\sysroot\usr\lib\$($target.NdkLibcxx)\libc++_shared.so"
+  if (-not (Test-Path -LiteralPath $libcxx)) {
+    throw "Missing Android libc++ runtime: $libcxx"
+  }
+  Copy-Item -LiteralPath $libcxx -Destination (Join-Path $destinationDir "libc++_shared.so") -Force
 
   Push-Location $androidRoot
   try {
+    $assembleTask = ":app:assemble$($target.Gradle)Debug"
+    $skipRustTask = "rustBuild$($target.Gradle)Debug"
     .\gradlew.bat `
-      :app:assembleUniversalDebug `
-      -x rustBuildUniversalDebug `
-      -x rustBuildArm64Debug `
-      -x rustBuildArmDebug `
-      -x rustBuildX86Debug `
-      -x rustBuildX86_64Debug
+      $assembleTask `
+      -x `
+      $skipRustTask
     if ($LASTEXITCODE -ne 0) {
       throw "Gradle Android build failed with exit code $LASTEXITCODE"
     }

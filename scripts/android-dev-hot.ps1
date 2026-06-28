@@ -2,6 +2,8 @@ param(
   [string]$Device = $env:BAAS_ANDROID_DEVICE,
   [string]$BackendSource = $env:BAAS_ANDROID_BACKEND_SRC,
   [string]$DevUrl = "http://127.0.0.1:8191",
+  [ValidateSet("arm64", "arm", "x86", "x86_64")]
+  [string]$Abi = "x86_64",
   [switch]$InstallShell,
   [switch]$NoLaunch,
   [switch]$KeepMarker,
@@ -69,8 +71,8 @@ if ($InstallShell) {
   if ($BackendSource) {
     $env:BAAS_ANDROID_BACKEND_SRC = $BackendSource
   }
-  powershell -ExecutionPolicy Bypass -File "scripts\android-build-debug.ps1" -SkipWebBuild
-  $apk = Resolve-Path "src-tauri\gen\android\app\build\outputs\apk\universal\debug\app-universal-debug.apk"
+  powershell -ExecutionPolicy Bypass -File "scripts\android-build-debug.ps1" -SkipWebBuild -Abi $Abi
+  $apk = Resolve-Path "src-tauri\gen\android\app\build\outputs\apk\$Abi\debug\app-$Abi-debug.apk"
   & $adb -s $Device install -r -d $apk
 }
 

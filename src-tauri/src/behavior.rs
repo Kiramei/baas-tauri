@@ -2,12 +2,12 @@
 use baas_i18n::{tray_menu_labels, Language};
 #[cfg(not(mobile))]
 use std::{error::Error, sync::Mutex};
-use tauri::{App, AppHandle, Manager, State};
 #[cfg(not(mobile))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+use tauri::{App, AppHandle, Manager, State};
 
 #[cfg(not(mobile))]
 #[derive(Default)]

@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
     setBackendUpdating(true);
     try {
       await stopAllTasks();
-      if (__WITH_TAURI__) {
+      if (__WITH_TAURI__ && !__WITH_ANDROID__) {
         reloadWithoutPrompt();
         return;
       }
@@ -73,6 +73,28 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         timestamp: getTimestampMs(),
         command: "update_to_latest",
         payload: {},
+      }, async (event) => {
+        setBackendUpdating(false);
+        const data = event.data ?? {};
+        if (data.status === "updated") {
+          toast.success(t("update.backendStarted"), {
+            description: data.current ?? data.channel ?? undefined,
+          });
+          if (__WITH_ANDROID__) {
+            try {
+              const { relaunch } = await import("@tauri-apps/plugin-process");
+              await relaunch();
+            } catch {
+              reloadWithoutPrompt();
+            }
+          }
+          return;
+        }
+        if (data.status === "skipped") {
+          toast.info(t("update.tauriUpToDate"));
+          return;
+        }
+        toast.info(t("update.backendStarted"));
       });
       toast.info(t("update.backendStarted"));
     } catch (error) {
