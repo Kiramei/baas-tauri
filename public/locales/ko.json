@@ -229,6 +229,7 @@
       "failed": "웹 Wiki 로드 실패",
       "focusDetached": "Focus separate window",
       "loading": "웹 Wiki 로드 중...",
+      "openBrowser": "브라우저에서 열기",
       "openExternal": "Open in browser",
       "return": "돌아가기",
       "title": "웹 Wiki"

@@ -229,6 +229,7 @@
       "failed": "Web Wikiの読み込みに失敗",
       "focusDetached": "Focus separate window",
       "loading": "Web Wikiを読み込み中...",
+      "openBrowser": "ブラウザで開く",
       "openExternal": "Open in browser",
       "return": "戻る",
       "title": "Web Wiki"

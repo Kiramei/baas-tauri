@@ -176,6 +176,7 @@ export type TranslationKey =
   | "wiki.web.failed"
   | "wiki.web.focusDetached"
   | "wiki.web.loading"
+  | "wiki.web.openBrowser"
   | "wiki.web.openExternal"
   | "wiki.web.return"
   | "wiki.web.title"

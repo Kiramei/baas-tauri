@@ -229,6 +229,7 @@
       "failed": "Не удалось загрузить Web Wiki",
       "focusDetached": "Focus separate window",
       "loading": "Загрузка Web Wiki...",
+      "openBrowser": "Открыть в браузере",
       "openExternal": "Open in browser",
       "return": "Назад",
       "title": "Web Wiki"

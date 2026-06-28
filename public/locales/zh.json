@@ -229,6 +229,7 @@
       "failed": "网页 Wiki 加载失败",
       "focusDetached": "聚焦独立窗口",
       "loading": "正在加载网页 Wiki...",
+      "openBrowser": "在浏览器中访问",
       "openExternal": "在浏览器打开",
       "return": "回到主窗口",
       "title": "百科文档"

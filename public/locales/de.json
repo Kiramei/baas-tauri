@@ -229,6 +229,7 @@
       "failed": "Web-Wiki konnte nicht laden",
       "focusDetached": "Focus separate window",
       "loading": "Web-Wiki wird geladen...",
+      "openBrowser": "Im Browser öffnen",
       "openExternal": "Open in browser",
       "return": "Zurueck",
       "title": "Web-Wiki"

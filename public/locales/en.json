@@ -229,6 +229,7 @@
       "failed": "Web Wiki failed to load",
       "focusDetached": "Focus separate window",
       "loading": "Loading Web Wiki...",
+      "openBrowser": "Open in browser",
       "openExternal": "Open in browser",
       "return": "Return to main window",
       "title": "Wiki Docs"

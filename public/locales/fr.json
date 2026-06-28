@@ -229,6 +229,7 @@
       "failed": "Echec du chargement du Wiki web",
       "focusDetached": "Focus separate window",
       "loading": "Chargement du Wiki web...",
+      "openBrowser": "Ouvrir dans le navigateur",
       "openExternal": "Open in browser",
       "return": "Retour",
       "title": "Wiki web"
