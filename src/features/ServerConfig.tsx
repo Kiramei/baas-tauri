@@ -5,6 +5,7 @@ import { FormInput } from "@/components/ui/FormInput.tsx";
 import ADBSeekModal from "@/components/ADBSeekModal.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig } from "@/types/dynamic";
+import { buildServerOptions } from "@/shared/serverOptions";
 
 interface ServerConfigProps {
   profileId: string;
@@ -66,14 +67,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
         value={draft.server}
         disabled={true}
         onChange={handleChange("server")}
-        options={[
-          { label: t("server.cn.official"), value: "官服" },
-          { label: t("server.cn.bilibili"), value: "B服" },
-          { label: t("server.global"), value: "国际服" },
-          { label: t("server.global.teen"), value: "国际服青少年" },
-          { label: t("server.kr.one"), value: "韩国ONE" },
-          { label: t("server.jp"), value: "日服" },
-        ]}
+        options={buildServerOptions(t)}
       />
 
       <FormInput

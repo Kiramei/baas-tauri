@@ -31,13 +31,24 @@ const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
   <div className={`animate-pulse bg-slate-200 dark:bg-slate-700 rounded-md ${className}`} />
 );
 
+const hasAssetData = (config: any): boolean =>
+  Boolean(
+    config?.ap &&
+      config?.creditpoints &&
+      config?.pyroxene &&
+      config?.tactical_challenge_coin &&
+      config?.bounty_coin &&
+      config?.create_item_holding_quantity &&
+      config?._pass
+  );
+
 const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
   const timeAgo = useTimeAgo();
   const config = useWebSocketStore((e) => e.configStore[profileId]);
   const [open, setOpen] = useState(Array.from({ length: 8 }).map(() => false));
 
-  const noData = !config || Object.keys(config).length === 0;
+  const noData = !hasAssetData(config);
 
   if (noData) {
     return (
@@ -91,13 +102,13 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
     },
     {
       name: t("property.keystone"),
-      value: config.create_item_holding_quantity.Keystone?.toLocaleString() || "-1",
+      value: config.create_item_holding_quantity.Keystone?.toLocaleString() ?? "-1",
       time: config.pyroxene.time,
       icon: `${baseUrl}icons/property/item_icon_craftitem_1.webp`,
     },
     {
       name: t("property.keystone.piece"),
-      value: config.create_item_holding_quantity["Keystone-Piece"]?.toLocaleString() || "-1",
+      value: config.create_item_holding_quantity["Keystone-Piece"]?.toLocaleString() ?? "-1",
       time: config.pyroxene.time,
       icon: `${baseUrl}icons/property/item_icon_craftitem_0.webp`,
     },

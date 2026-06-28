@@ -22,11 +22,15 @@ import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { buildServerOptions } from "@/shared/serverOptions";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 type Tab = ProfileDTO;
+
+const isProfileReady = (profile: Tab): boolean =>
+  Boolean(profile.name && profile.settings?.ap && profile.settings?._pass);
 
 const Header: React.FC = () => {
   const { t } = useTranslation();
@@ -135,7 +139,7 @@ const Header: React.FC = () => {
   }, [tabs]);
 
   const handleCreate = async (name: string, server: string) => {
-    if (tabsRef.current.some((t) => t.name.trim() === name.trim()))
+    if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
 
     const serialName = await new Promise<string>((resolve) => {
@@ -151,7 +155,7 @@ const Header: React.FC = () => {
 
     await waitForNormal(
       () => tabsRef.current.filter((p) => p.id === serialName),
-      (val) => val.length !== 0
+      (val) => val.some(isProfileReady)
     );
 
     const next = tabsRef.current.find((p) => p.id === serialName);
@@ -182,7 +186,7 @@ const Header: React.FC = () => {
   const waitForConfig = async (serialName: string) => {
     await waitForNormal(
       () => tabsRef.current.filter((p) => p.id === serialName),
-      (val) => val.length !== 0
+      (val) => val.some(isProfileReady)
     );
     const next = tabsRef.current.find((p) => p.id === serialName);
     if (next) setActiveProfile(next);
@@ -590,12 +594,7 @@ const ProfileEditorModal = (props: {
             placeholder={t("configAdd.selectServer")}
             options={[
               { label: t("configAdd.selectServer"), value: "NULL" },
-              { label: t("server.cn.official"), value: "官服" },
-              { label: t("server.cn.bilibili"), value: "B服" },
-              { label: t("server.global"), value: "国际服" },
-              { label: t("server.global.teen"), value: "国际服青少年" },
-              { label: t("server.kr.one"), value: "韩国ONE" },
-              { label: t("server.jp"), value: "日服" },
+              ...buildServerOptions(t),
             ]}
           />
 
