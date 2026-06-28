@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:android": "vite --mode android --host 0.0.0.0 --port 8191",
     "dev:webui": "vite --mode webui",
     "dev:tauri": "vite --mode tauri",
     "build": "bun run i18n:check && tsc && vite build",
@@ -22,6 +23,7 @@
     "tauri:android:build": "tauri android build",
     "tauri:android:build:debug": "powershell -ExecutionPolicy Bypass -File scripts/android-build-debug.ps1",
     "tauri:android:dev": "tauri android dev",
+    "tauri:android:dev:hot": "powershell -ExecutionPolicy Bypass -File scripts/android-dev-hot.ps1",
     "updater": "bun scripts/updater.mjs",
     "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
     "portable": "bun scripts/portable.mjs",
