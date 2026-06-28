@@ -385,9 +385,10 @@ const Header: React.FC = () => {
         </button>
         <button
           onClick={() => setEditor({ mode: "create" })}
-          className="flex sm:hidden items-center h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors w-9"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700 sm:hidden"
+          aria-label={t("profile.add")}
         >
-          <FilePlus2 className="w-5 h-5" />
+          <FilePlus2 className="block h-5 w-5 shrink-0" />
         </button>
       </div>
 

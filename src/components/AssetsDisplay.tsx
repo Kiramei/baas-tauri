@@ -141,9 +141,13 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
               }
               className="bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-start transition-transform hover:scale-[1.02]"
             >
-              <div className="flex flex-col items-center justify-center mr-4 min-w-10 ml-1">
-                <img src={item.icon} className="w-8 h-6" alt={item.name} />
-                <div className="text-sm text-slate-500 dark:text-slate-400">{item.name}</div>
+              <div className="mr-4 ml-1 flex w-16 shrink-0 flex-col items-center justify-center">
+                <div className="flex h-9 w-12 items-center justify-center">
+                  <img src={item.icon} className="max-h-8 max-w-10 object-contain" alt={item.name} />
+                </div>
+                <div className="w-full text-center text-sm leading-tight text-slate-500 dark:text-slate-400">
+                  {item.name}
+                </div>
               </div>
               <div>
                 <div className="text-l font-bold text-slate-800 dark:text-slate-100">

@@ -45,6 +45,9 @@ const TaskRow = React.memo(function TaskRow({
   onChangeTime: (task: EventConfig, ts: number) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const MoveToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
+  const MoveToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
+
   return (
     <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
       {side === "left" ? (
@@ -62,15 +65,13 @@ const TaskRow = React.memo(function TaskRow({
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onMove(task, true)} className="rounded-[50%] w-8 h-8">
-            <ArrowRight className="w-4 h-4 max-md:hidden" />
-            <ArrowDown className="w-4 h-4 md:hidden" />
+            <MoveToEnabledIcon className="w-4 h-4" />
           </CButton>
         </>
       ) : (
         <>
           <CButton onClick={() => onMove(task, false)} className="rounded-[50%] w-8 h-8">
-            <ArrowLeft className="w-4 h-4 max-md:hidden" />
-            <ArrowUp className="w-4 h-4 md:hidden" />
+            <MoveToInactiveIcon className="w-4 h-4" />
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
@@ -93,6 +94,8 @@ const TaskRow = React.memo(function TaskRow({
 const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
+  const MoveAllToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
+  const MoveAllToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
@@ -270,8 +273,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                 onClick={() => moveAll(true)}
                 className="rounded-[50%] w-8 h-8 mr-4.5"
               >
-                <ArrowRight className="w-4 h-4 max-md:hidden" />
-                <ArrowDown className="w-4 h-4 md:hidden" />
+                <MoveAllToEnabledIcon className="w-4 h-4" />
               </CButton>
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
@@ -298,8 +300,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                 onClick={() => moveAll(false)}
                 className="rounded-[50%] w-8 h-8 ml-2"
               >
-                <ArrowLeft className="w-4 h-4 max-md:hidden" />
-                <ArrowUp className="w-4 h-4 md:hidden" />
+                <MoveAllToInactiveIcon className="w-4 h-4" />
               </CButton>
               <div className="flex items-center">
                 <span className="font-medium">{t("scheduler.activeTasks")}</span>

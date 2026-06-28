@@ -108,7 +108,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
                 setRemoteVisible(value);
               }}
               label=""
-              className="px-4! ml-2 w-8 h-8"
+              className="ml-2 h-8 w-8"
+              iconOnly
             >
               <Webcam size={20} className="rounded w-4 h-4" />
             </SwitchButton>
@@ -117,7 +118,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             <CButton
               onClick={() => setHotkeyOpen(true)}
               variant="secondary"
-              className="w-8 h-8 pl-2 pr-2 flex items-center justify-center"
+              className="h-8 w-8"
+              iconOnly
             >
               <Keyboard className="w-4 h-4" />
             </CButton>
@@ -125,7 +127,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
-            className="pl-2 pr-2 flex items-center justify-center"
+            className="h-8 w-8"
+            iconOnly
           >
             {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </CButton>
@@ -138,7 +141,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
                 setRemoteVisible(value);
               }}
               label=""
-              className="px-4! ml-2 w-8 h-8"
+              className="ml-2 h-8 w-8"
+              iconOnly
             >
               <Webcam size={20} className="rounded w-4 h-4" />
             </SwitchButton>
@@ -147,7 +151,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             <CButton
               onClick={() => setHotkeyOpen(true)}
               variant="secondary"
-              className="w-8 h-8 pl-2 pr-2 flex items-center justify-center"
+              className="h-8 w-8"
+              iconOnly
             >
               <Keyboard className="w-4 h-4" />
             </CButton>
@@ -236,11 +241,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
                 setUiSettings((state) => ({ ...state, scrollToEnd: value }));
               }}
               label=""
-              className="px-4! ml-2 w-8 h-8"
+              className="ml-2 h-8 w-8"
+              iconOnly
             >
               <ListEnd size={20} className="rounded w-4 h-4" />
             </SwitchButton>
-            <CButton onClick={exportLog} className="ml-2 w-8 h-8">
+            <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
               <FileUp size={20} className="rounded w-4 h-4" />
             </CButton>
           </div>
