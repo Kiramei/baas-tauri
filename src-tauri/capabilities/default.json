@@ -4,6 +4,7 @@
   "description": "Capability for the main window",
   "windows": ["main", "baas-wiki-viewer"],
   "webviews": ["main", "baas-wiki-viewer"],
+  "platforms": ["windows", "macOS", "linux"],
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",

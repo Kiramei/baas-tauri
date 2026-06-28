@@ -21,6 +21,18 @@ const statusColorMap: Record<string, string> = {
   CRITICAL: "var(--color-purple-500)",
 };
 
+const androidPasswordKey = "baasAndroidAutoPassword";
+
+const getAndroidAutoPassword = () => {
+  const stored = window.localStorage.getItem(androidPasswordKey);
+  if (stored) return stored;
+  const next = globalThis.crypto?.randomUUID
+    ? `baas-android-${globalThis.crypto.randomUUID()}`
+    : `baas-android-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.localStorage.setItem(androidPasswordKey, next);
+  return next;
+};
+
 export function AutoScrollTerminal({ children }: { children: React.ReactNode }) {
   const endRef = useRef<HTMLDivElement>(null);
   const { uiSettings } = useUISettings();
@@ -40,11 +52,14 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
 }
 
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
+  const logoRef = useRef<HTMLImageElement>(null);
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);
   const serverInitialized = useWebSocketStore((state) => state._server_initialized);
   const serverVerified = useWebSocketStore((state) => state._server_verified);
+  const allDataInitialized = useWebSocketStore((state) => state._all_data_initialized);
+  const initiating = useWebSocketStore((state) => state._initiating);
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
   const { theme } = useTheme();
@@ -56,6 +71,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
       void startAuthFlow();
     }
   }, [authPhase, startAuthFlow]);
+
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    if (authPhase !== "waiting_password") return;
+    void submitPassword(getAndroidAutoPassword());
+  }, [authPhase, submitPassword]);
 
   const loadingMessage =
     authPhase === "control_connecting"
@@ -120,20 +141,32 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
           className="fixed"
           style={{
             marginTop: "calc(var(--spacing) * -15)",
+            width: "160px",
+            height: "160px",
           }}
         >
           <img
+            ref={logoRef}
             src={`${baseUrl}images/logo.png`}
             alt="App Logo"
-            className="w-36 h-36 mb-6 fixed rounded-full drop-shadow-[0_0_80px_rgba(0,215,255,0.8)] dark:drop-shadow-[0_0_80px_rgba(59,130,246,0.8)]"
+            className="rounded-full drop-shadow-[0_0_80px_rgba(0,215,255,0.8)] dark:drop-shadow-[0_0_80px_rgba(59,130,246,0.8)]"
+            style={{
+              position: "absolute",
+              top: "8px",
+              left: "8px",
+              width: "144px",
+              height: "144px",
+              maxWidth: "144px",
+              objectFit: "contain",
+            }}
           />
 
           <div
-            className="animate-spin rounded-full h-40 w-40 border-t-4 border-b-4 drop-shadow-[0_0_10px_rgba(255,255,246,0.8)]
+            className="animate-spin rounded-full border-t-4 border-b-4 drop-shadow-[0_0_10px_rgba(255,255,246,0.8)]
               border-primary-500 dark:border-primary-300 mb-6 dark:drop-shadow-[0_0_10px_rgba(255,255,246,0.8)]"
             style={{
-              marginTop: "calc(var(--spacing) * -2)",
-              marginLeft: "calc(var(--spacing) * -2)",
+              width: "160px",
+              height: "160px",
             }}
           />
         </div>
@@ -144,6 +177,18 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
         >
           {loadingMessage}
         </p>
+
+        {__WITH_ANDROID__ && (
+          <div className="absolute bottom-6 left-4 right-4 mx-auto max-w-xl rounded-md border border-primary-400/40 bg-slate-950/65 p-4 text-sm text-slate-100 shadow-xl backdrop-blur">
+            <div className="mb-2 font-semibold text-primary-200">Android startup</div>
+            <div className="grid gap-1.5 font-mono text-xs">
+              <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
+              <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
+              <div>Configuration sync: {initiating ? "running" : allDataInitialized ? "done" : "waiting"}</div>
+              <div>OCR runtime: bundled desktop binary is unavailable on Android; continuing in service mode</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <PasswordInputModal

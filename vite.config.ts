@@ -9,13 +9,15 @@ export default defineConfig(({ mode }) => {
   if (mode === "development" || mode === "production") {
     mode = "webui";
   }
+  const withTauri = mode === "tauri" || mode === "android";
   return {
     base: "/",
     clearScreen: false,
     define: {
       global: "globalThis",
       __WITH_WEBUI__: mode === "webui",
-      __WITH_TAURI__: mode === "tauri",
+      __WITH_TAURI__: withTauri,
+      __WITH_ANDROID__: mode === "android",
     },
     server: {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
@@ -40,6 +42,7 @@ export default defineConfig(({ mode }) => {
       // }),
     ],
     build: {
+      target: mode === "android" ? "chrome91" : undefined,
       rolldownOptions: {
         output: {
           manualChunks(id) {

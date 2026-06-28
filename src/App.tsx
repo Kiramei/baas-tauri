@@ -136,6 +136,7 @@ const Main: React.FC = () => {
 };
 const InitialPage = React.lazy(async () => {
   if (__WITH_WEBUI__) return import("@/pages/LoadingPage");
+  if (__WITH_ANDROID__) return import("@/pages/LoadingPage");
   if (__WITH_TAURI__) return import("@/pages/SetupPage");
   return import("@/pages/LoadingPage");
 });

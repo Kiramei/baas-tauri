@@ -1,23 +1,33 @@
+#[cfg(not(mobile))]
 use baas_i18n::{tray_menu_labels, Language};
+#[cfg(not(mobile))]
 use std::{error::Error, sync::Mutex};
+use tauri::{App, AppHandle, Manager, State};
+#[cfg(not(mobile))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    App, AppHandle, Manager, State,
 };
 
+#[cfg(not(mobile))]
 #[derive(Default)]
 pub struct BehaviorState {
     pub tray_enabled: bool,
     tray_menu: Mutex<Option<TrayMenuItems>>,
 }
 
+#[cfg(mobile)]
+#[derive(Default)]
+pub struct BehaviorState;
+
+#[cfg(not(mobile))]
 pub struct TrayMenuItems {
     language: Language,
     show_item: MenuItem<tauri::Wry>,
     quit_item: MenuItem<tauri::Wry>,
 }
 
+#[cfg(not(mobile))]
 impl BehaviorState {
     pub fn with_tray_menu(tray_menu: Option<TrayMenuItems>) -> Self {
         Self {
@@ -63,11 +73,19 @@ pub async fn splash_off(app: AppHandle) {
     }
 }
 
+#[cfg(not(mobile))]
 #[tauri::command]
 pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Result<(), String> {
     state.set_language(Language::parse(&lang))
 }
 
+#[cfg(mobile)]
+#[tauri::command]
+pub fn set_backend_locale(_state: State<'_, BehaviorState>, _lang: String) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(mobile))]
 pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> {
     let language = Language::default();
     let labels = tray_menu_labels(language);

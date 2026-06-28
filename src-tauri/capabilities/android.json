@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "android",
+  "description": "Android capability for the main webview",
+  "windows": ["main"],
+  "webviews": ["main"],
+  "platforms": ["android"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "process:default",
+    "opener:default",
+    "dialog:default",
+    "fs:default",
+    "store:default"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "build": {
+    "beforeBuildCommand": "bun build:tauri:android"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Blue Archive Auto Script",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 640,
+        "devtools": true,
+        "visible": true,
+        "theme": null
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/android/mipmap-mdpi/ic_launcher.png",
+      "icons/android/mipmap-hdpi/ic_launcher.png",
+      "icons/android/mipmap-xhdpi/ic_launcher.png",
+      "icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "icons/android/mipmap-xxxhdpi/ic_launcher.png"
+    ],
+    "createUpdaterArtifacts": false
+  }
+}

@@ -4,12 +4,15 @@
 )]
 
 mod behavior;
+#[cfg(not(mobile))]
 mod commands;
+#[cfg(mobile)]
+mod mobile_commands;
 
+use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
+#[cfg(not(mobile))]
 use crate::{
-    behavior::{
-        disable_f5_press_event, inject_tray_icon, set_backend_locale, splash_off, BehaviorState,
-    },
+    behavior::inject_tray_icon,
     commands::{
         configure_portable_working_dir, ensure_default_config, open_main_devtools,
         shortcut_apply_bindings, updater_abort_workflow, updater_get_startup_state,
@@ -19,25 +22,28 @@ use crate::{
         BackendProcessManager,
     },
 };
+#[cfg(mobile)]
+use crate::mobile_commands::{
+    open_main_devtools, shortcut_apply_bindings, updater_abort_workflow, updater_get_startup_state,
+    updater_get_storage_state, updater_path_exists_non_empty, updater_reset_backend_auth_and_restart,
+    updater_resize_term, updater_start_workflow, updater_terminal_snapshot, updater_update_config,
+    updater_validate_mirrorc_cdk,
+};
 
+#[cfg(not(mobile))]
 use baas_shortcut::{install_global_shortcut_plugin, ShortcutRegistry};
+#[cfg(not(mobile))]
 use tauri::{Manager, RunEvent, WindowEvent};
-
+#[cfg(mobile)]
+use tauri::Manager;
+#[cfg(not(mobile))]
 use baas_updater::app::UpdaterTermManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }))
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             splash_off,
             set_backend_locale,
@@ -56,7 +62,18 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_fs::init());
+
+    #[cfg(not(mobile))]
+    let builder = builder
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             configure_portable_working_dir().map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
@@ -90,8 +107,20 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app, event| match event {
+        .expect("error while building tauri application");
+
+    #[cfg(mobile)]
+    let builder = builder
+        .setup(|app| {
+            app.manage(BehaviorState::default());
+            disable_f5_press_event(app);
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    #[cfg(not(mobile))]
+    builder.run(|app, event| match event {
             RunEvent::ExitRequested { .. } | RunEvent::Exit => {
                 let updater = app.state::<UpdaterTermManager>();
                 let _ = updater.abort(Default::default());
@@ -100,4 +129,7 @@ pub fn run() {
             }
             _ => {}
         });
+
+    #[cfg(mobile)]
+    builder.run(|_app, _event| {});
 }

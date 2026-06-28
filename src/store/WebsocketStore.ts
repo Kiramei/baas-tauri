@@ -31,6 +31,9 @@ const resolveBase = () => {
   if (storedAddr && storedPort) {
     return `ws://${storedAddr}:${Number(storedPort)}`;
   }
+  if (__WITH_ANDROID__) {
+    return "ws://127.0.0.1:8190";
+  }
   if (typeof window !== "undefined" && window.location.hostname) {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${wsProtocol}//${window.location.hostname}:8190`;
@@ -897,14 +900,30 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         await connectWithRetry("trigger");
 
-        startBackendUpdaterPolling();
+        const skipBackendUpdater = __WITH_ANDROID__ || (await isTauriNoUpdateEnabled());
+        if (skipBackendUpdater) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              local: "android-bundled",
+              remote: "android-bundled",
+              updateAvailable: false,
+              channel: "dev",
+              method: "disabled",
+              lastChecked: Date.now(),
+            },
+          }));
+        } else {
+          startBackendUpdaterPolling();
 
-        await waitFor(
-          get,
-          api.subscribe,
-          (state: WebSocketState) => state.versionStore,
-          (versionStore) => Object.keys(versionStore).length > 0
-        );
+          await waitFor(
+            get,
+            api.subscribe,
+            (state: WebSocketState) => state.versionStore,
+            (versionStore) => Object.keys(versionStore).length > 0
+          );
+        }
 
         await waitFor(
           get,
