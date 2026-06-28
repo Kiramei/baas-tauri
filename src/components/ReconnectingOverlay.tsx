@@ -94,16 +94,18 @@ const ReconnectingOverlay: React.FC = () => {
         </div>
       </motion.div>
 
-      <PasswordInputModal
-        open={requiresPassword}
-        setupMode={!serverInitialized}
-        serverVerified={serverVerified}
-        submitting={authPhase === "initializing" || authPhase === "authenticating"}
-        error={authError}
-        onConfirm={async (password: string) => {
-          await submitPassword(password);
-        }}
-      />
+      {!__WITH_ANDROID__ && (
+        <PasswordInputModal
+          open={requiresPassword}
+          setupMode={!serverInitialized}
+          serverVerified={serverVerified}
+          submitting={authPhase === "initializing" || authPhase === "authenticating"}
+          error={authError}
+          onConfirm={async (password: string) => {
+            await submitPassword(password);
+          }}
+        />
+      )}
     </>
   );
 };

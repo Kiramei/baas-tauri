@@ -191,21 +191,23 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
         )}
       </div>
 
-      <PasswordInputModal
-        open={
-          authPhase === "server_verified" ||
-          authPhase === "waiting_password" ||
-          authPhase === "initializing" ||
-          authPhase === "authenticating"
-        }
-        setupMode={!serverInitialized}
-        serverVerified={serverVerified}
-        submitting={authPhase === "initializing" || authPhase === "authenticating"}
-        error={authError}
-        onConfirm={async (password: string) => {
-          await submitPassword(password);
-        }}
-      />
+      {!__WITH_ANDROID__ && (
+        <PasswordInputModal
+          open={
+            authPhase === "server_verified" ||
+            authPhase === "waiting_password" ||
+            authPhase === "initializing" ||
+            authPhase === "authenticating"
+          }
+          setupMode={!serverInitialized}
+          serverVerified={serverVerified}
+          submitting={authPhase === "initializing" || authPhase === "authenticating"}
+          error={authError}
+          onConfirm={async (password: string) => {
+            await submitPassword(password);
+          }}
+        />
+      )}
     </>
   );
 };

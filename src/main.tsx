@@ -7,6 +7,10 @@ import { Buffer } from "buffer";
 import { useWebSocketStore } from "@/store/WebsocketStore.ts";
 
 (globalThis as any).Buffer = Buffer;
+if (!Object.hasOwn) {
+  Object.hasOwn = (object: object, property: PropertyKey) =>
+    Object.prototype.hasOwnProperty.call(object, property);
+}
 
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;

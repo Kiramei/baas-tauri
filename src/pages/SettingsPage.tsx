@@ -500,6 +500,11 @@ const SettingsPage: React.FC = () => {
   }, [updateConfig]);
 
   useEffect(() => {
+    if (versionStore.local !== undefined) setShaLocal(versionStore.local);
+    if (versionStore.remote !== undefined) setShaRemote(versionStore.remote);
+  }, [versionStore.local, versionStore.remote]);
+
+  useEffect(() => {
     if (verLocal + shaLocal + verRemote + shaRemote !== "") {
       if (verLocal === null || shaLocal === null) setLocalVersion(t("version.checkError"));
       else setLocalVersion(`${shaLocal.slice(0, 6)}`);
@@ -862,16 +867,17 @@ const SettingsPage: React.FC = () => {
             }))}
           />
 
-          {/* Player Settings */}
-          <FormSelect
-            value={uiSettings?.remoteSettings.streamPlayer}
-            label={t("settings.ui.player")}
-            onChange={handlePlayerChange}
-            options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
-              value: v.toString(),
-              label: v.charAt(0).toUpperCase() + v.slice(1),
-            }))}
-          />
+          {!__WITH_ANDROID__ && (
+            <FormSelect
+              value={uiSettings?.remoteSettings.streamPlayer}
+              label={t("settings.ui.player")}
+              onChange={handlePlayerChange}
+              options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
+                value: v.toString(),
+                label: v.charAt(0).toUpperCase() + v.slice(1),
+              }))}
+            />
+          )}
 
           <Separator />
 
@@ -904,16 +910,18 @@ const SettingsPage: React.FC = () => {
                 setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
               }}
             />
-            <SwitchButton
-              label={t("settings.ui.enableSafeStream")}
-              checked={uiSettings?.remoteSettings.enableSafeStream}
-              onChange={(value) => {
-                setUiSettings((state) => ({
-                  ...state,
-                  remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
-                }));
-              }}
-            />
+            {!__WITH_ANDROID__ && (
+              <SwitchButton
+                label={t("settings.ui.enableSafeStream")}
+                checked={uiSettings?.remoteSettings.enableSafeStream}
+                onChange={(value) => {
+                  setUiSettings((state) => ({
+                    ...state,
+                    remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
+                  }));
+                }}
+              />
+            )}
           </div>
         </CardContent>
       </Card>

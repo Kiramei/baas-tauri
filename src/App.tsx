@@ -225,7 +225,8 @@ const App: React.FC = () => {
     loadLocale(i18n.language || "en").then(undefined);
   }, []);
 
-  const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
+  const isWebWikiWindow =
+    !__WITH_ANDROID__ && new URLSearchParams(window.location.search).get("view") === "web-wiki";
 
   return (
     <ThemeProvider>

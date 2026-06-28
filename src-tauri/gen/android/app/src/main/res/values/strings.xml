@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">BAAS Tauri</string>
     <string name="main_activity_title">BAAS Tauri</string>
+    <string name="baas_key_toggle_service_label">BAAS volume toggle</string>
 </resources>

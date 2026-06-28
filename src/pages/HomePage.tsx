@@ -37,6 +37,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const logStore = useWebSocketStore((state) => state.logStore);
 
   const scriptRunning = statusStore[profileId!]?.running || false;
+  const remoteAvailable = !__WITH_ANDROID__;
+  const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
   const [remoteVisible, setRemoteVisible] = useState<boolean>(false);
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
 
@@ -99,17 +101,19 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
         </div>
         <div className="flex sm:hidden items-center gap-2">
-          <SwitchButton
-            checked={remoteVisible}
-            onChange={(value) => {
-              setRemoteVisible(value);
-            }}
-            label=""
-            className="px-4! ml-2 w-8 h-8"
-          >
-            <Webcam size={20} className="rounded w-4 h-4 -translate-x-2" />
-          </SwitchButton>
-          {__WITH_TAURI__ && (
+          {remoteAvailable && (
+            <SwitchButton
+              checked={remoteVisible}
+              onChange={(value) => {
+                setRemoteVisible(value);
+              }}
+              label=""
+              className="px-4! ml-2 w-8 h-8"
+            >
+              <Webcam size={20} className="rounded w-4 h-4" />
+            </SwitchButton>
+          )}
+          {hotkeyAvailable && (
             <CButton
               onClick={() => setHotkeyOpen(true)}
               variant="secondary"
@@ -127,17 +131,19 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           </CButton>
         </div>
         <div className="hidden sm:flex items-center gap-2">
-          <SwitchButton
-            checked={remoteVisible}
-            onChange={(value) => {
-              setRemoteVisible(value);
-            }}
-            label=""
-            className="px-4! ml-2 w-8 h-8"
-          >
-            <Webcam size={20} className="rounded w-4 h-4 -translate-x-2" />
-          </SwitchButton>
-          {__WITH_TAURI__ && (
+          {remoteAvailable && (
+            <SwitchButton
+              checked={remoteVisible}
+              onChange={(value) => {
+                setRemoteVisible(value);
+              }}
+              label=""
+              className="px-4! ml-2 w-8 h-8"
+            >
+              <Webcam size={20} className="rounded w-4 h-4" />
+            </SwitchButton>
+          )}
+          {hotkeyAvailable && (
             <CButton
               onClick={() => setHotkeyOpen(true)}
               variant="secondary"
@@ -161,7 +167,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         </div>
       </div>
 
-      {__WITH_TAURI__ && (
+      {hotkeyAvailable && (
         <HotkeySettingsModal
           isOpen={hotkeyOpen}
           value={hotkeys}
@@ -232,16 +238,16 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               label=""
               className="px-4! ml-2 w-8 h-8"
             >
-              <ListEnd size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <ListEnd size={20} className="rounded w-4 h-4" />
             </SwitchButton>
             <CButton onClick={exportLog} className="ml-2 w-8 h-8">
-              <FileUp size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <FileUp size={20} className="rounded w-4 h-4" />
             </CButton>
           </div>
         </CardHeader>
 
         <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-x-hidden">
-          {remoteVisible && <RemoteDisplay profileId={profileId!} />}
+          {remoteAvailable && remoteVisible && <RemoteDisplay profileId={profileId!} />}
           <Logger logs={logStore[`config:${profileId}`]} scrollToEnd={uiSettings?.scrollToEnd} />
         </CardContent>
       </Card>

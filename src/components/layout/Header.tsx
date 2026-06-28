@@ -387,7 +387,7 @@ const Header: React.FC = () => {
           onClick={() => setEditor({ mode: "create" })}
           className="flex sm:hidden items-center h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors w-9"
         >
-          <FilePlus2 className="w-5 h-5 translate-x-2" />
+          <FilePlus2 className="w-5 h-5" />
         </button>
       </div>
 

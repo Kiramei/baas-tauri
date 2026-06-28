@@ -192,7 +192,7 @@ fn mobile_config() -> Value {
         "general": {
             "channel": "dev",
             "mirrorc_cdk": "",
-            "no_update": true,
+            "no_update": false,
             "launch": false,
             "git_backend": "auto"
         },

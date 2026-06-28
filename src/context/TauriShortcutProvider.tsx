@@ -68,7 +68,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   const hydratedRef = useRef(false);
 
   const applyBindings = useCallback(async (nextHotkeys: HotkeyConfig[]) => {
-    if (!__WITH_TAURI__) return { registered: [], rejected: [] };
+    if (!__WITH_TAURI__ || __WITH_ANDROID__) return { registered: [], rejected: [] };
 
     const { invoke } = await import("@tauri-apps/api/core");
     const bindings: ShortcutBindingRequest[] = nextHotkeys.map((hotkey) => ({
@@ -82,7 +82,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   }, []);
 
   useEffect(() => {
-    if (!__WITH_TAURI__ || profiles.length === 0) return;
+    if (!__WITH_TAURI__ || __WITH_ANDROID__ || profiles.length === 0) return;
 
     const source = hydratedRef.current ? hotkeys : StorageUtil.get<HotkeyConfig[]>(STORAGE_KEY);
     const next = reconcileProfileHotkeys(profiles, source, t("hotkey.switch.start"));
@@ -92,7 +92,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   }, [profiles, t]);
 
   useEffect(() => {
-    if (!__WITH_TAURI__ || !hydratedRef.current) return;
+    if (!__WITH_TAURI__ || __WITH_ANDROID__ || !hydratedRef.current) return;
     void applyBindings(shortcutsSuspended ? [] : hotkeys).then((report) => {
       if (report.rejected.length > 0) {
         console.warn("[shortcut] failed to register shortcuts", report.rejected);
@@ -101,7 +101,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   }, [applyBindings, hotkeys, shortcutsSuspended]);
 
   useEffect(() => {
-    if (!__WITH_TAURI__) return;
+    if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
 
     let unlisten: (() => void) | null = null;
     let disposed = false;

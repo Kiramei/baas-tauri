@@ -1,7 +1,7 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import type { ConfigProfile, UISettings } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 
 import StorageUtil from "@/shared/StorageManager.ts";
 import { DEFAULT_UI_SETTINGS } from "@/context/UISettingsProvider";
@@ -89,6 +89,17 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
       authPhase === "authenticated" && allDataInitialized && activeProfile !== null && !initiating
     );
   }, [authPhase, allDataInitialized, setReady, activeProfile, initiating]);
+
+  useEffect(() => {
+    if (!__WITH_ANDROID__ || authPhase !== "authenticated" || !activeProfile?.id) return;
+    fetch(`${resolveHttpBase()}/android/active-config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ config_id: activeProfile.id }),
+    }).catch((error) => {
+      console.warn("[android] failed to sync active config", error);
+    });
+  }, [activeProfile?.id, authPhase]);
 
   const value = {
     profiles,

@@ -494,7 +494,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Power size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Power size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("vol_dn", 0)}
@@ -502,7 +502,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Volume1 size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Volume1 size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("vol_up", 0)}
@@ -510,7 +510,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Volume2 size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Volume2 size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("back", 0)}
@@ -518,7 +518,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Play size={20} className="rounded w-4 h-4 -translate-x-2 scale-x-[-1]" />
+              <Play size={20} className="rounded w-4 h-4 scale-x-[-1]" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("home", 0)}
@@ -526,7 +526,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Circle size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Circle size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("switch", 0)}
@@ -534,17 +534,17 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Squircle size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Squircle size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton onClick={screenshot} className="ml-2 w-8 h-8" variant="secondary">
-              <Camera size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Camera size={20} className="rounded w-4 h-4" />
             </CButton>
             <SwitchButton
               onChange={toggleKeyboard}
               checked={keyListenStatus}
               className="ml-2 w-8! h-8! p-0!"
             >
-              <Keyboard size={20} className="rounded w-4! h-4! translate-x-2" />
+              <Keyboard size={20} className="rounded w-4! h-4!" />
             </SwitchButton>
           </div>
         </SlideOutButton>

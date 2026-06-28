@@ -41,7 +41,7 @@ const resolveBase = () => {
   return "ws://127.0.0.1:8190";
 };
 
-const resolveHttpBase = () => {
+export const resolveHttpBase = () => {
   const wsBase = resolveBase();
   if (wsBase.startsWith("wss://")) return `https://${wsBase.slice("wss://".length)}`;
   if (wsBase.startsWith("ws://")) return `http://${wsBase.slice("ws://".length)}`;
@@ -240,6 +240,27 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      if (__WITH_ANDROID__) {
+        const { getVersion } = await import("@tauri-apps/api/app");
+        const currentVersion = await getVersion().catch(() => undefined);
+        set((state) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            tauri: {
+              updateAvailable: false,
+              checking: false,
+              currentVersion,
+              version: currentVersion ?? null,
+              body: "",
+              date: "",
+              lastChecked: Date.now(),
+              error: null,
+            },
+          },
+        }));
+        return;
+      }
       if (await isTauriNoUpdateEnabled()) {
         tauriUpdaterNotifiedVersion = null;
         set((state) => ({
@@ -804,6 +825,9 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     connectRemote: async (): Promise<SecureWebSocket> => {
+      if (__WITH_ANDROID__) {
+        throw new Error("Remote control is disabled on Android.");
+      }
       const session = get()._session;
       if (!session) {
         throw new Error("No authenticated session is available");
@@ -900,7 +924,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         await connectWithRetry("trigger");
 
-        const skipBackendUpdater = __WITH_ANDROID__ || (await isTauriNoUpdateEnabled());
+        const skipBackendUpdater = await isTauriNoUpdateEnabled();
         if (skipBackendUpdater) {
           set((state) => ({
             ...state,

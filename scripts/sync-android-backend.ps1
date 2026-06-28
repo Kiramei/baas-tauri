@@ -22,6 +22,13 @@ foreach ($item in $required) {
   }
 }
 
+$backendSha = ""
+try {
+  $backendSha = (& git -C $sourceRoot.Path rev-parse HEAD 2>$null).Trim()
+} catch {
+  $backendSha = ""
+}
+
 $destination = Join-Path $repoRoot "src-tauri\gen\android\app\src\main\python\baas_backend_bundle"
 $resolvedRepo = (Resolve-Path -LiteralPath $repoRoot).Path
 $parent = Split-Path -Parent $destination
@@ -79,25 +86,27 @@ foreach ($configItem in @("default_config", "static.json")) {
   }
 }
 
-$androidSetup = @'
+$androidSetup = @"
 [general]
 channel = "dev"
 mirrorc_cdk = ""
-no_update = true
+no_update = false
 launch = true
 git_backend = "auto"
+current_baas_sha = "$backendSha"
 
 [paths]
 baas_root_path = "."
 
 [python]
 runtime_path = "embedded-python-3.9"
-'@
+"@
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText((Join-Path $destination "setup.toml"), $androidSetup, $utf8NoBom)
 
 $stamp = @{
   source = $sourceRoot.Path
+  sha = $backendSha
   syncedAt = (Get-Date).ToUniversalTime().ToString("o")
 } | ConvertTo-Json -Depth 2
 Set-Content -LiteralPath (Join-Path $destination "android-backend-source.json") -Value $stamp -Encoding UTF8
