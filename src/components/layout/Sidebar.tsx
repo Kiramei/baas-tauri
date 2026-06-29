@@ -32,7 +32,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const { t } = useTranslation();
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
+  const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const [backendUpdating, setBackendUpdating] = useState(false);
+  const [backendUpdateLogs, setBackendUpdateLogs] = useState<string[]>([]);
+  const [backendUpdateLogOpen, setBackendUpdateLogOpen] = useState(false);
   const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
   const hasBackendUpdate =
@@ -63,39 +66,71 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 
   const handleBackendUpdate = async (): Promise<void> => {
     setBackendUpdating(true);
+    setBackendUpdateLogs([]);
+    setBackendUpdateLogOpen(true);
     try {
       await stopAllTasks();
       if (__WITH_TAURI__ && !__WITH_ANDROID__) {
         reloadWithoutPrompt();
         return;
       }
-      trigger({
-        timestamp: getTimestampMs(),
-        command: "update_to_latest",
-        payload: {},
-      }, async (event) => {
-        setBackendUpdating(false);
-        const data = event.data ?? {};
-        if (data.status === "updated") {
-          toast.success(t("update.backendStarted"), {
-            description: data.current ?? data.channel ?? undefined,
-          });
-          if (__WITH_ANDROID__) {
-            try {
-              const { relaunch } = await import("@tauri-apps/plugin-process");
-              await relaunch();
-            } catch {
-              reloadWithoutPrompt();
+      triggerStream(
+        {
+          timestamp: getTimestampMs(),
+          command: "update_to_latest_stream",
+          payload: {},
+        },
+        async (event) => {
+          const data = event.data ?? {};
+          if (data.done) {
+            if (event.status === "error") {
+              setBackendUpdateLogs((prev) => [...prev, `ERROR ${String(event.error ?? "")}`]);
+              toast.error(t("update.backendStartFailed"), {
+                description: String(event.error ?? ""),
+              });
             }
+            setBackendUpdating(false);
+            return;
           }
-          return;
+          if (data.type === "progress") {
+            setBackendUpdateLogs((prev) => [...prev, formatBackendUpdateEvent(data)]);
+            return;
+          }
+          if (data.type === "error") {
+            setBackendUpdateLogs((prev) => [...prev, `ERROR ${String(data.error ?? "")}`]);
+            setBackendUpdating(false);
+            toast.error(t("update.backendStartFailed"), {
+              description: String(data.error ?? ""),
+            });
+            return;
+          }
+          if (data.type === "result") {
+            const result = data.result ?? {};
+            setBackendUpdating(false);
+            if (result.status === "updated") {
+              setBackendUpdateLogs((prev) => [...prev, `DONE ${result.current ?? ""}`]);
+              toast.success(t("update.backendStarted"), {
+                description: result.current ?? result.channel ?? undefined,
+              });
+              if (__WITH_ANDROID__) {
+                try {
+                  const { relaunch } = await import("@tauri-apps/plugin-process");
+                  await relaunch();
+                } catch {
+                  reloadWithoutPrompt();
+                }
+              }
+              return;
+            }
+            if (result.status === "skipped") {
+              setBackendUpdateLogs((prev) => [...prev, "SKIP no_update"]);
+              toast.info(t("update.tauriUpToDate"));
+              return;
+            }
+            toast.info(t("update.backendStarted"));
+          }
         }
-        if (data.status === "skipped") {
-          toast.info(t("update.tauriUpToDate"));
-          return;
-        }
-        toast.info(t("update.backendStarted"));
-      });
+      );
       toast.info(t("update.backendStarted"));
     } catch (error) {
       toast.error(t("update.backendStartFailed"), {
@@ -218,6 +253,25 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         tauriProgress={tauriUpdate.progress}
         tauriStatus={tauriUpdate.status}
       />
+      {backendUpdateLogOpen && (
+        <div className="fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Android update log
+            </div>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              onClick={() => setBackendUpdateLogOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+          <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+            {(backendUpdateLogs.length ? backendUpdateLogs : ["waiting..."]).join("\n")}
+          </pre>
+        </div>
+      )}
     </div>
   );
 };
@@ -290,4 +344,28 @@ const FloatingUpdateButton: React.FC<{
       {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
     </motion.button>
   );
+};
+
+const formatBytes = (value?: number): string => {
+  if (!value) return "0 B";
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MiB`;
+};
+
+const formatBackendUpdateEvent = (data: any): string => {
+  const stage = String(data.stage ?? "progress");
+  if (stage === "fetch_sha") return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
+  if (stage === "remote_sha") return `REMOTE SHA ${String(data.sha ?? "").slice(0, 12)}`;
+  if (stage === "download_start") return `DOWNLOAD ${data.url ?? ""}`;
+  if (stage === "download_progress") {
+    return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
+  }
+  if (stage === "download_done") return `DOWNLOADED ${formatBytes(data.downloaded)}`;
+  if (stage === "extract_start") return "EXTRACT archive";
+  if (stage === "copy_start") return "COPY repository files";
+  if (stage === "copy_done") return "COPY done";
+  if (stage === "write_setup") return "WRITE setup.toml";
+  if (stage === "done") return `DONE ${String(data.sha ?? "").slice(0, 12)}`;
+  if (stage === "skipped") return `SKIP ${data.reason ?? ""}`;
+  return stage.toUpperCase();
 };
