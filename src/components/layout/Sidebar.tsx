@@ -358,7 +358,8 @@ const formatBackendUpdateEvent = (data: any): string => {
   if (stage === "remote_sha") return `REMOTE SHA ${String(data.sha ?? "").slice(0, 12)}`;
   if (stage === "download_start") return `DOWNLOAD ${data.url ?? ""}`;
   if (stage === "download_progress") {
-    return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
+    if (data.total) return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
+    return `DOWNLOADING ${formatBytes(data.downloaded)}`;
   }
   if (stage === "download_done") return `DOWNLOADED ${formatBytes(data.downloaded)}`;
   if (stage === "extract_start") return "EXTRACT archive";
