@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebView
 import java.io.File
 
@@ -21,22 +23,13 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     maybePromptAccessibilityService()
+    scheduleDebugDevUrlLoads()
   }
 
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
-    if (!BuildConfig.DEBUG) {
-      return
-    }
-
-    val devUrl = File(filesDir, "baas-tauri-dev-url.txt")
-      .takeIf { it.isFile }
-      ?.readText()
-      ?.trim()
-      .orEmpty()
-    if (devUrl.startsWith("http://") || devUrl.startsWith("https://")) {
-      webView.post { webView.loadUrl(devUrl) }
-    }
+    loadDebugDevUrl(webView)
+    scheduleDebugDevUrlLoads(webView)
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -47,7 +40,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun maybePromptAccessibilityService() {
-    if (promptedAccessibility || isVolumeToggleAccessibilityEnabled()) {
+    if (hasDebugDevUrlMarker() || promptedAccessibility || isVolumeToggleAccessibilityEnabled()) {
       return
     }
     promptedAccessibility = true
@@ -74,5 +67,71 @@ class MainActivity : TauriActivity() {
       Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
     ) ?: return false
     return enabled.split(':').any { it.equals(expected, ignoreCase = true) || it.equals(shortExpected, ignoreCase = true) }
+  }
+
+  private fun hasDebugDevUrlMarker(): Boolean {
+    return BuildConfig.DEBUG && File(filesDir, "baas-tauri-dev-url.txt").isFile
+  }
+
+  private fun readDebugDevUrl(): String {
+    if (!BuildConfig.DEBUG) {
+      return ""
+    }
+    return File(filesDir, "baas-tauri-dev-url.txt")
+      .takeIf { it.isFile }
+      ?.readText()
+      ?.trim()
+      .orEmpty()
+  }
+
+  private fun scheduleDebugDevUrlLoads() {
+    if (!BuildConfig.DEBUG) {
+      return
+    }
+    for (delay in listOf(250L, 1_000L, 2_500L, 5_000L, 9_000L, 13_000L)) {
+      window?.decorView?.postDelayed({
+        val webView = findWebView(window?.decorView)
+        webView?.let { loadDebugDevUrl(it) }
+      }, delay)
+    }
+  }
+
+  private fun scheduleDebugDevUrlLoads(webView: WebView) {
+    if (!BuildConfig.DEBUG) {
+      return
+    }
+    for (delay in listOf(250L, 1_000L, 2_500L, 5_000L)) {
+      webView.postDelayed({
+        loadDebugDevUrl(webView)
+      }, delay)
+    }
+  }
+
+  private fun loadDebugDevUrl(webView: WebView) {
+    val devUrl = readDebugDevUrl()
+    if (!devUrl.startsWith("http://") && !devUrl.startsWith("https://")) {
+      return
+    }
+    if (webView.url == devUrl || webView.url?.startsWith("$devUrl/") == true) {
+      return
+    }
+    if (webView is RustWebView) {
+      webView.loadDebugUrlMainThread(devUrl)
+    } else {
+      webView.post { webView.loadUrl(devUrl) }
+    }
+  }
+
+  private fun findWebView(view: View?): WebView? {
+    when (view) {
+      null -> return null
+      is WebView -> return view
+      is ViewGroup -> {
+        for (index in 0 until view.childCount) {
+          findWebView(view.getChildAt(index))?.let { return it }
+        }
+      }
+    }
+    return null
   }
 }

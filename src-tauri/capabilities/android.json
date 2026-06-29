@@ -2,6 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "android",
   "description": "Android capability for the main webview",
+  "remote": {
+    "urls": ["http://127.0.0.1:8191", "http://127.0.0.1:8191/*", "http://localhost:8191", "http://localhost:8191/*"]
+  },
   "windows": ["main"],
   "webviews": ["main"],
   "platforms": ["android"],
@@ -12,6 +15,7 @@
     "opener:default",
     "dialog:default",
     "fs:default",
-    "store:default"
+    "store:default",
+    "default"
   ]
 }

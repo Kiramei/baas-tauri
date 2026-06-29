@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-mobile-commands"
+description = "Allows Android frontend startup, setup and updater bridge commands."
+commands.allow = [
+  "splash_off",
+  "set_backend_locale",
+  "updater_get_storage_state",
+  "updater_get_startup_state",
+  "updater_path_exists_non_empty",
+  "updater_update_config",
+  "updater_validate_mirrorc_cdk",
+  "updater_start_workflow",
+  "updater_reset_backend_auth_and_restart",
+  "updater_abort_workflow",
+  "updater_terminal_snapshot",
+  "updater_resize_term",
+  "shortcut_apply_bindings",
+  "open_main_devtools",
+]

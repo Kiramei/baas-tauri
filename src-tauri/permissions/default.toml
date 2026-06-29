@@ -1,0 +1,5 @@
+[default]
+description = "Allows the main webview to call BAAS application commands."
+permissions = [
+  "allow-mobile-commands",
+]

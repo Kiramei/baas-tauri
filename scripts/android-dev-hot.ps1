@@ -83,8 +83,8 @@ $marker = Join-Path $logDir "baas-tauri-dev-url.txt"
 
 function Set-AndroidDevUrlMarker {
   Set-Content -LiteralPath $marker -Value $DevUrl -NoNewline -Encoding ASCII
-  & $adb -s $Device push $marker /data/local/tmp/baas-tauri-dev-url.txt | Out-Null
-  & $adb -s $Device shell run-as $packageName cp /data/local/tmp/baas-tauri-dev-url.txt files/baas-tauri-dev-url.txt
+  $escapedDevUrl = $DevUrl.Replace("'", "'\''")
+  & $adb -s $Device shell run-as $packageName sh -c "'printf ''$escapedDevUrl'' > files/baas-tauri-dev-url.txt'"
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to write dev URL marker. Install a debug APK first, or rerun with -InstallShell."
   }
