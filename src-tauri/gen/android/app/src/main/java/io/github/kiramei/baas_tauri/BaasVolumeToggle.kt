@@ -18,6 +18,11 @@ object BaasVolumeToggle {
       return false
     }
 
+    return handleVolumeDownPress()
+  }
+
+  @Synchronized
+  fun handleVolumeDownPress(): Boolean {
     val now = SystemClock.elapsedRealtime()
     if (now - lastVolumeDownAt <= DOUBLE_PRESS_WINDOW_MS) {
       lastVolumeDownAt = 0L
