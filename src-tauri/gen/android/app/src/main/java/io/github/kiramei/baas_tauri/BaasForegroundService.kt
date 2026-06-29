@@ -6,9 +6,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.IBinder
-import android.widget.RemoteViews
 
 class BaasForegroundService : Service() {
   companion object {
@@ -56,17 +56,10 @@ class BaasForegroundService : Service() {
   }
 
   private fun buildNotification(text: String): Notification {
-    val launchIntent = Intent(this, MainActivity::class.java)
     val flags = PendingIntent.FLAG_UPDATE_CURRENT or
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-    val launchPendingIntent = PendingIntent.getActivity(this, 0, launchIntent, flags)
     val toggleIntent = Intent(this, BaasForegroundService::class.java).setAction(ACTION_TOGGLE_SCRIPT)
     val togglePendingIntent = PendingIntent.getService(this, 1, toggleIntent, flags)
-    val contentView = RemoteViews(packageName, R.layout.baas_backend_notification).apply {
-      setTextViewText(R.id.baas_notification_title, getString(R.string.baas_backend_notification_title))
-      setTextViewText(R.id.baas_notification_text, text)
-      setOnClickPendingIntent(R.id.baas_notification_toggle, togglePendingIntent)
-    }
     val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       Notification.Builder(this, CHANNEL_ID)
     } else {
@@ -78,17 +71,15 @@ class BaasForegroundService : Service() {
       .setContentTitle(getString(R.string.baas_backend_notification_title))
       .setContentText(text)
       .setContentIntent(togglePendingIntent)
-      .setCustomContentView(contentView)
-      .setCustomBigContentView(contentView)
       .addAction(
-        android.R.drawable.ic_menu_view,
-        getString(R.string.baas_backend_notification_open_action),
-        launchPendingIntent,
+        Notification.Action.Builder(
+          Icon.createWithResource(this, android.R.drawable.ic_media_play),
+          getString(R.string.baas_backend_notification_toggle_action),
+          togglePendingIntent,
+        ).build(),
       )
       .setOngoing(true)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-      builder.setStyle(Notification.DecoratedCustomViewStyle())
-    }
+      .setShowWhen(false)
     return builder.build()
   }
 }

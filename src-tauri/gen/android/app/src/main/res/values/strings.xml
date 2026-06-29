@@ -6,6 +6,5 @@
     <string name="baas_backend_notification_title">BAAS 后端运行中</string>
     <string name="baas_backend_notification_text">点击通知启停脚本。</string>
     <string name="baas_backend_notification_toggle_action">启停脚本</string>
-    <string name="baas_backend_notification_open_action">打开界面</string>
     <string name="baas_backend_notification_toggling">正在切换脚本状态...</string>
 </resources>
