@@ -7,4 +7,8 @@
     <string name="baas_key_toggle_prompt_message">在游戏界面双击音量下键启停脚本需要开启系统无障碍服务：BAAS volume toggle。</string>
     <string name="baas_key_toggle_prompt_open_settings">打开设置</string>
     <string name="baas_key_toggle_prompt_later">稍后</string>
+    <string name="baas_backend_channel_name">BAAS 后台服务</string>
+    <string name="baas_backend_channel_description">保持 BAAS 后端运行，以支持游戏界面音量键启停脚本。</string>
+    <string name="baas_backend_notification_title">BAAS 后端运行中</string>
+    <string name="baas_backend_notification_text">双击音量下键启停脚本。</string>
 </resources>

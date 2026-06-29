@@ -21,6 +21,7 @@ object BaasVolumeToggle {
     val now = SystemClock.elapsedRealtime()
     if (now - lastVolumeDownAt <= DOUBLE_PRESS_WINDOW_MS) {
       lastVolumeDownAt = 0L
+      Log.i(TAG, "Double volume-down detected; toggling backend")
       toggleBackend()
       return true
     }
@@ -39,7 +40,13 @@ object BaasVolumeToggle {
         connection.doOutput = true
         connection.setRequestProperty("Content-Type", "application/json")
         connection.outputStream.use { it.write(ByteArray(0)) }
-        connection.inputStream.use { it.readBytes() }
+        val statusCode = connection.responseCode
+        val body = if (statusCode in 200..299) {
+          connection.inputStream.use { String(it.readBytes()) }
+        } else {
+          connection.errorStream?.use { String(it.readBytes()) }.orEmpty()
+        }
+        Log.i(TAG, "Volume toggle backend response: $statusCode $body")
         connection.disconnect()
       } catch (error: Throwable) {
         Log.w(TAG, "Volume toggle request failed", error)

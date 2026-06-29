@@ -3,6 +3,7 @@ package io.github.kiramei.baas_tauri
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.KeyEvent
@@ -18,10 +19,12 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    ensureForegroundService()
   }
 
   override fun onResume() {
     super.onResume()
+    ensureForegroundService()
     maybePromptAccessibilityService()
     scheduleDebugDevUrlLoads()
   }
@@ -40,7 +43,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun maybePromptAccessibilityService() {
-    if (hasDebugDevUrlMarker() || promptedAccessibility || isVolumeToggleAccessibilityEnabled()) {
+    if (promptedAccessibility || isVolumeToggleAccessibilityEnabled()) {
       return
     }
     promptedAccessibility = true
@@ -56,6 +59,15 @@ class MainActivity : TauriActivity() {
         }
         .setNegativeButton(getString(R.string.baas_key_toggle_prompt_later), null)
         .show()
+    }
+  }
+
+  private fun ensureForegroundService() {
+    val intent = Intent(this, BaasForegroundService::class.java)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      startForegroundService(intent)
+    } else {
+      startService(intent)
     }
   }
 
