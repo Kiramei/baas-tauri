@@ -2,4 +2,9 @@
     <string name="app_name">BAAS Tauri</string>
     <string name="main_activity_title">BAAS Tauri</string>
     <string name="baas_key_toggle_service_label">BAAS volume toggle</string>
+    <string name="baas_key_toggle_service_description">Listen for double volume-down presses to start or stop the BAAS script while the game is in foreground.</string>
+    <string name="baas_key_toggle_prompt_title">启用音量键启停</string>
+    <string name="baas_key_toggle_prompt_message">在游戏界面双击音量下键启停脚本需要开启系统无障碍服务：BAAS volume toggle。</string>
+    <string name="baas_key_toggle_prompt_open_settings">打开设置</string>
+    <string name="baas_key_toggle_prompt_later">稍后</string>
 </resources>
