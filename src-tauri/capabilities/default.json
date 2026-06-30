@@ -7,6 +7,8 @@
   "platforms": ["windows", "macOS", "linux"],
   "permissions": [
     "core:default",
+    "default",
+    "allow-mobile-commands",
     "core:webview:allow-create-webview-window",
     "core:window:allow-center",
     "core:window:allow-destroy",

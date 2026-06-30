@@ -20,13 +20,30 @@ export default defineConfig(({ mode }) => {
     define: {
       global: "globalThis",
       __WITH_WEBUI__: mode === "webui",
-      __WITH_TAURI__: withTauri,
+      __WITH_TAURI_MODE__: withTauri,
+      __WITH_TAURI__: withTauri
+        ? "(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)"
+        : false,
       __WITH_ANDROID__: isAndroid,
     },
     server: {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
       port: withTauri ? 8191 : 8192,
       strictPort: true,
+      warmup: {
+        clientFiles: [
+          "./src/main.tsx",
+          "./src/App.tsx",
+          "./src/pages/SetupPage.tsx",
+          "./src/pages/LoadingPage.tsx",
+          "./src/store/WebsocketStore.ts",
+          "./src/shared/I18nTranslator.ts",
+        ],
+      },
+    },
+    optimizeDeps: {
+      entries: ["index.html", "src/main.tsx"],
+      holdUntilCrawlEnd: false,
     },
     plugins: [
       react(),
