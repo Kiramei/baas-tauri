@@ -1,0 +1,53 @@
+---
+title: Contracts and Testing
+description: Config files, Service injection boundaries, cross-platform compatibility rules, and the minimum verification commands.
+---
+
+Before an API change is complete, verify config contracts, injection boundaries, and runnable scripts. A working desktop dev server alone does not prove that the Android build is usable.
+
+## Config Contracts
+
+| Config | Location | Rule |
+| --- | --- | --- |
+| app storage | Tauri app data or Android app storage | Stores startup state, install path, auth state, and updater config. |
+| `setup.toml` | Backend root or Android storage | Stores main sha, update source, and runtime config. |
+| profile config | Backend config directory | Distributed through sync snapshots and patches. |
+| `screenshot_method` | script config | Android must lock this to `android_local`. |
+| `control_method` | script config | Android must lock this to `android_local`. |
+
+New fields must define defaults and migration behavior. The frontend must not assume a new field already exists, and the backend must not assume the frontend has written it first.
+
+## Service Injection Boundary
+
+Service mode is designed around isolated injection:
+
+| Allowed | Not allowed |
+| --- | --- |
+| Define injection functions inside the `service` folder. | Change `core`, `module`, or `main` runtime flow for Service mode. |
+| Let Android runtime wrap `service.injection.apply_service_injections`. | Scatter Android runtime monkey patches across upstream code. |
+| Affect the frontend through stable WebSocket/HTTP APIs. | Make the frontend depend on service internals. |
+| Adapt packaging in workflow or deploy scripts. | Mix packaging adaptation into runtime APIs. |
+
+If upstream behavior truly needs to change, first introduce a general upstream extension point and let Service mode use it through injection. Do not add one-off branches for Service mode.
+
+## Minimum Verification Matrix
+
+| Scope | Command or action | Passing standard |
+| --- | --- | --- |
+| Frontend | `bun run lint` | No lint errors. |
+| Tauri build | `bun run build:tauri` | Web build and Rust build pass. |
+| Rust workspace | `cargo check --workspace` | All crates type-check. |
+| Python | `python -m py_compile ...` or `python -m compileall -q ...` | Runnable files have no syntax errors. |
+| Android debug | `bun scripts/android-build-debug.mjs --skip-web-build --abi x86_64` | Debug APK builds. |
+| Android emulator | install, launch, screenshot, and run a low-risk script | UI is interactive, backend connects, control mode is fixed, logs are normal. |
+| Docs site | `bun run build` | Fumadocs static export succeeds. |
+
+On Windows, some test binaries may require elevation and fail with error 740. Record the exact binary and error instead of treating it as a compile failure.
+
+## API Change Checklist
+
+1. Update Chinese and English documentation.
+2. Document desktop and Android behavior differences.
+3. Keep WebSocket frames backward compatible.
+4. Avoid Service mode runtime edits outside the `service` folder.
+5. Run the matching scripts and record any command that cannot run.

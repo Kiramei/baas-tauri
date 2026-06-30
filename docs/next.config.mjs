@@ -14,6 +14,7 @@ export default function config(phase) {
     trailingSlash: true,
     basePath,
     assetPrefix: basePath ? `${basePath}/` : undefined,
+    serverExternalPackages: ["typescript", "twoslash"],
     turbopack: {
       root,
     },

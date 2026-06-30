@@ -1,0 +1,65 @@
+---
+title: Tauri Commands
+description: BAAS Tauri 前端通过 invoke 调用的 Rust command 契约，以及桌面端和 Android 端差异。
+---
+
+Tauri command 是 React 前端调用 Rust 侧能力的公开 API。桌面端实现位于 `src-tauri/src/commands.rs`，Android 端实现位于 `src-tauri/src/mobile_commands.rs`，窗口行为类命令位于 `src-tauri/src/behavior.rs`。
+
+## 通用命令
+
+| Command | 参数 | 返回 | 说明 |
+| --- | --- | --- | --- |
+| `splash_off` | 无 | `Result<(), String>` | 关闭启动页。前端入口加载完成后调用。 |
+| `set_backend_locale` | `{ lang: string }` | `Result<(), String>` | 同步后端语言。Android 端可以接受调用但不应依赖桌面后端状态。 |
+| `open_main_devtools` | 无 | `Result<Value, String>` | 打开主窗口 DevTools。Android 端返回“不支持”。 |
+| `shortcut_apply_bindings` | 快捷键配置 | `Result<Value, String>` | 桌面端应用全局快捷键；Android 端返回“不支持”。 |
+
+## 更新器与启动命令
+
+| Command | 参数 | 返回 | 桌面端行为 | Android 行为 |
+| --- | --- | --- | --- | --- |
+| `updater_get_storage_state` | 无 | storage 路径和 portable 状态 | 读取桌面 app storage | 读取 Android app 私有/外部 storage |
+| `updater_get_startup_state` | 无 | 启动配置、后端状态、日志状态 | 返回桌面安装和后端准备状态 | 返回捆绑 Python 后端的启动状态 |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean` | 检查本机路径 | Android 端保留兼容，不应用于用户可选路径 |
+| `updater_update_config` | `{ request }` | 更新后的配置 | 写入 updater 配置 | 写入 Android storage 下的配置 |
+| `updater_validate_mirrorc_cdk` | `{ request }` | 校验报告 | 调用 MirrorC 校验 | Android 端返回兼容报告 |
+| `tauri_client_check_update` | `{ request }` | 客户端更新报告 | 检查桌面安装包 | 检查 Android APK 元数据 |
+| `updater_check_version` | `{ request }` | 后端版本报告 | 比对本地和远端 main sha | 比对 Android storage 内 main sha |
+| `updater_test_sha_method` | `{ request }` | 单源测速报告 | 测一个 SHA 源 | 10 秒超时，单源异步返回 |
+| `updater_test_sha_methods` | `{ request }` | 多源测速报告 | 并发测速所有 SHA 源 | 并发测速，结果按完成顺序聚合 |
+| `updater_start_workflow` | `{ request }` | 启动报告 | 安装/更新/启动桌面后端 | 启动 Android 捆绑后端 |
+| `updater_abort_workflow` | `{ request }` | abort 报告 | 中断当前工作流 | 中断 Android 启动终端任务 |
+| `updater_reset_backend_auth_and_restart` | 无或 `{ request }` | 重置报告 | 重置认证并重启后端 | Android 端按本地 storage 重置 |
+
+## 终端命令
+
+更新器终端通过 xterm 消费后端 chunk。Rust 侧只暴露结构化快照，不应把 ANSI chunk 拼成单行日志。
+
+| Command | 参数 | 返回 | 说明 |
+| --- | --- | --- | --- |
+| `updater_terminal_snapshot` | 可选会话参数 | `{ rows, cols, regions }` | 返回当前终端屏幕快照。 |
+| `updater_resize_term` | `{ cols, rows }` | `Result<Value, String>` | 同步 xterm 尺寸，避免后端输出被错误折行。 |
+
+## 前端调用模式
+
+```ts
+import { invoke } from "@tauri-apps/api/core";
+
+type ShaMethodReport = {
+  method: string;
+  status: "ok" | "timeout" | "error";
+  elapsedMs?: number;
+  remote?: string | null;
+  error?: string | null;
+};
+
+export async function testShaMethod(method: string): Promise<ShaMethodReport> {
+  return invoke<ShaMethodReport>("updater_test_sha_method", {
+    request: { method, timeoutMs: 10000 },
+  });
+}
+```
+
+## 错误返回规范
+
+Rust command 对可恢复错误返回 `Err(String)`。字符串必须能直接展示给用户或日志，不要返回只对 Rust 调试有意义的内部类型名。需要前端分支处理的错误应返回结构化 `Value`，并包含稳定字段，例如 `ok`、`reason`、`missing`、`retryable`。

@@ -7,6 +7,7 @@ import {
   Bug,
   CalendarClock,
   Coffee,
+  Code2,
   Compass,
   Download,
   Factory,
@@ -43,6 +44,7 @@ function pageTreeIcon(Icon: IconComponent, key: string) {
 }
 
 const folderIcons: Record<string, IconComponent> = {
+  api: Code2,
   features: Settings,
   guide: Compass,
   reference: FileCog,
@@ -53,6 +55,12 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/guide/interface", LayoutDashboard],
   ["/guide/scheduler", CalendarClock],
   ["/guide/wiki", FileCog],
+  ["/api/overview", Code2],
+  ["/api/tauri-commands", Terminal],
+  ["/api/service-websocket", Server],
+  ["/api/frontend-runtime", LayoutDashboard],
+  ["/api/android-runtime", Smartphone],
+  ["/api/contracts-testing", FileCog],
   ["/features/profile", Compass],
   ["/features/home-runtime", House],
   ["/features/server", Server],

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { ImageZoom } from "@/components/ImageZoom";
 import "fumadocs-ui/style.css";
+import "fumadocs-twoslash/twoslash.css";
 import "./global.css";
 
 export const metadata: Metadata = {

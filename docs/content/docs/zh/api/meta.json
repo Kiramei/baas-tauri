@@ -1,0 +1,11 @@
+{
+  "title": "API 文档",
+  "pages": [
+    "overview",
+    "tauri-commands",
+    "service-websocket",
+    "frontend-runtime",
+    "android-runtime",
+    "contracts-testing"
+  ]
+}
