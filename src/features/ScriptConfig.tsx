@@ -19,6 +19,9 @@ interface Draft {
   control_method: string;
 }
 
+const ANDROID_LOCAL_METHOD = "android_local";
+const ANDROID_LOCAL_LABEL = "安卓本地化控制";
+
 const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
@@ -38,8 +41,8 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
       screenshot_interval: settings.screenshot_interval,
       autostart: settings.autostart,
       then: settings.then,
-      screenshot_method: settings.screenshot_method,
-      control_method: settings.control_method,
+      screenshot_method: __WITH_ANDROID__ ? ANDROID_LOCAL_METHOD : settings.screenshot_method,
+      control_method: __WITH_ANDROID__ ? ANDROID_LOCAL_METHOD : settings.control_method,
     } as Draft;
   }, [settings]);
 
@@ -54,6 +57,7 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
+      if (__WITH_ANDROID__ && (k === "screenshot_method" || k === "control_method")) return;
       if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
         (patch as any)[k] = draft[k];
       }
@@ -106,11 +110,14 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
           label={t("script.screenshotMethod")}
           value={draft.screenshot_method}
           onChange={handleChange("screenshot_method")}
+          disabled={__WITH_ANDROID__}
           options={
-            staticConfig?.screenshot_methods?.map((m: string) => ({
-              value: m,
-              label: m,
-            })) ?? []
+            __WITH_ANDROID__
+              ? [{ value: ANDROID_LOCAL_METHOD, label: ANDROID_LOCAL_LABEL }]
+              : (staticConfig?.screenshot_methods?.map((m: string) => ({
+                  value: m,
+                  label: m,
+                })) ?? [])
           }
           className="flex-1"
         />
@@ -120,11 +127,14 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
           label={t("script.controlMethod")}
           value={draft.control_method}
           onChange={handleChange("control_method")}
+          disabled={__WITH_ANDROID__}
           options={
-            staticConfig?.control_methods?.map((m: string) => ({
-              value: m,
-              label: m,
-            })) ?? []
+            __WITH_ANDROID__
+              ? [{ value: ANDROID_LOCAL_METHOD, label: ANDROID_LOCAL_LABEL }]
+              : (staticConfig?.control_methods?.map((m: string) => ({
+                  value: m,
+                  label: m,
+                })) ?? [])
           }
           className="flex-1"
         />
