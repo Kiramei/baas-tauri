@@ -743,7 +743,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         "logs_full": (message: WsMessageItem) => {
           const scopes = message.scopes ?? [];
-          const log_added: { [key: string]: LogItem[] } = Object.fromEntries(
+          const logSnapshot: { [key: string]: LogItem[] } = Object.fromEntries(
             scopes.map((id) => [id, []])
           );
           message.entries?.forEach((entry: RawLogItem) => {
@@ -752,10 +752,16 @@ export const useWebSocketStore = create<WebSocketState>()(
               level: entry.level,
               message: entry.message,
             };
-            log_added[entry.scope].push(info);
+            if (!logSnapshot[entry.scope]) logSnapshot[entry.scope] = [];
+            logSnapshot[entry.scope].push(info);
             if (entry.scope === "global") appendGlobalLog(info);
           });
-          set(() => ({ logStore: log_added }));
+          set((state) => ({
+            logStore: {
+              ...state.logStore,
+              ...logSnapshot,
+            },
+          }));
         },
 
         "log": (message: WsMessageItem) => {
