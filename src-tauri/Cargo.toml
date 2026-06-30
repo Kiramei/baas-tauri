@@ -23,6 +23,7 @@ baas-i18n = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
 
 # Main App Specified Packages
 tauri-plugin-opener = "2"

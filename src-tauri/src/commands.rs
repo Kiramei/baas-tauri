@@ -23,9 +23,11 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, State};
+use tokio::{task::JoinSet, time};
 
 const STORAGE_FILE_NAME: &str = ".app_storage.json";
 const STORAGE_INSTALL_DIR_KEY: &str = "base_dir";
+const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
 
 /// Frontend storage location. Portable installs keep this next to the
 /// executable, normal installs keep Tauri's default app-data store.
@@ -394,89 +396,44 @@ pub fn updater_check_version(
 }
 
 #[tauri::command]
-pub fn updater_test_sha_methods(
+pub async fn updater_test_sha_methods(
     app: AppHandle,
     request: UpdaterShaTestRequest,
 ) -> Result<Vec<UpdaterShaTestReport>, String> {
     let manager = ensure_default_config(&app)?;
     let channel =
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
-    let timeout = Duration::from_secs_f64(request.timeout.unwrap_or(15.0).clamp(1.0, 60.0));
+    let timeout = sha_test_timeout(request.timeout);
     let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
-    Ok(sha_method_sources(channel)
-        .into_iter()
-        .map(|(name, url)| {
-            let start = Instant::now();
-            match url {
-                Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
-                    Ok(value) => UpdaterShaTestReport {
-                        success: true,
-                        name,
-                        duration: start.elapsed().as_secs_f64(),
-                        value: Some(value),
-                        error: None,
-                    },
-                    Err(error) => UpdaterShaTestReport {
-                        success: false,
-                        name,
-                        duration: start.elapsed().as_secs_f64(),
-                        value: None,
-                        error: Some(error),
-                    },
-                },
-                None => UpdaterShaTestReport {
-                    success: false,
-                    name,
-                    duration: start.elapsed().as_secs_f64(),
-                    value: None,
-                    error: Some("not a git source".to_string()),
-                },
-            }
-        })
-        .collect())
+    let mut tasks = JoinSet::new();
+    for (name, url) in sha_method_sources(channel) {
+        let branch = branch.clone();
+        tasks.spawn(run_sha_probe(name, url, branch, timeout));
+    }
+
+    let mut reports = Vec::new();
+    while let Some(result) = tasks.join_next().await {
+        reports.push(result.map_err(|error| error.to_string())?);
+    }
+    Ok(reports)
 }
 
 #[tauri::command]
-pub fn updater_test_sha_method(
+pub async fn updater_test_sha_method(
     app: AppHandle,
     request: UpdaterSingleShaTestRequest,
 ) -> Result<UpdaterShaTestReport, String> {
     let manager = ensure_default_config(&app)?;
     let channel =
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
-    let timeout = Duration::from_secs_f64(request.timeout.unwrap_or(15.0).clamp(1.0, 60.0));
+    let timeout = sha_test_timeout(request.timeout);
     let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
-    let start = Instant::now();
     let name = request.method.trim().to_string();
     let url = sha_method_sources(channel)
         .into_iter()
         .find(|(method, _)| method == &name)
         .and_then(|(_, url)| url);
-    Ok(match url {
-        Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
-            Ok(value) => UpdaterShaTestReport {
-                success: true,
-                name,
-                duration: start.elapsed().as_secs_f64(),
-                value: Some(value),
-                error: None,
-            },
-            Err(error) => UpdaterShaTestReport {
-                success: false,
-                name,
-                duration: start.elapsed().as_secs_f64(),
-                value: None,
-                error: Some(error),
-            },
-        },
-        None => UpdaterShaTestReport {
-            success: false,
-            name,
-            duration: start.elapsed().as_secs_f64(),
-            value: None,
-            error: Some("not a git source".to_string()),
-        },
-    })
+    Ok(run_sha_probe(name, url, branch, timeout).await)
 }
 
 #[tauri::command]
@@ -629,6 +586,70 @@ fn desktop_first_remote_sha(
         }
     }
     Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
+}
+
+fn sha_test_timeout(timeout: Option<f64>) -> Duration {
+    Duration::from_secs_f64(
+        timeout
+            .unwrap_or(SHA_TEST_TIMEOUT_SECONDS)
+            .clamp(0.1, SHA_TEST_TIMEOUT_SECONDS),
+    )
+}
+
+async fn run_sha_probe(
+    name: String,
+    url: Option<String>,
+    branch: String,
+    timeout: Duration,
+) -> UpdaterShaTestReport {
+    let start = Instant::now();
+    let worker_name = name.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || match url {
+        Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
+            Ok(value) => UpdaterShaTestReport {
+                success: true,
+                name: worker_name,
+                duration: start.elapsed().as_secs_f64(),
+                value: Some(value),
+                error: None,
+            },
+            Err(error) => UpdaterShaTestReport {
+                success: false,
+                name: worker_name,
+                duration: start.elapsed().as_secs_f64(),
+                value: None,
+                error: Some(error),
+            },
+        },
+        None => UpdaterShaTestReport {
+            success: false,
+            name: worker_name,
+            duration: start.elapsed().as_secs_f64(),
+            value: None,
+            error: Some("not a git source".to_string()),
+        },
+    });
+
+    match time::timeout(timeout + Duration::from_millis(100), worker).await {
+        Ok(Ok(report)) => report,
+        Ok(Err(error)) => UpdaterShaTestReport {
+            success: false,
+            name,
+            duration: start.elapsed().as_secs_f64(),
+            value: None,
+            error: Some(error.to_string()),
+        },
+        Err(_) => UpdaterShaTestReport {
+            success: false,
+            name,
+            duration: timeout.as_secs_f64(),
+            value: None,
+            error: Some(format!(
+                "git ls-remote timed out after {:.1}s",
+                timeout.as_secs_f64()
+            )),
+        },
+    }
 }
 
 fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {

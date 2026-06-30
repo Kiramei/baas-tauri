@@ -14,15 +14,18 @@ use serde_json::{json, Value};
 use std::{
     fs,
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 #[cfg(target_os = "android")]
 use tauri::State;
 use tauri::{AppHandle, Manager};
+use tokio::{task::JoinSet, time};
 
 const ANDROID_BACKEND_MESSAGE: &str =
     "Android embeds Python 3.9 through Chaquopy and does not use uv. The Android application layer starts a Python bootstrap which unpacks the bundled BAAS service backend into app-private storage and reports missing Android-compatible runtime dependencies through /health.";
 const ANDROID_PACKAGE_NAME: &str = "io.github.kiramei.baas_tauri";
 const ANDROID_STORAGE_ROOT_MARKER: &str = "baas-android-storage-root.txt";
+const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
 const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
     "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
@@ -296,94 +299,43 @@ pub fn updater_check_version(_request: UpdaterVersionCheckRequest) -> Result<Val
 
 #[cfg(target_os = "android")]
 #[tauri::command]
-pub fn updater_test_sha_methods(
+pub async fn updater_test_sha_methods(
     app: AppHandle,
     request: UpdaterShaTestRequest,
 ) -> Result<Value, String> {
     let root = android_storage_root(&app)?;
     let setup_path = ensure_android_setup_toml(&root)?;
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
-    let _timeout = request.timeout.unwrap_or(15.0);
-    let results = android_sha_method_sources(channel)
-        .into_iter()
-        .map(|(name, url)| {
-            let start = std::time::Instant::now();
-            match url {
-                Some(url) => {
-                    match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url)
-                    {
-                        Ok(value) => json!({
-                            "success": true,
-                            "name": name,
-                            "duration": start.elapsed().as_secs_f64(),
-                            "value": value,
-                            "error": null
-                        }),
-                        Err(error) => json!({
-                            "success": false,
-                            "name": name,
-                            "duration": start.elapsed().as_secs_f64(),
-                            "value": null,
-                            "error": error.message()
-                        }),
-                    }
-                }
-                None => json!({
-                    "success": false,
-                    "name": name,
-                    "duration": start.elapsed().as_secs_f64(),
-                    "value": null,
-                    "error": "not a git source"
-                }),
-            }
-        })
-        .collect::<Vec<_>>();
+    let timeout = sha_test_timeout(request.timeout);
+    let mut tasks = JoinSet::new();
+    for (name, url) in android_sha_method_sources(channel) {
+        let root = root.clone();
+        tasks.spawn(run_android_sha_probe(root, channel, name, url, timeout));
+    }
+
+    let mut results = Vec::new();
+    while let Some(result) = tasks.join_next().await {
+        results.push(result.map_err(|error| error.to_string())?);
+    }
     Ok(json!(results))
 }
 
 #[cfg(target_os = "android")]
 #[tauri::command]
-pub fn updater_test_sha_method(
+pub async fn updater_test_sha_method(
     app: AppHandle,
     request: UpdaterSingleShaTestRequest,
 ) -> Result<Value, String> {
     let root = android_storage_root(&app)?;
     let setup_path = ensure_android_setup_toml(&root)?;
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
-    let _timeout = request.timeout.unwrap_or(15.0);
+    let timeout = sha_test_timeout(request.timeout);
     let name = request.method.trim().to_string();
     let url = android_sha_method_sources(channel)
         .into_iter()
         .find(|(method, _)| method == &name)
         .and_then(|(_, url)| url);
-    let start = std::time::Instant::now();
-    Ok(match url {
-        Some(url) => {
-            match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url) {
-                Ok(value) => json!({
-                    "success": true,
-                    "name": name,
-                    "duration": start.elapsed().as_secs_f64(),
-                    "value": value,
-                    "error": null
-                }),
-                Err(error) => json!({
-                    "success": false,
-                    "name": name,
-                    "duration": start.elapsed().as_secs_f64(),
-                    "value": null,
-                    "error": error.message()
-                }),
-            }
-        }
-        None => json!({
-            "success": false,
-            "name": name,
-            "duration": start.elapsed().as_secs_f64(),
-            "value": null,
-            "error": "not a git source"
-        }),
-    })
+    Ok(run_android_sha_probe(root, channel, name, url, timeout).await)
 }
 
 #[cfg(not(target_os = "android"))]
@@ -566,6 +518,71 @@ fn android_first_remote_sha(
         }
     }
     Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
+}
+
+fn sha_test_timeout(timeout: Option<f64>) -> Duration {
+    Duration::from_secs_f64(
+        timeout
+            .unwrap_or(SHA_TEST_TIMEOUT_SECONDS)
+            .clamp(0.1, SHA_TEST_TIMEOUT_SECONDS),
+    )
+}
+
+#[cfg(target_os = "android")]
+async fn run_android_sha_probe(
+    root: PathBuf,
+    channel: UpdateChannel,
+    name: String,
+    url: Option<String>,
+    timeout: Duration,
+) -> Value {
+    let start = Instant::now();
+    let worker_name = name.clone();
+    let worker = tauri::async_runtime::spawn_blocking(move || match url {
+        Some(url) => {
+            match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url) {
+                Ok(value) => json!({
+                    "success": true,
+                    "name": worker_name,
+                    "duration": start.elapsed().as_secs_f64(),
+                    "value": value,
+                    "error": null
+                }),
+                Err(error) => json!({
+                    "success": false,
+                    "name": worker_name,
+                    "duration": start.elapsed().as_secs_f64(),
+                    "value": null,
+                    "error": error.message()
+                }),
+            }
+        }
+        None => json!({
+            "success": false,
+            "name": worker_name,
+            "duration": start.elapsed().as_secs_f64(),
+            "value": null,
+            "error": "not a git source"
+        }),
+    });
+
+    match time::timeout(timeout, worker).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(error)) => json!({
+            "success": false,
+            "name": name,
+            "duration": start.elapsed().as_secs_f64(),
+            "value": null,
+            "error": error.to_string()
+        }),
+        Err(_) => json!({
+            "success": false,
+            "name": name,
+            "duration": timeout.as_secs_f64(),
+            "value": null,
+            "error": format!("remote SHA probe timed out after {:.1}s", timeout.as_secs_f64())
+        }),
+    }
 }
 
 #[cfg(target_os = "android")]
