@@ -30,7 +30,8 @@
         <service
             android:name=".BaasForegroundService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"
+            android:process=":baas_backend" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

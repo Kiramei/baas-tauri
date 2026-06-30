@@ -356,7 +356,12 @@ pub fn updater_start_workflow(
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
 pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
+    restart_android_backend_service()?;
+    Ok(json!({
+        "base_backend_addr": "127.0.0.1",
+        "base_backend_port": 8190,
+        "restarted": true
+    }))
 }
 
 /// Performs the updater abort workflow operation.
@@ -792,6 +797,22 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     )
     .map_err(|error| error.to_string())?;
     Ok(setup_path)
+}
+
+/// Requests a Chaquopy uvicorn restart without relaunching the Tauri WebView.
+fn restart_android_backend_service() -> Result<(), String> {
+    let response = minreq::post("http://127.0.0.1:8190/android/bootstrap-restart")
+        .with_timeout(5)
+        .send()
+        .map_err(|error| format!("failed to request Android backend restart: {error}"))?;
+    if (200..300).contains(&response.status_code) {
+        return Ok(());
+    }
+    Err(format!(
+        "Android backend restart endpoint returned HTTP {}: {}",
+        response.status_code,
+        response.as_str().unwrap_or("")
+    ))
 }
 
 /// Returns the read setup value result.

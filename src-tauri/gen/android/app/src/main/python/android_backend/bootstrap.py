@@ -17,6 +17,17 @@ STATUS_FILE = "android-bootstrap-status.json"
 PACKAGE_NAME = "io.github.kiramei.baas_tauri"
 DEFAULT_CHANNEL = "dev"
 _ATX_PROCESSES = []
+_BACKEND_MODULE_ROOTS = (
+    "android_runtime_injection",
+    "core",
+    "deploy",
+    "module",
+    "service",
+    "tools",
+)
+_SERVER = None
+_HOT_RESTART_DONE = False
+_SERVER_LOCK = threading.RLock()
 REPOSITORIES = {
     "dev": {
         "owner": "Kiramei",
@@ -31,6 +42,19 @@ REPOSITORIES = {
 }
 
 
+# Requests the embedded backend server to restart in the current app process.
+def restart(files_dir=None, storage_root_or_port=None, port=None, native_library_dir=None):
+    global _HOT_RESTART_DONE
+
+    if _HOT_RESTART_DONE:
+        return True
+    _HOT_RESTART_DONE = True
+    if files_dir is not None and storage_root_or_port is not None:
+        _configure_environment(files_dir, storage_root_or_port, port, native_library_dir)
+    threading.Thread(target=_exit_backend_process, name="baas-android-process-restart", daemon=True).start()
+    return True
+
+
 # Performs the start operation.
 def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     if port is None:
@@ -43,15 +67,7 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
 
-    os.environ.setdefault("BAAS_SERVICE_HOST", "127.0.0.1")
-    os.environ.setdefault("BAAS_SERVICE_PORT", str(port))
-    os.environ.setdefault("BAAS_SERVICE_OCR_UPDATE_CHECK", "1")
-    os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
-    os.environ.setdefault("BAAS_ANDROID", "1")
-    os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
-    os.environ.setdefault("BAAS_ANDROID_INTERNAL_FILES_DIR", str(files_dir))
-    if native_library_dir:
-        os.environ.setdefault("BAAS_ANDROID_NATIVE_LIBRARY_DIR", str(native_library_dir))
+    _configure_environment(files_dir, storage_root, port, native_library_dir)
 
     status = {
         "ok": False,
@@ -86,6 +102,33 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         )
         _write_status(root, status)
         _run_bootstrap_server(port, root, status)
+
+
+# Performs the configure environment operation.
+def _configure_environment(files_dir, storage_root_or_port, port=None, native_library_dir=None):
+    if port is None:
+        port = storage_root_or_port
+    os.environ["BAAS_SERVICE_HOST"] = "127.0.0.1"
+    os.environ["BAAS_SERVICE_PORT"] = str(port)
+    os.environ.setdefault("BAAS_SERVICE_OCR_UPDATE_CHECK", "1")
+    os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
+    os.environ["BAAS_ANDROID"] = "1"
+    os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
+    os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
+    if native_library_dir:
+        os.environ["BAAS_ANDROID_NATIVE_LIBRARY_DIR"] = str(native_library_dir)
+
+
+# Performs the delayed restart operation.
+def _delayed_restart(files_dir, storage_root, port, native_library_dir):
+    time.sleep(0.1)
+    restart(files_dir, storage_root, port, native_library_dir)
+
+
+# Exits only the isolated Android backend service process.
+def _exit_backend_process():
+    time.sleep(0.2)
+    os._exit(0)
 
 
 # Handles the ensure backend files workflow.
@@ -694,8 +737,11 @@ def _service_path(root):
 
 # Handles the run baas service workflow.
 def _run_baas_service(root, port):
-    import runpy
+    global _SERVER
 
+    import uvicorn
+
+    server = None
     old_argv = sys.argv[:]
     sys.argv = [
         str(_service_path(root)),
@@ -708,14 +754,77 @@ def _run_baas_service(root, port):
     ]
     cwd = os.getcwd()
     os.chdir(root)
+    _clear_backend_modules()
     try:
         import android_runtime_injection
+        from service import set_log_format
 
         android_runtime_injection.install()
-        runpy.run_path(sys.argv[0], run_name="__main__")
+        set_log_format()
+        app = _build_baas_asgi_app(root, port)
+        config = uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=int(port),
+            reload=False,
+            log_level="info",
+            log_config=None,
+        )
+        server = uvicorn.Server(config)
+        with _SERVER_LOCK:
+            _SERVER = server
+        (root / ".pid").write_text(str(os.getpid()), encoding="utf-8")
+        server.run()
     finally:
+        with _SERVER_LOCK:
+            if server is not None and _SERVER is server:
+                _SERVER = None
+        (root / ".pid").unlink(missing_ok=True)
         os.chdir(cwd)
         sys.argv = old_argv
+
+
+# Performs the clear backend modules operation.
+def _clear_backend_modules():
+    for name in list(sys.modules):
+        if name in _BACKEND_MODULE_ROOTS or name.startswith(tuple(f"{root}." for root in _BACKEND_MODULE_ROOTS)):
+            sys.modules.pop(name, None)
+    try:
+        import pydantic.class_validators as class_validators
+
+        class_validators._FUNCS.clear()
+    except Exception:
+        pass
+
+
+# Builds the ASGI app and reserves a bootstrap-owned restart endpoint.
+def _build_baas_asgi_app(root, port):
+    from service.app import app as service_app
+
+    async def app(scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path") == "/android/bootstrap-restart":
+            body = json.dumps({"ok": True, "restartScheduled": True}, ensure_ascii=False).encode("utf-8")
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [
+                        (b"content-type", b"application/json; charset=utf-8"),
+                        (b"content-length", str(len(body)).encode("ascii")),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
+            threading.Thread(
+                target=_delayed_restart,
+                args=(os.environ.get("BAAS_ANDROID_INTERNAL_FILES_DIR", ""), root, port, None),
+                name="baas-android-delayed-restart",
+                daemon=True,
+            ).start()
+            return
+        await service_app(scope, receive, send)
+
+    return app
 
 
 # Handles the write status workflow.
