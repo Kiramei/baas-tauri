@@ -6,11 +6,14 @@
 mod behavior;
 #[cfg(not(mobile))]
 mod commands;
-#[cfg(mobile)]
+#[cfg(target_os = "android")]
 mod mobile_commands;
 
+#[cfg(all(mobile, not(target_os = "android")))]
+compile_error!("BAAS mobile builds currently support Android only.");
+
 use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
-#[cfg(mobile)]
+#[cfg(target_os = "android")]
 use crate::mobile_commands::{
     open_main_devtools, shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
     updater_check_version, updater_get_startup_state, updater_get_storage_state,

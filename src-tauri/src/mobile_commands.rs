@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-
-#[cfg(target_os = "android")]
 use baas_updater::{
     android::{
         android_repository_local_sha, android_repository_remote_sha, AndroidTerminalSnapshot,
@@ -16,9 +13,7 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-#[cfg(target_os = "android")]
-use tauri::State;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 use tokio::{task::JoinSet, time};
 
 const ANDROID_BACKEND_MESSAGE: &str =
@@ -184,7 +179,9 @@ pub fn updater_update_config(
 }
 
 #[tauri::command]
-pub fn updater_validate_mirrorc_cdk(_request: MirrorCValidateRequest) -> Value {
+pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
+    let _requested_cdk = request.cdk.trim();
+    let _requested_channel = request.channel.as_deref().unwrap_or_default();
     json!({
         "success": false,
         "code": null,
@@ -196,7 +193,6 @@ pub fn updater_validate_mirrorc_cdk(_request: MirrorCValidateRequest) -> Value {
     })
 }
 
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Value, String> {
     let current_version = request
@@ -242,7 +238,6 @@ pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Va
     Err(last_error.unwrap_or_else(|| "failed to fetch updater metadata".to_string()))
 }
 
-#[cfg(target_os = "android")]
 fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
     let response = minreq::get(endpoint)
         .with_header("cache-control", "no-cache")
@@ -260,13 +255,6 @@ fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
         .map_err(|error| error.to_string())
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn tauri_client_check_update(_request: TauriClientUpdateRequest) -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
-}
-
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn updater_check_version(
     app: AppHandle,
@@ -291,13 +279,6 @@ pub fn updater_check_version(
     }))
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_check_version(_request: UpdaterVersionCheckRequest) -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
-}
-
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub async fn updater_test_sha_methods(
     app: AppHandle,
@@ -320,7 +301,6 @@ pub async fn updater_test_sha_methods(
     Ok(json!(results))
 }
 
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub async fn updater_test_sha_method(
     app: AppHandle,
@@ -338,19 +318,6 @@ pub async fn updater_test_sha_method(
     Ok(run_android_sha_probe(root, channel, name, url, timeout).await)
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_test_sha_method(_request: UpdaterSingleShaTestRequest) -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
-}
-
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_test_sha_methods(_request: UpdaterShaTestRequest) -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
-}
-
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn updater_start_workflow(
     app: AppHandle,
@@ -375,23 +342,17 @@ pub fn updater_start_workflow(
     serde_json::to_value(session).map_err(|error| error.to_string())
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_start_workflow(_request: UpdaterWorkflowRequest) -> Result<Value, String> {
-    Err(ANDROID_BACKEND_MESSAGE.to_string())
-}
-
 #[tauri::command]
 pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
     Err(ANDROID_BACKEND_MESSAGE.to_string())
 }
 
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
     manager: State<'_, AndroidUpdaterTermManager>,
 ) -> Result<AndroidWorkflowAbortReport, String> {
+    let _cleanup_requested = request.as_ref().and_then(|request| request.cleanup);
     manager.abort(AndroidWorkflowAbortRequest {
         emit_events: request
             .and_then(|request| request.emit_events)
@@ -399,17 +360,6 @@ pub fn updater_abort_workflow(
     })
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_abort_workflow(_request: Option<WorkflowAbortRequest>) -> Value {
-    json!({
-        "aborted": false,
-        "cleanupRequested": false,
-        "message": ANDROID_BACKEND_MESSAGE
-    })
-}
-
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn updater_terminal_snapshot(
     manager: State<'_, AndroidUpdaterTermManager>,
@@ -417,16 +367,6 @@ pub fn updater_terminal_snapshot(
     manager.snapshot()
 }
 
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_terminal_snapshot() -> Value {
-    json!({
-        "sessionId": null,
-        "workflowPlan": null
-    })
-}
-
-#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn updater_resize_term(
     manager: State<'_, AndroidUpdaterTermManager>,
@@ -434,12 +374,6 @@ pub fn updater_resize_term(
     cols: u16,
 ) -> Result<(), String> {
     manager.resize(rows, cols)
-}
-
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub fn updater_resize_term(_rows: u16, _cols: u16) -> Result<(), String> {
-    Ok(())
 }
 
 #[tauri::command]
@@ -466,7 +400,6 @@ pub fn open_main_devtools(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(target_os = "android")]
 fn android_requested_channel(
     requested: Option<&str>,
     setup_path: &Path,
@@ -479,7 +412,6 @@ fn android_requested_channel(
     UpdateChannel::parse(&value).map_err(|error| error.message())
 }
 
-#[cfg(target_os = "android")]
 fn normalize_android_sha_method(value: &str) -> String {
     match value.trim() {
         "" | "git2" | "git_cli" | "auto" => "github".to_string(),
@@ -487,7 +419,6 @@ fn normalize_android_sha_method(value: &str) -> String {
     }
 }
 
-#[cfg(target_os = "android")]
 fn android_first_remote_sha(
     root: &Path,
     channel: UpdateChannel,
@@ -528,7 +459,6 @@ fn sha_test_timeout(timeout: Option<f64>) -> Duration {
     )
 }
 
-#[cfg(target_os = "android")]
 async fn run_android_sha_probe(
     root: PathBuf,
     channel: UpdateChannel,
@@ -585,7 +515,6 @@ async fn run_android_sha_probe(
     }
 }
 
-#[cfg(target_os = "android")]
 fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     let urls = repository_urls(RepositoryKind::Main, channel);
     vec![
@@ -615,7 +544,6 @@ fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<Str
     ]
 }
 
-#[cfg(target_os = "android")]
 fn find_url(urls: &[String], needle: &str) -> Option<String> {
     urls.iter().find(|url| url.contains(needle)).cloned()
 }
@@ -638,7 +566,6 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     )))
 }
 
-#[cfg(target_os = "android")]
 fn android_update_platform(update: &Value) -> Option<&Value> {
     let platforms = update.get("platforms")?.as_object()?;
     let arch = match std::env::consts::ARCH {
@@ -659,7 +586,6 @@ fn android_update_platform(update: &Value) -> Option<&Value> {
         })
 }
 
-#[cfg(target_os = "android")]
 fn normalize_version(value: &str) -> Option<String> {
     let mut started = false;
     let mut output = String::new();
@@ -678,7 +604,6 @@ fn normalize_version(value: &str) -> Option<String> {
     }
 }
 
-#[cfg(target_os = "android")]
 fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
     let parse = |value: &str| {
         normalize_version(value)
@@ -703,7 +628,6 @@ fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
-#[cfg(target_os = "android")]
 fn current_time_millis() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
