@@ -13,6 +13,16 @@ val tauriProperties = Properties().apply {
         propFile.inputStream().use { load(it) }
     }
 }
+val androidReleaseKeystore = System.getenv("ANDROID_RELEASE_KEYSTORE")
+val androidReleaseStorePassword = System.getenv("ANDROID_RELEASE_STORE_PASSWORD")
+val androidReleaseKeyAlias = System.getenv("ANDROID_RELEASE_KEY_ALIAS")
+val androidReleaseKeyPassword = System.getenv("ANDROID_RELEASE_KEY_PASSWORD")
+val hasAndroidReleaseSigning = listOf(
+    androidReleaseKeystore,
+    androidReleaseStorePassword,
+    androidReleaseKeyAlias,
+    androidReleaseKeyPassword,
+).all { !it.isNullOrBlank() }
 
 android {
     compileSdk = 36
@@ -25,20 +35,39 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        if (hasAndroidReleaseSigning) {
+            create("release") {
+                storeFile = file(androidReleaseKeystore!!)
+                storePassword = androidReleaseStorePassword
+                keyAlias = androidReleaseKeyAlias
+                keyPassword = androidReleaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
             isJniDebuggable = true
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
+            packaging {
+                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
                 jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86/*.so")
                 jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
             }
         }
         getByName("release") {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
             isMinifyEnabled = true
+            isShrinkResources = true
+            if (hasAndroidReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            packaging {
+                jniLibs.useLegacyPackaging = true
+            }
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
@@ -83,7 +112,6 @@ dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")
-    implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")

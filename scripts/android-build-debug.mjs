@@ -20,8 +20,17 @@ import {
   run,
 } from "./android-script-utils.mjs";
 
-const args = parseArgs(process.argv.slice(2), { boolean: ["skipWebBuild"] });
-const abi = args.abi ?? "x86_64";
+const args = parseArgs(process.argv.slice(2), {
+  boolean: ["skipWebBuild", "release"],
+});
+const profile = args.profile ?? (args.release ? "release" : "debug");
+if (!["debug", "release"].includes(profile)) {
+  throw new Error(`Unsupported Android build profile: ${profile}. Expected debug or release.`);
+}
+const isRelease = profile === "release";
+const profileTaskName = isRelease ? "Release" : "Debug";
+const cargoProfileDir = isRelease ? "release" : "debug";
+const abi = args.abi ?? (isRelease ? "arm64" : "x86_64");
 const targets = {
   arm64: {
     rust: "aarch64-linux-android",
@@ -366,11 +375,12 @@ run(
     target.rust,
     "--features",
     "tauri/custom-protocol",
+    ...(isRelease ? ["--release"] : []),
   ],
   { errorMessage: `Rust Android build failed for ${target.rust}.` },
 );
 
-const sourceLib = path.join(repoRoot, "target", target.rust, "debug", "libbaas_tauri_lib.so");
+const sourceLib = path.join(repoRoot, "target", target.rust, cargoProfileDir, "libbaas_tauri_lib.so");
 if (!fs.existsSync(sourceLib)) throw new Error(`Missing Rust Android library: ${sourceLib}`);
 const destinationDir = path.join(jniRoot, target.androidAbi);
 fs.mkdirSync(destinationDir, { recursive: true });
@@ -389,7 +399,7 @@ fs.copyFileSync(libcxx, path.join(destinationDir, "libc++_shared.so"));
 ensureInside(repoRoot, destinationDir, "JNI destination");
 
 const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-run(gradlew, [`:app:assemble${target.gradle}Debug`, "-x", `rustBuild${target.gradle}Debug`], {
+run(gradlew, [`:app:assemble${target.gradle}${profileTaskName}`, "-x", `rustBuild${target.gradle}${profileTaskName}`], {
   cwd: androidRoot,
   errorMessage: "Gradle Android build failed.",
 });
