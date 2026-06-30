@@ -1,12 +1,10 @@
 # baas-term
 
-`baas-term` is the terminal-session layer used by BAAS to run updater/demo tasks
-and stream terminal-style output into the Tauri UI.
+`baas-term` is the terminal-session layer used by BAAS to run updater tasks and
+stream terminal-style output into the Tauri UI.
 
 The crate provides:
 
-- a shared [`TermManager`](src/lib.rs) for starting and resizing the active
-  terminal session;
 - PTY-backed process tasks for shell commands and other executables;
 - in-process thread tasks with structured terminal output helpers;
 - a renderer that turns task events and ANSI-aware buffers into dashboard
@@ -15,20 +13,7 @@ The crate provides:
 
 ## Public Surface
 
-The main entry point is `TermManager`:
-
-```rust
-use baas_term::TermManager;
-
-let manager = TermManager::default();
-```
-
-In the application, `TermManager::start` receives a Tauri `AppHandle`, stops any
-existing session, emits a `build:session-started` event, starts the renderer
-loop, and launches the demo flow. `TermManager::resize` updates the stored
-terminal size, resizes active PTYs, and notifies the renderer.
-
-The crate also exposes lower-level modules:
+The crate exposes lower-level modules used by the updater session managers:
 
 - `processor`: builds and spawns PTY-backed process tasks.
 - `threader`: builds and spawns Rust-thread tasks and provides output helpers

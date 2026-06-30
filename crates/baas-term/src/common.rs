@@ -1,4 +1,4 @@
-//! Common helpers shared by process, thread, and demo flow orchestration.
+//! Common helpers shared by process, thread, and workflow orchestration.
 
 use crate::types::{TaskCompletion, TermState};
 use std::sync::{Arc, Mutex, mpsc::Receiver};

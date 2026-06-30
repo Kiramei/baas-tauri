@@ -843,7 +843,7 @@ pub fn ranked_environment_source(
     kind: EnvironmentSourceKind,
     config: &UpdaterConfig,
     ranking_dir: Option<&Path>,
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
 ) -> UpdaterResult<String> {
     ranked_environment_source_with_output(kind, config, ranking_dir, probe, &crate::NoopOutput)
 }
@@ -853,7 +853,7 @@ pub fn ranked_environment_source_with_output(
     kind: EnvironmentSourceKind,
     config: &UpdaterConfig,
     ranking_dir: Option<&Path>,
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<String> {
     let expected_urls = environment_source_urls(kind, config)?;

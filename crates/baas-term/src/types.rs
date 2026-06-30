@@ -10,8 +10,8 @@ use std::{
 
 /// Mutable state shared by the terminal manager and worker tasks.
 ///
-/// This type is public for lower-level integrations, but callers should prefer
-/// [`crate::TermManager`] unless they need to build custom task orchestration.
+/// This type is public for lower-level integrations that need to build custom
+/// task orchestration.
 #[derive(Default)]
 pub struct TermState {
     /// The id for the currently active session, if any.

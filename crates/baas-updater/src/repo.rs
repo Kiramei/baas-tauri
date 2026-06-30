@@ -620,7 +620,7 @@ pub fn cpp_branch_for(os: &str, arch: &str) -> UpdaterResult<String> {
 pub fn load_or_benchmark_ranking(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
 ) -> UpdaterResult<SourceRanking> {
     load_or_benchmark_ranking_with_output(path, expected_urls, probe, &crate::NoopOutput)
 }
@@ -629,7 +629,7 @@ pub fn load_or_benchmark_ranking(
 pub fn load_or_benchmark_ranking_with_output(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<SourceRanking> {
     if let Some(path) = path
@@ -664,17 +664,14 @@ pub fn load_or_default_ranking(
 }
 
 /// Benchmarks sources and returns a sorted ranking.
-pub fn benchmark_sources(
-    expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
-) -> SourceRanking {
+pub fn benchmark_sources(expected_urls: &[String], probe: &impl SourceProbe) -> SourceRanking {
     benchmark_sources_with_output(expected_urls, probe, &crate::NoopOutput)
 }
 
 /// Benchmarks sources and renders multi-line status when terminal output exists.
 pub fn benchmark_sources_with_output(
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> SourceRanking {
     let source_probes = expected_urls
@@ -691,7 +688,7 @@ pub fn benchmark_sources_with_output(
 /// consumed by a tool but do not respond successfully themselves.
 pub fn benchmark_source_probes_with_output(
     source_probes: &[(String, String)],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> SourceRanking {
     let mut measured = Vec::new();
@@ -919,16 +916,34 @@ fn remove_dir_all_retry(target: &Path) -> UpdaterResult<()> {
 
 fn clear_readonly_recursive(target: &Path) {
     if let Ok(metadata) = fs::metadata(target) {
-        let mut permissions = metadata.permissions();
-        if permissions.readonly() {
-            permissions.set_readonly(false);
-            let _ = fs::set_permissions(target, permissions);
-        }
+        clear_readonly(target, metadata);
     }
     if let Ok(entries) = fs::read_dir(target) {
         for entry in entries.flatten() {
             clear_readonly_recursive(&entry.path());
         }
+    }
+}
+
+#[cfg(target_family = "windows")]
+#[allow(clippy::permissions_set_readonly_false)]
+fn clear_readonly(target: &Path, metadata: fs::Metadata) {
+    let mut permissions = metadata.permissions();
+    if permissions.readonly() {
+        permissions.set_readonly(false);
+        let _ = fs::set_permissions(target, permissions);
+    }
+}
+
+#[cfg(target_family = "unix")]
+fn clear_readonly(target: &Path, metadata: fs::Metadata) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = metadata.permissions();
+    let mode = permissions.mode();
+    if mode & 0o200 == 0 {
+        permissions.set_mode(mode | 0o200);
+        let _ = fs::set_permissions(target, permissions);
     }
 }
 

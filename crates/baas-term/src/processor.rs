@@ -5,7 +5,7 @@
 
 use crate::common::wait_for_completion;
 use crate::constants::{
-    DEMO_STEP_TOTAL, DEVICE_STATUS_REPORT_REQUEST, DEVICE_STATUS_REPORT_RESPONSE,
+    DEFAULT_TASK_STEP_TOTAL, DEVICE_STATUS_REPORT_REQUEST, DEVICE_STATUS_REPORT_RESPONSE,
     DEVICE_STATUS_REPORT_TAIL_BYTES, PROCESS_FINISH_SETTLE_MS, PROCESS_READ_BUFFER_BYTES,
     PROCESS_WAIT_POLL_MS, PTY_PIXEL_HEIGHT, PTY_PIXEL_WIDTH, STATUS_FAILED, STATUS_SUCCESS,
 };
@@ -58,7 +58,6 @@ impl From<ScriptCommand> for TaskCommandSpec {
 
 /// Builds a [`TaskSpec`] for a PTY-backed process task.
 ///
-/// The total step count is fixed to the current demo flow's four-step layout.
 pub fn create_process_task(
     task_id: &str,
     region_id: &str,
@@ -70,7 +69,7 @@ pub fn create_process_task(
         task_id,
         region_id,
         step_index,
-        DEMO_STEP_TOTAL,
+        DEFAULT_TASK_STEP_TOTAL,
         name,
         script,
     )

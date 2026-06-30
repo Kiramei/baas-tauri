@@ -929,14 +929,14 @@ impl SessionRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::DEMO_STEP_TOTAL;
+    use crate::constants::DEFAULT_TASK_STEP_TOTAL;
 
     fn spec(task_id: &str, region_id: &str, step_index: u8, name: &str) -> TaskSpec {
         TaskSpec {
             task_id: task_id.to_string(),
             region_id: region_id.to_string(),
             step_index,
-            step_total: DEMO_STEP_TOTAL,
+            step_total: DEFAULT_TASK_STEP_TOTAL,
             name: name.to_string(),
             command: "run".to_string(),
             program: "program".to_string(),

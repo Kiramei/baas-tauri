@@ -17,7 +17,7 @@ use std::{
 };
 
 use crate::constants::{
-    ANSI_CLEAR_LINE, ANSI_RESET, DEMO_STEP_TOTAL, PROGRESS_PERCENT_MAX, STATUS_FAILED,
+    ANSI_CLEAR_LINE, ANSI_RESET, DEFAULT_TASK_STEP_TOTAL, PROGRESS_PERCENT_MAX, STATUS_FAILED,
     STATUS_STOPPED, STATUS_SUCCESS, THREAD_PROGRESS_LABEL_WIDTH, THREAD_SPINNER_TICK_MS,
 };
 use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
@@ -37,7 +37,7 @@ pub fn create_thread_task(
         task_id,
         region_id,
         step_index,
-        DEMO_STEP_TOTAL,
+        DEFAULT_TASK_STEP_TOTAL,
         name,
         command,
     )
