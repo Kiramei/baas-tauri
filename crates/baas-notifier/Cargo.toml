@@ -1,0 +1,9 @@
+[package]
+name = "baas-notifier"
+version = "0.0.6"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+tauri = { workspace = true }
+tauri-plugin-notification = { workspace = true }

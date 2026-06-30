@@ -8,6 +8,7 @@ mod behavior;
 mod commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
+mod notifier_commands;
 
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
@@ -21,6 +22,7 @@ use crate::mobile_commands::{
     updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
     updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
 };
+use crate::notifier_commands::baas_notify;
 #[cfg(not(mobile))]
 use crate::{
     behavior::inject_tray_icon,
@@ -52,7 +54,9 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(baas_notifier::init_plugin())
         .invoke_handler(tauri::generate_handler![
+            baas_notify,
             splash_off,
             set_backend_locale,
             updater_get_storage_state,

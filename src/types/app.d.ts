@@ -36,6 +36,7 @@ export interface UISettings {
   assetsDisplay: boolean;
   enableBAComet: boolean;
   lowPerformanceMode: boolean;
+  enableSystemNotifications: boolean;
   remoteSettings: RemoteSettings;
 }
 

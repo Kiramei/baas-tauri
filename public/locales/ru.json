@@ -52,6 +52,16 @@
     "overview": "Обзор задач",
     "running": "Выполняемая задача"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} завершена.",
+      "completedTitle": "Задача BAAS завершена",
+      "failedBody": "{{task}} завершилась аварийно. Код выхода: {{exitCode}}.",
+      "failedTitle": "Скрипт BAAS завершился аварийно",
+      "startedBody": "{{task}} запущена.",
+      "startedTitle": "Задача BAAS запущена"
+    }
+  },
   "time": {
     "daysAgo": "{{count}} дней назад",
     "hoursAgo": "{{count}} часов назад",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "Размер фонового изображения не должен превышать 5 МБ.",
       "enableBAComet": "Включить BAComet",
       "enableSafeStream": "Безопасный поток",
+      "enableSystemNotifications": "Включить системные уведомления",
       "lowPerformanceMode": "Режим низкой производительности",
       "player": "Плеер",
       "themeColor": "Цвет темы",

@@ -2,6 +2,7 @@
 identifier = "allow-mobile-commands"
 description = "Allows Android frontend startup, setup and updater bridge commands."
 commands.allow = [
+  "baas_notify",
   "splash_off",
   "set_backend_locale",
   "updater_get_storage_state",

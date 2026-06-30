@@ -52,6 +52,16 @@
     "overview": "Aperçu des tâches",
     "running": "Tâche en cours"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} est terminee.",
+      "completedTitle": "Tache BAAS terminee",
+      "failedBody": "{{task}} s'est arrete anormalement. Code de sortie : {{exitCode}}.",
+      "failedTitle": "Script BAAS quitte anormalement",
+      "startedBody": "{{task}} a demarre.",
+      "startedTitle": "Tache BAAS demarree"
+    }
+  },
   "time": {
     "daysAgo": "il y a {{count}} jours",
     "hoursAgo": "il y a {{count}} heures",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "L'image d'arriere-plan doit faire 5 Mo ou moins.",
       "enableBAComet": "Activer BAComet",
       "enableSafeStream": "Stream sécurisé",
+      "enableSystemNotifications": "Activer les notifications systeme",
       "lowPerformanceMode": "Mode basse performance",
       "player": "Lecteur",
       "themeColor": "Couleur du theme",

@@ -19,6 +19,7 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   assetsDisplay: true,
   enableBAComet: false,
   lowPerformanceMode: false,
+  enableSystemNotifications: true,
   remoteSettings: {
     streamPlayer: "mse",
     enableSafeStream: true,

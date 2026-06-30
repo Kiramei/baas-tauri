@@ -21,6 +21,7 @@ import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
 import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
+import TauriScriptNotifier from "@/components/TauriScriptNotifier";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -199,6 +200,7 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <GlobalAppearanceEffects />
+                {__WITH_TAURI__ && <TauriScriptNotifier />}
                 <Main />
                 <ConfigArchiveDropOverlay />
                 {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}

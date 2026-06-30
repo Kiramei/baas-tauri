@@ -52,6 +52,16 @@
     "overview": "任务概览",
     "running": "执行中任务"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} 已执行完成。",
+      "completedTitle": "BAAS 任务已完成",
+      "failedBody": "{{task}} 异常退出，退出码：{{exitCode}}。",
+      "failedTitle": "BAAS 脚本异常退出",
+      "startedBody": "{{task}} 已开始执行。",
+      "startedTitle": "BAAS 任务已开始"
+    }
+  },
   "time": {
     "daysAgo": "{{count}}天前",
     "hoursAgo": "{{count}}小时前",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "背景图不能超过 5MB。",
       "enableBAComet": "启用 BAComet",
       "enableSafeStream": "远程模拟器画面启用流加密",
+      "enableSystemNotifications": "启用系统通知",
       "lowPerformanceMode": "低性能模式",
       "player": "远程模拟器解码器",
       "themeColor": "主题色",

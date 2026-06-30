@@ -20,6 +20,7 @@ tauri-build = { version = "2.6.2", features = [] }
 [dependencies]
 # Borrow from workspace
 baas-i18n = { workspace = true }
+baas-notifier = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -31,6 +32,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-store = "2"
 tauri-plugin-process = "2"
+tauri-plugin-notification = { workspace = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 baas-updater = { workspace = true }

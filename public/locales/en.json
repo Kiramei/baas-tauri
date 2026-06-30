@@ -52,6 +52,16 @@
     "overview": "Task Overview",
     "running": "Running Task"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} completed.",
+      "completedTitle": "BAAS task completed",
+      "failedBody": "{{task}} exited abnormally. Exit code: {{exitCode}}.",
+      "failedTitle": "BAAS script exited abnormally",
+      "startedBody": "{{task}} has started.",
+      "startedTitle": "BAAS task started"
+    }
+  },
   "time": {
     "daysAgo": "{{count}} days ago",
     "hoursAgo": "{{count}} hours ago",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
       "enableBAComet": "Enable BAComet",
       "enableSafeStream": "Enable safe stream",
+      "enableSystemNotifications": "Enable system notifications",
       "lowPerformanceMode": "Low performance mode",
       "player": "Player",
       "themeColor": "Theme color",

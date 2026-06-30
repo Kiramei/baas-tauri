@@ -52,6 +52,16 @@
     "overview": "Aufgabenübersicht",
     "running": "Laufende Aufgabe"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} wurde abgeschlossen.",
+      "completedTitle": "BAAS-Aufgabe abgeschlossen",
+      "failedBody": "{{task}} wurde unerwartet beendet. Exit-Code: {{exitCode}}.",
+      "failedTitle": "BAAS-Skript wurde unerwartet beendet",
+      "startedBody": "{{task}} wurde gestartet.",
+      "startedTitle": "BAAS-Aufgabe gestartet"
+    }
+  },
   "time": {
     "daysAgo": "vor {{count}} Tagen",
     "hoursAgo": "vor {{count}} Stunden",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "Das Hintergrundbild darf hoechstens 5 MB gross sein.",
       "enableBAComet": "BAComet aktivieren",
       "enableSafeStream": "Sicheren Stream aktivieren",
+      "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
       "lowPerformanceMode": "Leistungsarmer Modus",
       "player": "Wiedergabe",
       "themeColor": "Designfarbe",

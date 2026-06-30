@@ -52,6 +52,16 @@
     "overview": "작업 개요",
     "running": "실행 중인 작업"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} 작업이 완료되었습니다.",
+      "completedTitle": "BAAS 작업 완료됨",
+      "failedBody": "{{task}} 작업이 비정상 종료되었습니다. 종료 코드: {{exitCode}}.",
+      "failedTitle": "BAAS 스크립트 비정상 종료",
+      "startedBody": "{{task}} 작업을 시작했습니다.",
+      "startedTitle": "BAAS 작업 시작됨"
+    }
+  },
   "time": {
     "daysAgo": "{{count}}일 전",
     "hoursAgo": "{{count}}시간 전",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "배경 이미지는 5MB 이하여야 합니다.",
       "enableBAComet": "BAComet 켜기",
       "enableSafeStream": "보안 스트림",
+      "enableSystemNotifications": "시스템 알림 활성화",
       "lowPerformanceMode": "저성능 모드",
       "player": "플레이어",
       "themeColor": "테마 색상",

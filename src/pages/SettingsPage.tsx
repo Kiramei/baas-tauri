@@ -1051,6 +1051,15 @@ const SettingsPage: React.FC = () => {
                 setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
               }}
             />
+            {__WITH_TAURI__ && (
+              <SwitchButton
+                label={t("settings.ui.enableSystemNotifications")}
+                checked={uiSettings?.enableSystemNotifications}
+                onChange={(value) => {
+                  setUiSettings((state) => ({ ...state, enableSystemNotifications: value }));
+                }}
+              />
+            )}
             {!__WITH_ANDROID__ && (
               <SwitchButton
                 label={t("settings.ui.enableSafeStream")}

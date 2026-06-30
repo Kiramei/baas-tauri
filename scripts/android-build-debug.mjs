@@ -332,6 +332,55 @@ function buildAndroidOpenSsl() {
   return installRoot;
 }
 
+/** Escapes Windows path separators for Kotlin-based Gradle file literals. */
+function androidGradlePath(value) {
+  return value.replaceAll("\\", "\\\\");
+}
+
+/** Reads Cargo package metadata so Android-only plugin Gradle projects can be located reliably. */
+function cargoMetadata() {
+  return JSON.parse(
+    output("cargo", [
+      "metadata",
+      "--format-version",
+      "1",
+      "--manifest-path",
+      path.join(repoRoot, "src-tauri", "Cargo.toml"),
+    ], { maxBuffer: 64 * 1024 * 1024 }),
+  );
+}
+
+/** Injects a Tauri plugin's Android Gradle project into the generated Android workspace. */
+function ensureTauriAndroidPlugin(crateName, gradleProjectName) {
+  const metadata = cargoMetadata();
+  const pkg = metadata.packages.find((candidate) => candidate.name === crateName);
+  if (!pkg) throw new Error(`Unable to find Cargo package metadata for ${crateName}.`);
+
+  const pluginAndroidDir = path.join(path.dirname(pkg.manifest_path), "android");
+  if (!fs.existsSync(path.join(pluginAndroidDir, "build.gradle.kts"))) {
+    throw new Error(`Missing Android Gradle project for ${crateName}: ${pluginAndroidDir}`);
+  }
+
+  const settingsPath = path.join(androidRoot, "tauri.settings.gradle");
+  const settingsInclude = `include ':${gradleProjectName}'`;
+  const settingsProjectDir = `project(':${gradleProjectName}').projectDir = new File("${androidGradlePath(pluginAndroidDir)}")`;
+  const settingsText = fs.existsSync(settingsPath) ? fs.readFileSync(settingsPath, "utf8") : "";
+  if (!settingsText.includes(settingsInclude)) {
+    fs.appendFileSync(settingsPath, `\n${settingsInclude}\n${settingsProjectDir}\n`, "utf8");
+  }
+
+  const buildPath = path.join(androidRoot, "app", "tauri.build.gradle.kts");
+  const dependencyLine = `  implementation(project(":${gradleProjectName}"))`;
+  const buildText = fs.existsSync(buildPath) ? fs.readFileSync(buildPath, "utf8") : "";
+  if (!buildText.includes(dependencyLine)) {
+    const nextText = buildText.replace(/dependencies\s*\{\s*/, (match) => `${match}${dependencyLine}\n`);
+    if (nextText === buildText) {
+      throw new Error(`Unable to add ${gradleProjectName} dependency to ${buildPath}.`);
+    }
+    fs.writeFileSync(buildPath, nextText, "utf8");
+  }
+}
+
 configurePerl();
 await ensureMake();
 
@@ -385,6 +434,7 @@ if (!fs.existsSync(sourceLib)) throw new Error(`Missing Rust Android library: ${
 const destinationDir = path.join(jniRoot, target.androidAbi);
 fs.mkdirSync(destinationDir, { recursive: true });
 fs.copyFileSync(sourceLib, path.join(destinationDir, "libbaas_tauri_lib.so"));
+ensureTauriAndroidPlugin("tauri-plugin-notification", "tauri-plugin-notification");
 
 const libcxx = path.join(
   llvmRoot,

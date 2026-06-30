@@ -52,6 +52,16 @@
     "overview": "タスク概要",
     "running": "実行中のタスク"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} が完了しました。",
+      "completedTitle": "BAAS タスク完了",
+      "failedBody": "{{task}} が異常終了しました。終了コード: {{exitCode}}。",
+      "failedTitle": "BAAS スクリプトが異常終了しました",
+      "startedBody": "{{task}} を開始しました。",
+      "startedTitle": "BAAS タスク開始"
+    }
+  },
   "time": {
     "daysAgo": "{{count}}日前",
     "hoursAgo": "{{count}}時間前",
@@ -75,6 +85,7 @@
       "backgroundImageTooLarge": "背景画像は 5MB 以下にしてください。",
       "enableBAComet": "BAComet有効",
       "enableSafeStream": "安全ストリーム",
+      "enableSystemNotifications": "システム通知を有効化",
       "lowPerformanceMode": "低パフォーマンスモード",
       "player": "プレイヤー",
       "themeColor": "テーマカラー",
