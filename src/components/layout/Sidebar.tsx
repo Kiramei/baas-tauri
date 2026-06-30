@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpenText,
@@ -22,6 +22,8 @@ import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgre
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -37,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const [backendUpdating, setBackendUpdating] = useState(false);
   const [backendUpdateLogs, setBackendUpdateLogs] = useState<string[]>([]);
+  const [backendUpdateTerminalText, setBackendUpdateTerminalText] = useState("");
   const [backendUpdateLogOpen, setBackendUpdateLogOpen] = useState(false);
   const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
@@ -69,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const handleBackendUpdate = async (): Promise<void> => {
     setBackendUpdating(true);
     setBackendUpdateLogs([]);
+    setBackendUpdateTerminalText("");
     setBackendUpdateLogOpen(true);
     try {
       if (__WITH_ANDROID__) {
@@ -76,11 +80,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         const shownStableRegions = new Set<string>();
         let sawAndroidUpdateError = false;
 
-        const appendChunk = (chunk: string) => {
-          const text = stripAnsi(chunk).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-          const lines = text.split("\n").map((line) => line.trimEnd()).filter(Boolean);
-          if (!lines.length) return;
-          setBackendUpdateLogs((prev) => [...prev, ...lines].slice(-300));
+        const appendTerminal = (chunk: string) => {
+          if (!chunk) return;
+          setBackendUpdateTerminalText((prev) => prev + chunk);
+        };
+
+        const appendTerminalLine = (line: string) => {
+          appendTerminal(`${line}\r\n`);
         };
 
         const appendStableRegion = (payload: any) => {
@@ -88,22 +94,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           if (regionKey && shownStableRegions.has(regionKey)) return;
           if (regionKey) shownStableRegions.add(regionKey);
           const lines = [payload.title, ...(payload.lines ?? [])]
-            .map((line) => stripAnsi(String(line ?? "")).trimEnd())
+            .map((line) => String(line ?? "").trimEnd())
             .filter(Boolean);
           if (!lines.length) return;
-          setBackendUpdateLogs((prev) => [...prev, ...lines].slice(-300));
+          appendTerminalLine(lines.join("\r\n"));
         };
 
         const unlisteners = await Promise.all([
           listen<any>("term:chunk", (event) => {
-            appendChunk(String(event.payload?.chunk ?? ""));
+            appendTerminal(String(event.payload?.chunk ?? ""));
           }),
           listen<any>("term:task-started", (event) => {
             const payload = event.payload;
-            setBackendUpdateLogs((prev) => [
-              ...prev,
-              `[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`,
-            ].slice(-300));
+            appendTerminalLine(`[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`);
           }),
           listen<any>("term:region-stable", (event) => {
             const payload = event.payload ?? {};
@@ -116,10 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
             const payload = event.payload;
             if (payload.status === "failed" || payload.status === "stopped") {
               sawAndroidUpdateError = true;
-              setBackendUpdateLogs((prev) => [
-                ...prev,
-                `${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`,
-              ].slice(-300));
+              appendTerminalLine(`${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`);
               const stableRegion = stableRegions.get(String(payload.taskId ?? ""));
               if (stableRegion) {
                 appendStableRegion(stableRegion);
@@ -128,10 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           }),
           listen<any>("term:session-finished", (event) => {
             const success = Boolean(event.payload?.success);
-            setBackendUpdateLogs((prev) => [
-              ...prev,
-              success ? "DONE android git2 update" : "ERROR android git2 update failed",
-            ].slice(-300));
+            appendTerminalLine(success ? "DONE android git2 update" : "ERROR android git2 update failed");
             setBackendUpdating(false);
             for (const unlisten of unlisteners) unlisten();
             if (success) {
@@ -141,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
             }
           }),
         ]);
-        setBackendUpdateLogs(["START android git2 update"]);
+        appendTerminalLine("START android git2 update");
         await invoke("updater_start_workflow", { request: { launch: false } });
         toast.info(t("update.backendStarted"));
         return;
@@ -344,9 +341,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
               Close
             </button>
           </div>
-          <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
-            {(backendUpdateLogs.length ? backendUpdateLogs : ["waiting..."]).join("\n")}
-          </pre>
+          {__WITH_ANDROID__ ? (
+            <div className="h-64 overflow-hidden rounded bg-slate-950 p-3">
+              <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
+            </div>
+          ) : (
+            <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+              {(backendUpdateLogs.length ? backendUpdateLogs : ["waiting..."]).join("\n")}
+            </pre>
+          )}
         </div>
       )}
     </div>
@@ -355,11 +358,76 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 
 export default Sidebar;
 
-const ANSI_PATTERN = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const writtenLengthRef = useRef(0);
+  const previousTextRef = useRef("");
 
-function stripAnsi(value: string): string {
-  return value.replace(ANSI_PATTERN, "");
-}
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const term = new Terminal({
+      allowProposedApi: false,
+      convertEol: true,
+      disableStdin: true,
+      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: 12,
+      lineHeight: 1.18,
+      scrollback: 1000,
+      theme: {
+        background: "#00000000",
+        foreground: "#dbe7f3",
+        cursor: "transparent",
+        selectionBackground: "#38506b",
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(hostRef.current);
+    termRef.current = term;
+    fitRef.current = fit;
+
+    const resize = () => {
+      try {
+        fit.fit();
+      } catch {
+        // The terminal may be hidden while the update popover is closing.
+      }
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(hostRef.current);
+    requestAnimationFrame(resize);
+
+    return () => {
+      observer.disconnect();
+      fit.dispose();
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+      writtenLengthRef.current = 0;
+      previousTextRef.current = "";
+    };
+  }, []);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
+      term.reset();
+      term.clear();
+      writtenLengthRef.current = 0;
+    }
+    const chunk = text.slice(writtenLengthRef.current);
+    if (!chunk) return;
+    writtenLengthRef.current = text.length;
+    previousTextRef.current = text;
+    term.write(chunk);
+    term.scrollToBottom();
+  }, [text]);
+
+  return <div ref={hostRef} className="terminal-host h-full w-full" />;
+};
 
 type UpdateTone = "red" | "blue";
 
