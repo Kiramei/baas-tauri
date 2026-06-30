@@ -18,7 +18,13 @@ COLOR_RGB2BGR = 4
 COLOR_BGR2RGB = 4
 COLOR_BGR2GRAY = 6
 COLOR_RGB2GRAY = 7
+COLOR_BGR2HSV = 40
 ROTATE_90_CLOCKWISE = 0
+CC_STAT_LEFT = 0
+CC_STAT_TOP = 1
+CC_STAT_WIDTH = 2
+CC_STAT_HEIGHT = 3
+CC_STAT_AREA = 4
 
 __all__ = [
     "INTER_AREA",
@@ -33,7 +39,13 @@ __all__ = [
     "COLOR_BGR2RGB",
     "COLOR_BGR2GRAY",
     "COLOR_RGB2GRAY",
+    "COLOR_BGR2HSV",
     "ROTATE_90_CLOCKWISE",
+    "CC_STAT_LEFT",
+    "CC_STAT_TOP",
+    "CC_STAT_WIDTH",
+    "CC_STAT_HEIGHT",
+    "CC_STAT_AREA",
     "imread",
     "imwrite",
     "imdecode",
@@ -42,6 +54,9 @@ __all__ = [
     "resize",
     "rotate",
     "flip",
+    "inRange",
+    "bitwise_or",
+    "connectedComponentsWithStats",
     "minMaxLoc",
     "matchTemplate",
 ]
@@ -84,6 +99,8 @@ def cvtColor(image, code):
         return _to_gray(arr[..., ::-1])
     if code == COLOR_RGB2GRAY:
         return _to_gray(arr)
+    if code == COLOR_BGR2HSV:
+        return _bgr_to_hsv(arr)
     raise RuntimeError("cv2.cvtColor code is unsupported on Android: %s" % code)
 
 
@@ -113,6 +130,56 @@ def flip(image, flipCode, dst=None):
         dst[...] = result
         return dst
     return result
+
+
+def inRange(src, lowerb, upperb):
+    arr = np.asarray(src)
+    lower = np.asarray(lowerb, dtype=arr.dtype)
+    upper = np.asarray(upperb, dtype=arr.dtype)
+    mask = np.all((arr >= lower) & (arr <= upper), axis=-1)
+    return (mask.astype(np.uint8) * 255)
+
+
+def bitwise_or(src1, src2):
+    return np.bitwise_or(np.asarray(src1), np.asarray(src2)).astype(np.uint8)
+
+
+def connectedComponentsWithStats(image, connectivity=8):
+    mask = np.asarray(image) != 0
+    height, width = mask.shape[:2]
+    labels = np.zeros((height, width), dtype=np.int32)
+    stats = [[0, 0, width, height, int((~mask).sum())]]
+    centers = [[width / 2 if width else 0, height / 2 if height else 0]]
+    component_id = 0
+    neighbors = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    if connectivity == 8:
+        neighbors += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+
+    for start_y in range(height):
+        for start_x in range(width):
+            if not mask[start_y, start_x] or labels[start_y, start_x] != 0:
+                continue
+            component_id += 1
+            stack = [(start_x, start_y)]
+            labels[start_y, start_x] = component_id
+            xs = []
+            ys = []
+            while stack:
+                x, y = stack.pop()
+                xs.append(x)
+                ys.append(y)
+                for dx, dy in neighbors:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < width and 0 <= ny < height and mask[ny, nx] and labels[ny, nx] == 0:
+                        labels[ny, nx] = component_id
+                        stack.append((nx, ny))
+            left = min(xs)
+            top = min(ys)
+            area = len(xs)
+            stats.append([left, top, max(xs) - left + 1, max(ys) - top + 1, area])
+            centers.append([float(sum(xs) / area), float(sum(ys) / area)])
+
+    return component_id + 1, labels, np.asarray(stats, dtype=np.int32), np.asarray(centers, dtype=np.float64)
 
 
 def minMaxLoc(src):
@@ -178,6 +245,32 @@ def _cv_array_to_pil(image):
 def _to_gray(rgb):
     arr = np.asarray(rgb, dtype=np.float32)
     return np.clip(arr[..., 0] * 0.299 + arr[..., 1] * 0.587 + arr[..., 2] * 0.114, 0, 255).astype(np.uint8)
+
+
+def _bgr_to_hsv(bgr):
+    arr = np.asarray(bgr, dtype=np.float32) / 255.0
+    b = arr[..., 0]
+    g = arr[..., 1]
+    r = arr[..., 2]
+    maxc = np.max(arr, axis=-1)
+    minc = np.min(arr, axis=-1)
+    delta = maxc - minc
+
+    hue = np.zeros_like(maxc)
+    nonzero = delta != 0
+    red = (maxc == r) & nonzero
+    green = (maxc == g) & nonzero
+    blue = (maxc == b) & nonzero
+    hue[red] = ((g[red] - b[red]) / delta[red]) % 6
+    hue[green] = ((b[green] - r[green]) / delta[green]) + 2
+    hue[blue] = ((r[blue] - g[blue]) / delta[blue]) + 4
+    hue = hue * 30.0
+
+    saturation = np.zeros_like(maxc)
+    value_nonzero = maxc != 0
+    saturation[value_nonzero] = delta[value_nonzero] / maxc[value_nonzero] * 255.0
+    value = maxc * 255.0
+    return np.stack([hue, saturation, value], axis=-1).astype(np.uint8)
 
 
 def _to_match_array(image):

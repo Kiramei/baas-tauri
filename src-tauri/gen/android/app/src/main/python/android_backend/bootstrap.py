@@ -8,6 +8,7 @@ import time
 import traceback
 import urllib.request
 import zipfile
+import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from pathlib import Path
 STATUS_FILE = "android-bootstrap-status.json"
 PACKAGE_NAME = "io.github.kiramei.baas_tauri"
 DEFAULT_CHANNEL = "dev"
+_ATX_PROCESSES = []
 REPOSITORIES = {
     "dev": {
         "owner": "Kiramei",
@@ -266,12 +268,143 @@ def _write_installed_backend_sha(setup_path, sha, channel):
 
 
 def _ensure_android_support_files(root):
+    _ensure_local_atx_agent(root)
+    _write_android_runtime_injection(root)
     _write_watchfiles_stub(root)
     _write_pygit2_stub(root)
+    _write_uiautomator2_stub(root)
     _write_cv2_stub(root)
     _write_psutil_stub(root)
     _write_desktop_only_stub(root, "pyautogui")
     _write_desktop_only_stub(root, "mss")
+
+
+def _ensure_local_atx_agent(root):
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:7912/version", timeout=1) as response:
+            if response.read().strip():
+                return
+    except Exception:
+        pass
+
+    candidates = [Path("/data/local/tmp/atx-agent")]
+    internal_dir = os.environ.get("BAAS_ANDROID_INTERNAL_FILES_DIR")
+    if internal_dir:
+        candidates.append(Path(internal_dir) / "atx-agent")
+
+    abi = os.uname().machine if hasattr(os, "uname") else ""
+    if abi in {"x86_64", "amd64"}:
+        bundled = root / "src" / "atx_app" / "atx-agent_0.10.0_linux_amd64" / "atx-agent"
+    elif abi in {"aarch64", "arm64"}:
+        bundled = root / "src" / "atx_app" / "atx-agent_0.10.0_linux_arm64" / "atx-agent"
+    elif abi.startswith("arm"):
+        bundled = root / "src" / "atx_app" / "atx-agent_0.10.0_linux_armv7" / "atx-agent"
+    else:
+        bundled = root / "src" / "atx_app" / "atx-agent_0.10.0_linux_386" / "atx-agent"
+
+    if internal_dir and bundled.exists() and not candidates[-1].exists():
+        shutil.copyfile(bundled, candidates[-1])
+        candidates[-1].chmod(0o755)
+
+    for agent in candidates:
+        if not agent.exists():
+            continue
+        try:
+            process = subprocess.Popen(
+                [str(agent), "server", "--nouia", "-d", "--addr", "127.0.0.1:7912"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
+            _ATX_PROCESSES.append(process)
+            for _ in range(20):
+                try:
+                    with urllib.request.urlopen("http://127.0.0.1:7912/version", timeout=0.5) as response:
+                        if response.read().strip():
+                            return
+                except Exception:
+                    time.sleep(0.1)
+        except Exception:
+            continue
+
+
+def _write_android_runtime_injection(root):
+    (root / "android_runtime_injection.py").write_text(
+        "import os\n"
+        "from functools import wraps\n\n"
+        "def _enabled():\n"
+        "    return os.getenv('BAAS_ANDROID', '').lower() in {'1', 'true', 'yes', 'on'}\n\n"
+        "def _sync_android_resolution(thread):\n"
+        "    if not _enabled():\n"
+        "        return\n"
+        "    resolution = getattr(thread, 'resolution', None)\n"
+        "    ratio = getattr(thread, 'ratio', None)\n"
+        "    if resolution and ratio:\n"
+        "        return\n"
+        "    width = height = None\n"
+        "    u2 = getattr(thread, 'u2', None)\n"
+        "    if u2 is not None:\n"
+        "        try:\n"
+        "            info = u2.http.get('/info').json()\n"
+        "            width = int(info['display']['width'])\n"
+        "            height = int(info['display']['height'])\n"
+        "        except Exception as exc:\n"
+        "            try:\n"
+        "                thread.logger.warning('Android resolution /info probe failed: ' + str(exc))\n"
+        "            except Exception:\n"
+        "                pass\n"
+        "    if not width or not height:\n"
+        "        latest = getattr(thread, 'latest_img_array', None)\n"
+        "        if latest is not None and getattr(latest, 'ndim', 0) >= 2:\n"
+        "            height, width = latest.shape[:2]\n"
+        "    if not width or not height:\n"
+        "        width, height = 1280, 720\n"
+        "    if width < height:\n"
+        "        width, height = height, width\n"
+        "    thread.resolution = (width, height)\n"
+        "    thread.ratio = width / 1280\n"
+        "    try:\n"
+        "        thread.logger.info('Android Screen Size synced: ' + str(thread.resolution))\n"
+        "        thread.logger.info('Android Screen Size Ratio synced: ' + str(thread.ratio))\n"
+        "    except Exception:\n"
+        "        pass\n\n"
+        "def _patch_baas_thread():\n"
+        "    from core.Baas_thread import Baas_thread\n"
+        "    if getattr(Baas_thread, '_baas_android_runtime_injected', False):\n"
+        "        return\n"
+        "    original_check_resolution = Baas_thread.check_resolution\n"
+        "    original_update_screenshot_array = Baas_thread.update_screenshot_array\n\n"
+        "    @wraps(original_check_resolution)\n"
+        "    def check_resolution(self):\n"
+        "        result = original_check_resolution(self)\n"
+        "        _sync_android_resolution(self)\n"
+        "        return result\n\n"
+        "    @wraps(original_update_screenshot_array)\n"
+        "    def update_screenshot_array(self):\n"
+        "        result = original_update_screenshot_array(self)\n"
+        "        _sync_android_resolution(self)\n"
+        "        return result\n\n"
+        "    Baas_thread.check_resolution = check_resolution\n"
+        "    Baas_thread.update_screenshot_array = update_screenshot_array\n"
+        "    Baas_thread._baas_android_runtime_injected = True\n\n"
+        "def install():\n"
+        "    try:\n"
+        "        import service.injection as service_injection\n"
+        "    except Exception:\n"
+        "        return\n"
+        "    if getattr(service_injection, '_baas_android_runtime_wrapped', False):\n"
+        "        return\n"
+        "    original_apply = service_injection.apply_service_injections\n\n"
+        "    @wraps(original_apply)\n"
+        "    def apply_service_injections():\n"
+        "        result = original_apply()\n"
+        "        _patch_baas_thread()\n"
+        "        return result\n\n"
+        "    service_injection.apply_service_injections = apply_service_injections\n"
+        "    service_injection._baas_android_runtime_wrapped = True\n",
+        encoding="utf-8",
+    )
 
 
 def _write_watchfiles_stub(root):
@@ -318,6 +451,191 @@ def _write_pygit2_stub(root):
         "    SOFT = 1\n"
         "    MIXED = 2\n"
         "    HARD = 3\n",
+        encoding="utf-8",
+    )
+
+
+def _write_uiautomator2_stub(root):
+    package = root / "uiautomator2"
+    package.mkdir(exist_ok=True)
+    (package / "version.py").write_text(
+        "__version__ = 'android-local'\n"
+        "__apk_version__ = '2.4.0'\n"
+        "__atx_agent_version__ = '0.10.0'\n",
+        encoding="utf-8",
+    )
+    (package / "__init__.py").write_text(
+        "import io\n"
+        "import json\n"
+        "import re\n"
+        "import time\n"
+        "from urllib import parse, request\n\n"
+        "from PIL import Image\n\n"
+        "from .version import __apk_version__, __atx_agent_version__, __version__\n\n"
+        "class UiAutomationNotConnectedError(RuntimeError):\n"
+        "    pass\n\n"
+        "class _JsonRpc:\n"
+        "    def __init__(self, device):\n"
+        "        self._device = device\n\n"
+        "    def __getattr__(self, method):\n"
+        "        def call(*params, **kwargs):\n"
+        "            timeout = kwargs.pop('http_timeout', 60)\n"
+        "            if kwargs:\n"
+        "                params = params + (kwargs,)\n"
+        "            return self._device._jsonrpc(method, list(params), timeout=timeout)\n"
+        "        return call\n\n"
+        "class _UiAutomator:\n"
+        "    def __init__(self, device):\n"
+        "        self._device = device\n\n"
+        "    def start(self):\n"
+        "        return self.running()\n\n"
+        "    def running(self):\n"
+        "        return self._device._agent_alive()\n\n"
+        "class _AdbDevice:\n"
+        "    def shell(self, command, timeout=60):\n"
+        "        return connect().shell(command, timeout=timeout)[0]\n\n"
+        "class _HttpResponse:\n"
+        "    def __init__(self, body):\n"
+        "        self._body = body\n"
+        "        self.text = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)\n\n"
+        "    def json(self):\n"
+        "        return json.loads(self.text)\n\n"
+        "class _HttpClient:\n"
+        "    def __init__(self, device):\n"
+        "        self._device = device\n\n"
+        "    def get(self, path, timeout=10):\n"
+        "        with request.urlopen(self._device._url(path), timeout=timeout) as response:\n"
+        "            return _HttpResponse(response.read())\n\n"
+        "class Device:\n"
+        "    def __init__(self, serial='127.0.0.1:7912'):\n"
+        "        serial = str(serial or '127.0.0.1:7912')\n"
+        "        serial = serial.removeprefix('http://').removeprefix('https://')\n"
+        "        self.serial = serial\n"
+        "        self._base = 'http://' + serial.rstrip('/')\n"
+        "        self.jsonrpc = _JsonRpc(self)\n"
+        "        self.uiautomator = _UiAutomator(self)\n"
+        "        self.http = _HttpClient(self)\n"
+        "        self._adb_device = _AdbDevice()\n\n"
+        "    def _url(self, path):\n"
+        "        return self._base + path\n\n"
+        "    def __call__(self, *_args, **_kwargs):\n"
+        "        return self\n\n"
+        "    def _agent_alive(self):\n"
+        "        try:\n"
+        "            with request.urlopen(self._url('/version'), timeout=1) as response:\n"
+        "                return bool(response.read().strip())\n"
+        "        except Exception:\n"
+        "            return False\n\n"
+        "    def _jsonrpc(self, method, params=None, timeout=60):\n"
+        "        body = json.dumps({\n"
+        "            'jsonrpc': '2.0',\n"
+        "            'id': f'android-local-{method}',\n"
+        "            'method': method,\n"
+        "            'params': params or [],\n"
+        "        }).encode('utf-8')\n"
+        "        req = request.Request(\n"
+        "            self._url('/jsonrpc/0'),\n"
+        "            data=body,\n"
+        "            headers={'Content-Type': 'application/json'},\n"
+        "            method='POST',\n"
+        "        )\n"
+        "        try:\n"
+        "            with request.urlopen(req, timeout=timeout) as response:\n"
+        "                payload = json.loads(response.read().decode('utf-8'))\n"
+        "        except Exception as exc:\n"
+        "            raise UiAutomationNotConnectedError(str(exc)) from exc\n"
+        "        if payload.get('error'):\n"
+        "            raise RuntimeError(payload['error'])\n"
+        "        return payload.get('result')\n\n"
+        "    def shell(self, cmdargs, stream=False, timeout=60):\n"
+        "        if isinstance(cmdargs, (list, tuple)):\n"
+        "            command = ' '.join(str(part) for part in cmdargs)\n"
+        "        else:\n"
+        "            command = str(cmdargs)\n"
+        "        if stream:\n"
+        "            raise NotImplementedError('android-local shell streaming is not implemented')\n"
+        "        data = parse.urlencode({'command': command, 'timeout': str(timeout)}).encode('utf-8')\n"
+        "        req = request.Request(self._url('/shell'), data=data, method='POST')\n"
+        "        try:\n"
+        "            with request.urlopen(req, timeout=timeout + 10) as response:\n"
+        "                payload = json.loads(response.read().decode('utf-8'))\n"
+        "        except Exception as exc:\n"
+        "            raise UiAutomationNotConnectedError(str(exc)) from exc\n"
+        "        output = payload.get('output') or payload.get('stdout') or ''\n"
+        "        exit_code = payload.get('exitCode')\n"
+        "        if exit_code is None:\n"
+        "            exit_code = 1 if payload.get('error') else 0\n"
+        "        return output, exit_code\n\n"
+        "    def app_current(self):\n"
+        "        output, _ = self.shell(['dumpsys', 'window', 'windows'], timeout=10)\n"
+        "        match = re.search(r'mCurrentFocus=Window\\{.*?\\s+([^\\s]+)/([^\\s]+)\\}', output)\n"
+        "        if match:\n"
+        "            return {'package': match.group(1), 'activity': match.group(2)}\n"
+        "        output, _ = self.shell(['dumpsys', 'activity', 'top'], timeout=10)\n"
+        "        match = re.search(r'ACTIVITY\\s+([^\\s]+)/([^/\\s]+).*?pid=(\\d+)', output)\n"
+        "        if match:\n"
+        "            return {'package': match.group(1), 'activity': match.group(2), 'pid': int(match.group(3))}\n"
+        "        return {'package': '', 'activity': ''}\n\n"
+        "    def screenshot(self, filename=None, format='pillow'):\n"
+        "        try:\n"
+        "            with request.urlopen(self._url('/screenshot/0'), timeout=10) as response:\n"
+        "                image = Image.open(io.BytesIO(response.read())).convert('RGB')\n"
+        "        except Exception as exc:\n"
+        "            raise UiAutomationNotConnectedError(str(exc)) from exc\n"
+        "        if filename:\n"
+        "            image.save(filename)\n"
+        "        return image\n\n"
+        "    def click(self, x, y):\n"
+        "        return self.jsonrpc.click(int(x), int(y))\n\n"
+        "    def swipe(self, fx, fy, tx, ty, duration=None, steps=None):\n"
+        "        if steps is None:\n"
+        "            steps = max(2, int((duration or 0.1) * 200))\n"
+        "        return self.jsonrpc.swipe(int(fx), int(fy), int(tx), int(ty), int(steps))\n\n"
+        "    def long_click(self, x, y, duration=0.5):\n"
+        "        return self.swipe(x, y, x, y, duration=duration)\n\n"
+        "    def pinch_in(self, percent=50, steps=30):\n"
+        "        return True\n\n"
+        "    def pinch_out(self, percent=50, steps=30):\n"
+        "        return True\n\n"
+        "    def _launcher_component(self, package_name):\n"
+        "        output, exit_code = self.shell(['cmd', 'package', 'resolve-activity', '--brief', '--user', '0', '-c', 'android.intent.category.LAUNCHER', package_name], timeout=10)\n"
+        "        if exit_code != 0:\n"
+        "            raise RuntimeError(output)\n"
+        "        for line in reversed([part.strip() for part in output.splitlines() if part.strip()]):\n"
+        "            if '/' in line and line.startswith(package_name + '/'):\n"
+        "                return line\n"
+        "        raise RuntimeError(f'Unable to resolve launcher activity for {package_name}: {output}')\n\n"
+        "    def app_start(self, package_name, activity=None, wait=False, stop=False):\n"
+        "        if stop:\n"
+        "            self.app_stop(package_name)\n"
+        "        if activity:\n"
+        "            component = f'{package_name}/{activity}'\n"
+        "        else:\n"
+        "            component = self._launcher_component(package_name)\n"
+        "        command = ['am', 'start', '--user', '0', '-n', component]\n"
+        "        output, exit_code = self.shell(command, timeout=20)\n"
+        "        if exit_code != 0:\n"
+        "            raise RuntimeError(output)\n"
+        "        if wait:\n"
+        "            time.sleep(1)\n"
+        "        return output\n\n"
+        "    def app_stop(self, package_name):\n"
+        "        output, exit_code = self.shell(['am', 'force-stop', '--user', '0', package_name], timeout=10)\n"
+        "        if exit_code != 0:\n"
+        "            raise RuntimeError(output)\n"
+        "        return output\n\n"
+        "    def press(self, key, meta=None):\n"
+        "        if isinstance(key, int):\n"
+        "            return self.jsonrpc.pressKeyCode(key, meta) if meta else self.jsonrpc.pressKeyCode(key)\n"
+        "        return self.jsonrpc.pressKey(str(key))\n\n"
+        "    def dump_hierarchy(self, compressed=False, pretty=False):\n"
+        "        return self.jsonrpc.dumpWindowHierarchy(bool(compressed), None)\n\n"
+        "    def implicitly_wait(self, seconds=None):\n"
+        "        return 0\n\n"
+        "def connect(serial='127.0.0.1:7912'):\n"
+        "    return Device(serial)\n\n"
+        "def connect_usb(serial=None):\n"
+        "    return Device(serial or '127.0.0.1:7912')\n",
         encoding="utf-8",
     )
 
@@ -371,6 +689,9 @@ def _run_baas_service(root, port):
     cwd = os.getcwd()
     os.chdir(root)
     try:
+        import android_runtime_injection
+
+        android_runtime_injection.install()
         runpy.run_path(sys.argv[0], run_name="__main__")
     finally:
         os.chdir(cwd)
