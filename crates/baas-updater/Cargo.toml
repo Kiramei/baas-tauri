@@ -12,14 +12,19 @@ baas-term = { workspace = true }
 serde = { workspace = true }
 tauri = { workspace = true }
 serde_json = { workspace = true }
-tempfile = { workspace = true }
 uuid = { workspace = true }
-portable-pty = { workspace = true }
 # Updater Specified Packages
-git2 = { version = "0.21.0", features = ["https", "vendored-openssl"] }
+git2 = { version = "0.21.0", features = ["https", "vendored-libgit2", "vendored-openssl"] }
+toml = { version = "1.1.2" }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+tempfile = { workspace = true }
+portable-pty = { workspace = true }
 zip = { version = "8.6.0" }
 tar = { version = "0.4.44" }
-toml = { version = "1.1.2" }
 reqwest = { version = "0.13.4", features = ["json", "blocking", "stream"] }
 flate2 = { version = "1.1.5" }
 sha2 = { version = "0.11.0" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

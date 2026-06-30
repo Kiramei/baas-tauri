@@ -203,9 +203,11 @@ impl SourceProbe for GitSourceProbe {
 }
 
 /// Real source probe for git2-only environments that cannot rely on Git CLI.
+#[cfg(not(target_os = "android"))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GitHttpSourceProbe;
 
+#[cfg(not(target_os = "android"))]
 impl SourceProbe for GitHttpSourceProbe {
     fn measure(&self, url: &str) -> UpdaterResult<Duration> {
         let client = reqwest::blocking::Client::builder()
@@ -808,6 +810,7 @@ fn configure_git_cli_command(command: &mut Command) {
         .env("SSH_ASKPASS", "");
 }
 
+#[cfg(not(target_os = "android"))]
 fn git_smart_http_probe_url(url: &str) -> String {
     format!(
         "{}/info/refs?service=git-upload-pack",

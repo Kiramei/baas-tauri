@@ -10,7 +10,7 @@ export const Card: React.FC<CardProps> = ({ children, className = "", onClick })
   const baseClasses =
     "bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm";
   const interactiveClasses = onClick
-    ? "cursors-pointer hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500 transition-all duration-200"
+    ? "cursor-pointer hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500 transition-all duration-200"
     : "";
 
   return (

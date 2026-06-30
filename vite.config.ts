@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
       // }),
     ],
     build: {
-      target: isAndroid ? "chrome91" : undefined,
+      target: isAndroid ? "chrome64" : undefined,
       rolldownOptions: {
         output: {
           manualChunks,

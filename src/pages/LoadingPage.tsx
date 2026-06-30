@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { TextGenerateEffect } from "@/components/ui/TextGenerateEffect.tsx";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
@@ -7,6 +7,8 @@ import { useTheme } from "@/context/ThemeProvider.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import PasswordInputModal from "@/components/PasswordInputModal.tsx";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -51,9 +53,115 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
   );
 }
 
+function AndroidStartupTerminal({ text, theme }: { text: string; theme: string }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const writtenLengthRef = useRef(0);
+  const previousTextRef = useRef("");
+
+  useEffect(() => {
+    if (!hostRef.current) return;
+
+    const isLight = theme === "light";
+    const term = new Terminal({
+      allowProposedApi: false,
+      convertEol: true,
+      disableStdin: true,
+      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: 12,
+      lineHeight: 1.18,
+      scrollback: 160,
+      theme: {
+        background: "#00000000",
+        foreground: isLight ? "#334155" : "#dbe7f3",
+        cursor: "transparent",
+        selectionBackground: isLight ? "#cbd5e1" : "#38506b",
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(hostRef.current);
+
+    termRef.current = term;
+    fitRef.current = fit;
+
+    const resize = () => {
+      try {
+        fit.fit();
+      } catch {
+        // The terminal can briefly be detached during route transitions.
+      }
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(hostRef.current);
+    requestAnimationFrame(resize);
+
+    return () => {
+      observer.disconnect();
+      fit.dispose();
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+      writtenLengthRef.current = 0;
+    };
+  }, []);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    const isLight = theme === "light";
+    term.options.theme = {
+      background: "#00000000",
+      foreground: isLight ? "#334155" : "#dbe7f3",
+      cursor: "transparent",
+      selectionBackground: isLight ? "#cbd5e1" : "#38506b",
+    };
+  }, [theme]);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
+      term.reset();
+      term.clear();
+      writtenLengthRef.current = 0;
+    }
+    const chunk = text.slice(writtenLengthRef.current);
+    if (!chunk) return;
+    writtenLengthRef.current = text.length;
+    previousTextRef.current = text;
+    term.write(chunk.replace(/\n/g, "\r\n"));
+    term.scrollToBottom();
+  }, [text]);
+
+  return <div ref={hostRef} className="terminal-host h-full w-full" />;
+}
+
+const androidLevelMap: Record<string, string> = {
+  INFO: "I",
+  WARNING: "W",
+  ERROR: "F",
+  CRITICAL: "C",
+  DEBUG: "D",
+};
+
+const formatStartupLogChunk = (log: { time: string; level: string; message: string }) => {
+  const level = androidLevelMap[String(log.level).toUpperCase()] ?? String(log.level).slice(0, 1);
+  return `${formatIsoToReadableTime(log.time)} ${level} ${log.message}`;
+};
+
+const keepRecentLogLines = (text: string, maxLines = 120) => {
+  const lines = text.split("\n");
+  if (lines.length <= maxLines) return text;
+  return lines.slice(-maxLines).join("\n");
+};
+
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
   const logoRef = useRef<HTMLImageElement>(null);
+  const androidLogCursorRef = useRef(0);
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
+  const [androidStartupLogChunk, setAndroidStartupLogChunk] = useState("");
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);
   const serverInitialized = useWebSocketStore((state) => state._server_initialized);
@@ -77,6 +185,19 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
     if (authPhase !== "waiting_password") return;
     void submitPassword(getAndroidAutoPassword());
   }, [authPhase, submitPassword]);
+
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    const previousLength = androidLogCursorRef.current;
+    if (globalLogData.length < previousLength) {
+      androidLogCursorRef.current = 0;
+    }
+    const nextLogs = globalLogData.slice(androidLogCursorRef.current);
+    if (!nextLogs.length) return;
+    androidLogCursorRef.current = globalLogData.length;
+    const chunk = nextLogs.map(formatStartupLogChunk).join("\n");
+    setAndroidStartupLogChunk((current) => keepRecentLogLines(`${current}${current ? "\n" : ""}${chunk}`));
+  }, [globalLogData]);
 
   const loadingMessage =
     authPhase === "control_connecting"
@@ -103,36 +224,43 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
 
       <div className="fixed w-full h-full p-2">
         <div className="w-full h-full bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-[5px] rounded-md p-2 border-2 border-primary-500/70">
-          <AutoScrollTerminal>
-            {globalLogData.map((log, idx) => (
-              <div className="flex" key={`${log.time}-${idx}`}>
-                <div className="min-w-20 text-slate-600 dark:text-slate-400">
-                  <TextGenerateEffect words={formatIsoToReadableTime(log.time)} mode="all" />
+          {__WITH_ANDROID__ ? (
+            <AndroidStartupTerminal
+              text={androidStartupLogChunk || "Waiting for backend startup logs..."}
+              theme={theme}
+            />
+          ) : (
+            <AutoScrollTerminal>
+              {globalLogData.map((log, idx) => (
+                <div className="flex" key={`${log.time}-${idx}`}>
+                  <div className="min-w-20 text-slate-600 dark:text-slate-400">
+                    <TextGenerateEffect words={formatIsoToReadableTime(log.time)} mode="all" />
+                  </div>
+                  <div
+                    className="min-w-20 flex justify-end mr-2 font-bold"
+                    style={{ color: statusColorMap[log.level] }}
+                  >
+                    <TextGenerateEffect words={log.level} mode="all" />
+                  </div>
+                  <motion.div
+                    className="flex-1 border-l-3 pl-4"
+                    style={{
+                      borderColor: statusColorMap[log.level],
+                      whiteSpace: "pre-wrap",
+                      borderLeftWidth: log.level === "INFO" ? "3px" : "5px",
+                      color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
+                      fontWeight: log.level === "INFO" ? "inherit" : "bold",
+                    }}
+                    initial={lowPerformanceMode ? false : { opacity: 0, filter: "blur(10px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    transition={{ duration: lowPerformanceMode ? 0 : 0.5 }}
+                  >
+                    {log.message}
+                  </motion.div>
                 </div>
-                <div
-                  className="min-w-20 flex justify-end mr-2 font-bold"
-                  style={{ color: statusColorMap[log.level] }}
-                >
-                  <TextGenerateEffect words={log.level} mode="all" />
-                </div>
-                <motion.div
-                  className="flex-1 border-l-3 pl-4"
-                  style={{
-                    borderColor: statusColorMap[log.level],
-                    whiteSpace: "pre-wrap",
-                    borderLeftWidth: log.level === "INFO" ? "3px" : "5px",
-                    color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
-                    fontWeight: log.level === "INFO" ? "inherit" : "bold",
-                  }}
-                  initial={lowPerformanceMode ? false : { opacity: 0, filter: "blur(10px)" }}
-                  animate={{ opacity: 1, filter: "blur(0px)" }}
-                  transition={{ duration: lowPerformanceMode ? 0 : 0.5 }}
-                >
-                  {log.message}
-                </motion.div>
-              </div>
-            ))}
-          </AutoScrollTerminal>
+              ))}
+            </AutoScrollTerminal>
+          )}
         </div>
       </div>
 
@@ -179,13 +307,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
         </p>
 
         {__WITH_ANDROID__ && (
-          <div className="absolute bottom-6 left-4 right-4 mx-auto max-w-xl rounded-md border border-primary-400/40 bg-slate-950/65 p-4 text-sm text-slate-100 shadow-xl backdrop-blur">
+          <div className="absolute bottom-6 left-4 right-4 mx-auto max-w-xl rounded-md border border-primary-400/40 bg-slate-950/65 p-3 text-sm text-slate-100 shadow-xl backdrop-blur">
             <div className="mb-2 font-semibold text-primary-200">Android startup</div>
-            <div className="grid gap-1.5 font-mono text-xs">
+            <div className="grid gap-1 font-mono text-xs">
               <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
               <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
               <div>Configuration sync: {initiating ? "running" : allDataInitialized ? "done" : "waiting"}</div>
-              <div>OCR runtime: bundled desktop binary is unavailable on Android; continuing in service mode</div>
             </div>
           </div>
         )}

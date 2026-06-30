@@ -38,6 +38,18 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
 
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
+    if (__WITH_ANDROID__) {
+      const state = useWebSocketStore.getState();
+      const updateUrl = state.versionStore?.tauri?.url;
+      if (updateUrl) {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(updateUrl);
+        return;
+      }
+      await state.checkTauriUpdater(false, true);
+      toast.info(t("update.tauriUpToDate"));
+      return;
+    }
     if (await isTauriNoUpdateEnabled()) {
       toast.info(t("update.tauriUpToDate"));
       return;

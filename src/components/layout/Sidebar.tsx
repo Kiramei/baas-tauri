@@ -20,6 +20,8 @@ import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -69,6 +71,81 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
     setBackendUpdateLogs([]);
     setBackendUpdateLogOpen(true);
     try {
+      if (__WITH_ANDROID__) {
+        const stableRegions = new Map<string, any>();
+        const shownStableRegions = new Set<string>();
+        let sawAndroidUpdateError = false;
+
+        const appendChunk = (chunk: string) => {
+          const text = stripAnsi(chunk).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+          const lines = text.split("\n").map((line) => line.trimEnd()).filter(Boolean);
+          if (!lines.length) return;
+          setBackendUpdateLogs((prev) => [...prev, ...lines].slice(-300));
+        };
+
+        const appendStableRegion = (payload: any) => {
+          const regionKey = String(payload.regionId ?? payload.taskId ?? "");
+          if (regionKey && shownStableRegions.has(regionKey)) return;
+          if (regionKey) shownStableRegions.add(regionKey);
+          const lines = [payload.title, ...(payload.lines ?? [])]
+            .map((line) => stripAnsi(String(line ?? "")).trimEnd())
+            .filter(Boolean);
+          if (!lines.length) return;
+          setBackendUpdateLogs((prev) => [...prev, ...lines].slice(-300));
+        };
+
+        const unlisteners = await Promise.all([
+          listen<any>("term:chunk", (event) => {
+            appendChunk(String(event.payload?.chunk ?? ""));
+          }),
+          listen<any>("term:task-started", (event) => {
+            const payload = event.payload;
+            setBackendUpdateLogs((prev) => [
+              ...prev,
+              `[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`,
+            ].slice(-300));
+          }),
+          listen<any>("term:region-stable", (event) => {
+            const payload = event.payload ?? {};
+            stableRegions.set(String(payload.taskId ?? ""), payload);
+            if (sawAndroidUpdateError) {
+              appendStableRegion(payload);
+            }
+          }),
+          listen<any>("term:task-status", (event) => {
+            const payload = event.payload;
+            if (payload.status === "failed" || payload.status === "stopped") {
+              sawAndroidUpdateError = true;
+              setBackendUpdateLogs((prev) => [
+                ...prev,
+                `${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`,
+              ].slice(-300));
+              const stableRegion = stableRegions.get(String(payload.taskId ?? ""));
+              if (stableRegion) {
+                appendStableRegion(stableRegion);
+              }
+            }
+          }),
+          listen<any>("term:session-finished", (event) => {
+            const success = Boolean(event.payload?.success);
+            setBackendUpdateLogs((prev) => [
+              ...prev,
+              success ? "DONE android git2 update" : "ERROR android git2 update failed",
+            ].slice(-300));
+            setBackendUpdating(false);
+            for (const unlisten of unlisteners) unlisten();
+            if (success) {
+              toast.success(t("update.backendStarted"));
+            } else {
+              toast.error(t("update.backendStartFailed"));
+            }
+          }),
+        ]);
+        setBackendUpdateLogs(["START android git2 update"]);
+        await invoke("updater_start_workflow", { request: { launch: false } });
+        toast.info(t("update.backendStarted"));
+        return;
+      }
       await stopAllTasks();
       if (__WITH_TAURI__ && !__WITH_ANDROID__) {
         reloadWithoutPrompt();
@@ -277,6 +354,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 };
 
 export default Sidebar;
+
+const ANSI_PATTERN = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, "");
+}
 
 type UpdateTone = "red" | "blue";
 

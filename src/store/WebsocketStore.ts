@@ -68,7 +68,44 @@ export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   }
 };
 
-const checkBackendUpdater = () => {
+const checkBackendUpdater = async () => {
+  if (__WITH_TAURI__) {
+    if (backendUpdaterChecking) return;
+    backendUpdaterChecking = true;
+    const resetTimer = setTimeout(() => {
+      backendUpdaterChecking = false;
+    }, 30_000);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const report = await invoke<any>("updater_check_version", { request: {} });
+      clearTimeout(resetTimer);
+      backendUpdaterChecking = false;
+      useWebSocketStore.setState((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          local: report.local,
+          remote: report.remote,
+          updateAvailable:
+            report.updateAvailable ?? report.update_available ?? report.local !== report.remote,
+          channel: report.channel ?? state.versionStore.channel,
+          method: report.method ?? state.versionStore.method,
+          lastChecked: Date.now(),
+        },
+      }));
+    } catch (error) {
+      clearTimeout(resetTimer);
+      backendUpdaterChecking = false;
+      appendGlobalLog({
+        level: "warning",
+        message: `Backend updater check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      } as any);
+    }
+    return;
+  }
+
   const store = useWebSocketStore.getState();
   if (
     backendUpdaterChecking ||
@@ -108,8 +145,17 @@ const checkBackendUpdater = () => {
 
 const startBackendUpdaterPolling = () => {
   if (backendUpdaterPollTimer) return;
-  checkBackendUpdater();
+  void checkBackendUpdater();
   backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+};
+
+const checkAndroidClientUpdate = async (currentVersion?: string) => {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return await invoke<any>("tauri_client_check_update", {
+    request: {
+      currentVersion,
+    },
+  });
 };
 
 const resetConnectionStores = (): Partial<WebSocketState> => ({
@@ -241,24 +287,64 @@ export const useWebSocketStore = create<WebSocketState>()(
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
       if (__WITH_ANDROID__) {
-        const { getVersion } = await import("@tauri-apps/api/app");
-        const currentVersion = await getVersion().catch(() => undefined);
-        set((state) => ({
-          ...state,
-          versionStore: {
-            ...state.versionStore,
-            tauri: {
-              updateAvailable: false,
-              checking: false,
-              currentVersion,
-              version: currentVersion ?? null,
-              body: "",
-              date: "",
-              lastChecked: Date.now(),
-              error: null,
+        tauriUpdaterChecking = true;
+        if (visible) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                ...(state.versionStore.tauri ?? {}),
+                checking: true,
+                error: null,
+              },
             },
-          },
-        }));
+          }));
+        }
+        try {
+          const { getVersion } = await import("@tauri-apps/api/app");
+          const currentVersion = await getVersion().catch(() => undefined);
+          const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              tauri: nextTauriVersion,
+            },
+          }));
+          if (nextTauriVersion.updateAvailable) {
+            if (notify && tauriUpdaterNotifiedVersion !== nextTauriVersion.version) {
+              toast.info(t("update.tauriAvailable"), {
+                description: nextTauriVersion.version,
+              });
+              tauriUpdaterNotifiedVersion = nextTauriVersion.version;
+            }
+          } else {
+            tauriUpdaterNotifiedVersion = null;
+            if (visible) toast.success(t("update.tauriUpToDate"));
+          }
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                ...(state.versionStore.tauri ?? {}),
+                checking: false,
+                updateAvailable: false,
+                lastChecked: Date.now(),
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          }));
+          if (visible) {
+            toast.error(t("update.tauriFailed"), {
+              description: error instanceof Error ? error.message : String(error),
+            });
+          }
+        } finally {
+          tauriUpdaterChecking = false;
+        }
         return;
       }
       if (await isTauriNoUpdateEnabled()) {

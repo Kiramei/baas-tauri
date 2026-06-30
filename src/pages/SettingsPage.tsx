@@ -68,6 +68,23 @@ type ShaTestResult = {
   sha?: string;
 };
 
+type TauriBackendVersionReport = {
+  local?: string | null;
+  remote?: string | null;
+  updateAvailable?: boolean;
+  update_available?: boolean;
+  channel?: string;
+  method?: string;
+};
+
+type TauriShaMethodReport = {
+  success: boolean;
+  name: string;
+  duration: number;
+  value?: string | null;
+  error?: string | null;
+};
+
 const reposInit: RepoConfig[] = [
   {
     label: "updateMethod.github",
@@ -402,7 +419,7 @@ const SettingsPage: React.FC = () => {
     setThemeColorInput(uiSettings.themeColor || DEFAULT_THEME_COLOR);
   }, [uiSettings.themeColor]);
 
-  const fetchVersion = () => {
+  const fetchVersion = async () => {
     setVersionChecking(true);
     setShaRemote("");
     setShaLocal("");
@@ -412,6 +429,42 @@ const SettingsPage: React.FC = () => {
     setLocalVersion(t("version.fetching"));
     setRemoteVersion(t("version.fetching"));
     setUpdateStatus("version.testing");
+
+    if (__WITH_TAURI__) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const report = await invoke<TauriBackendVersionReport>("updater_check_version", {
+          request: {
+            channel: updateChannel,
+          },
+        });
+        setShaLocal(report.local ?? null);
+        setShaRemote(report.remote ?? null);
+        useWebSocketStore.setState((state: any) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            local: report.local ?? null,
+            remote: report.remote ?? null,
+            updateAvailable:
+              report.updateAvailable ?? report.update_available ?? report.local !== report.remote,
+            channel: report.channel ?? updateChannel,
+            method: report.method ?? state.versionStore?.method,
+            lastChecked: Date.now(),
+          },
+        }));
+        setUpdateStatus("version.tapToTest");
+      } catch (error) {
+        setShaLocal(null);
+        setShaRemote(null);
+        setLocalVersion(t("version.checkError"));
+        setRemoteVersion(t("version.checkError"));
+        toast.error(String(error ?? t("version.checkError")));
+      } finally {
+        setVersionChecking(false);
+      }
+      return;
+    }
 
     trigger(
       {
@@ -521,7 +574,7 @@ const SettingsPage: React.FC = () => {
     };
   }, []);
 
-  const handleTestSha = () => {
+  const handleTestSha = async () => {
     const timestamp = getTimestampMs();
     shaTestRunRef.current = timestamp;
     if (shaTestTimeoutRef.current) {
@@ -549,6 +602,64 @@ const SettingsPage: React.FC = () => {
       );
       toast.error(t("shaTest.timeout"));
     }, SHA_TEST_TIMEOUT_MS);
+
+    if (__WITH_TAURI__) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const applyResult = (result: TauriShaMethodReport) => {
+        if (shaTestRunRef.current !== timestamp) return;
+        setShaResults((prev) =>
+          prev.map((item) =>
+            item.method === shaMethodKey(result.name)
+              ? {
+                  ...item,
+                  status: result.success ? "success" : "error",
+                  time: result.duration.toFixed(3),
+                  sha: result.value ?? undefined,
+                }
+              : item
+          )
+        );
+      };
+      try {
+        await Promise.allSettled(
+          shaMethodsInit.map(async (method) => {
+            try {
+              const result = await invoke<TauriShaMethodReport>("updater_test_sha_method", {
+                request: {
+                  channel: updateChannel,
+                  timeout: SHA_TEST_TIMEOUT_SECONDS,
+                  method: method.value,
+                },
+              });
+              applyResult(result);
+            } catch (error) {
+              applyResult({
+                success: false,
+                name: method.value,
+                duration: SHA_TEST_TIMEOUT_SECONDS,
+                value: null,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          })
+        );
+      } catch (error) {
+        if (shaTestRunRef.current === timestamp) {
+          toast.error(String(error ?? t("version.checkError")));
+        }
+      } finally {
+        if (shaTestRunRef.current === timestamp) {
+          if (shaTestTimeoutRef.current) {
+            clearTimeout(shaTestTimeoutRef.current);
+            shaTestTimeoutRef.current = null;
+          }
+          shaTestRunRef.current = null;
+          setApiLoading(false);
+        }
+      }
+      return;
+    }
+
     triggerStream(
       {
         timestamp,
@@ -630,9 +741,11 @@ const SettingsPage: React.FC = () => {
           {infos.map((info, i) => (
             <div
               key={i}
+              role={info.onClick || info.label === t("update.method") ? "button" : undefined}
+              tabIndex={info.onClick || info.label === t("update.method") ? 0 : undefined}
               className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${
                 info.label === t("update.method") || info.onClick
-                  ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50"
+                  ? " cursor-pointer hover:bg-white/70 dark:hover:bg-slate-700/50"
                   : ""
               }`}
               onClick={
@@ -642,6 +755,13 @@ const SettingsPage: React.FC = () => {
                     ? fetchVersion
                     : undefined
               }
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                const action = info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
+                if (!action) return;
+                event.preventDefault();
+                void action();
+              }}
             >
               {info.icon}
               <div className="flex flex-col">

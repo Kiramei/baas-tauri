@@ -1,17 +1,34 @@
 #![allow(dead_code)]
 
+#[cfg(target_os = "android")]
+use baas_updater::{
+    android::{
+        android_repository_local_sha, android_repository_remote_sha, AndroidTerminalSnapshot,
+        AndroidUpdaterTermManager, AndroidWorkflowAbortReport, AndroidWorkflowAbortRequest,
+    },
+    repo::repository_urls,
+    RepositoryKind, UpdateChannel, WorkflowOptions,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
+#[cfg(target_os = "android")]
+use tauri::State;
 use tauri::{AppHandle, Manager};
 
 const ANDROID_BACKEND_MESSAGE: &str =
     "Android embeds Python 3.9 through Chaquopy and does not use uv. The Android application layer starts a Python bootstrap which unpacks the bundled BAAS service backend into app-private storage and reports missing Android-compatible runtime dependencies through /health.";
 const ANDROID_PACKAGE_NAME: &str = "io.github.kiramei.baas_tauri";
 const ANDROID_STORAGE_ROOT_MARKER: &str = "baas-android-storage-root.txt";
+const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
+    "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
+    "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+    "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+    "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
+];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +61,33 @@ pub struct MirrorCValidateRequest {
 pub struct UpdaterWorkflowRequest {
     pub install_path: Option<PathBuf>,
     pub launch: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterVersionCheckRequest {
+    pub channel: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterShaTestRequest {
+    pub channel: Option<String>,
+    pub timeout: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterSingleShaTestRequest {
+    pub channel: Option<String>,
+    pub timeout: Option<f64>,
+    pub method: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TauriClientUpdateRequest {
+    pub current_version: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -149,6 +193,237 @@ pub fn updater_validate_mirrorc_cdk(_request: MirrorCValidateRequest) -> Value {
     })
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Value, String> {
+    let current_version = request
+        .current_version
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    let mut last_error = None;
+    for endpoint in TAURI_UPDATE_ENDPOINTS {
+        match fetch_android_update_metadata(endpoint) {
+            Ok(update) => {
+                let remote_version = normalize_version(
+                    update
+                        .get("version")
+                        .or_else(|| update.get("name"))
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                )
+                .unwrap_or_else(|| "0.0.0".to_string());
+                let platform = android_update_platform(&update);
+                let update_url = platform
+                    .and_then(|value| value.get("url"))
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned);
+                let update_available = update_url.is_some()
+                    && compare_versions(&remote_version, &current_version).is_gt();
+                return Ok(json!({
+                    "updateAvailable": update_available,
+                    "checking": false,
+                    "currentVersion": current_version,
+                    "version": remote_version,
+                    "body": update.get("notes").or_else(|| update.get("body")).and_then(Value::as_str).unwrap_or_default(),
+                    "date": update.get("pub_date").or_else(|| update.get("date")).and_then(Value::as_str).unwrap_or_default(),
+                    "url": update_url,
+                    "endpoint": endpoint,
+                    "androidPackageAvailable": update_url.is_some(),
+                    "lastChecked": current_time_millis(),
+                    "error": null
+                }));
+            }
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "failed to fetch updater metadata".to_string()))
+}
+
+#[cfg(target_os = "android")]
+fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
+    let response = minreq::get(endpoint)
+        .with_header("cache-control", "no-cache")
+        .with_header("accept", "application/json")
+        .with_timeout(15)
+        .send()
+        .map_err(|error| error.to_string())?;
+    if !(200..300).contains(&response.status_code) {
+        return Err(format!(
+            "{} returned HTTP {} {}",
+            endpoint, response.status_code, response.reason_phrase
+        ));
+    }
+    serde_json::from_str(response.as_str().map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn tauri_client_check_update(_request: TauriClientUpdateRequest) -> Result<Value, String> {
+    Err(ANDROID_BACKEND_MESSAGE.to_string())
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_check_version(
+    app: AppHandle,
+    request: UpdaterVersionCheckRequest,
+) -> Result<Value, String> {
+    let root = android_storage_root(&app)?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
+    let local = read_setup_value(&setup_path, "current_baas_sha")
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| android_repository_local_sha(&root, RepositoryKind::Main).ok());
+    let preferred_method = normalize_android_sha_method(
+        &read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default(),
+    );
+    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method)?;
+    Ok(json!({
+        "local": local,
+        "remote": remote,
+        "updateAvailable": local.as_deref() != Some(remote.as_str()),
+        "channel": channel.as_str(),
+        "method": method
+    }))
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn updater_check_version(_request: UpdaterVersionCheckRequest) -> Result<Value, String> {
+    Err(ANDROID_BACKEND_MESSAGE.to_string())
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_test_sha_methods(
+    app: AppHandle,
+    request: UpdaterShaTestRequest,
+) -> Result<Value, String> {
+    let root = android_storage_root(&app)?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
+    let _timeout = request.timeout.unwrap_or(15.0);
+    let results = android_sha_method_sources(channel)
+        .into_iter()
+        .map(|(name, url)| {
+            let start = std::time::Instant::now();
+            match url {
+                Some(url) => {
+                    match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url)
+                    {
+                        Ok(value) => json!({
+                            "success": true,
+                            "name": name,
+                            "duration": start.elapsed().as_secs_f64(),
+                            "value": value,
+                            "error": null
+                        }),
+                        Err(error) => json!({
+                            "success": false,
+                            "name": name,
+                            "duration": start.elapsed().as_secs_f64(),
+                            "value": null,
+                            "error": error.message()
+                        }),
+                    }
+                }
+                None => json!({
+                    "success": false,
+                    "name": name,
+                    "duration": start.elapsed().as_secs_f64(),
+                    "value": null,
+                    "error": "not a git source"
+                }),
+            }
+        })
+        .collect::<Vec<_>>();
+    Ok(json!(results))
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_test_sha_method(
+    app: AppHandle,
+    request: UpdaterSingleShaTestRequest,
+) -> Result<Value, String> {
+    let root = android_storage_root(&app)?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
+    let _timeout = request.timeout.unwrap_or(15.0);
+    let name = request.method.trim().to_string();
+    let url = android_sha_method_sources(channel)
+        .into_iter()
+        .find(|(method, _)| method == &name)
+        .and_then(|(_, url)| url);
+    let start = std::time::Instant::now();
+    Ok(match url {
+        Some(url) => {
+            match android_repository_remote_sha(&root, RepositoryKind::Main, channel, &url) {
+                Ok(value) => json!({
+                    "success": true,
+                    "name": name,
+                    "duration": start.elapsed().as_secs_f64(),
+                    "value": value,
+                    "error": null
+                }),
+                Err(error) => json!({
+                    "success": false,
+                    "name": name,
+                    "duration": start.elapsed().as_secs_f64(),
+                    "value": null,
+                    "error": error.message()
+                }),
+            }
+        }
+        None => json!({
+            "success": false,
+            "name": name,
+            "duration": start.elapsed().as_secs_f64(),
+            "value": null,
+            "error": "not a git source"
+        }),
+    })
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn updater_test_sha_method(_request: UpdaterSingleShaTestRequest) -> Result<Value, String> {
+    Err(ANDROID_BACKEND_MESSAGE.to_string())
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub fn updater_test_sha_methods(_request: UpdaterShaTestRequest) -> Result<Value, String> {
+    Err(ANDROID_BACKEND_MESSAGE.to_string())
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_start_workflow(
+    app: AppHandle,
+    request: UpdaterWorkflowRequest,
+    manager: State<'_, AndroidUpdaterTermManager>,
+) -> Result<Value, String> {
+    let root = android_storage_root(&app)?;
+    fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let install_path = request
+        .install_path
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(root);
+    let session = manager.start(
+        app,
+        WorkflowOptions {
+            config_path: Some(setup_path),
+            install_path: Some(install_path),
+            launch: request.launch.unwrap_or(false),
+        },
+    )?;
+    serde_json::to_value(session).map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn updater_start_workflow(_request: UpdaterWorkflowRequest) -> Result<Value, String> {
     Err(ANDROID_BACKEND_MESSAGE.to_string())
@@ -159,6 +434,20 @@ pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
     Err(ANDROID_BACKEND_MESSAGE.to_string())
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_abort_workflow(
+    request: Option<WorkflowAbortRequest>,
+    manager: State<'_, AndroidUpdaterTermManager>,
+) -> Result<AndroidWorkflowAbortReport, String> {
+    manager.abort(AndroidWorkflowAbortRequest {
+        emit_events: request
+            .and_then(|request| request.emit_events)
+            .unwrap_or(true),
+    })
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn updater_abort_workflow(_request: Option<WorkflowAbortRequest>) -> Value {
     json!({
@@ -168,16 +457,34 @@ pub fn updater_abort_workflow(_request: Option<WorkflowAbortRequest>) -> Value {
     })
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_terminal_snapshot(
+    manager: State<'_, AndroidUpdaterTermManager>,
+) -> Result<AndroidTerminalSnapshot, String> {
+    manager.snapshot()
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn updater_terminal_snapshot() -> Value {
     json!({
         "sessionId": null,
-        "running": false,
-        "tasks": [],
-        "logs": []
+        "workflowPlan": null
     })
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn updater_resize_term(
+    manager: State<'_, AndroidUpdaterTermManager>,
+    rows: u16,
+    cols: u16,
+) -> Result<(), String> {
+    manager.resize(rows, cols)
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn updater_resize_term(_rows: u16, _cols: u16) -> Result<(), String> {
     Ok(())
@@ -207,6 +514,95 @@ pub fn open_main_devtools(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "android")]
+fn android_requested_channel(
+    requested: Option<&str>,
+    setup_path: &Path,
+) -> Result<UpdateChannel, String> {
+    let value = requested
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| read_setup_value(setup_path, "channel"))
+        .unwrap_or_else(|| "dev".to_string());
+    UpdateChannel::parse(&value).map_err(|error| error.message())
+}
+
+#[cfg(target_os = "android")]
+fn normalize_android_sha_method(value: &str) -> String {
+    match value.trim() {
+        "" | "git2" | "git_cli" | "auto" => "github".to_string(),
+        other => other.to_string(),
+    }
+}
+
+#[cfg(target_os = "android")]
+fn android_first_remote_sha(
+    root: &Path,
+    channel: UpdateChannel,
+    preferred_method: &str,
+) -> Result<(String, String), String> {
+    let methods = android_sha_method_sources(channel);
+    let mut ordered = Vec::new();
+    if methods
+        .iter()
+        .any(|(name, url)| name == preferred_method && url.is_some())
+    {
+        ordered.push(preferred_method.to_string());
+    }
+    for (name, url) in &methods {
+        if url.is_some() && !ordered.iter().any(|item| item == name) {
+            ordered.push(name.clone());
+        }
+    }
+
+    let mut last_error = None;
+    for method in ordered {
+        let Some((_, Some(url))) = methods.iter().find(|(name, _)| name == &method) else {
+            continue;
+        };
+        match android_repository_remote_sha(root, RepositoryKind::Main, channel, url) {
+            Ok(sha) => return Ok((method, sha)),
+            Err(error) => last_error = Some(error.message()),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
+}
+
+#[cfg(target_os = "android")]
+fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
+    let urls = repository_urls(RepositoryKind::Main, channel);
+    vec![
+        ("github".to_string(), urls.first().cloned()),
+        ("mirrorc".to_string(), None),
+        ("gitee".to_string(), find_url(&urls, "gitee.com")),
+        ("gitcode".to_string(), find_url(&urls, "gitcode.com")),
+        (
+            "github_proxy_v4".to_string(),
+            find_url(&urls, "v4.gh-proxy.org"),
+        ),
+        (
+            "github_proxy_v6".to_string(),
+            find_url(&urls, "v6.gh-proxy.org"),
+        ),
+        (
+            "github_proxy_cdn".to_string(),
+            find_url(&urls, "cdn.gh-proxy.org"),
+        ),
+        ("gh_proxy".to_string(), find_url(&urls, "://gh-proxy.org")),
+        ("sevencdn".to_string(), find_url(&urls, "gh.sevencdn.com")),
+        ("githubfast".to_string(), find_url(&urls, "githubfast.com")),
+        (
+            "baas_cdn".to_string(),
+            find_url(&urls, "baas-cdn.kiramei.workers.dev"),
+        ),
+    ]
+}
+
+#[cfg(target_os = "android")]
+fn find_url(urls: &[String], needle: &str) -> Option<String> {
+    urls.iter().find(|url| url.contains(needle)).cloned()
+}
+
 fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
@@ -223,6 +619,79 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(PathBuf::from(format!(
         "/storage/emulated/0/Android/data/{ANDROID_PACKAGE_NAME}"
     )))
+}
+
+#[cfg(target_os = "android")]
+fn android_update_platform(update: &Value) -> Option<&Value> {
+    let platforms = update.get("platforms")?.as_object()?;
+    let arch = match std::env::consts::ARCH {
+        "aarch64" => "android-arm64-v8a",
+        "arm" | "armv7" => "android-armeabi-v7a",
+        "x86_64" => "android-x86_64",
+        "x86" => "android-x86",
+        _ => "android",
+    };
+    platforms
+        .get(arch)
+        .or_else(|| platforms.get("android"))
+        .or_else(|| {
+            platforms
+                .iter()
+                .find(|(key, _)| key.to_ascii_lowercase().starts_with("android"))
+                .map(|(_, value)| value)
+        })
+}
+
+#[cfg(target_os = "android")]
+fn normalize_version(value: &str) -> Option<String> {
+    let mut started = false;
+    let mut output = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_digit() || (started && ch == '.') {
+            started = true;
+            output.push(ch);
+        } else if started {
+            break;
+        }
+    }
+    if output.is_empty() {
+        None
+    } else {
+        Some(output.trim_matches('.').to_string())
+    }
+}
+
+#[cfg(target_os = "android")]
+fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
+    let parse = |value: &str| {
+        normalize_version(value)
+            .unwrap_or_default()
+            .split('.')
+            .filter_map(|part| part.parse::<u64>().ok())
+            .collect::<Vec<_>>()
+    };
+    let left = parse(left);
+    let right = parse(right);
+    let len = left.len().max(right.len()).max(3);
+    for index in 0..len {
+        let order = left
+            .get(index)
+            .copied()
+            .unwrap_or(0)
+            .cmp(&right.get(index).copied().unwrap_or(0));
+        if !order.is_eq() {
+            return order;
+        }
+    }
+    std::cmp::Ordering::Equal
+}
+
+#[cfg(target_os = "android")]
+fn current_time_millis() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default()
 }
 
 fn mobile_config(root: &PathBuf) -> Value {
@@ -244,7 +713,7 @@ fn mobile_config_with_request(
         .unwrap_or(false);
     let git_backend = request
         .and_then(|request| request.git_backend.as_deref())
-        .unwrap_or("auto");
+        .unwrap_or("git2");
     let runtime_path = request
         .and_then(|request| request.runtime_path.as_deref())
         .unwrap_or("embedded-python-3.9");
@@ -267,7 +736,7 @@ fn mobile_config_with_request(
         "android": {
             "embedded_python": true,
             "uses_uv": false,
-            "backend_install_source": "bundled-baas-dev",
+            "backend_install_source": "git2",
             "message": ANDROID_BACKEND_MESSAGE
         }
     })
@@ -283,7 +752,7 @@ fn mobile_setup_toml(
     let channel = request.channel.as_deref().unwrap_or("dev");
     let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
     let no_update = request.no_update.unwrap_or(false);
-    let git_backend = request.git_backend.as_deref().unwrap_or("auto");
+    let git_backend = request.git_backend.as_deref().unwrap_or("git2");
     let runtime_path = request
         .runtime_path
         .as_deref()
@@ -328,6 +797,27 @@ fn mobile_setup_toml(
         escape_toml_string(&baas_root),
         escape_toml_string(runtime_path),
     )
+}
+
+fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
+    let setup_path = root.join("setup.toml");
+    if setup_path.exists() {
+        return Ok(setup_path);
+    }
+    let request = UpdaterConfigUpdateRequest {
+        baas_root_path: Some(root.to_path_buf()),
+        mirrorc_cdk: None,
+        channel: Some("dev".to_string()),
+        runtime_path: Some("embedded-python-3.9".to_string()),
+        no_update: Some(false),
+        git_backend: Some("git2".to_string()),
+    };
+    fs::write(
+        &setup_path,
+        mobile_setup_toml(&root, &request, "", "", "github"),
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(setup_path)
 }
 
 fn read_setup_value(path: &Path, key: &str) -> Option<String> {

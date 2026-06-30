@@ -7,12 +7,17 @@
 
 use std::{fmt, path::PathBuf};
 
+pub mod android;
+#[cfg(not(target_os = "android"))]
 pub mod app;
 pub mod config;
 pub mod constants;
+#[cfg(not(target_os = "android"))]
 pub mod environ;
+#[cfg(not(target_os = "android"))]
 pub mod mirrorc;
 pub mod repo;
+#[cfg(not(target_os = "android"))]
 pub mod workflow;
 
 /// Result alias used by all updater modules.
@@ -101,6 +106,7 @@ impl From<toml::ser::Error> for UpdaterError {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl From<zip::result::ZipError> for UpdaterError {
     fn from(error: zip::result::ZipError) -> Self {
         Self::Io(error.to_string())

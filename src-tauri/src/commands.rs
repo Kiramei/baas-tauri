@@ -7,6 +7,7 @@ use baas_updater::{
     config::{exe_adjacent_config_path, ConfigManager, UpdaterConfig},
     environ::{backend_pid_path, launch_backend_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
+    repo::{repository_branch, repository_urls},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use chrono::{DateTime, Local, Utc};
@@ -16,7 +17,7 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
@@ -96,6 +97,53 @@ pub struct UpdaterWorkflowRequest {
 pub struct BackendReadyPayload {
     pub base_backend_addr: String,
     pub base_backend_port: u16,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterVersionCheckRequest {
+    pub channel: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterVersionCheckReport {
+    pub local: Option<String>,
+    pub remote: Option<String>,
+    pub update_available: bool,
+    pub channel: String,
+    pub method: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterShaTestRequest {
+    pub channel: Option<String>,
+    pub timeout: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterSingleShaTestRequest {
+    pub channel: Option<String>,
+    pub timeout: Option<f64>,
+    pub method: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TauriClientUpdateRequest {
+    pub current_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterShaTestReport {
+    pub success: bool,
+    pub name: String,
+    pub duration: f64,
+    pub value: Option<String>,
+    pub error: Option<String>,
 }
 
 #[tauri::command]
@@ -318,6 +366,120 @@ pub fn updater_validate_mirrorc_cdk(
 }
 
 #[tauri::command]
+pub fn tauri_client_check_update(
+    request: TauriClientUpdateRequest,
+) -> Result<serde_json::Value, String> {
+    let _ = request.current_version;
+    Err("Desktop client updates are handled by tauri-plugin-updater.".to_string())
+}
+
+#[tauri::command]
+pub fn updater_check_version(
+    app: AppHandle,
+    request: UpdaterVersionCheckRequest,
+) -> Result<UpdaterVersionCheckReport, String> {
+    let manager = ensure_default_config(&app)?;
+    let channel =
+        parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
+    let local = desktop_local_main_sha(&manager.config);
+    let preferred_method = normalized_sha_method(&manager.config.general.get_remote_sha_method);
+    let (method, remote) = desktop_first_remote_sha(channel, &preferred_method)?;
+    Ok(UpdaterVersionCheckReport {
+        update_available: local.as_deref() != Some(remote.as_str()),
+        local,
+        remote: Some(remote),
+        channel: channel.as_str().to_string(),
+        method,
+    })
+}
+
+#[tauri::command]
+pub fn updater_test_sha_methods(
+    app: AppHandle,
+    request: UpdaterShaTestRequest,
+) -> Result<Vec<UpdaterShaTestReport>, String> {
+    let manager = ensure_default_config(&app)?;
+    let channel =
+        parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
+    let timeout = Duration::from_secs_f64(request.timeout.unwrap_or(15.0).clamp(1.0, 60.0));
+    let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
+    Ok(sha_method_sources(channel)
+        .into_iter()
+        .map(|(name, url)| {
+            let start = Instant::now();
+            match url {
+                Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
+                    Ok(value) => UpdaterShaTestReport {
+                        success: true,
+                        name,
+                        duration: start.elapsed().as_secs_f64(),
+                        value: Some(value),
+                        error: None,
+                    },
+                    Err(error) => UpdaterShaTestReport {
+                        success: false,
+                        name,
+                        duration: start.elapsed().as_secs_f64(),
+                        value: None,
+                        error: Some(error),
+                    },
+                },
+                None => UpdaterShaTestReport {
+                    success: false,
+                    name,
+                    duration: start.elapsed().as_secs_f64(),
+                    value: None,
+                    error: Some("not a git source".to_string()),
+                },
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn updater_test_sha_method(
+    app: AppHandle,
+    request: UpdaterSingleShaTestRequest,
+) -> Result<UpdaterShaTestReport, String> {
+    let manager = ensure_default_config(&app)?;
+    let channel =
+        parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
+    let timeout = Duration::from_secs_f64(request.timeout.unwrap_or(15.0).clamp(1.0, 60.0));
+    let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
+    let start = Instant::now();
+    let name = request.method.trim().to_string();
+    let url = sha_method_sources(channel)
+        .into_iter()
+        .find(|(method, _)| method == &name)
+        .and_then(|(_, url)| url);
+    Ok(match url {
+        Some(url) => match git_ls_remote_with_timeout(&url, &branch, timeout) {
+            Ok(value) => UpdaterShaTestReport {
+                success: true,
+                name,
+                duration: start.elapsed().as_secs_f64(),
+                value: Some(value),
+                error: None,
+            },
+            Err(error) => UpdaterShaTestReport {
+                success: false,
+                name,
+                duration: start.elapsed().as_secs_f64(),
+                value: None,
+                error: Some(error),
+            },
+        },
+        None => UpdaterShaTestReport {
+            success: false,
+            name,
+            duration: start.elapsed().as_secs_f64(),
+            value: None,
+            error: Some("not a git source".to_string()),
+        },
+    })
+}
+
+#[tauri::command]
 pub fn updater_start_workflow(
     app: AppHandle,
     request: UpdaterWorkflowRequest,
@@ -405,6 +567,187 @@ pub fn updater_resize_term(
 ) -> Result<(), String> {
     manager.resize(rows, cols)
 }
+
+fn parse_requested_channel(
+    requested: Option<&str>,
+    fallback: UpdateChannel,
+) -> Result<UpdateChannel, String> {
+    match requested {
+        Some(value) if !value.trim().is_empty() => {
+            UpdateChannel::parse(value).map_err(|error| error.message())
+        }
+        _ => Ok(fallback),
+    }
+}
+
+fn normalized_sha_method(value: &str) -> String {
+    match value.trim() {
+        "" | "git2" | "git_cli" | "auto" => "github".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn desktop_local_main_sha(config: &UpdaterConfig) -> Option<String> {
+    let configured = config.general.current_baas_sha.trim();
+    if !configured.is_empty() {
+        return Some(configured.to_string());
+    }
+    let root = PathBuf::from(config.paths.baas_root_path.trim());
+    if root.as_os_str().is_empty() {
+        return None;
+    }
+    git_rev_parse_head(&root).ok()
+}
+
+fn desktop_first_remote_sha(
+    channel: UpdateChannel,
+    preferred_method: &str,
+) -> Result<(String, String), String> {
+    let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
+    let methods = sha_method_sources(channel);
+    let mut ordered = Vec::new();
+    if methods
+        .iter()
+        .any(|(name, url)| name == preferred_method && url.is_some())
+    {
+        ordered.push(preferred_method.to_string());
+    }
+    for (name, url) in &methods {
+        if url.is_some() && !ordered.iter().any(|item| item == name) {
+            ordered.push(name.clone());
+        }
+    }
+
+    let mut last_error = None;
+    for method in ordered {
+        let Some((_, Some(url))) = methods.iter().find(|(name, _)| name == &method) else {
+            continue;
+        };
+        match git_ls_remote_with_timeout(url, &branch, Duration::from_secs(15)) {
+            Ok(sha) => return Ok((method, sha)),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
+}
+
+fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
+    let urls = repository_urls(RepositoryKind::Main, channel);
+    vec![
+        ("github".to_string(), urls.first().cloned()),
+        ("mirrorc".to_string(), None),
+        ("gitee".to_string(), find_url(&urls, "gitee.com")),
+        ("gitcode".to_string(), find_url(&urls, "gitcode.com")),
+        (
+            "github_proxy_v4".to_string(),
+            find_url(&urls, "v4.gh-proxy.org"),
+        ),
+        (
+            "github_proxy_v6".to_string(),
+            find_url(&urls, "v6.gh-proxy.org"),
+        ),
+        (
+            "github_proxy_cdn".to_string(),
+            find_url(&urls, "cdn.gh-proxy.org"),
+        ),
+        ("gh_proxy".to_string(), find_url(&urls, "://gh-proxy.org")),
+        ("sevencdn".to_string(), find_url(&urls, "gh.sevencdn.com")),
+        ("githubfast".to_string(), find_url(&urls, "githubfast.com")),
+        (
+            "baas_cdn".to_string(),
+            find_url(&urls, "baas-cdn.kiramei.workers.dev"),
+        ),
+    ]
+}
+
+fn find_url(urls: &[String], needle: &str) -> Option<String> {
+    urls.iter().find(|url| url.contains(needle)).cloned()
+}
+
+fn git_rev_parse_head(root: &Path) -> Result<String, String> {
+    let mut command = Command::new("git");
+    hide_command_window(&mut command);
+    configure_git_environment(&mut command);
+    let output = command
+        .arg("rev-parse")
+        .arg("HEAD")
+        .current_dir(root)
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+fn git_ls_remote_with_timeout(
+    url: &str,
+    branch: &str,
+    timeout: Duration,
+) -> Result<String, String> {
+    let mut command = Command::new("git");
+    hide_command_window(&mut command);
+    configure_git_environment(&mut command);
+    command
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .arg("ls-remote")
+        .arg("--heads")
+        .arg(url)
+        .arg(branch)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().map_err(|error| error.to_string())?;
+    let start = Instant::now();
+    loop {
+        if child
+            .try_wait()
+            .map_err(|error| error.to_string())?
+            .is_some()
+        {
+            let output = child
+                .wait_with_output()
+                .map_err(|error| error.to_string())?;
+            if !output.status.success() {
+                return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+            }
+            return String::from_utf8_lossy(&output.stdout)
+                .split_whitespace()
+                .next()
+                .filter(|sha| !sha.is_empty())
+                .map(ToOwned::to_owned)
+                .ok_or_else(|| format!("remote branch not found: {url} {branch}"));
+        }
+        if start.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "git ls-remote timed out after {:.1}s",
+                timeout.as_secs_f64()
+            ));
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn configure_git_environment(command: &mut Command) {
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
+        .env("GCM_MODAL_PROMPT", "0")
+        .env("GIT_ASKPASS", "")
+        .env("SSH_ASKPASS", "");
+}
+
+#[cfg(target_os = "windows")]
+fn hide_command_window(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(0x08000000);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn hide_command_window(_command: &mut Command) {}
 
 /// Returns the active setup.toml manager without using app-data setup storage.
 pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {

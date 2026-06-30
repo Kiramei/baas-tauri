@@ -537,6 +537,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
     let chunkBuffer = "";
     let chunkFrame: number | null = null;
     const capturedStableRegions = new Set<string>();
+    const pendingStableRegions = new Map<string, TermStableRegionPayload>();
 
     const flushChunks = () => {
       chunkFrame = null;
@@ -595,7 +596,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
         }),
         listen<TermStableRegionPayload>("term:region-stable", (event) => {
           if (disposed) return;
-          appendStableRegionLog(event.payload);
+          pendingStableRegions.set(event.payload.taskId, event.payload);
         }),
         listen<TermTaskStartedPayload>("term:task-started", (event) => {
           if (disposed) return;
@@ -655,6 +656,10 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (payload.status === "failed" || payload.status === "stopped") {
             const message = payload.error || `${payload.taskId} ${payload.status}`;
             appendStatusLog(payload.status === "failed" ? "error" : "warning", message);
+            const stableRegion = pendingStableRegions.get(payload.taskId);
+            if (stableRegion) {
+              appendStableRegionLog(stableRegion);
+            }
             concreteFailureRef.current = true;
             onFailureRef.current?.({ step: payload.taskId, message });
           }
@@ -677,6 +682,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.reset();
           concreteFailureRef.current = false;
           capturedStableRegions.clear();
+          pendingStableRegions.clear();
           setTasks({});
           setEdges([]);
         }),
