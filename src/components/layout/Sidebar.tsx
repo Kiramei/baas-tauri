@@ -132,13 +132,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
               }
             }
           }),
-          listen<any>("term:session-finished", (event) => {
+          listen<any>("term:session-finished", async (event) => {
             const success = Boolean(event.payload?.success);
             appendTerminalLine(success ? "DONE android git2 update" : "ERROR android git2 update failed");
             setBackendUpdating(false);
             for (const unlisten of unlisteners) unlisten();
             if (success) {
               toast.success(t("update.backendStarted"));
+              try {
+                const { relaunch } = await import("@tauri-apps/plugin-process");
+                await relaunch();
+              } catch {
+                reloadWithoutPrompt();
+              }
             } else {
               toast.error(t("update.backendStartFailed"));
             }
