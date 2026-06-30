@@ -1,0 +1,65 @@
+---
+title: Tauri Commands
+description: Rust command contracts called by the BAAS Tauri frontend through invoke, including desktop and Android differences.
+---
+
+Tauri commands are the public API between the React frontend and Rust-side capabilities. Desktop implementations live in `src-tauri/src/commands.rs`, Android implementations live in `src-tauri/src/mobile_commands.rs`, and window behavior commands live in `src-tauri/src/behavior.rs`.
+
+## Common Commands
+
+| Command | Args | Result | Description |
+| --- | --- | --- | --- |
+| `splash_off` | none | `Result<(), String>` | Closes the splash window after the frontend entry is ready. |
+| `set_backend_locale` | `{ lang: string }` | `Result<(), String>` | Syncs the backend locale. Android may accept the call but must not depend on desktop backend state. |
+| `open_main_devtools` | none | `Result<Value, String>` | Opens main window DevTools. Android returns unsupported. |
+| `shortcut_apply_bindings` | shortcut config | `Result<Value, String>` | Applies global shortcuts on desktop. Android returns unsupported. |
+
+## Updater and Startup Commands
+
+| Command | Args | Result | Desktop behavior | Android behavior |
+| --- | --- | --- | --- | --- |
+| `updater_get_storage_state` | none | storage path and portable state | Reads desktop app storage | Reads Android app private/external storage |
+| `updater_get_startup_state` | none | startup config, backend status, log status | Returns desktop install and backend readiness | Returns bundled Python backend startup status |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean` | Checks a local host path | Kept for compatibility; not for user-selected Android paths |
+| `updater_update_config` | `{ request }` | updated config | Writes updater config | Writes config under Android storage |
+| `updater_validate_mirrorc_cdk` | `{ request }` | validation report | Calls MirrorC validation | Returns an Android-compatible report |
+| `tauri_client_check_update` | `{ request }` | client update report | Checks desktop packages | Checks Android APK metadata |
+| `updater_check_version` | `{ request }` | backend version report | Compares local and remote main sha | Compares Android storage main sha |
+| `updater_test_sha_method` | `{ request }` | single-source probe report | Probes one SHA source | 10 second timeout, async single-source result |
+| `updater_test_sha_methods` | `{ request }` | multi-source probe report | Probes all SHA sources concurrently | Concurrent probes, aggregated by completion |
+| `updater_start_workflow` | `{ request }` | startup report | Installs, updates, or starts the desktop backend | Starts the Android bundled backend |
+| `updater_abort_workflow` | `{ request }` | abort report | Cancels the current workflow | Cancels the Android startup terminal task |
+| `updater_reset_backend_auth_and_restart` | none or `{ request }` | reset report | Resets auth and restarts backend | Resets according to Android local storage |
+
+## Terminal Commands
+
+The updater terminal consumes backend chunks through xterm. Rust exposes structured snapshots and should not flatten ANSI chunks into a single long text line.
+
+| Command | Args | Result | Description |
+| --- | --- | --- | --- |
+| `updater_terminal_snapshot` | optional session args | `{ rows, cols, regions }` | Returns the current terminal screen snapshot. |
+| `updater_resize_term` | `{ cols, rows }` | `Result<Value, String>` | Syncs xterm size so backend output wraps correctly. |
+
+## Frontend Call Pattern
+
+```ts
+import { invoke } from "@tauri-apps/api/core";
+
+type ShaMethodReport = {
+  method: string;
+  status: "ok" | "timeout" | "error";
+  elapsedMs?: number;
+  remote?: string | null;
+  error?: string | null;
+};
+
+export async function testShaMethod(method: string): Promise<ShaMethodReport> {
+  return invoke<ShaMethodReport>("updater_test_sha_method", {
+    request: { method, timeoutMs: 10000 },
+  });
+}
+```
+
+## Error Contract
+
+Rust commands return `Err(String)` for recoverable errors. The string must be readable in UI or logs, not an internal Rust type name. Errors that require frontend branching should return structured `Value` data with stable fields such as `ok`, `reason`, `missing`, and `retryable`.
