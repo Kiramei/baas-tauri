@@ -30,6 +30,7 @@ const chunkGroups: Record<string, string[]> = {
   ],
 };
 
+/** Handles the manual chunks workflow. */
 export const manualChunks = (id: string): string | undefined => {
   if (!id.includes("node_modules")) return undefined;
 

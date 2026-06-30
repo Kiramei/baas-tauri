@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
+/** Renders the progress bar component. */
 const ProgressBar: React.FC = () => {
   const globalProgress = useGlobalLogStore((e) => e.globalProgress);
   const { uiSettings } = useUISettings();

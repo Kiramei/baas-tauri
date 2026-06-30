@@ -11,6 +11,7 @@ type DrillConfigProps = {
   profileId?: string;
 };
 
+/** Renders the drill config component. */
 const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(

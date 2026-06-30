@@ -15,6 +15,7 @@ const reconnectingMessages: Record<string, string> = {
   revoked: "Re-establishing backend connection...",
 };
 
+/** Renders the reconnecting overlay component. */
 const ReconnectingOverlay: React.FC = () => {
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);

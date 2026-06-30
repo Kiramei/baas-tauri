@@ -413,6 +413,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// Handles the term state defaults to no session or size workflow.
     #[test]
     fn term_state_defaults_to_no_session_or_size() {
         let state = TermState::default();
@@ -424,6 +425,7 @@ mod tests {
         assert_eq!(state.cols, 0);
     }
 
+    /// Handles the task completion clones task result workflow.
     #[test]
     fn task_completion_clones_task_result() {
         let completion = TaskCompletion {
@@ -436,6 +438,7 @@ mod tests {
         assert!(cloned.success);
     }
 
+    /// Handles the payloads serialize with camel case fields workflow.
     #[test]
     fn payloads_serialize_with_camel_case_fields() {
         let payload = TaskStatusPayload {
@@ -466,6 +469,7 @@ mod tests {
         );
     }
 
+    /// Handles the task spec appends process commands workflow.
     #[test]
     fn task_spec_appends_process_commands() {
         let spec = TaskSpec {
@@ -505,6 +509,7 @@ mod tests {
         assert_eq!(commands[1].detached_pid_file.as_deref(), Some("pid.txt"));
     }
 
+    /// Handles the backend ready payload serializes with backend fields workflow.
     #[test]
     fn backend_ready_payload_serializes_with_backend_fields() {
         let payload = BackendReadyPayload {
@@ -521,6 +526,7 @@ mod tests {
         );
     }
 
+    /// Handles the renderer event clone preserves payload workflow.
     #[test]
     fn renderer_event_clone_preserves_payload() {
         let event = RendererEvent::Resize { rows: 24, cols: 80 }.clone();

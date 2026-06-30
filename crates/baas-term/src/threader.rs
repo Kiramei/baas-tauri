@@ -302,6 +302,7 @@ pub enum ThreadLogStyle {
 }
 
 impl ThreadLogStyle {
+    /// Handles the ansi code workflow.
     fn ansi_code(self) -> Option<&'static str> {
         match self {
             ThreadLogStyle::Plain => None,
@@ -585,6 +586,7 @@ impl ThreadSpinnerGuard {
 }
 
 impl Drop for ThreadSpinnerGuard {
+    /// Handles the drop workflow.
     fn drop(&mut self) {
         if self.finished {
             return;
@@ -696,6 +698,7 @@ impl ThreadProgressBar {
 }
 
 impl Drop for ThreadProgressBar {
+    /// Handles the drop workflow.
     fn drop(&mut self) {
         if self.rendered {
             self.output.write(&format!(
@@ -707,10 +710,12 @@ impl Drop for ThreadProgressBar {
     }
 }
 
+/// Handles the progress bar segments workflow.
 fn progress_bar_segments(filled: usize, width: usize) -> (String, String) {
     ("━".repeat(filled), "─".repeat(width.saturating_sub(filled)))
 }
 
+/// Handles the style text workflow.
 fn style_text(style: ThreadLogStyle, text: &str) -> String {
     match style.ansi_code() {
         Some(code) => format!("{code}{text}{ANSI_RESET}"),
@@ -718,6 +723,7 @@ fn style_text(style: ThreadLogStyle, text: &str) -> String {
     }
 }
 
+/// Handles the scope error style workflow.
 fn scope_error_style(error: &str) -> ThreadLogStyle {
     if error.to_ascii_lowercase().contains("cancel") {
         ThreadLogStyle::Warning
@@ -731,6 +737,7 @@ mod tests {
     use super::*;
     use std::{sync::mpsc, time::Duration};
 
+    /// Handles the output workflow.
     fn output() -> (ThreadOutput, mpsc::Receiver<RendererEvent>) {
         let (tx, rx) = mpsc::channel();
         (
@@ -743,6 +750,7 @@ mod tests {
         )
     }
 
+    /// Handles the active state workflow.
     fn active_state() -> Arc<Mutex<TermState>> {
         Arc::new(Mutex::new(TermState {
             current_session_id: Some("session".to_string()),
@@ -750,6 +758,7 @@ mod tests {
         }))
     }
 
+    /// Handles the recv output workflow.
     fn recv_output(rx: &mpsc::Receiver<RendererEvent>) -> String {
         match rx.recv_timeout(Duration::from_secs(2)).unwrap() {
             RendererEvent::Output { chunk, .. } => String::from_utf8(chunk).unwrap(),
@@ -757,6 +766,7 @@ mod tests {
         }
     }
 
+    /// Handles the recv finished workflow.
     fn recv_finished(rx: &mpsc::Receiver<RendererEvent>) -> (String, Option<String>) {
         loop {
             if let RendererEvent::TaskFinished { status, error, .. } =
@@ -767,6 +777,7 @@ mod tests {
         }
     }
 
+    /// Returns the create thread task uses display command and empty process fields result.
     #[test]
     fn create_thread_task_uses_display_command_and_empty_process_fields() {
         let spec = create_thread_task("task", "region", 3, "Thread", "run in process");
@@ -781,6 +792,7 @@ mod tests {
         assert!(spec.args.is_empty());
     }
 
+    /// Handles the thread output forwards raw text and bytes workflow.
     #[test]
     fn thread_output_forwards_raw_text_and_bytes() {
         let (output, rx) = output();
@@ -792,6 +804,7 @@ mod tests {
         assert_eq!(recv_output(&rx), " bytes");
     }
 
+    /// Handles the thread log writes styled lines workflow.
     #[test]
     fn thread_log_writes_styled_lines() {
         let (output, rx) = output();
@@ -805,6 +818,7 @@ mod tests {
         assert_eq!(recv_output(&rx), "b\r\n");
     }
 
+    /// Handles the line repaint clears previous line after first render workflow.
     #[test]
     fn line_repaint_clears_previous_line_after_first_render() {
         let (output, rx) = output();
@@ -818,6 +832,7 @@ mod tests {
         assert_eq!(recv_output(&rx), "\r\n");
     }
 
+    /// Handles the block repaint rewinds previous frame workflow.
     #[test]
     fn block_repaint_rewinds_previous_frame() {
         let (output, rx) = output();
@@ -833,6 +848,7 @@ mod tests {
         assert_eq!(recv_output(&rx), "\x1b[36mc\x1b[0m\r\n");
     }
 
+    /// Handles the progress bar clamps total width and current workflow.
     #[test]
     fn progress_bar_clamps_total_width_and_current() {
         let (output, rx) = output();
@@ -848,6 +864,7 @@ mod tests {
         assert_eq!(recv_output(&rx), "\r\x1b[2K\x1b[32mdone\x1b[0m\r\n");
     }
 
+    /// Handles the progress bar drop marks interrupted when rendered workflow.
     #[test]
     fn progress_bar_drop_marks_interrupted_when_rendered() {
         let (output, rx) = output();
@@ -864,6 +881,7 @@ mod tests {
         );
     }
 
+    /// Handles the scoped progress bar finishes success and error workflow.
     #[test]
     fn scoped_progress_bar_finishes_success_and_error() {
         let (output, rx) = output();
@@ -888,6 +906,7 @@ mod tests {
         );
     }
 
+    /// Handles the scoped spinner finishes success and error workflow.
     #[test]
     fn scoped_spinner_finishes_success_and_error() {
         let (output, rx) = output();
@@ -908,6 +927,7 @@ mod tests {
         assert!(final_line.contains("\x1b[31mfailed\x1b[0m"));
     }
 
+    /// Performs the spawn thread task completes successfully operation.
     #[test]
     fn spawn_thread_task_completes_successfully() {
         let inner = active_state();
@@ -942,6 +962,7 @@ mod tests {
         assert_eq!(error, None);
     }
 
+    /// Performs the spawn thread task reports failures panics and cancellations operation.
     #[test]
     fn spawn_thread_task_reports_failures_panics_and_cancellations() {
         type TestJob =
@@ -997,6 +1018,7 @@ mod tests {
         }
     }
 
+    /// Verifies the spawn thread task rejects stale sessions behavior.
     #[test]
     fn spawn_thread_task_rejects_stale_sessions() {
         let inner = Arc::new(Mutex::new(TermState::default()));

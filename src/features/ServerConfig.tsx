@@ -18,11 +18,13 @@ interface Draft {
   adbPort: string;
 }
 
+/** Renders the server config component. */
 const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = React.useMemo(() => {
     return {
       server: settings.server,
@@ -34,10 +36,12 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const [draft, setDraft] = React.useState(ext);
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: string) => (value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
@@ -55,6 +59,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
     onClose();
   };
 
+  /** Handles the handle input change interaction. */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setDraft((prev) => ({ ...prev, [name]: value }));

@@ -15,10 +15,12 @@ export const locales = [
 
 export type Locale = (typeof locales)[number]["locale"];
 
+/** Returns the normalize locale result. */
 export function normalizeLocale(value: string | undefined): Locale {
   return value === "en" ? "en" : "zh";
 }
 
+/** Handles the switch locale path workflow. */
 export function switchLocalePath(pathname: string, nextLocale: Locale): string {
   const segments = pathname.split("/").filter(Boolean);
   const docsIndex = segments.indexOf("docs");

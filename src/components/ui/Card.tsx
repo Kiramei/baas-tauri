@@ -6,6 +6,7 @@ interface CardProps {
   onClick?: () => void;
 }
 
+/** Renders the card component. */
 export const Card: React.FC<CardProps> = ({ children, className = "", onClick }) => {
   const baseClasses =
     "bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm";
@@ -25,6 +26,7 @@ interface CardHeaderProps {
   className?: string;
 }
 
+/** Renders the card header component. */
 export const CardHeader: React.FC<CardHeaderProps> = ({ children, className = "" }) => {
   return (
     <div className={`p-4 border-b border-slate-200 dark:border-slate-700 ${className}`}>
@@ -38,6 +40,7 @@ interface CardContentProps {
   className?: string;
 }
 
+/** Renders the card content component. */
 export const CardContent: React.FC<CardContentProps> = ({ children, className = "" }) => {
   return <div className={`p-4 ${className}`}>{children}</div>;
 };
@@ -47,6 +50,7 @@ interface CardTitleProps {
   className?: string;
 }
 
+/** Renders the card title component. */
 export const CardTitle: React.FC<CardTitleProps> = ({ children, className = "" }) => {
   return (
     <h3 className={`text-lg font-semibold text-slate-800 dark:text-slate-100 ${className}`}>
@@ -60,6 +64,7 @@ interface CardDescriptionProps {
   className?: string;
 }
 
+/** Renders the card description component. */
 export const CardDescription: React.FC<CardDescriptionProps> = ({ children, className = "" }) => {
   return <p className={`text-sm text-slate-500 dark:text-slate-400 ${className}`}>{children}</p>;
 };

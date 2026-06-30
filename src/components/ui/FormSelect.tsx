@@ -28,6 +28,7 @@ interface FormSelectProps {
   disabled?: boolean;
 }
 
+/** Renders the form select component. */
 export const FormSelect: React.FC<FormSelectProps> = ({
   label,
   tooltip,
@@ -44,6 +45,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   const global = useGlobalSelect();
 
   const open = global ? global.openId === id : undefined;
+  /** Handles the handle open change interaction. */
   const handleOpenChange = (next: boolean) => {
     if (!global) return;
     global.setOpenId(next ? id : null);

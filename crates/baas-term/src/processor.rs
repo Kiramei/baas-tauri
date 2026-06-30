@@ -43,6 +43,7 @@ pub struct ScriptCommand {
 }
 
 impl From<ScriptCommand> for TaskCommandSpec {
+    /// Handles the from workflow.
     fn from(script: ScriptCommand) -> Self {
         Self {
             command: script.display,
@@ -103,6 +104,7 @@ pub fn create_process_task_with_total(
     }
 }
 
+/// Handles the contains device status report workflow.
 fn contains_device_status_report(tail: &mut Vec<u8>, bytes: &[u8]) -> bool {
     tail.extend_from_slice(bytes);
     let found = tail
@@ -194,6 +196,7 @@ pub fn spawn_process_task(
     Ok(())
 }
 
+/// Performs the run one process command operation.
 fn run_one_process_command(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -309,6 +312,7 @@ fn run_one_process_command(
     Ok(exit_code)
 }
 
+/// Performs the spawn detached process command operation.
 fn spawn_detached_process_command(
     task_id: &str,
     region_id: &str,
@@ -365,6 +369,7 @@ fn spawn_detached_process_command(
     Ok(0)
 }
 
+/// Performs the spawn detached output reader operation.
 fn spawn_detached_output_reader<R>(
     mut reader: R,
     task_id: String,
@@ -391,6 +396,7 @@ fn spawn_detached_output_reader<R>(
     });
 }
 
+/// Performs the write pid file operation.
 fn write_pid_file(path: &Path, pid: u32) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -398,12 +404,14 @@ fn write_pid_file(path: &Path, pid: u32) -> Result<(), String> {
     fs::write(path, pid.to_string()).map_err(|error| error.to_string())
 }
 
+/// Handles the hide process window workflow.
 #[cfg(windows)]
 fn hide_process_window(command: &mut StdCommand) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x08000000);
 }
 
+/// Handles the hide process window workflow.
 #[cfg(not(windows))]
 fn hide_process_window(_command: &mut StdCommand) {}
 
@@ -433,6 +441,7 @@ mod tests {
     use super::*;
     use std::{sync::mpsc, time::Duration};
 
+    /// Handles the script workflow.
     #[cfg(windows)]
     fn script(command: &str, display: &str) -> ScriptCommand {
         ScriptCommand {
@@ -452,6 +461,7 @@ mod tests {
         }
     }
 
+    /// Handles the script workflow.
     #[cfg(not(windows))]
     fn script(command: &str, display: &str) -> ScriptCommand {
         ScriptCommand {
@@ -465,30 +475,36 @@ mod tests {
         }
     }
 
+    /// Handles the success script workflow.
     #[cfg(windows)]
     fn success_script() -> ScriptCommand {
         script("Write-Output ok; exit 0", "success")
     }
 
+    /// Handles the success script workflow.
     #[cfg(not(windows))]
     fn success_script() -> ScriptCommand {
         script("printf 'ok\\n'; exit 0", "success")
     }
 
+    /// Handles the failure script workflow.
     fn failure_script() -> ScriptCommand {
         script("exit 7", "failure")
     }
 
+    /// Handles the output script workflow.
     #[cfg(windows)]
     fn output_script(text: &str, display: &str) -> ScriptCommand {
         script(&format!("Write-Output {text}; exit 0"), display)
     }
 
+    /// Handles the output script workflow.
     #[cfg(not(windows))]
     fn output_script(text: &str, display: &str) -> ScriptCommand {
         script(&format!("printf '{text}\\n'; exit 0"), display)
     }
 
+    /// Handles the active state workflow.
     fn active_state() -> Arc<Mutex<TermState>> {
         Arc::new(Mutex::new(TermState {
             current_session_id: Some("session".to_string()),
@@ -498,6 +514,7 @@ mod tests {
         }))
     }
 
+    /// Returns the create process task maps script metadata result.
     #[test]
     fn create_process_task_maps_script_metadata() {
         let spec = create_process_task(
@@ -526,6 +543,7 @@ mod tests {
         assert_eq!(spec.args, ["arg"]);
     }
 
+    /// Handles the detects device status report within and across chunks workflow.
     #[test]
     fn detects_device_status_report_within_and_across_chunks() {
         let mut tail = Vec::new();
@@ -540,6 +558,7 @@ mod tests {
         assert!(!contains_device_status_report(&mut tail, b"\x1b[5n"));
     }
 
+    /// Verifies the spawn process task rejects stale sessions behavior.
     #[test]
     fn spawn_process_task_rejects_stale_sessions() {
         let inner = Arc::new(Mutex::new(TermState::default()));
@@ -555,6 +574,7 @@ mod tests {
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 
+    /// Verifies the run process and wait returns true for successful process behavior.
     #[test]
     fn run_process_and_wait_returns_true_for_successful_process() {
         let inner = active_state();
@@ -578,6 +598,7 @@ mod tests {
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 
+    /// Handles the process task runs appended commands in same region workflow.
     #[test]
     fn process_task_runs_appended_commands_in_same_region() {
         let inner = active_state();
@@ -626,6 +647,7 @@ mod tests {
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 
+    /// Handles the detached process task writes pid file and finishes workflow.
     #[test]
     fn detached_process_task_writes_pid_file_and_finishes() {
         let inner = active_state();
@@ -678,6 +700,7 @@ mod tests {
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 
+    /// Verifies the run process and wait returns false for failed process behavior.
     #[test]
     fn run_process_and_wait_returns_false_for_failed_process() {
         let inner = active_state();

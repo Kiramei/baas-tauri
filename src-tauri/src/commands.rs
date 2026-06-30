@@ -148,6 +148,7 @@ pub struct UpdaterShaTestReport {
     pub error: Option<String>,
 }
 
+/// Handles the shortcut apply bindings workflow.
 #[tauri::command]
 pub fn shortcut_apply_bindings(
     app: AppHandle,
@@ -157,6 +158,7 @@ pub fn shortcut_apply_bindings(
     apply_shortcut_bindings(app, &registry, bindings)
 }
 
+/// Performs the open main devtools operation.
 #[tauri::command]
 pub fn open_main_devtools(app: AppHandle) -> Result<(), String> {
     let window = app
@@ -173,6 +175,7 @@ pub fn updater_path_exists_non_empty(path: PathBuf) -> bool {
     path_exists_non_empty(&path)
 }
 
+/// Performs the updater get storage state operation.
 #[tauri::command]
 pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
     let portable = is_portable_install();
@@ -196,16 +199,19 @@ pub struct BackendProcessManager {
 }
 
 impl BackendProcessManager {
+    /// Handles the remember config workflow.
     pub fn remember_config(&self, config: &UpdaterConfig) -> Result<(), String> {
         self.remember_pid_file(backend_pid_path(config))
     }
 
+    /// Performs the stop for config operation.
     pub fn stop_for_config(&self, config: &UpdaterConfig) -> Result<(), String> {
         let pid_file = backend_pid_path(config);
         self.remember_pid_file(pid_file.clone())?;
         stop_backend_pid_file(&pid_file)
     }
 
+    /// Performs the stop all operation.
     pub fn stop_all(&self) -> Result<(), String> {
         let pid_files = self
             .pid_files
@@ -218,6 +224,7 @@ impl BackendProcessManager {
         Ok(())
     }
 
+    /// Handles the remember pid file workflow.
     fn remember_pid_file(&self, pid_file: PathBuf) -> Result<(), String> {
         let mut pid_files = self
             .pid_files
@@ -231,11 +238,13 @@ impl BackendProcessManager {
 }
 
 impl Drop for BackendProcessManager {
+    /// Handles the drop workflow.
     fn drop(&mut self) {
         let _ = self.stop_all();
     }
 }
 
+/// Performs the updater get startup state operation.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, String> {
     let portable = is_portable_install();
@@ -265,6 +274,7 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
     })
 }
 
+/// Performs the updater update config operation.
 #[tauri::command]
 pub fn updater_update_config(
     app: AppHandle,
@@ -310,6 +320,7 @@ pub fn updater_update_config(
     Ok(manager.config)
 }
 
+/// Performs the updater validate mirrorc cdk operation.
 #[tauri::command]
 pub fn updater_validate_mirrorc_cdk(
     app: AppHandle,
@@ -367,6 +378,7 @@ pub fn updater_validate_mirrorc_cdk(
     Ok(report)
 }
 
+/// Handles the tauri client check update workflow.
 #[tauri::command]
 pub fn tauri_client_check_update(
     request: TauriClientUpdateRequest,
@@ -375,6 +387,7 @@ pub fn tauri_client_check_update(
     Err("Desktop client updates are handled by tauri-plugin-updater.".to_string())
 }
 
+/// Performs the updater check version operation.
 #[tauri::command]
 pub fn updater_check_version(
     app: AppHandle,
@@ -395,6 +408,7 @@ pub fn updater_check_version(
     })
 }
 
+/// Verifies the updater test sha methods behavior.
 #[tauri::command]
 pub async fn updater_test_sha_methods(
     app: AppHandle,
@@ -418,6 +432,7 @@ pub async fn updater_test_sha_methods(
     Ok(reports)
 }
 
+/// Verifies the updater test sha method behavior.
 #[tauri::command]
 pub async fn updater_test_sha_method(
     app: AppHandle,
@@ -436,6 +451,7 @@ pub async fn updater_test_sha_method(
     Ok(run_sha_probe(name, url, branch, timeout).await)
 }
 
+/// Performs the updater start workflow operation.
 #[tauri::command]
 pub fn updater_start_workflow(
     app: AppHandle,
@@ -480,6 +496,7 @@ pub fn updater_start_workflow(
     )
 }
 
+/// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
 pub fn updater_reset_backend_auth_and_restart(
     app: AppHandle,
@@ -501,6 +518,7 @@ pub fn updater_reset_backend_auth_and_restart(
     })
 }
 
+/// Performs the updater abort workflow operation.
 #[tauri::command]
 pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
@@ -509,6 +527,7 @@ pub fn updater_abort_workflow(
     manager.abort(request.unwrap_or_default())
 }
 
+/// Performs the updater terminal snapshot operation.
 #[tauri::command]
 pub fn updater_terminal_snapshot(
     manager: State<'_, UpdaterTermManager>,
@@ -516,6 +535,7 @@ pub fn updater_terminal_snapshot(
     manager.snapshot()
 }
 
+/// Performs the updater resize term operation.
 #[tauri::command]
 pub fn updater_resize_term(
     manager: State<'_, UpdaterTermManager>,
@@ -525,6 +545,7 @@ pub fn updater_resize_term(
     manager.resize(rows, cols)
 }
 
+/// Returns the parse requested channel result.
 fn parse_requested_channel(
     requested: Option<&str>,
     fallback: UpdateChannel,
@@ -537,6 +558,7 @@ fn parse_requested_channel(
     }
 }
 
+/// Returns the normalized sha method result.
 fn normalized_sha_method(value: &str) -> String {
     match value.trim() {
         "" | "git2" | "git_cli" | "auto" => "github".to_string(),
@@ -544,6 +566,7 @@ fn normalized_sha_method(value: &str) -> String {
     }
 }
 
+/// Handles the desktop local main sha workflow.
 fn desktop_local_main_sha(config: &UpdaterConfig) -> Option<String> {
     let configured = config.general.current_baas_sha.trim();
     if !configured.is_empty() {
@@ -556,6 +579,7 @@ fn desktop_local_main_sha(config: &UpdaterConfig) -> Option<String> {
     git_rev_parse_head(&root).ok()
 }
 
+/// Handles the desktop first remote sha workflow.
 fn desktop_first_remote_sha(
     channel: UpdateChannel,
     preferred_method: &str,
@@ -588,6 +612,7 @@ fn desktop_first_remote_sha(
     Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
 }
 
+/// Verifies the sha test timeout behavior.
 fn sha_test_timeout(timeout: Option<f64>) -> Duration {
     Duration::from_secs_f64(
         timeout
@@ -596,6 +621,7 @@ fn sha_test_timeout(timeout: Option<f64>) -> Duration {
     )
 }
 
+/// Performs the run sha probe operation.
 async fn run_sha_probe(
     name: String,
     url: Option<String>,
@@ -652,6 +678,7 @@ async fn run_sha_probe(
     }
 }
 
+/// Handles the sha method sources workflow.
 fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     let urls = repository_urls(RepositoryKind::Main, channel);
     vec![
@@ -681,10 +708,12 @@ fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     ]
 }
 
+/// Returns the find url result.
 fn find_url(urls: &[String], needle: &str) -> Option<String> {
     urls.iter().find(|url| url.contains(needle)).cloned()
 }
 
+/// Handles the git rev parse head workflow.
 fn git_rev_parse_head(root: &Path) -> Result<String, String> {
     let mut command = Command::new("git");
     hide_command_window(&mut command);
@@ -702,6 +731,7 @@ fn git_rev_parse_head(root: &Path) -> Result<String, String> {
     }
 }
 
+/// Handles the git ls remote with timeout workflow.
 fn git_ls_remote_with_timeout(
     url: &str,
     branch: &str,
@@ -752,6 +782,7 @@ fn git_ls_remote_with_timeout(
     }
 }
 
+/// Handles the configure git environment workflow.
 fn configure_git_environment(command: &mut Command) {
     command
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -761,12 +792,14 @@ fn configure_git_environment(command: &mut Command) {
         .env("SSH_ASKPASS", "");
 }
 
+/// Handles the hide command window workflow.
 #[cfg(target_os = "windows")]
 fn hide_command_window(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x08000000);
 }
 
+/// Handles the hide command window workflow.
 #[cfg(not(target_os = "windows"))]
 fn hide_command_window(_command: &mut Command) {}
 
@@ -778,6 +811,7 @@ pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
     config_manager_for_install_path(&install_path, portable)
 }
 
+/// Performs the ensure config for install path operation.
 fn ensure_config_for_install_path(
     app: &AppHandle,
     install_path: Option<&Path>,
@@ -803,6 +837,7 @@ fn ensure_config_for_install_path(
     Ok(manager)
 }
 
+/// Handles the config manager for install path workflow.
 fn config_manager_for_install_path(
     install_path: &Path,
     portable: bool,
@@ -820,6 +855,7 @@ fn config_manager_for_install_path(
     Ok(manager)
 }
 
+/// Performs the startup install path operation.
 fn startup_install_path(
     app: &AppHandle,
     portable: bool,
@@ -834,6 +870,7 @@ fn startup_install_path(
         .unwrap_or_else(|| default_install_path.to_path_buf()))
 }
 
+/// Handles the configure portable working dir workflow.
 pub fn configure_portable_working_dir() -> Result<(), String> {
     if !is_portable_install() {
         return Ok(());
@@ -844,6 +881,7 @@ pub fn configure_portable_working_dir() -> Result<(), String> {
     std::env::set_current_dir(&dir).map_err(|error| error.to_string())
 }
 
+/// Returns the normalize portable config result.
 fn normalize_portable_config(manager: &mut ConfigManager) -> Result<(), String> {
     if manager.config.paths.baas_root_path == "." {
         return Ok(());
@@ -855,6 +893,7 @@ fn normalize_portable_config(manager: &mut ConfigManager) -> Result<(), String> 
         .map_err(|error| error.message())
 }
 
+/// Handles the persisted baas root path workflow.
 fn persisted_baas_root_path(path: &Path, portable: bool) -> String {
     if portable {
         ".".to_string()
@@ -863,22 +902,26 @@ fn persisted_baas_root_path(path: &Path, portable: bool) -> String {
     }
 }
 
+/// Returns the is portable install result.
 fn is_portable_install() -> bool {
     exe_adjacent_config_path()
         .map(|path| path.exists())
         .unwrap_or(false)
 }
 
+/// Handles the portable config path workflow.
 fn portable_config_path() -> Result<PathBuf, String> {
     exe_adjacent_config_path().map_err(|error| error.message())
 }
 
+/// Handles the current exe dir workflow.
 fn current_exe_dir() -> Option<PathBuf> {
     std::env::current_exe()
         .ok()
         .and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
+/// Handles the storage file path workflow.
 fn storage_file_path(app: &AppHandle, portable: bool) -> Result<PathBuf, String> {
     if portable {
         return Ok(current_exe_dir()
@@ -892,6 +935,7 @@ fn storage_file_path(app: &AppHandle, portable: bool) -> Result<PathBuf, String>
         .join(STORAGE_FILE_NAME))
 }
 
+/// Returns the read stored install path result.
 fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<PathBuf>, String> {
     let path = storage_file_path(app, portable)?;
     if !path.exists() {
@@ -909,6 +953,7 @@ fn read_stored_install_path(app: &AppHandle, portable: bool) -> Result<Option<Pa
         .map(PathBuf::from))
 }
 
+/// Handles the default install path workflow.
 fn default_install_path() -> PathBuf {
     if cfg!(target_os = "windows") {
         std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
@@ -928,6 +973,7 @@ fn default_install_path() -> PathBuf {
     }
 }
 
+/// Handles the macos app adjacent install path from exe workflow.
 fn macos_app_adjacent_install_path_from_exe(exe: &Path) -> Option<PathBuf> {
     let mut ancestors = exe.ancestors();
     let _exe_path = ancestors.next()?;
@@ -945,6 +991,7 @@ fn macos_app_adjacent_install_path_from_exe(exe: &Path) -> Option<PathBuf> {
     app_dir.parent().map(|parent| parent.join("BAAS"))
 }
 
+/// Handles the path exists non empty workflow.
 fn path_exists_non_empty(path: &Path) -> bool {
     !path.as_os_str().is_empty()
         && path.is_dir()
@@ -953,6 +1000,7 @@ fn path_exists_non_empty(path: &Path) -> bool {
             .unwrap_or(false)
 }
 
+/// Handles the non empty path workflow.
 fn non_empty_path(value: &str) -> Option<PathBuf> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -962,6 +1010,7 @@ fn non_empty_path(value: &str) -> Option<PathBuf> {
     }
 }
 
+/// Performs the delete backend auth files operation.
 fn delete_backend_auth_files(config: &UpdaterConfig) -> Result<(), String> {
     let auth_dir = config.baas_root().join("config");
     for filename in [
@@ -983,6 +1032,7 @@ fn delete_backend_auth_files(config: &UpdaterConfig) -> Result<(), String> {
     Ok(())
 }
 
+/// Handles the available backend port workflow.
 fn available_backend_port() -> Result<u16, String> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|error| error.to_string())?;
     listener
@@ -991,6 +1041,7 @@ fn available_backend_port() -> Result<u16, String> {
         .map_err(|error| error.to_string())
 }
 
+/// Performs the start backend detached operation.
 fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
     let command = launch_backend_command(config, port);
     let mut process = Command::new(&command.program);
@@ -1018,6 +1069,7 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
     Ok(())
 }
 
+/// Performs the wait for backend auth endpoint operation.
 fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(30) {
@@ -1031,6 +1083,7 @@ fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
     ))
 }
 
+/// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
     let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
         return false;
@@ -1051,6 +1104,7 @@ fn backend_auth_endpoint_ready(port: u16) -> bool {
         .unwrap_or(false)
 }
 
+/// Performs the stop backend pid file operation.
 fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
     let Some(pid) = read_backend_pid(pid_file)? else {
         return Ok(());
@@ -1060,6 +1114,7 @@ fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Returns the read backend pid result.
 fn read_backend_pid(pid_file: &Path) -> Result<Option<u32>, String> {
     if !pid_file.exists() {
         return Ok(None);
@@ -1078,6 +1133,7 @@ fn read_backend_pid(pid_file: &Path) -> Result<Option<u32>, String> {
     }
 }
 
+/// Handles the kill backend pid workflow.
 #[cfg(target_os = "windows")]
 fn kill_backend_pid(pid: u32) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
@@ -1103,6 +1159,7 @@ fn kill_backend_pid(pid: u32) -> Result<(), String> {
     Ok(())
 }
 
+/// Handles the kill backend pid workflow.
 #[cfg(not(target_os = "windows"))]
 fn kill_backend_pid(pid: u32) -> Result<(), String> {
     let script = format!(
@@ -1119,6 +1176,7 @@ fn kill_backend_pid(pid: u32) -> Result<(), String> {
     Ok(())
 }
 
+/// Returns the format mirrorc expiry result.
 fn format_mirrorc_expiry(expires_at: Option<u64>) -> Option<String> {
     let timestamp = i64::try_from(expires_at?).ok()?;
     DateTime::<Utc>::from_timestamp(timestamp, 0).map(|datetime| {
@@ -1129,6 +1187,7 @@ fn format_mirrorc_expiry(expires_at: Option<u64>) -> Option<String> {
     })
 }
 
+/// Handles the mirrorc validation message workflow.
 fn mirrorc_validation_message(
     code: i32,
     mirrorc_message: &str,
@@ -1158,6 +1217,7 @@ fn mirrorc_validation_message(
 mod tests {
     use super::*;
 
+    /// Handles the detects existing non empty root workflow.
     #[test]
     fn detects_existing_non_empty_root() {
         let dir = tempfile::tempdir().unwrap();
@@ -1166,6 +1226,7 @@ mod tests {
         assert!(path_exists_non_empty(dir.path()));
     }
 
+    /// Handles the mirrorc validation messages cover known codes workflow.
     #[test]
     fn mirrorc_validation_messages_cover_known_codes() {
         assert!(
@@ -1182,12 +1243,14 @@ mod tests {
         assert!(mirrorc_validation_message(7005, "", None).contains("blocked"));
     }
 
+    /// Returns the formats mirrorc expiry for frontend display result.
     #[test]
     fn formats_mirrorc_expiry_for_frontend_display() {
         assert!(format_mirrorc_expiry(Some(1_784_199_615)).is_some());
         assert_eq!(format_mirrorc_expiry(None), None);
     }
 
+    /// Returns the parses non empty path only result.
     #[test]
     fn parses_non_empty_path_only() {
         assert_eq!(non_empty_path(""), None);
@@ -1195,6 +1258,7 @@ mod tests {
         assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
     }
 
+    /// Returns the derives macos install root next to app bundle result.
     #[test]
     fn derives_macos_install_root_next_to_app_bundle() {
         let exe = Path::new("/Applications/Blue Archive Auto Script.app/Contents/MacOS/baas");

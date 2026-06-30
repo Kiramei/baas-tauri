@@ -4,6 +4,7 @@
     windows_subsystem = "windows"
 )]
 
+/// Handles the main workflow.
 fn main() {
     #[cfg(target_os = "windows")]
     {

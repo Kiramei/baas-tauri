@@ -8,6 +8,7 @@ if (!Object.hasOwn) {
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
+/** Renders the browser tauri dev fallback component. */
 const BrowserTauriDevFallback = () => (
   <div
     style={{
@@ -32,6 +33,7 @@ const BrowserTauriDevFallback = () => (
   </div>
 );
 
+/** Performs the close splash operation. */
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;
   try {
@@ -42,6 +44,7 @@ const closeSplash = async () => {
   }
 };
 
+/** Handles the bootstrap workflow. */
 const bootstrap = async () => {
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
     root.render(<BrowserTauriDevFallback />);

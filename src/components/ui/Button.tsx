@@ -32,6 +32,7 @@ const buttonVariants = cva(
   }
 );
 
+/** Renders the button component. */
 function Button({
   className,
   variant,

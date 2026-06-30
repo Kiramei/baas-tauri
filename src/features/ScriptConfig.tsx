@@ -22,6 +22,7 @@ interface Draft {
 const ANDROID_LOCAL_METHOD = "android_local";
 const ANDROID_LOCAL_LABEL = "安卓本地化控制";
 
+/** Renders the script config component. */
 const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
@@ -36,6 +37,7 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
     [t("script.shutdown"), "关机"],
   ];
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       screenshot_interval: settings.screenshot_interval,
@@ -50,10 +52,12 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: keyof Draft) => (value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value as any }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {

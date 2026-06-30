@@ -91,6 +91,7 @@ const TaskRow = React.memo(function TaskRow({
   );
 });
 
+/** Renders the scheduler page component. */
 const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
@@ -98,6 +99,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const MoveAllToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   const pid = profileId ?? activeProfile?.id;
+  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
@@ -114,6 +116,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const modify = useWebSocketStore((e) => e.modify);
 
+  /** Handles the filtered workflow. */
   const filtered = useMemo(() => {
     let base = eventConfigs.filter((t) => t.event_name.includes(search));
 
@@ -130,10 +133,12 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const left = filtered.filter((t) => !t.enabled);
   const right = filtered.filter((t) => t.enabled);
 
+  /** Handles the on update interaction. */
   const onUpdate = useCallback((newConfigs: EventConfig[]) => {
     modify(`${profileId}::event`, newConfigs);
   }, []);
 
+  /** Handles the handle move one interaction. */
   const handleMoveOne = useCallback(
     (task: EventConfig, toRight: boolean) => {
       startTransition(() => {
@@ -145,6 +150,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     [eventConfigs, onUpdate]
   );
 
+  /** Handles the handle change time interaction. */
   const handleChangeTime = useCallback(
     (task: EventConfig, ts: number) => {
       onUpdate(
@@ -156,16 +162,19 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     [eventConfigs, onUpdate]
   );
 
+  /** Handles the handle edit interaction. */
   const handleEdit = useCallback((task: EventConfig) => {
     setModalTask(task);
   }, []);
 
+  /** Handles the move all workflow. */
   const moveAll = (toRight: boolean) => {
     startTransition(() => {
       onUpdate(eventConfigs.map((t) => ({ ...t, enabled: toRight })));
     });
   };
 
+  /** Handles the refresh all workflow. */
   const refreshAll = () => {
     const now = new Date().getTime();
     startTransition(() => {
@@ -173,6 +182,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     });
   };
 
+  /** Handles the handle update task interaction. */
   const handleUpdateTask = (updated: EventConfig) => {
     startTransition(() => {
       onUpdate(eventConfigs.map((t) => (t.func_name === updated.func_name ? updated : t)));

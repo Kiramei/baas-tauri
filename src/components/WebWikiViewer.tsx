@@ -18,6 +18,7 @@ const DETACHED_WINDOW_WIDTH = 1120;
 const DETACHED_WINDOW_HEIGHT = 760;
 const LOAD_TIMEOUT_MS = 20000;
 
+/** Returns the resolve detached window placement result. */
 async function resolveDetachedWindowPlacement() {
   try {
     const { Window } = await import("@tauri-apps/api/window");
@@ -38,12 +39,14 @@ async function resolveDetachedWindowPlacement() {
   }
 }
 
+/** Returns the get web wiki window result. */
 export async function getWebWikiWindow() {
   if (!__WITH_TAURI__) return null;
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   return WebviewWindow.getByLabel(WEB_WIKI_WINDOW_LABEL);
 }
 
+/** Performs the open web wiki window operation. */
 export async function openWebWikiWindow(mode: WebWikiMode = "detached", title = "Wiki Docs") {
   if (!__WITH_TAURI__) return null;
 
@@ -87,16 +90,19 @@ export async function openWebWikiWindow(mode: WebWikiMode = "detached", title = 
   return wikiWindow;
 }
 
+/** Handles the current window workflow. */
 async function currentWindow() {
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   return getCurrentWindow();
 }
 
+/** Performs the emit to main operation. */
 async function emitToMain(event: string) {
   const window = await currentWindow();
   await window.emitTo(WEB_WIKI_MAIN_LABEL, event);
 }
 
+/** Performs the apply detached window layout operation. */
 async function applyDetachedWindowLayout() {
   const { LogicalSize } = await import("@tauri-apps/api/dpi");
   const window = await currentWindow();
@@ -110,6 +116,7 @@ async function applyDetachedWindowLayout() {
   await window.setFocus();
 }
 
+/** Renders the web wiki viewer component. */
 const WebWikiViewer: React.FC = () => {
   const { t } = useTranslation();
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "failed">("loading");

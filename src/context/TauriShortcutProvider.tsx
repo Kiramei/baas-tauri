@@ -60,6 +60,7 @@ const TauriShortcutContext = createContext<TauriShortcutContextValue>({
 const STORAGE_KEY = "hotkeys";
 const TOGGLE_RUN_EVENT = "baas-shortcut:toggle-run";
 
+/** Renders the tauri shortcut provider component. */
 export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
   const { profiles } = useApp();
@@ -67,6 +68,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   const [shortcutsSuspended, setShortcutsSuspended] = useState(false);
   const hydratedRef = useRef(false);
 
+  /** Performs the apply bindings operation. */
   const applyBindings = useCallback(async (nextHotkeys: HotkeyConfig[]) => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__) return { registered: [], rejected: [] };
 
@@ -146,6 +148,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
     };
   }, []);
 
+  /** Performs the save hotkeys operation. */
   const saveHotkeys = useCallback(
     async (nextHotkeys: HotkeyConfig[]) => {
       const report = await applyBindings(nextHotkeys);
@@ -165,6 +168,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   );
 };
 
+/** Coordinates the use tauri shortcuts hook behavior. */
 export function useTauriShortcuts() {
   return useContext(TauriShortcutContext);
 }

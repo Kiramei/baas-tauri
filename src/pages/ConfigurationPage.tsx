@@ -130,6 +130,7 @@ const cardVariants: Variants = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.18, ease: "easeOut" } },
 };
 
+/** Renders the motion card component. */
 const MotionCard: React.FC<
   React.PropsWithChildren<{ lowPerformanceMode: boolean; onClick?: () => void }>
 > = ({ children, lowPerformanceMode, onClick }) => (
@@ -158,6 +159,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   const pid = profileId ?? activeProfile?.id;
+  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
@@ -166,11 +168,13 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const [modalContent, setModalContent] = useState<Feature | null>(null);
   const [modalWidth, setModalWidth] = useState<number | null>(null);
 
+  /** Performs the open modal operation. */
   const openModal = (feature: Feature) => {
     setModalWidth(FeatureWidthDict[feature]);
     setModalContent(feature);
   };
 
+  /** Performs the close modal operation. */
   const closeModal = () => {
     setModalContent(null);
   };
@@ -190,6 +194,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
     [t("settings.general")]: ["server", "script", "emulator", "stage", "team", "push", "other"],
   };
 
+  /** Handles the render feature card workflow. */
   const renderFeatureCard = (feature: Feature) => {
     const { icon: Icon, descKey } = featureMap[feature];
     return (

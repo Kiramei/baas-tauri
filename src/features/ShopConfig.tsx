@@ -19,6 +19,7 @@ interface Draft {
   TacticalChallengeShopRefreshTime: number | string;
 }
 
+/** Renders the shop config component. */
 const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   profileId,
   onClose,

@@ -5,6 +5,7 @@ import StorageUtil from "@/shared/StorageManager.ts";
 const baseUrl = import.meta.env.BASE_URL;
 const selfKey = "$self";
 
+/** Handles the flatten locale workflow. */
 function flattenLocale(value: unknown, prefix = "", output: Record<string, string> = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return output;
 
@@ -25,6 +26,7 @@ function flattenLocale(value: unknown, prefix = "", output: Record<string, strin
   return output;
 }
 
+/** Performs the sync backend locale operation. */
 async function syncBackendLocale(lang: string) {
   if (!__WITH_TAURI__) return;
   try {

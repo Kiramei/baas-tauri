@@ -31,6 +31,7 @@ REPOSITORIES = {
 }
 
 
+# Performs the start operation.
 def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     if port is None:
         port = storage_root_or_port
@@ -87,6 +88,7 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         _run_bootstrap_server(port, root, status)
 
 
+# Handles the ensure backend files workflow.
 def _ensure_backend_files(root, status):
     if _service_path(root).exists():
         _ensure_android_support_files(root)
@@ -107,6 +109,7 @@ def _ensure_backend_files(root, status):
     return True
 
 
+# Handles the replace backend files workflow.
 def _replace_backend_files(root, tmp_root):
     preserved_names = {".app_storage.json", "files", "setup.toml"}
     for path in root.iterdir():
@@ -130,6 +133,7 @@ def _replace_backend_files(root, tmp_root):
     shutil.rmtree(tmp_root, ignore_errors=True)
 
 
+# Handles the setup channel workflow.
 def _setup_channel(root):
     setup = root / "setup.toml"
     if not setup.exists():
@@ -143,6 +147,7 @@ def _setup_channel(root):
     return DEFAULT_CHANNEL
 
 
+# Handles the write default setup workflow.
 def _write_default_setup(root, channel):
     (root / "setup.toml").write_text(
         'schema_version = 1\n\n'
@@ -170,6 +175,7 @@ def _write_default_setup(root, channel):
     )
 
 
+# Handles the download backend archive workflow.
 def _download_backend_archive(target_root, channel):
     repo = REPOSITORIES.get(channel, REPOSITORIES[DEFAULT_CHANNEL])
     owner = repo["owner"]
@@ -207,6 +213,7 @@ def _download_backend_archive(target_root, channel):
     return remote_sha
 
 
+# Handles the get github branch sha workflow.
 def _get_github_branch_sha(owner, name, branch):
     api_url = f"https://api.github.com/repos/{owner}/{name}/branches/{branch}"
     try:
@@ -228,6 +235,7 @@ def _get_github_branch_sha(owner, name, branch):
     return _get_git_smart_http_branch_sha(owner, name, branch)
 
 
+# Handles the get git smart http branch sha workflow.
 def _get_git_smart_http_branch_sha(owner, name, branch):
     refs_url = f"https://github.com/{owner}/{name}.git/info/refs?service=git-upload-pack"
     try:
@@ -246,6 +254,7 @@ def _get_git_smart_http_branch_sha(owner, name, branch):
     return ""
 
 
+# Handles the write installed backend sha workflow.
 def _write_installed_backend_sha(setup_path, sha, channel):
     if not setup_path.exists():
         return
@@ -267,6 +276,7 @@ def _write_installed_backend_sha(setup_path, sha, channel):
     setup_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+# Handles the ensure android support files workflow.
 def _ensure_android_support_files(root):
     _ensure_local_atx_agent(root)
     _write_android_runtime_injection(root)
@@ -279,6 +289,7 @@ def _ensure_android_support_files(root):
     _write_desktop_only_stub(root, "mss")
 
 
+# Handles the ensure local atx agent workflow.
 def _ensure_local_atx_agent(root):
     try:
         with urllib.request.urlopen("http://127.0.0.1:7912/version", timeout=1) as response:
@@ -329,6 +340,7 @@ def _ensure_local_atx_agent(root):
             continue
 
 
+# Handles the write android runtime injection workflow.
 def _write_android_runtime_injection(root):
     (root / "android_runtime_injection.py").write_text(
         "import os\n"
@@ -407,6 +419,7 @@ def _write_android_runtime_injection(root):
     )
 
 
+# Handles the write watchfiles stub workflow.
 def _write_watchfiles_stub(root):
     path = root / "watchfiles.py"
     path.write_text(
@@ -425,6 +438,7 @@ def _write_watchfiles_stub(root):
     )
 
 
+# Handles the write pygit2 stub workflow.
 def _write_pygit2_stub(root):
     package = root / "pygit2"
     package.mkdir(exist_ok=True)
@@ -455,6 +469,7 @@ def _write_pygit2_stub(root):
     )
 
 
+# Handles the write uiautomator2 stub workflow.
 def _write_uiautomator2_stub(root):
     package = root / "uiautomator2"
     package.mkdir(exist_ok=True)
@@ -640,10 +655,12 @@ def _write_uiautomator2_stub(root):
     )
 
 
+# Handles the write cv2 stub workflow.
 def _write_cv2_stub(root):
     (root / "cv2.py").write_text("from android_backend.cv2_compat import *\n", encoding="utf-8")
 
 
+# Handles the write psutil stub workflow.
 def _write_psutil_stub(root):
     (root / "psutil.py").write_text(
         "class NoSuchProcess(Exception):\n"
@@ -661,6 +678,7 @@ def _write_psutil_stub(root):
     )
 
 
+# Handles the write desktop only stub workflow.
 def _write_desktop_only_stub(root, module_name):
     (root / f"{module_name}.py").write_text(
         "def __getattr__(name):\n"
@@ -669,10 +687,12 @@ def _write_desktop_only_stub(root, module_name):
     )
 
 
+# Handles the service path workflow.
 def _service_path(root):
     return root / "main.service.py"
 
 
+# Handles the run baas service workflow.
 def _run_baas_service(root, port):
     import runpy
 
@@ -698,11 +718,13 @@ def _run_baas_service(root, port):
         sys.argv = old_argv
 
 
+# Handles the write status workflow.
 def _write_status(root, status):
     root.mkdir(parents=True, exist_ok=True)
     (root / STATUS_FILE).write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+# Handles the read status workflow.
 def _read_status(root, fallback):
     path = root / STATUS_FILE
     if not path.exists():
@@ -713,14 +735,17 @@ def _read_status(root, fallback):
         return fallback
 
 
+# Handles the run bootstrap server workflow.
 def _run_bootstrap_server(port, root, initial_status):
     class Handler(BaseHTTPRequestHandler):
+        # Handles the do get workflow.
         def do_GET(self):
             if self.path.startswith("/health") or self.path.startswith("/auth/remember"):
                 self._json(_read_status(root, initial_status))
                 return
             self.send_error(404)
 
+        # Handles the json workflow.
         def _json(self, payload):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self.send_response(200)
@@ -729,6 +754,7 @@ def _run_bootstrap_server(port, root, initial_status):
             self.end_headers()
             self.wfile.write(body)
 
+        # Handles the log message workflow.
         def log_message(self, _format, *_args):
             return
 

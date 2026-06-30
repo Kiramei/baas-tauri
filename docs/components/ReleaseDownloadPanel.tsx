@@ -101,6 +101,7 @@ const copy: Record<Locale, Copy> = {
   },
 };
 
+/** Renders the windows logo component. */
 function WindowsLogo() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -109,6 +110,7 @@ function WindowsLogo() {
   );
 }
 
+/** Renders the apple logo component. */
 function AppleLogo() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -117,6 +119,7 @@ function AppleLogo() {
   );
 }
 
+/** Renders the linux logo component. */
 function LinuxLogo() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -125,18 +128,21 @@ function LinuxLogo() {
   );
 }
 
+/** Renders the platform logo component. */
 function PlatformLogo({ platform }: { platform: Platform }) {
   if (platform === "windows") return <WindowsLogo />;
   if (platform === "macos") return <AppleLogo />;
   return <LinuxLogo />;
 }
 
+/** Returns the format size result. */
 function formatSize(size: number) {
   if (!size) return "";
   const mb = size / 1024 / 1024;
   return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
 }
 
+/** Handles the detect environment workflow. */
 function detectEnvironment(): { platform: Platform; arch: Architecture } {
   if (typeof window === "undefined") return { platform: "windows", arch: "x64" };
 
@@ -168,6 +174,7 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
   return { platform, arch };
 }
 
+/** Handles the classify asset workflow. */
 function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null {
   const lower = asset.name.toLowerCase();
   if (lower.endsWith(".sig") || lower.endsWith(".app.tar.gz") || lower.endsWith(".nsis.zip"))
@@ -232,6 +239,7 @@ function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null
   };
 }
 
+/** Handles the item rank workflow. */
 function itemRank(item: DownloadItem, desiredArch: Architecture) {
   let score = 0;
   if (item.arch === desiredArch) score -= 40;
@@ -250,6 +258,7 @@ function itemRank(item: DownloadItem, desiredArch: Architecture) {
   return score;
 }
 
+/** Handles the sort items workflow. */
 function sortItems(a: DownloadItem, b: DownloadItem) {
   return (
     platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform) ||
@@ -257,6 +266,7 @@ function sortItems(a: DownloadItem, b: DownloadItem) {
   );
 }
 
+/** Renders the download dropdown component. */
 function DownloadDropdown({
   className = "",
   label,
@@ -276,10 +286,12 @@ function DownloadDropdown({
   const selected = options.find((option) => option.value === value) ?? options[0];
 
   useEffect(() => {
+    /** Handles the on pointer down interaction. */
     function onPointerDown(event: PointerEvent) {
       if (!ref.current?.contains(event.target as Node)) setOpen(false);
     }
 
+    /** Handles the on key down interaction. */
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
@@ -330,6 +342,7 @@ function DownloadDropdown({
   );
 }
 
+/** Renders the release download panel component. */
 export function ReleaseDownloadPanel({
   locale = "en",
   compact = false,
@@ -375,6 +388,7 @@ export function ReleaseDownloadPanel({
     };
   }, []);
 
+  /** Handles the downloads workflow. */
   const downloads = useMemo(
     () =>
       release?.assets
@@ -384,6 +398,7 @@ export function ReleaseDownloadPanel({
     [locale, release]
   );
 
+  /** Handles the available platforms workflow. */
   const availablePlatforms = useMemo(
     () => platformOrder.filter((platform) => downloads.some((item) => item.platform === platform)),
     [downloads]
@@ -396,6 +411,7 @@ export function ReleaseDownloadPanel({
     }
   }, [availablePlatforms, downloads, selectedPlatform]);
 
+  /** Handles the platform items workflow. */
   const platformItems = useMemo(
     () =>
       downloads

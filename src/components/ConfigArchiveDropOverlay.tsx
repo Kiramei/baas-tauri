@@ -12,21 +12,27 @@ type PendingArchive = {
   bytes: ArrayBuffer | Uint8Array | Promise<ArrayBuffer | Uint8Array>;
 };
 
+/** Returns the is zip name result. */
 const isZipName = (name: string) => name.toLowerCase().endsWith(".zip");
 
+/** Returns the has file drag result. */
 const hasFileDrag = (event: DragEvent) =>
   Array.from(event.dataTransfer?.types ?? []).includes("Files");
 
+/** Handles the files from drop workflow. */
 const filesFromDrop = (event: DragEvent): File[] =>
   Array.from(event.dataTransfer?.files ?? []).filter((file) => isZipName(file.name));
 
+/** Handles the archive name from path workflow. */
 const archiveNameFromPath = (path: string) => path.split(/[\\/]/).pop() || path;
 
+/** Handles the wait for imported config workflow. */
 const waitForImportedConfig = async (serial: string) => {
   await waitForNormal(() => useWebSocketStore.getState().configStore?.[serial], Boolean, 8000);
   return useWebSocketStore.getState().configStore?.[serial];
 };
 
+/** Renders the config archive drop overlay component. */
 const ConfigArchiveDropOverlay: React.FC = () => {
   const { t } = useTranslation();
   const { setActiveProfile } = useApp();
@@ -34,11 +40,13 @@ const ConfigArchiveDropOverlay: React.FC = () => {
   const dragDepthRef = React.useRef(0);
   const importingRef = React.useRef(false);
 
+  /** Performs the reset drag operation. */
   const resetDrag = React.useCallback(() => {
     dragDepthRef.current = 0;
     setDropState(null);
   }, []);
 
+  /** Handles the import archive workflow. */
   const importArchive = React.useCallback(
     async (name: string, bytes: ArrayBuffer | Uint8Array) => {
       const state = useWebSocketStore.getState();
@@ -86,6 +94,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
     [setActiveProfile, t]
   );
 
+  /** Handles the import archives workflow. */
   const importArchives = React.useCallback(
     async (archives: PendingArchive[]) => {
       if (!archives.length) {
@@ -132,6 +141,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
   );
 
   React.useEffect(() => {
+    /** Handles the on drag enter interaction. */
     const onDragEnter = (event: DragEvent) => {
       if (!hasFileDrag(event)) return;
       event.preventDefault();
@@ -147,6 +157,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
       setDropState(hasZip ? "zip" : "invalid");
     };
 
+    /** Handles the on drag over interaction. */
     const onDragOver = (event: DragEvent) => {
       if (!hasFileDrag(event)) return;
       event.preventDefault();
@@ -155,12 +166,14 @@ const ConfigArchiveDropOverlay: React.FC = () => {
       }
     };
 
+    /** Handles the on drag leave interaction. */
     const onDragLeave = (event: DragEvent) => {
       if (!hasFileDrag(event)) return;
       dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
       if (dragDepthRef.current === 0) setDropState(null);
     };
 
+    /** Handles the on drop interaction. */
     const onDrop = (event: DragEvent) => {
       if (!hasFileDrag(event)) return;
       event.preventDefault();
@@ -191,6 +204,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
 
+    /** Performs the setup operation. */
     const setup = async () => {
       const [{ getCurrentWebview }, { readFile }] = await Promise.all([
         import("@tauri-apps/api/webview"),

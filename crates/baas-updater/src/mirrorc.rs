@@ -123,6 +123,7 @@ pub trait MirrorHttp {
 pub struct ReqwestMirrorHttp;
 
 impl MirrorHttp for ReqwestMirrorHttp {
+    /// Returns the get json result.
     fn get_json(&self, url: &str, timeout: Duration) -> UpdaterResult<serde_json::Value> {
         let client = reqwest::blocking::Client::builder()
             .timeout(timeout)
@@ -140,6 +141,7 @@ impl MirrorHttp for ReqwestMirrorHttp {
         parse_mirrorc_json_body(status, &body)
     }
 
+    /// Handles the download workflow.
     fn download(
         &self,
         url: &str,
@@ -340,6 +342,7 @@ pub fn parse_latest_response(value: serde_json::Value) -> UpdaterResult<MirrorLa
     })
 }
 
+/// Returns the parse mirrorc json body result.
 fn parse_mirrorc_json_body(
     status: reqwest::StatusCode,
     body: &str,
@@ -482,6 +485,7 @@ pub fn apply_changes_with_output(
     Ok(())
 }
 
+/// Handles the with optional spinner workflow.
 fn with_optional_spinner<T>(
     output: &(impl OutputSink + ?Sized),
     label: &str,
@@ -531,6 +535,7 @@ struct RawLatestData {
     release_note: Option<String>,
 }
 
+/// Handles the mirrorc error workflow.
 fn mirrorc_error(latest: &MirrorLatest) -> UpdaterError {
     let detail = if latest.message.trim().is_empty() {
         latest
@@ -543,6 +548,7 @@ fn mirrorc_error(latest: &MirrorLatest) -> UpdaterError {
     UpdaterError::MirrorC(format!("MirrorC did not provide a download URL: {detail}"))
 }
 
+/// Handles the mirrorc system info workflow.
 fn mirrorc_system_info() -> (&'static str, &'static str) {
     let os = match std::env::consts::OS {
         "macos" => "darwin",
@@ -559,12 +565,14 @@ fn mirrorc_system_info() -> (&'static str, &'static str) {
     (os, arch)
 }
 
+/// Returns the extract zip result.
 fn extract_zip(package: &[u8], out_dir: &Path) -> UpdaterResult<()> {
     let mut archive = ZipArchive::new(Cursor::new(package))?;
     archive.extract(out_dir)?;
     Ok(())
 }
 
+/// Handles the first child dir workflow.
 fn first_child_dir(path: &Path) -> Option<PathBuf> {
     fs::read_dir(path)
         .ok()?
@@ -573,6 +581,7 @@ fn first_child_dir(path: &Path) -> Option<PathBuf> {
         .find(|path| path.is_dir())
 }
 
+/// Performs the copy dir contents operation.
 fn copy_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     fs::create_dir_all(target)?;
     for entry in fs::read_dir(source)? {
@@ -591,6 +600,7 @@ fn copy_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the copy changed file operation.
 fn copy_changed_file(source_dir: &Path, target_dir: &Path, changed: &str) -> UpdaterResult<()> {
     let source = source_dir.join(changed);
     let target = target_dir.join(remove_first_dir(changed));
@@ -601,6 +611,7 @@ fn copy_changed_file(source_dir: &Path, target_dir: &Path, changed: &str) -> Upd
     Ok(())
 }
 
+/// Handles the transfer detail workflow.
 fn transfer_detail(current: u64, total: u64, started: std::time::Instant) -> String {
     let elapsed = started.elapsed().as_secs_f64().max(0.001);
     let speed = current as f64 / elapsed;
@@ -612,6 +623,7 @@ fn transfer_detail(current: u64, total: u64, started: std::time::Instant) -> Str
     )
 }
 
+/// Returns the format bytes result.
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
     let mut value = bytes as f64;
@@ -632,6 +644,7 @@ mod tests {
     use super::*;
     use std::io::Write;
 
+    /// Verifies the parses latest response and cdk state behavior.
     #[test]
     fn parses_latest_response_and_cdk_state() {
         let latest = parse_latest_response(serde_json::json!({
@@ -652,6 +665,7 @@ mod tests {
         assert_eq!(latest.update_type, Some(MirrorUpdateType::Incremental));
     }
 
+    /// Returns the maps cdk error without url result.
     #[test]
     fn maps_cdk_error_without_url() {
         let latest = parse_latest_response(serde_json::json!({
@@ -665,6 +679,7 @@ mod tests {
         assert!(mirrorc_error(&latest).message().contains("invalid"));
     }
 
+    /// Handles the preserves mirrorc error message when error response has data workflow.
     #[test]
     fn preserves_mirrorc_error_message_when_error_response_has_data() {
         let latest = parse_latest_response(serde_json::json!({
@@ -694,6 +709,7 @@ mod tests {
         );
     }
 
+    /// Handles the accepts mirrorc json body from http error status workflow.
     #[test]
     fn accepts_mirrorc_json_body_from_http_error_status() {
         let value = parse_mirrorc_json_body(
@@ -708,12 +724,14 @@ mod tests {
         assert_eq!(latest.latest_version_name, Some("sha".to_string()));
     }
 
+    /// Performs the removes first directory component operation.
     #[test]
     fn removes_first_directory_component() {
         assert_eq!(remove_first_dir("root/a/b.txt"), PathBuf::from("a/b.txt"));
         assert_eq!(remove_first_dir("file.txt"), PathBuf::from("file.txt"));
     }
 
+    /// Handles the applies changes to target workflow.
     #[test]
     fn applies_changes_to_target() {
         let source = tempfile::tempdir().unwrap();
@@ -741,6 +759,7 @@ mod tests {
         );
     }
 
+    /// Handles the applies incremental zip package workflow.
     #[test]
     fn applies_incremental_zip_package() {
         let mut bytes = Cursor::new(Vec::new());

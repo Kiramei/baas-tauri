@@ -44,6 +44,7 @@ const mermaidThemeVariables = {
   },
 } satisfies Record<MermaidTheme, Record<string, string>>;
 
+/** Handles the detect theme workflow. */
 function detectTheme(): MermaidTheme {
   if (typeof document === "undefined") return "dark";
 
@@ -55,6 +56,7 @@ function detectTheme(): MermaidTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/** Performs the initialize mermaid operation. */
 function initializeMermaid(theme: MermaidTheme) {
   mermaid.initialize({
     startOnLoad: false,
@@ -66,6 +68,7 @@ function initializeMermaid(theme: MermaidTheme) {
 
 initializeMermaid("dark");
 
+/** Renders the mermaid component. */
 export function Mermaid({ chart }: MermaidProps) {
   const id = useId().replace(/:/g, "");
   const [svg, setSvg] = useState("");
@@ -73,6 +76,7 @@ export function Mermaid({ chart }: MermaidProps) {
   const [theme, setTheme] = useState<MermaidTheme>("dark");
 
   useEffect(() => {
+    /** Performs the update theme operation. */
     const updateTheme = () => setTheme(detectTheme());
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const observer = new MutationObserver(updateTheme);

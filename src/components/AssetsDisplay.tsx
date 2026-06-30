@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover
 
 const baseUrl = import.meta.env.BASE_URL;
 
+/** Coordinates the use time ago hook behavior. */
 const useTimeAgo = () => {
   const { t } = useTranslation();
   // eslint-disable-next-line react-hooks/purity
@@ -27,10 +28,12 @@ const useTimeAgo = () => {
   };
 };
 
+/** Renders the skeleton component. */
 const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
   <div className={`animate-pulse bg-slate-200 dark:bg-slate-700 rounded-md ${className}`} />
 );
 
+/** Returns the has asset data result. */
 const hasAssetData = (config: any): boolean =>
   Boolean(
     config?.ap &&
@@ -42,6 +45,7 @@ const hasAssetData = (config: any): boolean =>
       config?._pass
   );
 
+/** Renders the assets display component. */
 const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
   const timeAgo = useTimeAgo();

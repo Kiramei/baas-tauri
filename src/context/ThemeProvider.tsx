@@ -8,6 +8,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/** Renders the theme provider component. */
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -26,6 +27,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem("theme", theme);
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    /** Handles the handle change interaction. */
     const handleChange = () => {
       if (theme === "system") {
         const newSystemTheme = mediaQuery.matches ? "dark" : "light";
@@ -38,6 +40,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
+  /** Performs the set theme operation. */
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
   };
@@ -45,6 +48,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
 };
 
+/** Coordinates the use theme hook behavior. */
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {

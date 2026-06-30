@@ -25,6 +25,7 @@ interface Draft {
   explore_hard_task_list: string;
 }
 
+/** Renders the stage config component. */
 const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onClose }) => {
   const { t } = useTranslation();
 
@@ -35,6 +36,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
   const modify = useWebSocketStore((state) => state.modify);
   const trigger = useWebSocketStore((state) => state.trigger);
 
+  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       manual_boss: settings.manual_boss,
@@ -65,6 +67,7 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
     setEventTable(result);
   }, [event]);
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
@@ -82,10 +85,12 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
     onClose();
   };
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: keyof Draft) => (value: any) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** Handles the handle trigger interaction. */
   const handleTrigger = (taskName: string) => async () => {
     if (taskName === "start_hard_task" || taskName === "start_normal_task") {
       if (

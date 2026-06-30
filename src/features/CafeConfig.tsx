@@ -34,6 +34,7 @@ type Draft = {
   favorStudent2: string[];
 };
 
+/** Handles the clamp workflow. */
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
 /* ---------- Main Component for CafeConfig ---------- */
@@ -44,6 +45,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   const settings = useWebSocketStore((e) => e.configStore[profileId!]);
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       cafe_reward_collect_hour_reward: settings.cafe_reward_collect_hour_reward ?? false,
@@ -91,6 +93,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
     }
   };
 
+  /** Handles the on select change interaction. */
   const onSelectChange = (key: string) => (value: string) => {
     setDraft((d) => ({ ...d, [key]: value }));
   };

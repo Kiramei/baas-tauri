@@ -55,12 +55,15 @@ interface ConfigEditorProps {
 const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
+/** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
+/** Performs the setup no update operation. */
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
+/** Renders the config editor modal component. */
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -82,6 +85,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
 
+  /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
     props.setConfig({
       ...props.config,
@@ -92,6 +96,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     });
   };
 
+  /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
     loadLocale(value).then(() => {
       const uiSettings = StorageUtil.get("uiSettings")!;
@@ -100,6 +105,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     });
   };
 
+  /** Handles the handle theme change interaction. */
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     const uiSettings = StorageUtil.get("uiSettings")!;
@@ -107,6 +113,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     StorageUtil.set("uiSettings", uiSettings);
   };
 
+  /** Handles the describe mirror creport workflow. */
   const describeMirrorCReport = (report: MirrorCValidateReport) => {
     const parts = [report.message];
     if (report.expiresAtIso) parts.push(`Expires at: ${report.expiresAtIso}`);
@@ -118,6 +125,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     return parts.join("\n");
   };
 
+  /** Handles the validate mirror c workflow. */
   const validateMirrorC = async () => {
     setValidating(true);
     setCdkStatus({

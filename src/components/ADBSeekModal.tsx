@@ -11,6 +11,7 @@ type ADBSeekProps = {
   onSelect?: (addr: string) => void;
 };
 
+/** Renders the adbseek modal component. */
 const ADBSeekModal: React.FC<ADBSeekProps> = ({ onSelect }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -18,6 +19,7 @@ const ADBSeekModal: React.FC<ADBSeekProps> = ({ onSelect }) => {
   const [results, setResults] = useState<string[]>([]);
   const trigger = useWebSocketStore((state) => state.trigger);
 
+  /** Handles the handle detect interaction. */
   const handleDetect = async () => {
     setLoading(true);
 

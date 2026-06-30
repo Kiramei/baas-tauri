@@ -17,6 +17,7 @@ interface Draft {
   push_serverchan: string;
 }
 
+/** Renders the push config component. */
 const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(
@@ -24,6 +25,7 @@ const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       push_json: settings.push_json,
@@ -37,12 +39,14 @@ const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange =
     <K extends keyof Draft>(key: K) =>
     (value: Draft[K]) => {
       setDraft((prev) => ({ ...prev, [key]: value }));
     };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {

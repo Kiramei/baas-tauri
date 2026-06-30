@@ -29,9 +29,11 @@ const noScrollbarStyle =
 
 type Tab = ProfileDTO;
 
+/** Returns the is profile ready result. */
 const isProfileReady = (profile: Tab): boolean =>
   Boolean(profile.name && profile.settings?.ap && profile.settings?._pass);
 
+/** Renders the header component. */
 const Header: React.FC = () => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
@@ -46,6 +48,7 @@ const Header: React.FC = () => {
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
+  /** Performs the update scroll buttons operation. */
   const updateScrollButtons = React.useCallback(() => {
     const el = stripRef.current;
     if (!el) return;
@@ -59,7 +62,9 @@ const Header: React.FC = () => {
     updateScrollButtons();
     const el = stripRef.current;
     if (!el) return;
+    /** Handles the on resize interaction. */
     const onResize = () => updateScrollButtons();
+    /** Handles the on scroll interaction. */
     const onScroll = () => updateScrollButtons();
     window.addEventListener("resize", onResize);
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -69,6 +74,7 @@ const Header: React.FC = () => {
     };
   }, [updateScrollButtons]);
 
+  /** Handles the scroll by workflow. */
   const scrollBy = (dx: number) => {
     stripRef.current?.scrollBy({ left: dx, behavior: lowPerformanceMode ? "auto" : "smooth" });
   };
@@ -79,6 +85,7 @@ const Header: React.FC = () => {
 
   const [confirmDelete, setConfirmDelete] = React.useState<null | Tab>(null);
 
+  /** Handles the hide ctx menu workflow. */
   const hideCtxMenu = () => setCtxMenu(null);
 
   useEffect(() => {
@@ -115,6 +122,7 @@ const Header: React.FC = () => {
     })();
   }, [configStore, lowPerformanceMode]);
 
+  /** Handles the on reorder interaction. */
   const onReorder = (next: Tab[]) => {
     setTabs(next);
     StorageUtil.set(
@@ -123,6 +131,7 @@ const Header: React.FC = () => {
     );
   };
 
+  /** Handles the on select interaction. */
   const onSelect = (tab: Tab) => {
     setActiveProfile(tab);
     // Keep the selected tab in view.
@@ -138,6 +147,7 @@ const Header: React.FC = () => {
     tabsRef.current = tabs;
   }, [tabs]);
 
+  /** Handles the handle create interaction. */
   const handleCreate = async (name: string, server: string) => {
     if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
@@ -162,6 +172,7 @@ const Header: React.FC = () => {
     if (next) setActiveProfile(next);
   };
 
+  /** Performs the run trigger operation. */
   const runTrigger = React.useCallback(
     (command: string, payload: Record<string, any>) =>
       new Promise<any>((resolve, reject) => {
@@ -183,6 +194,7 @@ const Header: React.FC = () => {
     [trigger]
   );
 
+  /** Handles the wait for config workflow. */
   const waitForConfig = async (serialName: string) => {
     await waitForNormal(
       () => tabsRef.current.filter((p) => p.id === serialName),
@@ -192,6 +204,7 @@ const Header: React.FC = () => {
     if (next) setActiveProfile(next);
   };
 
+  /** Handles the handle copy interaction. */
   const handleCopy = async (tab: Tab) => {
     try {
       const result = await runTrigger("copy_config", { id: tab.id });
@@ -201,6 +214,7 @@ const Header: React.FC = () => {
     }
   };
 
+  /** Handles the handle export interaction. */
   const handleExport = async (tab: Tab) => {
     try {
       const result = await runTrigger("export_config", { id: tab.id });
@@ -214,6 +228,7 @@ const Header: React.FC = () => {
     }
   };
 
+  /** Handles the handle import interaction. */
   const handleImport = async () => {
     try {
       const bytes = await StorageUtil.upload(t, ".zip");
@@ -242,6 +257,7 @@ const Header: React.FC = () => {
     }
   };
 
+  /** Handles the handle edit interaction. */
   const handleEdit = async (tab: Tab, name: string, server: string) => {
     const trimmed = name.trim();
     if (tabs.some((t) => t.id !== tab.id && t.name.trim() === trimmed))
@@ -251,6 +267,7 @@ const Header: React.FC = () => {
     if (activeProfile?.id === tab.id) setActiveProfile({ ...activeProfile, name: trimmed });
   };
 
+  /** Handles the handle delete interaction. */
   const handleDelete = async (tab: Tab) => {
     if (tabs.length <= 1) {
       alert(t("profile.cannotDeleteLast"));
@@ -488,6 +505,7 @@ export default Header;
 const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
+/** Renders the profile editor modal component. */
 const ProfileEditorModal = (props: {
   open: boolean;
   mode: "create" | "edit";
@@ -514,6 +532,7 @@ const ProfileEditorModal = (props: {
     }
   }, [props.open, props.initial]);
 
+  /** Handles the handle submit interaction. */
   const handleSubmit = async () => {
     const nm = name.trim();
     if (!nm) return setErr(t("configAdd.nameRequired"));
@@ -531,6 +550,7 @@ const ProfileEditorModal = (props: {
     }
   };
 
+  /** Handles the handle import interaction. */
   const handleImport = async () => {
     try {
       setImporting(true);
@@ -623,6 +643,7 @@ const ProfileEditorModal = (props: {
   );
 };
 
+/** Renders the confirm delete modal component. */
 const ConfirmDeleteModal = (props: {
   open: boolean;
   name: string;

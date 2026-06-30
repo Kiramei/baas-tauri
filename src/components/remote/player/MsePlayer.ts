@@ -30,6 +30,7 @@ export class MsePlayer extends BasePlayer {
   private static DEFAULT_FRAMES_PER_FRAGMENT = 1;
   private static DEFAULT_FRAMES_PER_SECOND = 60;
 
+  /** Returns the create element result. */
   public static createElement(id?: string): HTMLVideoElement {
     const tag = document.createElement("video") as HTMLVideoElement;
     tag.muted = true;
@@ -75,6 +76,7 @@ export class MsePlayer extends BasePlayer {
     return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(mimeType);
   }
 
+  /** Handles the constructor workflow. */
   constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -101,6 +103,7 @@ export class MsePlayer extends BasePlayer {
     this.onCanPlayHandler();
   };
 
+  /** Returns the create converter result. */
   private static createConverter(
     tag: HTMLVideoElement,
     fps: number = MsePlayer.DEFAULT_FRAMES_PER_SECOND,
@@ -109,6 +112,7 @@ export class MsePlayer extends BasePlayer {
     return new (VideoConverter as any).default(tag, fps, fpf);
   }
 
+  /** Returns the get video playback quality result. */
   private getVideoPlaybackQuality(): QualityStats | null {
     const video = this.tag as any;
     if (typeof video.mozDecodedFrames !== "undefined") {
@@ -135,6 +139,7 @@ export class MsePlayer extends BasePlayer {
     return null;
   }
 
+  /** Handles the on can play handler interaction. */
   protected onCanPlayHandler(): void {
     this.canPlay = true;
     this.tag.play().then();
@@ -142,6 +147,7 @@ export class MsePlayer extends BasePlayer {
     this.checkVideoResize();
   }
 
+  /** Returns the calculate momentum stats result. */
   protected calculateMomentumStats(): void {
     const stat = this.getVideoPlaybackQuality();
     if (!stat) {
@@ -178,11 +184,13 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
+  /** Performs the reset stats operation. */
   protected resetStats(): void {
     super.resetStats();
     this.videoStats = [];
   }
 
+  /** Returns the get image data url result. */
   public getImageDataURL(): string {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
@@ -195,6 +203,7 @@ export class MsePlayer extends BasePlayer {
     return canvas.toDataURL();
   }
 
+  /** Handles the play workflow. */
   public play(): void {
     super.play();
     if (this.getState() !== BasePlayer.STATE.PLAYING) {
@@ -212,16 +221,19 @@ export class MsePlayer extends BasePlayer {
     this.converter.play();
   }
 
+  /** Handles the pause workflow. */
   public pause(): void {
     super.pause();
     this.stopConverter();
   }
 
+  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     this.stopConverter();
   }
 
+  /** Performs the set video settings operation. */
   public setVideoSettings(videoSettings: VideoSettings): void {
     if (this.videoSettings && this.videoSettings.maxFps !== videoSettings.maxFps) {
       const state = this.getState();
@@ -293,6 +305,7 @@ export class MsePlayer extends BasePlayer {
     this.sourceBuffer.removeEventListener("updateend", this.jumpToEnd);
   };
 
+  /** Handles the push frame workflow. */
   public pushFrame(frame: Uint8Array): void {
     super.pushFrame(frame);
     if (!this.checkForIFrame(frame)) {
@@ -302,6 +315,7 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
+  /** Handles the check for bad state workflow. */
   protected checkForBadState(): void {
     // Workaround for stalled playback (`stalled` event is not fired, but the image freezes)
     const { currentTime } = this.tag;
@@ -400,6 +414,7 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
+  /** Handles the check for iframe workflow. */
   protected checkForIFrame(frame: Uint8Array): boolean {
     if (!this.converter) {
       return false;
@@ -438,6 +453,7 @@ export class MsePlayer extends BasePlayer {
     return true;
   }
 
+  /** Performs the stop converter operation. */
   private stopConverter(): void {
     if (this.converter) {
       this.converter.appendRawData(new Uint8Array([]));

@@ -7,6 +7,7 @@ interface LabelWithTooltipProps {
   className?: string;
 }
 
+/** Renders the label with tooltip component. */
 export const LabelWithTooltip = ({ label, tooltip, className }: LabelWithTooltipProps) => {
   return (
     <label className={`text-sm font-medium mb-2 flex items-center ${className ?? ""}`}>

@@ -5,6 +5,7 @@ import { cn } from "@/shared/GlobalUtilities.ts";
 import React from "react";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
+/** Renders the text generate effect component. */
 export const TextGenerateEffect = ({
   words,
   className,

@@ -11,6 +11,7 @@ import LanguageSelect from "@/components/LanguageSelect.tsx";
 const overlayCls =
   "fixed inset-0 flex items-center justify-center bg-black/50 z-[120] backdrop-blur-sm";
 
+/** Renders the password input modal component. */
 const PasswordInputModal: React.FC<{
   open: boolean;
   setupMode: boolean;
@@ -36,6 +37,7 @@ const PasswordInputModal: React.FC<{
 
   if (!open) return null;
 
+  /** Handles the handle confirm interaction. */
   const handleConfirm = async () => {
     if (!password.trim()) {
       setLocalError("Please enter the key!");
@@ -49,6 +51,7 @@ const PasswordInputModal: React.FC<{
     await onConfirm(password.trim());
   };
 
+  /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
     loadLocale(value).then(() => {
       setUiSettings((state) => ({ ...state, lang: value }));

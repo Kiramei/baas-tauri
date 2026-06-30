@@ -29,6 +29,7 @@ pub struct TrayMenuItems {
 
 #[cfg(not(mobile))]
 impl BehaviorState {
+    /// Handles the with tray menu workflow.
     pub fn with_tray_menu(tray_menu: Option<TrayMenuItems>) -> Self {
         Self {
             tray_enabled: tray_menu.is_some(),
@@ -36,6 +37,7 @@ impl BehaviorState {
         }
     }
 
+    /// Performs the set language operation.
     fn set_language(&self, language: Language) -> Result<(), String> {
         let mut guard = self
             .tray_menu
@@ -61,6 +63,7 @@ impl BehaviorState {
     }
 }
 
+/// Handles the splash off workflow.
 #[tauri::command]
 pub async fn splash_off(app: AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
@@ -73,18 +76,21 @@ pub async fn splash_off(app: AppHandle) {
     }
 }
 
+/// Performs the set backend locale operation.
 #[cfg(not(mobile))]
 #[tauri::command]
 pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Result<(), String> {
     state.set_language(Language::parse(&lang))
 }
 
+/// Performs the set backend locale operation.
 #[cfg(mobile)]
 #[tauri::command]
 pub fn set_backend_locale(_state: State<'_, BehaviorState>, _lang: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Handles the inject tray icon workflow.
 #[cfg(not(mobile))]
 pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> {
     let language = Language::default();
@@ -135,6 +141,7 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
     })
 }
 
+/// Handles the disable f5 press event workflow.
 pub fn disable_f5_press_event(app: &mut App) {
     let _win = app
         .get_webview_window("main")

@@ -10,6 +10,7 @@ export const mdxComponents = {
   ReleaseDownloadPanel,
 };
 
+/** Coordinates the use mdxcomponents hook behavior. */
 export function useMDXComponents(components: Record<string, unknown>) {
   return {
     ...mdxComponents,

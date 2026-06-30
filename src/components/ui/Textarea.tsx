@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@/shared/GlobalUtilities.ts";
 
+/** Renders the textarea component. */
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea

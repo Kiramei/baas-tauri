@@ -22,6 +22,7 @@ import {
 } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
 
+/** Returns the resolve base result. */
 const resolveBase = () => {
   if (import.meta.env.VITE_BAAS_WS_BASE) {
     return import.meta.env.VITE_BAAS_WS_BASE as string;
@@ -41,6 +42,7 @@ const resolveBase = () => {
   return "ws://127.0.0.1:8190";
 };
 
+/** Returns the resolve http base result. */
 export const resolveHttpBase = () => {
   const wsBase = resolveBase();
   if (wsBase.startsWith("wss://")) return `https://${wsBase.slice("wss://".length)}`;
@@ -56,6 +58,7 @@ let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
 
+/** Returns the is tauri no update enabled result. */
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   if (!__WITH_TAURI__) return false;
   try {
@@ -68,6 +71,7 @@ export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   }
 };
 
+/** Handles the check backend updater workflow. */
 const checkBackendUpdater = async () => {
   if (__WITH_TAURI__) {
     if (backendUpdaterChecking) return;
@@ -143,12 +147,14 @@ const checkBackendUpdater = async () => {
   );
 };
 
+/** Performs the start backend updater polling operation. */
 const startBackendUpdaterPolling = () => {
   if (backendUpdaterPollTimer) return;
   void checkBackendUpdater();
   backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
 };
 
+/** Handles the check android client update workflow. */
 const checkAndroidClientUpdate = async (currentVersion?: string) => {
   const { invoke } = await import("@tauri-apps/api/core");
   return await invoke<any>("tauri_client_check_update", {
@@ -158,6 +164,7 @@ const checkAndroidClientUpdate = async (currentVersion?: string) => {
   });
 };
 
+/** Performs the reset connection stores operation. */
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
   pendingCallbacks: {},
@@ -169,6 +176,7 @@ const resetConnectionStores = (): Partial<WebSocketState> => ({
   _initiating: false,
 });
 
+/** Performs the reset data stores operation. */
 const resetDataStores = (): Partial<WebSocketState> => ({
   ...resetConnectionStores(),
   logStore: {},
@@ -180,6 +188,7 @@ const resetDataStores = (): Partial<WebSocketState> => ({
   versionStore: {},
 });
 
+/** Performs the connect with retry operation. */
 const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
   const { connect } = useWebSocketStore.getState();
 
@@ -194,6 +203,7 @@ const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
   }
 };
 
+/** Handles the wait for workflow. */
 export const waitFor = <T>(
   get: () => any,
   subscribe: any,
@@ -226,6 +236,7 @@ export const waitFor = <T>(
   });
 };
 
+/** Handles the wait for normal workflow. */
 export const waitForNormal = <T>(
   getter: () => T,
   predicate: (val: T) => boolean,
@@ -236,6 +247,7 @@ export const waitForNormal = <T>(
     const start = Date.now();
     let timer: ReturnType<typeof setInterval> | null = null;
 
+    /** Handles the check workflow. */
     const check = () => {
       try {
         const val = getter();

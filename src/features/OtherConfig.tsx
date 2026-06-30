@@ -12,10 +12,12 @@ type OtherConfigProps = {
   setActivePage?: Dispatch<SetStateAction<PageKey>>;
 };
 
+/** Renders the other config component. */
 const OtherConfig: React.FC<OtherConfigProps> = ({ profileId, onClose, setActivePage }) => {
   const { t } = useTranslation();
   const trigger = useWebSocketStore((state) => state.trigger);
 
+  /** Handles the handle trigger interaction. */
   const handleTrigger = (taskName: string) => async () => {
     trigger(
       {

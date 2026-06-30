@@ -72,31 +72,38 @@ export class WSMiddleware {
     [K in keyof EventMap]?: Listener<K>[];
   } = {};
 
+  /** Handles the constructor workflow. */
   constructor(private ws: SecureWebSocket) {}
 
+  /** Returns the ready state result. */
   get readyState(): number {
     return this.ws.readyState ?? 0;
   }
 
+  /** Handles the add event listener workflow. */
   addEventListener<K extends keyof EventMap>(type: K, listener: Listener<K>) {
     this.listeners[type] ??= [];
     this.listeners[type]!.push(listener);
   }
 
+  /** Handles the dispatch event workflow. */
   dispatchEvent<K extends keyof EventMap>(type: K, event: EventMap[K]) {
     this.listeners[type]?.forEach((listener) => {
       (listener as any)(event);
     });
   }
 
+  /** Handles the bind sender workflow. */
   public bindSender(sender: (data: ArrayBuffer | Uint8Array) => void): void {
     this.sender = sender;
   }
 
+  /** Performs the send operation. */
   public send(bytes: ArrayBuffer | Uint8Array): void {
     this.sender?.(bytes);
   }
 
+  /** Performs the close operation. */
   public close(): void {
     this.ws.close();
   }
@@ -114,11 +121,13 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
   private readonly videoSettingsMap: Map<number, VideoSettings> = new Map();
   private hasInitialInfo = false;
 
+  /** Handles the constructor workflow. */
   constructor(ws: WSMiddleware) {
     super();
     this.openNewConnection(ws);
   }
 
+  /** Renders the equal arrays component. */
   private static EqualArrays(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
     if (a.length !== b.length) {
       return false;
@@ -131,6 +140,7 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     return true;
   }
 
+  /** Performs the send event operation. */
   public sendEvent(event: ControlMessage): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(event.toBuffer());
@@ -139,10 +149,12 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     }
   }
 
+  /** Returns the get encoders result. */
   public getEncoders(): string[] {
     return Array.from(this.encodersSet.values());
   }
 
+  /** Handles the trigger initial info events workflow. */
   public triggerInitialInfoEvents(): void {
     if (this.hasInitialInfo) {
       const encoders = this.getEncoders();
@@ -163,6 +175,7 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     }
   }
 
+  /** Performs the open new connection operation. */
   protected openNewConnection(ws: WSMiddleware): void {
     ws.addEventListener("open", this.onSocketOpen.bind(this));
     ws.addEventListener("message", this.onSocketMessage.bind(this));
@@ -170,11 +183,13 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     this.ws = ws;
   }
 
+  /** Handles the on socket close interaction. */
   protected onSocketClose(ev: CloseEvent): void {
     console.log(`WS closed: ${ev.reason}`);
     this.emit("disconnected", ev);
   }
 
+  /** Handles the on socket message interaction. */
   protected onSocketMessage(event: MessageEvent): void {
     if (event.data instanceof ArrayBuffer) {
       // works only because MAGIC_BYTES_INITIAL and MAGIC_BYTES_MESSAGE have same length
@@ -195,6 +210,7 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     }
   }
 
+  /** Handles the on socket open interaction. */
   protected onSocketOpen(): void {
     this.emit("connected", void 0);
     let e = this.events.shift();
@@ -204,6 +220,7 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     }
   }
 
+  /** Handles the handle initial info interaction. */
   private handleInitialInfo(data: ArrayBuffer): void {
     let offset = MAGIC_BYTES_INITIAL.length;
     let nameBytes = new Uint8Array(data, offset, DEVICE_NAME_FIELD_LENGTH);
@@ -260,6 +277,7 @@ export class StreamReceiver extends TypedEmitter<StreamReceiverEvents> {
     this.triggerInitialInfoEvents();
   }
 
+  /** Performs the close web socket operation. */
   public closeWebSocket(): void {
     this.ws?.close();
   }
@@ -279,18 +297,21 @@ export class StreamClientScrcpy
   private onClipBoxReceived?: (text: string) => void;
   private readonly streamReceiver: StreamReceiver;
 
+  /** Handles the constructor workflow. */
   protected constructor(ws: WSMiddleware, player: BasePlayer, videoSettings: VideoSettings) {
     super();
     this.streamReceiver = new StreamReceiver(ws);
     this.startStream({ player, videoSettings });
   }
 
+  /** Performs the register player operation. */
   public static registerPlayer(playerClass: PlayerClass): void {
     if (playerClass.isSupported()) {
       this.players.set(playerClass.playerFullName, playerClass);
     }
   }
 
+  /** Performs the start operation. */
   public static start(
     ws: WSMiddleware,
     player: BasePlayer,
@@ -299,6 +320,7 @@ export class StreamClientScrcpy
     return new StreamClientScrcpy(ws, player, videoSettings);
   }
 
+  /** Returns the create video settings with bounds result. */
   private static createVideoSettingsWithBounds(old: VideoSettings, newBounds: Size): VideoSettings {
     return new VideoSettings({
       crop: old.crop,
@@ -406,6 +428,7 @@ export class StreamClientScrcpy
     this.touchHandler = undefined;
   };
 
+  /** Performs the start stream operation. */
   public startStream({ player, videoSettings }: StartParams): void {
     this.player = player;
     this.setTouchListeners(player);
@@ -420,14 +443,17 @@ export class StreamClientScrcpy
     player.play();
   }
 
+  /** Performs the send message operation. */
   public sendMessage(message: ControlMessage): void {
     this.streamReceiver.sendEvent(message);
   }
 
+  /** Returns the get device name result. */
   public getDeviceName(): string {
     return this.deviceName;
   }
 
+  /** Performs the set handle keyboard events operation. */
   public setHandleKeyboardEvents(enabled: boolean): void {
     if (enabled) {
       KeyInputHandler.addEventListener(this);
@@ -436,14 +462,17 @@ export class StreamClientScrcpy
     }
   }
 
+  /** Performs the set requested video settings operation. */
   public setRequestedVideoSettings(value: VideoSettings): void {
     this.applyNewVideoSettings(value);
   }
 
+  /** Handles the on key event interaction. */
   public onKeyEvent(event: KeyCodeControlMessage): void {
     this.sendMessage(event);
   }
 
+  /** Performs the set touch listeners operation. */
   private setTouchListeners(player: BasePlayer): void {
     if (this.touchHandler) {
       return;
@@ -451,12 +480,14 @@ export class StreamClientScrcpy
     this.touchHandler = new InteractionHandler(player, this);
   }
 
+  /** Performs the apply new video settings operation. */
   private applyNewVideoSettings(videoSettings: VideoSettings): void {
     if (this.player) {
       this.player.setVideoSettings(videoSettings);
     }
   }
 
+  /** Performs the disconnect operation. */
   public disconnect(): void {
     this.streamReceiver.closeWebSocket();
   }

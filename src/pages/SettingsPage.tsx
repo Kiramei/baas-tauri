@@ -152,6 +152,7 @@ const backgroundMimeByExtension: Record<string, string> = {
   webp: "image/webp",
 };
 
+/** Handles the bytes to base64 workflow. */
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = "";
   const chunkSize = 0x8000;
@@ -161,11 +162,13 @@ const bytesToBase64 = (bytes: Uint8Array) => {
   return btoa(binary);
 };
 
+/** Handles the mime from filename workflow. */
 const mimeFromFilename = (filename: string) => {
   const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   return backgroundMimeByExtension[extension] ?? "";
 };
 
+/** Returns the is supported background mime result. */
 const isSupportedBackgroundMime = (mime: string) =>
   ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime);
 
@@ -183,6 +186,7 @@ const shaMethodsInit = [
   { label: "shaMethod.baasCdn", value: "baas_cdn" },
 ];
 
+/** Renders the settings page component. */
 const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -203,22 +207,26 @@ const SettingsPage: React.FC = () => {
     ? themeColorInput
     : DEFAULT_THEME_COLOR;
 
+  /** Handles the handle theme change interaction. */
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     setUiSettings((state) => ({ ...state, theme: newTheme }));
   };
 
+  /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
     loadLocale(value).then(() => {
       setUiSettings((state) => ({ ...state, lang: value }));
     });
   };
 
+  /** Handles the handle zoom change interaction. */
   const handleZoomChange = (value: string) => {
     const newZoom = Number(value);
     setUiSettings((state) => ({ ...state, zoomScale: newZoom }));
   };
 
+  /** Handles the commit theme color workflow. */
   const commitThemeColor = (value: string) => {
     const nextColor = value.trim();
     if (!HEX_COLOR_RE.test(nextColor)) {
@@ -231,6 +239,7 @@ const SettingsPage: React.FC = () => {
     setUiSettings((state) => ({ ...state, themeColor: normalizedColor }));
   };
 
+  /** Handles the handle background image bytes interaction. */
   const handleBackgroundImageBytes = (bytes: Uint8Array, mime: string) => {
     if (!isSupportedBackgroundMime(mime)) {
       toast.error(t("settings.ui.backgroundImageInvalidType"));
@@ -247,6 +256,7 @@ const SettingsPage: React.FC = () => {
     }));
   };
 
+  /** Handles the handle web background image change interaction. */
   const handleWebBackgroundImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -265,6 +275,7 @@ const SettingsPage: React.FC = () => {
     handleBackgroundImageBytes(new Uint8Array(await file.arrayBuffer()), mime);
   };
 
+  /** Handles the handle select background image interaction. */
   const handleSelectBackgroundImage = async () => {
     if (!__WITH_TAURI__) {
       backgroundFileInputRef.current?.click();
@@ -301,15 +312,18 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  /** Handles the handle remove background image interaction. */
   const handleRemoveBackgroundImage = () => {
     setUiSettings((state) => ({ ...state, backgroundImageBase64: null }));
   };
 
+  /** Handles the handle background opacity change interaction. */
   const handleBackgroundOpacityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const opacity = Number(event.target.value) / 100;
     setUiSettings((state) => ({ ...state, backgroundImageOpacity: opacity }));
   };
 
+  /** Handles the handle player change interaction. */
   const handlePlayerChange = (value: string) => {
     setUiSettings((state) => ({
       ...state,
@@ -352,6 +366,7 @@ const SettingsPage: React.FC = () => {
         ? t("update.tauriAvailable")
         : t("update.tauriUpToDate");
 
+  /** Handles the handle tauri version action interaction. */
   const handleTauriVersionAction = async () => {
     if (!__WITH_TAURI__) return;
     if (tauriVersion.updateAvailable) {
@@ -419,6 +434,7 @@ const SettingsPage: React.FC = () => {
     setThemeColorInput(uiSettings.themeColor || DEFAULT_THEME_COLOR);
   }, [uiSettings.themeColor]);
 
+  /** Handles the fetch version workflow. */
   const fetchVersion = async () => {
     setVersionChecking(true);
     setShaRemote("");
@@ -483,6 +499,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
+  /** Handles the handle test cdk interaction. */
   const handleTestCdk = (_: any, showMessage: boolean = true) => {
     if (!cdk) {
       if (showMessage) {
@@ -574,6 +591,7 @@ const SettingsPage: React.FC = () => {
     };
   }, []);
 
+  /** Handles the handle test sha interaction. */
   const handleTestSha = async () => {
     const timestamp = getTimestampMs();
     shaTestRunRef.current = timestamp;
@@ -605,6 +623,7 @@ const SettingsPage: React.FC = () => {
 
     if (__WITH_TAURI__) {
       const { invoke } = await import("@tauri-apps/api/core");
+      /** Performs the apply result operation. */
       const applyResult = (result: TauriShaMethodReport) => {
         if (shaTestRunRef.current !== timestamp) return;
         setShaResults((prev) =>
@@ -705,6 +724,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
+  /** Handles the handle update method interaction. */
   const handleUpdateMethod = (value: string) => {
     if (value === "mirrorc") {
       modify("global::setup_toml", { updateMethod: value });
@@ -719,6 +739,7 @@ const SettingsPage: React.FC = () => {
     setUpdateMethod(value);
   };
 
+  /** Handles the handle update channel interaction. */
   const handleUpdateChannel = (value: string) => {
     const channel = value === "dev" ? "dev" : "stable";
     setUpdateChannel(channel);

@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
 
+/** Returns the find matching brace result. */
 function findMatchingBrace(css: string, openIndex: number) {
   let depth = 0;
   let quote = "";
@@ -53,10 +54,12 @@ function findMatchingBrace(css: string, openIndex: number) {
   return css.length - 1;
 }
 
+/** Returns the is identifier char result. */
 function isIdentifierChar(char: string | undefined) {
   return /[a-zA-Z0-9_-]/.test(char ?? "");
 }
 
+/** Handles the unwrap cascade layers workflow. */
 function unwrapCascadeLayers(css: string): string {
   let output = "";
   let i = 0;
@@ -145,11 +148,13 @@ function unwrapCascadeLayers(css: string): string {
   return output;
 }
 
+/** Handles the android css compat plugin workflow. */
 export function androidCssCompatPlugin(enabled: boolean): Plugin | undefined {
   if (!enabled) return undefined;
   return {
     name: "baas-android-css-compat",
     enforce: "post",
+    /** Handles the transform workflow. */
     transform(code, id) {
       if (!id.includes(".css")) return undefined;
       const viteCssModule = code.match(/(const __vite__css = )("(?:(?:\\.|[^"\\])*)")/);

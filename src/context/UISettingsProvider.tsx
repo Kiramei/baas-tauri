@@ -33,6 +33,7 @@ const DEFAULT_UI_SETTINGS: UISettings = {
 
 const UISettingsContext = createContext<UISettingsContextType | undefined>(undefined);
 
+/** Renders the uisettings provider component. */
 export const UISettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [initialized, setInitialized] = useState(false);
   const [uiSettings, setUiSettings] = useState<UISettings>(DEFAULT_UI_SETTINGS);
@@ -65,6 +66,7 @@ export const UISettingsProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 };
 
+/** Coordinates the use uisettings hook behavior. */
 export const useUISettings = (): UISettingsContextType => {
   const context = useContext(UISettingsContext);
 

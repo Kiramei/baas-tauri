@@ -5,6 +5,7 @@ import { resolveHttpBase } from "@/store/WebsocketStore";
 
 const LOAD_TIMEOUT_MS = 20000;
 
+/** Renders the android remote wiki component. */
 const AndroidRemoteWiki: React.FC = () => {
   const { t } = useTranslation();
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "failed">("loading");

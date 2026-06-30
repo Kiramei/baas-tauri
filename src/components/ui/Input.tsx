@@ -2,6 +2,7 @@ import * as React from "react";
 import { cn } from "@/shared/GlobalUtilities";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
+/** Renders the input component. */
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   // Check whether this is a numeric input.
   if (type === "number") {

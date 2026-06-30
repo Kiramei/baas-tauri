@@ -12,6 +12,7 @@ interface SwitchButtonProps {
   iconOnly?: boolean;
 }
 
+/** Renders the switch button component. */
 const SwitchButton: React.FC<SwitchButtonProps> = ({
   children,
   checked,

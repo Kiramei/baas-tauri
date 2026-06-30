@@ -1,10 +1,12 @@
 export class Point {
   readonly x: number;
   readonly y: number;
+  /** Handles the constructor workflow. */
   constructor(x: number, y: number) {
     this.x = Math.round(x);
     this.y = Math.round(y);
   }
+  /** Handles the to string workflow. */
   public toString(): string {
     return `Point{x=${this.x}, y=${this.y}}`;
   }
@@ -14,6 +16,7 @@ export class Size {
   public readonly w: number;
   public readonly h: number;
 
+  /** Handles the constructor workflow. */
   constructor(
     readonly width: number,
     readonly height: number
@@ -22,6 +25,7 @@ export class Size {
     this.h = height;
   }
 
+  /** Handles the equals workflow. */
   public static equals(a?: Size | null, b?: Size | null): boolean {
     if (!a && !b) {
       return true;
@@ -29,6 +33,7 @@ export class Size {
     return !!a && !!b && a.equals(b);
   }
 
+  /** Handles the copy workflow. */
   public static copy(a?: Size | null): Size | null {
     if (!a) {
       return null;
@@ -36,10 +41,12 @@ export class Size {
     return new Size(a.width, a.height);
   }
 
+  /** Handles the length workflow. */
   length(): number {
     return this.w * this.h;
   }
 
+  /** Handles the equals workflow. */
   public equals(o: Size | null | undefined): boolean {
     if (this === o) {
       return true;
@@ -50,6 +57,7 @@ export class Size {
     return this.width === o.width && this.height === o.height;
   }
 
+  /** Handles the intersect workflow. */
   public intersect(o: Size | undefined | null): Size {
     if (!o) {
       return this;
@@ -64,23 +72,27 @@ export class Size {
     return new Size(this.width >>> 1, this.height >>> 1);
   }
 
+  /** Handles the to string workflow. */
   public toString(): string {
     return `Size{width=${this.width}, height=${this.height}}`;
   }
 }
 
 export class Position {
+  /** Handles the constructor workflow. */
   public constructor(
     readonly point: Point,
     readonly screenSize: Size
   ) {}
 
+  /** Handles the to string workflow. */
   public toString(): string {
     return `Position{point=${this.point}, screenSize=${this.screenSize}}`;
   }
 }
 
 export class Rect {
+  /** Handles the constructor workflow. */
   constructor(
     readonly left: number,
     readonly top: number,
@@ -92,18 +104,21 @@ export class Rect {
     this.right = right;
     this.bottom = bottom;
   }
+  /** Handles the equals workflow. */
   public static equals(a?: Rect | null, b?: Rect | null): boolean {
     if (!a && !b) {
       return true;
     }
     return !!a && !!b && a.equals(b);
   }
+  /** Handles the copy workflow. */
   public static copy(a?: Rect | null): Rect | null {
     if (!a) {
       return null;
     }
     return new Rect(a.left, a.top, a.right, a.bottom);
   }
+  /** Handles the equals workflow. */
   public equals(o: Rect | null): boolean {
     if (this === o) {
       return true;
@@ -119,6 +134,7 @@ export class Rect {
     );
   }
 
+  /** Handles the to string workflow. */
   public toString(): string {
     // prettier-ignore
     return `Rect{left=${
@@ -130,12 +146,14 @@ export class Rect {
 }
 
 export class ScreenInfo {
+  /** Handles the constructor workflow. */
   constructor(
     readonly contentRect: Rect,
     readonly videoSize: Size,
     readonly deviceRotation: number
   ) {}
 
+  /** Handles the from buffer workflow. */
   public static fromBuffer(buffer: Buffer): ScreenInfo {
     const left = buffer.readInt32BE(0);
     const top = buffer.readInt32BE(4);
@@ -151,6 +169,7 @@ export class ScreenInfo {
     );
   }
 
+  /** Handles the equals workflow. */
   public equals(o?: ScreenInfo | null): boolean {
     if (!o) {
       return false;
@@ -162,6 +181,7 @@ export class ScreenInfo {
     );
   }
 
+  /** Handles the to string workflow. */
   public toString(): string {
     return `ScreenInfo{contentRect=${this.contentRect}, videoSize=${this.videoSize}, deviceRotation=${this.deviceRotation}}`;
   }
@@ -171,6 +191,7 @@ export class DisplayInfo {
   public static readonly DEFAULT_DISPLAY = 0x00000000;
   public static readonly BUFFER_LENGTH = 24;
 
+  /** Handles the constructor workflow. */
   constructor(
     public readonly displayId: number,
     public readonly size: Size,
@@ -179,6 +200,7 @@ export class DisplayInfo {
     public readonly flags: number
   ) {}
 
+  /** Handles the from buffer workflow. */
   public static fromBuffer(buffer: Buffer): DisplayInfo {
     if (buffer.length !== DisplayInfo.BUFFER_LENGTH) {
       throw Error(
@@ -200,6 +222,7 @@ export class DisplayInfo {
     return new DisplayInfo(displayId, new Size(width, height), rotation, layerStack, flags);
   }
 
+  /** Handles the to string workflow. */
   public toString(): string {
     // prettier-ignore
     return `DisplayInfo{displayId=${

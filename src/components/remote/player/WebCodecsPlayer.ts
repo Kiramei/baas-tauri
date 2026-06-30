@@ -12,6 +12,7 @@ type ParametersSubSet = {
   height: number;
 };
 
+/** Handles the to hex workflow. */
 function toHex(value: number) {
   return value.toString(16).padStart(2, "0").toUpperCase();
 }
@@ -37,6 +38,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
   private bufferedSPS = false;
   private bufferedPPS = false;
 
+  /** Handles the constructor workflow. */
   constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -60,6 +62,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     );
   }
 
+  /** Returns the parse sps result. */
   private static parseSPS(data: Uint8Array): ParametersSubSet {
     const {
       profile_idc,
@@ -89,6 +92,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     return { codec, width, height };
   }
 
+  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     if (this.decoder.state === "configured") {
@@ -96,6 +100,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     }
   }
 
+  /** Handles the add to buffer workflow. */
   protected addToBuffer(data: Uint8Array): Uint8Array {
     let array: Uint8Array;
     if (this.buffer) {
@@ -109,6 +114,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     return array;
   }
 
+  /** Handles the scale canvas workflow. */
   protected scaleCanvas(width: number, height: number): void {
     const videoSize = new Size(width, height);
     let scale = 1;
@@ -131,6 +137,7 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     this.tag.style.transformOrigin = "top left";
   }
 
+  /** Handles the decode workflow. */
   protected decode(data: Uint8Array): void {
     if (!data || data.length < 4) {
       return;
@@ -194,14 +201,17 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     }
   };
 
+  /** Handles the drop frame workflow. */
   protected dropFrame(frame: VideoFrame): void {
     frame.close();
   }
 
+  /** Handles the need screen info before play workflow. */
   protected needScreenInfoBeforePlay(): boolean {
     return false;
   }
 
+  /** Returns the create decoder result. */
   private createDecoder(): VideoDecoder {
     return new VideoDecoder({
       output: (frame) => {

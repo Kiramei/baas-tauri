@@ -2,6 +2,7 @@ import React from "react";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { useTranslation } from "react-i18next";
 
+/** Renders the language select component. */
 const LanguageSelect: React.FC<{
   handleLanguageChange: (value: string) => void;
   className?: string;

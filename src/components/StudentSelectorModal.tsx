@@ -21,6 +21,7 @@ type Props = {
   lang?: string;
 };
 
+/** Renders the student selector modal component. */
 const StudentSelectorModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -32,6 +33,7 @@ const StudentSelectorModal: React.FC<Props> = ({
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
+  /** Handles the display name workflow. */
   const displayName = (s: Student) => {
     if (lang === "CN") return s.CN_name;
     if (lang === "Global") return s.Global_name;
@@ -46,6 +48,7 @@ const StudentSelectorModal: React.FC<Props> = ({
     });
   }, [query, allStudents, lang]);
 
+  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));

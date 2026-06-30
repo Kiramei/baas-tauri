@@ -69,6 +69,7 @@ export const mapLanguage = (language: string): LanguageCode => {
   return "en";
 };
 
+/** Returns the get localized field result. */
 export const getLocalizedField = (field: LocalizedField, lang: LanguageCode): string => {
   return field[lang] ?? field.en;
 };

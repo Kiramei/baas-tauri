@@ -121,6 +121,7 @@ pub trait AssetDownloader {
 pub struct RealProcessRunner;
 
 impl ProcessRunner for RealProcessRunner {
+    /// Performs the run operation.
     fn run<O: OutputSink + ?Sized>(&self, command: &CommandSpec, output: &O) -> UpdaterResult<()> {
         for command in command.command_sequence() {
             self.run_single(&command, output)?;
@@ -130,6 +131,7 @@ impl ProcessRunner for RealProcessRunner {
 }
 
 impl RealProcessRunner {
+    /// Performs the run single operation.
     fn run_single<O: OutputSink + ?Sized>(
         &self,
         command: &CommandSpec,
@@ -179,6 +181,7 @@ impl RealProcessRunner {
     }
 }
 
+/// Performs the write detached pid file operation.
 fn write_detached_pid_file(path: &Path, pid: u32) -> UpdaterResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -192,6 +195,7 @@ fn write_detached_pid_file(path: &Path, pid: u32) -> UpdaterResult<()> {
 pub struct ReqwestDownloader;
 
 impl AssetDownloader for ReqwestDownloader {
+    /// Handles the download workflow.
     fn download<O: OutputSink + ?Sized>(&self, url: &str, output: &O) -> UpdaterResult<Vec<u8>> {
         output.line(OutputStyle::Info, &format!("Downloading {url}"));
         let mut response = reqwest::blocking::get(url)
@@ -229,6 +233,7 @@ impl AssetDownloader for ReqwestDownloader {
     }
 }
 
+/// Handles the download label workflow.
 fn download_label(url: &str) -> String {
     url.rsplit('/')
         .next()
@@ -239,6 +244,7 @@ fn download_label(url: &str) -> String {
         .collect()
 }
 
+/// Handles the download detail workflow.
 fn download_detail(current: u64, total: u64, started: Instant) -> String {
     let elapsed = started.elapsed().as_secs_f64().max(0.001);
     let speed = current as f64 / elapsed;
@@ -250,6 +256,7 @@ fn download_detail(current: u64, total: u64, started: Instant) -> String {
     )
 }
 
+/// Returns the format bytes result.
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
     let mut value = bytes as f64;
@@ -292,6 +299,7 @@ impl EnvironmentSourceKind {
 pub struct HttpSourceProbe;
 
 impl SourceProbe for HttpSourceProbe {
+    /// Handles the measure workflow.
     fn measure(&self, url: &str) -> UpdaterResult<Duration> {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(5))
@@ -651,6 +659,7 @@ pub fn requirements_path(config: &UpdaterConfig) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.exists())
 }
 
+/// Performs the install uv archive from operation.
 fn install_uv_archive_from(
     config: &UpdaterConfig,
     url: &str,
@@ -703,6 +712,7 @@ pub fn ensure_uv_installed_from(
     install_uv_archive_from(config, url, downloader, output)
 }
 
+/// Handles the flatten uv executable workflow.
 fn flatten_uv_executable(uv_dir: &Path, target: &Path) -> UpdaterResult<()> {
     if target.exists() {
         return Ok(());
@@ -716,6 +726,7 @@ fn flatten_uv_executable(uv_dir: &Path, target: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Returns the find file result.
 fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
     for entry in fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();
@@ -730,6 +741,7 @@ fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
     None
 }
 
+/// Handles the uv pip command with index workflow.
 fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
         .arg("--no-progress")
@@ -812,6 +824,7 @@ struct RequirementsCompileCache {
     lock_sha256: String,
 }
 
+/// Handles the requirements cache path workflow.
 fn requirements_cache_path(config: &UpdaterConfig) -> PathBuf {
     config
         .baas_root()
@@ -819,16 +832,19 @@ fn requirements_cache_path(config: &UpdaterConfig) -> PathBuf {
         .join("requirements-cache.json")
 }
 
+/// Returns the normalize cache path result.
 fn normalize_cache_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+/// Handles the sha256 file workflow.
 fn sha256_file(path: &Path) -> UpdaterResult<String> {
     let bytes = fs::read(path)?;
     let digest = Sha256::digest(&bytes);
     Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
+/// Handles the default pypi index workflow.
 fn default_pypi_index(config: &UpdaterConfig) -> String {
     config
         .general
@@ -896,6 +912,7 @@ pub fn ranked_environment_source_with_output(
     })
 }
 
+/// Handles the environment source probe urls workflow.
 fn environment_source_probe_urls(
     kind: EnvironmentSourceKind,
     source_urls: &[String],
@@ -912,6 +929,7 @@ fn environment_source_probe_urls(
         .collect()
 }
 
+/// Handles the cpython probe url workflow.
 fn cpython_probe_url(url: &str) -> String {
     url.trim_end_matches('/')
         .strip_suffix("/releases/download")
@@ -919,6 +937,7 @@ fn cpython_probe_url(url: &str) -> String {
         .unwrap_or_else(|| url.to_string())
 }
 
+/// Returns the load environment ranking result.
 fn load_environment_ranking(
     path: Option<&Path>,
     expected_urls: &[String],
@@ -966,6 +985,7 @@ pub fn environment_source_urls(
     }
 }
 
+/// Handles the first active source workflow.
 fn first_active_source(ranking: &SourceRanking) -> Option<String> {
     ranking
         .active_sources()
@@ -974,14 +994,17 @@ fn first_active_source(ranking: &SourceRanking) -> Option<String> {
         .map(|source| source.url)
 }
 
+/// Handles the uv cache dir workflow.
 fn uv_cache_dir(config: &UpdaterConfig) -> PathBuf {
     config.toolkit_dir().join("uv").join("cache")
 }
 
+/// Handles the uv python install dir workflow.
 fn uv_python_install_dir(config: &UpdaterConfig) -> PathBuf {
     config.toolkit_dir().join("uv").join("cpython")
 }
 
+/// Handles the display command workflow.
 fn display_command(command: &CommandSpec) -> String {
     let mut parts = vec![command.program.to_string_lossy().to_string()];
     parts.extend(command.args.iter().cloned());
@@ -1003,6 +1026,7 @@ mod tests {
     }
 
     impl ProcessRunner for MockRunner {
+        /// Performs the run operation.
         fn run<O: OutputSink + ?Sized>(
             &self,
             command: &CommandSpec,
@@ -1016,6 +1040,7 @@ mod tests {
     struct EmptyDownloader;
 
     impl AssetDownloader for EmptyDownloader {
+        /// Handles the download workflow.
         fn download<O: OutputSink + ?Sized>(
             &self,
             _url: &str,
@@ -1030,6 +1055,7 @@ mod tests {
     }
 
     impl SourceProbe for Probe {
+        /// Handles the measure workflow.
         fn measure(&self, url: &str) -> UpdaterResult<Duration> {
             if self.ok.iter().any(|item| item == url) {
                 Ok(Duration::from_millis(if url.contains("fast") {
@@ -1043,12 +1069,14 @@ mod tests {
         }
     }
 
+    /// Handles the config workflow.
     fn config(root: &Path) -> UpdaterConfig {
         let mut config = UpdaterConfig::default();
         config.paths.baas_root_path = root.to_string_lossy().to_string();
         config
     }
 
+    /// Returns the resolves uv archive names result.
     #[test]
     fn resolves_uv_archive_names() {
         assert_eq!(
@@ -1061,6 +1089,7 @@ mod tests {
         );
     }
 
+    /// Handles the custom runtime skips prepare and sync workflow.
     #[test]
     fn custom_runtime_skips_prepare_and_sync() {
         let root = tempfile::tempdir().unwrap();
@@ -1078,6 +1107,7 @@ mod tests {
         assert!(commands.lock().unwrap().is_empty());
     }
 
+    /// Handles the existing uv and python skip prepare ranking and downloads workflow.
     #[test]
     fn existing_uv_and_python_skip_prepare_ranking_and_downloads() {
         let root = tempfile::tempdir().unwrap();
@@ -1099,6 +1129,7 @@ mod tests {
         assert!(commands.lock().unwrap().is_empty());
     }
 
+    /// Handles the uv commands include cache and virtual env workflow.
     #[test]
     fn uv_commands_include_cache_and_virtual_env() {
         let root = tempfile::tempdir().unwrap();
@@ -1115,6 +1146,7 @@ mod tests {
         assert!(clean.args.contains(&"--no-progress".to_string()));
     }
 
+    /// Handles the command spec appends serial commands workflow.
     #[test]
     fn command_spec_appends_serial_commands() {
         let command = CommandSpec::new("first")
@@ -1133,6 +1165,7 @@ mod tests {
         assert!(sequence.iter().all(|command| command.after.is_empty()));
     }
 
+    /// Handles the requirements compile cache tracks requirements index and lock workflow.
     #[test]
     fn requirements_compile_cache_tracks_requirements_index_and_lock() {
         let root = tempfile::tempdir().unwrap();
@@ -1159,6 +1192,7 @@ mod tests {
         );
     }
 
+    /// Handles the launch command uses custom runtime when configured workflow.
     #[test]
     fn launch_command_uses_custom_runtime_when_configured() {
         let root = tempfile::tempdir().unwrap();
@@ -1179,6 +1213,7 @@ mod tests {
         assert!(command.args.contains(&"48888".to_string()));
     }
 
+    /// Handles the environment source urls include uv archive and pypi config workflow.
     #[test]
     fn environment_source_urls_include_uv_archive_and_pypi_config() {
         let root = tempfile::tempdir().unwrap();
@@ -1192,6 +1227,7 @@ mod tests {
         assert_eq!(pypi_urls, ["https://fast.example/simple"]);
     }
 
+    /// Handles the cpython probe url uses releases page but keeps source url workflow.
     #[test]
     fn cpython_probe_url_uses_releases_page_but_keeps_source_url() {
         let source = "https://github.com/Kiramei/baas-tauri/releases/download/";
@@ -1205,6 +1241,7 @@ mod tests {
         );
     }
 
+    /// Handles the ranked environment source persists and reuses fast source workflow.
     #[test]
     fn ranked_environment_source_persists_and_reuses_fast_source() {
         let root = tempfile::tempdir().unwrap();
@@ -1229,6 +1266,7 @@ mod tests {
         assert!(ranking.path().join("pypi.json").exists());
     }
 
+    /// Handles the ranked environment source errors after three all failed cycles workflow.
     #[test]
     fn ranked_environment_source_errors_after_three_all_failed_cycles() {
         let root = tempfile::tempdir().unwrap();

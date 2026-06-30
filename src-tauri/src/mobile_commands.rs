@@ -120,11 +120,13 @@ pub struct ShortcutRegistrationReport {
     pub rejected: Vec<ShortcutRejectedBinding>,
 }
 
+/// Performs the updater path exists non empty operation.
 #[tauri::command]
 pub fn updater_path_exists_non_empty(_path: PathBuf) -> bool {
     false
 }
 
+/// Performs the updater get storage state operation.
 #[tauri::command]
 pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
     let storage_file_path = android_storage_root(&app)?.join(".app_storage.json");
@@ -135,6 +137,7 @@ pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, 
     })
 }
 
+/// Performs the updater get startup state operation.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
     let root = android_storage_root(&app)?;
@@ -151,6 +154,7 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
     }))
 }
 
+/// Performs the updater update config operation.
 #[tauri::command]
 pub fn updater_update_config(
     app: AppHandle,
@@ -178,6 +182,7 @@ pub fn updater_update_config(
     Ok(config)
 }
 
+/// Performs the updater validate mirrorc cdk operation.
 #[tauri::command]
 pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
     let _requested_cdk = request.cdk.trim();
@@ -193,6 +198,7 @@ pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
     })
 }
 
+/// Handles the tauri client check update workflow.
 #[tauri::command]
 pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Value, String> {
     let current_version = request
@@ -238,6 +244,7 @@ pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Va
     Err(last_error.unwrap_or_else(|| "failed to fetch updater metadata".to_string()))
 }
 
+/// Handles the fetch android update metadata workflow.
 fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
     let response = minreq::get(endpoint)
         .with_header("cache-control", "no-cache")
@@ -255,6 +262,7 @@ fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
         .map_err(|error| error.to_string())
 }
 
+/// Performs the updater check version operation.
 #[tauri::command]
 pub fn updater_check_version(
     app: AppHandle,
@@ -279,6 +287,7 @@ pub fn updater_check_version(
     }))
 }
 
+/// Verifies the updater test sha methods behavior.
 #[tauri::command]
 pub async fn updater_test_sha_methods(
     app: AppHandle,
@@ -301,6 +310,7 @@ pub async fn updater_test_sha_methods(
     Ok(json!(results))
 }
 
+/// Verifies the updater test sha method behavior.
 #[tauri::command]
 pub async fn updater_test_sha_method(
     app: AppHandle,
@@ -318,6 +328,7 @@ pub async fn updater_test_sha_method(
     Ok(run_android_sha_probe(root, channel, name, url, timeout).await)
 }
 
+/// Performs the updater start workflow operation.
 #[tauri::command]
 pub fn updater_start_workflow(
     app: AppHandle,
@@ -342,11 +353,13 @@ pub fn updater_start_workflow(
     serde_json::to_value(session).map_err(|error| error.to_string())
 }
 
+/// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
 pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
     Err(ANDROID_BACKEND_MESSAGE.to_string())
 }
 
+/// Performs the updater abort workflow operation.
 #[tauri::command]
 pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
@@ -360,6 +373,7 @@ pub fn updater_abort_workflow(
     })
 }
 
+/// Performs the updater terminal snapshot operation.
 #[tauri::command]
 pub fn updater_terminal_snapshot(
     manager: State<'_, AndroidUpdaterTermManager>,
@@ -367,6 +381,7 @@ pub fn updater_terminal_snapshot(
     manager.snapshot()
 }
 
+/// Performs the updater resize term operation.
 #[tauri::command]
 pub fn updater_resize_term(
     manager: State<'_, AndroidUpdaterTermManager>,
@@ -376,6 +391,7 @@ pub fn updater_resize_term(
     manager.resize(rows, cols)
 }
 
+/// Handles the shortcut apply bindings workflow.
 #[tauri::command]
 pub fn shortcut_apply_bindings(
     bindings: Vec<ShortcutBindingRequest>,
@@ -395,11 +411,13 @@ pub fn shortcut_apply_bindings(
     }
 }
 
+/// Performs the open main devtools operation.
 #[tauri::command]
 pub fn open_main_devtools(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Handles the android requested channel workflow.
 fn android_requested_channel(
     requested: Option<&str>,
     setup_path: &Path,
@@ -412,6 +430,7 @@ fn android_requested_channel(
     UpdateChannel::parse(&value).map_err(|error| error.message())
 }
 
+/// Returns the normalize android sha method result.
 fn normalize_android_sha_method(value: &str) -> String {
     match value.trim() {
         "" | "git2" | "git_cli" | "auto" => "github".to_string(),
@@ -419,6 +438,7 @@ fn normalize_android_sha_method(value: &str) -> String {
     }
 }
 
+/// Handles the android first remote sha workflow.
 fn android_first_remote_sha(
     root: &Path,
     channel: UpdateChannel,
@@ -451,6 +471,7 @@ fn android_first_remote_sha(
     Err(last_error.unwrap_or_else(|| "no git source configured".to_string()))
 }
 
+/// Verifies the sha test timeout behavior.
 fn sha_test_timeout(timeout: Option<f64>) -> Duration {
     Duration::from_secs_f64(
         timeout
@@ -459,6 +480,7 @@ fn sha_test_timeout(timeout: Option<f64>) -> Duration {
     )
 }
 
+/// Performs the run android sha probe operation.
 async fn run_android_sha_probe(
     root: PathBuf,
     channel: UpdateChannel,
@@ -515,6 +537,7 @@ async fn run_android_sha_probe(
     }
 }
 
+/// Handles the android sha method sources workflow.
 fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     let urls = repository_urls(RepositoryKind::Main, channel);
     vec![
@@ -544,10 +567,12 @@ fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<Str
     ]
 }
 
+/// Returns the find url result.
 fn find_url(urls: &[String], needle: &str) -> Option<String> {
     urls.iter().find(|url| url.contains(needle)).cloned()
 }
 
+/// Handles the android storage root workflow.
 fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
@@ -566,6 +591,7 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
     )))
 }
 
+/// Handles the android update platform workflow.
 fn android_update_platform(update: &Value) -> Option<&Value> {
     let platforms = update.get("platforms")?.as_object()?;
     let arch = match std::env::consts::ARCH {
@@ -586,6 +612,7 @@ fn android_update_platform(update: &Value) -> Option<&Value> {
         })
 }
 
+/// Returns the normalize version result.
 fn normalize_version(value: &str) -> Option<String> {
     let mut started = false;
     let mut output = String::new();
@@ -604,6 +631,7 @@ fn normalize_version(value: &str) -> Option<String> {
     }
 }
 
+/// Handles the compare versions workflow.
 fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
     let parse = |value: &str| {
         normalize_version(value)
@@ -628,6 +656,7 @@ fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
+/// Handles the current time millis workflow.
 fn current_time_millis() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -635,10 +664,12 @@ fn current_time_millis() -> u128 {
         .unwrap_or_default()
 }
 
+/// Handles the mobile config workflow.
 fn mobile_config(root: &PathBuf) -> Value {
     mobile_config_with_request(root, None)
 }
 
+/// Handles the mobile config with request workflow.
 fn mobile_config_with_request(
     root: &PathBuf,
     request: Option<&UpdaterConfigUpdateRequest>,
@@ -683,6 +714,7 @@ fn mobile_config_with_request(
     })
 }
 
+/// Handles the mobile setup toml workflow.
 fn mobile_setup_toml(
     root: &Path,
     request: &UpdaterConfigUpdateRequest,
@@ -740,6 +772,7 @@ fn mobile_setup_toml(
     )
 }
 
+/// Performs the ensure android setup toml operation.
 fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     let setup_path = root.join("setup.toml");
     if setup_path.exists() {
@@ -761,6 +794,7 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     Ok(setup_path)
 }
 
+/// Returns the read setup value result.
 fn read_setup_value(path: &Path, key: &str) -> Option<String> {
     let prefix = format!("{key} = ");
     let content = fs::read_to_string(path).ok()?;
@@ -773,6 +807,7 @@ fn read_setup_value(path: &Path, key: &str) -> Option<String> {
     })
 }
 
+/// Handles the escape toml string workflow.
 fn escape_toml_string(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }

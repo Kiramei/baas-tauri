@@ -141,6 +141,7 @@ pub struct RepositoryOutcome {
 pub struct RealWorkflowServices;
 
 impl WorkflowServices for RealWorkflowServices {
+    /// Performs the update repository operation.
     fn update_repository(
         &self,
         kind: RepositoryKind,
@@ -196,6 +197,7 @@ impl WorkflowServices for RealWorkflowServices {
         })
     }
 
+    /// Handles the prepare environment workflow.
     fn prepare_environment(
         &self,
         config: &UpdaterConfig,
@@ -209,6 +211,7 @@ impl WorkflowServices for RealWorkflowServices {
         )
     }
 
+    /// Performs the sync dependencies operation.
     fn sync_dependencies(
         &self,
         config: &UpdaterConfig,
@@ -219,6 +222,7 @@ impl WorkflowServices for RealWorkflowServices {
             .sync_dependencies_with_ranking(config, Some(&ranking_dir), output)
     }
 
+    /// Handles the launch backend workflow.
     fn launch_backend(
         &self,
         config: &UpdaterConfig,
@@ -237,6 +241,7 @@ struct RepositoryJob {
     needs_move: bool,
 }
 
+/// Returns the load manager result.
 fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     if let Some(path) = &options.config_path {
         ConfigManager::load_from(path)
@@ -245,6 +250,7 @@ fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     }
 }
 
+/// Handles the repository job workflow.
 fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob {
     let root = config.baas_root();
     let tmp = config.tmp_dir();
@@ -296,6 +302,7 @@ fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob
     }
 }
 
+/// Handles the skipped repository outcome workflow.
 fn skipped_repository_outcome(kind: RepositoryKind, config: &UpdaterConfig) -> RepositoryOutcome {
     let sha = match kind {
         RepositoryKind::Main => config.general.current_baas_sha.clone(),
@@ -308,6 +315,7 @@ fn skipped_repository_outcome(kind: RepositoryKind, config: &UpdaterConfig) -> R
     }
 }
 
+/// Performs the register cleanup paths operation.
 fn register_cleanup_paths(
     cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
     main_job: &RepositoryJob,
@@ -325,6 +333,7 @@ fn register_cleanup_paths(
     Ok(())
 }
 
+/// Performs the finalize job operation.
 fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
     if !job.needs_move {
         return Ok(());
@@ -332,6 +341,7 @@ fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
     move_dir_contents(&job.target_dir, &job.final_dir)
 }
 
+/// Handles the validate mirrorc cdk before workflow workflow.
 fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult<()> {
     let cdk = config.general.mirrorc_cdk.trim();
     if cdk.is_empty() {
@@ -357,6 +367,7 @@ fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult
     Err(UpdaterError::MirrorC(message))
 }
 
+/// Performs the remove git metadata if present operation.
 fn remove_git_metadata_if_present(
     target_dir: &Path,
     output: &(dyn OutputSink + Send + Sync),
@@ -380,6 +391,7 @@ fn remove_git_metadata_if_present(
     Ok(())
 }
 
+/// Performs the move dir contents operation.
 fn move_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     fs::create_dir_all(target)?;
     if !source.exists() {
@@ -410,6 +422,7 @@ fn move_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the copy dir operation.
 fn copy_dir(source: &Path, target: &Path) -> std::io::Result<()> {
     fs::create_dir_all(target)?;
     for entry in fs::read_dir(source)? {
@@ -425,6 +438,7 @@ fn copy_dir(source: &Path, target: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Handles the available port workflow.
 fn available_port() -> UpdaterResult<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .map_err(|error| UpdaterError::Workflow(error.to_string()))?;
@@ -434,6 +448,7 @@ fn available_port() -> UpdaterResult<u16> {
         .map_err(|error| UpdaterError::Workflow(error.to_string()))
 }
 
+/// Handles the environment ranking dir workflow.
 fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
     config.source_ranking_dir()
 }
@@ -534,6 +549,7 @@ pub fn run_terminal_workflow_flow(
     finish_terminal_session(&inner, &session_id, &renderer_tx, true);
 }
 
+/// Handles the terminal workflow plan workflow.
 pub fn terminal_workflow_plan() -> WorkflowPlan {
     WorkflowBuilder::new()
         .thread_task(
@@ -657,6 +673,7 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
         .build()
 }
 
+/// Handles the planned thread task workflow.
 fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
     let node = plan.node(task_id).expect("workflow task missing from plan");
     TaskSpec {
@@ -678,6 +695,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
     }
 }
 
+/// Handles the planned process task workflow.
 fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptCommand) -> TaskSpec {
     let node = plan.node(task_id).expect("workflow task missing from plan");
     TaskSpec {
@@ -699,6 +717,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
     }
 }
 
+/// Handles the planned direct process task workflow.
 fn planned_direct_process_task(
     plan: &WorkflowPlan,
     task_id: &str,
@@ -707,6 +726,7 @@ fn planned_direct_process_task(
     planned_command_process_task(plan, task_id, command, direct_script)
 }
 
+/// Handles the planned command process task workflow.
 fn planned_command_process_task(
     plan: &WorkflowPlan,
     task_id: &str,
@@ -725,6 +745,7 @@ fn planned_command_process_task(
     spec
 }
 
+/// Performs the run terminal update and prepare stage operation.
 fn run_terminal_update_and_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -778,6 +799,7 @@ struct TerminalConfigArgs {
     cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
 }
 
+/// Handles the terminal config task workflow.
 fn terminal_config_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -823,6 +845,7 @@ fn terminal_config_task(
     })
 }
 
+/// Performs the run terminal repo stage operation.
 fn run_terminal_repo_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -999,6 +1022,7 @@ fn run_terminal_repo_stage(
         && wait_for_task(completion_rx, "git-record-sha")
 }
 
+/// Performs the run terminal thread repo stage operation.
 fn run_terminal_thread_repo_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1058,6 +1082,7 @@ struct TerminalRepoArgs {
     git_backend_override: Option<GitBackend>,
 }
 
+/// Handles the terminal repo thread task workflow.
 fn terminal_repo_thread_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1146,6 +1171,7 @@ struct GitCliPlan {
     status: UpdateStatus,
 }
 
+/// Handles the plan git cli process workflow.
 fn plan_git_cli_process(
     kind: RepositoryKind,
     config: &UpdaterConfig,
@@ -1197,6 +1223,7 @@ fn plan_git_cli_process(
     })
 }
 
+/// Handles the git clone command workflow.
 fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("clone")
@@ -1208,6 +1235,7 @@ fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec 
         .arg(target_dir.to_string_lossy())
 }
 
+/// Handles the git update command workflow.
 fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("-C")
@@ -1252,6 +1280,7 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
         )
 }
 
+/// Handles the git rev parse command workflow.
 fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("-C")
@@ -1260,6 +1289,7 @@ fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
         .arg("HEAD")
 }
 
+/// Handles the git cli command workflow.
 fn git_cli_command() -> CommandSpec {
     CommandSpec::new("git")
         .arg("-c")
@@ -1277,6 +1307,7 @@ struct TerminalGitRecordArgs {
     cpp_plan: GitCliPlan,
 }
 
+/// Handles the terminal git record task workflow.
 fn terminal_git_record_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1312,6 +1343,7 @@ fn terminal_git_record_task(
     Ok(())
 }
 
+/// Handles the terminal finalize repos task workflow.
 fn terminal_finalize_repos_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1369,6 +1401,7 @@ fn terminal_finalize_repos_task(
     )
 }
 
+/// Performs the copy setup to install root operation.
 fn copy_setup_to_install_root(manager: &ConfigManager) -> UpdaterResult<()> {
     let root = manager.config.baas_root();
     if root.as_os_str().is_empty() {
@@ -1386,6 +1419,7 @@ fn copy_setup_to_install_root(manager: &ConfigManager) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the run terminal environment prepare stage operation.
 fn run_terminal_environment_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1545,6 +1579,7 @@ fn run_terminal_environment_prepare_stage(
     true
 }
 
+/// Performs the run terminal dependency stage operation.
 fn run_terminal_dependency_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1723,6 +1758,7 @@ fn run_terminal_dependency_stage(
     )
 }
 
+/// Performs the run terminal skip task operation.
 fn run_terminal_skip_task(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1752,6 +1788,7 @@ struct TerminalSkipArgs {
     message: String,
 }
 
+/// Handles the terminal skip task workflow.
 fn terminal_skip_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1764,6 +1801,7 @@ fn terminal_skip_task(
     Ok(())
 }
 
+/// Performs the run terminal launch stage operation.
 fn run_terminal_launch_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1803,6 +1841,7 @@ fn run_terminal_launch_stage(
     true
 }
 
+/// Handles the terminal uv install task workflow.
 fn terminal_uv_install_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1833,6 +1872,7 @@ struct TerminalCpythonRankArgs {
     ranking_dir: PathBuf,
 }
 
+/// Handles the terminal cpython rank task workflow.
 fn terminal_cpython_rank_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1864,6 +1904,7 @@ struct TerminalPypiRankArgs {
     ranking_dir: PathBuf,
 }
 
+/// Handles the terminal pypi rank task workflow.
 fn terminal_pypi_rank_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1889,6 +1930,7 @@ fn terminal_pypi_rank_task(
     Ok(())
 }
 
+/// Handles the terminal custom runtime task workflow.
 fn terminal_custom_runtime_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1904,6 +1946,7 @@ fn terminal_custom_runtime_task(
     Ok(())
 }
 
+/// Performs the wait for backend port for session operation.
 fn wait_for_backend_port_for_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1925,6 +1968,7 @@ fn wait_for_backend_port_for_session(
     )))
 }
 
+/// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
     let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
         return false;
@@ -1945,6 +1989,7 @@ fn backend_auth_endpoint_ready(port: u16) -> bool {
         .unwrap_or(false)
 }
 
+/// Handles the terminal state snapshot workflow.
 fn terminal_state_snapshot(
     state: &Arc<Mutex<TerminalWorkflowState>>,
 ) -> Result<(UpdaterConfig, RepositoryJob, RepositoryJob, PathBuf), String> {
@@ -1972,6 +2017,7 @@ fn terminal_state_snapshot(
     ))
 }
 
+/// Handles the terminal config workflow.
 fn terminal_config(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<UpdaterConfig, String> {
     let state = state
         .lock()
@@ -1983,6 +2029,7 @@ fn terminal_config(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<UpdaterC
         .ok_or_else(|| "configuration not initialized".to_string())
 }
 
+/// Handles the terminal cpython source workflow.
 fn terminal_cpython_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
     let state = state
         .lock()
@@ -1993,6 +2040,7 @@ fn terminal_cpython_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<
         .ok_or_else(|| "CPython mirror not ranked".to_string())
 }
 
+/// Handles the terminal pypi source workflow.
 fn terminal_pypi_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
     let state = state
         .lock()
@@ -2003,6 +2051,7 @@ fn terminal_pypi_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<Str
         .ok_or_else(|| "PyPI index not ranked".to_string())
 }
 
+/// Handles the terminal environment ranking dir workflow.
 fn terminal_environment_ranking_dir(
     state: &Arc<Mutex<TerminalWorkflowState>>,
     config: &UpdaterConfig,
@@ -2016,12 +2065,14 @@ fn terminal_environment_ranking_dir(
         .unwrap_or_else(|| environment_ranking_dir(config)))
 }
 
+/// Performs the wait for task operation.
 fn wait_for_task(completion_rx: &mpsc::Receiver<TaskCompletion>, task_id: &str) -> bool {
     baas_term::common::wait_for_completion(completion_rx, task_id)
         .map(|completion| completion.success)
         .unwrap_or(false)
 }
 
+/// Handles the finish terminal session workflow.
 fn finish_terminal_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -2033,6 +2084,7 @@ fn finish_terminal_session(
     }
 }
 
+/// Handles the fail terminal session workflow.
 fn fail_terminal_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -2043,6 +2095,7 @@ fn fail_terminal_session(
     finish_terminal_session(inner, session_id, renderer_tx, false);
 }
 
+/// Handles the direct script workflow.
 fn direct_script(command: &CommandSpec) -> ScriptCommand {
     let program = command.program.to_string_lossy().to_string();
     let display = std::iter::once(program.as_str())
@@ -2073,6 +2126,7 @@ mod tests {
     use super::*;
     use crate::NoopOutput;
 
+    /// Handles the git cpp job reclones when existing bin has no git metadata workflow.
     #[test]
     fn git_cpp_job_reclones_when_existing_bin_has_no_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2095,6 +2149,7 @@ mod tests {
         assert_eq!(job.final_dir, bin_dir);
     }
 
+    /// Handles the mirrorc jobs use final dirs without requiring git metadata workflow.
     #[test]
     fn mirrorc_jobs_use_final_dirs_without_requiring_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2119,6 +2174,7 @@ mod tests {
         );
     }
 
+    /// Handles the mirrorc cleanup removes extra git metadata workflow.
     #[test]
     fn mirrorc_cleanup_removes_extra_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2132,6 +2188,7 @@ mod tests {
         assert!(!git_dir.exists());
     }
 
+    /// Handles the terminal workflow plan models parallel update and dependency order workflow.
     #[test]
     fn terminal_workflow_plan_models_parallel_update_and_dependency_order() {
         let plan = terminal_workflow_plan();
@@ -2170,6 +2227,7 @@ mod tests {
         assert_eq!(launch.running_region_max_lines, None);
     }
 
+    /// Handles the git update command uses serial command chain workflow.
     #[test]
     fn git_update_command_uses_serial_command_chain() {
         let command = git_update_command(
@@ -2245,6 +2303,7 @@ mod tests {
         );
     }
 
+    /// Handles the backend ready probe requires http response workflow.
     #[test]
     fn backend_ready_probe_requires_http_response() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();

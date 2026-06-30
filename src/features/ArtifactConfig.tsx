@@ -41,6 +41,7 @@ type Draft = {
   }[];
 };
 
+/** Renders the artifact config component. */
 const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
 
@@ -173,6 +174,7 @@ type ArtifactPhaseConfigProps = {
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
 };
 
+/** Renders the artifact phase config component. */
 const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
   settings,
   phase,
@@ -202,6 +204,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
 
   const staticConfig = useWebSocketStore((state) => state.staticStore);
 
+  /** Returns the get phase2 recommended priority result. */
   const getPhase2RecommendedPriority = (name: string): string[] => {
     const indexes = staticConfig.create_phase2_recommended_priority[name];
     const originPriority =

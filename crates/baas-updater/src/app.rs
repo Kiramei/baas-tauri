@@ -38,6 +38,7 @@ pub struct WorkflowAbortRequest {
 }
 
 impl Default for WorkflowAbortRequest {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             cleanup: true,
@@ -46,6 +47,7 @@ impl Default for WorkflowAbortRequest {
     }
 }
 
+/// Handles the default abort emit events workflow.
 fn default_abort_emit_events() -> bool {
     true
 }
@@ -77,6 +79,7 @@ pub struct UpdaterTermManager {
 }
 
 impl Default for UpdaterTermManager {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             inner: Arc::new(Mutex::new(TermState::default())),
@@ -235,6 +238,7 @@ impl UpdaterTermManager {
         })
     }
 
+    /// Performs the stop all operation.
     fn stop_all(&self) -> Result<(usize, Option<mpsc::Sender<RendererEvent>>), String> {
         let (tasks, tx) = {
             let mut state = self
@@ -279,6 +283,7 @@ impl UpdaterTermManager {
 mod tests {
     use super::*;
 
+    /// Handles the abort idle workflow is idempotent workflow.
     #[test]
     fn abort_idle_workflow_is_idempotent() {
         let manager = UpdaterTermManager::default();

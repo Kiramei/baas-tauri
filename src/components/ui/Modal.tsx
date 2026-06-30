@@ -12,6 +12,7 @@ interface ModalProps {
   width?: number;
 }
 
+/** Renders the modal component. */
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -24,6 +25,7 @@ export const Modal: React.FC<ModalProps> = ({
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
   useEffect(() => {
+    /** Handles the handle esc interaction. */
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();

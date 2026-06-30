@@ -22,10 +22,12 @@ use std::{
 };
 use tauri::{AppHandle, Emitter};
 
+/// Returns the is csi final result.
 fn is_csi_final(ch: char) -> bool {
     matches!(ch, '\u{40}'..='\u{7e}')
 }
 
+/// Handles the csi param workflow.
 fn csi_param(params: &str, index: usize, default: usize) -> usize {
     let cleaned = params
         .trim_start_matches('?')
@@ -40,12 +42,14 @@ fn csi_param(params: &str, index: usize, default: usize) -> usize {
     cleaned.parse::<usize>().unwrap_or(default)
 }
 
+/// Handles the fit ansi line workflow.
 fn fit_ansi_line(line: &str, cols: usize) -> String {
     let mut fitted = truncate_ansi_line_to_visible_width(line, cols);
     fitted.push_str(ANSI_RESET);
     fitted
 }
 
+/// Handles the visible width workflow.
 fn visible_width(text: &str) -> usize {
     let mut width = 0;
     let mut chars = text.chars().peekable();
@@ -61,6 +65,7 @@ fn visible_width(text: &str) -> usize {
     width
 }
 
+/// Handles the truncate ansi line to visible width workflow.
 fn truncate_ansi_line_to_visible_width(text: &str, max_width: usize) -> String {
     let mut output = String::new();
     let mut width = 0;
@@ -84,6 +89,7 @@ fn truncate_ansi_line_to_visible_width(text: &str, max_width: usize) -> String {
     output
 }
 
+/// Handles the ansi line suffix from visible width workflow.
 fn ansi_line_suffix_from_visible_width(text: &str, start_width: usize) -> String {
     let mut output = String::new();
     let mut width = 0;
@@ -105,6 +111,7 @@ fn ansi_line_suffix_from_visible_width(text: &str, start_width: usize) -> String
     output
 }
 
+/// Handles the consume ansi sequence workflow.
 fn consume_ansi_sequence<I>(chars: &mut std::iter::Peekable<I>)
 where
     I: Iterator<Item = char>,
@@ -137,6 +144,7 @@ where
     }
 }
 
+/// Handles the collect ansi sequence workflow.
 fn collect_ansi_sequence<I>(chars: &mut std::iter::Peekable<I>, output: &mut String)
 where
     I: Iterator<Item = char>,
@@ -173,6 +181,7 @@ where
     }
 }
 
+/// Performs the emit dashboard chunk operation.
 fn emit_dashboard_chunk(app: &AppHandle, session_id: &str, pending_chunk: &mut String) {
     if pending_chunk.is_empty() {
         return;
@@ -187,6 +196,7 @@ fn emit_dashboard_chunk(app: &AppHandle, session_id: &str, pending_chunk: &mut S
     );
 }
 
+/// Performs the emit stable region operation.
 fn emit_stable_region(
     app: &AppHandle,
     session_id: &str,
@@ -426,6 +436,7 @@ struct RegionBuffer {
 }
 
 impl RegionBuffer {
+    /// Handles the new workflow.
     fn new() -> Self {
         Self {
             lines: vec![String::new()],
@@ -438,6 +449,7 @@ impl RegionBuffer {
         }
     }
 
+    /// Handles the push workflow.
     fn push(&mut self, text: &str) {
         for ch in text.chars() {
             if self.consume_escape(ch) {
@@ -477,10 +489,12 @@ impl RegionBuffer {
         }
     }
 
+    /// Handles the finish workflow.
     fn finish(&mut self) {
         self.escape_buffer = None;
     }
 
+    /// Handles the render lines workflow.
     fn render_lines(&self, max_lines: Option<usize>, cols: usize) -> Vec<String> {
         let mut lines = self.lines.clone();
 
@@ -498,6 +512,7 @@ impl RegionBuffer {
             .collect()
     }
 
+    /// Handles the consume escape workflow.
     fn consume_escape(&mut self, ch: char) -> bool {
         let Some(buffer) = self.escape_buffer.take() else {
             return false;
@@ -542,6 +557,7 @@ impl RegionBuffer {
         true
     }
 
+    /// Performs the apply csi operation.
     fn apply_csi(&mut self, sequence: &str) {
         let Some(command) = sequence.chars().last() else {
             return;
@@ -609,6 +625,7 @@ impl RegionBuffer {
         self.truncate_history();
     }
 
+    /// Handles the erase display workflow.
     fn erase_display(&mut self, params: &str) {
         let mode = csi_param(params, 0, 0);
 
@@ -637,6 +654,7 @@ impl RegionBuffer {
         self.ensure_cursor();
     }
 
+    /// Handles the erase line workflow.
     fn erase_line(&mut self, params: &str) {
         let mode = csi_param(params, 0, 0);
 
@@ -651,12 +669,14 @@ impl RegionBuffer {
         }
     }
 
+    /// Handles the erase line from cursor workflow.
     fn erase_line_from_cursor(&mut self) {
         self.ensure_cursor();
         let line = &mut self.lines[self.row];
         *line = truncate_ansi_line_to_visible_width(line, self.col);
     }
 
+    /// Handles the erase line to cursor workflow.
     fn erase_line_to_cursor(&mut self) {
         self.ensure_cursor();
         let line = &mut self.lines[self.row];
@@ -665,12 +685,14 @@ impl RegionBuffer {
         self.col = 0;
     }
 
+    /// Handles the push sgr workflow.
     fn push_sgr(&mut self, sequence: &str) {
         self.ensure_cursor();
         self.lines[self.row].push_str("\x1b[");
         self.lines[self.row].push_str(sequence);
     }
 
+    /// Performs the write char operation.
     fn write_char(&mut self, ch: char) {
         self.ensure_cursor();
 
@@ -687,12 +709,14 @@ impl RegionBuffer {
         self.col += 1;
     }
 
+    /// Handles the truncate current line to col workflow.
     fn truncate_current_line_to_col(&mut self) {
         self.ensure_cursor();
         let line = &mut self.lines[self.row];
         *line = truncate_ansi_line_to_visible_width(line, self.col);
     }
 
+    /// Performs the ensure cursor operation.
     fn ensure_cursor(&mut self) {
         if self.lines.is_empty() {
             self.lines.push(String::new());
@@ -705,6 +729,7 @@ impl RegionBuffer {
         }
     }
 
+    /// Handles the truncate history workflow.
     fn truncate_history(&mut self) {
         if self.lines.len() <= self.max_kept_lines {
             return;
@@ -734,6 +759,7 @@ struct SessionRenderer {
 }
 
 impl SessionRenderer {
+    /// Handles the new workflow.
     fn new(rows: u16, cols: u16) -> Self {
         Self {
             regions: HashMap::new(),
@@ -747,17 +773,20 @@ impl SessionRenderer {
         }
     }
 
+    /// Handles the resize workflow.
     fn resize(&mut self, rows: u16, cols: u16) {
         self.rows = usize::from(rows.max(MIN_TERMINAL_ROWS));
         self.cols = usize::from(cols.max(MIN_TERMINAL_COLS));
     }
 
+    /// Handles the buffer regions workflow.
     fn buffer_regions(&mut self, region_ids: Vec<String>) {
         for region_id in region_ids {
             self.buffered_regions.insert(region_id);
         }
     }
 
+    /// Performs the start region operation.
     fn start_region(&mut self, spec: &TaskSpec) -> String {
         let title = format!(
             "[{:02}/{:02}] {}",
@@ -782,6 +811,7 @@ impl SessionRenderer {
         self.render_running_snapshot()
     }
 
+    /// Handles the push output workflow.
     fn push_output(&mut self, task_id: &str, region_id: &str, bytes: &[u8]) -> String {
         let text = String::from_utf8_lossy(bytes);
 
@@ -798,6 +828,7 @@ impl SessionRenderer {
         self.render_running_snapshot()
     }
 
+    /// Handles the finish region workflow.
     fn finish_region(&mut self, task_id: &str) -> String {
         let Some(region_id) = self.task_regions.get(task_id).cloned() else {
             return String::new();
@@ -810,6 +841,7 @@ impl SessionRenderer {
         self.render_running_snapshot()
     }
 
+    /// Handles the flush regions workflow.
     fn flush_regions(&mut self, region_ids: &[String]) -> String {
         for region_id in region_ids {
             if let Some(region) = self.regions.get_mut(region_id) {
@@ -821,10 +853,12 @@ impl SessionRenderer {
         self.render_running_snapshot()
     }
 
+    /// Handles the region id for workflow.
     fn region_id_for(&self, task_id: &str) -> Option<String> {
         self.task_regions.get(task_id).cloned()
     }
 
+    /// Handles the task id for region workflow.
     fn task_id_for_region(&self, region_id: &str) -> Option<String> {
         self.task_regions
             .iter()
@@ -837,6 +871,7 @@ impl SessionRenderer {
             })
     }
 
+    /// Handles the stable region snapshot workflow.
     fn stable_region_snapshot(&mut self, region_id: &str) -> Option<StableRegionSnapshot> {
         if region_id.is_empty() || !self.stable_regions_emitted.insert(region_id.to_string()) {
             return None;
@@ -860,14 +895,17 @@ impl SessionRenderer {
         })
     }
 
+    /// Handles the render running snapshot workflow.
     fn render_running_snapshot(&self) -> String {
         self.render_dashboard_snapshot(true)
     }
 
+    /// Handles the render completed snapshot workflow.
     fn render_completed_snapshot(&self) -> String {
         self.render_dashboard_snapshot(false)
     }
 
+    /// Handles the render dashboard snapshot workflow.
     fn render_dashboard_snapshot(&self, clip_to_view: bool) -> String {
         let mut lines = Vec::new();
         for region_id in &self.region_order {
@@ -892,6 +930,7 @@ impl SessionRenderer {
         snapshot
     }
 
+    /// Handles the render region lines workflow.
     fn render_region_lines(&self, region_id: &str, running: bool) -> Vec<String> {
         let title = self.titles.get(region_id).cloned().unwrap_or_default();
         let body = self
@@ -931,6 +970,7 @@ mod tests {
     use super::*;
     use crate::constants::DEFAULT_TASK_STEP_TOTAL;
 
+    /// Handles the spec workflow.
     fn spec(task_id: &str, region_id: &str, step_index: u8, name: &str) -> TaskSpec {
         TaskSpec {
             task_id: task_id.to_string(),
@@ -951,6 +991,7 @@ mod tests {
         }
     }
 
+    /// Verifies the csi param parses defaults and private prefixes behavior.
     #[test]
     fn csi_param_parses_defaults_and_private_prefixes() {
         assert_eq!(csi_param("", 0, 1), 1);
@@ -959,12 +1000,14 @@ mod tests {
         assert_eq!(csi_param("bad", 0, 9), 9);
     }
 
+    /// Handles the visible width ignores csi and osc sequences workflow.
     #[test]
     fn visible_width_ignores_csi_and_osc_sequences() {
         assert_eq!(visible_width("\x1b[31mred\x1b[0m"), 3);
         assert_eq!(visible_width("a\x1b]0;title\u{7}b"), 2);
     }
 
+    /// Handles the truncate preserves ansi sequences while limiting visible width workflow.
     #[test]
     fn truncate_preserves_ansi_sequences_while_limiting_visible_width() {
         assert_eq!(
@@ -974,6 +1017,7 @@ mod tests {
         assert_eq!(fit_ansi_line("\x1b[31mabcdef", 3), "\x1b[31mabc\x1b[0m");
     }
 
+    /// Handles the suffix from visible width ignores ansi sequences workflow.
     #[test]
     fn suffix_from_visible_width_ignores_ansi_sequences() {
         assert_eq!(
@@ -982,6 +1026,7 @@ mod tests {
         );
     }
 
+    /// Verifies the region buffer handles newlines tabs backspace and carriage return behavior.
     #[test]
     fn region_buffer_handles_newlines_tabs_backspace_and_carriage_return() {
         let mut buffer = RegionBuffer::new();
@@ -990,6 +1035,7 @@ mod tests {
         assert_eq!(buffer.render_lines(None, 80), vec!["Z\x1b[0m", "xz\x1b[0m"]);
     }
 
+    /// Handles the region buffer applies cursor movement and erase line modes workflow.
     #[test]
     fn region_buffer_applies_cursor_movement_and_erase_line_modes() {
         let mut buffer = RegionBuffer::new();
@@ -1008,6 +1054,7 @@ mod tests {
         assert_eq!(buffer.render_lines(None, 80), vec!["\x1b[0m"]);
     }
 
+    /// Handles the region buffer applies cursor position and display erase modes workflow.
     #[test]
     fn region_buffer_applies_cursor_position_and_display_erase_modes() {
         let mut buffer = RegionBuffer::new();
@@ -1021,6 +1068,7 @@ mod tests {
         assert_eq!(buffer.render_lines(None, 80), vec!["done\x1b[0m"]);
     }
 
+    /// Handles the region buffer preserves sgr and drops incomplete escape on finish workflow.
     #[test]
     fn region_buffer_preserves_sgr_and_drops_incomplete_escape_on_finish() {
         let mut buffer = RegionBuffer::new();
@@ -1033,6 +1081,7 @@ mod tests {
         );
     }
 
+    /// Handles the region buffer trims history to max kept lines workflow.
     #[test]
     fn region_buffer_trims_history_to_max_kept_lines() {
         let mut buffer = RegionBuffer::new();
@@ -1046,6 +1095,7 @@ mod tests {
         );
     }
 
+    /// Handles the session renderer clamps size and resizes workflow.
     #[test]
     fn session_renderer_clamps_size_and_resizes() {
         let mut renderer = SessionRenderer::new(0, 0);
@@ -1057,6 +1107,7 @@ mod tests {
         assert_eq!(renderer.cols, 120);
     }
 
+    /// Handles the session renderer renders regions in start order and clips running view workflow.
     #[test]
     fn session_renderer_renders_regions_in_start_order_and_clips_running_view() {
         let mut renderer = SessionRenderer::new(20, 80);
@@ -1074,6 +1125,7 @@ mod tests {
         assert!(!snapshot.contains("a1"));
     }
 
+    /// Handles the session renderer does not insert blank lines between regions workflow.
     #[test]
     fn session_renderer_does_not_insert_blank_lines_between_regions() {
         let mut renderer = SessionRenderer::new(20, 80);
@@ -1088,6 +1140,7 @@ mod tests {
         assert!(snapshot.contains("a1\x1b[0m\r\n\x1b[1;36m[02/04] Beta"));
     }
 
+    /// Handles the session renderer uses task running line limit workflow.
     #[test]
     fn session_renderer_uses_task_running_line_limit() {
         let mut renderer = SessionRenderer::new(20, 80);
@@ -1102,6 +1155,7 @@ mod tests {
         assert!(!snapshot.contains("\r\n1\x1b[0m"));
     }
 
+    /// Handles the session renderer can disable task running line limit workflow.
     #[test]
     fn session_renderer_can_disable_task_running_line_limit() {
         let mut renderer = SessionRenderer::new(20, 80);
@@ -1115,6 +1169,7 @@ mod tests {
         assert!(snapshot.contains("\r\n6\x1b[0m"));
     }
 
+    /// Handles the session renderer ignores output for unknown regions workflow.
     #[test]
     fn session_renderer_ignores_output_for_unknown_regions() {
         let mut renderer = SessionRenderer::new(24, 80);
@@ -1124,6 +1179,7 @@ mod tests {
         assert_eq!(renderer.region_id_for("missing"), None);
     }
 
+    /// Handles the session renderer tracks buffered regions and flushes them workflow.
     #[test]
     fn session_renderer_tracks_buffered_regions_and_flushes_them() {
         let mut renderer = SessionRenderer::new(24, 80);
@@ -1139,6 +1195,7 @@ mod tests {
         assert!(flushed.contains("hello"));
     }
 
+    /// Handles the completed snapshot includes full region history workflow.
     #[test]
     fn completed_snapshot_includes_full_region_history() {
         let mut renderer = SessionRenderer::new(3, 80);
@@ -1151,6 +1208,7 @@ mod tests {
         assert!(snapshot.contains("4"));
     }
 
+    /// Handles the stable region snapshot is full and emitted once workflow.
     #[test]
     fn stable_region_snapshot_is_full_and_emitted_once() {
         let mut renderer = SessionRenderer::new(3, 80);

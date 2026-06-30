@@ -10,6 +10,7 @@ interface MainLayoutProps {
   setActivePage: (page: PageKey) => void;
 }
 
+/** Coordinates the use zoom hook behavior. */
 export function useZoom(scale: number) {
   const ref = useRef<HTMLDivElement | null>(null);
   let _scale = scale;
@@ -26,6 +27,7 @@ export function useZoom(scale: number) {
   return ref;
 }
 
+/** Renders the main layout component. */
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
   const { uiSettings } = useUISettings();
   const zoomRef = useZoom(uiSettings?.zoomScale / 100);

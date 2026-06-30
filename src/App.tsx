@@ -74,6 +74,7 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
   return [k as PageKey, undefined];
 };
 
+/** Renders the main component. */
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
@@ -134,6 +135,7 @@ const Main: React.FC = () => {
     </MainLayout>
   );
 };
+/** Renders the initial page component. */
 const InitialPage = React.lazy(async () => {
   if (__WITH_WEBUI__) return import("@/pages/LoadingPage");
   if (__WITH_ANDROID__) return import("@/pages/LoadingPage");
@@ -141,6 +143,7 @@ const InitialPage = React.lazy(async () => {
   return import("@/pages/LoadingPage");
 });
 
+/** Renders the wrapped app component. */
 const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
@@ -209,9 +212,11 @@ const WrappedApp: React.FC = () => {
   );
 };
 
+/** Renders the app component. */
 const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = i18n.language;
+    /** Handles the on lang change interaction. */
     const onLangChange = (lng: string) => {
       document.documentElement.lang = lng;
     };

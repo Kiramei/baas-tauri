@@ -4,11 +4,13 @@ import { TFunction } from "i18next";
 type DownloadData = string | Blob | ArrayBuffer | Uint8Array;
 type UploadData = Uint8Array;
 
+/** Returns the get extension result. */
 function getExtension(filename: string): string {
   const match = filename.match(/\.([^.]+)$/);
   return match?.[1]?.toLowerCase() ?? "";
 }
 
+/** Returns the get file filter result. */
 function getFileFilter(filename: string) {
   const ext = getExtension(filename);
   if (!ext) return undefined;
@@ -30,6 +32,7 @@ function getFileFilter(filename: string) {
   ];
 }
 
+/** Handles the to uint8 array workflow. */
 async function toUint8Array(data: DownloadData): Promise<Uint8Array> {
   if (data instanceof Uint8Array) {
     return data;
@@ -43,6 +46,7 @@ async function toUint8Array(data: DownloadData): Promise<Uint8Array> {
   return new TextEncoder().encode(data);
 }
 
+/** Handles the to blob workflow. */
 function toBlob(data: DownloadData): Blob {
   if (data instanceof Blob) {
     return data;
@@ -52,6 +56,7 @@ function toBlob(data: DownloadData): Blob {
   });
 }
 
+/** Handles the data urlto blob workflow. */
 export function dataURLToBlob(dataURL: string): Blob {
   const commaIndex = dataURL.indexOf(",");
   if (commaIndex < 0) {
@@ -71,11 +76,13 @@ export function dataURLToBlob(dataURL: string): Blob {
 }
 
 class StorageUtilWebUI {
+  /** Performs the init operation. */
   static async init() {
     // For the browser has actually done the LocalStorage initialization,
     // we don't implement the init function and leave it blank.
   }
 
+  /** Returns the get result. */
   static get(key: string) {
     try {
       const raw = localStorage.getItem(key);
@@ -86,6 +93,7 @@ class StorageUtilWebUI {
     }
   }
 
+  /** Performs the set operation. */
   static set(key: string, value: any) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -94,6 +102,7 @@ class StorageUtilWebUI {
     }
   }
 
+  /** Performs the remove operation. */
   static remove(key: string) {
     try {
       localStorage.removeItem(key);
@@ -102,6 +111,7 @@ class StorageUtilWebUI {
     }
   }
 
+  /** Handles the download workflow. */
   static async download(
     filename: string,
     data: DownloadData | null | undefined,
@@ -123,16 +133,19 @@ class StorageUtilWebUI {
     }
   }
 
+  /** Handles the upload workflow. */
   static async upload(_translator: TFunction, accept = ".zip"): Promise<UploadData | null> {
     return await new Promise((resolve, reject) => {
       const input = document.createElement("input");
       let settled = false;
+      /** Handles the finish workflow. */
       const finish = (value: UploadData | null) => {
         if (settled) return;
         settled = true;
         window.removeEventListener("focus", onFocus);
         resolve(value);
       };
+      /** Handles the on focus interaction. */
       const onFocus = () => {
         setTimeout(() => {
           if (!input.files?.length) finish(null);
@@ -158,6 +171,7 @@ class StorageUtilWebUI {
     });
   }
 
+  /** Handles the retrieve path workflow. */
   static async retrievePath(_description: string, _filters: any) {
     // As the browser ban the visit of local file path,
     // we don't implement the webui interface for file path retrieval.
@@ -169,6 +183,7 @@ class StorageUtilTauri {
   private static cache: Record<string, any> = {};
   private static initialized = false;
 
+  /** Performs the init operation. */
   static async init() {
     if (this.initialized) return;
     const storageState = await this.resolveStorageState();
@@ -183,6 +198,7 @@ class StorageUtilTauri {
     this.initialized = true;
   }
 
+  /** Returns the resolve storage state result. */
   private static async resolveStorageState(): Promise<{ storePath: string; portable: boolean }> {
     try {
       const { invoke } = await import("@tauri-apps/api/core");
@@ -193,6 +209,7 @@ class StorageUtilTauri {
     }
   }
 
+  /** Returns the get result. */
   static get<T = any>(key: string): T | null {
     if (!this.initialized) {
       console.warn("[StorageUtil:get] called before init");
@@ -201,6 +218,7 @@ class StorageUtilTauri {
     return this.cache[key] ?? null;
   }
 
+  /** Performs the set operation. */
   static set(key: string, value: any) {
     if (!this.initialized) {
       console.warn("[StorageUtil:set] called before init");
@@ -210,12 +228,14 @@ class StorageUtilTauri {
     this.store!.set(key, value).then(() => this.store!.save());
   }
 
+  /** Performs the remove operation. */
   static remove(key: string) {
     if (!this.initialized) return;
     delete this.cache[key];
     this.store!.delete(key).then(() => this.store!.save());
   }
 
+  /** Handles the download workflow. */
   static async download(
     filename: string,
     data: DownloadData | null | undefined,
@@ -237,6 +257,7 @@ class StorageUtilTauri {
     await writeFile(target, bytes);
   }
 
+  /** Handles the upload workflow. */
   static async upload(translator: TFunction, accept = ".zip"): Promise<UploadData | null> {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const { readFile } = await import("@tauri-apps/plugin-fs");
@@ -263,6 +284,7 @@ class StorageUtilTauri {
     return await readFile(file);
   }
 
+  /** Handles the retrieve path workflow. */
   static async retrievePath(description: string, filters: any) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const file = await open({

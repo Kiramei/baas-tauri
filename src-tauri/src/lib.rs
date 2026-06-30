@@ -46,6 +46,7 @@ use tauri::Manager;
 #[cfg(not(mobile))]
 use tauri::{Manager, RunEvent, WindowEvent};
 
+/// Performs the run operation.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()

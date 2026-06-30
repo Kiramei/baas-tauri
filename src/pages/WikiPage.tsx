@@ -12,6 +12,7 @@ import {
 
 const webWikiLoadTimeoutMs = 20000;
 
+/** Renders the wiki page component. */
 const WikiPage: React.FC = () => {
   const { t } = useTranslation();
   const [detached, setDetached] = useState(false);
@@ -46,6 +47,7 @@ const WikiPage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [detached, loadState]);
 
+  /** Handles the detach wiki workflow. */
   const detachWiki = useCallback(async () => {
     if (__WITH_ANDROID__) return;
     if (!__WITH_TAURI__) {
@@ -58,6 +60,7 @@ const WikiPage: React.FC = () => {
     await openWebWikiWindow("detached", t("wiki.web.title"));
   }, [t]);
 
+  /** Performs the open wiki in browser operation. */
   const openWikiInBrowser = useCallback(async () => {
     if (__WITH_TAURI__) {
       try {
@@ -72,6 +75,7 @@ const WikiPage: React.FC = () => {
     window.open(WEB_WIKI_URL, "_blank", "noopener,noreferrer");
   }, []);
 
+  /** Handles the focus detached wiki workflow. */
   const focusDetachedWiki = useCallback(async () => {
     if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();
@@ -83,6 +87,7 @@ const WikiPage: React.FC = () => {
     await detachedWindow.setFocus();
   }, []);
 
+  /** Handles the return to main workflow. */
   const returnToMain = useCallback(async () => {
     if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();

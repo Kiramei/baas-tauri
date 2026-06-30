@@ -11,8 +11,10 @@ interface PathSelectorProps {
   disabled?: boolean;
 }
 
+/** Renders the path selector component. */
 const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath, disabled = false }) => {
   const { t } = useTranslation();
+  /** Handles the handle browse interaction. */
   const handleBrowse = async () => {
     if (disabled) return;
     const selected = await open({

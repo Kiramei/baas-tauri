@@ -28,6 +28,7 @@ type Draft = {
   purchase_scrimmage_ticket_times: string;
 };
 
+/** Renders the daily sweep tabs component. */
 const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
@@ -39,6 +40,7 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
   const hard_task_student_material = staticConfig.hard_task_student_material as string[][];
   const [openStudentModal, setOpenStudentModal] = useState(false);
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       mainlinePriority: settings.mainlinePriority!,
@@ -56,18 +58,21 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
 
   const [draft, setDraft] = useState<Draft>(ext);
 
+  /** Returns the get stages by name result. */
   const getStagesByName = (name: string): string[] => {
     return hard_task_student_material
       .filter(([student]) => student === name)
       .map(([stage]) => stage);
   };
 
+  /** Returns the get unique names result. */
   const getUniqueNames = (): string[] => {
     return Array.from(new Set(hard_task_student_material.map(([name]) => name)));
   };
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {

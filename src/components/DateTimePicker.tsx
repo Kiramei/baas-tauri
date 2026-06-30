@@ -25,6 +25,7 @@ interface DateTimePickerProps {
   delay?: number;
 }
 
+/** Renders the date time picker base component. */
 const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   value,
   onChange,
@@ -66,6 +67,7 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   // Shared timeout handle for debounced time updates.
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  /** Handles the handle date select interaction. */
   const handleDateSelect = React.useCallback(
     (selected?: Date) => {
       if (!selected) {
@@ -86,6 +88,7 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
     [dateObj, onChange, t]
   );
 
+  /** Handles the handle time input interaction. */
   const handleTimeInput = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const val = event.target.value;
@@ -151,4 +154,5 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   );
 };
 
+/** Renders the date time picker component. */
 export const DateTimePicker = React.memo(DateTimePickerBase);

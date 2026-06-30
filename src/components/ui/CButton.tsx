@@ -8,6 +8,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   iconOnly?: boolean;
 }
 
+/** Renders the cbutton component. */
 const CButton: React.FC<ButtonProps> = ({
   children,
   variant = "primary",

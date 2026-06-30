@@ -14,10 +14,12 @@ const zoomableSelector = [
   ".baas-site-preview img",
 ].join(", ");
 
+/** Renders the image zoom component. */
 export function ImageZoom() {
   const [image, setImage] = useState<ZoomImage | null>(null);
 
   useEffect(() => {
+    /** Handles the on click interaction. */
     function onClick(event: MouseEvent) {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -32,6 +34,7 @@ export function ImageZoom() {
       });
     }
 
+    /** Handles the on key down interaction. */
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setImage(null);
     }

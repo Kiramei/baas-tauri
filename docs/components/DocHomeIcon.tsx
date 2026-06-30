@@ -62,6 +62,7 @@ const icons = {
 
 export type DocHomeIconName = keyof typeof icons;
 
+/** Renders the doc home icon component. */
 export function DocHomeIcon({ name }: { name: DocHomeIconName }) {
   const Icon = icons[name];
 

@@ -62,6 +62,7 @@ __all__ = [
 ]
 
 
+# Handles the imread workflow.
 def imread(path, flags=IMREAD_COLOR):
     try:
         image = Image.open(path)
@@ -70,16 +71,19 @@ def imread(path, flags=IMREAD_COLOR):
     return _pil_to_cv_array(image, flags)
 
 
+# Handles the imwrite workflow.
 def imwrite(path, image):
     _cv_array_to_pil(image).save(path)
     return True
 
 
+# Handles the imdecode workflow.
 def imdecode(buf, flags=IMREAD_COLOR):
     data = np.asarray(buf, dtype=np.uint8).tobytes()
     return _pil_to_cv_array(Image.open(BytesIO(data)), flags)
 
 
+# Handles the imencode workflow.
 def imencode(ext, image):
     output = BytesIO()
     fmt = "PNG" if str(ext).lower().endswith("png") else "JPEG"
@@ -87,6 +91,7 @@ def imencode(ext, image):
     return True, np.frombuffer(output.getvalue(), dtype=np.uint8)
 
 
+# Handles the cvt color workflow.
 def cvtColor(image, code):
     arr = np.asarray(image)
     if code == COLOR_RGB2BGR or code == COLOR_BGR2RGB:
@@ -104,18 +109,21 @@ def cvtColor(image, code):
     raise RuntimeError("cv2.cvtColor code is unsupported on Android: %s" % code)
 
 
+# Handles the resize workflow.
 def resize(image, dsize, interpolation=INTER_AREA):
     pil = _cv_array_to_pil(image)
     resample = Image.Resampling.BOX if interpolation == INTER_AREA else Image.Resampling.BILINEAR
     return _pil_to_cv_array(pil.resize(tuple(dsize), resample=resample), IMREAD_UNCHANGED)
 
 
+# Handles the rotate workflow.
 def rotate(image, code):
     if code != ROTATE_90_CLOCKWISE:
         raise RuntimeError("cv2.rotate code is unsupported on Android: %s" % code)
     return np.rot90(np.asarray(image), k=3).copy()
 
 
+# Handles the flip workflow.
 def flip(image, flipCode, dst=None):
     arr = np.asarray(image)
     if flipCode == 0:
@@ -132,6 +140,7 @@ def flip(image, flipCode, dst=None):
     return result
 
 
+# Handles the in range workflow.
 def inRange(src, lowerb, upperb):
     arr = np.asarray(src)
     lower = np.asarray(lowerb, dtype=arr.dtype)
@@ -140,10 +149,12 @@ def inRange(src, lowerb, upperb):
     return (mask.astype(np.uint8) * 255)
 
 
+# Handles the bitwise or workflow.
 def bitwise_or(src1, src2):
     return np.bitwise_or(np.asarray(src1), np.asarray(src2)).astype(np.uint8)
 
 
+# Performs the connected components with stats operation.
 def connectedComponentsWithStats(image, connectivity=8):
     mask = np.asarray(image) != 0
     height, width = mask.shape[:2]
@@ -182,6 +193,7 @@ def connectedComponentsWithStats(image, connectivity=8):
     return component_id + 1, labels, np.asarray(stats, dtype=np.int32), np.asarray(centers, dtype=np.float64)
 
 
+# Handles the min max loc workflow.
 def minMaxLoc(src):
     arr = np.asarray(src)
     min_index = np.unravel_index(np.argmin(arr), arr.shape)
@@ -191,6 +203,7 @@ def minMaxLoc(src):
     return min_val, max_val, (int(min_index[1]), int(min_index[0])), (int(max_index[1]), int(max_index[0]))
 
 
+# Handles the match template workflow.
 def matchTemplate(image, templ, method):
     source = _to_match_array(image)
     target = _to_match_array(templ)
@@ -223,6 +236,7 @@ def matchTemplate(image, templ, method):
     return result
 
 
+# Handles the pil to cv array workflow.
 def _pil_to_cv_array(image, flags):
     if flags == IMREAD_GRAYSCALE:
         return np.array(image.convert("L"))
@@ -233,6 +247,7 @@ def _pil_to_cv_array(image, flags):
     return arr[..., ::-1].copy()
 
 
+# Handles the cv array to pil workflow.
 def _cv_array_to_pil(image):
     arr = np.asarray(image)
     if arr.ndim == 2:
@@ -242,11 +257,13 @@ def _cv_array_to_pil(image):
     return Image.fromarray(arr[..., ::-1].astype(np.uint8), "RGB")
 
 
+# Handles the to gray workflow.
 def _to_gray(rgb):
     arr = np.asarray(rgb, dtype=np.float32)
     return np.clip(arr[..., 0] * 0.299 + arr[..., 1] * 0.587 + arr[..., 2] * 0.114, 0, 255).astype(np.uint8)
 
 
+# Handles the bgr to hsv workflow.
 def _bgr_to_hsv(bgr):
     arr = np.asarray(bgr, dtype=np.float32) / 255.0
     b = arr[..., 0]
@@ -273,6 +290,7 @@ def _bgr_to_hsv(bgr):
     return np.stack([hue, saturation, value], axis=-1).astype(np.uint8)
 
 
+# Handles the to match array workflow.
 def _to_match_array(image):
     arr = np.asarray(image)
     if arr.ndim == 2:
@@ -280,6 +298,7 @@ def _to_match_array(image):
     return arr
 
 
+# Handles the getattr workflow.
 def __getattr__(name):
     if name.startswith("__") and name.endswith("__"):
         raise AttributeError(name)

@@ -75,6 +75,7 @@ impl UpdaterError {
 }
 
 impl fmt::Display for UpdaterError {
+    /// Handles the fmt workflow.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.message())
     }
@@ -83,24 +84,28 @@ impl fmt::Display for UpdaterError {
 impl std::error::Error for UpdaterError {}
 
 impl From<std::io::Error> for UpdaterError {
+    /// Handles the from workflow.
     fn from(error: std::io::Error) -> Self {
         Self::Io(error.to_string())
     }
 }
 
 impl From<git2::Error> for UpdaterError {
+    /// Handles the from workflow.
     fn from(error: git2::Error) -> Self {
         Self::Git(error.to_string())
     }
 }
 
 impl From<toml::de::Error> for UpdaterError {
+    /// Handles the from workflow.
     fn from(error: toml::de::Error) -> Self {
         Self::Config(error.to_string())
     }
 }
 
 impl From<toml::ser::Error> for UpdaterError {
+    /// Handles the from workflow.
     fn from(error: toml::ser::Error) -> Self {
         Self::Config(error.to_string())
     }
@@ -108,6 +113,7 @@ impl From<toml::ser::Error> for UpdaterError {
 
 #[cfg(not(target_os = "android"))]
 impl From<zip::result::ZipError> for UpdaterError {
+    /// Handles the from workflow.
     fn from(error: zip::result::ZipError) -> Self {
         Self::Io(error.to_string())
     }
@@ -245,6 +251,7 @@ pub struct WorkflowOptions {
 }
 
 impl Default for WorkflowOptions {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             config_path: None,
@@ -285,10 +292,12 @@ pub trait OutputSink: Send + Sync {
 pub struct NoopOutput;
 
 impl OutputSink for NoopOutput {
+    /// Handles the line workflow.
     fn line(&self, _style: OutputStyle, _message: &str) {}
 }
 
 impl OutputSink for baas_term::threader::ThreadOutput {
+    /// Handles the line workflow.
     fn line(&self, style: OutputStyle, message: &str) {
         let mapped = match style {
             OutputStyle::Info => baas_term::threader::ThreadLogStyle::Info,
@@ -300,6 +309,7 @@ impl OutputSink for baas_term::threader::ThreadOutput {
         self.log().line(mapped, message);
     }
 
+    /// Handles the thread output workflow.
     fn thread_output(&self) -> Option<&baas_term::threader::ThreadOutput> {
         Some(self)
     }
@@ -317,6 +327,7 @@ pub(crate) mod test_support {
     }
 
     impl OutputSink for CollectOutput {
+        /// Handles the line workflow.
         fn line(&self, style: OutputStyle, message: &str) {
             self.lines
                 .lock()

@@ -56,6 +56,7 @@ mod tests {
     use super::*;
     use std::{sync::mpsc, thread};
 
+    /// Handles the completion workflow.
     fn completion(task_id: &str, success: bool) -> TaskCompletion {
         TaskCompletion {
             task_id: task_id.to_string(),
@@ -63,6 +64,7 @@ mod tests {
         }
     }
 
+    /// Handles the session is current matches active session workflow.
     #[test]
     fn session_is_current_matches_active_session() {
         let inner = Arc::new(Mutex::new(TermState {
@@ -74,6 +76,7 @@ mod tests {
         assert!(!session_is_current(&inner, "session-b"));
     }
 
+    /// Verifies the session is current returns false for poisoned lock behavior.
     #[test]
     fn session_is_current_returns_false_for_poisoned_lock() {
         let inner = Arc::new(Mutex::new(TermState::default()));
@@ -87,6 +90,7 @@ mod tests {
         assert!(!session_is_current(&inner, "session-a"));
     }
 
+    /// Performs the wait for completion ignores unrelated tasks operation.
     #[test]
     fn wait_for_completion_ignores_unrelated_tasks() {
         let (tx, rx) = mpsc::channel();
@@ -99,6 +103,7 @@ mod tests {
         assert!(result.success);
     }
 
+    /// Verifies the wait for completion returns channel errors behavior.
     #[test]
     fn wait_for_completion_returns_channel_errors() {
         let (tx, rx) = mpsc::channel();
@@ -107,6 +112,7 @@ mod tests {
         assert!(wait_for_completion(&rx, "missing").is_err());
     }
 
+    /// Performs the wait for completions accepts unordered results and aggregates success operation.
     #[test]
     fn wait_for_completions_accepts_unordered_results_and_aggregates_success() {
         let (tx, rx) = mpsc::channel();
@@ -120,6 +126,7 @@ mod tests {
         assert!(!success);
     }
 
+    /// Verifies the wait for completions returns true for empty expected set behavior.
     #[test]
     fn wait_for_completions_returns_true_for_empty_expected_set() {
         let (_tx, rx) = mpsc::channel();
@@ -127,6 +134,7 @@ mod tests {
         assert!(wait_for_completions(&rx, Vec::new()).unwrap());
     }
 
+    /// Verifies the wait for completions returns channel errors behavior.
     #[test]
     fn wait_for_completions_returns_channel_errors() {
         let (tx, rx) = mpsc::channel();

@@ -54,11 +54,13 @@ pub struct AndroidWorkflowAbortRequest {
 }
 
 impl Default for AndroidWorkflowAbortRequest {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self { emit_events: true }
     }
 }
 
+/// Handles the default abort emit events workflow.
 fn default_abort_emit_events() -> bool {
     true
 }
@@ -277,6 +279,7 @@ struct AndroidRepositoryOutcome {
     source_url: String,
 }
 
+/// Performs the run android update flow operation.
 fn run_android_update_flow(
     inner: Arc<Mutex<TermState>>,
     session_id: String,
@@ -339,6 +342,7 @@ fn run_android_update_flow(
     finish_android_session(&inner, &session_id, &renderer_tx, true);
 }
 
+/// Handles the android task workflow.
 fn android_task(plan: &WorkflowPlan, task_id: &str) -> baas_term::types::TaskSpec {
     let node = plan.node(task_id).expect("android workflow task missing");
     create_thread_task_with_total(
@@ -356,6 +360,7 @@ struct AndroidConfigArgs {
     state: Arc<Mutex<AndroidWorkflowState>>,
 }
 
+/// Handles the android config task workflow.
 fn android_config_task(
     output: baas_term::threader::ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -404,6 +409,7 @@ fn android_config_task(
     Ok(())
 }
 
+/// Performs the run android repository stage operation.
 fn run_android_repository_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -462,6 +468,7 @@ struct AndroidRepositoryArgs {
     state: Arc<Mutex<AndroidWorkflowState>>,
 }
 
+/// Handles the android repository task workflow.
 fn android_repository_task(
     output: baas_term::threader::ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -504,6 +511,7 @@ fn android_repository_task(
     Ok(())
 }
 
+/// Performs the sync android repository operation.
 fn sync_android_repository(
     kind: RepositoryKind,
     config: &UpdaterConfig,
@@ -569,6 +577,7 @@ fn sync_android_repository(
     )))
 }
 
+/// Handles the android repository target workflow.
 fn android_repository_target(root: &Path, kind: RepositoryKind) -> PathBuf {
     match kind {
         RepositoryKind::Main => root.to_path_buf(),
@@ -580,6 +589,7 @@ fn android_repository_target(root: &Path, kind: RepositoryKind) -> PathBuf {
     }
 }
 
+/// Handles the android repository branch workflow.
 fn android_repository_branch(
     kind: RepositoryKind,
     _channel: UpdateChannel,
@@ -628,6 +638,7 @@ pub fn android_repository_remote_sha(
     Ok(sha)
 }
 
+/// Handles the android cpp branch for workflow.
 fn android_cpp_branch_for(arch: &str) -> UpdaterResult<String> {
     match arch {
         "aarch64" | "arm64" => Ok("android-arm64-v8a".to_string()),
@@ -638,6 +649,7 @@ fn android_cpp_branch_for(arch: &str) -> UpdaterResult<String> {
     }
 }
 
+/// Performs the sync git2 worktree operation.
 fn sync_git2_worktree(
     url: &str,
     branch: &str,
@@ -670,6 +682,7 @@ fn sync_git2_worktree(
     Ok((status, sha))
 }
 
+/// Handles the configure android git2 ssl workflow.
 #[cfg(target_os = "android")]
 fn configure_android_git2_ssl(output: &(dyn OutputSink + Send + Sync)) -> UpdaterResult<()> {
     static SSL_CERT_DIR_RESULT: std::sync::OnceLock<Result<Option<String>, String>> =
@@ -712,11 +725,13 @@ fn configure_android_git2_ssl(output: &(dyn OutputSink + Send + Sync)) -> Update
     }
 }
 
+/// Handles the configure android git2 ssl workflow.
 #[cfg(not(target_os = "android"))]
 fn configure_android_git2_ssl(_output: &(dyn OutputSink + Send + Sync)) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Returns the can clone into result.
 fn can_clone_into(target_dir: &Path) -> bool {
     if !target_dir.exists() {
         return true;
@@ -729,6 +744,7 @@ fn can_clone_into(target_dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Handles the clone git2 worktree workflow.
 fn clone_git2_worktree(
     url: &str,
     branch: &str,
@@ -747,6 +763,7 @@ fn clone_git2_worktree(
     Ok(())
 }
 
+/// Performs the open or init repository operation.
 fn open_or_init_repository(
     target_dir: &Path,
     output: &(dyn OutputSink + Send + Sync),
@@ -770,6 +787,7 @@ fn open_or_init_repository(
     }
 }
 
+/// Handles the fetch and reset git2 workflow.
 fn fetch_and_reset_git2(
     repo: &Repository,
     url: &str,
@@ -795,6 +813,7 @@ fn fetch_and_reset_git2(
     Ok(())
 }
 
+/// Handles the android fetch options workflow.
 fn android_fetch_options(output: &(dyn OutputSink + Send + Sync)) -> FetchOptions<'_> {
     let callbacks = android_remote_callbacks(output);
     let mut options = FetchOptions::new();
@@ -802,6 +821,7 @@ fn android_fetch_options(output: &(dyn OutputSink + Send + Sync)) -> FetchOption
     options
 }
 
+/// Handles the android remote callbacks workflow.
 fn android_remote_callbacks(output: &(dyn OutputSink + Send + Sync)) -> RemoteCallbacks<'_> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.certificate_check(|_, host| {
@@ -835,6 +855,7 @@ fn android_remote_callbacks(output: &(dyn OutputSink + Send + Sync)) -> RemoteCa
     callbacks
 }
 
+/// Returns the is allowed android git host result.
 fn is_allowed_android_git_host(host: &str) -> bool {
     let host = host
         .split(':')
@@ -858,18 +879,22 @@ fn is_allowed_android_git_host(host: &str) -> bool {
     )
 }
 
+/// Returns the is git repository result.
 fn is_git_repository(target_dir: &Path) -> bool {
     target_dir.join(".git").exists() && Repository::open(target_dir).is_ok()
 }
 
+/// Handles the head oid workflow.
 fn head_oid(repo: &Repository) -> UpdaterResult<Oid> {
     Ok(repo.head()?.peel_to_commit()?.id())
 }
 
+/// Handles the head sha workflow.
 fn head_sha(repo: &Repository) -> UpdaterResult<String> {
     Ok(head_oid(repo)?.to_string())
 }
 
+/// Handles the android finalize task workflow.
 fn android_finalize_task(
     output: baas_term::threader::ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -925,12 +950,14 @@ fn android_finalize_task(
     Ok(())
 }
 
+/// Performs the wait for android task operation.
 fn wait_for_android_task(completion_rx: &mpsc::Receiver<TaskCompletion>, task_id: &str) -> bool {
     baas_term::common::wait_for_completion(completion_rx, task_id)
         .map(|completion| completion.success)
         .unwrap_or(false)
 }
 
+/// Handles the finish android session workflow.
 fn finish_android_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -942,6 +969,7 @@ fn finish_android_session(
     }
 }
 
+/// Performs the update status text operation.
 fn update_status_text(status: &UpdateStatus) -> &'static str {
     match status {
         UpdateStatus::Installed => "installed",
@@ -950,6 +978,7 @@ fn update_status_text(status: &UpdateStatus) -> &'static str {
     }
 }
 
+/// Handles the short sha workflow.
 fn short_sha(sha: &str) -> String {
     sha.chars().take(7).collect()
 }
@@ -958,6 +987,7 @@ fn short_sha(sha: &str) -> String {
 mod tests {
     use super::*;
 
+    /// Handles the android cpp branch maps supported abis workflow.
     #[test]
     fn android_cpp_branch_maps_supported_abis() {
         assert_eq!(
@@ -968,6 +998,7 @@ mod tests {
         assert!(android_cpp_branch_for("arm").is_err());
     }
 
+    /// Handles the android targets keep main repo at root workflow.
     #[test]
     fn android_targets_keep_main_repo_at_root() {
         let root = Path::new("/data/user/0/io.github.kiramei.baas_tauri/files");

@@ -12,6 +12,7 @@ interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   childClassName?: string;
 }
 
+/** Renders the form input component. */
 export const FormInput: React.FC<FormInputProps> = ({
   label,
   tooltip,

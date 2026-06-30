@@ -8,10 +8,12 @@ export default [
   {
     ignores: [
       "**/node_modules/**",
+      ".cache/**",
       "dist",
       "build",
       "public",
       "src/components/remote/player/vendor/**",
+      "src-tauri/gen/**",
       "scripts/**",
       "**/target/**",
       "**/.next/**",

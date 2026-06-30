@@ -8,6 +8,7 @@ interface IndicatorProps {
   onStateChanged: (state: boolean) => void;
 }
 
+/** Renders the indicator base component. */
 export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   const [alive, setAlive] = useState(false);
   const [connected, setConnected] = useState(true);
@@ -77,6 +78,7 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   );
 };
 
+/** Renders the heartbeat indicator component. */
 const HeartbeatIndicator = () => {
   const { t } = useTranslation();
   const [connected, setConnected] = useState(false);

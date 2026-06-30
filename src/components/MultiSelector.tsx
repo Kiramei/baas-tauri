@@ -48,6 +48,7 @@ interface RangeModeProps extends BaseTimeProps {
   onChange: (list: number[][][]) => void;
 }
 
+/** Renders the selector modal component. */
 const SelectorModal: React.FC<SelectorModalProps> = ({
   isOpen,
   onClose,
@@ -58,6 +59,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -68,6 +70,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
     );
   }, [query, alternatives]);
 
+  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));
@@ -122,6 +125,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   );
 };
 
+/** Renders the ordered multi selector component. */
 export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   label,
   tooltip,
@@ -135,6 +139,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   const { t } = useTranslation();
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -238,6 +243,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   );
 };
 
+/** Renders the time selector modal component. */
 export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
   label,
   tooltip,
@@ -248,6 +254,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  /** Handles the handle time add interaction. */
   const handleTimeAdd = (): void => {
     if (mode === "time") {
       const list = values as number[][];
@@ -255,6 +262,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the handle range add interaction. */
   const handleRangeAdd = (): void => {
     if (mode === "range") {
       const list = values as number[][][];
@@ -268,12 +276,15 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the handle remove interaction. */
   const handleRemove = (index: number): void => {
     onChange(values.filter((_, i) => i !== index) as any);
   };
 
+  /** Handles the pad workflow. */
   const pad = (n: number) => String(n).padStart(2, "0");
 
+  /** Handles the forward handler workflow. */
   const forwardHandler = (value: number[]): string => {
     if (value.length === 2) {
       return `${pad(value[0])}:${pad(value[1])}`;
@@ -282,6 +293,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the backward handler workflow. */
   const backwardHandler = (value: string): number[] => {
     return value.split(":").map((e) => parseInt(e));
   };

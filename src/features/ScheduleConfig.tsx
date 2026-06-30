@@ -29,6 +29,7 @@ type Draft = {
 
 const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced", "superior"];
 
+/** Renders the lesson config component. */
 const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
   const { uiSettings } = useUISettings();

@@ -16,6 +16,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+/** Renders the app provider component. */
 export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: boolean) => void }> = ({
   children,
   setReady,
@@ -116,6 +117,7 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   );
 };
 
+/** Coordinates the use app hook behavior. */
 export const useApp = (): AppContextType => {
   const context = useContext(AppContext);
   if (context === undefined) {

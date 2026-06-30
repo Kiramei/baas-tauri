@@ -25,6 +25,7 @@ const statusColorMap: Record<string, string> = {
 
 const androidPasswordKey = "baasAndroidAutoPassword";
 
+/** Returns the get android auto password result. */
 const getAndroidAutoPassword = () => {
   const stored = window.localStorage.getItem(androidPasswordKey);
   if (stored) return stored;
@@ -35,6 +36,7 @@ const getAndroidAutoPassword = () => {
   return next;
 };
 
+/** Renders the auto scroll terminal component. */
 export function AutoScrollTerminal({ children }: { children: React.ReactNode }) {
   const endRef = useRef<HTMLDivElement>(null);
   const { uiSettings } = useUISettings();
@@ -53,6 +55,7 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
   );
 }
 
+/** Renders the android startup terminal component. */
 function AndroidStartupTerminal({ text, theme }: { text: string; theme: string }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -86,6 +89,7 @@ function AndroidStartupTerminal({ text, theme }: { text: string; theme: string }
     termRef.current = term;
     fitRef.current = fit;
 
+    /** Handles the resize workflow. */
     const resize = () => {
       try {
         fit.fit();
@@ -146,17 +150,20 @@ const androidLevelMap: Record<string, string> = {
   DEBUG: "D",
 };
 
+/** Returns the format startup log chunk result. */
 const formatStartupLogChunk = (log: { time: string; level: string; message: string }) => {
   const level = androidLevelMap[String(log.level).toUpperCase()] ?? String(log.level).slice(0, 1);
   return `${formatIsoToReadableTime(log.time)} ${level} ${log.message}`;
 };
 
+/** Handles the keep recent log lines workflow. */
 const keepRecentLogLines = (text: string, maxLines = 120) => {
   const lines = text.split("\n");
   if (lines.length <= maxLines) return text;
   return lines.slice(-maxLines).join("\n");
 };
 
+/** Renders the loading page component. */
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
   const logoRef = useRef<HTMLImageElement>(null);
   const androidLogCursorRef = useRef(0);

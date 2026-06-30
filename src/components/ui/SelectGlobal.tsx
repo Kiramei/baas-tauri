@@ -8,6 +8,7 @@ type GlobalCtx = {
 
 export const GlobalSelectContext = React.createContext<GlobalCtx | null>(null);
 
+/** Renders the global select provider component. */
 export function GlobalSelectProvider({ children }: { children: React.ReactNode }) {
   const [openId, setOpenId] = React.useState<string | null>(null);
   return (
@@ -17,6 +18,7 @@ export function GlobalSelectProvider({ children }: { children: React.ReactNode }
   );
 }
 
+/** Coordinates the use global select hook behavior. */
 export function useGlobalSelect() {
   return React.useContext(GlobalSelectContext);
 }

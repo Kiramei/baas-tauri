@@ -12,10 +12,12 @@ type PageProps = {
   }>;
 };
 
+/** Handles the generate static params workflow. */
 export async function generateStaticParams() {
   return source.generateParams("slug", "lang");
 }
 
+/** Handles the generate metadata workflow. */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { lang, slug } = await params;
   const locale = normalizeLocale(lang);
@@ -29,6 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+/** Renders the page component. */
 export default async function Page({ params }: PageProps) {
   const { lang, slug } = await params;
   const locale = normalizeLocale(lang);

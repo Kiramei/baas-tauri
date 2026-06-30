@@ -7,6 +7,7 @@ interface InstallerLayoutProps {
   title?: string;
 }
 
+/** Renders the installer layout component. */
 const InstallerLayout: React.FC<InstallerLayoutProps> = ({ children, title }) => {
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;

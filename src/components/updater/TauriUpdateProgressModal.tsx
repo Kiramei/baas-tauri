@@ -7,6 +7,7 @@ import { useUISettings } from "@/context/UISettingsProvider.tsx";
 const overlayCls =
   "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50";
 
+/** Renders the tauri update progress modal component. */
 export const TauriUpdateProgressModal: React.FC<{
   open: boolean;
   onClose: () => void;
