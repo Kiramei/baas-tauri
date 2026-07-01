@@ -10,6 +10,7 @@ import StorageUtil from "@/shared/StorageManager";
 import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
+import { reloadWithoutPrompt } from "@/shared/reload";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
@@ -295,6 +296,7 @@ const SetupPage = () => {
             "updater_reset_backend_auth_and_restart"
           );
           await authenticateBackend(recovered, true);
+          reloadWithoutPrompt();
         } catch (retryError) {
           const firstMessage = error instanceof Error ? error.message : String(error);
           const retryMessage =

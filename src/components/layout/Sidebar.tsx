@@ -141,6 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
               toast.success(t("update.backendStarted"));
               try {
                 await invoke("updater_reset_backend_auth_and_restart");
+                reloadWithoutPrompt();
               } catch (error) {
                 toast.error(t("update.backendStartFailed"), {
                   description: error instanceof Error ? error.message : String(error),
@@ -202,6 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
               if (__WITH_ANDROID__) {
                 try {
                   await invoke("updater_reset_backend_auth_and_restart");
+                  reloadWithoutPrompt();
                 } catch (error) {
                   toast.error(t("update.backendStartFailed"), {
                     description: error instanceof Error ? error.message : String(error),
