@@ -1,7 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":disableDependencyDashboard"],
-  "baseBranchPatterns": ["dev"],
+  "extends": ["config:recommended"],
   "enabledManagers": ["cargo", "npm", "github-actions", "dockerfile"],
   "labels": ["dependencies"],
   "semanticCommits": "enabled",
@@ -55,7 +54,7 @@
     {
       "description": "Group all remaining npm dependencies into a single PR",
       "matchManagers": ["npm"],
-      "excludePackageNames": ["/^@tauri-apps\\//", "/^@radix-ui\\//", "radix-ui"],
+      "matchPackageNames": ["!/^@tauri-apps\\//", "!/^@radix-ui\\//", "!radix-ui"],
       "groupName": "npm dependencies"
     },
     {
