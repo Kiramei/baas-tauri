@@ -720,9 +720,11 @@ export const useWebSocketStore = create<WebSocketState>()(
               Object.entries(state.eventStore).filter(([id]) => message.data.includes(id))
             );
             const log_kept = Object.fromEntries(
-              Object.entries(state.logStore).filter(([key]) =>
-                message.data.some((id: string) => key === `config:${id}`)
-              )
+              Object.entries(state.logStore).filter(([key]) => {
+                // Keep provider-owned scopes such as global logs while pruning removed config scopes.
+                if (!key.startsWith("config:")) return true;
+                return message.data.some((id: string) => key === `config:${id}`);
+              })
             );
             const status_kept = Object.fromEntries(
               Object.entries(state.statusStore).filter(([id]) => message.data.includes(id))
