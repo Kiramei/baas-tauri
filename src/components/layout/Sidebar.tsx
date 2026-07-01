@@ -22,10 +22,9 @@ import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgre
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
 
 const baseUrl = import.meta.env.BASE_URL;
+const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
 interface SidebarProps {
   activePage: string;
@@ -359,7 +358,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           </div>
           {__WITH_ANDROID__ ? (
             <div className="h-64 overflow-hidden rounded bg-slate-950 p-3">
-              <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
+              <React.Suspense
+                fallback={
+                  <pre className="h-full overflow-auto text-xs leading-5 text-slate-100">
+                    {backendUpdateTerminalText || "waiting...\r\n"}
+                  </pre>
+                }
+              >
+                <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
+              </React.Suspense>
             </div>
           ) : (
             <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
@@ -373,79 +380,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 };
 
 export default Sidebar;
-
-/** Renders the inline xterm log component. */
-const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const writtenLengthRef = useRef(0);
-  const previousTextRef = useRef("");
-
-  useEffect(() => {
-    if (!hostRef.current) return;
-    const term = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      disableStdin: true,
-      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 12,
-      lineHeight: 1.18,
-      scrollback: 1000,
-      theme: {
-        background: "#00000000",
-        foreground: "#dbe7f3",
-        cursor: "transparent",
-        selectionBackground: "#38506b",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current);
-    termRef.current = term;
-    fitRef.current = fit;
-
-    /** Handles the resize workflow. */
-    const resize = () => {
-      try {
-        fit.fit();
-      } catch {
-        // The terminal may be hidden while the update popover is closing.
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
-
-    return () => {
-      observer.disconnect();
-      fit.dispose();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      writtenLengthRef.current = 0;
-      previousTextRef.current = "";
-    };
-  }, []);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
-      term.reset();
-      term.clear();
-      writtenLengthRef.current = 0;
-    }
-    const chunk = text.slice(writtenLengthRef.current);
-    if (!chunk) return;
-    writtenLengthRef.current = text.length;
-    previousTextRef.current = text;
-    term.write(chunk);
-    term.scrollToBottom();
-  }, [text]);
-
-  return <div ref={hostRef} className="terminal-host h-full w-full" />;
-};
 
 type UpdateTone = "red" | "blue";
 

@@ -4,11 +4,70 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blue Archive Auto Script</title>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: #0f172a;
+      }
+
+      #baas-startup-shell {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: #0f172a;
+        color: #dbeafe;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      #baas-startup-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.8)),
+          url("/images/bg-dark.webp") center / cover no-repeat;
+      }
+
+      #baas-startup-shell > div {
+        position: relative;
+        display: grid;
+        gap: 18px;
+        justify-items: center;
+      }
+
+      #baas-startup-shell img {
+        width: 112px;
+        height: 112px;
+        border-radius: 999px;
+        box-shadow: 0 0 36px rgba(34, 211, 238, 0.45);
+      }
+
+      #baas-startup-shell span {
+        border: 1px solid rgba(34, 211, 238, 0.35);
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.64);
+        padding: 8px 14px;
+        font-size: 15px;
+      }
+    </style>
     <link rel="stylesheet" href="/src/styles/index.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   </head>
   <body class="bg-slate-50 dark:bg-slate-900">
-    <div id="root"></div>
+    <div id="root">
+      <div id="baas-startup-shell">
+        <div>
+          <img src="/images/logo.png" alt="" />
+          <span>Starting BAAS...</span>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

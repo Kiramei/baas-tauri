@@ -7,10 +7,9 @@ import { useTheme } from "@/context/ThemeProvider.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import PasswordInputModal from "@/components/PasswordInputModal.tsx";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
 
 const baseUrl = import.meta.env.BASE_URL;
+const AndroidStartupTerminal = React.lazy(() => import("@/components/AndroidStartupTerminal"));
 
 interface LoadingPageProps {
   message?: string;
@@ -53,93 +52,6 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
       <div ref={endRef} />
     </div>
   );
-}
-
-/** Renders the android startup terminal component. */
-function AndroidStartupTerminal({ text, theme }: { text: string; theme: string }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const writtenLengthRef = useRef(0);
-  const previousTextRef = useRef("");
-
-  useEffect(() => {
-    if (!hostRef.current) return;
-
-    const isLight = theme === "light";
-    const term = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      disableStdin: true,
-      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 12,
-      lineHeight: 1.18,
-      scrollback: 160,
-      theme: {
-        background: "#00000000",
-        foreground: isLight ? "#334155" : "#dbe7f3",
-        cursor: "transparent",
-        selectionBackground: isLight ? "#cbd5e1" : "#38506b",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current);
-
-    termRef.current = term;
-    fitRef.current = fit;
-
-    /** Handles the resize workflow. */
-    const resize = () => {
-      try {
-        fit.fit();
-      } catch {
-        // The terminal can briefly be detached during route transitions.
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
-
-    return () => {
-      observer.disconnect();
-      fit.dispose();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      writtenLengthRef.current = 0;
-    };
-  }, []);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    const isLight = theme === "light";
-    term.options.theme = {
-      background: "#00000000",
-      foreground: isLight ? "#334155" : "#dbe7f3",
-      cursor: "transparent",
-      selectionBackground: isLight ? "#cbd5e1" : "#38506b",
-    };
-  }, [theme]);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
-      term.reset();
-      term.clear();
-      writtenLengthRef.current = 0;
-    }
-    const chunk = text.slice(writtenLengthRef.current);
-    if (!chunk) return;
-    writtenLengthRef.current = text.length;
-    previousTextRef.current = text;
-    term.write(chunk.replace(/\n/g, "\r\n"));
-    term.scrollToBottom();
-  }, [text]);
-
-  return <div ref={hostRef} className="terminal-host h-full w-full" />;
 }
 
 const androidLevelMap: Record<string, string> = {
@@ -232,10 +144,18 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
       <div className="fixed w-full h-full p-2">
         <div className="w-full h-full bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-[5px] rounded-md p-2 border-2 border-primary-500/70">
           {__WITH_ANDROID__ ? (
-            <AndroidStartupTerminal
-              text={androidStartupLogChunk || "Waiting for backend startup logs..."}
-              theme={theme}
-            />
+            <React.Suspense
+              fallback={
+                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-2 font-mono text-xs leading-5 text-slate-200">
+                  {androidStartupLogChunk || "Waiting for backend startup logs..."}
+                </pre>
+              }
+            >
+              <AndroidStartupTerminal
+                text={androidStartupLogChunk || "Waiting for backend startup logs..."}
+                theme={theme}
+              />
+            </React.Suspense>
           ) : (
             <AutoScrollTerminal>
               {globalLogData.map((log, idx) => (

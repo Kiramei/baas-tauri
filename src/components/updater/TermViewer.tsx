@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/Button";
 import { Copy, Terminal as TerminalIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";

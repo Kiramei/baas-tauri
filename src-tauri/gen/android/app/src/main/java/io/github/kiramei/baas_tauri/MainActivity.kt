@@ -1,6 +1,7 @@
 package io.github.kiramei.baas_tauri
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -22,6 +23,7 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    webView.setBackgroundColor(Color.rgb(15, 23, 42))
     loadDebugDevUrl(webView)
     scheduleDebugDevUrlLoads(webView)
   }

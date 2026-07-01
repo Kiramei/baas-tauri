@@ -51,9 +51,6 @@ const bootstrap = async () => {
     return;
   }
 
-  await import("@xterm/xterm/css/xterm.css");
-  const { Buffer } = await import("buffer");
-  (globalThis as any).Buffer = Buffer;
   const [{ default: App }, { initI18n }, { useWebSocketStore }] = await Promise.all([
     import("@/App.tsx"),
     import("@/shared/I18nTranslator.ts"),
@@ -67,6 +64,9 @@ const bootstrap = async () => {
       <App />
     </React.StrictMode>
   );
+  void import("buffer").then(({ Buffer }) => {
+    (globalThis as any).Buffer = Buffer;
+  });
 
   await closeSplash();
 };
