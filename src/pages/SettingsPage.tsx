@@ -80,6 +80,7 @@ type TauriBackendVersionReport = {
 type TauriShaMethodReport = {
   success: boolean;
   name: string;
+  order?: number;
   duration: number;
   value?: string | null;
   error?: string | null;
@@ -633,7 +634,7 @@ const SettingsPage: React.FC = () => {
                   ...item,
                   status: result.success ? "success" : "error",
                   time: result.duration.toFixed(3),
-                  sha: result.value ?? undefined,
+                  sha: result.success ? (result.value ?? undefined) : undefined,
                 }
               : item
           )
@@ -715,7 +716,7 @@ const SettingsPage: React.FC = () => {
                   ...item,
                   status: result.success ? "success" : "error",
                   time: result.duration.toFixed(3),
-                  sha: result.value ?? undefined,
+                  sha: result.success ? (result.value ?? undefined) : undefined,
                 }
               : item
           )

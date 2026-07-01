@@ -816,11 +816,19 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
 /// Handles the configure git cli command workflow.
 fn configure_git_cli_command(command: &mut Command) {
     command
+        .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "");
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo");
 }
 
 /// Handles the git smart http probe url workflow.

@@ -143,6 +143,7 @@ pub struct TauriClientUpdateRequest {
 pub struct UpdaterShaTestReport {
     pub success: bool,
     pub name: String,
+    pub order: i32,
     pub duration: f64,
     pub value: Option<String>,
     pub error: Option<String>,
@@ -420,9 +421,9 @@ pub async fn updater_test_sha_methods(
     let timeout = sha_test_timeout(request.timeout);
     let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
     let mut tasks = JoinSet::new();
-    for (name, url) in sha_method_sources(channel) {
+    for (order, (name, url)) in sha_method_sources(channel).into_iter().enumerate() {
         let branch = branch.clone();
-        tasks.spawn(run_sha_probe(name, url, branch, timeout));
+        tasks.spawn(run_sha_probe(name, order as i32, url, branch, timeout));
     }
 
     let mut reports = Vec::new();
@@ -444,11 +445,13 @@ pub async fn updater_test_sha_method(
     let timeout = sha_test_timeout(request.timeout);
     let branch = repository_branch(RepositoryKind::Main).map_err(|error| error.message())?;
     let name = request.method.trim().to_string();
-    let url = sha_method_sources(channel)
+    let (order, url) = sha_method_sources(channel)
         .into_iter()
-        .find(|(method, _)| method == &name)
-        .and_then(|(_, url)| url);
-    Ok(run_sha_probe(name, url, branch, timeout).await)
+        .enumerate()
+        .find(|(_, (method, _))| method == &name)
+        .map(|(index, (_, url))| (index as i32, url))
+        .unwrap_or((-1, None));
+    Ok(run_sha_probe(name, order, url, branch, timeout).await)
 }
 
 /// Performs the updater start workflow operation.
@@ -624,6 +627,7 @@ fn sha_test_timeout(timeout: Option<f64>) -> Duration {
 /// Performs the run sha probe operation.
 async fn run_sha_probe(
     name: String,
+    order: i32,
     url: Option<String>,
     branch: String,
     timeout: Duration,
@@ -635,6 +639,7 @@ async fn run_sha_probe(
             Ok(value) => UpdaterShaTestReport {
                 success: true,
                 name: worker_name,
+                order,
                 duration: start.elapsed().as_secs_f64(),
                 value: Some(value),
                 error: None,
@@ -642,6 +647,7 @@ async fn run_sha_probe(
             Err(error) => UpdaterShaTestReport {
                 success: false,
                 name: worker_name,
+                order: -1,
                 duration: start.elapsed().as_secs_f64(),
                 value: None,
                 error: Some(error),
@@ -650,6 +656,7 @@ async fn run_sha_probe(
         None => UpdaterShaTestReport {
             success: false,
             name: worker_name,
+            order: -1,
             duration: start.elapsed().as_secs_f64(),
             value: None,
             error: Some("not a git source".to_string()),
@@ -661,6 +668,7 @@ async fn run_sha_probe(
         Ok(Err(error)) => UpdaterShaTestReport {
             success: false,
             name,
+            order: -1,
             duration: start.elapsed().as_secs_f64(),
             value: None,
             error: Some(error.to_string()),
@@ -668,6 +676,7 @@ async fn run_sha_probe(
         Err(_) => UpdaterShaTestReport {
             success: false,
             name,
+            order: -1,
             duration: timeout.as_secs_f64(),
             value: None,
             error: Some(format!(
@@ -785,11 +794,19 @@ fn git_ls_remote_with_timeout(
 /// Handles the configure git environment workflow.
 fn configure_git_environment(command: &mut Command) {
     command
+        .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "");
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo");
 }
 
 /// Handles the hide command window workflow.

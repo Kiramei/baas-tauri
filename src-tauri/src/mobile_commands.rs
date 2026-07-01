@@ -298,9 +298,9 @@ pub async fn updater_test_sha_methods(
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
     let timeout = sha_test_timeout(request.timeout);
     let mut tasks = JoinSet::new();
-    for (name, url) in android_sha_method_sources(channel) {
+    for (order, (name, url)) in android_sha_method_sources(channel).into_iter().enumerate() {
         let root = root.clone();
-        tasks.spawn(run_android_sha_probe(root, channel, name, url, timeout));
+        tasks.spawn(run_android_sha_probe(root, channel, name, order as i32, url, timeout));
     }
 
     let mut results = Vec::new();
@@ -321,11 +321,13 @@ pub async fn updater_test_sha_method(
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
     let timeout = sha_test_timeout(request.timeout);
     let name = request.method.trim().to_string();
-    let url = android_sha_method_sources(channel)
+    let (order, url) = android_sha_method_sources(channel)
         .into_iter()
-        .find(|(method, _)| method == &name)
-        .and_then(|(_, url)| url);
-    Ok(run_android_sha_probe(root, channel, name, url, timeout).await)
+        .enumerate()
+        .find(|(_, (method, _))| method == &name)
+        .map(|(index, (_, url))| (index as i32, url))
+        .unwrap_or((-1, None));
+    Ok(run_android_sha_probe(root, channel, name, order, url, timeout).await)
 }
 
 /// Performs the updater start workflow operation.
@@ -490,6 +492,7 @@ async fn run_android_sha_probe(
     root: PathBuf,
     channel: UpdateChannel,
     name: String,
+    order: i32,
     url: Option<String>,
     timeout: Duration,
 ) -> Value {
@@ -501,6 +504,7 @@ async fn run_android_sha_probe(
                 Ok(value) => json!({
                     "success": true,
                     "name": worker_name,
+                    "order": order,
                     "duration": start.elapsed().as_secs_f64(),
                     "value": value,
                     "error": null
@@ -508,6 +512,7 @@ async fn run_android_sha_probe(
                 Err(error) => json!({
                     "success": false,
                     "name": worker_name,
+                    "order": -1,
                     "duration": start.elapsed().as_secs_f64(),
                     "value": null,
                     "error": error.message()
@@ -517,6 +522,7 @@ async fn run_android_sha_probe(
         None => json!({
             "success": false,
             "name": worker_name,
+            "order": -1,
             "duration": start.elapsed().as_secs_f64(),
             "value": null,
             "error": "not a git source"
@@ -528,6 +534,7 @@ async fn run_android_sha_probe(
         Ok(Err(error)) => json!({
             "success": false,
             "name": name,
+            "order": -1,
             "duration": start.elapsed().as_secs_f64(),
             "value": null,
             "error": error.to_string()
@@ -535,6 +542,7 @@ async fn run_android_sha_probe(
         Err(_) => json!({
             "success": false,
             "name": name,
+            "order": -1,
             "duration": timeout.as_secs_f64(),
             "value": null,
             "error": format!("remote SHA probe timed out after {:.1}s", timeout.as_secs_f64())
