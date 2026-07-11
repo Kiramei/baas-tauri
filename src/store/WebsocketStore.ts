@@ -1,24 +1,22 @@
 import { toast } from "sonner";
 import { create } from "zustand";
-import {
-  ControlConnection,
-  randomUUID,
-  rememberControlSession,
-  SecureWebSocket,
-} from "@/shared/SecureWebSocket";
+import { openBackendChannel, startBackendTransport } from "@/transport/factory";
+import type { BackendChannelName } from "@/transport/types";
+import type { BackendConnection } from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { t } from "i18next";
+import { rejectPendingTransportCallbacks } from "@/store/transportCallbackCleanup";
 import {
+  BackendCallbackDict,
+  BackendChannelKey,
+  BackendMessageItem,
+  BackendState,
   LogItem,
   RawLogItem,
   StatusItem,
-  WebSocketState,
   WrappedStatusItem,
-  WsCallBackDict,
-  WsMessageItem,
-  WsName,
 } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
 
@@ -59,6 +57,16 @@ let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
+
+/** Returns a random UUID without importing WebSocket/auth code in Tauri builds. */
+const randomUUID = (): string => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    const normalized = char === "x" ? value : (value & 0x3) | 0x8;
+    return normalized.toString(16);
+  });
+};
 
 /** Returns the is tauri no update enabled result. */
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
@@ -189,7 +197,7 @@ const checkAndroidClientUpdate = async (currentVersion?: string) => {
 };
 
 /** Performs the reset connection stores operation. */
-const resetConnectionStores = (): Partial<WebSocketState> => ({
+const resetConnectionStores = (): Partial<BackendState> => ({
   connections: {},
   pendingCallbacks: {},
   pendingStreamCallbacks: {},
@@ -201,7 +209,7 @@ const resetConnectionStores = (): Partial<WebSocketState> => ({
 });
 
 /** Performs the reset data stores operation. */
-const resetDataStores = (): Partial<WebSocketState> => ({
+const resetDataStores = (): Partial<BackendState> => ({
   ...resetConnectionStores(),
   logStore: {},
   configStore: {},
@@ -213,7 +221,7 @@ const resetDataStores = (): Partial<WebSocketState> => ({
 });
 
 /** Performs the connect with retry operation. */
-const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
+const connectWithRetry = async (name: BackendChannelKey, retryInterval = 1000) => {
   const { connect } = useWebSocketStore.getState();
 
   while (useWebSocketStore.getState()._auth_phase === "authenticated") {
@@ -294,8 +302,11 @@ export const waitForNormal = <T>(
 };
 void waitForNormal;
 
-export const useWebSocketStore = create<WebSocketState>()(
+export const useWebSocketStore = create<BackendState>()(
   subscribeWithSelector((set, get, api) => ({
+    transportMode: __WITH_TAURI_MODE__ ? "shared-memory" : "websocket",
+    connectionPhase: "idle",
+    requiresAuthentication: !__WITH_TAURI_MODE__,
     connections: {},
     logStore: {},
     configStore: {},
@@ -495,6 +506,38 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     startAuthFlow: async () => {
+      if (__WITH_TAURI_MODE__) {
+        if (get()._auth_phase === "authenticated" || get().connectionPhase === "connecting") return;
+        set((state) => ({
+          ...state,
+          ...resetConnectionStores(),
+          transportMode: "shared-memory",
+          connectionPhase: "starting-backend",
+          requiresAuthentication: false,
+          _auth_phase: "idle",
+          _auth_error: null,
+          _server_initialized: true,
+          _server_verified: true,
+          _control: null,
+          _session: null,
+        }));
+        try {
+          await startBackendTransport();
+          set((state) => ({
+            ...state,
+            connectionPhase: "ready",
+            _auth_phase: "authenticated",
+          }));
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            connectionPhase: "failed",
+            _auth_phase: "idle",
+            _auth_error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+        return;
+      }
       const phase = get()._auth_phase;
       if (
         get()._control ||
@@ -517,6 +560,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       }));
 
       try {
+        const { ControlConnection } = await import("@/shared/SecureWebSocket");
         const control = await ControlConnection.open(`${resolveBase()}/ws/control`);
         control.onSecureMessage = (payload) => {
           if (payload.type === "heartbeat") {
@@ -530,6 +574,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             set((state) => ({
               ...state,
               ...resetDataStores(),
+              ...rejectPendingTransportCallbacks(state, "Control connection closed"),
               _auth_phase: "revoked",
               _auth_error:
                 payload.reason === "password_reset"
@@ -551,6 +596,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             set((state) => ({
               ...state,
               ...resetConnectionStores(),
+              ...rejectPendingTransportCallbacks(state, "Control connection closed"),
               _auth_phase: "revoked",
               _auth_error: "Control connection closed. Authenticate again.",
               _server_initialized: true,
@@ -613,6 +659,13 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     submitPassword: async (password: string) => {
+      if (__WITH_TAURI_MODE__) {
+        set((state) => ({
+          ...state,
+          _auth_error: "Client mode uses shared-memory transport and does not support WebUI password authentication.",
+        }));
+        return;
+      }
       const secret = password.trim();
       if (!secret) {
         set((state) => ({
@@ -640,6 +693,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       try {
         const session = await control.authenticate(secret);
         try {
+          const { rememberControlSession } = await import("@/shared/SecureWebSocket");
           await rememberControlSession(resolveHttpBase(), session);
         } catch (rememberError) {
           console.warn("[control] failed to persist remembered session", rememberError);
@@ -670,20 +724,17 @@ export const useWebSocketStore = create<WebSocketState>()(
       }
     },
 
-    connect: async (name: WsName) => {
+    connect: async (name: BackendChannelKey) => {
       if (get().connections[name]) return;
       const session = get()._session;
-      if (!session) {
+      if (!__WITH_TAURI_MODE__ && !session) {
         throw new Error("No authenticated session is available");
       }
 
-      let url = "";
-      if (name === "provider") url = `${resolveBase()}/ws/provider`;
-      if (name === "sync") url = `${resolveBase()}/ws/sync`;
-      if (name === "trigger") url = `${resolveBase()}/ws/trigger`;
+      const channel = (name.startsWith("remote-") ? "remote" : name) as BackendChannelName;
 
-      const resourceCallBack: WsCallBackDict = {
-        config: (message: WsMessageItem) => {
+      const resourceCallBack: BackendCallbackDict = {
+        config: (message: BackendMessageItem) => {
           set((state) => ({
             configStore: {
               ...state.configStore,
@@ -691,7 +742,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
         },
-        event: (message: WsMessageItem) => {
+        event: (message: BackendMessageItem) => {
           set((state) => ({
             eventStore: {
               ...state.eventStore,
@@ -699,21 +750,21 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
         },
-        static: (message: WsMessageItem) => {
+        static: (message: BackendMessageItem) => {
           set(() => ({
             staticStore: message.data,
           }));
         },
-        setup_toml: (message: WsMessageItem) => {
+        setup_toml: (message: BackendMessageItem) => {
           set(() => ({
             updateStore: message.data,
           }));
         },
       };
 
-      const callbackDict: WsCallBackDict = {
-        "config_list": (message: WsMessageItem) => {
-          set((state): Partial<WebSocketState> => {
+      const callbackDict: BackendCallbackDict = {
+        "config_list": (message: BackendMessageItem) => {
+          set((state): Partial<BackendState> => {
             const config_added = Object.fromEntries(
               message.data
                 .filter((id: string) => !(id in state.configStore))
@@ -768,11 +819,11 @@ export const useWebSocketStore = create<WebSocketState>()(
           });
         },
 
-        "snapshot": (message: WsMessageItem) => {
+        "snapshot": (message: BackendMessageItem) => {
           resourceCallBack[message.resource!]?.(message);
         },
 
-        "logs_full": (message: WsMessageItem) => {
+        "logs_full": (message: BackendMessageItem) => {
           const scopes = message.scopes ?? [];
           const logSnapshot: { [key: string]: LogItem[] } = Object.fromEntries(
             scopes.map((id) => [id, []])
@@ -795,7 +846,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }));
         },
 
-        "log": (message: WsMessageItem) => {
+        "log": (message: BackendMessageItem) => {
           const entry = message.entry!;
           const info = {
             time: entry.time,
@@ -814,7 +865,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           if (entry.scope === "global") appendGlobalLog(info);
         },
 
-        "status": (message: WsMessageItem) => {
+        "status": (message: BackendMessageItem) => {
           const data = message.status;
           if (typeof data === "string" || !data) return;
           if ("is_all_data_initialized" in data) {
@@ -857,7 +908,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
         },
 
-        "command_response": (message: WsMessageItem) => {
+        "command_response": (message: BackendMessageItem) => {
           const { timestamp, command, data, status, error } = message;
           const streamCallback = get().pendingStreamCallbacks[timestamp!];
           if (streamCallback) {
@@ -884,7 +935,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
         },
 
-        "patch": (message: WsMessageItem) => {
+        "patch": (message: BackendMessageItem) => {
           const ops = message.ops;
           const resource = message.resource;
           if (resource === "gui") return;
@@ -898,7 +949,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               waitFor(
                 get,
                 api.subscribe,
-                (state: WebSocketState) => Object.keys(state.configStore).length,
+                (state: BackendState) => Object.keys(state.configStore).length,
                 (length) => length === prevLength + 1
               ).then(() => {
                 get().send("sync", { type: "pull", resource: "config", resource_id: resourceId });
@@ -914,7 +965,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           });
         },
 
-        "patch_ack": (message: WsMessageItem) => {
+        "patch_ack": (message: BackendMessageItem) => {
           const callback = get().pendingCallbacks[message.timestamp!];
           if (callback) {
             callback();
@@ -925,7 +976,17 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
       };
 
-      const ws = new SecureWebSocket(url, name, session, "arraybuffer");
+      const ws = await openBackendChannel(
+        channel,
+        __WITH_TAURI_MODE__
+          ? { name, binaryType: "arraybuffer" }
+          : {
+              baseUrl: resolveBase(),
+              session,
+              name,
+              binaryType: "arraybuffer",
+            }
+      );
       await ws.connect((message: any) => {
         if (message instanceof ArrayBuffer) {
           const timestamp = get().pendingBinaryQueue.shift();
@@ -938,18 +999,28 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
           return;
         }
-        callbackDict[message.type]?.(message as WsMessageItem);
+        callbackDict[message.type]?.(message as BackendMessageItem);
       });
 
       ws.onClose = () => {
         set((state) => {
           const next = { ...state.connections };
           delete next[name];
-          return { connections: next };
+          return {
+            connections: next,
+            ...(name === "sync" || name === "trigger"
+              ? rejectPendingTransportCallbacks(state, `${name} transport closed`)
+              : {}),
+          };
         });
       };
 
-      ws.onError = (event) => console.error("Socket error:", event);
+      ws.onError = (event) => {
+        console.error("Socket error:", event);
+        if (name === "sync" || name === "trigger") {
+          set((state) => rejectPendingTransportCallbacks(state, `${name} transport error`));
+        }
+      };
 
       set((state) => ({
         connections: {
@@ -959,17 +1030,27 @@ export const useWebSocketStore = create<WebSocketState>()(
       }));
     },
 
-    connectRemote: async (): Promise<SecureWebSocket> => {
+    connectRemote: async (): Promise<BackendConnection> => {
       if (__WITH_ANDROID__) {
         throw new Error("Remote control is disabled on Android.");
       }
       const session = get()._session;
-      if (!session) {
+      if (!__WITH_TAURI_MODE__ && !session) {
         throw new Error("No authenticated session is available");
       }
       const unique = randomUUID();
       const name = `remote-${unique}` as `remote-${string}`;
-      const ws = new SecureWebSocket(`${resolveBase()}/ws/remote`, name, session, "arraybuffer");
+      const ws = await openBackendChannel(
+        "remote",
+        __WITH_TAURI_MODE__
+          ? { name, binaryType: "arraybuffer" }
+          : {
+              baseUrl: resolveBase(),
+              session,
+              name,
+              binaryType: "arraybuffer",
+            }
+      );
 
       ws.hookClose = () => {
         set((state) => {
@@ -989,19 +1070,24 @@ export const useWebSocketStore = create<WebSocketState>()(
       return ws;
     },
 
-    disconnect: (name: WsName) => {
+    disconnect: (name: BackendChannelKey) => {
       const conn = get().connections[name];
       if (conn) {
         conn.close();
         set((state) => {
           const next = { ...state.connections };
           delete next[name];
-          return { connections: next };
+          return {
+            connections: next,
+            ...(name === "sync" || name === "trigger"
+              ? rejectPendingTransportCallbacks(state, `${name} transport disconnected`)
+              : {}),
+          };
         });
       }
     },
 
-    send: (name: WsName, data: any) => {
+    send: (name: BackendChannelKey, data: any) => {
       const conn = get().connections[name];
       conn?.sendJson(data);
     },
@@ -1022,7 +1108,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => Object.keys(state.staticStore).length,
+          (state: BackendState) => Object.keys(state.staticStore).length,
           (length) => length > 0
         );
 
@@ -1030,7 +1116,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => Object.keys(state.updateStore).length,
+          (state: BackendState) => Object.keys(state.updateStore).length,
           (length) => length > 0
         );
 
@@ -1038,7 +1124,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => Object.keys(state.configStore).length,
+          (state: BackendState) => Object.keys(state.configStore).length,
           (length) => length > 0
         );
 
@@ -1053,7 +1139,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => Object.keys(state.eventStore).length,
+          (state: BackendState) => Object.keys(state.eventStore).length,
           (length) => length > 0
         );
 
@@ -1091,7 +1177,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           await waitFor(
             get,
             api.subscribe,
-            (state: WebSocketState) => state.versionStore,
+            (state: BackendState) => state.versionStore,
             (versionStore) => Object.keys(versionStore).length > 0
           );
         }
@@ -1099,7 +1185,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => state._all_data_initialized,
+          (state: BackendState) => state._all_data_initialized,
           (status) => status
         );
       } finally {
@@ -1111,8 +1197,8 @@ export const useWebSocketStore = create<WebSocketState>()(
       const [resourceId, scopeRaw] = path.split("::");
       const [scope, ...keys] = scopeRaw.split("/");
 
-      set((state: WebSocketState) => {
-        let storeKey: keyof WebSocketState;
+      set((state: BackendState) => {
+        let storeKey: keyof BackendState;
         switch (scope) {
           case "config":
             storeKey = "configStore";

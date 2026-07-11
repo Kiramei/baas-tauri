@@ -7,7 +7,7 @@ import { FormInput } from "@/components/ui/FormInput";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Separator } from "@/components/ui/Separator";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
 import { i18nKey } from "@/shared/I18nKeys";
@@ -39,11 +39,11 @@ const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(ma
 
 /* ---------- Main Component for CafeConfig ---------- */
 const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
-  const staticConfig = useWebSocketStore((e) => e.staticStore);
+  const staticConfig = useBackendStore((e) => e.staticStore);
   const studentNames = staticConfig.student_names;
   const { t } = useTranslation();
-  const settings = useWebSocketStore((e) => e.configStore[profileId!]);
-  const modify = useWebSocketStore((state) => state.modify);
+  const settings = useBackendStore((e) => e.configStore[profileId!]);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = useMemo(() => {

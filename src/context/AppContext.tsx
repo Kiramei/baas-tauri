@@ -1,7 +1,7 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import type { ConfigProfile, UISettings } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
-import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
+import { resolveHttpBase, useBackendStore } from "@/store/BackendStore";
 
 import StorageUtil from "@/shared/StorageManager.ts";
 import { DEFAULT_UI_SETTINGS } from "@/context/UISettingsProvider";
@@ -25,11 +25,11 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   const [activeProfile, setActiveProfile] = useState<ConfigProfile | null>(null);
   const [stageInitiated, setStageInitiated] = useState<boolean>(false);
   const [uiSettings, setUiSettings] = useState<UISettings>(DEFAULT_UI_SETTINGS);
-  const init = useWebSocketStore((s) => s.init);
-  const authPhase = useWebSocketStore((s) => s._auth_phase);
-  const allDataInitialized = useWebSocketStore((s) => s._all_data_initialized);
-  const initiating = useWebSocketStore((s) => s._initiating);
-  const configStore = useWebSocketStore((s) => s.configStore);
+  const init = useBackendStore((s) => s.init);
+  const authPhase = useBackendStore((s) => s._auth_phase);
+  const allDataInitialized = useBackendStore((s) => s._all_data_initialized);
+  const initiating = useBackendStore((s) => s._initiating);
+  const configStore = useBackendStore((s) => s.configStore);
 
   useEffect(() => {
     if (authPhase === "authenticated" && !allDataInitialized) {

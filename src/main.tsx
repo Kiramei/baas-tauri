@@ -44,8 +44,24 @@ const closeSplash = async () => {
   }
 };
 
+const runConfiguredBenchmark = async () => {
+  if (!__WITH_TAURI_MODE__) return false;
+  try {
+    const { runConfiguredWebviewCopyBenchmark } = await import(
+      "@/transport/tauri-shm/webviewCopyBenchmarkRunner"
+    );
+    return await runConfiguredWebviewCopyBenchmark();
+  } catch {
+    return false;
+  }
+};
+
 /** Handles the bootstrap workflow. */
 const bootstrap = async () => {
+  if (await runConfiguredBenchmark()) {
+    return;
+  }
+
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
     root.render(<BrowserTauriDevFallback />);
     return;

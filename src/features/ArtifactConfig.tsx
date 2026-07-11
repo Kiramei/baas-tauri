@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
@@ -45,8 +45,8 @@ type Draft = {
 const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
 
-  const settings = useWebSocketStore((state) => state.configStore[profileId]);
-  const modify = useWebSocketStore((state) => state.modify);
+  const settings = useBackendStore((state) => state.configStore[profileId]);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Hydrate the form with the latest server-side values. */
   const ext = useMemo(() => {
@@ -202,7 +202,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
     },
   };
 
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
+  const staticConfig = useBackendStore((state) => state.staticStore);
 
   /** Returns the get phase2 recommended priority result. */
   const getPhase2RecommendedPriority = (name: string): string[] => {

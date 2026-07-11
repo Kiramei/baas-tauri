@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type WhiteListConfigProps = {
@@ -14,10 +14,10 @@ type WhiteListConfigProps = {
 /** Renders the white list config component. */
 const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId!]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
   const server_mode = serverMap[settings.server!];
 
   /** Handles the ext workflow. */

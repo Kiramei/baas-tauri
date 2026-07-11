@@ -17,7 +17,7 @@ import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useBackendStore, waitForNormal } from "@/store/BackendStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
@@ -43,8 +43,8 @@ const Header: React.FC = () => {
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
 
-  const configStore = useWebSocketStore((s) => s.configStore);
-  const { modify, trigger, triggerBinary } = useWebSocketStore();
+  const configStore = useBackendStore((s) => s.configStore);
+  const { modify, trigger, triggerBinary } = useBackendStore();
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
@@ -308,7 +308,7 @@ const Header: React.FC = () => {
     };
   }, []);
 
-  const statusStore = useWebSocketStore((e) => e.statusStore);
+  const statusStore = useBackendStore((e) => e.statusStore);
 
   return (
     <header className="h-16 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-3">

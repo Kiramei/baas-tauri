@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { resolveHttpBase } from "@/store/WebsocketStore";
+import { resolveHttpBase } from "@/store/BackendStore";
 
 const LOAD_TIMEOUT_MS = 20000;
 

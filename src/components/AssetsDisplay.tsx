@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
 
 const baseUrl = import.meta.env.BASE_URL;
@@ -49,7 +49,7 @@ const hasAssetData = (config: any): boolean =>
 const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
   const timeAgo = useTimeAgo();
-  const config = useWebSocketStore((e) => e.configStore[profileId]);
+  const config = useBackendStore((e) => e.configStore[profileId]);
   const [open, setOpen] = useState(Array.from({ length: 8 }).map(() => false));
   const isAndroid = __WITH_ANDROID__;
 

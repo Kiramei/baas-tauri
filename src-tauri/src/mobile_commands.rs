@@ -389,7 +389,13 @@ fn android_scrcpy_virtual_display_status_blocking(
         marker_display_id,
         &mut log,
         |command, log| {
-            adb_direct_shell_with_timeout(&serial, command, log, auth_dir, ANDROID_ADBD_FAST_TIMEOUT)
+            adb_direct_shell_with_timeout(
+                &serial,
+                command,
+                log,
+                auth_dir,
+                ANDROID_ADBD_FAST_TIMEOUT,
+            )
         },
     ) {
         return Ok(json!(status));
@@ -418,11 +424,7 @@ fn android_scrcpy_virtual_display_status_blocking(
             marker_display_id,
             &mut log,
             |command, log| {
-                run_command(
-                    &adb_path_for_shell,
-                    &["-s", &serial, "shell", command],
-                    log,
-                )
+                run_command(&adb_path_for_shell, &["-s", &serial, "shell", command], log)
             },
         ) {
             return Ok(json!(status));

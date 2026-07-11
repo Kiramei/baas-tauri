@@ -335,12 +335,18 @@ pub fn android_scrcpy_virtual_display_status(
         .and_then(|value| value.trim().parse::<u32>().ok());
     let setting = adb_output(
         &serial,
-        &["shell", "settings", "get", "global", "overlay_display_devices"],
+        &[
+            "shell",
+            "settings",
+            "get",
+            "global",
+            "overlay_display_devices",
+        ],
         &mut log,
     )
     .map(|value| value.trim().to_string())?;
     let active =
-        !setting.is_empty() && setting != "null" && setting.to_ascii_lowercase() != "deleted";
+        !setting.is_empty() && setting != "null" && !setting.eq_ignore_ascii_case("deleted");
     let display_dump = adb_output(
         &serial,
         &["shell", "dumpsys", "window", "displays"],
@@ -1172,12 +1178,13 @@ fn invalid_config_backup_path(config_path: &Path) -> PathBuf {
 
 /// Moves a malformed setup.toml aside while preserving its contents.
 fn backup_invalid_config(config_path: &Path, backup_path: &Path) -> Result<(), String> {
-    fs::rename(config_path, backup_path).or_else(|_| {
-        fs::copy(config_path, backup_path)?;
-        fs::remove_file(config_path)
-    })
-    .map_err(|error| error.to_string())
-    .map(|_| ())
+    fs::rename(config_path, backup_path)
+        .or_else(|_| {
+            fs::copy(config_path, backup_path)?;
+            fs::remove_file(config_path)
+        })
+        .map_err(|error| error.to_string())
+        .map(|_| ())
 }
 
 /// Performs the startup install path operation.

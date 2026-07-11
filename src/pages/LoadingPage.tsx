@@ -2,13 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { useTheme } from "@/context/ThemeProvider.tsx";
-import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
+import { resolveHttpBase, useBackendStore } from "@/store/BackendStore";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const baseUrl = import.meta.env.BASE_URL;
 const ANDROID_TERMINAL_DELAY_MS = 2_000;
 const AndroidStartupTerminal = React.lazy(() => import("@/components/AndroidStartupTerminal"));
-const PasswordInputModal = React.lazy(() => import("@/components/PasswordInputModal.tsx"));
+const PasswordInputModal = __WITH_WEBUI__
+  ? React.lazy(() => import("@/components/PasswordInputModal.tsx"))
+  : null;
 
 interface LoadingPageProps {
   message?: string;
@@ -82,14 +84,14 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
   const [androidStartupLogChunk, setAndroidStartupLogChunk] = useState("");
   const [androidTerminalReady, setAndroidTerminalReady] = useState(!__WITH_ANDROID__);
-  const authPhase = useWebSocketStore((state) => state._auth_phase);
-  const authError = useWebSocketStore((state) => state._auth_error);
-  const serverInitialized = useWebSocketStore((state) => state._server_initialized);
-  const serverVerified = useWebSocketStore((state) => state._server_verified);
-  const allDataInitialized = useWebSocketStore((state) => state._all_data_initialized);
-  const initiating = useWebSocketStore((state) => state._initiating);
-  const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
-  const submitPassword = useWebSocketStore((state) => state.submitPassword);
+  const authPhase = useBackendStore((state) => state._auth_phase);
+  const authError = useBackendStore((state) => state._auth_error);
+  const serverInitialized = useBackendStore((state) => state._server_initialized);
+  const serverVerified = useBackendStore((state) => state._server_verified);
+  const allDataInitialized = useBackendStore((state) => state._all_data_initialized);
+  const initiating = useBackendStore((state) => state._initiating);
+  const startAuthFlow = useBackendStore((state) => state.startAuthFlow);
+  const submitPassword = useBackendStore((state) => state.submitPassword);
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -281,7 +283,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
         )}
       </div>
 
-      {!__WITH_ANDROID__ && (
+      {__WITH_WEBUI__ && PasswordInputModal && (
         <React.Suspense fallback={null}>
           <PasswordInputModal
             open={

@@ -3,6 +3,17 @@ identifier = "allow-mobile-commands"
 description = "Allows Android frontend startup, setup and updater bridge commands."
 commands.allow = [
   "baas_notify",
+  "backend_ipc_start",
+  "backend_ipc_close",
+  "backend_ipc_open_channel",
+  "backend_ipc_close_channel",
+  "backend_ipc_send_json",
+  "backend_ipc_send_bytes",
+  "backend_ipc_subscribe",
+  "backend_ipc_recv",
+  "backend_ipc_benchmark_webview_copy",
+  "backend_ipc_webview_benchmark_config",
+  "backend_ipc_finish_webview_benchmark",
   "splash_off",
   "set_backend_locale",
   "updater_get_storage_state",

@@ -10,7 +10,9 @@ const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
 const GlobalAppearanceEffects = React.lazy(() => import("@/components/GlobalAppearanceEffects"));
 const GlobalContextMenu = React.lazy(() => import("@/components/GlobalContextMenu"));
-const ReconnectingOverlay = React.lazy(() => import("@/components/ReconnectingOverlay.tsx"));
+const ReconnectingOverlay = __WITH_WEBUI__
+  ? React.lazy(() => import("@/components/ReconnectingOverlay.tsx"))
+  : null;
 const TauriScriptNotifier = React.lazy(() => import("@/components/TauriScriptNotifier"));
 const TauriSelfUpdateProvider = React.lazy(() =>
   import("@/context/TauriSelfUpdateProvider").then((module) => ({
@@ -207,7 +209,7 @@ const WrappedApp: React.FC = () => {
                 {__WITH_TAURI__ && !__WITH_ANDROID__ && <TauriScriptNotifier />}
                 <Main />
                 <ConfigArchiveDropOverlay />
-                {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
+                {__WITH_WEBUI__ && !ready && ReconnectingOverlay && <ReconnectingOverlay />}
                 <Toaster />
               </TauriShortcutProvider>
             </TauriSelfUpdateProvider>

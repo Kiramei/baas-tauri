@@ -1,0 +1,104 @@
+name: Transport Validation
+
+on:
+  pull_request:
+    branches: ["main", "master"]
+    paths:
+      - "crates/baas-ipc/**"
+      - "src-tauri/src/backend_ipc_commands.rs"
+      - "src-tauri/src/lib.rs"
+      - "src-tauri/permissions/**"
+      - "src/transport/**"
+      - "src/store/**"
+      - "src/main.tsx"
+      - "scripts/benchmark-webview-copy.mjs"
+      - "scripts/tests/check-*.mjs"
+      - "package.json"
+      - "bun.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/transport.yml"
+  push:
+    branches: ["main", "master"]
+    paths:
+      - "crates/baas-ipc/**"
+      - "src-tauri/src/backend_ipc_commands.rs"
+      - "src-tauri/src/lib.rs"
+      - "src-tauri/permissions/**"
+      - "src/transport/**"
+      - "src/store/**"
+      - "src/main.tsx"
+      - "scripts/benchmark-webview-copy.mjs"
+      - "scripts/tests/check-*.mjs"
+      - "package.json"
+      - "bun.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/transport.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-ipc:
+    name: Rust IPC (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check IPC formatting
+        run: cargo fmt --package baas-ipc -- --check
+
+      - name: Clippy IPC crate
+        run: cargo clippy -p baas-ipc --all-targets -- -D warnings
+
+      - name: Test IPC crate
+        run: cargo test -p baas-ipc
+
+  frontend-transport:
+    name: Frontend transport bundle guards
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint frontend
+        run: bun run lint
+
+      - name: Check Tauri transport bundle
+        run: |
+          bun run build:tauri
+          bun run test:tauri-transport
+
+      - name: Check WebUI transport bundle
+        run: |
+          bun run build:webui
+          bun run test:webui-transport
+
+      - name: Check pending callback cleanup
+        run: bun run test:transport-cleanup
+
+      - name: Check backend store import boundary
+        run: bun run test:backend-store
+
+      - name: Check Android release guard
+        run: bun run test:android-shm-guard

@@ -14,7 +14,7 @@ import { useApp } from "@/context/AppContext";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { reconcileProfileHotkeys } from "@/shared/HotkeyManager";
 import StorageUtil from "@/shared/StorageManager";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 
 type ShortcutBindingRequest = {
   id: string;
@@ -111,7 +111,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
     import("@tauri-apps/api/event")
       .then(({ listen }) =>
         listen<ShortcutTogglePayload>(TOGGLE_RUN_EVENT, (event) => {
-          const state = useWebSocketStore.getState();
+          const state = useBackendStore.getState();
           if (!state.connections.trigger) {
             toast.error("Shortcut trigger failed", {
               description: "BAAS trigger connection is not ready.",

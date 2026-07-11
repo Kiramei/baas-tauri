@@ -617,18 +617,107 @@ pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
         .cwd(config.baas_root())
 }
 
+/// Backend transport selected for service launch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BackendTransportMode {
+    /// FastAPI/Uvicorn WebSocket and HTTP service mode.
+    WebSocket { host: String, port: u16 },
+    /// Native shared-memory client mode.
+    SharedMemory {
+        ipc_instance: String,
+        parent_pid: u32,
+        shm_name: Option<String>,
+        notify_name: Option<String>,
+        rust_to_python_notify_name: Option<String>,
+        python_to_rust_notify_name: Option<String>,
+        protocol_version: u16,
+    },
+}
+
+/// Backend launch options.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendLaunchOptions {
+    pub transport: BackendTransportMode,
+    pub no_ocr_update_check: bool,
+}
+
+impl BackendLaunchOptions {
+    /// Returns default localhost WebSocket launch options.
+    pub fn websocket(port: u16) -> Self {
+        Self {
+            transport: BackendTransportMode::WebSocket {
+                host: "127.0.0.1".to_string(),
+                port,
+            },
+            no_ocr_update_check: true,
+        }
+    }
+}
+
 /// Builds the backend launch command.
 pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec {
-    CommandSpec::new(runtime_python(config))
+    launch_backend_command_with_options(config, &BackendLaunchOptions::websocket(port))
+}
+
+/// Builds a transport-aware backend launch command.
+pub fn launch_backend_command_with_options(
+    config: &UpdaterConfig,
+    options: &BackendLaunchOptions,
+) -> CommandSpec {
+    let mut command = CommandSpec::new(runtime_python(config))
         .arg(config.baas_root().join("main.service.py").to_string_lossy())
-        .arg("--host")
-        .arg("127.0.0.1")
-        .arg("--port")
-        .arg(port.to_string())
-        .arg("--no-ocr-update-check")
         .cwd(config.baas_root())
         .detached()
-        .detached_pid_file(backend_pid_path(config))
+        .detached_pid_file(backend_pid_path(config));
+
+    match &options.transport {
+        BackendTransportMode::WebSocket { host, port } => {
+            command = command
+                .arg("--transport")
+                .arg("websocket")
+                .arg("--host")
+                .arg(host)
+                .arg("--port")
+                .arg(port.to_string());
+        }
+        BackendTransportMode::SharedMemory {
+            ipc_instance,
+            parent_pid,
+            shm_name,
+            notify_name,
+            rust_to_python_notify_name,
+            python_to_rust_notify_name,
+            protocol_version,
+        } => {
+            command = command
+                .arg("--transport")
+                .arg("shm")
+                .arg("--ipc-instance")
+                .arg(ipc_instance)
+                .arg("--parent-pid")
+                .arg(parent_pid.to_string())
+                .arg("--protocol-version")
+                .arg(protocol_version.to_string());
+            if let Some(shm_name) = shm_name {
+                command = command.arg("--shm-name").arg(shm_name);
+            }
+            if let Some(notify_name) = notify_name {
+                command = command.arg("--notify-name").arg(notify_name);
+            }
+            if let Some(notify_name) = rust_to_python_notify_name {
+                command = command.arg("--rust-to-python-notify-name").arg(notify_name);
+            }
+            if let Some(notify_name) = python_to_rust_notify_name {
+                command = command.arg("--python-to-rust-notify-name").arg(notify_name);
+            }
+        }
+    }
+
+    if options.no_ocr_update_check {
+        command = command.arg("--no-ocr-update-check");
+    }
+
+    command
 }
 
 /// Returns the pid file used for the currently launched backend process.
@@ -1211,6 +1300,49 @@ mod tests {
         assert!(command.args.contains(&"127.0.0.1".to_string()));
         assert!(command.args.contains(&"--port".to_string()));
         assert!(command.args.contains(&"48888".to_string()));
+    }
+
+    /// Handles the shared memory launch command workflow.
+    #[test]
+    fn launch_command_supports_shared_memory_transport() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let command = launch_backend_command_with_options(
+            &config,
+            &BackendLaunchOptions {
+                transport: BackendTransportMode::SharedMemory {
+                    ipc_instance: "instance-1".to_string(),
+                    parent_pid: 1234,
+                    shm_name: Some("shm-name".to_string()),
+                    notify_name: Some("notify-name".to_string()),
+                    rust_to_python_notify_name: Some("r2p-notify".to_string()),
+                    python_to_rust_notify_name: Some("p2r-notify".to_string()),
+                    protocol_version: 1,
+                },
+                no_ocr_update_check: true,
+            },
+        );
+
+        assert!(command.args.contains(&"--transport".to_string()));
+        assert!(command.args.contains(&"shm".to_string()));
+        assert!(command.args.contains(&"--ipc-instance".to_string()));
+        assert!(command.args.contains(&"instance-1".to_string()));
+        assert!(command.args.contains(&"--parent-pid".to_string()));
+        assert!(command.args.contains(&"1234".to_string()));
+        assert!(
+            command
+                .args
+                .contains(&"--rust-to-python-notify-name".to_string())
+        );
+        assert!(command.args.contains(&"r2p-notify".to_string()));
+        assert!(
+            command
+                .args
+                .contains(&"--python-to-rust-notify-name".to_string())
+        );
+        assert!(command.args.contains(&"p2r-notify".to_string()));
+        assert!(!command.args.contains(&"--host".to_string()));
+        assert!(!command.args.contains(&"--port".to_string()));
     }
 
     /// Handles the environment source urls include uv archive and pypi config workflow.

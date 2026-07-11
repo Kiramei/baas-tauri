@@ -6,7 +6,7 @@ import CButton from "@/components/ui/CButton.tsx";
 import { Card } from "@/components/ui/Card";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/Separator";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 import { getTimestampMs, serverMap } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
@@ -29,12 +29,12 @@ interface Draft {
 const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onClose }) => {
   const { t } = useTranslation();
 
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const staticConfig = useBackendStore((state) => state.staticStore);
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-  const trigger = useWebSocketStore((state) => state.trigger);
+  const modify = useBackendStore((state) => state.modify);
+  const trigger = useBackendStore((state) => state.trigger);
 
   /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {

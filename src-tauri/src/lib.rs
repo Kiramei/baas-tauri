@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+mod backend_ipc_commands;
 mod behavior;
 #[cfg(not(mobile))]
 mod commands;
@@ -13,6 +14,12 @@ mod notifier_commands;
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
 
+use crate::backend_ipc_commands::{
+    backend_ipc_benchmark_webview_copy, backend_ipc_close, backend_ipc_close_channel,
+    backend_ipc_finish_webview_benchmark, backend_ipc_open_channel, backend_ipc_recv,
+    backend_ipc_send_bytes, backend_ipc_send_json, backend_ipc_start, backend_ipc_subscribe,
+    backend_ipc_webview_benchmark_config, BackendIpcManager,
+};
 use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
@@ -60,6 +67,17 @@ pub fn run() {
         .plugin(baas_notifier::init_plugin())
         .invoke_handler(tauri::generate_handler![
             baas_notify,
+            backend_ipc_start,
+            backend_ipc_close,
+            backend_ipc_open_channel,
+            backend_ipc_close_channel,
+            backend_ipc_send_json,
+            backend_ipc_send_bytes,
+            backend_ipc_subscribe,
+            backend_ipc_recv,
+            backend_ipc_benchmark_webview_copy,
+            backend_ipc_webview_benchmark_config,
+            backend_ipc_finish_webview_benchmark,
             splash_off,
             set_backend_locale,
             updater_get_storage_state,
@@ -112,6 +130,7 @@ pub fn run() {
             let _ = backend.stop_for_config(&config_manager.config);
             let _ = backend.remember_config(&config_manager.config);
             app.manage(backend);
+            app.manage(BackendIpcManager::default());
             disable_f5_press_event(app);
             Ok(())
         })
@@ -135,6 +154,7 @@ pub fn run() {
     let builder = builder
         .setup(|app| {
             app.manage(BehaviorState::default());
+            app.manage(BackendIpcManager::default());
             #[cfg(target_os = "android")]
             app.manage(AndroidUpdaterTermManager::default());
             disable_f5_press_event(app);

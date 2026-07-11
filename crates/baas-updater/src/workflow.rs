@@ -532,16 +532,15 @@ pub fn run_terminal_workflow_flow(
         return;
     }
 
-    if !run_terminal_dependency_stage(
-        &inner,
-        &session_id,
-        &renderer_tx,
-        &completion_tx,
-        &completion_rx,
-        &workflow_plan,
-        Arc::clone(&state),
-        options.launch,
-    ) {
+    let dependency_ctx = TerminalRunContext {
+        inner: &inner,
+        session_id: &session_id,
+        renderer_tx: &renderer_tx,
+        completion_tx: &completion_tx,
+        completion_rx: &completion_rx,
+        workflow_plan: &workflow_plan,
+    };
+    if !run_terminal_dependency_stage(&dependency_ctx, Arc::clone(&state), options.launch) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
@@ -745,6 +744,15 @@ fn planned_command_process_task(
     spec
 }
 
+struct TerminalRunContext<'a> {
+    inner: &'a Arc<Mutex<TermState>>,
+    session_id: &'a str,
+    renderer_tx: &'a Sender<RendererEvent>,
+    completion_tx: &'a Sender<TaskCompletion>,
+    completion_rx: &'a mpsc::Receiver<TaskCompletion>,
+    workflow_plan: &'a WorkflowPlan,
+}
+
 /// Performs the run terminal update and prepare stage operation.
 fn run_terminal_update_and_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
@@ -762,15 +770,15 @@ fn run_terminal_update_and_prepare_stage(
         let repo_state = Arc::clone(&state);
         let repo_session_id = session_id.to_string();
         let repo_handle = scope.spawn(move || {
-            run_terminal_repo_stage(
-                &repo_inner,
-                &repo_session_id,
-                &repo_renderer_tx,
-                &repo_completion_tx,
-                &repo_completion_rx,
+            let ctx = TerminalRunContext {
+                inner: &repo_inner,
+                session_id: &repo_session_id,
+                renderer_tx: &repo_renderer_tx,
+                completion_tx: &repo_completion_tx,
+                completion_rx: &repo_completion_rx,
                 workflow_plan,
-                repo_state,
-            )
+            };
+            run_terminal_repo_stage(&ctx, repo_state)
         });
 
         let prepare_inner = Arc::clone(inner);
@@ -847,12 +855,7 @@ fn terminal_config_task(
 
 /// Performs the run terminal repo stage operation.
 fn run_terminal_repo_stage(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    renderer_tx: &Sender<RendererEvent>,
-    completion_tx: &Sender<TaskCompletion>,
-    completion_rx: &mpsc::Receiver<TaskCompletion>,
-    workflow_plan: &WorkflowPlan,
+    ctx: &TerminalRunContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
     let (config, main_job, cpp_job, ranking_dir) = match terminal_state_snapshot(&state) {
@@ -861,7 +864,7 @@ fn run_terminal_repo_stage(
             let output = ThreadOutput {
                 task_id: "updater-repo-stage".to_string(),
                 region_id: "updater-repo-stage".to_string(),
-                tx: renderer_tx.clone(),
+                tx: ctx.renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, &error);
             return false;
@@ -869,16 +872,7 @@ fn run_terminal_repo_stage(
     };
 
     if config.general.no_update {
-        return run_terminal_thread_repo_stage(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
-            state,
-            None,
-        );
+        return run_terminal_thread_repo_stage(ctx, state, None);
     }
 
     if !config.general.mirrorc_cdk.is_empty()
@@ -892,16 +886,7 @@ fn run_terminal_repo_stage(
         } else {
             None
         };
-        return run_terminal_thread_repo_stage(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
-            state,
-            git_backend_override,
-        );
+        return run_terminal_thread_repo_stage(ctx, state, git_backend_override);
     }
 
     let main_plan = match plan_git_cli_process(
@@ -913,27 +898,9 @@ fn run_terminal_repo_stage(
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
-                run_terminal_thread_repo_stage(
-                    inner,
-                    session_id,
-                    renderer_tx,
-                    completion_tx,
-                    completion_rx,
-                    workflow_plan,
-                    state,
-                    Some(GitBackend::Git2),
-                )
+                run_terminal_thread_repo_stage(ctx, state, Some(GitBackend::Git2))
             } else {
-                run_terminal_thread_repo_stage(
-                    inner,
-                    session_id,
-                    renderer_tx,
-                    completion_tx,
-                    completion_rx,
-                    workflow_plan,
-                    state,
-                    None,
-                )
+                run_terminal_thread_repo_stage(ctx, state, None)
             };
         }
     };
@@ -946,71 +913,61 @@ fn run_terminal_repo_stage(
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
-                run_terminal_thread_repo_stage(
-                    inner,
-                    session_id,
-                    renderer_tx,
-                    completion_tx,
-                    completion_rx,
-                    workflow_plan,
-                    state,
-                    Some(GitBackend::Git2),
-                )
+                run_terminal_thread_repo_stage(ctx, state, Some(GitBackend::Git2))
             } else {
-                run_terminal_thread_repo_stage(
-                    inner,
-                    session_id,
-                    renderer_tx,
-                    completion_tx,
-                    completion_rx,
-                    workflow_plan,
-                    state,
-                    None,
-                )
+                run_terminal_thread_repo_stage(ctx, state, None)
             };
         }
     };
 
     let main_spec =
-        planned_direct_process_task(workflow_plan, "main-repository", &main_plan.command);
-    let cpp_spec = planned_direct_process_task(workflow_plan, "cpp-repository", &cpp_plan.command);
+        planned_direct_process_task(ctx.workflow_plan, "main-repository", &main_plan.command);
+    let cpp_spec =
+        planned_direct_process_task(ctx.workflow_plan, "cpp-repository", &cpp_plan.command);
     let main_id = main_spec.task_id.clone();
     let cpp_id = cpp_spec.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
+    let _ = ctx.renderer_tx.send(RendererEvent::BufferRegions {
         region_ids: vec![main_spec.region_id.clone(), cpp_spec.region_id.clone()],
     });
-    if spawn_process_task(inner, session_id, main_spec, renderer_tx, completion_tx).is_err()
-        || spawn_process_task(inner, session_id, cpp_spec, renderer_tx, completion_tx).is_err()
+    if spawn_process_task(
+        ctx.inner,
+        ctx.session_id,
+        main_spec,
+        ctx.renderer_tx,
+        ctx.completion_tx,
+    )
+    .is_err()
+        || spawn_process_task(
+            ctx.inner,
+            ctx.session_id,
+            cpp_spec,
+            ctx.renderer_tx,
+            ctx.completion_tx,
+        )
+        .is_err()
     {
         return false;
     }
-    let success = wait_for_completions(completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
-    let _ = renderer_tx.send(RendererEvent::FlushRegions {
+    let success = wait_for_completions(ctx.completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
+    let _ = ctx.renderer_tx.send(RendererEvent::FlushRegions {
         region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
     });
-    if !success || !session_is_current(inner, session_id) {
-        if config.general.git_backend == GitBackend::Auto && session_is_current(inner, session_id) {
-            return run_terminal_thread_repo_stage(
-                inner,
-                session_id,
-                renderer_tx,
-                completion_tx,
-                completion_rx,
-                workflow_plan,
-                state,
-                Some(GitBackend::Git2),
-            );
+    if !success || !session_is_current(ctx.inner, ctx.session_id) {
+        if config.general.git_backend == GitBackend::Auto
+            && session_is_current(ctx.inner, ctx.session_id)
+        {
+            return run_terminal_thread_repo_stage(ctx, state, Some(GitBackend::Git2));
         }
         return false;
     }
 
-    let record_spec = planned_thread_task(workflow_plan, "git-record-sha");
+    let record_spec = planned_thread_task(ctx.workflow_plan, "git-record-sha");
     spawn_thread_task(
-        inner,
-        session_id,
+        ctx.inner,
+        ctx.session_id,
         record_spec,
-        renderer_tx,
-        completion_tx,
+        ctx.renderer_tx,
+        ctx.completion_tx,
         TerminalGitRecordArgs {
             state,
             main_plan,
@@ -1019,33 +976,28 @@ fn run_terminal_repo_stage(
         terminal_git_record_task,
     )
     .is_ok()
-        && wait_for_task(completion_rx, "git-record-sha")
+        && wait_for_task(ctx.completion_rx, "git-record-sha")
 }
 
 /// Performs the run terminal thread repo stage operation.
 fn run_terminal_thread_repo_stage(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    renderer_tx: &Sender<RendererEvent>,
-    completion_tx: &Sender<TaskCompletion>,
-    completion_rx: &mpsc::Receiver<TaskCompletion>,
-    workflow_plan: &WorkflowPlan,
+    ctx: &TerminalRunContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
     git_backend_override: Option<GitBackend>,
 ) -> bool {
-    let main = planned_thread_task(workflow_plan, "main-repository");
-    let cpp = planned_thread_task(workflow_plan, "cpp-repository");
+    let main = planned_thread_task(ctx.workflow_plan, "main-repository");
+    let cpp = planned_thread_task(ctx.workflow_plan, "cpp-repository");
     let main_id = main.task_id.clone();
     let cpp_id = cpp.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
+    let _ = ctx.renderer_tx.send(RendererEvent::BufferRegions {
         region_ids: vec![main.region_id.clone(), cpp.region_id.clone()],
     });
     let main_spawn = spawn_thread_task(
-        inner,
-        session_id,
+        ctx.inner,
+        ctx.session_id,
         main,
-        renderer_tx,
-        completion_tx,
+        ctx.renderer_tx,
+        ctx.completion_tx,
         TerminalRepoArgs {
             kind: RepositoryKind::Main,
             state: Arc::clone(&state),
@@ -1054,11 +1006,11 @@ fn run_terminal_thread_repo_stage(
         terminal_repo_thread_task,
     );
     let cpp_spawn = spawn_thread_task(
-        inner,
-        session_id,
+        ctx.inner,
+        ctx.session_id,
         cpp,
-        renderer_tx,
-        completion_tx,
+        ctx.renderer_tx,
+        ctx.completion_tx,
         TerminalRepoArgs {
             kind: RepositoryKind::Cpp,
             state,
@@ -1069,11 +1021,11 @@ fn run_terminal_thread_repo_stage(
     if main_spawn.is_err() || cpp_spawn.is_err() {
         return false;
     }
-    let success = wait_for_completions(completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
-    let _ = renderer_tx.send(RendererEvent::FlushRegions {
+    let success = wait_for_completions(ctx.completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
+    let _ = ctx.renderer_tx.send(RendererEvent::FlushRegions {
         region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
     });
-    success && session_is_current(inner, session_id)
+    success && session_is_current(ctx.inner, ctx.session_id)
 }
 
 struct TerminalRepoArgs {
@@ -1491,31 +1443,24 @@ fn run_terminal_environment_prepare_stage(
     }
 
     if managed_python_configured(&config) {
-        return run_terminal_skip_task(
+        let ctx = TerminalRunContext {
             inner,
             session_id,
             renderer_tx,
             completion_tx,
             completion_rx,
             workflow_plan,
+        };
+        return run_terminal_skip_task(
+            &ctx,
             "cpython-source-ranking",
             "Python virtual environment exists; skipping CPython source ranking",
         ) && run_terminal_skip_task(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
+            &ctx,
             "uv-python-install",
             "Python virtual environment exists; skipping uv python install",
         ) && run_terminal_skip_task(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
+            &ctx,
             "uv-venv",
             "Python virtual environment exists; skipping uv venv",
         );
@@ -1587,12 +1532,7 @@ fn run_terminal_environment_prepare_stage(
 
 /// Performs the run terminal dependency stage operation.
 fn run_terminal_dependency_stage(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    renderer_tx: &Sender<RendererEvent>,
-    completion_tx: &Sender<TaskCompletion>,
-    completion_rx: &mpsc::Receiver<TaskCompletion>,
-    workflow_plan: &WorkflowPlan,
+    ctx: &TerminalRunContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
 ) -> bool {
@@ -1602,7 +1542,7 @@ fn run_terminal_dependency_stage(
             let output = ThreadOutput {
                 task_id: "dependencies".to_string(),
                 region_id: "dependencies".to_string(),
-                tx: renderer_tx.clone(),
+                tx: ctx.renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, &error);
             return false;
@@ -1610,31 +1550,22 @@ fn run_terminal_dependency_stage(
     };
 
     if !uses_managed_runtime(&config) {
-        let spec = planned_thread_task(workflow_plan, "uv-sync");
+        let spec = planned_thread_task(ctx.workflow_plan, "uv-sync");
         if spawn_thread_task(
-            inner,
-            session_id,
+            ctx.inner,
+            ctx.session_id,
             spec,
-            renderer_tx,
-            completion_tx,
+            ctx.renderer_tx,
+            ctx.completion_tx,
             config.clone(),
             terminal_custom_runtime_task,
         )
         .is_err()
-            || !wait_for_task(completion_rx, "uv-sync")
+            || !wait_for_task(ctx.completion_rx, "uv-sync")
         {
             return false;
         }
-        return run_terminal_launch_stage(
-            inner,
-            session_id,
-            renderer_tx,
-            completion_tx,
-            completion_rx,
-            workflow_plan,
-            config,
-            launch,
-        );
+        return run_terminal_launch_stage(ctx, config, launch);
     }
 
     let requirements = match requirements_path(&config) {
@@ -1643,7 +1574,7 @@ fn run_terminal_dependency_stage(
             let output = ThreadOutput {
                 task_id: "uv-requirements".to_string(),
                 region_id: "uv-requirements".to_string(),
-                tx: renderer_tx.clone(),
+                tx: ctx.renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, "requirements file not found");
             return false;
@@ -1656,19 +1587,19 @@ fn run_terminal_dependency_stage(
             let output = ThreadOutput {
                 task_id: "pypi-source-ranking".to_string(),
                 region_id: "pypi-source-ranking".to_string(),
-                tx: renderer_tx.clone(),
+                tx: ctx.renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, &error);
             return false;
         }
     };
-    let pypi_rank_spec = planned_thread_task(workflow_plan, "pypi-source-ranking");
+    let pypi_rank_spec = planned_thread_task(ctx.workflow_plan, "pypi-source-ranking");
     if spawn_thread_task(
-        inner,
-        session_id,
+        ctx.inner,
+        ctx.session_id,
         pypi_rank_spec,
-        renderer_tx,
-        completion_tx,
+        ctx.renderer_tx,
+        ctx.completion_tx,
         TerminalPypiRankArgs {
             state: Arc::clone(&state),
             config: config.clone(),
@@ -1677,7 +1608,7 @@ fn run_terminal_dependency_stage(
         terminal_pypi_rank_task,
     )
     .is_err()
-        || !wait_for_task(completion_rx, "pypi-source-ranking")
+        || !wait_for_task(ctx.completion_rx, "pypi-source-ranking")
     {
         return false;
     }
@@ -1688,7 +1619,7 @@ fn run_terminal_dependency_stage(
             let output = ThreadOutput {
                 task_id: "pypi-source-ranking".to_string(),
                 region_id: "pypi-source-ranking".to_string(),
-                tx: renderer_tx.clone(),
+                tx: ctx.renderer_tx.clone(),
             };
             output.line(OutputStyle::Error, &error);
             return false;
@@ -1703,30 +1634,21 @@ fn run_terminal_dependency_stage(
                 "requirements unchanged; skipping uv cache clean",
             ),
         ] {
-            if !run_terminal_skip_task(
-                inner,
-                session_id,
-                renderer_tx,
-                completion_tx,
-                completion_rx,
-                workflow_plan,
-                task_id,
-                message,
-            ) {
+            if !run_terminal_skip_task(ctx, task_id, message) {
                 return false;
             }
         }
     } else if !run_process_and_wait(
-        inner,
-        session_id,
+        ctx.inner,
+        ctx.session_id,
         planned_direct_process_task(
-            workflow_plan,
+            ctx.workflow_plan,
             "uv-compile",
             &uv_compile_command_with_index(&config, &requirements, &pypi_index),
         ),
-        renderer_tx,
-        completion_tx,
-        completion_rx,
+        ctx.renderer_tx,
+        ctx.completion_tx,
+        ctx.completion_rx,
     ) {
         return false;
     } else {
@@ -1734,15 +1656,15 @@ fn run_terminal_dependency_stage(
             ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
             ("uv-cache-clean", uv_cache_clean_command(&config)),
         ] {
-            let task = planned_direct_process_task(workflow_plan, task_id, &command)
+            let task = planned_direct_process_task(ctx.workflow_plan, task_id, &command)
                 .with_running_region_max_lines(4);
             if !run_process_and_wait(
-                inner,
-                session_id,
+                ctx.inner,
+                ctx.session_id,
                 task,
-                renderer_tx,
-                completion_tx,
-                completion_rx,
+                ctx.renderer_tx,
+                ctx.completion_tx,
+                ctx.completion_rx,
             ) {
                 return false;
             }
@@ -1752,42 +1674,24 @@ fn run_terminal_dependency_stage(
         }
     }
 
-    run_terminal_launch_stage(
-        inner,
-        session_id,
-        renderer_tx,
-        completion_tx,
-        completion_rx,
-        workflow_plan,
-        config,
-        launch,
-    )
+    run_terminal_launch_stage(ctx, config, launch)
 }
 
 /// Performs the run terminal skip task operation.
-fn run_terminal_skip_task(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    renderer_tx: &Sender<RendererEvent>,
-    completion_tx: &Sender<TaskCompletion>,
-    completion_rx: &mpsc::Receiver<TaskCompletion>,
-    workflow_plan: &WorkflowPlan,
-    task_id: &str,
-    message: &str,
-) -> bool {
+fn run_terminal_skip_task(ctx: &TerminalRunContext<'_>, task_id: &str, message: &str) -> bool {
     spawn_thread_task(
-        inner,
-        session_id,
-        planned_thread_task(workflow_plan, task_id),
-        renderer_tx,
-        completion_tx,
+        ctx.inner,
+        ctx.session_id,
+        planned_thread_task(ctx.workflow_plan, task_id),
+        ctx.renderer_tx,
+        ctx.completion_tx,
         TerminalSkipArgs {
             message: message.to_string(),
         },
         terminal_skip_task,
     )
     .is_ok()
-        && wait_for_task(completion_rx, task_id)
+        && wait_for_task(ctx.completion_rx, task_id)
 }
 
 struct TerminalSkipArgs {
@@ -1809,12 +1713,7 @@ fn terminal_skip_task(
 
 /// Performs the run terminal launch stage operation.
 fn run_terminal_launch_stage(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    renderer_tx: &Sender<RendererEvent>,
-    completion_tx: &Sender<TaskCompletion>,
-    completion_rx: &mpsc::Receiver<TaskCompletion>,
-    workflow_plan: &WorkflowPlan,
+    ctx: &TerminalRunContext<'_>,
     config: UpdaterConfig,
     launch: bool,
 ) -> bool {
@@ -1827,20 +1726,20 @@ fn run_terminal_launch_stage(
     };
     let command = launch_backend_command(&config, port);
     let success = run_process_and_wait(
-        inner,
-        session_id,
-        planned_direct_process_task(workflow_plan, "launch-backend", &command),
-        renderer_tx,
-        completion_tx,
-        completion_rx,
+        ctx.inner,
+        ctx.session_id,
+        planned_direct_process_task(ctx.workflow_plan, "launch-backend", &command),
+        ctx.renderer_tx,
+        ctx.completion_tx,
+        ctx.completion_rx,
     );
     if !success {
         return false;
     }
-    if wait_for_backend_port_for_session(inner, session_id, port).is_err() {
+    if wait_for_backend_port_for_session(ctx.inner, ctx.session_id, port).is_err() {
         return false;
     }
-    let _ = renderer_tx.send(RendererEvent::BackendReady {
+    let _ = ctx.renderer_tx.send(RendererEvent::BackendReady {
         base_backend_addr: "127.0.0.1".to_string(),
         base_backend_port: port,
     });

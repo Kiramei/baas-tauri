@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/Separator";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
 import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
 import { scheduleLevelKey } from "@/shared/I18nKeys";
@@ -34,11 +34,11 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId!]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
+  const modify = useBackendStore((state) => state.modify);
+  const staticConfig = useBackendStore((state) => state.staticStore);
   const lessonNames = staticConfig.lesson_region_name[serverMapSpec[settings.server!]];
   const studentNames = staticConfig.student_names;
   const [showSelector, setShowSelector] = useState(false);

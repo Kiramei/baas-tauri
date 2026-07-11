@@ -1,7 +1,7 @@
-import { useWebSocketStore } from "@/store/WebsocketStore.ts";
+import { useBackendStore } from "@/store/BackendStore";
 
 /** Starts platform services after React has mounted. */
 export function startPlatformServices() {
   if (!__WITH_TAURI__) return;
-  useWebSocketStore.getState().startTauriUpdaterPolling();
+  useBackendStore.getState().startTauriUpdaterPolling();
 }

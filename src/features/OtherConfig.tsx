@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { PageKey } from "@/types/app";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { eventNameKey } from "@/shared/I18nKeys";
 
 type OtherConfigProps = {
@@ -15,7 +15,7 @@ type OtherConfigProps = {
 /** Renders the other config component. */
 const OtherConfig: React.FC<OtherConfigProps> = ({ profileId, onClose, setActivePage }) => {
   const { t } = useTranslation();
-  const trigger = useWebSocketStore((state) => state.trigger);
+  const trigger = useBackendStore((state) => state.trigger);
 
   /** Handles the handle trigger interaction. */
   const handleTrigger = (taskName: string) => async () => {

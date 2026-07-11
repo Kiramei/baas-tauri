@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { propertyKey, teamMethodKey } from "@/shared/I18nKeys";
 
 type TeamConfigProps = {
@@ -24,10 +24,10 @@ interface Draft {
 const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {

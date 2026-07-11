@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "results": [
+    {
+      "iterations": 60,
+      "payloadSize": 1024,
+      "receivedMessages": 60,
+      "rustEmitMs": 5.5821000000000005,
+      "totalBytes": 61440,
+      "webviewMiBs": 6.510416666666667,
+      "webviewWallMs": 9
+    },
+    {
+      "iterations": 60,
+      "payloadSize": 65536,
+      "receivedMessages": 60,
+      "rustEmitMs": 289.3695,
+      "totalBytes": 3932160,
+      "webviewMiBs": 12.737771740161998,
+      "webviewWallMs": 294.39999997615814
+    },
+    {
+      "iterations": 60,
+      "payloadSize": 1048576,
+      "receivedMessages": 60,
+      "rustEmitMs": 4470.4766,
+      "totalBytes": 62914560,
+      "webviewMiBs": 13.333629636108167,
+      "webviewWallMs": 4499.900000035763
+    }
+  ],
+  "error": null
+}

@@ -2,7 +2,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useState } fr
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
-import { isTauriNoUpdateEnabled, useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { isTauriNoUpdateEnabled, useBackendStore, waitForNormal } from "@/store/BackendStore";
 
 interface TauriSelfUpdateContextType {
   updating: boolean;
@@ -18,7 +18,7 @@ const TauriSelfUpdateContext = createContext<TauriSelfUpdateContextType | undefi
 /** Renders the tauri self update provider component. */
 export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
-  const trigger = useWebSocketStore((state) => state.trigger);
+  const trigger = useBackendStore((state) => state.trigger);
   const [updating, setUpdating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -32,7 +32,7 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
       payload: {},
     });
     await waitForNormal(
-      () => useWebSocketStore.getState().statusStore,
+      () => useBackendStore.getState().statusStore,
       (statuses) => Object.values(statuses).every((item: any) => !item?.running),
       15_000
     );
@@ -42,7 +42,7 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
     if (__WITH_ANDROID__) {
-      const state = useWebSocketStore.getState();
+      const state = useBackendStore.getState();
       const updateUrl = state.versionStore?.tauri?.url;
       if (updateUrl) {
         const { openUrl } = await import("@tauri-apps/plugin-opener");

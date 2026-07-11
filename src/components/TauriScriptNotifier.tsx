@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { useUISettings } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 
 type ScriptStatus = {
   running?: boolean;
@@ -33,7 +33,7 @@ const TauriScriptNotifier: React.FC = () => {
   const { t } = useTranslation();
   const { uiSettings } = useUISettings();
   const notificationsEnabled = uiSettings.enableSystemNotifications;
-  const statusStore = useWebSocketStore((state) => state.statusStore);
+  const statusStore = useBackendStore((state) => state.statusStore);
   const previousRef = useRef<Record<string, StatusSnapshot>>({});
   const initializedRef = useRef(false);
 

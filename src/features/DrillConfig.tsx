@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { Separator } from "@/components/ui/Separator";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 
 type DrillConfigProps = {
@@ -14,10 +14,10 @@ type DrillConfigProps = {
 /** Renders the drill config component. */
 const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId!]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   const party_nos = ["1", "2", "3", "4"];
   const total_assault_difficulties = ["1", "2", "3", "4"];

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useBackendStore, waitForNormal } from "@/store/BackendStore";
 
 type DropState = "zip" | "invalid" | null;
 type PendingArchive = {
@@ -28,8 +28,8 @@ const archiveNameFromPath = (path: string) => path.split(/[\\/]/).pop() || path;
 
 /** Handles the wait for imported config workflow. */
 const waitForImportedConfig = async (serial: string) => {
-  await waitForNormal(() => useWebSocketStore.getState().configStore?.[serial], Boolean, 8000);
-  return useWebSocketStore.getState().configStore?.[serial];
+  await waitForNormal(() => useBackendStore.getState().configStore?.[serial], Boolean, 8000);
+  return useBackendStore.getState().configStore?.[serial];
 };
 
 /** Renders the config archive drop overlay component. */
@@ -49,7 +49,7 @@ const ConfigArchiveDropOverlay: React.FC = () => {
   /** Handles the import archive workflow. */
   const importArchive = React.useCallback(
     async (name: string, bytes: ArrayBuffer | Uint8Array) => {
-      const state = useWebSocketStore.getState();
+      const state = useBackendStore.getState();
       if (state._auth_phase !== "authenticated" || !state.connections.trigger) {
         throw new Error(
           t("profile.dropAuthRequired", {

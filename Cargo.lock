@@ -260,6 +260,15 @@ name = "baas-i18n"
 version = "0.0.6"
 
 [[package]]
+name = "baas-ipc"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "thiserror 2.0.18",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "baas-notifier"
 version = "0.0.6"
 dependencies = [
@@ -282,6 +291,7 @@ name = "baas-tauri"
 version = "0.0.6"
 dependencies = [
  "baas-i18n",
+ "baas-ipc",
  "baas-notifier",
  "baas-shortcut",
  "baas-term",
@@ -308,6 +318,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tokio",
+ "uuid",
  "windows 0.62.2",
 ]
 

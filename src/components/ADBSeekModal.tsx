@@ -4,7 +4,7 @@ import CButton from "@/components/ui/CButton.tsx";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Loader2, SearchCode } from "lucide-react";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 
 type ADBSeekProps = {
@@ -17,7 +17,7 @@ const ADBSeekModal: React.FC<ADBSeekProps> = ({ onSelect }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
-  const trigger = useWebSocketStore((state) => state.trigger);
+  const trigger = useBackendStore((state) => state.trigger);
 
   /** Handles the handle detect interaction. */
   const handleDetect = async () => {

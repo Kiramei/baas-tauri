@@ -1,12 +1,12 @@
 import { DynamicConfig } from "@/types/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import { PageKey } from "@/App.tsx";
-import {
-  AuthPhase,
-  ControlConnection,
-  ControlSessionBundle,
-  SecureWebSocket,
-} from "@/shared/SecureWebSocket";
+import type {
+  BackendAuthPhase,
+  BackendConnection,
+  BackendControlConnection,
+  BackendControlSessionBundle,
+} from "@/transport/types";
 
 export interface ConfigProfile {
   id: string;
@@ -63,11 +63,15 @@ export interface StringKVMap {
   [key: string]: string;
 }
 
-export interface WsCallBackDict {
-  [key: string]: (message: WsMessageItem) => void;
+export interface BackendCallbackDict {
+  [key: string]: (message: BackendMessageItem) => void;
 }
 
-export type WsName = "provider" | "sync" | "trigger" | `remote-${string}`;
+export type WsCallBackDict = BackendCallbackDict;
+export type BackendChannelKey = "provider" | "sync" | "trigger" | `remote-${string}`;
+export type WsName = BackendChannelKey;
+export type TransportMode = "shared-memory" | "websocket";
+export type ConnectionPhase = "idle" | "starting-backend" | "connecting" | "ready" | "failed";
 
 export interface LogItem {
   time: string;
@@ -117,7 +121,7 @@ interface SyncOperation {
   value: any | null;
 }
 
-interface WsMessageItem {
+export interface BackendMessageItem {
   type: string;
   scopes?: string[];
   entry?: RawLogItem;
@@ -132,12 +136,17 @@ interface WsMessageItem {
   error?: string;
 }
 
+export type WsMessageItem = BackendMessageItem;
+
 interface LogStoreSet {
   [key: string]: LogItem[];
 }
 
-interface WebSocketState {
-  connections: Partial<Record<WsName, SecureWebSocket>>;
+export interface BackendState {
+  transportMode: TransportMode;
+  connectionPhase: ConnectionPhase;
+  requiresAuthentication: boolean;
+  connections: Partial<Record<BackendChannelKey, BackendConnection>>;
   logStore: LogStoreSet;
   configStore: any;
   staticStore: any;
@@ -149,9 +158,9 @@ interface WebSocketState {
   submitPassword: (password: string) => Promise<void>;
   checkTauriUpdater: (notify?: boolean, visible?: boolean) => Promise<void>;
   startTauriUpdaterPolling: () => void;
-  connect: (name: WsName) => Promise<void>;
-  disconnect: (name: WsName) => void;
-  send: (name: WsName, data: any) => void;
+  connect: (name: BackendChannelKey) => Promise<void>;
+  disconnect: (name: BackendChannelKey) => void;
+  send: (name: BackendChannelKey, data: any) => void;
   init: () => Promise<void>;
   modify: (path: string, value: any, showToast?: boolean) => void;
   patch: (path: string, value: any) => void;
@@ -162,7 +171,7 @@ interface WebSocketState {
     binary: ArrayBuffer | Uint8Array,
     callback?: (e: any) => void
   ) => void;
-  connectRemote: () => Promise<SecureWebSocket>;
+  connectRemote: () => Promise<BackendConnection>;
   pendingCallbacks: Record<string, (data?: any) => void>;
   pendingStreamCallbacks: Record<string, (data?: any) => void>;
   pendingBinaryCallbacks: Record<string, (data: ArrayBuffer) => void>;
@@ -171,14 +180,16 @@ interface WebSocketState {
   _all_data_initialized: boolean;
   _heartbeat_time: number;
   _initiating: boolean;
-  _auth_phase: AuthPhase;
+  _auth_phase: BackendAuthPhase;
   _auth_error: string | null;
   _server_initialized: boolean;
   _server_verified: boolean;
   _pwd_epoch: number;
-  _control: ControlConnection | null;
-  _session: ControlSessionBundle | null;
+  _control: BackendControlConnection | null;
+  _session: BackendControlSessionBundle | null;
 }
+
+export type WebSocketState = BackendState;
 
 interface BaseBackendInterface {
   baseBackendAddr: string;

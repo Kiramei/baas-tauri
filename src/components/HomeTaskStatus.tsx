@@ -2,15 +2,15 @@ import { Hourglass, List } from "lucide-react";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { eventNameKey } from "@/shared/I18nKeys";
 
 /** Renders the task status component. */
 export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const runningTask = useWebSocketStore((e) => e.statusStore[profileId]?.current_task);
-  const taskQueue = useWebSocketStore((e) => e.statusStore[profileId]?.waiting_tasks);
+  const runningTask = useBackendStore((e) => e.statusStore[profileId]?.current_task);
+  const taskQueue = useBackendStore((e) => e.statusStore[profileId]?.waiting_tasks);
 
   return (
     <div className={"grid grid-cols-1 lg:grid-cols-2 gap-1"}>

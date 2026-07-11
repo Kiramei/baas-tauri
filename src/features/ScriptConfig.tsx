@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 
 type ScriptConfigProps = {
@@ -25,9 +25,9 @@ const ANDROID_LOCAL_LABEL = "安卓本地化控制";
 /** Renders the script config component. */
 const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const settings = useWebSocketStore((state) => state.configStore[profileId]);
-  const modify = useWebSocketStore((state) => state.modify);
+  const staticConfig = useBackendStore((state) => state.staticStore);
+  const settings = useBackendStore((state) => state.configStore[profileId]);
+  const modify = useBackendStore((state) => state.modify);
 
   const thenOptions = [
     [t("script.doNothing"), "无动作"],

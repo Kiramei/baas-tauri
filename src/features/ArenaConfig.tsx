@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 
 interface ArenaConfigProps {
@@ -19,10 +19,10 @@ interface Draft {
 /** Renders the arena config component. */
 const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = useMemo(() => {

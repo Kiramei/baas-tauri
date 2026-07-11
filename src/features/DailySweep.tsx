@@ -5,7 +5,7 @@ import { FormSelect } from "@/components/ui/FormSelect";
 import { FormInput } from "@/components/ui/FormInput";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { Separator } from "@/components/ui/Separator";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 import CButton from "@/components/ui/CButton.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
@@ -32,11 +32,11 @@ type Draft = {
 const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
+  const modify = useBackendStore((state) => state.modify);
+  const staticConfig = useBackendStore((state) => state.staticStore);
   const hard_task_student_material = staticConfig.hard_task_student_material as string[][];
   const [openStudentModal, setOpenStudentModal] = useState(false);
 

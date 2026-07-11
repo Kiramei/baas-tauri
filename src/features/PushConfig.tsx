@@ -3,7 +3,7 @@ import SwitchButton from "@/components/ui/SwitchButton";
 import { FormInput } from "@/components/ui/FormInput";
 import { useTranslation } from "react-i18next";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 
 type PushConfigProps = {
   profileId: string;
@@ -20,10 +20,10 @@ interface Draft {
 /** Renders the push config component. */
 const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = useMemo(() => {

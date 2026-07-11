@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { useTranslation } from "react-i18next";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
@@ -14,8 +14,8 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   const [connected, setConnected] = useState(true);
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
-  const heartbeatTime = useWebSocketStore((s) => s._heartbeat_time);
-  const init = useWebSocketStore((s) => s.init);
+  const heartbeatTime = useBackendStore((s) => s._heartbeat_time);
+  const init = useBackendStore((s) => s.init);
   const lastBeatRef = useRef<number>(0);
 
   useEffect(() => {

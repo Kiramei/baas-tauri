@@ -23,7 +23,7 @@ import FeatureSwitchModal from "@/components/FeatureSwitchModal";
 import { DateTimePicker } from "@/components/DateTimePicker.tsx";
 import { EventConfig } from "@/types/event";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { eventNameKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
 
@@ -109,12 +109,12 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const [sortKey, setSortKey] = useState<"default" | "time">("default");
   const [modalTask, setModalTask] = useState<EventConfig | null>(null);
 
-  const runningTask = useWebSocketStore((e) => e.statusStore[profileId!]?.current_task);
-  const taskQueue = useWebSocketStore((e) => e.statusStore[profileId!]?.waiting_tasks);
-  const eventConfigs: EventConfig[] = useWebSocketStore(
+  const runningTask = useBackendStore((e) => e.statusStore[profileId!]?.current_task);
+  const taskQueue = useBackendStore((e) => e.statusStore[profileId!]?.waiting_tasks);
+  const eventConfigs: EventConfig[] = useBackendStore(
     (e) => e.eventStore[profileId!] ?? EMPTY_ARRAY
   );
-  const modify = useWebSocketStore((e) => e.modify);
+  const modify = useBackendStore((e) => e.modify);
 
   /** Handles the filtered workflow. */
   const filtered = useMemo(() => {

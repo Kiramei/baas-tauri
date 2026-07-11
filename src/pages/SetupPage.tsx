@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { exit } from "@tauri-apps/plugin-process";
 import { Copy, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import StorageUtil from "@/shared/StorageManager";
-import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore, waitForNormal } from "@/store/BackendStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
-import { reloadWithoutPrompt } from "@/shared/reload";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
@@ -43,19 +41,10 @@ interface StartupState {
   baasRootExistsNonEmpty: boolean;
 }
 
-interface BackendReadyPayload {
-  baseBackendAddr: string;
-  baseBackendPort: number;
-}
-
 interface FailureInfo {
   step: string;
   message: string;
 }
-
-const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
-/** Handles the delay workflow. */
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
@@ -65,19 +54,11 @@ const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
-/** Handles the random password workflow. */
-const randomPassword = () => {
-  if (globalThis.crypto?.randomUUID) {
-    return `baas-${globalThis.crypto.randomUUID()}`;
-  }
-  return `baas-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
-
-/** Performs the reset websocket runtime state operation. */
-const resetWebsocketRuntimeState = () => {
-  const state = useWebSocketStore.getState();
+/** Performs the reset backend runtime state operation. */
+const resetBackendRuntimeState = () => {
+  const state = useBackendStore.getState();
   Object.values(state.connections).forEach((connection) => connection?.close());
-  useWebSocketStore.setState({
+  useBackendStore.setState({
     connections: {},
     pendingCallbacks: {},
     logStore: {},
@@ -167,7 +148,7 @@ const SetupPage = () => {
       await invoke("updater_start_workflow", {
         request: {
           installPath: path,
-          launch: true,
+          launch: false,
         },
       });
     } catch (error) {
@@ -180,75 +161,20 @@ const SetupPage = () => {
     }
   }, [persistConfig, showWorkflowFailure]);
 
-  /** Performs the ensure auto password operation. */
-  const ensureAutoPassword = (forceNew = false) => {
-    let password = StorageUtil.get<string>("baasAutoPassword");
-    if (!password || forceNew) {
-      password = randomPassword();
-      StorageUtil.set("baasAutoPassword", password);
+  /** Handles the initialize backend workflow. */
+  const initializeBackend = useCallback(async () => {
+    resetBackendRuntimeState();
+    await useBackendStore.getState().startAuthFlow();
+    await waitForNormal(
+      () => useBackendStore.getState()._auth_phase,
+      (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
+      30_000
+    );
+    if (useBackendStore.getState()._auth_phase !== "authenticated") {
+      throw new Error(useBackendStore.getState()._auth_error ?? "Backend IPC startup failed.");
     }
-    return password;
-  };
-
-  /** Handles the authenticate backend workflow. */
-  const authenticateBackend = useCallback(
-    async (payload: BackendReadyPayload, forceNewPassword = false) => {
-      StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
-      StorageUtil.set("baseBackendPort", payload.baseBackendPort);
-      resetWebsocketRuntimeState();
-
-      const password = ensureAutoPassword(forceNewPassword);
-      const deadline = Date.now() + 30_000;
-      let lastError: unknown = null;
-
-      while (
-        Date.now() < deadline &&
-        !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
-      ) {
-        try {
-          await useWebSocketStore.getState().startAuthFlow();
-          await waitForNormal(
-            () => useWebSocketStore.getState()._auth_phase,
-            (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
-            3_000
-          );
-        } catch (error) {
-          lastError = error;
-        }
-        if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-          await delay(750);
-        }
-      }
-
-      if (!authReadyPhases.has(useWebSocketStore.getState()._auth_phase)) {
-        throw new Error(
-          useWebSocketStore.getState()._auth_error ||
-            (lastError instanceof Error
-              ? lastError.message
-              : "Backend authentication endpoint is not ready.")
-        );
-      }
-
-      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-        await useWebSocketStore.getState().submitPassword(password);
-        await waitForNormal(
-          () => useWebSocketStore.getState()._auth_phase,
-          (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
-          30_000
-        );
-      }
-
-      if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
-        throw new Error(
-          useWebSocketStore.getState()._auth_error ??
-            "Automatic login failed. Existing backend password may be different."
-        );
-      }
-
-      await useWebSocketStore.getState().init();
-    },
-    []
-  );
+    await useBackendStore.getState().init();
+  }, []);
 
   /** Handles the handle abort interaction. */
   const handleAbort = async () => {
@@ -285,34 +211,6 @@ const SetupPage = () => {
       toast.error(error instanceof Error ? error.message : String(error));
     }
   };
-
-  useEffect(() => {
-    const unlisten = listen<BackendReadyPayload>("updater://backend-ready", async (event) => {
-      try {
-        await authenticateBackend(event.payload);
-      } catch (error) {
-        try {
-          const recovered = await invoke<BackendReadyPayload>(
-            "updater_reset_backend_auth_and_restart"
-          );
-          await authenticateBackend(recovered, true);
-          reloadWithoutPrompt();
-        } catch (retryError) {
-          const firstMessage = error instanceof Error ? error.message : String(error);
-          const retryMessage =
-            retryError instanceof Error ? retryError.message : String(retryError);
-          setFailure({
-            step: "auth",
-            message: `${firstMessage}\n\nBackend auth reset retry failed: ${retryMessage}`,
-          });
-        }
-      }
-    });
-
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, [authenticateBackend]);
 
   useEffect(() => {
     if (setupCompletedRef.current) return;
@@ -402,6 +300,15 @@ const SetupPage = () => {
                         },
                         true
                       );
+                      return;
+                    }
+                    if (success && !abortingRef.current) {
+                      initializeBackend().catch((error) => {
+                        showWorkflowFailure({
+                          step: "backend",
+                          message: error instanceof Error ? error.message : String(error),
+                        });
+                      });
                     }
                   }}
                 />

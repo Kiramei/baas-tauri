@@ -6,7 +6,7 @@ import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 
 type TabKey = "common" | "tactical";
@@ -25,11 +25,11 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   onClose,
 }) => {
   const { t } = useTranslation();
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const staticConfig = useBackendStore((state) => state.staticStore);
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   const serverType = serverMap[settings.server!];
 

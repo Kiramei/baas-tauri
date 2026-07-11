@@ -28,6 +28,15 @@ if (!["debug", "release"].includes(profile)) {
   throw new Error(`Unsupported Android build profile: ${profile}. Expected debug or release.`);
 }
 const isRelease = profile === "release";
+if (isRelease) {
+  throw new Error(
+    [
+      "Android release builds are blocked by the BAAS shared-memory transport refactor.",
+      "The Android client is a Tauri/mobile target, but the mobile shared-memory adapter is not implemented yet.",
+      "Do not publish Android builds until Android IPC readiness, notification, lifecycle, and device tests are implemented.",
+    ].join(" "),
+  );
+}
 const profileTaskName = isRelease ? "Release" : "Debug";
 const cargoProfileDir = isRelease ? "release" : "debug";
 const abi = args.abi ?? (isRelease ? "arm64" : "x86_64");

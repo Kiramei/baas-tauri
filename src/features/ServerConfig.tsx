@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import ADBSeekModal from "@/components/ADBSeekModal.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { DynamicConfig } from "@/types/dynamic";
 import { buildServerOptions } from "@/shared/serverOptions";
 
@@ -21,8 +21,8 @@ interface Draft {
 /** Renders the server config component. */
 const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
-  const settings = useWebSocketStore((state) => state.configStore[profileId]);
-  const modify = useWebSocketStore((state) => state.modify);
+  const settings = useBackendStore((state) => state.configStore[profileId]);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = React.useMemo(() => {

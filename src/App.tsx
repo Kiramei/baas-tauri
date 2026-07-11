@@ -9,7 +9,6 @@ import { PageKey } from "@/types/app";
 import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
 import BAComet from "@/components/ui/BAComet.tsx";
 import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
-import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
 import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
@@ -26,6 +25,9 @@ const ConfigurationPage = React.lazy(() => import("@/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage"));
 const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
 const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
+const ReconnectingOverlay = __WITH_WEBUI__
+  ? React.lazy(() => import("@/components/ReconnectingOverlay.tsx"))
+  : null;
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -214,7 +216,7 @@ const WrappedApp: React.FC = () => {
                 {__WITH_TAURI__ && <TauriScriptNotifier />}
                 <Main />
                 <ConfigArchiveDropOverlay />
-                {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
+                {__WITH_WEBUI__ && !ready && ReconnectingOverlay && <ReconnectingOverlay />}
                 <Toaster />
               </TauriShortcutProvider>
             </TauriSelfUpdateProvider>

@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import PasswordInputModal from "@/components/PasswordInputModal";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 
 const reconnectingMessages: Record<string, string> = {
@@ -17,12 +17,12 @@ const reconnectingMessages: Record<string, string> = {
 
 /** Renders the reconnecting overlay component. */
 const ReconnectingOverlay: React.FC = () => {
-  const authPhase = useWebSocketStore((state) => state._auth_phase);
-  const authError = useWebSocketStore((state) => state._auth_error);
-  const serverInitialized = useWebSocketStore((state) => state._server_initialized);
-  const serverVerified = useWebSocketStore((state) => state._server_verified);
-  const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
-  const submitPassword = useWebSocketStore((state) => state.submitPassword);
+  const authPhase = useBackendStore((state) => state._auth_phase);
+  const authError = useBackendStore((state) => state._auth_error);
+  const serverInitialized = useBackendStore((state) => state._server_initialized);
+  const serverVerified = useBackendStore((state) => state._server_verified);
+  const startAuthFlow = useBackendStore((state) => state.startAuthFlow);
+  const submitPassword = useBackendStore((state) => state.submitPassword);
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const requiresPassword =

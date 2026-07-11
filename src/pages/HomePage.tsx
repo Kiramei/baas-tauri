@@ -9,7 +9,7 @@ import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-re
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
@@ -34,9 +34,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const activeConfigId = profile?.id ?? pid;
 
-  const statusStore = useWebSocketStore((state) => state.statusStore);
-  const configStore = useWebSocketStore((state) => state.configStore);
-  const logStore = useWebSocketStore((state) => state.logStore);
+  const statusStore = useBackendStore((state) => state.statusStore);
+  const configStore = useBackendStore((state) => state.configStore);
+  const logStore = useBackendStore((state) => state.logStore);
 
   const scriptRunning = activeConfigId ? statusStore[activeConfigId]?.running || false : false;
   const settings = activeConfigId ? configStore[activeConfigId] : undefined;
@@ -79,10 +79,10 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       path: `/${key}`,
       value,
     }));
-    const store = useWebSocketStore.getState();
+    const store = useBackendStore.getState();
     await new Promise<void>((resolve, reject) => {
       const timeoutId = window.setTimeout(() => {
-        delete useWebSocketStore.getState().pendingCallbacks[timestamp];
+        delete useBackendStore.getState().pendingCallbacks[timestamp];
         reject(new Error("Android device method patch was not acknowledged"));
       }, 5000);
       store.pendingCallbacks[timestamp] = () => {
@@ -100,14 +100,14 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     const expectedMethod = useScrcpy ? "adb" : "android_local";
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
-      const current = useWebSocketStore.getState().configStore[activeConfigId];
+      const current = useBackendStore.getState().configStore[activeConfigId];
       if (
         current?.screenshot_method === expectedMethod &&
         current?.control_method === expectedMethod
       ) {
         return;
       }
-      useWebSocketStore.getState().send("sync", {
+      useBackendStore.getState().send("sync", {
         type: "pull",
         resource: "config",
         resource_id: activeConfigId,
@@ -157,7 +157,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         toast.success(`scrcpy virtual display #${report.displayId}`);
       } else {
         if (scriptRunning && activeConfigId) {
-          useWebSocketStore.getState().trigger({
+          useBackendStore.getState().trigger({
             timestamp: getTimestampMs(),
             command: "stop_scheduler",
             config_id: activeConfigId,
@@ -191,7 +191,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
     if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
-    useWebSocketStore.getState().trigger(
+    useBackendStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
         command: "start_scheduler",
@@ -214,7 +214,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const stopScript = () => {
     if (!profile || !activeConfigId || !scriptRunning) return;
-    useWebSocketStore.getState().trigger(
+    useBackendStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
         command: "stop_scheduler",

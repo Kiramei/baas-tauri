@@ -2,8 +2,8 @@
 export function startPlatformServices() {
   if (!__WITH_TAURI__) return;
   setTimeout(() => {
-    void import("@/store/WebsocketStore.ts").then(({ useWebSocketStore }) => {
-      useWebSocketStore.getState().startTauriUpdaterPolling();
+    void import("@/store/BackendStore").then(({ useBackendStore }) => {
+      useBackendStore.getState().startTauriUpdaterPolling();
     });
   }, 5_000);
 }

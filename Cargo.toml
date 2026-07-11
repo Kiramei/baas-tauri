@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "src-tauri",
+  "crates/baas-ipc",
   "crates/baas-updater",
   "crates/baas-term",
   "crates/baas-i18n",
@@ -18,6 +19,7 @@ strip = "symbols"
 
 [workspace.dependencies]
 baas-updater = { path = "crates/baas-updater" }
+baas-ipc = { path = "crates/baas-ipc" }
 baas-term = { path = "crates/baas-term" }
 baas-i18n = { path = "crates/baas-i18n" }
 baas-shortcut = { path = "crates/baas-shortcut" }

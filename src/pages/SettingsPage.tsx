@@ -28,7 +28,7 @@ import {
   UserSearch,
   XCircle,
 } from "lucide-react";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
@@ -193,12 +193,12 @@ const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
   const backgroundFileInputRef = useRef<HTMLInputElement | null>(null);
-  const trigger = useWebSocketStore((state) => state.trigger);
-  const triggerStream = useWebSocketStore((state) => state.triggerStream);
-  const updateConfig = useWebSocketStore((state) => state.updateStore);
-  const versionStore = useWebSocketStore((state) => state.versionStore);
-  const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
-  const modify = useWebSocketStore((state) => state.modify);
+  const trigger = useBackendStore((state) => state.trigger);
+  const triggerStream = useBackendStore((state) => state.triggerStream);
+  const updateConfig = useBackendStore((state) => state.updateStore);
+  const versionStore = useBackendStore((state) => state.versionStore);
+  const checkTauriUpdater = useBackendStore((state) => state.checkTauriUpdater);
+  const modify = useBackendStore((state) => state.modify);
   const tauriUpdate = useTauriSelfUpdate();
   const [reposInitState, setReposInitState] = useState(reposInit);
   const [themeColorInput, setThemeColorInput] = useState(
@@ -457,7 +457,7 @@ const SettingsPage: React.FC = () => {
         });
         setShaLocal(report.local ?? null);
         setShaRemote(report.remote ?? null);
-        useWebSocketStore.setState((state: any) => ({
+        useBackendStore.setState((state: any) => ({
           ...state,
           versionStore: {
             ...state.versionStore,

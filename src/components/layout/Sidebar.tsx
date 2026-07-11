@@ -13,7 +13,7 @@ import {
 import HeartbeatChart from "@/components/HeartbeatIndicator.tsx";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useBackendStore, waitForNormal } from "@/store/BackendStore";
 import { PageKey } from "@/types/app";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
@@ -34,9 +34,9 @@ interface SidebarProps {
 /** Renders the sidebar component. */
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const { t } = useTranslation();
-  const versionConfig = useWebSocketStore((state) => state.versionStore);
-  const trigger = useWebSocketStore((state) => state.trigger);
-  const triggerStream = useWebSocketStore((state) => state.triggerStream);
+  const versionConfig = useBackendStore((state) => state.versionStore);
+  const trigger = useBackendStore((state) => state.trigger);
+  const triggerStream = useBackendStore((state) => state.triggerStream);
   const [backendUpdating, setBackendUpdating] = useState(false);
   const [backendUpdateLogs, setBackendUpdateLogs] = useState<string[]>([]);
   const [backendUpdateTerminalText, setBackendUpdateTerminalText] = useState("");
@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
       payload: {},
     });
     await waitForNormal(
-      () => useWebSocketStore.getState().statusStore,
+      () => useBackendStore.getState().statusStore,
       (statuses) => Object.values(statuses).every((status: any) => !status?.running),
       15_000
     );

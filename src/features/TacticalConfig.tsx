@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { useTranslation } from "react-i18next";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import { serverMap } from "@/shared/GlobalUtilities.ts";
 import { DynamicConfig } from "@/types/dynamic";
 
@@ -17,11 +17,11 @@ interface Draft {
 /** Renders the tactical config component. */
 const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const staticConfig = useBackendStore((state) => state.staticStore);
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId!]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   const total_assault_difficulties = staticConfig.total_assault_difficulties[
     serverMap[settings.server!]

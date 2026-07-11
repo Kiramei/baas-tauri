@@ -37,7 +37,7 @@ import {
 } from "@/components/remote/MessageCenter.ts";
 import { KeyEvent } from "@/components/remote/KeySpaceMap.ts";
 import { SlideOutButton } from "@/components/ui/SlideOutButton.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 
 /**
  * Connection state used by the UI layer.
@@ -102,7 +102,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
    * Get the RemoteSettings from Hook. And the specific settings.
    */
   const { uiSettings, setUiSettings } = useUISettings();
-  const { connectRemote } = useWebSocketStore();
+  const { connectRemote } = useBackendStore();
   const [showStatus, setShowStatus] = useState<boolean>(uiSettings.remoteSettings.showStatus);
   const [maxWidth, setMaxWidth] = useState<number>(uiSettings.remoteSettings.maxWidth);
   const [maxHeight, setMaxHeight] = useState<number>(uiSettings.remoteSettings.maxHeight);

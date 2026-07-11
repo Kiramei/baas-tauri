@@ -4,7 +4,7 @@ import { FormInput } from "@/components/ui/FormInput";
 import { FormSelect } from "@/components/ui/FormSelect";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { DynamicConfig } from "@/types/dynamic";
-import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useBackendStore } from "@/store/BackendStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 
 type EmulatorConfigProps = {
@@ -36,10 +36,10 @@ const multiMap: Record<string, string> = {
 const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
+  const settings: Partial<DynamicConfig> = useBackendStore(
     (state) => state.configStore[profileId]
   );
-  const modify = useWebSocketStore((state) => state.modify);
+  const modify = useBackendStore((state) => state.modify);
 
   /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
