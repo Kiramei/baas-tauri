@@ -229,8 +229,33 @@ impl WorkflowServices for RealWorkflowServices {
         output: &(dyn OutputSink + Send + Sync),
     ) -> UpdaterResult<()> {
         let port = available_port()?;
+        output.line(
+            OutputStyle::Info,
+            &format!("Launching backend on 127.0.0.1:{port}"),
+        );
         EnvironmentManager::new(RealProcessRunner, ReqwestDownloader)
-            .launch_backend(config, port, output)
+            .launch_backend(config, port, output)?;
+        output.line(
+            OutputStyle::Info,
+            &format!("Backend process spawned; probing 127.0.0.1:{port}"),
+        );
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(30) {
+            if backend_auth_endpoint_ready(port) {
+                output.line(
+                    OutputStyle::Success,
+                    &format!(
+                        "Backend accepted connections on 127.0.0.1:{port} after {:.1}s",
+                        started.elapsed().as_secs_f64()
+                    ),
+                );
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(300));
+        }
+        Err(UpdaterError::Workflow(format!(
+            "backend auth endpoint did not become ready on 127.0.0.1:{port}"
+        )))
     }
 }
 
@@ -668,6 +693,13 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
                 "spawn backend service",
             )
             .without_running_region_limit(),
+            WorkflowTask::new(
+                "backend-ready",
+                "backend-ready",
+                "Backend Ready",
+                "Wait until the backend auth endpoint accepts local connections.",
+                "probe backend readiness",
+            ),
         ])
         .build()
 }
@@ -1736,7 +1768,23 @@ fn run_terminal_launch_stage(
     if !success {
         return false;
     }
-    if wait_for_backend_port_for_session(ctx.inner, ctx.session_id, port).is_err() {
+    let ready_task = planned_thread_task(ctx.workflow_plan, "backend-ready");
+    if spawn_thread_task(
+        ctx.inner,
+        ctx.session_id,
+        ready_task,
+        ctx.renderer_tx,
+        ctx.completion_tx,
+        BackendReadyArgs {
+            inner: Arc::clone(ctx.inner),
+            session_id: ctx.session_id.to_string(),
+            port,
+        },
+        terminal_backend_ready_task,
+    )
+    .is_err()
+        || !wait_for_task(ctx.completion_rx, "backend-ready")
+    {
         return false;
     }
     let _ = ctx.renderer_tx.send(RendererEvent::BackendReady {
@@ -1744,6 +1792,67 @@ fn run_terminal_launch_stage(
         base_backend_port: port,
     });
     true
+}
+
+struct BackendReadyArgs {
+    inner: Arc<Mutex<TermState>>,
+    session_id: String,
+    port: u16,
+}
+
+/// Handles the backend readiness probe workflow.
+fn terminal_backend_ready_task(
+    output: ThreadOutput,
+    cancelled: Arc<AtomicBool>,
+    args: BackendReadyArgs,
+) -> Result<(), String> {
+    let started = std::time::Instant::now();
+    let timeout = Duration::from_secs(30);
+    let mut next_notice = Duration::ZERO;
+    output.line(
+        OutputStyle::Info,
+        &format!("Waiting for backend on 127.0.0.1:{}...", args.port),
+    );
+
+    while started.elapsed() < timeout {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err("backend readiness probe cancelled".to_string());
+        }
+        if !session_is_current(&args.inner, &args.session_id) {
+            return Err("backend readiness probe cancelled".to_string());
+        }
+        if backend_auth_endpoint_ready(args.port) {
+            output.line(
+                OutputStyle::Success,
+                &format!(
+                    "Backend accepted connections on 127.0.0.1:{} after {:.1}s",
+                    args.port,
+                    started.elapsed().as_secs_f64()
+                ),
+            );
+            return Ok(());
+        }
+
+        let elapsed = started.elapsed();
+        if elapsed >= next_notice {
+            output.line(
+                OutputStyle::Info,
+                &format!(
+                    "Backend is still starting ({:.1}s elapsed, timeout {:.0}s)",
+                    elapsed.as_secs_f64(),
+                    timeout.as_secs_f64()
+                ),
+            );
+            next_notice = elapsed + Duration::from_secs(3);
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+
+    Err(format!(
+        "backend auth endpoint did not become ready on 127.0.0.1:{} after {:.0}s",
+        args.port,
+        timeout.as_secs_f64()
+    ))
 }
 
 /// Handles the terminal uv install task workflow.
@@ -1849,28 +1958,6 @@ fn terminal_custom_runtime_task(
         &format!("Using custom runtime: {}", config.python.runtime_path),
     );
     Ok(())
-}
-
-/// Performs the wait for backend port for session operation.
-fn wait_for_backend_port_for_session(
-    inner: &Arc<Mutex<TermState>>,
-    session_id: &str,
-    port: u16,
-) -> UpdaterResult<()> {
-    let started = std::time::Instant::now();
-    let timeout = Duration::from_secs(30);
-    while started.elapsed() < timeout {
-        if !session_is_current(inner, session_id) {
-            return Err(UpdaterError::Cancelled);
-        }
-        if backend_auth_endpoint_ready(port) {
-            return Ok(());
-        }
-        thread::sleep(Duration::from_millis(300));
-    }
-    Err(UpdaterError::Workflow(format!(
-        "backend auth endpoint did not become ready on 127.0.0.1:{port}"
-    )))
 }
 
 /// Handles the backend auth endpoint ready workflow.
@@ -2107,6 +2194,7 @@ mod tests {
         let finalize = plan.node("updater-finalize-repos").unwrap();
         let compile = plan.node("uv-compile").unwrap();
         let launch = plan.node("launch-backend").unwrap();
+        let ready = plan.node("backend-ready").unwrap();
 
         assert_eq!(main.stage, cpp.stage);
         assert_eq!(main.stage, uv.stage);
@@ -2117,6 +2205,8 @@ mod tests {
         assert!(finalize.stage > git_record.stage);
         assert!(finalize.stage > venv.stage);
         assert!(compile.stage > finalize.stage);
+        assert!(launch.stage > compile.stage);
+        assert!(ready.stage > launch.stage);
         assert!(
             plan.edges
                 .iter()
@@ -2128,6 +2218,7 @@ mod tests {
                 .any(|edge| edge.from == "git-record-sha" && edge.to == "updater-finalize-repos")
         );
         assert_eq!(plan.nodes.len() as u8, compile.step_total);
+        assert_eq!(plan.nodes.len() as u8, ready.step_total);
         assert!(launch.running_region_unlimited);
         assert_eq!(launch.running_region_max_lines, None);
     }

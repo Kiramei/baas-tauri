@@ -7,7 +7,7 @@ import AssetsDisplay from "@/components/AssetsDisplay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { ProfileProps } from "@/types/app";
+import type { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useBackendStore } from "@/store/BackendStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
@@ -47,6 +47,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
+  const [pendingSchedulerCommand, setPendingSchedulerCommand] = useState<
+    "start_scheduler" | "stop_scheduler" | null
+  >(null);
 
   const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
 
@@ -60,7 +63,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     return adbPort || adbIP || "emulator-5556";
   }, [settings?.adbIP, settings?.adbPort]);
 
-  const syncAndroidDeviceMethods = async (useScrcpy: boolean) => {
+  const syncAndroidDeviceMethods = useCallback(async (useScrcpy: boolean) => {
     if (!__WITH_ANDROID__ || !activeConfigId) return;
     const patch = useScrcpy
       ? {
@@ -115,7 +118,36 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     }
     throw new Error(`Android device methods did not switch to ${expectedMethod}`);
-  };
+  }, [activeConfigId]);
+
+  const appendLocalLog = useCallback(
+    (level: LogItem["level"], message: string) => {
+      if (!activeConfigId) return;
+      const scope = `config:${activeConfigId}`;
+      const entry: LogItem = {
+        time: new Date().toISOString(),
+        level,
+        message,
+      };
+      useBackendStore.setState((state) => ({
+        logStore: {
+          ...state.logStore,
+          [scope]: [...(state.logStore[scope] ?? []), entry],
+        },
+      }));
+    },
+    [activeConfigId]
+  );
+
+  const activeLogs = useMemo(() => {
+    if (!activeConfigId) return [];
+    const scopedLogs = logStore[`config:${activeConfigId}`] ?? [];
+    const directLogs = logStore[activeConfigId] ?? [];
+    if (directLogs.length === 0) return scopedLogs;
+    return [...scopedLogs, ...directLogs].sort(
+      (left, right) => new Date(left.time).getTime() - new Date(right.time).getTime()
+    );
+  }, [activeConfigId, logStore]);
 
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
     if (!__WITH_ANDROID__) return false;
@@ -188,43 +220,95 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    * Issues the scheduler start command for the active profile.
    * Guarded against duplicate submissions when a run is already active.
    */
-  const startScript = async () => {
-    if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
-    useBackendStore.getState().trigger(
-      {
-        timestamp: getTimestampMs(),
-        command: "start_scheduler",
-        config_id: activeConfigId,
-        payload: {},
-      },
-      (response) => {
-        console.debug("start_scheduler acknowledged", response);
-        if ((response as any)?.status === "error") {
-          toast.error("start_scheduler failed", {
-            description: String((response as any)?.message ?? (response as any)?.error ?? ""),
-          });
-        }
+  const runSchedulerCommand = useCallback(
+    async (command: "start_scheduler" | "stop_scheduler") => {
+      if (!profile || !activeConfigId || androidVirtualDisplayBusy || pendingSchedulerCommand) {
+        return;
       }
-    );
+      if (command === "start_scheduler" && scriptRunning) return;
+      if (command === "stop_scheduler" && !scriptRunning) return;
+
+      const store = useBackendStore.getState();
+      if (store._auth_phase !== "authenticated" || store.connections.trigger?.readyState !== 1) {
+        const message = "trigger transport is not ready; scheduler command was not sent";
+        appendLocalLog("ERROR", message);
+        toast.error("Scheduler command failed", { description: message });
+        return;
+      }
+
+      setPendingSchedulerCommand(command);
+      const timestamp = getTimestampMs();
+      const label = command === "start_scheduler" ? "start" : "stop";
+      appendLocalLog("INFO", `Sending ${command} for config ${activeConfigId}...`);
+
+      try {
+        if (command === "start_scheduler" && __WITH_ANDROID__) {
+          await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
+        }
+
+        let settled = false;
+        const timeoutId = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          delete useBackendStore.getState().pendingCallbacks[timestamp];
+          setPendingSchedulerCommand(null);
+          const message = `${command} timed out after 10 seconds without backend acknowledgement`;
+          appendLocalLog("ERROR", message);
+          toast.error(`Scheduler ${label} timed out`, { description: message });
+        }, 10000);
+
+        useBackendStore.getState().trigger(
+          {
+            timestamp,
+            command,
+            config_id: activeConfigId,
+            payload: {},
+          },
+          (response) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutId);
+            setPendingSchedulerCommand(null);
+            console.debug(`${command} acknowledged`, response);
+            if ((response as any)?.status === "error") {
+              const message = String(
+                (response as any)?.message ?? (response as any)?.error ?? `${command} failed`
+              );
+              appendLocalLog("ERROR", message);
+              toast.error(`Scheduler ${label} failed`, { description: message });
+              return;
+            }
+            appendLocalLog("INFO", `${command} accepted by backend`);
+          }
+        );
+      } catch (error) {
+        setPendingSchedulerCommand(null);
+        const message = String(error);
+        appendLocalLog("ERROR", message);
+        toast.error(`Scheduler ${label} failed`, { description: message });
+      }
+    },
+    [
+      activeConfigId,
+      androidVirtualDisplayBusy,
+      appendLocalLog,
+      pendingSchedulerCommand,
+      profile,
+      scriptRunning,
+      scrcpyVirtualDisplayEnabled,
+      syncAndroidDeviceMethods,
+    ]
+  );
+
+  const startScript = () => {
+    void runSchedulerCommand("start_scheduler");
   };
 
   /**
    * Sends a stop signal to the scheduler for the active profile.
    */
   const stopScript = () => {
-    if (!profile || !activeConfigId || !scriptRunning) return;
-    useBackendStore.getState().trigger(
-      {
-        timestamp: getTimestampMs(),
-        command: "stop_scheduler",
-        config_id: activeConfigId,
-        payload: {},
-      },
-      (response) => {
-        console.debug("stop_scheduler acknowledged", response);
-      }
-    );
+    void runSchedulerCommand("stop_scheduler");
   };
 
   /**
@@ -233,7 +317,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const pad = (n: number) => n.toString().padStart(2, "0");
   /** Handles the export log workflow. */
   const exportLog = async () => {
-    const content = (activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : [])
+    const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
     const now = new Date();
@@ -290,7 +374,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             variant={scriptRunning ? "danger" : "primary"}
             className="h-8 w-8"
             iconOnly
-            disabled={androidVirtualDisplayBusy}
+            disabled={androidVirtualDisplayBusy || pendingSchedulerCommand !== null}
           >
             {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </CButton>
@@ -335,14 +419,20 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
             className="w-25 pl-3 flex items-center justify-center"
-            disabled={androidVirtualDisplayBusy}
+            disabled={androidVirtualDisplayBusy || pendingSchedulerCommand !== null}
           >
             {scriptRunning ? (
               <Square className="w-4 h-4 mr-2" />
             ) : (
               <Play className="w-4 h-4 mr-2" />
             )}
-            {androidVirtualDisplayBusy ? "准备中" : scriptRunning ? t("common.stop") : t("common.start")}
+            {androidVirtualDisplayBusy
+              ? "准备中"
+              : pendingSchedulerCommand
+                ? "发送中"
+                : scriptRunning
+                  ? t("common.stop")
+                  : t("common.start")}
           </CButton>
         </div>
       </div>
@@ -438,7 +528,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             <RemoteDisplay profileId={activeConfigId} />
           )}
           <Logger
-            logs={activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : []}
+            logs={activeLogs}
             scrollToEnd={uiSettings?.scrollToEnd}
           />
         </CardContent>

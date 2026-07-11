@@ -1298,10 +1298,31 @@ export const useWebSocketStore = create<BackendState>()(
         ...payload,
         timestamp,
       };
-      get().send("trigger", {
+      const conn = get().connections.trigger;
+      const message = {
         type: "command",
         ...normalizedPayload,
-      });
+      };
+      if (!conn || conn.readyState !== 1) {
+        delete get().pendingCallbacks[timestamp];
+        callback?.({
+          command: payload.command,
+          status: "error",
+          error: "trigger transport is not connected",
+        });
+        return;
+      }
+      const result = conn.sendJson(message);
+      if (result && typeof result.catch === "function") {
+        result.catch((error) => {
+          delete get().pendingCallbacks[timestamp];
+          callback?.({
+            command: payload.command,
+            status: "error",
+            error: String(error),
+          });
+        });
+      }
     },
 
     triggerStream: (payload, callback) => {
@@ -1313,10 +1334,30 @@ export const useWebSocketStore = create<BackendState>()(
         ...payload,
         timestamp,
       };
-      get().send("trigger", {
+      const conn = get().connections.trigger;
+      if (!conn || conn.readyState !== 1) {
+        delete get().pendingStreamCallbacks[timestamp];
+        callback?.({
+          command: payload.command,
+          status: "error",
+          error: "trigger transport is not connected",
+        });
+        return;
+      }
+      const result = conn.sendJson({
         type: "command",
         ...normalizedPayload,
       });
+      if (result && typeof result.catch === "function") {
+        result.catch((error) => {
+          delete get().pendingStreamCallbacks[timestamp];
+          callback?.({
+            command: payload.command,
+            status: "error",
+            error: String(error),
+          });
+        });
+      }
     },
 
     triggerBinary: (payload, binary, callback) => {
@@ -1333,11 +1374,34 @@ export const useWebSocketStore = create<BackendState>()(
         },
       };
       const conn = get().connections.trigger;
-      conn?.sendJson({
+      if (!conn || conn.readyState !== 1) {
+        delete get().pendingCallbacks[timestamp];
+        callback?.({
+          command: payload.command,
+          status: "error",
+          error: "trigger transport is not connected",
+        });
+        return;
+      }
+      const sendJson = conn.sendJson({
         type: "command",
         ...normalizedPayload,
       });
-      conn?.sendBytes(binary);
+      const sendBytes = conn.sendBytes(binary);
+      const handleError = (error: unknown) => {
+        delete get().pendingCallbacks[timestamp];
+        callback?.({
+          command: payload.command,
+          status: "error",
+          error: String(error),
+        });
+      };
+      if (sendJson && typeof sendJson.catch === "function") {
+        sendJson.catch(handleError);
+      }
+      if (sendBytes && typeof sendBytes.catch === "function") {
+        sendBytes.catch(handleError);
+      }
     },
   }))
 );

@@ -22,6 +22,7 @@ class TauriSharedMemoryConnection implements BackendConnection {
   onError?: BackendConnection["onError"];
   hookClose?: () => void;
   private closed = false;
+  private removeUnloadListener?: () => void;
 
   constructor(
     private readonly channel: BackendChannelName,
@@ -40,6 +41,7 @@ class TauriSharedMemoryConnection implements BackendConnection {
       onMessage: subscription,
     });
     this.readyState = 1;
+    this.installUnloadCleanup();
     this.onOpen?.(new Event("open"));
   }
 
@@ -59,11 +61,33 @@ class TauriSharedMemoryConnection implements BackendConnection {
   }
 
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     this.readyState = 3;
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("backend_ipc_close_channel", { channel: this.channel, name: this.name });
+    this.removeUnloadListener?.();
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("backend_ipc_close_channel", { channel: this.channel, name: this.name });
+    } catch (error) {
+      if (!isPageUnloading()) {
+        throw error;
+      }
+    }
     this.hookClose?.();
+  }
+
+  private installUnloadCleanup(): void {
+    if (this.removeUnloadListener || typeof window === "undefined") return;
+    const closeForUnload = () => {
+      void this.close().catch(() => undefined);
+    };
+    window.addEventListener("pagehide", closeForUnload, { capture: true });
+    window.addEventListener("beforeunload", closeForUnload, { capture: true });
+    this.removeUnloadListener = () => {
+      window.removeEventListener("pagehide", closeForUnload, { capture: true });
+      window.removeEventListener("beforeunload", closeForUnload, { capture: true });
+      this.removeUnloadListener = undefined;
+    };
   }
 
   private handleMessage(message: IpcMessage, onMessage: (message: any) => void): void {
@@ -82,6 +106,9 @@ class TauriSharedMemoryConnection implements BackendConnection {
     }
   }
 }
+
+const isPageUnloading = () =>
+  typeof document !== "undefined" && document.visibilityState === "hidden";
 
 export class TauriSharedMemoryTransport implements BackendTransport {
   async start(): Promise<void> {

@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import GlobalContextMenu from "@/components/GlobalContextMenu";
@@ -15,19 +15,15 @@ import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
 import TauriScriptNotifier from "@/components/TauriScriptNotifier";
 import LoadingPage from "@/pages/LoadingPage";
-
-const loadHomePage = () => import("@/pages/HomePage");
-const loadMainLayout = () => import("@/components/layout/MainLayout");
-const HomePage = React.lazy(loadHomePage);
-const MainLayout = React.lazy(loadMainLayout);
-const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
-const ConfigurationPage = React.lazy(() => import("@/pages/ConfigurationPage"));
-const SettingsPage = React.lazy(() => import("@/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
-const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
-const ReconnectingOverlay = __WITH_WEBUI__
-  ? React.lazy(() => import("@/components/ReconnectingOverlay.tsx"))
-  : null;
+import HomePage from "@/pages/HomePage";
+import MainLayout from "@/components/layout/MainLayout";
+import SchedulerPage from "@/pages/SchedulerPage";
+import ConfigurationPage from "@/pages/ConfigurationPage";
+import SettingsPage from "@/pages/SettingsPage";
+import WikiPage from "@/pages/WikiPage.tsx";
+import WebWikiViewer from "@/components/WebWikiViewer";
+import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
+import SetupPage from "@/pages/SetupPage";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -142,8 +138,6 @@ const Main: React.FC = () => {
     </MainLayout>
   );
 };
-const SetupPage = React.lazy(() => import("@/pages/SetupPage"));
-
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
 const InitialPage: React.FC = () => {
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
@@ -165,11 +159,6 @@ const WrappedApp: React.FC = () => {
       setHasReadyOnce(true);
     }
   }, [ready]);
-
-  useEffect(() => {
-    void loadMainLayout();
-    void loadHomePage();
-  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("low-performance-mode", lowPerformanceMode);
@@ -201,28 +190,24 @@ const WrappedApp: React.FC = () => {
           }}
           className="fixed inset-0 z-100"
         >
-          <Suspense fallback={<></>}>
-            <InitialPage />
-          </Suspense>
+          <InitialPage />
         </motion.div>
       )}
 
-      <Suspense fallback={null}>
-        <AppProvider setReady={setReady}>
-          {hasReadyOnce && (
-            <TauriSelfUpdateProvider>
-              <TauriShortcutProvider>
-                <GlobalAppearanceEffects />
-                {__WITH_TAURI__ && <TauriScriptNotifier />}
-                <Main />
-                <ConfigArchiveDropOverlay />
-                {__WITH_WEBUI__ && !ready && ReconnectingOverlay && <ReconnectingOverlay />}
-                <Toaster />
-              </TauriShortcutProvider>
-            </TauriSelfUpdateProvider>
-          )}
-        </AppProvider>
-      </Suspense>
+      <AppProvider setReady={setReady}>
+        {hasReadyOnce && (
+          <TauriSelfUpdateProvider>
+            <TauriShortcutProvider>
+              <GlobalAppearanceEffects />
+              {__WITH_TAURI__ && <TauriScriptNotifier />}
+              <Main />
+              <ConfigArchiveDropOverlay />
+              {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
+              <Toaster />
+            </TauriShortcutProvider>
+          </TauriSelfUpdateProvider>
+        )}
+      </AppProvider>
     </MotionConfig>
   );
 };
@@ -251,7 +236,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <Suspense fallback={null}>{isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}</Suspense>
+        {isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}
       </UISettingsProvider>
     </ThemeProvider>
   );

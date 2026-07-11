@@ -416,6 +416,17 @@ pub async fn backend_ipc_close_channel(
     channel: String,
     name: Option<String>,
 ) -> Result<(), String> {
+    let key = connection_key(&channel, name.as_deref());
+    {
+        let mut state = manager
+            .inner
+            .lock()
+            .map_err(|_| "BackendInitializationFailed: backend IPC state lock poisoned")?;
+        if let Some(run) = state.run.as_mut() {
+            run.subscribers.remove(&key);
+            run.pending_messages.remove(&key);
+        }
+    }
     write_backend_frame(
         &manager,
         &channel,
@@ -479,10 +490,7 @@ pub async fn backend_ipc_subscribe(
                     .to_string()
             })
         })?;
-        run.subscribers
-            .entry(key.clone())
-            .or_default()
-            .push(on_message);
+        run.subscribers.insert(key.clone(), vec![on_message]);
         flush_pending_messages_for_key(run, &key);
         if run.reader_started {
             return Ok(());
