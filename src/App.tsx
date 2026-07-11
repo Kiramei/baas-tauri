@@ -93,6 +93,7 @@ const Main: React.FC = () => {
   React.useEffect(() => {
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
   }, [currentKey]);
+  const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -117,7 +118,7 @@ const Main: React.FC = () => {
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        {seenKeys.map((instKey) => {
+        {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
           return (
