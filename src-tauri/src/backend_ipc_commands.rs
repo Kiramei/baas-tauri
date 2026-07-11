@@ -1045,7 +1045,14 @@ fn platform_resource_name(kind: &str, generation_id: &Uuid) -> String {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        format!("/baas-{}-{}", kind, generation_id)
+        let token = match kind {
+            "shm" => "s",
+            "r2p-notify" => "r",
+            "p2r-notify" => "p",
+            _ => "x",
+        };
+        let nonce = generation_id.simple().to_string();
+        format!("/baas_{}_{}", token, &nonce[..20])
     }
 }
 

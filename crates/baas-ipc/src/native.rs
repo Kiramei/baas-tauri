@@ -560,7 +560,8 @@ mod tests {
         if cfg!(windows) {
             format!("Local\\BAAS-test-{kind}-{nonce}")
         } else {
-            format!("/baas-test-{kind}-{nonce}")
+            let token = kind.chars().next().unwrap_or('x');
+            format!("/bt_{token}_{nonce}")
         }
     }
 
