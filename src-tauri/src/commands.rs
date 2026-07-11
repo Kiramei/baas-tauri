@@ -138,6 +138,40 @@ pub struct TauriClientUpdateRequest {
     pub current_version: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidScrcpyVirtualDisplayRequest {
+    pub serial: Option<String>,
+    pub package_name: Option<String>,
+    pub activity_name: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub density: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidScrcpyVirtualDisplayReport {
+    pub serial: String,
+    pub display_id: u32,
+    pub package_name: String,
+    pub activity_name: String,
+    pub display_id_file: PathBuf,
+    pub log: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidScrcpyVirtualDisplayStatus {
+    pub active: bool,
+    pub serial: String,
+    pub display_id: Option<u32>,
+    pub display_id_file: PathBuf,
+    pub setting: Option<String>,
+    pub mode: String,
+    pub log: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdaterShaTestReport {
@@ -167,6 +201,169 @@ pub fn open_main_devtools(app: AppHandle) -> Result<(), String> {
         .ok_or_else(|| "main window not found".to_string())?;
     window.open_devtools();
     Ok(())
+}
+
+#[tauri::command]
+pub fn android_prepare_scrcpy_virtual_display(
+    app: AppHandle,
+    request: AndroidScrcpyVirtualDisplayRequest,
+) -> Result<AndroidScrcpyVirtualDisplayReport, String> {
+    let serial = normalized_adb_serial(request.serial.as_deref())?;
+    let width = request.width.unwrap_or(1280);
+    let height = request.height.unwrap_or(720);
+    let density = request.density.unwrap_or(240);
+    let activity_name = request
+        .activity_name
+        .unwrap_or_else(|| "com.yostar.sdk.bridge.YoStarUnityPlayerActivity".to_string());
+    let mut log = Vec::new();
+
+    adb_checked(
+        &serial,
+        &[
+            "shell",
+            "settings",
+            "put",
+            "global",
+            "overlay_display_devices",
+            &format!("{width}x{height}/{density}"),
+        ],
+        &mut log,
+    )?;
+    thread::sleep(Duration::from_secs(2));
+
+    let display_dump = adb_output(
+        &serial,
+        &["shell", "dumpsys", "window", "displays"],
+        &mut log,
+    )?;
+    let display_id = parse_overlay_display_id(&display_dump, width, height).ok_or_else(|| {
+        format!("failed to find non-default Android display in dumpsys output:\n{display_dump}")
+    })?;
+
+    let package_name = match request.package_name {
+        Some(package) if !package.trim().is_empty() => package,
+        _ => resolve_blue_archive_package(&serial, &mut log)?,
+    };
+
+    adb_checked(
+        &serial,
+        &[
+            "shell",
+            "am",
+            "start-activity",
+            "--display",
+            &display_id.to_string(),
+            "-n",
+            &format!("{package_name}/{activity_name}"),
+        ],
+        &mut log,
+    )?;
+
+    let manager = ensure_default_config(&app)?;
+    let config_dir = manager.config.baas_root().join("config");
+    fs::create_dir_all(&config_dir).map_err(|error| error.to_string())?;
+    let display_id_file = config_dir.join("scrcpy_display_id.txt");
+    fs::write(&display_id_file, display_id.to_string()).map_err(|error| error.to_string())?;
+    std::env::set_var("BAAS_SCRCPY_DISPLAY_ID", display_id.to_string());
+    std::env::set_var(
+        "BAAS_SCRCPY_DISPLAY_ID_FILE",
+        display_id_file.to_string_lossy().to_string(),
+    );
+
+    Ok(AndroidScrcpyVirtualDisplayReport {
+        serial,
+        display_id,
+        package_name,
+        activity_name,
+        display_id_file,
+        log,
+    })
+}
+
+#[tauri::command]
+pub fn android_cleanup_scrcpy_virtual_display(
+    app: AppHandle,
+    serial: Option<String>,
+) -> Result<(), String> {
+    let serial = normalized_adb_serial(serial.as_deref())?;
+    let mut log = Vec::new();
+    let _ = adb_output(
+        &serial,
+        &["shell", "pkill", "-f", "com.genymobile.scrcpy.Server"],
+        &mut log,
+    );
+    let _ = adb_output(
+        &serial,
+        &[
+            "shell",
+            "settings",
+            "delete",
+            "global",
+            "overlay_display_devices",
+        ],
+        &mut log,
+    );
+    if let Ok(manager) = ensure_default_config(&app) {
+        let _ = fs::remove_file(
+            manager
+                .config
+                .baas_root()
+                .join("config")
+                .join("scrcpy_display_id.txt"),
+        );
+    }
+    std::env::remove_var("BAAS_SCRCPY_DISPLAY_ID");
+    std::env::remove_var("BAAS_SCRCPY_DISPLAY_ID_FILE");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn android_scrcpy_virtual_display_status(
+    app: AppHandle,
+    serial: Option<String>,
+) -> Result<AndroidScrcpyVirtualDisplayStatus, String> {
+    let serial = normalized_adb_serial(serial.as_deref())?;
+    let mut log = Vec::new();
+    let manager = ensure_default_config(&app)?;
+    let display_id_file = manager
+        .config
+        .baas_root()
+        .join("config")
+        .join("scrcpy_display_id.txt");
+    let marker_display_id = fs::read_to_string(&display_id_file)
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok());
+    let setting = adb_output(
+        &serial,
+        &["shell", "settings", "get", "global", "overlay_display_devices"],
+        &mut log,
+    )
+    .map(|value| value.trim().to_string())?;
+    let active =
+        !setting.is_empty() && setting != "null" && setting.to_ascii_lowercase() != "deleted";
+    let display_dump = adb_output(
+        &serial,
+        &["shell", "dumpsys", "window", "displays"],
+        &mut log,
+    )
+    .unwrap_or_default();
+    let display_id = parse_overlay_display_id(&display_dump, 1280, 720).or(marker_display_id);
+    if !active {
+        let _ = fs::remove_file(&display_id_file);
+    }
+    Ok(AndroidScrcpyVirtualDisplayStatus {
+        active,
+        serial,
+        display_id: if active { display_id } else { None },
+        display_id_file,
+        setting: if setting.is_empty() {
+            None
+        } else {
+            Some(setting)
+        },
+        mode: "desktop-adb".to_string(),
+        log,
+    })
 }
 
 /// Simple path probe used by the setup page to recover from older configs
@@ -820,6 +1017,81 @@ fn hide_command_window(command: &mut Command) {
 #[cfg(not(target_os = "windows"))]
 fn hide_command_window(_command: &mut Command) {}
 
+fn normalized_adb_serial(serial: Option<&str>) -> Result<String, String> {
+    let serial = serial.unwrap_or("").trim();
+    if serial.is_empty() || serial == "auto" {
+        return Ok("emulator-5556".to_string());
+    }
+    Ok(serial.to_string())
+}
+
+fn adb_output(serial: &str, args: &[&str], log: &mut Vec<String>) -> Result<String, String> {
+    let mut command = Command::new("adb");
+    command.arg("-s").arg(serial).args(args);
+    hide_command_window(&mut command);
+    let output = command.output().map_err(|error| {
+        format!("failed to run adb. Ensure adb is installed and available in PATH: {error}")
+    })?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    log.push(format!("adb -s {serial} {}", args.join(" ")));
+    if !stdout.trim().is_empty() {
+        log.push(stdout.trim().to_string());
+    }
+    if !stderr.trim().is_empty() {
+        log.push(stderr.trim().to_string());
+    }
+    if !output.status.success() {
+        return Err(format!(
+            "adb command failed: adb -s {serial} {}\n{}{}",
+            args.join(" "),
+            stdout,
+            stderr
+        ));
+    }
+    Ok(stdout)
+}
+
+fn adb_checked(serial: &str, args: &[&str], log: &mut Vec<String>) -> Result<(), String> {
+    adb_output(serial, args, log).map(|_| ())
+}
+
+fn parse_overlay_display_id(dump: &str, width: u32, height: u32) -> Option<u32> {
+    let mut current_id = None;
+    let mut candidates = Vec::new();
+    let expected_size = format!("cur={width}x{height}");
+    for line in dump.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("Display: mDisplayId=") {
+            let digits: String = rest.chars().take_while(|ch| ch.is_ascii_digit()).collect();
+            current_id = digits.parse::<u32>().ok();
+            continue;
+        }
+        if let Some(display_id) = current_id {
+            if display_id != 0 && trimmed.contains(&expected_size) {
+                candidates.push(display_id);
+                current_id = None;
+            }
+        }
+    }
+    candidates.into_iter().max()
+}
+
+fn resolve_blue_archive_package(serial: &str, log: &mut Vec<String>) -> Result<String, String> {
+    for package in [
+        "com.RoamingStar.BlueArchive.bilibili",
+        "com.RoamingStar.BlueArchive",
+    ] {
+        if adb_output(serial, &["shell", "pm", "path", package], log)
+            .map(|output| output.contains("package:"))
+            .unwrap_or(false)
+        {
+            return Ok(package.to_string());
+        }
+    }
+    Err("Blue Archive package not found on the selected adb device".to_string())
+}
+
 /// Returns the active setup.toml manager without using app-data setup storage.
 pub fn ensure_default_config(app: &AppHandle) -> Result<ConfigManager, String> {
     let portable = is_portable_install();
@@ -835,8 +1107,7 @@ fn ensure_config_for_install_path(
 ) -> Result<ConfigManager, String> {
     let portable = is_portable_install();
     if portable {
-        let mut manager =
-            ConfigManager::load_from(portable_config_path()?).map_err(|error| error.message())?;
+        let mut manager = load_config_recovering_invalid(portable_config_path()?)?;
         normalize_portable_config(&mut manager)?;
         return Ok(manager);
     }
@@ -860,16 +1131,53 @@ fn config_manager_for_install_path(
     portable: bool,
 ) -> Result<ConfigManager, String> {
     if portable {
-        let mut manager =
-            ConfigManager::load_from(portable_config_path()?).map_err(|error| error.message())?;
+        let mut manager = load_config_recovering_invalid(portable_config_path()?)?;
         normalize_portable_config(&mut manager)?;
         return Ok(manager);
     }
 
     let config_path = install_path.join("setup.toml");
-    let mut manager = ConfigManager::load_from(config_path).map_err(|error| error.message())?;
+    let mut manager = load_config_recovering_invalid(config_path)?;
     manager.config.paths.baas_root_path = install_path.to_string_lossy().to_string();
     Ok(manager)
+}
+
+/// Loads setup.toml and recovers from malformed TOML by preserving a backup.
+fn load_config_recovering_invalid(config_path: PathBuf) -> Result<ConfigManager, String> {
+    match ConfigManager::load_from(&config_path) {
+        Ok(manager) => Ok(manager),
+        Err(error) if error.code() == "config" && config_path.exists() => {
+            let backup_path = invalid_config_backup_path(&config_path);
+            backup_invalid_config(&config_path, &backup_path)?;
+            let manager = ConfigManager {
+                config_path,
+                config: UpdaterConfig::default(),
+            };
+            manager.save().map_err(|error| error.message())?;
+            Ok(manager)
+        }
+        Err(error) => Err(error.message()),
+    }
+}
+
+/// Returns the malformed setup.toml backup path.
+fn invalid_config_backup_path(config_path: &Path) -> PathBuf {
+    let timestamp = Utc::now().format("%Y%m%d-%H%M%S");
+    let file_name = config_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("setup.toml");
+    config_path.with_file_name(format!("{file_name}.invalid-{timestamp}"))
+}
+
+/// Moves a malformed setup.toml aside while preserving its contents.
+fn backup_invalid_config(config_path: &Path, backup_path: &Path) -> Result<(), String> {
+    fs::rename(config_path, backup_path).or_else(|_| {
+        fs::copy(config_path, backup_path)?;
+        fs::remove_file(config_path)
+    })
+    .map_err(|error| error.to_string())
+    .map(|_| ())
 }
 
 /// Performs the startup install path operation.
@@ -1273,6 +1581,30 @@ mod tests {
         assert_eq!(non_empty_path(""), None);
         assert_eq!(non_empty_path("   "), None);
         assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
+    }
+
+    /// Handles malformed setup.toml recovery for desktop startup.
+    #[test]
+    fn load_config_recovers_malformed_setup_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("setup.toml");
+        fs::write(&config_path, "[repositories]\nmain_sources = []\nies]\n").unwrap();
+
+        let manager = load_config_recovering_invalid(config_path.clone()).unwrap();
+
+        assert!(config_path.exists());
+        assert_eq!(manager.config, UpdaterConfig::default());
+        let backups = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("setup.toml.invalid-")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(backups.len(), 1);
     }
 
     /// Returns the derives macos install root next to app bundle result.

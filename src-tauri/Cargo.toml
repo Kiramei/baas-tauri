@@ -46,7 +46,11 @@ tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }
+base64 = "0.22.1"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
+rand = "0.8.5"
+rsa = { version = "0.9.8", features = ["pem"] }
+sha1 = { version = "0.10.6", features = ["oid"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

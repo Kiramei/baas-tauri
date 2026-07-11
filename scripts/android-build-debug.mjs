@@ -21,7 +21,7 @@ import {
 } from "./android-script-utils.mjs";
 
 const args = parseArgs(process.argv.slice(2), {
-  boolean: ["skipWebBuild", "release"],
+  boolean: ["skipWebBuild", "release", "preserveRuntime"],
 });
 const profile = args.profile ?? (args.release ? "release" : "debug");
 if (!["debug", "release"].includes(profile)) {
@@ -84,6 +84,14 @@ const targetCxx = path.join(llvmBin, exe("clang++")).replaceAll("\\", "/");
 const targetAr = path.join(llvmBin, exe("llvm-ar")).replaceAll("\\", "/");
 const targetRanlib = path.join(llvmBin, exe("llvm-ranlib")).replaceAll("\\", "/");
 const targetFlag = `--target=${target.clangPrefix}${apiLevel}`;
+const cargoEnvTarget = target.rust.toUpperCase().replaceAll("-", "_");
+const targetLinkerName = process.platform === "win32"
+  ? `${target.clangPrefix}${apiLevel}-clang.cmd`
+  : `${target.clangPrefix}${apiLevel}-clang`;
+const targetLinker = path.join(llvmBin, targetLinkerName).replaceAll("\\", "/");
+
+process.env[`CARGO_TARGET_${cargoEnvTarget}_LINKER`] = targetLinker;
+process.env[`CARGO_TARGET_${cargoEnvTarget}_AR`] = targetAr;
 
 for (const suffix of [target.rust, target.rust.replaceAll("-", "_")]) {
   process.env[`CC_${suffix}`] = targetCc;
@@ -337,6 +345,66 @@ function androidGradlePath(value) {
   return value.replaceAll("\\", "\\\\");
 }
 
+function patchAndroidScrcpyRuntimeFile(file, replacements) {
+  if (!fs.existsSync(file)) return false;
+  let text = fs.readFileSync(file, "utf8");
+  const usesCrLf = text.includes("\r\n");
+  text = text.replaceAll("\r\n", "\n");
+  const original = text;
+  for (const [needle, replacement] of replacements) {
+    if (text.includes("BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3")) break;
+    if (text.includes(needle)) text = text.replace(needle, replacement);
+  }
+  if (text === original) return false;
+  if (usesCrLf) text = text.replaceAll("\n", "\r\n");
+  fs.writeFileSync(file, text, "utf8");
+  return true;
+}
+
+function patchAndroidScrcpyRuntimeSources() {
+  const sourcesRoot = path.join(androidRoot, "app", "build", "python", "sources");
+  if (!fs.existsSync(sourcesRoot)) return;
+  const displayPath = `'/storage/emulated/0/Android/data/io.github.kiramei.baas_tauri/config/scrcpy_display_id.txt'`;
+  const candidatesBlock = [
+    "        display_id_candidates = [",
+    "            os.getenv('BAAS_SCRCPY_DISPLAY_ID_FILE', '').strip(),",
+    "            os.path.join(os.getcwd(), 'config', 'scrcpy_display_id.txt'),",
+    `            ${displayPath},`,
+    "        ]",
+    "        if any(path and os.path.exists(path) for path in display_id_candidates):",
+  ].join("\n");
+
+  for (const variant of fs.readdirSync(sourcesRoot)) {
+    const bundle = path.join(sourcesRoot, variant, "baas_backend_bundle");
+    if (!fs.existsSync(bundle)) continue;
+    const connection = path.join(bundle, "core", "device", "connection.py");
+    const screenshot = path.join(bundle, "core", "device", "Screenshot.py");
+    const control = path.join(bundle, "core", "device", "Control.py");
+    for (const file of [connection, screenshot, control]) {
+      if (!fs.existsSync(file)) continue;
+      let text = fs.readFileSync(file, "utf8");
+      if (!text.split(/\r?\n/).some((line) => line.trim() === "import os")) {
+        const usesCrLf = text.includes("\r\n");
+        text = text.replaceAll("\r\n", "\n").replace("import sys\n", "import sys\nimport os\n");
+        if (usesCrLf) text = text.replaceAll("\n", "\r\n");
+        fs.writeFileSync(file, text, "utf8");
+      }
+    }
+    patchAndroidScrcpyRuntimeFile(connection, [[
+      "        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n",
+      `        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.adbIP = '127.0.0.1'\n            self.adbPort = '5555'\n`,
+    ]]);
+    patchAndroidScrcpyRuntimeFile(screenshot, [[
+      "        self.method = self.config.screenshot_method\n        self.logger.info(\"Screenshot method : \" + self.method)\n",
+      `        self.method = self.config.screenshot_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Screenshot method : \" + self.method)\n`,
+    ]]);
+    patchAndroidScrcpyRuntimeFile(control, [[
+      "        self.method = self.config.control_method\n        self.logger.info(\"Control method : \" + self.method)\n",
+      `        self.method = self.config.control_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Control method : \" + self.method)\n`,
+    ]]);
+  }
+}
+
 /** Reads Cargo package metadata so Android-only plugin Gradle projects can be located reliably. */
 function cargoMetadata() {
   return JSON.parse(
@@ -389,9 +457,11 @@ if (!args.skipWebBuild) {
     errorMessage: "Frontend Android build failed.",
   });
 } else {
-  run("bun", ["scripts/prepare-android-runtime.mjs"], {
-    errorMessage: "Android runtime preparation failed.",
-  });
+  if (!args.preserveRuntime) {
+    run("bun", ["scripts/prepare-android-runtime.mjs"], {
+      errorMessage: "Android runtime preparation failed.",
+    });
+  }
 }
 
 const webDist = path.join(repoRoot, "dist");
@@ -447,6 +517,8 @@ const libcxx = path.join(
 if (!fs.existsSync(libcxx)) throw new Error(`Missing Android libc++ runtime: ${libcxx}`);
 fs.copyFileSync(libcxx, path.join(destinationDir, "libc++_shared.so"));
 ensureInside(repoRoot, destinationDir, "JNI destination");
+
+patchAndroidScrcpyRuntimeSources();
 
 const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
 run(gradlew, [`:app:assemble${target.gradle}${profileTaskName}`, "-x", `rustBuild${target.gradle}${profileTaskName}`], {

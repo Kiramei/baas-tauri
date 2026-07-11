@@ -25,15 +25,6 @@
           ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       }
 
-      #baas-startup-shell::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.8)),
-          url("/images/bg-dark.webp") center / cover no-repeat;
-      }
-
       #baas-startup-shell > div {
         position: relative;
         display: grid;
@@ -41,11 +32,18 @@
         justify-items: center;
       }
 
-      #baas-startup-shell img {
+      #baas-startup-shell strong {
+        display: grid;
+        place-items: center;
         width: 112px;
         height: 112px;
         border-radius: 999px;
+        border: 1px solid rgba(34, 211, 238, 0.35);
+        background: #111c31;
         box-shadow: 0 0 36px rgba(34, 211, 238, 0.45);
+        color: #67e8f9;
+        font-size: 28px;
+        letter-spacing: 0;
       }
 
       #baas-startup-shell span {
@@ -63,7 +61,7 @@
     <div id="root">
       <div id="baas-startup-shell">
         <div>
-          <img src="/images/logo.png" alt="" />
+          <strong>BAAS</strong>
           <span>Starting BAAS...</span>
         </div>
       </div>

@@ -16,24 +16,27 @@ compile_error!("BAAS mobile builds currently support Android only.");
 use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
-    open_main_devtools, shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
-    updater_check_version, updater_get_startup_state, updater_get_storage_state,
-    updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-    updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
-    updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
+    android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
+    android_scrcpy_virtual_display_status, open_main_devtools, shortcut_apply_bindings,
+    tauri_client_check_update, updater_abort_workflow, updater_check_version,
+    updater_get_startup_state, updater_get_storage_state, updater_path_exists_non_empty,
+    updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+    updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
+    updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::notifier_commands::baas_notify;
 #[cfg(not(mobile))]
 use crate::{
     behavior::inject_tray_icon,
     commands::{
-        configure_portable_working_dir, ensure_default_config, open_main_devtools,
-        shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
-        updater_check_version, updater_get_startup_state, updater_get_storage_state,
-        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-        updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
-        updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
-        BackendProcessManager,
+        android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
+        android_scrcpy_virtual_display_status, configure_portable_working_dir,
+        ensure_default_config, open_main_devtools, shortcut_apply_bindings,
+        tauri_client_check_update, updater_abort_workflow, updater_check_version,
+        updater_get_startup_state, updater_get_storage_state, updater_path_exists_non_empty,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
+        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
     },
 };
 
@@ -74,7 +77,10 @@ pub fn run() {
             updater_terminal_snapshot,
             updater_resize_term,
             shortcut_apply_bindings,
-            open_main_devtools
+            open_main_devtools,
+            android_prepare_scrcpy_virtual_display,
+            android_cleanup_scrcpy_virtual_display,
+            android_scrcpy_virtual_display_status
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

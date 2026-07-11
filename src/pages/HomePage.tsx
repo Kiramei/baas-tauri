@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
@@ -32,32 +32,179 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
   );
+  const activeConfigId = profile?.id ?? pid;
 
   const statusStore = useWebSocketStore((state) => state.statusStore);
-  const trigger = useWebSocketStore((state) => state.trigger);
+  const configStore = useWebSocketStore((state) => state.configStore);
   const logStore = useWebSocketStore((state) => state.logStore);
 
-  const scriptRunning = statusStore[profileId!]?.running || false;
+  const scriptRunning = activeConfigId ? statusStore[activeConfigId]?.running || false : false;
+  const settings = activeConfigId ? configStore[activeConfigId] : undefined;
   const remoteAvailable = !__WITH_ANDROID__;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
+  const isAndroid = __WITH_ANDROID__;
   const [remoteVisible, setRemoteVisible] = useState<boolean>(false);
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
+  const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
+  const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
+
+  const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
+
+  const adbSerial = useMemo(() => {
+    if (__WITH_ANDROID__) {
+      return window.localStorage.getItem("baasAndroidAdbSerial")?.trim() || "auto";
+    }
+    const adbIP = String(settings?.adbIP ?? "").trim();
+    const adbPort = String(settings?.adbPort ?? "").trim();
+    if (adbIP && adbPort) return `${adbIP}:${adbPort}`;
+    return adbPort || adbIP || "emulator-5556";
+  }, [settings?.adbIP, settings?.adbPort]);
+
+  const syncAndroidDeviceMethods = async (useScrcpy: boolean) => {
+    if (!__WITH_ANDROID__ || !activeConfigId) return;
+    const patch = useScrcpy
+      ? {
+          screenshot_method: "adb",
+          control_method: "adb",
+          adbIP: "127.0.0.1",
+          adbPort: "5555",
+        }
+      : {
+          screenshot_method: "android_local",
+          control_method: "android_local",
+        };
+    const timestamp = getTimestampMs();
+    const ops = Object.entries(patch).map(([key, value]) => ({
+      op: "replace",
+      path: `/${key}`,
+      value,
+    }));
+    const store = useWebSocketStore.getState();
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        delete useWebSocketStore.getState().pendingCallbacks[timestamp];
+        reject(new Error("Android device method patch was not acknowledged"));
+      }, 5000);
+      store.pendingCallbacks[timestamp] = () => {
+        window.clearTimeout(timeoutId);
+        resolve();
+      };
+      store.send("sync", {
+        type: "patch",
+        resource_id: activeConfigId,
+        resource: "config",
+        timestamp,
+        ops,
+      });
+    });
+    const expectedMethod = useScrcpy ? "adb" : "android_local";
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const current = useWebSocketStore.getState().configStore[activeConfigId];
+      if (
+        current?.screenshot_method === expectedMethod &&
+        current?.control_method === expectedMethod
+      ) {
+        return;
+      }
+      useWebSocketStore.getState().send("sync", {
+        type: "pull",
+        resource: "config",
+        resource_id: activeConfigId,
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+    }
+    throw new Error(`Android device methods did not switch to ${expectedMethod}`);
+  };
+
+  const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
+    if (!__WITH_ANDROID__) return false;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const status = await invoke<{ active: boolean; displayId?: number | null }>(
+        "android_scrcpy_virtual_display_status",
+        { serial: adbSerial }
+      );
+      setAndroidVirtualDisplayActive(Boolean(status.active));
+      return Boolean(status.active);
+    } catch (error) {
+      console.warn("scrcpy virtual display status failed", error);
+      return false;
+    }
+  }, [adbSerial]);
+
+  const toggleAndroidVirtualDisplay = async (value: boolean) => {
+    if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
+    setAndroidVirtualDisplayBusy(true);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (value) {
+        const report = await invoke<{
+          displayId: number;
+          serial: string;
+          packageName: string;
+        }>("android_prepare_scrcpy_virtual_display", {
+          request: {
+            serial: adbSerial,
+            configId: activeConfigId,
+            width: 1280,
+            height: 720,
+            density: 240,
+          },
+        });
+        setAndroidVirtualDisplayActive(true);
+        if (activeConfigId) await syncAndroidDeviceMethods(true);
+        toast.success(`scrcpy virtual display #${report.displayId}`);
+      } else {
+        if (scriptRunning && activeConfigId) {
+          useWebSocketStore.getState().trigger({
+            timestamp: getTimestampMs(),
+            command: "stop_scheduler",
+            config_id: activeConfigId,
+            payload: {},
+          });
+        }
+        await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
+        setAndroidVirtualDisplayActive(false);
+        if (activeConfigId) await syncAndroidDeviceMethods(false);
+        toast.success("scrcpy virtual display closed");
+      }
+      void refreshAndroidVirtualDisplayStatus();
+    } catch (error) {
+      toast.error(value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed", {
+        description: String(error),
+      });
+      void refreshAndroidVirtualDisplayStatus();
+    } finally {
+      setAndroidVirtualDisplayBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshAndroidVirtualDisplayStatus();
+  }, [refreshAndroidVirtualDisplayStatus]);
 
   /**
    * Issues the scheduler start command for the active profile.
    * Guarded against duplicate submissions when a run is already active.
    */
-  const startScript = () => {
-    if (!profile || scriptRunning) return;
-    trigger(
+  const startScript = async () => {
+    if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
+    if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
+    useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
         command: "start_scheduler",
-        config_id: profileId,
+        config_id: activeConfigId,
         payload: {},
       },
       (response) => {
         console.debug("start_scheduler acknowledged", response);
+        if ((response as any)?.status === "error") {
+          toast.error("start_scheduler failed", {
+            description: String((response as any)?.message ?? (response as any)?.error ?? ""),
+          });
+        }
       }
     );
   };
@@ -66,12 +213,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    * Sends a stop signal to the scheduler for the active profile.
    */
   const stopScript = () => {
-    if (!profile || !scriptRunning) return;
-    trigger(
+    if (!profile || !activeConfigId || !scriptRunning) return;
+    useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
         command: "stop_scheduler",
-        config_id: profileId,
+        config_id: activeConfigId,
         payload: {},
       },
       (response) => {
@@ -86,12 +233,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const pad = (n: number) => n.toString().padStart(2, "0");
   /** Handles the export log workflow. */
   const exportLog = async () => {
-    const content = logStore[`config:${profileId}`]
+    const content = (activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : [])
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-    await StorageUtil.download(`logs-${profileId}-${formattedDate}.txt`, content, t);
+    await StorageUtil.download(`logs-${activeConfigId ?? "profile"}-${formattedDate}.txt`, content, t);
   };
 
   return (
@@ -126,11 +273,24 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               <Keyboard className="w-4 h-4" />
             </CButton>
           )}
+          {isAndroid && (
+            <SwitchButton
+              checked={androidVirtualDisplayActive}
+              onChange={toggleAndroidVirtualDisplay}
+              label=""
+              className="ml-2 h-8 w-8"
+              disabled={androidVirtualDisplayBusy}
+              iconOnly
+            >
+              <Webcam size={20} className="rounded w-4 h-4" />
+            </SwitchButton>
+          )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
             className="h-8 w-8"
             iconOnly
+            disabled={androidVirtualDisplayBusy}
           >
             {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </CButton>
@@ -159,17 +319,30 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               <Keyboard className="w-4 h-4" />
             </CButton>
           )}
+          {isAndroid && (
+            <SwitchButton
+              checked={androidVirtualDisplayActive}
+              onChange={toggleAndroidVirtualDisplay}
+              label=""
+              className="ml-2 h-8 w-8"
+              disabled={androidVirtualDisplayBusy}
+              iconOnly
+            >
+              <Webcam size={20} className="rounded w-4 h-4" />
+            </SwitchButton>
+          )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
             className="w-25 pl-3 flex items-center justify-center"
+            disabled={androidVirtualDisplayBusy}
           >
             {scriptRunning ? (
               <Square className="w-4 h-4 mr-2" />
             ) : (
               <Play className="w-4 h-4 mr-2" />
             )}
-            {scriptRunning ? t("common.stop") : t("common.start")}
+            {androidVirtualDisplayBusy ? "准备中" : scriptRunning ? t("common.stop") : t("common.start")}
           </CButton>
         </div>
       </div>
@@ -202,17 +375,23 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       )}
 
       {/* Live status for the active task pipeline. */}
-      <TaskStatus profileId={profileId!} />
+      {activeConfigId && <TaskStatus profileId={activeConfigId} />}
 
       {/* Optional asset snapshot to provide immediate operational context. */}
       {uiSettings?.assetsDisplay && (
         <div className="shrink-0">
-          <AssetsDisplay profileId={profileId!} />
+          {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
         </div>
       )}
 
       {/* Streaming log viewer with scroll management and export tooling. */}
-      <Card className="flex-1 min-h-100 flex flex-col">
+      <Card
+        className={
+          isAndroid
+            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
+            : "flex-1 min-h-100 flex flex-col"
+        }
+      >
         <CardHeader className="flex justify-between items-center">
           <CardTitle>
             <div className="flex items-center gap-2">
@@ -254,9 +433,14 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           </div>
         </CardHeader>
 
-        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-x-hidden">
-          {remoteAvailable && remoteVisible && <RemoteDisplay profileId={profileId!} />}
-          <Logger logs={logStore[`config:${profileId}`]} scrollToEnd={uiSettings?.scrollToEnd} />
+        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
+          {remoteAvailable && remoteVisible && activeConfigId && (
+            <RemoteDisplay profileId={activeConfigId} />
+          )}
+          <Logger
+            logs={activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : []}
+            scrollToEnd={uiSettings?.scrollToEnd}
+          />
         </CardContent>
       </Card>
     </div>

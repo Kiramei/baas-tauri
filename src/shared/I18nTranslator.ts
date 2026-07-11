@@ -28,7 +28,7 @@ function flattenLocale(value: unknown, prefix = "", output: Record<string, strin
 
 /** Performs the sync backend locale operation. */
 async function syncBackendLocale(lang: string) {
-  if (!__WITH_TAURI__) return;
+  if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("set_backend_locale", { lang });
@@ -55,7 +55,7 @@ export async function initI18n() {
     interpolation: { escapeValue: false },
   });
 
-  await syncBackendLocale(lang);
+  void syncBackendLocale(lang);
 
   console.log("[i18n] initialized");
 }

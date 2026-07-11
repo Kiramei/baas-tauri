@@ -21,4 +21,7 @@ commands.allow = [
   "updater_resize_term",
   "shortcut_apply_bindings",
   "open_main_devtools",
+  "android_prepare_scrcpy_virtual_display",
+  "android_cleanup_scrcpy_virtual_display",
+  "android_scrcpy_virtual_display_status",
 ]

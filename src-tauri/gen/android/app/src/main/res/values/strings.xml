@@ -7,4 +7,6 @@
     <string name="baas_backend_notification_text">点击通知启停脚本。</string>
     <string name="baas_backend_notification_toggle_action">启停脚本</string>
     <string name="baas_backend_notification_toggling">正在切换脚本状态...</string>
+    <string name="baas_accessibility_description">允许 BAAS 在本机 Android 环境中读取屏幕并执行点击、滑动操作。</string>
+    <string name="baas_accessibility_summary">用于 Android 本机脚本控制。</string>
 </resources>

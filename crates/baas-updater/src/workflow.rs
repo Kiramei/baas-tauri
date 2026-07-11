@@ -2242,70 +2242,60 @@ mod tests {
             Path::new("repo"),
         );
         let sequence = command.command_sequence();
+        let git_prefix = [
+            "-c",
+            "credential.helper=",
+            "-c",
+            "credential.interactive=never",
+            "-c",
+            "core.askPass=echo",
+            "-c",
+            "core.sshCommand=ssh -o BatchMode=yes",
+        ];
 
         assert_eq!(sequence.len(), 5);
         assert_eq!(
             sequence[0].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "remote",
-                "set-url",
-                "origin",
-                "https://example.invalid/repo.git"
+                git_prefix.as_slice(),
+                &[
+                    "-C",
+                    "repo",
+                    "remote",
+                    "set-url",
+                    "origin",
+                    "https://example.invalid/repo.git",
+                ]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[1].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "fetch",
-                "--depth",
-                "1",
-                "origin",
-                "master"
+                git_prefix.as_slice(),
+                &["-C", "repo", "fetch", "--depth", "1", "origin", "master",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[2].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reset",
-                "--hard",
-                "FETCH_HEAD"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reset", "--hard", "FETCH_HEAD",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[3].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reflog",
-                "expire",
-                "--expire=now",
-                "--all"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reflog", "expire", "--expire=now", "--all",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[4].args,
-            [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "gc",
-                "--prune=now"
-            ]
+            [git_prefix.as_slice(), &["-C", "repo", "gc", "--prune=now",]].concat()
         );
     }
 

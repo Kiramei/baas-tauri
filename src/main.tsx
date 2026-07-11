@@ -51,19 +51,19 @@ const bootstrap = async () => {
     return;
   }
 
-  const [{ default: App }, { initI18n }, { useWebSocketStore }] = await Promise.all([
-    import("@/App.tsx"),
+  const [{ default: App }, { initI18n }, { startPlatformServices }] = await Promise.all([
+    import("@/platform/App"),
     import("@/shared/I18nTranslator.ts"),
-    import("@/store/WebsocketStore.ts"),
+    import("@/platform/startup"),
   ]);
 
   await initI18n();
-  useWebSocketStore.getState().startTauriUpdaterPolling();
   root.render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
+  startPlatformServices();
   void import("buffer").then(({ Buffer }) => {
     (globalThis as any).Buffer = Buffer;
   });

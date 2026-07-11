@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpenText,
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           }),
         ]);
         appendTerminalLine("START android git2 update");
-        await invoke("updater_start_workflow", { request: { launch: false } });
+        await invoke("updater_start_workflow", { request: { launch: true } });
         toast.info(t("update.backendStarted"));
         return;
       }

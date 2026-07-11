@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
@@ -42,7 +43,7 @@ export const Modal: React.FC<ModalProps> = ({
   const overlayCls =
     "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
 
-  return (
+  return createPortal(
     <div
       className={overlayCls}
       onMouseDown={(e) => {
@@ -76,6 +77,7 @@ export const Modal: React.FC<ModalProps> = ({
           <div className="py-2 overflow-y-auto px-1">{children}</div>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -52,7 +52,9 @@ export const resolveHttpBase = () => {
 
 const { appendGlobalLog } = useGlobalLogStore.getState();
 const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+const ANDROID_STARTUP_UPDATE_DELAY_MS = 30 * 1000;
 let backendUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
+let backendUpdaterPollDelayTimer: ReturnType<typeof setTimeout> | null = null;
 let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
@@ -94,6 +96,7 @@ const checkBackendUpdater = async () => {
             report.updateAvailable ?? report.update_available ?? report.local !== report.remote,
           channel: report.channel ?? state.versionStore.channel,
           method: report.method ?? state.versionStore.method,
+          checking: false,
           lastChecked: Date.now(),
         },
       }));
@@ -106,6 +109,15 @@ const checkBackendUpdater = async () => {
           error instanceof Error ? error.message : String(error)
         }`,
       } as any);
+      useWebSocketStore.setState((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          checking: false,
+          error: error instanceof Error ? error.message : String(error),
+          lastChecked: Date.now(),
+        },
+      }));
     }
     return;
   }
@@ -140,6 +152,7 @@ const checkBackendUpdater = async () => {
           updateAvailable: event.data.update_available ?? event.data.local !== event.data.remote,
           channel: event.data.channel ?? state.versionStore.channel,
           method: event.data.method ?? state.versionStore.method,
+          checking: false,
           lastChecked: Date.now(),
         },
       }));
@@ -148,10 +161,21 @@ const checkBackendUpdater = async () => {
 };
 
 /** Performs the start backend updater polling operation. */
-const startBackendUpdaterPolling = () => {
-  if (backendUpdaterPollTimer) return;
-  void checkBackendUpdater();
-  backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+const startBackendUpdaterPolling = (initialDelayMs = 0) => {
+  if (backendUpdaterPollTimer || backendUpdaterPollDelayTimer) return;
+
+  const beginPolling = () => {
+    backendUpdaterPollDelayTimer = null;
+    void checkBackendUpdater();
+    backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+  };
+
+  if (initialDelayMs > 0) {
+    backendUpdaterPollDelayTimer = setTimeout(beginPolling, initialDelayMs);
+    return;
+  }
+
+  beginPolling();
 };
 
 /** Handles the check android client update workflow. */
@@ -459,10 +483,15 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     startTauriUpdaterPolling: () => {
       if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
-      void get().checkTauriUpdater(true, false);
-      tauriUpdaterPollTimer = setInterval(() => {
+      const check = () => {
         void get().checkTauriUpdater(true, false);
-      }, UPDATE_CHECK_INTERVAL_MS);
+      };
+      tauriUpdaterPollTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+      if (__WITH_ANDROID__) {
+        setTimeout(check, ANDROID_STARTUP_UPDATE_DELAY_MS);
+        return;
+      }
+      check();
     },
 
     startAuthFlow: async () => {
@@ -1017,16 +1046,16 @@ export const useWebSocketStore = create<WebSocketState>()(
           get().send("sync", { type: "pull", resource: "config", resource_id: key });
         });
 
+        Object.keys(get().configStore).forEach((key: string) => {
+          get().send("sync", { type: "pull", resource: "event", resource_id: key });
+        });
+
         await waitFor(
           get,
           api.subscribe,
           (state: WebSocketState) => Object.keys(state.eventStore).length,
           (length) => length > 0
         );
-
-        Object.keys(get().configStore).forEach((key: string) => {
-          get().send("sync", { type: "pull", resource: "event", resource_id: key });
-        });
 
         await connectWithRetry("trigger");
 
@@ -1044,6 +1073,18 @@ export const useWebSocketStore = create<WebSocketState>()(
               lastChecked: Date.now(),
             },
           }));
+        } else if (__WITH_ANDROID__) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              updateAvailable: false,
+              channel: state.updateStore?.channel ?? "dev",
+              method: "deferred",
+              checking: true,
+            },
+          }));
+          startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
         } else {
           startBackendUpdaterPolling();
 

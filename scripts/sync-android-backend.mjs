@@ -104,6 +104,7 @@ channel = "dev"
 mirrorc_cdk = ""
 no_update = false
 launch = true
+debug = false
 git_backend = "auto"
 current_baas_sha = "${backendSha}"
 

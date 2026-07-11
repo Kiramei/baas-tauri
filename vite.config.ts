@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
   }
   const withTauri = mode === "tauri" || mode === "android";
   const isAndroid = mode === "android";
+  const srcRoot = path.resolve(__dirname, "src");
   return {
     base: "/",
     clearScreen: false,
@@ -74,10 +75,22 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1000,
     },
     resolve: {
-      alias: {
-        buffer: "buffer",
-        "@": path.resolve(__dirname, "src"),
-      },
+      alias: [
+        {
+          find: "@/platform/App",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "App.tsx")
+            : path.join(srcRoot, "platform", "App.tsx"),
+        },
+        {
+          find: "@/platform/startup",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "startup.ts")
+            : path.join(srcRoot, "platform", "startup.ts"),
+        },
+        { find: "buffer", replacement: "buffer" },
+        { find: "@", replacement: srcRoot },
+      ],
     },
   };
 });
