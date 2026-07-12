@@ -9,7 +9,7 @@ import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 
 const overlayCls =
-  "fixed inset-0 flex items-center justify-center bg-black/50 z-[120] backdrop-blur-sm";
+  "fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-[120] backdrop-blur-sm";
 
 /** Renders the password input modal component. */
 const PasswordInputModal: React.FC<{
@@ -65,7 +65,7 @@ const PasswordInputModal: React.FC<{
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
-        className="w-110 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
+        className="w-full max-w-110 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
       >
         <form onSubmit={(e) => e.preventDefault()}>
           <div className="flex items-center gap-3 mb-4">

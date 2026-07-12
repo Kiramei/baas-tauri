@@ -195,7 +195,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         lowPerformanceMode={lowPerformanceMode}
         onClick={() => openModal(feature)}
       >
-        <CardHeader>
+        <CardHeader className="border-b-0">
           <div className="flex items-center gap-4">
             <div className="bg-primary-100 dark:bg-primary-900/50 p-3 rounded-lg">
               <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />

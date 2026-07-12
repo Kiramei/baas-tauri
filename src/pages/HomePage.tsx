@@ -127,7 +127,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
     if (!__WITH_ANDROID__) return false;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       const status = await invoke<{ active: boolean; displayId?: number | null }>(
         "android_scrcpy_virtual_display_status",
         { serial: adbSerial }
@@ -144,7 +144,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
     setAndroidVirtualDisplayBusy(true);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       if (value) {
         const report = await invoke<{
           displayId: number;

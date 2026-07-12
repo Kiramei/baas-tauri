@@ -454,7 +454,7 @@ const SettingsPage: React.FC = () => {
 
     if (__WITH_TAURI__) {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
+        const { invoke } = await import("@/shared/TauriInvoke");
         const report = await invoke<TauriBackendVersionReport>("updater_check_version", {
           request: {
             channel: updateChannel,
@@ -634,7 +634,7 @@ const SettingsPage: React.FC = () => {
     }, SHA_TEST_TIMEOUT_MS);
 
     if (__WITH_TAURI__) {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       /** Performs the apply result operation. */
       const applyResult = (result: TauriShaMethodReport) => {
         if (shaTestRunRef.current !== timestamp) return;

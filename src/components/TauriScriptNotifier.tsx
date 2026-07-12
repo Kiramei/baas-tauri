@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 
 import { useUISetting } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";

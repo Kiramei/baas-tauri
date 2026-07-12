@@ -14,8 +14,9 @@ import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 export interface TerminalHandle {
   write: (chunk: string) => void;
@@ -192,12 +193,10 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     termRef.current = term;
     fitRef.current = fit;
 
-    const observer = new ResizeObserver(() => resize());
-    observer.observe(hostRef.current);
-    requestAnimationFrame(() => resize());
+    const stopObserving = observeResizeOnAnimationFrame(hostRef.current, resize);
 
     return () => {
-      observer.disconnect();
+      stopObserving();
       fit.dispose();
       term.dispose();
       termRef.current = null;
@@ -422,10 +421,7 @@ const WorkflowGraph: React.FC<{
     if (!node) return;
     /** Performs the update operation. */
     const update = () => setGraphWidth(Math.max(240, node.clientWidth));
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeResizeOnAnimationFrame(node, update);
   }, []);
 
   /** Handles the layout workflow. */

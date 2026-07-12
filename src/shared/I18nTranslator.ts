@@ -30,7 +30,7 @@ function flattenLocale(value: unknown, prefix = "", output: Record<string, strin
 async function syncBackendLocale(lang: string) {
   if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("set_backend_locale", { lang });
   } catch (err) {
     console.error(`[i18n] failed to sync backend locale ${lang}:`, err);

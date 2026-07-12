@@ -79,7 +79,7 @@ const insertText = (target: EventTarget | null, text: string) => {
 /** Performs the open inspector operation. */
 const openInspector = async (webuiHint: string) => {
   if (__WITH_TAURI__) {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("open_main_devtools");
     return;
   }

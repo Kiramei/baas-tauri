@@ -26,8 +26,6 @@ import PageActivity from "@/components/PageActivity";
 import SetupPage from "@/pages/SetupPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
 
-const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
-
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
  */
@@ -252,13 +250,10 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const isWebWikiWindow =
-    !__WITH_ANDROID__ && new URLSearchParams(window.location.search).get("view") === "web-wiki";
-
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <Suspense fallback={null}>{isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}</Suspense>
+        <WrappedApp />
       </UISettingsProvider>
     </ThemeProvider>
   );

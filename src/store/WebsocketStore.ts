@@ -74,7 +74,7 @@ const pendingSyncPatches = new Map<number, PendingSyncPatch>();
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   if (!__WITH_TAURI__) return false;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     const startup = await invoke<any>("updater_get_startup_state");
     const general = startup?.config?.general ?? {};
     return Boolean(general.no_update ?? general.noUpdate ?? false);
@@ -92,7 +92,7 @@ const checkBackendUpdater = async () => {
       backendUpdaterChecking = false;
     }, 30_000);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       const report = await invoke<any>("updater_check_version", { request: {} });
       clearTimeout(resetTimer);
       backendUpdaterChecking = false;
@@ -190,7 +190,7 @@ const startBackendUpdaterPolling = (initialDelayMs = 0) => {
 
 /** Handles the check android client update workflow. */
 const checkAndroidClientUpdate = async (currentVersion?: string) => {
-  const { invoke } = await import("@tauri-apps/api/core");
+  const { invoke } = await import("@/shared/TauriInvoke");
   return await invoke<any>("tauri_client_check_update", {
     request: {
       currentVersion,
@@ -1127,7 +1127,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         } else if (skipBackendUpdater) {
           let local: string | null = null;
           try {
-            const { invoke } = await import("@tauri-apps/api/core");
+            const { invoke } = await import("@/shared/TauriInvoke");
             const startup = await invoke<any>("updater_get_startup_state");
             const general = startup?.config?.general ?? {};
             local =

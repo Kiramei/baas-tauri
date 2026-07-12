@@ -35,7 +35,6 @@ const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
 const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
-const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
 
 /**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
@@ -209,13 +208,10 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const isWebWikiWindow =
-    !__WITH_ANDROID__ && new URLSearchParams(window.location.search).get("view") === "web-wiki";
-
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <Suspense fallback={null}>{isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}</Suspense>
+        <WrappedApp />
       </UISettingsProvider>
     </ThemeProvider>
   );

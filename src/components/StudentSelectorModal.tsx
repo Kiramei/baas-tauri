@@ -61,7 +61,7 @@ const StudentSelectorModal: React.FC<Props> = ({
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <DialogTitle className="text-lg font-semibold">

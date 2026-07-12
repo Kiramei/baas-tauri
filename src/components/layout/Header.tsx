@@ -510,7 +510,7 @@ const Header: React.FC = () => {
 export default Header;
 
 const overlayCls =
-  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
+  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
 
 /** Renders the profile editor modal component. */
 const ProfileEditorModal = (props: {
@@ -581,7 +581,7 @@ const ProfileEditorModal = (props: {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, type: "tween", ease: "easeOut" }}
-        className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="text-lg font-semibold mb-4">
@@ -672,7 +672,7 @@ const ConfirmDeleteModal = (props: {
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
-        className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">

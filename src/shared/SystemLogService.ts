@@ -122,11 +122,21 @@ export const installFrontendSystemLogging = () => {
   }
 
   window.addEventListener("error", (event) => {
+    const resizeObserverNotification = event.message.includes(
+      "ResizeObserver loop completed with undelivered notifications"
+    );
     recordFrontendSystemLog(
-      "ERROR",
-      "window.error",
+      resizeObserverNotification ? "WARNING" : "ERROR",
+      resizeObserverNotification ? "resize-observer" : "window.error",
       event.error instanceof Error ? event.error.stack || event.error.message : event.message,
-      { filename: event.filename, line: event.lineno, column: event.colno }
+      {
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno,
+        href: window.location.href,
+        readyState: document.readyState,
+        activeElement: document.activeElement?.tagName,
+      }
     );
   });
   window.addEventListener("unhandledrejection", (event) => {
@@ -162,7 +172,7 @@ export const collectSystemLogs = async (limit = 4000): Promise<SystemLogCollecti
     tasks.push(
       (async () => {
         try {
-          const { invoke } = await import("@tauri-apps/api/core");
+          const { invoke } = await import("@/shared/TauriInvoke");
           const snapshot = await invoke<any>("system_logs_snapshot", { request: { limit } });
           collection.tauriPath = String(snapshot?.path ?? "");
           collection.tauriFileSize = Number(snapshot?.fileSize ?? 0);
@@ -224,7 +234,7 @@ export const clearSystemLogs = async () => {
   pendingEntries = [];
   const tasks: Promise<unknown>[] = [];
   if (__WITH_TAURI__) {
-    tasks.push(import("@tauri-apps/api/core").then(({ invoke }) => invoke("system_logs_clear")));
+    tasks.push(import("@/shared/TauriInvoke").then(({ invoke }) => invoke("system_logs_clear")));
   }
   tasks.push(
     fetch(`${resolveHttpBase()}/system/logs/clear`, {
@@ -259,7 +269,7 @@ const flushFrontendLogs = async () => {
   flushing = true;
   const batch = pendingEntries.splice(0, 250);
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("system_logs_ingest_frontend", { request: { entries: batch } });
   } catch {
     pendingEntries = [...batch, ...pendingEntries].slice(-MAX_PENDING_ENTRIES);

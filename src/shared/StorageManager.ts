@@ -201,7 +201,7 @@ class StorageUtilTauri {
   /** Returns the resolve storage state result. */
   private static async resolveStorageState(): Promise<{ storePath: string; portable: boolean }> {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       return await invoke<{ storePath: string; portable: boolean }>("updater_get_storage_state");
     } catch (error) {
       console.warn("[StorageUtil:init] storage state fallback:", error);

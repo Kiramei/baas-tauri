@@ -73,7 +73,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   const applyBindings = useCallback(async (nextHotkeys: HotkeyConfig[]) => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__) return { registered: [], rejected: [] };
 
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     const bindings: ShortcutBindingRequest[] = nextHotkeys.map((hotkey) => ({
       id: hotkey.id,
       configId: hotkey.configId ?? hotkey.id.replace(/^toggle-run:/, ""),

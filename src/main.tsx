@@ -41,7 +41,7 @@ const BrowserTauriDevFallback = () => (
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("splash_off");
   } catch (e) {
     console.error("invoke failed:", e);
