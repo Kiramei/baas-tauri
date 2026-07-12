@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import {
   Select,
@@ -64,20 +64,16 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) =
   }, [settings]);
 
   const [draft, setDraft] = useState<Draft>(ext);
-
-  /** Reset the draft whenever the upstream configuration changes. */
-  useEffect(() => {
-    setDraft(ext);
-  }, [ext]);
+  const [baseline] = useState<Draft>(ext);
 
   /** Track whether the user has modified the draft state. */
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   /** Persist only the fields that have diverged from the server baseline. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
+      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
         (patch as any)[k] = draft[k];
       }
     });

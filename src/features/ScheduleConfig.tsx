@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Plus, X } from "lucide-react";
 import { Reorder } from "framer-motion";
@@ -91,24 +91,15 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   }, [settings]);
 
   const [draft, setDraft] = useState<Draft>(ext);
+  const [baseline] = useState<Draft>(ext);
 
-  useEffect(() => {
-    setDraft((prev) => {
-      // Simple shallow comparison to prevent recursive updates
-      if (JSON.stringify(prev) !== JSON.stringify(ext)) {
-        return ext;
-      }
-      return prev;
-    });
-  }, [ext]);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   // Save configuration
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
+      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
         patch[k] = draft[k] as any;
       }
     });
