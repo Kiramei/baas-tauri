@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/Button";
-import { Copy, Terminal as TerminalIcon } from "lucide-react";
+import { CircleSlash2, Copy, Terminal as TerminalIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
@@ -24,7 +24,7 @@ export interface TerminalHandle {
   setRunning: (running: boolean) => void;
 }
 
-type TermTaskStatus = "idle" | "pending" | "running" | "success" | "failed" | "stopped";
+type TermTaskStatus = "idle" | "pending" | "running" | "success" | "skipped" | "failed" | "stopped";
 
 interface TermChunkPayload {
   sessionId: string;
@@ -215,6 +215,7 @@ const statusClass: Record<TermTaskStatus, string> = {
   pending: "border-slate-400 bg-slate-300 dark:border-slate-600 dark:bg-slate-700",
   running: "border-blue-300 bg-blue-500 shadow-blue-500/40",
   success: "border-green-300 bg-green-500 shadow-green-500/30",
+  skipped: "border-slate-500 bg-slate-900",
   failed: "border-red-300 bg-red-500 shadow-red-500/30",
   stopped: "border-yellow-300 bg-yellow-500 shadow-yellow-500/30",
 };
@@ -224,6 +225,7 @@ const statusEdgeClass: Record<TermTaskStatus, string> = {
   pending: "#94a3b8",
   running: "#3b82f6",
   success: "#22c55e",
+  skipped: "#64748b",
   failed: "#ef4444",
   stopped: "#eab308",
 };
@@ -233,6 +235,7 @@ const statusLabel: Record<TermTaskStatus, string> = {
   pending: "Pending",
   running: "Running",
   success: "Success",
+  skipped: "Skipped",
   failed: "Failed",
   stopped: "Stopped",
 };
@@ -242,13 +245,14 @@ const statusPillClass: Record<TermTaskStatus, string> = {
   pending: "border-slate-600 bg-slate-800 text-slate-200",
   running: "border-blue-400/40 bg-blue-500/15 text-blue-200",
   success: "border-green-400/40 bg-green-500/15 text-green-200",
+  skipped: "border-slate-500/60 bg-slate-700/30 text-slate-300",
   failed: "border-red-400/40 bg-red-500/15 text-red-200",
   stopped: "border-yellow-400/40 bg-yellow-500/15 text-yellow-100",
 };
 
 /** Returns the is terminal task status result. */
 const isTerminalTaskStatus = (status?: TermTaskStatus) =>
-  status === "success" || status === "failed" || status === "stopped";
+  status === "success" || status === "skipped" || status === "failed" || status === "stopped";
 
 /** Returns the format duration result. */
 const formatDuration = (durationMs?: number) => {
@@ -321,9 +325,13 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
           className="relative flex h-4.5 w-4.5 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           aria-label={`${task.name}: ${task.status}`}
         >
-          <div
-            className={`h-3.5 w-3.5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
-          />
+          {task.status === "skipped" ? (
+            <CircleSlash2 className="h-4 w-4 text-slate-500" strokeWidth={2.25} />
+          ) : (
+            <div
+              className={`h-3.5 w-3.5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
+            />
+          )}
           {duration && (
             <span className="pointer-events-none absolute left-0 translate-x-4 -top-2  whitespace-nowrap text-[9px] font-medium leading-none text-green-600 dark:text-green-300 text-shadow-sm text-shadow-accent-100">
               {duration}
@@ -477,11 +485,61 @@ const WorkflowGraph: React.FC<{
             const y1 = from.y + layout.nodeSize / 2;
             const x2 = to.x;
             const y2 = to.y + layout.nodeSize / 2;
-            const mid = x1 + Math.max(8, (x2 - x1) / 2);
+            const source = tasks[edge.from];
+            const crossesIntermediateStage = source && target && target.stage - source.stage > 1;
+            let path: string;
+            if (crossesIntermediateStage) {
+              const clearance = 4;
+              let topControlY = Number.POSITIVE_INFINITY;
+              let bottomControlY = Number.NEGATIVE_INFINITY;
+              for (const obstacle of taskList) {
+                if (obstacle.taskId === edge.from || obstacle.taskId === edge.to) continue;
+                const obstaclePosition = layout.positions.get(obstacle.taskId);
+                if (!obstaclePosition) continue;
+                const obstacleX = obstaclePosition.x + layout.nodeSize / 2;
+                if (obstacleX <= x1 || obstacleX >= x2) continue;
+                const t = (obstacleX - x1) / (x2 - x1);
+                const inverseT = 1 - t;
+                const controlWeight = 2 * inverseT * t;
+                const endpointY = inverseT * inverseT * y1 + t * t * y2;
+                topControlY = Math.min(
+                  topControlY,
+                  (obstaclePosition.y - clearance - endpointY) / controlWeight
+                );
+                bottomControlY = Math.max(
+                  bottomControlY,
+                  (obstaclePosition.y + layout.nodeSize + clearance - endpointY) / controlWeight
+                );
+              }
+
+              if (Number.isFinite(topControlY) && Number.isFinite(bottomControlY)) {
+                const routeCost = (controlY: number) => {
+                  let overflow = 0;
+                  for (let sample = 1; sample < 10; sample += 1) {
+                    const t = sample / 10;
+                    const inverseT = 1 - t;
+                    const y = inverseT * inverseT * y1 + 2 * inverseT * t * controlY + t * t * y2;
+                    overflow += Math.max(0, 3 - y, y - (layout.height - 3));
+                  }
+                  return Math.abs(controlY - y1) + Math.abs(controlY - y2) + overflow * 100;
+                };
+                const controlY =
+                  routeCost(topControlY) <= routeCost(bottomControlY)
+                    ? topControlY
+                    : bottomControlY;
+                path = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${controlY}, ${x2} ${y2}`;
+              } else {
+                const mid = x1 + Math.max(8, (x2 - x1) / 2);
+                path = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+              }
+            } else {
+              const mid = x1 + Math.max(8, (x2 - x1) / 2);
+              path = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+            }
             return (
               <path
                 key={`${edge.from}-${edge.to}`}
-                d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
+                d={path}
                 stroke={color}
                 strokeWidth="2"
                 fill="none"

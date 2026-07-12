@@ -332,30 +332,33 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      set((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          tauri: {
+            ...(state.versionStore.tauri ?? {}),
+            currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
+            version: state.versionStore.tauri?.version ?? __APP_VERSION__,
+            checking: true,
+            error: null,
+          },
+        },
+      }));
       if (__WITH_ANDROID__) {
         tauriUpdaterChecking = true;
-        if (visible) {
-          set((state) => ({
-            ...state,
-            versionStore: {
-              ...state.versionStore,
-              tauri: {
-                ...(state.versionStore.tauri ?? {}),
-                checking: true,
-                error: null,
-              },
-            },
-          }));
-        }
         try {
           const { getVersion } = await import("@tauri-apps/api/app");
-          const currentVersion = await getVersion().catch(() => undefined);
+          const currentVersion = await getVersion().catch(() => __APP_VERSION__);
           const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
           set((state) => ({
             ...state,
             versionStore: {
               ...state.versionStore,
-              tauri: nextTauriVersion,
+              tauri: {
+                ...nextTauriVersion,
+                currentVersion: nextTauriVersion.currentVersion ?? currentVersion,
+              },
             },
           }));
           if (nextTauriVersion.updateAvailable) {
@@ -411,26 +414,13 @@ export const useWebSocketStore = create<WebSocketState>()(
         return;
       }
       tauriUpdaterChecking = true;
-      if (visible) {
-        set((state) => ({
-          ...state,
-          versionStore: {
-            ...state.versionStore,
-            tauri: {
-              ...(state.versionStore.tauri ?? {}),
-              checking: true,
-              error: null,
-            },
-          },
-        }));
-      }
 
       try {
         const [{ check }, { getVersion }] = await Promise.all([
           import("@tauri-apps/plugin-updater"),
           import("@tauri-apps/api/app"),
         ]);
-        const currentVersion = await getVersion().catch(() => undefined);
+        const currentVersion = await getVersion().catch(() => __APP_VERSION__);
         const update = await check();
         const nextTauriVersion = update
           ? {

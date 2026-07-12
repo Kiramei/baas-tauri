@@ -354,12 +354,10 @@ const SettingsPage: React.FC = () => {
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
   const tauriVersion = versionStore["tauri"] ?? {};
-  const tauriCurrentVersion = tauriVersion.currentVersion ?? t("version.fetching");
-  const tauriRemoteVersion = tauriVersion.checking
-    ? t("version.fetching")
-    : tauriVersion.error
-      ? t("version.checkError")
-      : (tauriVersion.version ?? tauriVersion.currentVersion ?? t("version.fetching"));
+  const tauriCurrentVersion = tauriVersion.currentVersion ?? __APP_VERSION__;
+  const tauriRemoteVersion = tauriVersion.error
+    ? t("version.checkError")
+    : (tauriVersion.version ?? tauriCurrentVersion);
   const tauriStatus = tauriVersion.checking
     ? t("update.tauriChecking")
     : tauriVersion.error
