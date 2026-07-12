@@ -44,6 +44,7 @@ import TeamConfig from "@/features/TeamConfig.tsx";
 import { PageKey } from "@/types/app";
 import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
+import FeaturePanelErrorBoundary from "@/components/FeaturePanelErrorBoundary";
 
 type Feature =
   | "cafe"
@@ -257,11 +258,13 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           onClose={closeModal}
           width={modalWidth ?? 0}
         >
-          <CurrentModalContent
-            onClose={closeModal}
-            profileId={profile!.id}
-            setActivePage={setActivePage}
-          />
+          <FeaturePanelErrorBoundary closeLabel={t("common.cancel")} onClose={closeModal}>
+            <CurrentModalContent
+              onClose={closeModal}
+              profileId={profile!.id}
+              setActivePage={setActivePage}
+            />
+          </FeaturePanelErrorBoundary>
         </Modal>
       )}
     </div>

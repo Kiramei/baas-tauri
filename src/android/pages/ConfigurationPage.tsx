@@ -27,6 +27,7 @@ import { ProfileProps } from "@/types/app";
 import { PageKey } from "@/types/app";
 import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
+import FeaturePanelErrorBoundary from "@/components/FeaturePanelErrorBoundary";
 
 type Feature =
   | "cafe"
@@ -244,13 +245,15 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           onClose={closeModal}
           width={modalWidth ?? 0}
         >
-          <React.Suspense fallback={<FeaturePanelFallback />}>
-            <CurrentModalContent
-              onClose={closeModal}
-              profileId={profile!.id}
-              setActivePage={setActivePage}
-            />
-          </React.Suspense>
+          <FeaturePanelErrorBoundary closeLabel={t("common.cancel")} onClose={closeModal}>
+            <React.Suspense fallback={<FeaturePanelFallback />}>
+              <CurrentModalContent
+                onClose={closeModal}
+                profileId={profile!.id}
+                setActivePage={setActivePage}
+              />
+            </React.Suspense>
+          </FeaturePanelErrorBoundary>
         </Modal>
       )}
     </div>
