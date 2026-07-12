@@ -82,7 +82,6 @@ const ConfigArchiveDropOverlay: React.FC = () => {
           setActiveProfile({
             id: result.serial,
             name: config?.name ?? result.name ?? archiveNameFromPath(name),
-            settings: config,
           });
         } catch {
           // The import already succeeded; filesystem sync can still arrive after the UI toast.

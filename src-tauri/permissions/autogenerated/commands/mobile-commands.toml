@@ -24,4 +24,7 @@ commands.allow = [
   "android_prepare_scrcpy_virtual_display",
   "android_cleanup_scrcpy_virtual_display",
   "android_scrcpy_virtual_display_status",
+  "system_logs_snapshot",
+  "system_logs_clear",
+  "system_logs_ingest_frontend",
 ]

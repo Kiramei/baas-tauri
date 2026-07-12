@@ -12,7 +12,6 @@ import {
 
 const webWikiLoadTimeoutMs = 20000;
 
-/** Renders the wiki page component. */
 const WikiPage: React.FC = () => {
   const { t } = useTranslation();
   const [detached, setDetached] = useState(false);
@@ -47,7 +46,6 @@ const WikiPage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [detached, loadState]);
 
-  /** Handles the detach wiki workflow. */
   const detachWiki = useCallback(async () => {
     if (__WITH_ANDROID__) return;
     if (!__WITH_TAURI__) {
@@ -60,7 +58,6 @@ const WikiPage: React.FC = () => {
     await openWebWikiWindow("detached", t("wiki.web.title"));
   }, [t]);
 
-  /** Performs the open wiki in browser operation. */
   const openWikiInBrowser = useCallback(async () => {
     if (__WITH_TAURI__) {
       try {
@@ -75,9 +72,7 @@ const WikiPage: React.FC = () => {
     window.open(WEB_WIKI_URL, "_blank", "noopener,noreferrer");
   }, []);
 
-  /** Handles the focus detached wiki workflow. */
   const focusDetachedWiki = useCallback(async () => {
-    if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();
     if (!detachedWindow) {
       setDetached(false);
@@ -87,9 +82,7 @@ const WikiPage: React.FC = () => {
     await detachedWindow.setFocus();
   }, []);
 
-  /** Handles the return to main workflow. */
   const returnToMain = useCallback(async () => {
-    if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();
     await detachedWindow?.destroy().catch(console.error);
     setDetached(false);
@@ -119,7 +112,7 @@ const WikiPage: React.FC = () => {
           </Button>
         </header>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+        <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
           <AndroidRemoteWiki />
         </div>
       </div>
@@ -186,7 +179,7 @@ const WikiPage: React.FC = () => {
         </Button>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+      <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
         <iframe
           title={t("wiki.web.title")}
           src={WEB_WIKI_URL}

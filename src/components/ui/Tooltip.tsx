@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 
 /** Renders the tooltip provider component. */
 function TooltipProvider({

@@ -127,7 +127,9 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   return (
     <div className="space-y-2">
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList
+          className={`grid w-full ${draft.cafe_reward_has_no2_cafe ? "grid-cols-3" : "grid-cols-2"}`}
+        >
           <TabsTrigger value="basic">{t("cafe.basicSettings")}</TabsTrigger>
           <TabsTrigger value="cafe1">{t("cafe.cafe1Settings")}</TabsTrigger>
           {draft.cafe_reward_has_no2_cafe && (

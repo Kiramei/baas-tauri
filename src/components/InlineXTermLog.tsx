@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 /** Renders a compact xterm log for Android updater output. */
 const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
@@ -42,12 +43,10 @@ const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
         // The terminal may be hidden while the update popover is closing.
       }
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
+    const stopObserving = observeResizeOnAnimationFrame(hostRef.current, resize);
 
     return () => {
-      observer.disconnect();
+      stopObserving();
       fit.dispose();
       term.dispose();
       termRef.current = null;

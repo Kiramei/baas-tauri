@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,10 +22,10 @@ export const Modal: React.FC<ModalProps> = ({
   titleNode = undefined,
   width = 40,
 }) => {
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   useEffect(() => {
+    if (!isOpen) return;
     /** Handles the handle esc interaction. */
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -36,12 +36,12 @@ export const Modal: React.FC<ModalProps> = ({
     return () => {
       window.removeEventListener("keydown", handleEsc);
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const overlayCls =
-    "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
+    "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
 
   return createPortal(
     <div
@@ -58,7 +58,7 @@ export const Modal: React.FC<ModalProps> = ({
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
         className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5 px-3"
-        style={{ width: `${width}%`, minWidth: "320px" }}
+        style={{ width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }}
       >
         <div className="overflow-auto px-2" style={{ maxHeight: "calc(100vh - 80px)" }}>
           <div className="flex items-center justify-between p-0 border-b border-slate-200 dark:border-slate-700">

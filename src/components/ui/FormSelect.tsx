@@ -26,6 +26,7 @@ interface FormSelectProps {
   className?: string;
   selectId?: string;
   disabled?: boolean;
+  ariaLabel?: string;
 }
 
 /** Renders the form select component. */
@@ -39,6 +40,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   className,
   selectId,
   disabled = false,
+  ariaLabel,
 }) => {
   const autoId = React.useId();
   const id = selectId ?? autoId;
@@ -69,7 +71,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
         }}
         {...(global && { open, onOpenChange: handleOpenChange })}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-label={ariaLabel}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 

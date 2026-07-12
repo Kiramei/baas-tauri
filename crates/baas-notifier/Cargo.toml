@@ -7,3 +7,7 @@ edition = "2021"
 serde = { workspace = true }
 tauri = { workspace = true }
 tauri-plugin-notification = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+notify-rust = "4.18.0"
+windows-registry = "0.6.1"

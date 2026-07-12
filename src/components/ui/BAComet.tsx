@@ -509,7 +509,7 @@ class MouseSparkEngine {
     this.resize();
     this.bindEvents();
     this.loop = this.loop.bind(this);
-    this.animationId = window.requestAnimationFrame(this.loop);
+    this.scheduleFrame();
   }
 
   /** Handles the clamp workflow. */
@@ -894,6 +894,7 @@ class MouseSparkEngine {
       this.maybeSpawnTrailSideParticles(prev, p);
       this.lastPos = p;
       if (this.trail.length > this.maxTrail) this.trail.shift();
+      this.scheduleFrame();
     }
   };
 
@@ -953,6 +954,7 @@ class MouseSparkEngine {
         gapRatio: this.rand(this.borderGapRatioMin, this.borderGapRatioMax),
       },
     });
+    this.scheduleFrame();
   }
 
   /** Handles the maybe spawn trail side particles workflow. */
@@ -1422,6 +1424,7 @@ class MouseSparkEngine {
 
   /** Handles the loop workflow. */
   loop(now: number): void {
+    this.animationId = 0;
     this.ctx.clearRect(0, 0, this.viewW, this.viewH);
     this.ctx.globalCompositeOperation = "source-over";
     this.glow?.beginFrame();
@@ -1440,6 +1443,14 @@ class MouseSparkEngine {
 
     this.glow?.flush();
     this.ctx.globalCompositeOperation = "source-over";
+    if (this.trail.length > 0 || this.trailSideParticles.length > 0 || this.effects.length > 0) {
+      this.scheduleFrame();
+    }
+  }
+
+  /** Starts rendering only while visible effects still have work to do. */
+  private scheduleFrame(): void {
+    if (this.animationId !== 0) return;
     this.animationId = window.requestAnimationFrame(this.loop);
   }
 
@@ -1594,7 +1605,8 @@ class MouseSparkEngine {
 
   /** Handles the destroy workflow. */
   destroy(): void {
-    window.cancelAnimationFrame(this.animationId);
+    if (this.animationId !== 0) window.cancelAnimationFrame(this.animationId);
+    this.animationId = 0;
     for (const fn of this.cleanupFns) fn();
     this.cleanupFns = [];
   }

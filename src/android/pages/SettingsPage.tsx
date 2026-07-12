@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import {
   AppWindow,
   CheckCircle2,
+  ChevronDown,
   Cloud,
   Download,
   GitBranch,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { resolveClientVersion } from "@/shared/ClientVersion";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
@@ -43,6 +45,7 @@ import type { TranslationKey } from "@/types/i18n";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
+import { SystemLogSettings } from "@/components/SystemLogSettings";
 
 const TauriUpdateProgressModal = React.lazy(() =>
   import("@/components/updater/TauriUpdateProgressModal").then((module) => ({
@@ -352,12 +355,10 @@ const SettingsPage: React.FC = () => {
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
   const tauriVersion = versionStore["tauri"] ?? {};
-  const tauriCurrentVersion = tauriVersion.currentVersion ?? t("version.fetching");
-  const tauriRemoteVersion = tauriVersion.checking
-    ? t("version.fetching")
-    : tauriVersion.error
-      ? t("version.checkError")
-      : (tauriVersion.version ?? tauriVersion.currentVersion ?? t("version.fetching"));
+  const tauriCurrentVersion = resolveClientVersion(tauriVersion.currentVersion);
+  const tauriRemoteVersion = tauriVersion.error
+    ? t("version.checkError")
+    : resolveClientVersion(tauriVersion.version, tauriCurrentVersion);
   const tauriStatus = tauriVersion.checking
     ? t("update.tauriChecking")
     : tauriVersion.error
@@ -427,6 +428,7 @@ const SettingsPage: React.FC = () => {
   const [shaResults, setShaResults] = useState<ShaTestResult[]>(
     shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
+  const [showShaResults, setShowShaResults] = useState(false);
   const shaTestRunRef = useRef<number | null>(null);
   const shaTestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -448,7 +450,7 @@ const SettingsPage: React.FC = () => {
 
     if (__WITH_TAURI__) {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
+        const { invoke } = await import("@/shared/TauriInvoke");
         const report = await invoke<TauriBackendVersionReport>("updater_check_version", {
           request: {
             channel: updateChannel,
@@ -600,6 +602,7 @@ const SettingsPage: React.FC = () => {
 
   /** Handles the handle test sha interaction. */
   const handleTestSha = async () => {
+    setShowShaResults(true);
     const timestamp = getTimestampMs();
     shaTestRunRef.current = timestamp;
     if (shaTestTimeoutRef.current) {
@@ -629,7 +632,7 @@ const SettingsPage: React.FC = () => {
     }, SHA_TEST_TIMEOUT_MS);
 
     if (__WITH_TAURI__) {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       /** Performs the apply result operation. */
       const applyResult = (result: TauriShaMethodReport) => {
         if (shaTestRunRef.current !== timestamp) return;
@@ -785,7 +788,8 @@ const SettingsPage: React.FC = () => {
               }
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") return;
-                const action = info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
+                const action =
+                  info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
                 if (!action) return;
                 event.preventDefault();
                 void action();
@@ -1034,6 +1038,8 @@ const SettingsPage: React.FC = () => {
               />
             )}
           </div>
+          <Separator />
+          <SystemLogSettings />
         </CardContent>
       </Card>
 
@@ -1130,64 +1136,87 @@ const SettingsPage: React.FC = () => {
             </CButton>
           </div>
 
-          <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-md">
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-linear-to-r from-cyan-50 to-purple-50 dark:from-slate-800 dark:to-slate-900">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.method")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.status")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.time")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.sha")}
-                  </th>
-                </tr>
-              </thead>
+          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => setShowShaResults((visible) => !visible)}
+              aria-expanded={showShaResults}
+            >
+              <TestTube className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <span>{t("shaTest.results")}</span>
+              <span className="ml-auto text-xs font-normal text-slate-500 dark:text-slate-400">
+                {shaResults.filter((result) => ["success", "error"].includes(result.status)).length}
+                /{shaResults.length}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showShaResults ? "rotate-180" : ""}`}
+              />
+            </button>
 
-              <tbody>
-                {shaResults.map((r, idx) => (
-                  <tr
-                    key={idx}
-                    className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <td className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex">
-                      <EllipsisWithTooltip text={t(i18nKey(r.method))} />
-                      <div className="grow"></div>
-                    </td>
+            {showShaResults && (
+              <div className="max-h-60 overflow-auto border-t border-slate-200 dark:border-slate-700">
+                <table className="w-full text-xs sm:text-sm border-collapse">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.method")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.status")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.time")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.sha")}
+                      </th>
+                    </tr>
+                  </thead>
 
-                    <td className="px-4 py-3 text-center border-b border-slate-200 dark:border-slate-700 w-20">
-                      {r.status === "success" && (
-                        <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
-                      )}
-                      {r.status === "error" && <XCircle className="w-5 h-5 mx-auto text-red-500" />}
-                      {r.status === "testing" && (
-                        <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
-                      )}
-                      {!["success", "error", "testing"].includes(r.status) && (
-                        <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
-                      )}
-                    </td>
+                  <tbody>
+                    {shaResults.map((r, idx) => (
+                      <tr
+                        key={idx}
+                        className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex">
+                          <EllipsisWithTooltip text={t(i18nKey(r.method))} />
+                          <div className="grow"></div>
+                        </td>
 
-                    <td className="px-4 py-3 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-24">
-                      {r.time ?? "-"}
-                    </td>
+                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 w-16">
+                          {r.status === "success" && (
+                            <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
+                          )}
+                          {r.status === "error" && (
+                            <XCircle className="w-5 h-5 mx-auto text-red-500" />
+                          )}
+                          {r.status === "testing" && (
+                            <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
+                          )}
+                          {!["success", "error", "testing"].includes(r.status) && (
+                            <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
+                          )}
+                        </td>
 
-                    <td className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 font-mono w-20">
-                      {r.sha ? (
-                        <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-20">
+                          {r.time ?? "-"}
+                        </td>
+
+                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 font-mono w-16">
+                          {r.sha ? (
+                            <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

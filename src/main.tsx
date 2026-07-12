@@ -1,5 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
+import { installFrontendSystemLogging } from "@/shared/SystemLogService";
+
+installFrontendSystemLogging();
 
 if (!Object.hasOwn) {
   Object.hasOwn = (object: object, property: PropertyKey) =>
@@ -37,7 +41,7 @@ const BrowserTauriDevFallback = () => (
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("splash_off");
   } catch (e) {
     console.error("invoke failed:", e);
@@ -47,7 +51,11 @@ const closeSplash = async () => {
 /** Handles the bootstrap workflow. */
 const bootstrap = async () => {
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
-    root.render(<BrowserTauriDevFallback />);
+    root.render(
+      <StartupShellHandoff>
+        <BrowserTauriDevFallback />
+      </StartupShellHandoff>
+    );
     return;
   }
 

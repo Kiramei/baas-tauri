@@ -1,9 +1,9 @@
 "use client";
 import { useEffect } from "react";
 import { motion, stagger, useAnimate } from "framer-motion";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 import React from "react";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 /** Renders the text generate effect component. */
 export const TextGenerateEffect = ({
@@ -20,8 +20,7 @@ export const TextGenerateEffect = ({
   mode?: "word" | "all";
 }) => {
   const [scope, animate] = useAnimate();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   // Split on spaces only in word mode.
   const wordsArray = React.useMemo(() => (mode === "word" ? words.split(" ") : []), [words, mode]);

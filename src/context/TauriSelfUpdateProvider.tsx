@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
@@ -100,19 +100,13 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   }, [stopAllTasks, t]);
 
+  const value = useMemo(
+    () => ({ updating, progress, status, progressOpen, setProgressOpen, runUpdate }),
+    [progress, progressOpen, runUpdate, status, updating]
+  );
+
   return (
-    <TauriSelfUpdateContext.Provider
-      value={{
-        updating,
-        progress,
-        status,
-        progressOpen,
-        setProgressOpen,
-        runUpdate,
-      }}
-    >
-      {children}
-    </TauriSelfUpdateContext.Provider>
+    <TauriSelfUpdateContext.Provider value={value}>{children}</TauriSelfUpdateContext.Provider>
   );
 };
 

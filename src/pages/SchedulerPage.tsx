@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, startTransition } from "react";
+import React, { useMemo, useState, useCallback, useDeferredValue, startTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -106,6 +106,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   );
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sortKey, setSortKey] = useState<"default" | "time">("default");
   const [modalTask, setModalTask] = useState<EventConfig | null>(null);
 
@@ -118,7 +119,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
 
   /** Handles the filtered workflow. */
   const filtered = useMemo(() => {
-    let base = eventConfigs.filter((t) => t.event_name.includes(search));
+    let base = eventConfigs.filter((t) => t.event_name.includes(deferredSearch));
 
     if (sortKey === "default") {
       base = [...base].sort((a, b) => a.priority - b.priority);
@@ -128,10 +129,14 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
       );
     }
     return base;
-  }, [eventConfigs, search, sortKey]);
+  }, [deferredSearch, eventConfigs, sortKey]);
 
-  const left = filtered.filter((t) => !t.enabled);
-  const right = filtered.filter((t) => t.enabled);
+  const { left, right } = useMemo(() => {
+    const inactive: EventConfig[] = [];
+    const enabled: EventConfig[] = [];
+    filtered.forEach((task) => (task.enabled ? enabled : inactive).push(task));
+    return { left: inactive, right: enabled };
+  }, [filtered]);
 
   /** Handles the on update interaction. */
   const onUpdate = useCallback((newConfigs: EventConfig[]) => {

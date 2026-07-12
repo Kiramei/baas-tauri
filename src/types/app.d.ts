@@ -14,6 +14,8 @@ export interface ConfigProfile {
   settings: DynamicConfig;
 }
 
+export type ConfigProfileSummary = Pick<ConfigProfile, "id" | "name">;
+
 export interface RemoteSettings {
   streamPlayer: "mse" | "broadway" | "tinyh264" | "webcodecs";
   enableSafeStream: boolean;
@@ -86,6 +88,7 @@ interface StatusItem {
   config_id: string | null;
   current_task: string | null;
   waiting_tasks: string[];
+  run_mode?: "scheduler" | "single" | null;
   timestamp: number;
 
   [key: string]: any;
@@ -124,6 +127,7 @@ interface WsMessageItem {
   entries?: RawLogItem[];
   status?: InitState | StatusItem | WrappedStatusItem | string;
   timestamp?: number;
+  request_timestamp?: number;
   data?: any;
   resource?: string;
   resource_id?: string;

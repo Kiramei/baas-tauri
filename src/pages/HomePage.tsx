@@ -7,23 +7,27 @@ import AssetsDisplay from "@/components/AssetsDisplay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { ProfileProps } from "@/types/app";
+import { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
 
+const EMPTY_LOGS: LogItem[] = [];
+
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
  */
 const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
-  const { uiSettings, setUiSettings } = useUISettings();
+  const scrollToEnd = useUISetting((settings) => settings.scrollToEnd);
+  const assetsDisplay = useUISetting((settings) => settings.assetsDisplay);
+  const setUiSettings = useSetUISettings();
   const { hotkeys, saveHotkeys, setShortcutsSuspended } = useTauriShortcuts();
   const { profiles, activeProfile } = useApp();
   const pid = profileId ?? activeProfile?.id;
@@ -34,12 +38,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const activeConfigId = profile?.id ?? pid;
 
-  const statusStore = useWebSocketStore((state) => state.statusStore);
-  const configStore = useWebSocketStore((state) => state.configStore);
-  const logStore = useWebSocketStore((state) => state.logStore);
-
-  const scriptRunning = activeConfigId ? statusStore[activeConfigId]?.running || false : false;
-  const settings = activeConfigId ? configStore[activeConfigId] : undefined;
+  const scriptRunning = useWebSocketStore((state) =>
+    activeConfigId ? state.statusStore[activeConfigId]?.running || false : false
+  );
+  const settings = useWebSocketStore((state) =>
+    activeConfigId ? state.configStore[activeConfigId] : undefined
+  );
+  const activeLogs = useWebSocketStore((state) =>
+    activeConfigId ? (state.logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
+  );
   const remoteAvailable = !__WITH_ANDROID__;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
   const isAndroid = __WITH_ANDROID__;
@@ -120,7 +127,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
     if (!__WITH_ANDROID__) return false;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       const status = await invoke<{ active: boolean; displayId?: number | null }>(
         "android_scrcpy_virtual_display_status",
         { serial: adbSerial }
@@ -137,7 +144,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
     setAndroidVirtualDisplayBusy(true);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("@/shared/TauriInvoke");
       if (value) {
         const report = await invoke<{
           displayId: number;
@@ -171,9 +178,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       }
       void refreshAndroidVirtualDisplayStatus();
     } catch (error) {
-      toast.error(value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed", {
-        description: String(error),
-      });
+      toast.error(
+        value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed",
+        {
+          description: String(error),
+        }
+      );
       void refreshAndroidVirtualDisplayStatus();
     } finally {
       setAndroidVirtualDisplayBusy(false);
@@ -233,12 +243,16 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const pad = (n: number) => n.toString().padStart(2, "0");
   /** Handles the export log workflow. */
   const exportLog = async () => {
-    const content = (activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : [])
+    const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-    await StorageUtil.download(`logs-${activeConfigId ?? "profile"}-${formattedDate}.txt`, content, t);
+    await StorageUtil.download(
+      `logs-${activeConfigId ?? "profile"}-${formattedDate}.txt`,
+      content,
+      t
+    );
   };
 
   return (
@@ -342,7 +356,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             ) : (
               <Play className="w-4 h-4 mr-2" />
             )}
-            {androidVirtualDisplayBusy ? "准备中" : scriptRunning ? t("common.stop") : t("common.start")}
+            {androidVirtualDisplayBusy
+              ? "准备中"
+              : scriptRunning
+                ? t("common.stop")
+                : t("common.start")}
           </CButton>
         </div>
       </div>
@@ -378,7 +396,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       {activeConfigId && <TaskStatus profileId={activeConfigId} />}
 
       {/* Optional asset snapshot to provide immediate operational context. */}
-      {uiSettings?.assetsDisplay && (
+      {assetsDisplay && (
         <div className="shrink-0">
           {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
         </div>
@@ -400,7 +418,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           </CardTitle>
           <div className="sm:flex hidden items-center justify-center">
             <SwitchButton
-              checked={uiSettings?.scrollToEnd}
+              checked={scrollToEnd}
               onChange={(value) => {
                 setUiSettings((state) => ({ ...state, scrollToEnd: value }));
               }}
@@ -417,7 +435,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
           <div className="sm:hidden flex items-center justify-center">
             <SwitchButton
-              checked={uiSettings?.scrollToEnd}
+              checked={scrollToEnd}
               onChange={(value) => {
                 setUiSettings((state) => ({ ...state, scrollToEnd: value }));
               }}
@@ -437,10 +455,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           {remoteAvailable && remoteVisible && activeConfigId && (
             <RemoteDisplay profileId={activeConfigId} />
           )}
-          <Logger
-            logs={activeConfigId ? logStore[`config:${activeConfigId}`] ?? [] : []}
-            scrollToEnd={uiSettings?.scrollToEnd}
-          />
+          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
         </CardContent>
       </Card>
     </div>

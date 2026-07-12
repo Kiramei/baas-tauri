@@ -3,7 +3,7 @@
  */
 import type { TFunction } from "i18next";
 import type { HotkeyConfig } from "@/components/HotkeyConfig";
-import type { ConfigProfile } from "@/types/app";
+import type { ConfigProfileSummary } from "@/types/app";
 
 /** Returns the get default hotkeys result. */
 export function getDefaultHotkeys(t: TFunction): HotkeyConfig[] {
@@ -27,7 +27,7 @@ export function defaultProfileAccelerator(index: number): string {
 
 /** Handles the reconcile profile hotkeys workflow. */
 export function reconcileProfileHotkeys(
-  profiles: ConfigProfile[],
+  profiles: ConfigProfileSummary[],
   stored: HotkeyConfig[] | null | undefined,
   toggleLabel = "Start/Stop"
 ): HotkeyConfig[] {

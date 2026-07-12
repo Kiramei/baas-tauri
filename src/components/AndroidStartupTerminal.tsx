@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 interface AndroidStartupTerminalProps {
   text: string;
@@ -50,12 +51,10 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, t
         // The terminal can briefly be detached during route transitions.
       }
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
+    const stopObserving = observeResizeOnAnimationFrame(hostRef.current, resize);
 
     return () => {
-      observer.disconnect();
+      stopObserving();
       fit.dispose();
       term.dispose();
       termRef.current = null;

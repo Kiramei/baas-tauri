@@ -6,9 +6,9 @@ import type { Variants } from "framer-motion";
 import { motion, MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
-import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
+import i18n from "@/shared/I18nTranslator.ts";
 import BAComet from "@/components/ui/BAComet.tsx";
-import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
+import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
@@ -16,16 +16,16 @@ import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
 import TauriScriptNotifier from "@/components/TauriScriptNotifier";
 import LoadingPage from "@/pages/LoadingPage";
-
-const loadHomePage = () => import("@/pages/HomePage");
-const loadMainLayout = () => import("@/components/layout/MainLayout");
-const HomePage = React.lazy(loadHomePage);
-const MainLayout = React.lazy(loadMainLayout);
-const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
-const ConfigurationPage = React.lazy(() => import("@/pages/ConfigurationPage"));
-const SettingsPage = React.lazy(() => import("@/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
-const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
+import MainLayout from "@/components/layout/MainLayout";
+import HomePage from "@/pages/HomePage";
+import SchedulerPage from "@/pages/SchedulerPage";
+import ConfigurationPage from "@/pages/ConfigurationPage";
+import SettingsPage from "@/pages/SettingsPage";
+import WikiPage from "@/pages/WikiPage.tsx";
+import WebWikiViewer from "@/components/WebWikiViewer";
+import PageActivity from "@/components/PageActivity";
+import SetupPage from "@/pages/SetupPage";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -83,18 +83,19 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
-
-  const activePid = activeProfile!.id;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
-  const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
+  const [seenKeys, setSeenKeys] = React.useState<string[]>(() =>
+    activePid ? [instanceKeyOf("home", activePid)] : []
+  );
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
+    if (!activePid) return;
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [currentKey]);
+  }, [activePid, currentKey]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -116,10 +117,20 @@ const Main: React.FC = () => {
     }
   }, []);
 
+  if (!activeProfile || !activePid) {
+    return (
+      <MainLayout activePage={activePage} setActivePage={setActivePage}>
+        {null}
+      </MainLayout>
+    );
+  }
+
+  const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
+
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        {seenKeys.map((instKey) => {
+        {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
           return (
@@ -132,7 +143,9 @@ const Main: React.FC = () => {
               style={{ pointerEvents: isActive ? "auto" : "none" }}
               aria-hidden={!isActive}
             >
-              {renderPage(page, pid!)}
+              <PageActivity active={isActive} suspendDelayMs={lowPerformanceMode ? 0 : 200}>
+                {renderPage(page, pid ?? activePid)}
+              </PageActivity>
             </motion.div>
           );
         })}
@@ -140,14 +153,20 @@ const Main: React.FC = () => {
     </MainLayout>
   );
 };
-const SetupPage = React.lazy(() => import("@/pages/SetupPage"));
-
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
 const InitialPage: React.FC = () => {
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
-    return <SetupPage />;
+    return (
+      <StartupShellHandoff>
+        <SetupPage />
+      </StartupShellHandoff>
+    );
   }
-  return <LoadingPage />;
+  return (
+    <StartupShellHandoff>
+      <LoadingPage />
+    </StartupShellHandoff>
+  );
 };
 
 /** Renders the wrapped app component. */
@@ -155,19 +174,14 @@ const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const enableBAComet = useUISetting((settings) => settings.enableBAComet);
 
   useEffect(() => {
     if (ready) {
       setHasReadyOnce(true);
     }
   }, [ready]);
-
-  useEffect(() => {
-    void loadMainLayout();
-    void loadHomePage();
-  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("low-performance-mode", lowPerformanceMode);
@@ -184,7 +198,7 @@ const WrappedApp: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion={lowPerformanceMode ? "always" : "never"}>
-      {uiSettings.enableBAComet && !lowPerformanceMode && <BAComet />}
+      {enableBAComet && !lowPerformanceMode && <BAComet />}
       <GlobalContextMenu />
 
       {!hideLoading && (
@@ -199,9 +213,7 @@ const WrappedApp: React.FC = () => {
           }}
           className="fixed inset-0 z-100"
         >
-          <Suspense fallback={<></>}>
-            <InitialPage />
-          </Suspense>
+          <InitialPage />
         </motion.div>
       )}
 
@@ -239,17 +251,18 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    loadLocale(i18n.language || "en").then(undefined);
-  }, []);
-
-  const isWebWikiWindow =
-    !__WITH_ANDROID__ && new URLSearchParams(window.location.search).get("view") === "web-wiki";
+  const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
 
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <Suspense fallback={null}>{isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}</Suspense>
+        {isWebWikiWindow ? (
+          <StartupShellHandoff>
+            <WebWikiViewer />
+          </StartupShellHandoff>
+        ) : (
+          <WrappedApp />
+        )}
       </UISettingsProvider>
     </ThemeProvider>
   );

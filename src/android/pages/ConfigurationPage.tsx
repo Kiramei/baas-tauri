@@ -22,11 +22,12 @@ import {
   Users2Icon,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { ProfileProps } from "@/types/app";
 import { PageKey } from "@/types/app";
 import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
+import FeaturePanelErrorBoundary from "@/components/FeaturePanelErrorBoundary";
 
 type Feature =
   | "cafe"
@@ -147,8 +148,7 @@ const FeaturePanelFallback: React.FC = () => (
 const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   const pid = profileId ?? activeProfile?.id;
   /** Handles the profile workflow. */
@@ -195,7 +195,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         lowPerformanceMode={lowPerformanceMode}
         onClick={() => openModal(feature)}
       >
-        <CardHeader>
+        <CardHeader className="border-b-0">
           <div className="flex items-center gap-4">
             <div className="bg-primary-100 dark:bg-primary-900/50 p-3 rounded-lg">
               <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
@@ -245,13 +245,15 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           onClose={closeModal}
           width={modalWidth ?? 0}
         >
-          <React.Suspense fallback={<FeaturePanelFallback />}>
-            <CurrentModalContent
-              onClose={closeModal}
-              profileId={profile!.id}
-              setActivePage={setActivePage}
-            />
-          </React.Suspense>
+          <FeaturePanelErrorBoundary closeLabel={t("common.cancel")} onClose={closeModal}>
+            <React.Suspense fallback={<FeaturePanelFallback />}>
+              <CurrentModalContent
+                onClose={closeModal}
+                profileId={profile!.id}
+                setActivePage={setActivePage}
+              />
+            </React.Suspense>
+          </FeaturePanelErrorBoundary>
         </Modal>
       )}
     </div>

@@ -4,6 +4,7 @@
 "use client";
 
 import * as React from "react";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PipetteIcon } from "lucide-react";
 import {
@@ -22,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 
 type PossibleRef<T> = React.Ref<T> | undefined;
 
@@ -125,32 +126,17 @@ function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>)
 
     if (typeof window === "undefined") return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!Array.isArray(entries) || !entries.length) return;
-
-      const entry = entries[0];
-      if (!entry) return;
-
-      let width: number;
-      let height: number;
-
-      if ("borderBoxSize" in entry) {
-        const borderSizeEntry = entry.borderBoxSize;
-        const borderSize = Array.isArray(borderSizeEntry) ? borderSizeEntry[0] : borderSizeEntry;
-        width = borderSize.inlineSize;
-        height = borderSize.blockSize;
-      } else {
-        width = control.offsetWidth;
-        height = control.offsetHeight;
-      }
-
-      setControlSize({ width, height });
-    });
-
-    resizeObserver.observe(control, { box: "border-box" });
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return observeResizeOnAnimationFrame(
+      control,
+      () => {
+        const width = control.offsetWidth;
+        const height = control.offsetHeight;
+        setControlSize((current) =>
+          current.width === width && current.height === height ? current : { width, height }
+        );
+      },
+      { box: "border-box" }
+    );
   }, [control]);
 
   React.useEffect(() => {

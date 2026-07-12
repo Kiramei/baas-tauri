@@ -22,30 +22,63 @@ pub fn init_plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
 pub fn show_notification<R: Runtime>(
     app: &AppHandle<R>,
     payload: NotifyPayload,
-) -> tauri_plugin_notification::Result<()> {
-    if !ensure_notification_permission(app)? {
+) -> Result<(), String> {
+    if !ensure_notification_permission(app).map_err(|error| error.to_string())? {
         return Ok(());
     }
 
-    ensure_notification_channel(app)?;
+    ensure_notification_channel(app).map_err(|error| error.to_string())?;
 
-    let mut builder = app
-        .notification()
-        .builder()
-        .title(payload.title)
-        .body(payload.body)
-        .auto_cancel();
-
-    #[cfg(target_os = "android")]
+    #[cfg(target_os = "windows")]
     {
-        builder = builder.channel_id(NOTIFICATION_CHANNEL_ID);
+        register_windows_identity(app)?;
+
+        let mut notification = notify_rust::Notification::new();
+        notification
+            .summary(&payload.title)
+            .body(&payload.body)
+            .app_id(&app.config().identifier)
+            .auto_icon();
+        notification.show().map_err(|error| error.to_string())?;
+        Ok(())
     }
 
-    if let Some(tag) = payload.tag.filter(|value| !value.trim().is_empty()) {
-        builder = builder.group(tag);
-    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut builder = app
+            .notification()
+            .builder()
+            .title(payload.title)
+            .body(payload.body)
+            .auto_cancel();
 
-    builder.show()
+        #[cfg(target_os = "android")]
+        {
+            builder = builder.channel_id(NOTIFICATION_CHANNEL_ID);
+        }
+
+        if let Some(tag) = payload.tag.filter(|value| !value.trim().is_empty()) {
+            builder = builder.group(tag);
+        }
+
+        builder.show().map_err(|error| error.to_string())
+    }
+}
+
+#[cfg(target_os = "windows")]
+/// Registers the unpackaged development build so Windows attributes toasts to BAAS.
+fn register_windows_identity<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let key_path = format!(
+        r"SOFTWARE\Classes\AppUserModelId\{}",
+        app.config().identifier
+    );
+    let key = windows_registry::CURRENT_USER
+        .create(key_path)
+        .map_err(|error| error.to_string())?;
+    key.set_string("DisplayName", "Blue Archive Auto Script")
+        .map_err(|error| error.to_string())?;
+    key.set_string("IconBackgroundColor", "0")
+        .map_err(|error| error.to_string())
 }
 
 /// Requests notification permission when the platform requires it and reports whether sending is allowed.

@@ -1,3 +1,4 @@
+use crate::system_logs::system_log;
 use baas_shortcut::{
     apply_shortcut_bindings, ShortcutBindingRequest, ShortcutRegistrationReport, ShortcutRegistry,
 };
@@ -22,7 +23,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, Webview};
 use tokio::{task::JoinSet, time};
 
 const STORAGE_FILE_NAME: &str = ".app_storage.json";
@@ -190,16 +191,26 @@ pub fn shortcut_apply_bindings(
     registry: State<'_, ShortcutRegistry>,
     bindings: Vec<ShortcutBindingRequest>,
 ) -> Result<ShortcutRegistrationReport, String> {
+    system_log(
+        "DEBUG",
+        "shortcut",
+        format!(
+            "Shortcut bindings update requested count={}",
+            bindings.len()
+        ),
+    );
     apply_shortcut_bindings(app, &registry, bindings)
 }
 
 /// Performs the open main devtools operation.
 #[tauri::command]
-pub fn open_main_devtools(app: AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
-    window.open_devtools();
+pub fn open_main_devtools(webview: Webview) -> Result<(), String> {
+    system_log(
+        "WARNING",
+        "devtools",
+        format!("WebView DevTools requested label={}", webview.label()),
+    );
+    webview.open_devtools();
     Ok(())
 }
 
@@ -208,6 +219,14 @@ pub fn android_prepare_scrcpy_virtual_display(
     app: AppHandle,
     request: AndroidScrcpyVirtualDisplayRequest,
 ) -> Result<AndroidScrcpyVirtualDisplayReport, String> {
+    system_log(
+        "INFO",
+        "android_display",
+        format!(
+            "Virtual display preparation requested serial={:?}",
+            request.serial
+        ),
+    );
     let serial = normalized_adb_serial(request.serial.as_deref())?;
     let width = request.width.unwrap_or(1280);
     let height = request.height.unwrap_or(720);
@@ -285,6 +304,11 @@ pub fn android_cleanup_scrcpy_virtual_display(
     app: AppHandle,
     serial: Option<String>,
 ) -> Result<(), String> {
+    system_log(
+        "INFO",
+        "android_display",
+        format!("Virtual display cleanup requested serial={serial:?}"),
+    );
     let serial = normalized_adb_serial(serial.as_deref())?;
     let mut log = Vec::new();
     let _ = adb_output(
@@ -322,6 +346,11 @@ pub fn android_scrcpy_virtual_display_status(
     app: AppHandle,
     serial: Option<String>,
 ) -> Result<AndroidScrcpyVirtualDisplayStatus, String> {
+    system_log(
+        "DEBUG",
+        "android_display",
+        format!("Virtual display status requested serial={serial:?}"),
+    );
     let serial = normalized_adb_serial(serial.as_deref())?;
     let mut log = Vec::new();
     let manager = ensure_default_config(&app)?;
@@ -335,7 +364,13 @@ pub fn android_scrcpy_virtual_display_status(
         .and_then(|value| value.trim().parse::<u32>().ok());
     let setting = adb_output(
         &serial,
-        &["shell", "settings", "get", "global", "overlay_display_devices"],
+        &[
+            "shell",
+            "settings",
+            "get",
+            "global",
+            "overlay_display_devices",
+        ],
         &mut log,
     )
     .map(|value| value.trim().to_string())?;
@@ -370,12 +405,18 @@ pub fn android_scrcpy_virtual_display_status(
 /// where the install root was lost but the frontend still has a cached path.
 #[tauri::command]
 pub fn updater_path_exists_non_empty(path: PathBuf) -> bool {
+    system_log(
+        "DEBUG",
+        "storage",
+        format!("Install path probe path={}", path.display()),
+    );
     path_exists_non_empty(&path)
 }
 
 /// Performs the updater get storage state operation.
 #[tauri::command]
 pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
+    system_log("DEBUG", "storage", "Frontend storage state requested");
     let portable = is_portable_install();
     let storage_file_path = storage_file_path(&app, portable)?;
     Ok(StorageStartupState {
@@ -405,6 +446,11 @@ impl BackendProcessManager {
     /// Performs the stop for config operation.
     pub fn stop_for_config(&self, config: &UpdaterConfig) -> Result<(), String> {
         let pid_file = backend_pid_path(config);
+        system_log(
+            "DEBUG",
+            "backend_process",
+            format!("Stopping backend for pid_file={}", pid_file.display()),
+        );
         self.remember_pid_file(pid_file.clone())?;
         stop_backend_pid_file(&pid_file)
     }
@@ -417,6 +463,11 @@ impl BackendProcessManager {
             .map_err(|_| "backend pid-file lock poisoned")?
             .clone();
         for pid_file in pid_files {
+            system_log(
+                "DEBUG",
+                "backend_process",
+                format!("Stopping managed backend pid_file={}", pid_file.display()),
+            );
             stop_backend_pid_file(&pid_file)?;
         }
         Ok(())
@@ -445,6 +496,7 @@ impl Drop for BackendProcessManager {
 /// Performs the updater get startup state operation.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, String> {
+    system_log("DEBUG", "updater", "Updater startup state requested");
     let portable = is_portable_install();
     let default_install_path = default_install_path();
     let stored_install_path = if portable {
@@ -478,6 +530,21 @@ pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
 ) -> Result<UpdaterConfig, String> {
+    system_log(
+        "INFO",
+        "updater",
+        format!(
+            "Updater config change requested channel={:?} no_update={:?} git_backend={:?} cdk_present={}",
+            request.channel,
+            request.no_update,
+            request.git_backend,
+            request
+                .mirrorc_cdk
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty())
+        ),
+    );
     let portable = is_portable_install();
     let request_baas_root_path = if portable {
         Some(PathBuf::from("."))
@@ -524,6 +591,14 @@ pub fn updater_validate_mirrorc_cdk(
     app: AppHandle,
     request: MirrorCValidateRequest,
 ) -> Result<MirrorCValidateReport, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        format!(
+            "MirrorC validation requested cdk_present={}",
+            !request.cdk.trim().is_empty()
+        ),
+    );
     let cdk = request.cdk.trim().to_string();
     let channel = match request.channel.as_deref() {
         Some(value) => UpdateChannel::parse(value).map_err(|error| error.message())?,
@@ -581,6 +656,11 @@ pub fn updater_validate_mirrorc_cdk(
 pub fn tauri_client_check_update(
     request: TauriClientUpdateRequest,
 ) -> Result<serde_json::Value, String> {
+    system_log(
+        "DEBUG",
+        "client_update",
+        "Tauri client update check requested",
+    );
     let _ = request.current_version;
     Err("Desktop client updates are handled by tauri-plugin-updater.".to_string())
 }
@@ -591,6 +671,14 @@ pub fn updater_check_version(
     app: AppHandle,
     request: UpdaterVersionCheckRequest,
 ) -> Result<UpdaterVersionCheckReport, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        format!(
+            "Backend version check requested channel={:?}",
+            request.channel
+        ),
+    );
     let manager = ensure_default_config(&app)?;
     let channel =
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
@@ -612,6 +700,14 @@ pub async fn updater_test_sha_methods(
     app: AppHandle,
     request: UpdaterShaTestRequest,
 ) -> Result<Vec<UpdaterShaTestReport>, String> {
+    system_log(
+        "INFO",
+        "updater",
+        format!(
+            "All SHA connectivity tests requested channel={:?}",
+            request.channel
+        ),
+    );
     let manager = ensure_default_config(&app)?;
     let channel =
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
@@ -636,6 +732,11 @@ pub async fn updater_test_sha_method(
     app: AppHandle,
     request: UpdaterSingleShaTestRequest,
 ) -> Result<UpdaterShaTestReport, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        format!("SHA connectivity test requested method={}", request.method),
+    );
     let manager = ensure_default_config(&app)?;
     let channel =
         parse_requested_channel(request.channel.as_deref(), manager.config.general.channel)?;
@@ -659,6 +760,14 @@ pub fn updater_start_workflow(
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
 ) -> Result<SessionMetadata, String> {
+    system_log(
+        "INFO",
+        "updater",
+        format!(
+            "Updater workflow requested install_path={:?} launch={:?}",
+            request.install_path, request.launch
+        ),
+    );
     let portable = is_portable_install();
     let initial_config_manager = ensure_default_config(&app)?;
     let install_path = request
@@ -702,6 +811,11 @@ pub fn updater_reset_backend_auth_and_restart(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
 ) -> Result<BackendReadyPayload, String> {
+    system_log(
+        "WARNING",
+        "backend_auth",
+        "Backend authentication reset requested",
+    );
     let manager = ensure_default_config(&app)?;
     backend.stop_for_config(&manager.config)?;
     thread::sleep(Duration::from_millis(300));
@@ -711,6 +825,11 @@ pub fn updater_reset_backend_auth_and_restart(
     start_backend_detached(&manager.config, port)?;
     backend.remember_config(&manager.config)?;
     wait_for_backend_auth_endpoint(port)?;
+    system_log(
+        "INFO",
+        "backend_process",
+        format!("Backend restarted and ready port={port}"),
+    );
 
     Ok(BackendReadyPayload {
         base_backend_addr: "127.0.0.1".to_string(),
@@ -724,6 +843,7 @@ pub fn updater_abort_workflow(
     request: Option<WorkflowAbortRequest>,
     manager: State<'_, UpdaterTermManager>,
 ) -> Result<WorkflowAbortReport, String> {
+    system_log("WARNING", "updater", "Updater workflow abort requested");
     manager.abort(request.unwrap_or_default())
 }
 
@@ -732,6 +852,11 @@ pub fn updater_abort_workflow(
 pub fn updater_terminal_snapshot(
     manager: State<'_, UpdaterTermManager>,
 ) -> Result<TerminalSnapshot, String> {
+    system_log(
+        "TRACE",
+        "updater_terminal",
+        "Updater terminal snapshot requested",
+    );
     manager.snapshot()
 }
 
@@ -742,6 +867,11 @@ pub fn updater_resize_term(
     rows: u16,
     cols: u16,
 ) -> Result<(), String> {
+    system_log(
+        "DEBUG",
+        "updater_terminal",
+        "Updater terminal resize requested",
+    );
     manager.resize(rows, cols)
 }
 
@@ -1172,12 +1302,13 @@ fn invalid_config_backup_path(config_path: &Path) -> PathBuf {
 
 /// Moves a malformed setup.toml aside while preserving its contents.
 fn backup_invalid_config(config_path: &Path, backup_path: &Path) -> Result<(), String> {
-    fs::rename(config_path, backup_path).or_else(|_| {
-        fs::copy(config_path, backup_path)?;
-        fs::remove_file(config_path)
-    })
-    .map_err(|error| error.to_string())
-    .map(|_| ())
+    fs::rename(config_path, backup_path)
+        .or_else(|_| {
+            fs::copy(config_path, backup_path)?;
+            fs::remove_file(config_path)
+        })
+        .map_err(|error| error.to_string())
+        .map(|_| ())
 }
 
 /// Performs the startup install path operation.
@@ -1369,6 +1500,16 @@ fn available_backend_port() -> Result<u16, String> {
 /// Performs the start backend detached operation.
 fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
     let command = launch_backend_command(config, port);
+    system_log(
+        "INFO",
+        "backend_process",
+        format!(
+            "Starting backend program={} args={:?} cwd={:?} port={port}",
+            command.program.display(),
+            command.args,
+            command.cwd
+        ),
+    );
     let mut process = Command::new(&command.program);
     process.args(&command.args);
     if let Some(cwd) = &command.cwd {
@@ -1391,6 +1532,15 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
     fs::write(&pid_file, child.id().to_string()).map_err(|error| error.to_string())?;
+    system_log(
+        "INFO",
+        "backend_process",
+        format!(
+            "Backend process spawned pid={} pid_file={}",
+            child.id(),
+            pid_file.display()
+        ),
+    );
     Ok(())
 }
 

@@ -1,3 +1,4 @@
+use crate::system_logs::system_log;
 use baas_updater::{
     android::{
         android_repository_local_sha, android_repository_remote_sha, AndroidTerminalSnapshot,
@@ -185,6 +186,14 @@ pub async fn android_prepare_scrcpy_virtual_display(
     app: AppHandle,
     request: AndroidScrcpyVirtualDisplayRequest,
 ) -> Result<Value, String> {
+    system_log(
+        "INFO",
+        "android_display",
+        format!(
+            "Android virtual display preparation requested serial={:?}",
+            request.serial
+        ),
+    );
     tauri::async_runtime::spawn_blocking(move || {
         android_prepare_scrcpy_virtual_display_blocking(app, request)
     })
@@ -254,6 +263,11 @@ pub async fn android_cleanup_scrcpy_virtual_display(
     app: AppHandle,
     serial: Option<String>,
 ) -> Result<(), String> {
+    system_log(
+        "INFO",
+        "android_display",
+        format!("Android virtual display cleanup requested serial={serial:?}"),
+    );
     tauri::async_runtime::spawn_blocking(move || {
         android_cleanup_scrcpy_virtual_display_blocking(app, serial)
     })
@@ -266,6 +280,11 @@ pub async fn android_scrcpy_virtual_display_status(
     app: AppHandle,
     serial: Option<String>,
 ) -> Result<Value, String> {
+    system_log(
+        "DEBUG",
+        "android_display",
+        format!("Android virtual display status requested serial={serial:?}"),
+    );
     tauri::async_runtime::spawn_blocking(move || {
         android_scrcpy_virtual_display_status_blocking(app, serial)
     })
@@ -389,7 +408,13 @@ fn android_scrcpy_virtual_display_status_blocking(
         marker_display_id,
         &mut log,
         |command, log| {
-            adb_direct_shell_with_timeout(&serial, command, log, auth_dir, ANDROID_ADBD_FAST_TIMEOUT)
+            adb_direct_shell_with_timeout(
+                &serial,
+                command,
+                log,
+                auth_dir,
+                ANDROID_ADBD_FAST_TIMEOUT,
+            )
         },
     ) {
         return Ok(json!(status));
@@ -418,11 +443,7 @@ fn android_scrcpy_virtual_display_status_blocking(
             marker_display_id,
             &mut log,
             |command, log| {
-                run_command(
-                    &adb_path_for_shell,
-                    &["-s", &serial, "shell", command],
-                    log,
-                )
+                run_command(&adb_path_for_shell, &["-s", &serial, "shell", command], log)
             },
         ) {
             return Ok(json!(status));
@@ -443,6 +464,11 @@ fn android_scrcpy_virtual_display_status_blocking(
 /// Performs the updater get storage state operation.
 #[tauri::command]
 pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, String> {
+    system_log(
+        "DEBUG",
+        "storage",
+        "Android frontend storage state requested",
+    );
     let storage_file_path = android_storage_root(&app)?.join(".app_storage.json");
     Ok(StorageStartupState {
         store_path: storage_file_path.clone(),
@@ -1846,6 +1872,11 @@ fn format_adb_read_error(part: &str, error: std::io::Error) -> String {
 /// Performs the updater get startup state operation.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        "Android updater startup state requested",
+    );
     let root = android_storage_root(&app)?;
     let config_path = root.join("setup.toml");
     Ok(json!({
@@ -1866,6 +1897,20 @@ pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
 ) -> Result<Value, String> {
+    system_log(
+        "INFO",
+        "updater",
+        format!(
+            "Android updater config change requested channel={:?} no_update={:?} cdk_present={}",
+            request.channel,
+            request.no_update,
+            request
+                .mirrorc_cdk
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty())
+        ),
+    );
     let root = android_storage_root(&app)?;
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
     let setup_path = root.join("setup.toml");
@@ -1974,6 +2019,14 @@ pub fn updater_check_version(
     app: AppHandle,
     request: UpdaterVersionCheckRequest,
 ) -> Result<Value, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        format!(
+            "Android backend version check requested channel={:?}",
+            request.channel
+        ),
+    );
     let root = android_storage_root(&app)?;
     let setup_path = ensure_android_setup_toml(&root)?;
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
@@ -1999,6 +2052,11 @@ pub async fn updater_test_sha_methods(
     app: AppHandle,
     request: UpdaterShaTestRequest,
 ) -> Result<Value, String> {
+    system_log(
+        "INFO",
+        "updater",
+        "Android SHA connectivity tests requested",
+    );
     let root = android_storage_root(&app)?;
     let setup_path = ensure_android_setup_toml(&root)?;
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
@@ -2029,6 +2087,14 @@ pub async fn updater_test_sha_method(
     app: AppHandle,
     request: UpdaterSingleShaTestRequest,
 ) -> Result<Value, String> {
+    system_log(
+        "DEBUG",
+        "updater",
+        format!(
+            "Android SHA connectivity test requested method={}",
+            request.method
+        ),
+    );
     let root = android_storage_root(&app)?;
     let setup_path = ensure_android_setup_toml(&root)?;
     let channel = android_requested_channel(request.channel.as_deref(), &setup_path)?;
@@ -2050,6 +2116,14 @@ pub fn updater_start_workflow(
     request: UpdaterWorkflowRequest,
     manager: State<'_, AndroidUpdaterTermManager>,
 ) -> Result<Value, String> {
+    system_log(
+        "INFO",
+        "updater",
+        format!(
+            "Android updater workflow requested launch={:?}",
+            request.launch
+        ),
+    );
     let root = android_storage_root(&app)?;
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
     let setup_path = ensure_android_setup_toml(&root)?;
@@ -2071,6 +2145,11 @@ pub fn updater_start_workflow(
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
 pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
+    system_log(
+        "WARNING",
+        "backend_auth",
+        "Android backend authentication reset requested",
+    );
     restart_android_backend_service()?;
     Ok(json!({
         "base_backend_addr": "127.0.0.1",

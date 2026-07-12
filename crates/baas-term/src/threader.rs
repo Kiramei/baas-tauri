@@ -18,7 +18,8 @@ use std::{
 
 use crate::constants::{
     ANSI_CLEAR_LINE, ANSI_RESET, DEFAULT_TASK_STEP_TOTAL, PROGRESS_PERCENT_MAX, STATUS_FAILED,
-    STATUS_STOPPED, STATUS_SUCCESS, THREAD_PROGRESS_LABEL_WIDTH, THREAD_SPINNER_TICK_MS,
+    STATUS_SKIPPED, STATUS_STOPPED, STATUS_SUCCESS, THREAD_PROGRESS_LABEL_WIDTH,
+    THREAD_SPINNER_TICK_MS,
 };
 use crate::types::{RendererEvent, TaskCompletion, TaskHandle, TaskSpec, TermState};
 
@@ -71,6 +72,15 @@ pub fn create_thread_task_with_total(
     }
 }
 
+/// Successful terminal state returned by an in-process task.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ThreadTaskOutcome {
+    /// The task performed its intended work.
+    Success,
+    /// Workflow conditions intentionally omitted the task.
+    Skipped,
+}
+
 /// Spawns a thread task and forwards its output to the term renderer.
 ///
 /// `spec` defines the dashboard task metadata, `args` is moved into the worker
@@ -88,6 +98,33 @@ pub fn spawn_thread_task<F, A>(
 ) -> Result<(), String>
 where
     F: FnOnce(ThreadOutput, Arc<AtomicBool>, A) -> Result<(), String> + Send + 'static,
+    A: Send + 'static,
+{
+    spawn_thread_task_with_outcome(
+        inner,
+        session_id,
+        spec,
+        renderer_tx,
+        completion_tx,
+        args,
+        move |output, cancel, args| job(output, cancel, args).map(|()| ThreadTaskOutcome::Success),
+    )
+}
+
+/// Spawns a thread task whose successful result may be completed or skipped.
+pub fn spawn_thread_task_with_outcome<F, A>(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    spec: TaskSpec,
+    renderer_tx: &Sender<RendererEvent>,
+    completion_tx: &Sender<TaskCompletion>,
+    args: A,
+    job: F,
+) -> Result<(), String>
+where
+    F: FnOnce(ThreadOutput, Arc<AtomicBool>, A) -> Result<ThreadTaskOutcome, String>
+        + Send
+        + 'static,
     A: Send + 'static,
 {
     {
@@ -135,11 +172,12 @@ where
             (STATUS_STOPPED.to_string(), None)
         } else {
             match result {
-                Ok(()) => (STATUS_SUCCESS.to_string(), None),
+                Ok(ThreadTaskOutcome::Success) => (STATUS_SUCCESS.to_string(), None),
+                Ok(ThreadTaskOutcome::Skipped) => (STATUS_SKIPPED.to_string(), None),
                 Err(error) => (STATUS_FAILED.to_string(), Some(error)),
             }
         };
-        let success = status == STATUS_SUCCESS;
+        let success = status == STATUS_SUCCESS || status == STATUS_SKIPPED;
 
         let _ = thread_tx.send(RendererEvent::TaskFinished {
             task_id: thread_task_id.clone(),
@@ -959,6 +997,40 @@ mod tests {
         assert!(inner.lock().unwrap().tasks.is_empty());
         let (status, error) = recv_finished(&renderer_rx);
         assert_eq!(status, "success");
+        assert_eq!(error, None);
+    }
+
+    /// A skipped task completes workflow dependencies without reporting success work.
+    #[test]
+    fn spawn_thread_task_reports_skipped_outcome() {
+        let inner = active_state();
+        let (renderer_tx, renderer_rx) = mpsc::channel();
+        let (completion_tx, completion_rx) = mpsc::channel();
+        let spec = create_thread_task("task", "region", 1, "Thread", "thread");
+
+        spawn_thread_task_with_outcome(
+            &inner,
+            "session",
+            spec,
+            &renderer_tx,
+            &completion_tx,
+            (),
+            |_output, _cancel, ()| Ok(ThreadTaskOutcome::Skipped),
+        )
+        .unwrap();
+
+        assert!(matches!(
+            renderer_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            RendererEvent::TaskStarted(_)
+        ));
+        assert!(
+            completion_rx
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .success
+        );
+        let (status, error) = recv_finished(&renderer_rx);
+        assert_eq!(status, "skipped");
         assert_eq!(error, None);
     }
 

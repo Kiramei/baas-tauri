@@ -263,9 +263,11 @@ version = "0.0.6"
 name = "baas-notifier"
 version = "0.0.6"
 dependencies = [
+ "notify-rust",
  "serde",
  "tauri",
  "tauri-plugin-notification",
+ "windows-registry",
 ]
 
 [[package]]
