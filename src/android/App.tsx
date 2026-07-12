@@ -2,8 +2,8 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import { PageKey } from "@/types/app";
-import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
-import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
+import i18n from "@/shared/I18nTranslator.ts";
+import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LoadingPage from "@/pages/LoadingPage";
 
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
@@ -44,17 +44,6 @@ const instanceKeyOf = (page: PageKey, pid?: string) =>
     ? `${page}:${pid ?? "none"}`
     : page;
 
-/**
- * Extracts the page identifier and profile id from a composite key.
- */
-const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
-  if (k.includes(":")) {
-    const [p, pid] = k.split(":");
-    return [p as PageKey, pid];
-  }
-  return [k as PageKey, undefined];
-};
-
 /** Renders a lightweight in-page loading surface while route chunks are fetched. */
 const PageLoadingFallback: React.FC = () => (
   <div className="flex h-full min-h-60 items-center justify-center">
@@ -66,22 +55,8 @@ const PageLoadingFallback: React.FC = () => (
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
-
-  if (!activeProfile) {
-    return <MainLayout activePage={activePage} setActivePage={setActivePage}>{null}</MainLayout>;
-  }
-
-  const activePid = activeProfile.id;
+  const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
-
-  const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
-
-  // Track every page/profile combination that has been rendered so components keep their local state.
-  React.useEffect(() => {
-    setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [currentKey]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -103,33 +78,22 @@ const Main: React.FC = () => {
     }
   }, []);
 
-  const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
+  if (!activeProfile || !activePid) {
+    return (
+      <MainLayout activePage={activePage} setActivePage={setActivePage}>
+        {null}
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        {renderedKeys.map((instKey) => {
-          const [page, pid] = parseInstanceKey(instKey);
-          const isActive = instKey === currentKey;
-          return (
-            <div
-              key={instKey}
-              className="absolute inset-0 overflow-y-auto scroll-embedded pr-2"
-              style={{
-                opacity: isActive ? 1 : 0,
-                pointerEvents: isActive ? "auto" : "none",
-                transform: isActive || lowPerformanceMode ? "none" : "translateX(-24px)",
-                transition: lowPerformanceMode
-                  ? "none"
-                  : "opacity 200ms ease-out, transform 200ms ease-out",
-                visibility: isActive ? "visible" : "hidden",
-              }}
-              aria-hidden={!isActive}
-            >
-              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, pid ?? activePid)}</Suspense>
-            </div>
-          );
-        })}
+        <div key={currentKey} className="absolute inset-0 overflow-y-auto scroll-embedded pr-2">
+          <Suspense fallback={<PageLoadingFallback />}>
+            {renderPage(activePage, activePid)}
+          </Suspense>
+        </div>
       </div>
     </MainLayout>
   );
@@ -149,8 +113,8 @@ const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const enableBAComet = useUISetting((settings) => settings.enableBAComet);
 
   useEffect(() => {
     if (ready) {
@@ -205,7 +169,7 @@ const WrappedApp: React.FC = () => {
           {hasReadyOnce && (
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
-                {uiSettings.enableBAComet && !lowPerformanceMode && <BAComet />}
+                {enableBAComet && !lowPerformanceMode && <BAComet />}
                 <GlobalContextMenu />
                 <GlobalAppearanceEffects />
                 {__WITH_TAURI__ && !__WITH_ANDROID__ && <TauriScriptNotifier />}
@@ -234,10 +198,6 @@ const App: React.FC = () => {
     return () => {
       i18n.off("languageChanged", onLangChange);
     };
-  }, []);
-
-  useEffect(() => {
-    loadLocale(i18n.language || "en").then(undefined);
   }, []);
 
   const isWebWikiWindow =

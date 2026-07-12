@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Clipboard,
@@ -83,6 +83,7 @@ export const SystemLogSettings: React.FC = () => {
   const [source, setSource] = useState<"all" | SystemLogSource>("all");
   const [level, setLevel] = useState<"all" | SystemLogLevel>("all");
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [followTail, setFollowTail] = useState(true);
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
@@ -109,7 +110,7 @@ export const SystemLogSettings: React.FC = () => {
   }, [autoRefresh, open, refresh]);
 
   const filteredEntries = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = deferredQuery.trim().toLowerCase();
     return collection.entries.filter((entry) => {
       if (source !== "all" && entry.source !== source) return false;
       if (level !== "all" && entry.level !== level) return false;
@@ -120,7 +121,7 @@ export const SystemLogSettings: React.FC = () => {
         .toLowerCase()
         .includes(normalizedQuery);
     });
-  }, [collection.entries, level, query, source]);
+  }, [collection.entries, deferredQuery, level, source]);
 
   useEffect(() => {
     if (!followTail || !open) return;
@@ -330,7 +331,7 @@ export const SystemLogSettings: React.FC = () => {
                   return (
                     <details
                       key={`${entry.source}-${entry.timestampMs}-${index}`}
-                      className="group border-b border-slate-800/80 px-2 py-1 hover:bg-slate-900/80"
+                      className="group border-b border-slate-800/80 px-2 py-1 hover:bg-slate-900/80 [content-visibility:auto] [contain-intrinsic-size:auto_28px]"
                     >
                       <summary className="grid cursor-default list-none grid-cols-[190px_72px_72px_minmax(130px,220px)_minmax(360px,1fr)] gap-2 whitespace-pre-wrap">
                         <span className="text-slate-500">{formatTimestamp(entry.timestampMs)}</span>

@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import PasswordInputModal from "@/components/PasswordInputModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 const reconnectingMessages: Record<string, string> = {
   idle: "Opening secure control channel...",
@@ -23,8 +23,7 @@ const ReconnectingOverlay: React.FC = () => {
   const serverVerified = useWebSocketStore((state) => state._server_verified);
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const requiresPassword =
     authPhase === "server_verified" ||
     authPhase === "waiting_password" ||

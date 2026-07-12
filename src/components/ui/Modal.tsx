@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,10 +22,10 @@ export const Modal: React.FC<ModalProps> = ({
   titleNode = undefined,
   width = 40,
 }) => {
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   useEffect(() => {
+    if (!isOpen) return;
     /** Handles the handle esc interaction. */
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -36,7 +36,7 @@ export const Modal: React.FC<ModalProps> = ({
     return () => {
       window.removeEventListener("keydown", handleEsc);
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

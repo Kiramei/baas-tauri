@@ -1,13 +1,13 @@
 import { Reorder } from "framer-motion";
 import { Plus, X } from "lucide-react";
-import React, { useMemo, useState } from "react";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import React, { useDeferredValue, useMemo, useState } from "react";
+import { cn } from "@/shared/cn";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { eventNameKey } from "@/shared/I18nKeys";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface MultiSelectorProps {
   label?: string;
@@ -59,6 +59,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
@@ -66,9 +67,9 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      translateName(s.toString()).toString().toLowerCase().includes(query.toLowerCase())
+      translateName(s.toString()).toString().toLowerCase().includes(deferredQuery.toLowerCase())
     );
-  }, [query, alternatives]);
+  }, [alternatives, deferredQuery]);
 
   /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
@@ -137,8 +138,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;

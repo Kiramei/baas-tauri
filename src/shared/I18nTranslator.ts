@@ -55,7 +55,7 @@ export async function initI18n() {
     interpolation: { escapeValue: false },
   });
 
-  void syncBackendLocale(lang);
+  await loadLocale(lang);
 
   console.log("[i18n] initialized");
 }

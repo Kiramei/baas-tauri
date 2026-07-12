@@ -828,11 +828,10 @@ export const useWebSocketStore = create<WebSocketState>()(
           const data = message.status;
           if (typeof data === "string" || !data) return;
           if ("is_all_data_initialized" in data) {
-            set((state) => ({ ...state, _all_data_initialized: true }));
+            set({ _all_data_initialized: true });
           } else if ("version" in data) {
             const version = (data as any).version;
             set((state) => ({
-              ...state,
               versionStore: {
                 ...state.versionStore,
                 local: version.local,
@@ -845,16 +844,15 @@ export const useWebSocketStore = create<WebSocketState>()(
           } else {
             const firstKey = Object.keys(data)[0];
             if (typeof data[firstKey] === "object" && "config_id" in data[firstKey]) {
-              Object.keys(data).forEach((key) => {
-                set((state) => ({
-                  statusStore: {
-                    ...state.statusStore,
-                    [key]: {
-                      ...(state.statusStore[key] ?? {}),
-                      ...(data[key] as StatusItem),
-                    },
-                  },
-                }));
+              set((state) => {
+                const statusStore = { ...state.statusStore };
+                Object.keys(data).forEach((key) => {
+                  statusStore[key] = {
+                    ...(statusStore[key] ?? {}),
+                    ...(data[key] as StatusItem),
+                  };
+                });
+                return { statusStore };
               });
             } else {
               set((state) => ({
@@ -1186,7 +1184,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           (status) => status
         );
       } finally {
-        set((state) => ({ ...state, _initiating: false }));
+        set({ _initiating: false });
       }
     },
 
@@ -1234,7 +1232,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         if (resourceId === "global") {
           return {
-            ...state,
             [storeKey]: {
               ...store,
               ...base,
@@ -1243,7 +1240,6 @@ export const useWebSocketStore = create<WebSocketState>()(
         }
 
         return {
-          ...state,
           [storeKey]: {
             ...store,
             [resourceId]: base,

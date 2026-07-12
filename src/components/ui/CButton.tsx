@@ -1,5 +1,5 @@
 import React from "react";
-import { cn } from "@/shared/GlobalUtilities";
+import { cn } from "@/shared/cn";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;

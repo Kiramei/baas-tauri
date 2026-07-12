@@ -13,7 +13,7 @@ import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type Channel = "stable" | "dev";
 
@@ -67,8 +67,7 @@ const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
   const [validating, setValidating] = useState(false);
   const [cdkStatus, setCdkStatus] = useState<MirrorCStatus | null>(null);

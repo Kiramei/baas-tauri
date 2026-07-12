@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 import { useApp } from "@/context/AppContext";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { ProfileProps } from "@/types/app";
 import WhiteListConfig from "@/features/WhiteListConfig.tsx";
 import ArtifactConfig from "@/features/ArtifactConfig.tsx";
@@ -155,8 +155,7 @@ const MotionCard: React.FC<
 const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   const pid = profileId ?? activeProfile?.id;
   /** Handles the profile workflow. */

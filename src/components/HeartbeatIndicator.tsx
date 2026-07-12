@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useTranslation } from "react-i18next";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface IndicatorProps {
   onStateChanged: (state: boolean) => void;
@@ -54,8 +54,7 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
 const HeartbeatIndicator = () => {
   const { t } = useTranslation();
   const [connected, setConnected] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const textColor = connected ? "var(--color-primary-400)" : "var(--color-slate-400)";
 
   return (

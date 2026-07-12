@@ -10,7 +10,7 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
 import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
 import { scheduleLevelKey } from "@/shared/I18nKeys";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -32,8 +32,7 @@ const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced
 /** Renders the lesson config component. */
 const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const settings: Partial<DynamicConfig> = useWebSocketStore(
     (state) => state.configStore[profileId!]
   );

@@ -17,7 +17,7 @@ import { Modal } from "@/components/ui/Modal.tsx";
 import { t } from "i18next";
 import { BTN_FUNC_MAP, StreamClientScrcpy, WSMiddleware } from "./remote/StreamClientScrcpy";
 import { BasePlayer, QualityParsed } from "./remote/player/BasePlayer";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { VideoSettings } from "@/components/remote/CommonUtil.ts";
 import { Size } from "@/components/remote/GeometryInfo.ts";
 import {
@@ -101,14 +101,15 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   /**
    * Get the RemoteSettings from Hook. And the specific settings.
    */
-  const { uiSettings, setUiSettings } = useUISettings();
-  const { connectRemote } = useWebSocketStore();
-  const [showStatus, setShowStatus] = useState<boolean>(uiSettings.remoteSettings.showStatus);
-  const [maxWidth, setMaxWidth] = useState<number>(uiSettings.remoteSettings.maxWidth);
-  const [maxHeight, setMaxHeight] = useState<number>(uiSettings.remoteSettings.maxHeight);
-  const [maxFPS, setMaxFPS] = useState<number>(uiSettings.remoteSettings.maxFPS);
-  const [iFrameRate, setIFrameRate] = useState<number>(uiSettings.remoteSettings.iFrameRate);
-  const [bitRate, setBitRate] = useState<number>(uiSettings.remoteSettings.bitRate);
+  const remoteSettings = useUISetting((settings) => settings.remoteSettings);
+  const setUiSettings = useSetUISettings();
+  const connectRemote = useWebSocketStore((state) => state.connectRemote);
+  const [showStatus, setShowStatus] = useState<boolean>(remoteSettings.showStatus);
+  const [maxWidth, setMaxWidth] = useState<number>(remoteSettings.maxWidth);
+  const [maxHeight, setMaxHeight] = useState<number>(remoteSettings.maxHeight);
+  const [maxFPS, setMaxFPS] = useState<number>(remoteSettings.maxFPS);
+  const [iFrameRate, setIFrameRate] = useState<number>(remoteSettings.iFrameRate);
+  const [bitRate, setBitRate] = useState<number>(remoteSettings.bitRate);
   const [quality, setQuality] = useState<QualityParsed>({
     padAvgDecoded: "",
     padAvgDropped: "",
@@ -135,10 +136,10 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   const constructVideoSetting: () => VideoSettings = () => {
     return new VideoSettings({
       lockedVideoOrientation: -1,
-      bounds: new Size(uiSettings.remoteSettings.maxWidth, uiSettings.remoteSettings.maxHeight),
-      maxFps: uiSettings.remoteSettings.maxFPS,
-      bitrate: uiSettings.remoteSettings.bitRate,
-      iFrameInterval: uiSettings.remoteSettings.iFrameRate,
+      bounds: new Size(remoteSettings.maxWidth, remoteSettings.maxHeight),
+      maxFps: remoteSettings.maxFPS,
+      bitrate: remoteSettings.bitRate,
+      iFrameInterval: remoteSettings.iFrameRate,
       sendFrameMeta: false,
     });
   };
@@ -177,17 +178,17 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
   /** Performs the save settings operation. */
   const saveSettings = () => {
-    setUiSettings({
-      ...uiSettings,
+    setUiSettings((settings) => ({
+      ...settings,
       remoteSettings: {
-        ...uiSettings.remoteSettings,
+        ...settings.remoteSettings,
         maxWidth: maxWidth,
         maxHeight: maxHeight,
         maxFPS: maxFPS,
         bitRate: bitRate,
         iFrameRate: iFrameRate,
       },
-    });
+    }));
     const videoSetting = constructVideoSetting();
     scrcpyClientRef.current!.setRequestedVideoSettings(videoSetting);
     const commandMsg = CommandControlMessage.createSetVideoSettingsCommand(videoSetting);
@@ -197,13 +198,13 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   /** Performs the toggle show status operation. */
   const toggleShowStatus = (value: boolean) => {
     setShowStatus(value);
-    setUiSettings({
-      ...uiSettings,
+    setUiSettings((settings) => ({
+      ...settings,
       remoteSettings: {
-        ...uiSettings.remoteSettings,
+        ...settings.remoteSettings,
         showStatus: value,
       },
-    });
+    }));
     playerRef.current?.setShowQualityStats(value);
   };
 
@@ -379,7 +380,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
             wsm.dispatchEvent("message", new MessageEvent("message", { data: buffer }));
           },
           false,
-          uiSettings.remoteSettings.enableSafeStream
+          remoteSettings.enableSafeStream
         );
 
         if (disposed) {
@@ -389,13 +390,13 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
         ws.sendJson({
           config_id: profileId,
-          decrypt: uiSettings.remoteSettings.enableSafeStream,
+          decrypt: remoteSettings.enableSafeStream,
         });
 
         const touch = document.createElement("canvas");
         touch.className = "absolute top-0 w-full h-full block select-none z-1";
 
-        const type = uiSettings.remoteSettings.streamPlayer as PlayerType;
+        const type = remoteSettings.streamPlayer as PlayerType;
 
         const videoSettings = constructVideoSetting();
 

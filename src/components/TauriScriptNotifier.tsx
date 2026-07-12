@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 
-import { useUISettings } from "@/context/UISettingsProvider";
+import { useUISetting } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 
@@ -33,8 +33,7 @@ const isFailureExitCode = (exitCode: number | string | null | undefined) => {
 /** Emits native system notifications for Tauri-only script lifecycle events. */
 const TauriScriptNotifier: React.FC = () => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const notificationsEnabled = uiSettings.enableSystemNotifications;
+  const notificationsEnabled = useUISetting((settings) => settings.enableSystemNotifications);
   const statusStore = useWebSocketStore((state) => state.statusStore);
   const previousRef = useRef<Record<string, StatusSnapshot>>({});
   const initializedRef = useRef(false);

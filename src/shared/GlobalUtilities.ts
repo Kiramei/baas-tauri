@@ -1,11 +1,4 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { StringKVMap } from "@/types/app";
-
-/** Handles the cn workflow. */
-export const cn = (...inputs: ClassValue[]) => {
-  return twMerge(clsx(inputs));
-};
 
 /** Returns the is plain object result. */
 export const isPlainObject = (v: any) => typeof v === "object" && v !== null && !Array.isArray(v);

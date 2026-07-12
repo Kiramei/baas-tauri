@@ -5,7 +5,7 @@ import { Info, KeyRound, ShieldCheck } from "lucide-react";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 
 const overlayCls =
@@ -24,8 +24,8 @@ const PasswordInputModal: React.FC<{
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
-  const { uiSettings, setUiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const setUiSettings = useSetUISettings();
 
   useEffect(() => {
     if (!open) {

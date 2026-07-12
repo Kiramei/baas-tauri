@@ -6,9 +6,9 @@ import type { Variants } from "framer-motion";
 import { motion, MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/Sonner";
 import { PageKey } from "@/types/app";
-import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
+import i18n from "@/shared/I18nTranslator.ts";
 import BAComet from "@/components/ui/BAComet.tsx";
-import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
+import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
 import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
 import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
@@ -22,6 +22,7 @@ import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
+import PageActivity from "@/components/PageActivity";
 
 const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
 
@@ -81,22 +82,19 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
-
-  if (!activeProfile) {
-    return <MainLayout activePage={activePage} setActivePage={setActivePage}>{null}</MainLayout>;
-  }
-
-  const activePid = activeProfile.id;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
-  const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
+  const [seenKeys, setSeenKeys] = React.useState<string[]>(() =>
+    activePid ? [instanceKeyOf("home", activePid)] : []
+  );
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
+    if (!activePid) return;
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [currentKey]);
+  }, [activePid, currentKey]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -118,10 +116,20 @@ const Main: React.FC = () => {
     }
   }, []);
 
+  if (!activeProfile || !activePid) {
+    return (
+      <MainLayout activePage={activePage} setActivePage={setActivePage}>
+        {null}
+      </MainLayout>
+    );
+  }
+
+  const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
+
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        {seenKeys.map((instKey) => {
+        {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
           return (
@@ -134,7 +142,9 @@ const Main: React.FC = () => {
               style={{ pointerEvents: isActive ? "auto" : "none" }}
               aria-hidden={!isActive}
             >
-              {renderPage(page, pid ?? activePid)}
+              <PageActivity active={isActive} suspendDelayMs={lowPerformanceMode ? 0 : 200}>
+                {renderPage(page, pid ?? activePid)}
+              </PageActivity>
             </motion.div>
           );
         })}
@@ -157,8 +167,8 @@ const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const enableBAComet = useUISetting((settings) => settings.enableBAComet);
 
   useEffect(() => {
     if (ready) {
@@ -181,7 +191,7 @@ const WrappedApp: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion={lowPerformanceMode ? "always" : "never"}>
-      {uiSettings.enableBAComet && !lowPerformanceMode && <BAComet />}
+      {enableBAComet && !lowPerformanceMode && <BAComet />}
       <GlobalContextMenu />
 
       {!hideLoading && (
@@ -234,10 +244,6 @@ const App: React.FC = () => {
     return () => {
       i18n.off("languageChanged", onLangChange);
     };
-  }, []);
-
-  useEffect(() => {
-    loadLocale(i18n.language || "en").then(undefined);
   }, []);
 
   const isWebWikiWindow =

@@ -1,17 +1,15 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
-import type { ConfigProfile, UISettings } from "@/types/app";
+import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import type { ConfigProfileSummary } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
+import { useShallow } from "zustand/react/shallow";
 
 import StorageUtil from "@/shared/StorageManager.ts";
-import { DEFAULT_UI_SETTINGS } from "@/context/UISettingsProvider";
 
 interface AppContextType {
-  uiSettings: UISettings;
-  setUiSettings: React.Dispatch<React.SetStateAction<UISettings>>;
-  profiles: ConfigProfile[];
-  activeProfile: ConfigProfile | null;
-  setActiveProfile: (profile: ConfigProfile | null) => void;
+  profiles: ConfigProfileSummary[];
+  activeProfile: ConfigProfileSummary | null;
+  setActiveProfile: (profile: ConfigProfileSummary | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -21,15 +19,39 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   children,
   setReady,
 }) => {
-  const [profiles, setProfiles] = useState<ConfigProfile[]>([]);
-  const [activeProfile, setActiveProfile] = useState<ConfigProfile | null>(null);
-  const [stageInitiated, setStageInitiated] = useState<boolean>(false);
-  const [uiSettings, setUiSettings] = useState<UISettings>(DEFAULT_UI_SETTINGS);
+  const [activeProfile, setActiveProfile] = useState<ConfigProfileSummary | null>(null);
   const init = useWebSocketStore((s) => s.init);
   const authPhase = useWebSocketStore((s) => s._auth_phase);
   const allDataInitialized = useWebSocketStore((s) => s._all_data_initialized);
   const initiating = useWebSocketStore((s) => s._initiating);
-  const configStore = useWebSocketStore((s) => s.configStore);
+  const profileEntries = useWebSocketStore(
+    useShallow((state) =>
+      Object.entries(state.configStore).map(([id, config]: [string, any]) =>
+        JSON.stringify([id, String(config.name ?? "")])
+      )
+    )
+  );
+  const unsortedProfiles = useMemo<ConfigProfileSummary[]>(
+    () =>
+      profileEntries.map((entry) => {
+        const [id, name] = JSON.parse(entry) as [string, string];
+        return { id, name };
+      }),
+    [profileEntries]
+  );
+  const profiles = useMemo(() => {
+    const list = [...unsortedProfiles];
+    const tabOrder = StorageUtil.get<string[]>("tabOrder");
+    if (!tabOrder?.length) return list;
+    return list.sort((a, b) => {
+      const ia = tabOrder.indexOf(a.id);
+      const ib = tabOrder.indexOf(b.id);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }, [unsortedProfiles]);
 
   useEffect(() => {
     if (authPhase === "authenticated" && !allDataInitialized) {
@@ -38,52 +60,11 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   }, [authPhase, allDataInitialized, init]);
 
   useEffect(() => {
-    const _uiSettings: UISettings | null = StorageUtil.get("uiSettings");
-    if (!_uiSettings) {
-      setUiSettings(DEFAULT_UI_SETTINGS);
-      StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
-    } else {
-      setUiSettings({
-        ...DEFAULT_UI_SETTINGS,
-        ..._uiSettings,
-        remoteSettings: {
-          ...DEFAULT_UI_SETTINGS.remoteSettings,
-          ..._uiSettings.remoteSettings,
-        },
-      });
-    }
-    setStageInitiated(true);
-  }, []);
-
-  useEffect(() => {
-    if (stageInitiated) StorageUtil.set("uiSettings", uiSettings);
-  }, [uiSettings]);
-
-  useEffect(() => {
-    const list = Object.keys(configStore).map((key) => ({
-      id: key,
-      name: configStore[key].name,
-      settings: configStore[key],
-    }));
-
-    const tabOrder = StorageUtil.get("tabOrder");
-    if (tabOrder && tabOrder.length) {
-      list.sort((a, b) => {
-        const ia = tabOrder.indexOf(a.id);
-        const ib = tabOrder.indexOf(b.id);
-        if (ia === -1 && ib === -1) return 0;
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-    }
-
-    setProfiles(list);
     setActiveProfile((prev) => {
-      if (list.length === 0) return prev;
-      return list.find((profile) => profile.id === prev?.id) ?? list[0];
+      if (profiles.length === 0) return prev;
+      return profiles.find((profile) => profile.id === prev?.id) ?? profiles[0];
     });
-  }, [configStore]);
+  }, [profiles]);
 
   useEffect(() => {
     setReady(
@@ -102,13 +83,10 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
     });
   }, [activeProfile?.id, authPhase]);
 
-  const value = {
-    profiles,
-    uiSettings,
-    setUiSettings,
-    activeProfile,
-    setActiveProfile,
-  };
+  const value = useMemo(
+    () => ({ profiles, activeProfile, setActiveProfile }),
+    [activeProfile, profiles]
+  );
 
   return (
     <AppContext.Provider value={value}>

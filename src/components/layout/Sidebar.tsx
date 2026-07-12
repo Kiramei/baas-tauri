@@ -19,7 +19,7 @@ import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -111,7 +111,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           }),
           listen<any>("term:task-started", (event) => {
             const payload = event.payload;
-            appendTerminalLine(`[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`);
+            appendTerminalLine(
+              `[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`
+            );
           }),
           listen<any>("term:region-stable", (event) => {
             const payload = event.payload ?? {};
@@ -124,7 +126,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
             const payload = event.payload;
             if (payload.status === "failed" || payload.status === "stopped") {
               sawAndroidUpdateError = true;
-              appendTerminalLine(`${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`);
+              appendTerminalLine(
+                `${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`
+              );
               const stableRegion = stableRegions.get(String(payload.taskId ?? ""));
               if (stableRegion) {
                 appendStableRegion(stableRegion);
@@ -133,7 +137,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           }),
           listen<any>("term:session-finished", async (event) => {
             const success = Boolean(event.payload?.success);
-            appendTerminalLine(success ? "DONE android git2 update" : "ERROR android git2 update failed");
+            appendTerminalLine(
+              success ? "DONE android git2 update" : "ERROR android git2 update failed"
+            );
             setBackendUpdating(false);
             for (const unlisten of unlisteners) unlisten();
             if (success) {
@@ -426,8 +432,7 @@ const FloatingUpdateButton: React.FC<{
   onClick: () => void | Promise<void>;
   tone: UpdateTone;
 }> = ({ title, icon: Icon, busy, onClick, tone }) => {
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   return (
     <motion.button
@@ -461,11 +466,13 @@ const formatBytes = (value?: number): string => {
 /** Returns the format backend update event result. */
 const formatBackendUpdateEvent = (data: any): string => {
   const stage = String(data.stage ?? "progress");
-  if (stage === "fetch_sha") return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
+  if (stage === "fetch_sha")
+    return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
   if (stage === "remote_sha") return `REMOTE SHA ${String(data.sha ?? "").slice(0, 12)}`;
   if (stage === "download_start") return `DOWNLOAD ${data.url ?? ""}`;
   if (stage === "download_progress") {
-    if (data.total) return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
+    if (data.total)
+      return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
     return `DOWNLOADING ${formatBytes(data.downloaded)}`;
   }
   if (stage === "download_done") return `DOWNLOADED ${formatBytes(data.downloaded)}`;

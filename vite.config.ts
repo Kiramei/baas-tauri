@@ -50,7 +50,11 @@ export default defineConfig(({ mode }) => {
       holdUntilCrawlEnd: false,
     },
     plugins: [
-      react(),
+      react({
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      }),
       tailwindcss(),
       androidCssCompatPlugin(isAndroid),
       asciiJsOutputPlugin(isAndroid),

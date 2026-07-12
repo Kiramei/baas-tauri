@@ -22,7 +22,7 @@ import {
   Users2Icon,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { ProfileProps } from "@/types/app";
 import { PageKey } from "@/types/app";
 import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
@@ -147,8 +147,7 @@ const FeaturePanelFallback: React.FC = () => (
 const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   const pid = profileId ?? activeProfile?.id;
   /** Handles the profile workflow. */

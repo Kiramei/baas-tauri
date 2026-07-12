@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -161,11 +162,12 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
     [applyBindings]
   );
 
-  return (
-    <TauriShortcutContext.Provider value={{ hotkeys, saveHotkeys, setShortcutsSuspended }}>
-      {children}
-    </TauriShortcutContext.Provider>
+  const value = useMemo(
+    () => ({ hotkeys, saveHotkeys, setShortcutsSuspended }),
+    [hotkeys, saveHotkeys]
   );
+
+  return <TauriShortcutContext.Provider value={value}>{children}</TauriShortcutContext.Provider>;
 };
 
 /** Coordinates the use tauri shortcuts hook behavior. */

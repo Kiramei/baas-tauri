@@ -14,6 +14,8 @@ export interface ConfigProfile {
   settings: DynamicConfig;
 }
 
+export type ConfigProfileSummary = Pick<ConfigProfile, "id" | "name">;
+
 export interface RemoteSettings {
   streamPlayer: "mse" | "broadway" | "tinyh264" | "webcodecs";
   enableSafeStream: boolean;
