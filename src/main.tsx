@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 import { installFrontendSystemLogging } from "@/shared/SystemLogService";
 
 installFrontendSystemLogging();
@@ -50,7 +51,11 @@ const closeSplash = async () => {
 /** Handles the bootstrap workflow. */
 const bootstrap = async () => {
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
-    root.render(<BrowserTauriDevFallback />);
+    root.render(
+      <StartupShellHandoff>
+        <BrowserTauriDevFallback />
+      </StartupShellHandoff>
+    );
     return;
   }
 

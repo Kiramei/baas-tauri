@@ -23,6 +23,8 @@ import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
 import PageActivity from "@/components/PageActivity";
+import SetupPage from "@/pages/SetupPage";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 
 const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
 
@@ -152,14 +154,20 @@ const Main: React.FC = () => {
     </MainLayout>
   );
 };
-const SetupPage = React.lazy(() => import("@/pages/SetupPage"));
-
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
 const InitialPage: React.FC = () => {
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
-    return <SetupPage />;
+    return (
+      <StartupShellHandoff>
+        <SetupPage />
+      </StartupShellHandoff>
+    );
   }
-  return <LoadingPage />;
+  return (
+    <StartupShellHandoff>
+      <LoadingPage />
+    </StartupShellHandoff>
+  );
 };
 
 /** Renders the wrapped app component. */
@@ -206,9 +214,7 @@ const WrappedApp: React.FC = () => {
           }}
           className="fixed inset-0 z-100"
         >
-          <Suspense fallback={<></>}>
-            <InitialPage />
-          </Suspense>
+          <InitialPage />
         </motion.div>
       )}
 

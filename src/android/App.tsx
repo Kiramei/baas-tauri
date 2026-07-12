@@ -5,6 +5,7 @@ import { PageKey } from "@/types/app";
 import i18n from "@/shared/I18nTranslator.ts";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LoadingPage from "@/pages/LoadingPage";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
@@ -103,9 +104,17 @@ const SetupPage = React.lazy(() => import("@/pages/SetupPage"));
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
 const InitialPage: React.FC = () => {
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
-    return <SetupPage />;
+    return (
+      <StartupShellHandoff>
+        <SetupPage />
+      </StartupShellHandoff>
+    );
   }
-  return <LoadingPage />;
+  return (
+    <StartupShellHandoff>
+      <LoadingPage />
+    </StartupShellHandoff>
+  );
 };
 
 /** Renders the wrapped app component. */
