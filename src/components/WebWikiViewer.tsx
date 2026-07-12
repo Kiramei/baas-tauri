@@ -1,22 +1,23 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Loader2 } from "lucide-react";
-import type { Webview as TauriWebview } from "@tauri-apps/api/webview";
-import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 export const WEB_WIKI_URL = import.meta.env.VITE_BAAS_WIKI_URL || "https://baas.kiramei.cn";
 export const WEB_WIKI_WINDOW_LABEL = "baas-wiki-viewer";
-export const WEB_WIKI_EMBEDDED_LABEL = "baas-wiki-embedded";
 export const WEB_WIKI_MAIN_LABEL = "main";
+export const WEB_WIKI_QUERY = "view=web-wiki";
 
 export const webWikiEvents = {
   closed: "wiki:closed",
   shown: "wiki:shown",
 } as const;
 
+export type WebWikiMode = "detached";
+
 const DETACHED_WINDOW_WIDTH = 1120;
 const DETACHED_WINDOW_HEIGHT = 760;
+const LOAD_TIMEOUT_MS = 20000;
 
-/** Returns a detached window position centered over the main window. */
 async function resolveDetachedWindowPlacement() {
   try {
     const { Window } = await import("@tauri-apps/api/window");
@@ -31,35 +32,35 @@ async function resolveDetachedWindowPlacement() {
       x: Math.round(mainPosition.x + Math.max(24, (mainSize.width - DETACHED_WINDOW_WIDTH) / 2)),
       y: Math.round(mainPosition.y + 56),
     };
-  } catch (error) {
-    console.error("[wiki] failed to resolve detached window placement:", error);
+  } catch (err) {
+    console.error("[wiki] failed to resolve detached wiki window placement:", err);
     return {};
   }
 }
 
-/** Returns the detached Wiki window when it exists. */
 export async function getWebWikiWindow() {
   if (!__WITH_TAURI__) return null;
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   return WebviewWindow.getByLabel(WEB_WIKI_WINDOW_LABEL);
 }
 
-/** Opens the documentation directly in a standalone native WebView window. */
-export async function openWebWikiWindow(title = "Wiki Docs") {
+export async function openWebWikiWindow(mode: WebWikiMode = "detached", title = "Wiki Docs") {
   if (!__WITH_TAURI__) return null;
 
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   const existing = await WebviewWindow.getByLabel(WEB_WIKI_WINDOW_LABEL);
   if (existing) {
     await existing.setTitle(title).catch(console.error);
+    await existing.emit("wiki:set-mode", mode);
     await existing.show();
     await existing.setFocus();
     return existing;
   }
 
+  const windowUrl = `/?${WEB_WIKI_QUERY}&mode=${mode}`;
   const placement = await resolveDetachedWindowPlacement();
   const wikiWindow = new WebviewWindow(WEB_WIKI_WINDOW_LABEL, {
-    url: WEB_WIKI_URL,
+    url: windowUrl,
     title,
     width: DETACHED_WINDOW_WIDTH,
     height: DETACHED_WINDOW_HEIGHT,
@@ -76,10 +77,8 @@ export async function openWebWikiWindow(title = "Wiki Docs") {
   });
 
   wikiWindow.once("tauri://created", () => {
+    wikiWindow.emit("wiki:set-mode", mode).catch(console.error);
     wikiWindow.emitTo(WEB_WIKI_MAIN_LABEL, webWikiEvents.shown).catch(console.error);
-  });
-  wikiWindow.once("tauri://destroyed", () => {
-    wikiWindow.emitTo(WEB_WIKI_MAIN_LABEL, webWikiEvents.closed).catch(console.error);
   });
   wikiWindow.once("tauri://error", (event) => {
     console.error("[wiki] failed to create web wiki window:", event.payload);
@@ -88,89 +87,94 @@ export async function openWebWikiWindow(title = "Wiki Docs") {
   return wikiWindow;
 }
 
-/** Hosts the documentation in a native child WebView aligned to this DOM placeholder. */
-export const EmbeddedWebWiki: React.FC = () => {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const webviewRef = useRef<TauriWebview | null>(null);
-  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+async function currentWindow() {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow();
+}
+
+async function emitToMain(event: string) {
+  const window = await currentWindow();
+  await window.emitTo(WEB_WIKI_MAIN_LABEL, event);
+}
+
+async function applyDetachedWindowLayout() {
+  const { LogicalSize } = await import("@tauri-apps/api/dpi");
+  const window = await currentWindow();
+
+  await window.setFullscreen(false).catch(console.error);
+  await window.setAlwaysOnTop(false).catch(console.error);
+  await window
+    .setSize(new LogicalSize(DETACHED_WINDOW_WIDTH, DETACHED_WINDOW_HEIGHT))
+    .catch(console.error);
+  await window.show();
+  await window.setFocus();
+}
+
+const WebWikiViewer: React.FC = () => {
+  const { t } = useTranslation();
+  const [loadState, setLoadState] = useState<"loading" | "loaded" | "failed">("loading");
 
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host || !__WITH_TAURI__) return;
+    applyDetachedWindowLayout().catch(console.error);
+  }, []);
 
-    let disposed = false;
-    let created = false;
-    let stopObserving: () => void = () => {};
+  useEffect(() => {
+    if (!__WITH_TAURI__) return;
 
-    const updateBounds = async () => {
-      const webview = webviewRef.current;
-      if (!created || !webview || disposed) return;
-      const rect = host.getBoundingClientRect();
-      if (rect.width < 1 || rect.height < 1) return;
-      const { LogicalPosition, LogicalSize } = await import("@tauri-apps/api/dpi");
-      await Promise.all([
-        webview.setPosition(new LogicalPosition(Math.round(rect.left), Math.round(rect.top))),
-        webview.setSize(new LogicalSize(Math.round(rect.width), Math.round(rect.height))),
-      ]);
-    };
-
+    let cleanup: Array<() => void> = [];
+    let closing = false;
     (async () => {
-      const [{ Webview }, { getCurrentWindow }] = await Promise.all([
-        import("@tauri-apps/api/webview"),
-        import("@tauri-apps/api/window"),
-      ]);
-      const stale = await Webview.getByLabel(WEB_WIKI_EMBEDDED_LABEL);
-      await stale?.close().catch(() => undefined);
-      if (disposed) return;
+      const appWindow = await currentWindow();
+      cleanup = [
+        await appWindow.onCloseRequested(async (event) => {
+          event.preventDefault();
+          if (closing) return;
 
-      const rect = host.getBoundingClientRect();
-      const webview = new Webview(getCurrentWindow(), WEB_WIKI_EMBEDDED_LABEL, {
-        url: WEB_WIKI_URL,
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.max(1, Math.round(rect.width)),
-        height: Math.max(1, Math.round(rect.height)),
-        devtools: false,
-      });
-      webviewRef.current = webview;
-      stopObserving = observeResizeOnAnimationFrame(host, () => void updateBounds());
-
-      webview.once("tauri://created", () => {
-        created = true;
-        setState("loaded");
-        void updateBounds();
-      });
-      webview.once("tauri://error", (event) => {
-        console.error("[wiki] failed to create embedded webview:", event.payload);
-        setState("failed");
-      });
-    })().catch((error) => {
-      console.error("[wiki] failed to initialize embedded webview:", error);
-      setState("failed");
-    });
+          closing = true;
+          await emitToMain(webWikiEvents.closed).catch(console.error);
+          await appWindow.destroy().catch(console.error);
+        }),
+      ];
+    })().catch(console.error);
 
     return () => {
-      disposed = true;
-      stopObserving();
-      const webview = webviewRef.current;
-      webviewRef.current = null;
-      void webview?.close().catch(() => undefined);
+      cleanup.forEach((unlisten) => unlisten());
     };
   }, []);
 
+  useEffect(() => {
+    if (loadState !== "loading") return;
+    const timer = window.setTimeout(() => setLoadState("failed"), LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [loadState]);
+
   return (
-    <div ref={hostRef} className="relative h-full w-full overflow-hidden bg-slate-950">
-      {state === "loading" && (
-        <div className="absolute inset-0 flex items-center justify-center">
+    <main className="h-screen w-screen overflow-hidden bg-white">
+      <iframe
+        title={t("wiki.web.title")}
+        src={WEB_WIKI_URL}
+        onLoad={() => setLoadState("loaded")}
+        onError={() => setLoadState("failed")}
+        className="h-full w-full border-0 bg-white"
+        sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts"
+      />
+
+      {loadState === "loading" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 text-slate-100">
           <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+          <p className="text-sm">{t("wiki.web.loading")}</p>
         </div>
       )}
-      {state === "failed" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-slate-100">
+
+      {loadState === "failed" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-slate-100">
           <AlertCircle className="h-9 w-9 text-red-400" />
+          <h1 className="text-lg font-semibold">{t("wiki.web.failed")}</h1>
           <p className="max-w-md text-sm text-slate-400">{WEB_WIKI_URL}</p>
         </div>
       )}
-    </div>
+    </main>
   );
 };
+
+export default WebWikiViewer;

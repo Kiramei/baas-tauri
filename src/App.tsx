@@ -22,6 +22,7 @@ import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
+import WebWikiViewer from "@/components/WebWikiViewer";
 import PageActivity from "@/components/PageActivity";
 import SetupPage from "@/pages/SetupPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
@@ -250,10 +251,18 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
+
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <WrappedApp />
+        {isWebWikiWindow ? (
+          <StartupShellHandoff>
+            <WebWikiViewer />
+          </StartupShellHandoff>
+        ) : (
+          <WrappedApp />
+        )}
       </UISettingsProvider>
     </ThemeProvider>
   );

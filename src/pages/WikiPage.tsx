@@ -5,7 +5,6 @@ import AndroidRemoteWiki from "@/components/AndroidRemoteWiki";
 import { Button } from "@/components/ui/Button";
 import {
   getWebWikiWindow,
-  EmbeddedWebWiki,
   openWebWikiWindow,
   WEB_WIKI_URL,
   webWikiEvents,
@@ -13,7 +12,6 @@ import {
 
 const webWikiLoadTimeoutMs = 20000;
 
-/** Renders the wiki page component. */
 const WikiPage: React.FC = () => {
   const { t } = useTranslation();
   const [detached, setDetached] = useState(false);
@@ -48,7 +46,6 @@ const WikiPage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [detached, loadState]);
 
-  /** Handles the detach wiki workflow. */
   const detachWiki = useCallback(async () => {
     if (__WITH_ANDROID__) return;
     if (!__WITH_TAURI__) {
@@ -58,10 +55,9 @@ const WikiPage: React.FC = () => {
 
     setDetached(true);
     setLoadState("loading");
-    await openWebWikiWindow(t("wiki.web.title"));
+    await openWebWikiWindow("detached", t("wiki.web.title"));
   }, [t]);
 
-  /** Performs the open wiki in browser operation. */
   const openWikiInBrowser = useCallback(async () => {
     if (__WITH_TAURI__) {
       try {
@@ -76,9 +72,7 @@ const WikiPage: React.FC = () => {
     window.open(WEB_WIKI_URL, "_blank", "noopener,noreferrer");
   }, []);
 
-  /** Handles the focus detached wiki workflow. */
   const focusDetachedWiki = useCallback(async () => {
-    if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();
     if (!detachedWindow) {
       setDetached(false);
@@ -88,9 +82,7 @@ const WikiPage: React.FC = () => {
     await detachedWindow.setFocus();
   }, []);
 
-  /** Handles the return to main workflow. */
   const returnToMain = useCallback(async () => {
-    if (__WITH_ANDROID__) return;
     const detachedWindow = await getWebWikiWindow();
     await detachedWindow?.destroy().catch(console.error);
     setDetached(false);
@@ -120,7 +112,7 @@ const WikiPage: React.FC = () => {
           </Button>
         </header>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+        <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
           <AndroidRemoteWiki />
         </div>
       </div>
@@ -187,28 +179,24 @@ const WikiPage: React.FC = () => {
         </Button>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-slate-950">
-        {__WITH_TAURI__ ? (
-          <EmbeddedWebWiki />
-        ) : (
-          <iframe
-            title={t("wiki.web.title")}
-            src={WEB_WIKI_URL}
-            onLoad={() => setLoadState("loaded")}
-            onError={() => setLoadState("failed")}
-            className="h-full w-full border-0 bg-slate-950"
-            sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts"
-          />
-        )}
+      <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+        <iframe
+          title={t("wiki.web.title")}
+          src={WEB_WIKI_URL}
+          onLoad={() => setLoadState("loaded")}
+          onError={() => setLoadState("failed")}
+          className="h-full w-full border-0 bg-white"
+          sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts"
+        />
 
-        {!__WITH_TAURI__ && loadState === "loading" && (
+        {loadState === "loading" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 text-slate-100">
             <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
             <p className="text-sm">{t("wiki.web.loading")}</p>
           </div>
         )}
 
-        {!__WITH_TAURI__ && loadState === "failed" && (
+        {loadState === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-slate-100">
             <AlertCircle className="h-9 w-9 text-red-400" />
             <h2 className="text-lg font-semibold">{t("wiki.web.failed")}</h2>

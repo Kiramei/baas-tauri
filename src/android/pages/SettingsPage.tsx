@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { resolveClientVersion } from "@/shared/ClientVersion";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
@@ -354,10 +355,10 @@ const SettingsPage: React.FC = () => {
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
   const tauriVersion = versionStore["tauri"] ?? {};
-  const tauriCurrentVersion = tauriVersion.currentVersion ?? __APP_VERSION__;
+  const tauriCurrentVersion = resolveClientVersion(tauriVersion.currentVersion);
   const tauriRemoteVersion = tauriVersion.error
     ? t("version.checkError")
-    : (tauriVersion.version ?? tauriCurrentVersion);
+    : resolveClientVersion(tauriVersion.version, tauriCurrentVersion);
   const tauriStatus = tauriVersion.checking
     ? t("update.tauriChecking")
     : tauriVersion.error

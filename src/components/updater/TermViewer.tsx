@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/Button";
-import { CircleSlash2, Copy, Terminal as TerminalIcon } from "lucide-react";
+import { CircleSlash2, Copy, LoaderCircle, Terminal as TerminalIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
@@ -19,7 +19,7 @@ import { listen } from "@tauri-apps/api/event";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 export interface TerminalHandle {
-  write: (chunk: string) => void;
+  write: (chunk: string, onRendered?: () => void) => void;
   reset: () => void;
   resize: () => void;
   setRunning: (running: boolean) => void;
@@ -149,7 +149,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      write: (chunk: string) => termRef.current?.write(chunk),
+      write: (chunk: string, onRendered?: () => void) => termRef.current?.write(chunk, onRendered),
       reset: () => {
         const term = termRef.current;
         if (!term) return;
@@ -581,8 +581,12 @@ const TermViewer: React.FC<TermViewerProps> = ({
   const appendTerminalLogRef = useRef(appendTerminalLog);
   const appendTerminalLogsRef = useRef(appendTerminalLogs);
   const concreteFailureRef = useRef(false);
+  const terminalOutputSeenRef = useRef(false);
   const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
   const [edges, setEdges] = useState<WorkflowEdgePayload[]>([]);
+  const [terminalDisplayState, setTerminalDisplayState] = useState<
+    "preparing" | "active" | "empty"
+  >("preparing");
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -615,7 +619,11 @@ const TermViewer: React.FC<TermViewerProps> = ({
       if (!chunkBuffer) return;
       const chunk = chunkBuffer;
       chunkBuffer = "";
-      terminalRef.current?.write(chunk);
+      terminalRef.current?.write(chunk, () => {
+        if (disposed) return;
+        terminalOutputSeenRef.current = true;
+        setTerminalDisplayState("active");
+      });
     };
 
     /** Performs the write chunk operation. */
@@ -741,6 +749,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
         }),
         listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
           if (disposed) return;
+          if (!terminalOutputSeenRef.current) setTerminalDisplayState("empty");
           flushChunks();
           terminalRef.current?.setRunning(false);
           onSessionFinishedRef.current?.(event.payload.success);
@@ -756,8 +765,10 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
           concreteFailureRef.current = false;
+          terminalOutputSeenRef.current = false;
           capturedStableRegions.clear();
           pendingStableRegions.clear();
+          setTerminalDisplayState("preparing");
           setTasks({});
           setEdges([]);
         }),
@@ -831,8 +842,26 @@ const TermViewer: React.FC<TermViewerProps> = ({
 
       <WorkflowGraph tasks={tasks} edges={edges} />
 
-      <div className="flex-1 overflow-auto p-2 font-mono text-xs bg-black/90 dark:bg-black/50 text-gray-300">
+      <div className="relative flex-1 overflow-auto bg-black/90 p-2 font-mono text-xs text-gray-300 dark:bg-black/50">
         <TermEmulator ref={terminalRef} />
+        {terminalDisplayState !== "active" && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-black/90 dark:bg-black/50"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2 text-slate-400">
+              {terminalDisplayState === "preparing" && (
+                <LoaderCircle className="h-4 w-4 animate-spin text-cyan-400" />
+              )}
+              <span>
+                {terminalDisplayState === "preparing"
+                  ? "Preparing terminal..."
+                  : "No terminal output."}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

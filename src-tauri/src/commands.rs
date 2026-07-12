@@ -23,7 +23,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, Webview};
 use tokio::{task::JoinSet, time};
 
 const STORAGE_FILE_NAME: &str = ".app_storage.json";
@@ -204,12 +204,13 @@ pub fn shortcut_apply_bindings(
 
 /// Performs the open main devtools operation.
 #[tauri::command]
-pub fn open_main_devtools(app: AppHandle) -> Result<(), String> {
-    system_log("WARNING", "devtools", "Main WebView DevTools requested");
-    let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
-    window.open_devtools();
+pub fn open_main_devtools(webview: Webview) -> Result<(), String> {
+    system_log(
+        "WARNING",
+        "devtools",
+        format!("WebView DevTools requested label={}", webview.label()),
+    );
+    webview.open_devtools();
     Ok(())
 }
 
