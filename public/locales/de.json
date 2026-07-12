@@ -74,6 +74,7 @@
     "ui": {
       "$self": "UI-Einstellungen",
       "assets": "Ressourcendetails anzeigen",
+      "backendTransport": "Backend transport",
       "backgroundImage": "Hintergrundbild",
       "backgroundImageChoose": "Hintergrund auswaehlen",
       "backgroundImageEmpty": "Kein Hintergrundbild festgelegt",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
       "lowPerformanceMode": "Leistungsarmer Modus",
       "player": "Wiedergabe",
+      "sharedMemory": "Shared Memory",
       "themeColor": "Designfarbe",
       "themeColorInvalid": "Geben Sie eine Designfarbe im Format #RRGGBB ein.",
-      "themeColorReset": "Designfarbe zuruecksetzen"
+      "themeColorReset": "Designfarbe zuruecksetzen",
+      "transportSwitchedSharedMemory": "Switched to Shared Memory",
+      "transportSwitchedWebSocket": "Switched to WebSocket",
+      "transportSwitchFailed": "Transport switch failed",
+      "transportSwitching": "Switching",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
   },

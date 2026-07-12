@@ -17,19 +17,20 @@ compile_error!("BAAS mobile builds currently support Android only.");
 use crate::backend_ipc_commands::{
     backend_ipc_benchmark_webview_copy, backend_ipc_close, backend_ipc_close_channel,
     backend_ipc_finish_webview_benchmark, backend_ipc_open_channel, backend_ipc_recv,
-    backend_ipc_send_bytes, backend_ipc_send_json, backend_ipc_start, backend_ipc_subscribe,
-    backend_ipc_webview_benchmark_config, BackendIpcManager,
+    backend_ipc_remote_benchmark_config, backend_ipc_send_bytes, backend_ipc_send_json,
+    backend_ipc_start, backend_ipc_subscribe, backend_ipc_webview_benchmark_config,
+    backend_transport_startup_benchmark_config, BackendIpcManager,
 };
 use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
     android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
-    android_scrcpy_virtual_display_status, open_main_devtools, shortcut_apply_bindings,
-    tauri_client_check_update, updater_abort_workflow, updater_check_version,
-    updater_get_startup_state, updater_get_storage_state, updater_path_exists_non_empty,
-    updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
-    updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
-    updater_update_config, updater_validate_mirrorc_cdk,
+    android_scrcpy_virtual_display_status, backend_websocket_start, open_main_devtools,
+    shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
+    updater_check_version, updater_get_startup_state, updater_get_storage_state,
+    updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
+    updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
+    updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::notifier_commands::baas_notify;
 #[cfg(not(mobile))]
@@ -37,13 +38,14 @@ use crate::{
     behavior::inject_tray_icon,
     commands::{
         android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
-        android_scrcpy_virtual_display_status, configure_portable_working_dir,
-        ensure_default_config, open_main_devtools, shortcut_apply_bindings,
-        tauri_client_check_update, updater_abort_workflow, updater_check_version,
-        updater_get_startup_state, updater_get_storage_state, updater_path_exists_non_empty,
-        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
-        updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
-        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
+        android_scrcpy_virtual_display_status, backend_websocket_start,
+        configure_portable_working_dir, ensure_default_config, open_main_devtools,
+        shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
+        updater_check_version, updater_get_startup_state, updater_get_storage_state,
+        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
+        updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
+        updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
+        BackendProcessManager,
     },
 };
 
@@ -77,6 +79,8 @@ pub fn run() {
             backend_ipc_recv,
             backend_ipc_benchmark_webview_copy,
             backend_ipc_webview_benchmark_config,
+            backend_ipc_remote_benchmark_config,
+            backend_transport_startup_benchmark_config,
             backend_ipc_finish_webview_benchmark,
             splash_off,
             set_backend_locale,
@@ -91,6 +95,7 @@ pub fn run() {
             updater_test_sha_methods,
             updater_start_workflow,
             updater_reset_backend_auth_and_restart,
+            backend_websocket_start,
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term,

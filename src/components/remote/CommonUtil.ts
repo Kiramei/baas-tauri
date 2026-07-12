@@ -1,5 +1,6 @@
 import { Rect, Size } from "./GeometryInfo";
 import { EventEmitter } from "events";
+import { Buffer } from "buffer";
 
 interface Settings {
   crop?: Rect | null;

@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 export class Point {
   readonly x: number;
   readonly y: number;

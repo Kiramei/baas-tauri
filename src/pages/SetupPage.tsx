@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { exit } from "@tauri-apps/plugin-process";
-import { Copy, RotateCcw } from "lucide-react";
+import { Copy, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -46,6 +46,20 @@ interface FailureInfo {
   message: string;
 }
 
+const withTimeout = async <T,>(task: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 /** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
@@ -81,15 +95,21 @@ const resetBackendRuntimeState = () => {
   });
 };
 
+interface SetupPageProps {
+  onReady?: () => void;
+}
+
 /** Renders the setup page component. */
-const SetupPage = () => {
+const SetupPage = ({ onReady }: SetupPageProps) => {
   const [started, setStarted] = useState(false);
   const [settingModal, setSettingModal] = useState(false);
   const [config, setConfig] = useState<UpdaterConfig | null>(null);
   const [installPath, setInstallPath] = useState("");
   const [portable, setPortable] = useState(false);
   const [setupPhase, setSetupPhase] = useState(true);
+  const [fastStarting, setFastStarting] = useState(false);
   const [failure, setFailure] = useState<FailureInfo | null>(null);
+  const [postInstallStatus, setPostInstallStatus] = useState("");
   const setupCompletedRef = useRef(false);
   const abortingRef = useRef(false);
   const pendingWorkflowRef = useRef<{ path: string; config: UpdaterConfig | null } | null>(null);
@@ -130,6 +150,7 @@ const SetupPage = () => {
       workflowStartedRef.current = false;
       pendingWorkflowRef.current = { path: targetPath, config: nextConfig };
       setFailure(null);
+      setPostInstallStatus("");
       setSetupPhase(false);
       setStarted(true);
       StorageUtil.set("base_dir", targetPath);
@@ -163,18 +184,41 @@ const SetupPage = () => {
 
   /** Handles the initialize backend workflow. */
   const initializeBackend = useCallback(async () => {
+    setPostInstallStatus("Starting backend transport...");
     resetBackendRuntimeState();
-    await useBackendStore.getState().startAuthFlow();
+    await withTimeout(
+      useBackendStore.getState().startAuthFlow(),
+      60_000,
+      "Backend transport startup timed out after 60 seconds."
+    );
+    setPostInstallStatus("Waiting for backend authentication state...");
     await waitForNormal(
       () => useBackendStore.getState()._auth_phase,
-      (phase) => phase === "authenticated" || phase === "idle" || phase === "revoked",
+      (phase) =>
+        phase === "authenticated" ||
+        phase === "waiting_password" ||
+        phase === "idle" ||
+        phase === "revoked",
       30_000
     );
-    if (useBackendStore.getState()._auth_phase !== "authenticated") {
-      throw new Error(useBackendStore.getState()._auth_error ?? "Backend IPC startup failed.");
+    const backendState = useBackendStore.getState();
+    if (backendState.transportMode === "websocket" && backendState._auth_phase === "waiting_password") {
+      setPostInstallStatus("WebSocket backend ready. Waiting for authentication...");
+      onReady?.();
+      return;
     }
-    await useBackendStore.getState().init();
-  }, []);
+    if (backendState._auth_phase !== "authenticated") {
+      throw new Error(backendState._auth_error ?? "Backend transport startup failed.");
+    }
+    setPostInstallStatus("Loading backend data...");
+    await withTimeout(
+      useBackendStore.getState().init(),
+      60_000,
+      "Backend data initialization timed out after 60 seconds."
+    );
+    setPostInstallStatus("Backend initialized.");
+    onReady?.();
+  }, [onReady]);
 
   /** Handles the handle abort interaction. */
   const handleAbort = async () => {
@@ -188,6 +232,7 @@ const SetupPage = () => {
         },
       });
     } finally {
+      setPostInstallStatus("");
       setStarted(false);
       setSetupPhase(true);
     }
@@ -205,6 +250,7 @@ const SetupPage = () => {
   /** Handles the return to setup workflow. */
   const returnToSetup = async () => {
     setFailure(null);
+    setPostInstallStatus("");
     try {
       await handleAbort();
     } catch (error) {
@@ -231,7 +277,21 @@ const SetupPage = () => {
         setConfig(startup.config);
 
         if (startup.baasRootExistsNonEmpty && root) {
-          await startInstall(root, startup.config);
+          setSetupPhase(false);
+          setFastStarting(true);
+          setPostInstallStatus("Starting installed backend...");
+          try {
+            await initializeBackend();
+          } catch (error) {
+            setPostInstallStatus("");
+            setSetupPhase(true);
+            showWorkflowFailure({
+              step: "backend",
+              message: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            setFastStarting(false);
+          }
         }
       } catch (error) {
         setFailure({
@@ -240,7 +300,7 @@ const SetupPage = () => {
         });
       }
     })();
-  }, [startInstall]);
+  }, [initializeBackend, showWorkflowFailure]);
 
   return (
     <>
@@ -303,7 +363,9 @@ const SetupPage = () => {
                       return;
                     }
                     if (success && !abortingRef.current) {
+                      setPostInstallStatus("Installation complete. Starting backend...");
                       initializeBackend().catch((error) => {
+                        setPostInstallStatus("");
                         showWorkflowFailure({
                           step: "backend",
                           message: error instanceof Error ? error.message : String(error),
@@ -312,6 +374,20 @@ const SetupPage = () => {
                     }
                   }}
                 />
+                {postInstallStatus && (
+                  <div className="rounded-md border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-sm font-medium text-cyan-100">
+                    {postInstallStatus}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!setupPhase && fastStarting && (
+              <div className="flex min-h-48 flex-col items-center justify-center gap-4 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <div className="text-sm font-medium text-slate-600 dark:text-slate-200">
+                  {postInstallStatus || "Starting backend..."}
+                </div>
               </div>
             )}
           </div>

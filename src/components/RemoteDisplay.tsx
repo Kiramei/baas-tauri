@@ -97,6 +97,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   const [connectionState, setConnectionState] = useState<ConnectionStatus>(
     ConnectionStatus.connecting
   );
+  const [remoteStatusText, setRemoteStatusText] = useState<string>(t("remote.connecting"));
 
   /**
    * Get the RemoteSettings from Hook. And the specific settings.
@@ -362,21 +363,48 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
         const wsm = new WSMiddleware(ws);
 
         ws.onClose = (event) => {
+          setRemoteStatusText(event.reason || t("remote.connecting"));
+          setConnectionState(ConnectionStatus.connecting);
           wsm.dispatchEvent("close", event);
         };
 
         ws.onOpen = (event) => {
+          setRemoteStatusText(t("remote.connecting"));
           wsm.dispatchEvent("open", event);
+        };
+
+        ws.onError = (event) => {
+          setRemoteStatusText(
+            event instanceof ErrorEvent && event.message
+              ? event.message
+              : "Remote connection failed"
+          );
+          setConnectionState(ConnectionStatus.connecting);
         };
 
         wsm.bindSender(ws.sendBytes.bind(ws));
 
         await ws.connect(
-          (buffer: ArrayBuffer) => {
+          (message: ArrayBuffer | Record<string, any>) => {
             if (disposed) return;
+            if (!(message instanceof ArrayBuffer)) {
+              if (message?.type === "remote_status") {
+                setRemoteStatusText(String(message.message ?? t("remote.connecting")));
+                return;
+              }
+              const remoteError =
+                message?.type === "remote_error"
+                  ? String(message.error ?? "Remote connection failed")
+                  : null;
+              if (remoteError) {
+                setRemoteStatusText(remoteError);
+                setConnectionState(ConnectionStatus.connecting);
+              }
+              return;
+            }
 
             setConnectionState(ConnectionStatus.connected);
-            wsm.dispatchEvent("message", new MessageEvent("message", { data: buffer }));
+            wsm.dispatchEvent("message", new MessageEvent("message", { data: message }));
           },
           false,
           uiSettings.remoteSettings.enableSafeStream
@@ -387,7 +415,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
           return;
         }
 
-        ws.sendJson({
+        await ws.sendJson({
           config_id: profileId,
           decrypt: uiSettings.remoteSettings.enableSafeStream,
         });
@@ -432,6 +460,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
       } catch (error) {
         if (!disposed) {
           console.error("remote display init failed:", error);
+          setRemoteStatusText(error instanceof Error ? error.message : String(error));
           setConnectionState(ConnectionStatus.connecting);
         }
       }
@@ -442,6 +471,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     return () => {
       disposed = true;
       setConnectionState(ConnectionStatus.connecting);
+      setRemoteStatusText(t("remote.connecting"));
       cleanup();
     };
   }, []);
@@ -581,8 +611,8 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
         <div className="absolute w-full h-full z-3 bg-[#000000]/30">
           <div className="flex flex-col h-full items-center justify-center text-white">
             <Loader2 className="animate-spin h-10 w-10 mb-2" />
-            <div ref={statusRef} className="text-xs text-white z-10">
-              {t("remote.connecting")}
+            <div ref={statusRef} className="text-xs text-white z-10 px-2 text-center break-words">
+              {remoteStatusText}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { DataUtil, TypedEmitter, VideoSettings } from "./CommonUtil";
 import { BasePlayer, PlayerClass } from "./player/BasePlayer";
+import { Buffer } from "buffer";
 
 import {
   ControlMessage,
@@ -67,7 +68,7 @@ type Listener<K extends keyof EventMap> = EventMap[K] extends void
   : (event: EventMap[K]) => void;
 
 export class WSMiddleware {
-  private sender: ((data: ArrayBuffer | Uint8Array) => void) | undefined;
+  private sender: ((data: ArrayBuffer | Uint8Array) => Promise<void> | void) | undefined;
   private listeners: {
     [K in keyof EventMap]?: Listener<K>[];
   } = {};
@@ -94,13 +95,24 @@ export class WSMiddleware {
   }
 
   /** Handles the bind sender workflow. */
-  public bindSender(sender: (data: ArrayBuffer | Uint8Array) => void): void {
+  public bindSender(sender: (data: ArrayBuffer | Uint8Array) => Promise<void> | void): void {
     this.sender = sender;
   }
 
   /** Performs the send operation. */
   public send(bytes: ArrayBuffer | Uint8Array): void {
-    this.sender?.(bytes);
+    try {
+      const result = this.sender?.(bytes);
+      if (result && typeof result.catch === "function") {
+        result.catch((error) => {
+          const reason = error instanceof Error ? error.message : String(error);
+          this.dispatchEvent("close", new CloseEvent("close", { reason }));
+        });
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.dispatchEvent("close", new CloseEvent("close", { reason }));
+    }
   }
 
   /** Performs the close operation. */

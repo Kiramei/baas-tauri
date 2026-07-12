@@ -1,4 +1,5 @@
 export {
+  hydrateBackendTransportPreference,
   isTauriNoUpdateEnabled,
   resolveHttpBase,
   useWebSocketStore,

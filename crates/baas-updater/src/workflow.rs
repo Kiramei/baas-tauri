@@ -8,9 +8,10 @@ use crate::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
         ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
         managed_python_configured, ranked_environment_source_with_output,
-        requirements_compile_cached, requirements_path, save_requirements_cache,
-        uses_managed_runtime, uv_cache_clean_command, uv_compile_command_with_index, uv_executable,
-        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
+        repair_corrupt_lock_package_metadata, requirements_compile_cached, requirements_lock_path,
+        requirements_path, save_requirements_cache, uses_managed_runtime, uv_cache_clean_command,
+        uv_compile_command_with_index, uv_executable, uv_python_install_command_with_mirror,
+        uv_sync_command_with_index, uv_venv_command,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
@@ -502,7 +503,7 @@ pub fn run_terminal_workflow_flow(
     renderer_tx: Sender<RendererEvent>,
     options: WorkflowOptions,
     cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
-) {
+) -> bool {
     let (completion_tx, completion_rx) = mpsc::channel::<TaskCompletion>();
     let state = Arc::new(Mutex::new(TerminalWorkflowState::default()));
     let workflow_plan = terminal_workflow_plan();
@@ -526,7 +527,7 @@ pub fn run_terminal_workflow_flow(
         || !wait_for_task(&completion_rx, "updater-config")
     {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
-        return;
+        return false;
     }
 
     if !run_terminal_update_and_prepare_stage(
@@ -537,7 +538,7 @@ pub fn run_terminal_workflow_flow(
         Arc::clone(&state),
     ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
-        return;
+        return false;
     }
 
     let finalize_spec = planned_thread_task(&workflow_plan, "updater-finalize-repos");
@@ -554,7 +555,7 @@ pub fn run_terminal_workflow_flow(
         || !wait_for_task(&completion_rx, "updater-finalize-repos")
     {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
-        return;
+        return false;
     }
 
     let dependency_ctx = TerminalRunContext {
@@ -567,10 +568,11 @@ pub fn run_terminal_workflow_flow(
     };
     if !run_terminal_dependency_stage(&dependency_ctx, Arc::clone(&state), options.launch) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
-        return;
+        return false;
     }
 
     finish_terminal_session(&inner, &session_id, &renderer_tx, true);
+    true
 }
 
 /// Handles the terminal workflow plan workflow.
@@ -1684,6 +1686,16 @@ fn run_terminal_dependency_stage(
     ) {
         return false;
     } else {
+        let output = ThreadOutput {
+            task_id: "uv-sync".to_string(),
+            region_id: "uv-sync".to_string(),
+            tx: ctx.renderer_tx.clone(),
+        };
+        if repair_corrupt_lock_package_metadata(&config, &requirements_lock_path(&config), &output)
+            .is_err()
+        {
+            return false;
+        }
         for (task_id, command) in [
             ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
             ("uv-cache-clean", uv_cache_clean_command(&config)),
@@ -1750,12 +1762,33 @@ fn run_terminal_launch_stage(
     launch: bool,
 ) -> bool {
     if !launch || !config.general.launch {
-        return true;
+        return run_terminal_skip_task(
+            ctx,
+            "launch-backend",
+            "backend launch disabled; skipping backend start",
+        ) && run_terminal_skip_task(
+            ctx,
+            "backend-ready",
+            "backend launch disabled; skipping readiness probe",
+        );
     }
+    let output = ThreadOutput {
+        task_id: "launch-backend".to_string(),
+        region_id: "launch-backend".to_string(),
+        tx: ctx.renderer_tx.clone(),
+    };
+    output.line(OutputStyle::Info, "Preparing backend launch");
     let port = match available_port() {
         Ok(port) => port,
-        Err(_) => return false,
+        Err(error) => {
+            output.line(OutputStyle::Error, &error.message());
+            return false;
+        }
     };
+    output.line(
+        OutputStyle::Info,
+        &format!("Selected backend port 127.0.0.1:{port}"),
+    );
     let command = launch_backend_command(&config, port);
     let success = run_process_and_wait(
         ctx.inner,

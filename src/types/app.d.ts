@@ -146,6 +146,7 @@ export interface BackendState {
   transportMode: TransportMode;
   connectionPhase: ConnectionPhase;
   requiresAuthentication: boolean;
+  setTransportMode: (mode: TransportMode) => Promise<void>;
   connections: Partial<Record<BackendChannelKey, BackendConnection>>;
   logStore: LogStoreSet;
   configStore: any;

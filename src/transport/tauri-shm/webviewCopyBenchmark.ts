@@ -1,12 +1,3 @@
-type IpcBenchmarkMessage = {
-  channel: string;
-  name: string;
-  streamId: number;
-  kind: "json" | "bytes" | "close" | "error";
-  sequenceNumber: number;
-  bytes?: number[];
-};
-
 type RustBenchmarkResult = {
   payloadSize: number;
   iterations: number;
@@ -46,10 +37,9 @@ export async function benchmarkTauriWebviewCopy(
       const timeout = window.setTimeout(() => {
         reject(new Error(`timed out waiting for ${iterations} benchmark messages`));
       }, timeoutMs);
-      const channel = new Channel<IpcBenchmarkMessage>((message) => {
-        if (message.kind !== "bytes") return;
+      const channel = new Channel<ArrayBuffer>((message) => {
         receivedMessages += 1;
-        receivedBytes += message.bytes?.length ?? 0;
+        receivedBytes += message.byteLength;
         if (receivedMessages === iterations) {
           window.clearTimeout(timeout);
           resolve();

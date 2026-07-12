@@ -22,7 +22,7 @@ import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import { buildServerOptions } from "@/shared/serverOptions";
+import { buildServerOptions, SERVER_VALUES } from "@/shared/serverOptions";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -152,14 +152,25 @@ const Header: React.FC = () => {
     if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
 
-    const serialName = await new Promise<string>((resolve) => {
+    const serialName = await new Promise<string>((resolve, reject) => {
       trigger(
         {
           timestamp: getTimestampMs() + Math.random() * 1000,
           command: "add_config",
           payload: { name, server },
         },
-        (e) => resolve(e.data.serial)
+        (event) => {
+          if (event?.status === "error") {
+            reject(new Error(event.error || "add_config failed"));
+            return;
+          }
+          const serial = event?.data?.serial;
+          if (!serial) {
+            reject(new Error("add_config did not return a config id"));
+            return;
+          }
+          resolve(serial);
+        }
       );
     });
 
@@ -519,7 +530,7 @@ const ProfileEditorModal = (props: {
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const [name, setName] = React.useState(props.initial?.name ?? "");
-  const [server, setServer] = React.useState("CN");
+  const [server, setServer] = React.useState<string>(SERVER_VALUES.CN_BILIBILI);
   const [err, setErr] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
@@ -527,7 +538,7 @@ const ProfileEditorModal = (props: {
   React.useEffect(() => {
     if (props.open) {
       setName(props.initial?.name ?? "");
-      setServer(props.initial?.server ?? "NULL");
+      setServer(props.initial?.server ?? SERVER_VALUES.CN_BILIBILI);
       setErr(null);
     }
   }, [props.open, props.initial]);

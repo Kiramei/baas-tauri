@@ -74,6 +74,7 @@
     "ui": {
       "$self": "Настройки интерфейса",
       "assets": "Показать детали ресурсов",
+      "backendTransport": "Backend transport",
       "backgroundImage": "Фоновое изображение",
       "backgroundImageChoose": "Выбрать фон",
       "backgroundImageEmpty": "Фоновое изображение не задано",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "Включить системные уведомления",
       "lowPerformanceMode": "Режим низкой производительности",
       "player": "Плеер",
+      "sharedMemory": "Shared Memory",
       "themeColor": "Цвет темы",
       "themeColorInvalid": "Введите цвет темы в формате #RRGGBB.",
-      "themeColorReset": "Сбросить цвет темы"
+      "themeColorReset": "Сбросить цвет темы",
+      "transportSwitchedSharedMemory": "Switched to Shared Memory",
+      "transportSwitchedWebSocket": "Switched to WebSocket",
+      "transportSwitchFailed": "Transport switch failed",
+      "transportSwitching": "Switching",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "Настройки успешно обновлены"
   },

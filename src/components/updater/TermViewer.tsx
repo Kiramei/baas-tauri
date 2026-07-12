@@ -92,6 +92,7 @@ interface WorkflowPlannedPayload {
 
 interface TerminalSnapshotPayload {
   sessionId?: string;
+  success?: boolean;
   workflowPlan?: {
     nodes: WorkflowNodePayload[];
     edges: WorkflowEdgePayload[];
@@ -527,6 +528,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
   const appendTerminalLogRef = useRef(appendTerminalLog);
   const appendTerminalLogsRef = useRef(appendTerminalLogs);
   const concreteFailureRef = useRef(false);
+  const sessionFinishedDeliveredRef = useRef(false);
   const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
   const [edges, setEdges] = useState<WorkflowEdgePayload[]>([]);
 
@@ -546,6 +548,22 @@ const TermViewer: React.FC<TermViewerProps> = ({
     navigator.clipboard.writeText(text).then(undefined);
     toast.success("Logs copied to clipboard");
   };
+
+  useEffect(() => {
+    const plannedTasks = Object.values(tasks);
+    if (
+      sessionFinishedDeliveredRef.current ||
+      concreteFailureRef.current ||
+      plannedTasks.length === 0 ||
+      !plannedTasks.every((task) => task.status === "success")
+    ) {
+      return;
+    }
+
+    sessionFinishedDeliveredRef.current = true;
+    terminalRef.current?.setRunning(false);
+    onSessionFinishedRef.current?.(true);
+  }, [tasks]);
 
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
@@ -689,6 +707,8 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (disposed) return;
           flushChunks();
           terminalRef.current?.setRunning(false);
+          if (sessionFinishedDeliveredRef.current) return;
+          sessionFinishedDeliveredRef.current = true;
           onSessionFinishedRef.current?.(event.payload.success);
           if (!event.payload.success && !concreteFailureRef.current) {
             onFailureRef.current?.({
@@ -702,6 +722,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
           concreteFailureRef.current = false;
+          sessionFinishedDeliveredRef.current = false;
           capturedStableRegions.clear();
           pendingStableRegions.clear();
           setTasks({});
@@ -716,6 +737,14 @@ const TermViewer: React.FC<TermViewerProps> = ({
         return;
       }
       unlisteners.push(...listeners);
+      const deliverSnapshotCompletion = (snapshot: TerminalSnapshotPayload) => {
+        if (disposed || snapshot.success === undefined || sessionFinishedDeliveredRef.current) {
+          return;
+        }
+        sessionFinishedDeliveredRef.current = true;
+        terminalRef.current?.setRunning(false);
+        onSessionFinishedRef.current?.(snapshot.success);
+      };
       try {
         const snapshot = await invoke<TerminalSnapshotPayload>("updater_terminal_snapshot");
         if (!disposed && snapshot.workflowPlan) {
@@ -728,9 +757,22 @@ const TermViewer: React.FC<TermViewerProps> = ({
           });
           setEdges(snapshot.workflowPlan.edges);
         }
+        deliverSnapshotCompletion(snapshot);
       } catch {
         // Snapshot is best-effort; live events still drive normal runs.
       }
+      const completionPoll = window.setInterval(() => {
+        if (sessionFinishedDeliveredRef.current) {
+          window.clearInterval(completionPoll);
+          return;
+        }
+        void invoke<TerminalSnapshotPayload>("updater_terminal_snapshot")
+          .then(deliverSnapshotCompletion)
+          .catch(() => undefined);
+      }, 250);
+      unlisteners.push(() => {
+        window.clearInterval(completionPoll);
+      });
       if (!readySentRef.current) {
         readySentRef.current = true;
         void onReadyRef.current?.();

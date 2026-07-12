@@ -84,15 +84,21 @@ const Main: React.FC = () => {
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
-  const activePid = activeProfile!.id;
+  const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
-  const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
+  const [seenKeys, setSeenKeys] = React.useState<string[]>(
+    activePid ? [instanceKeyOf("home", activePid)] : []
+  );
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
-    setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [currentKey]);
+    if (!activePid) return;
+    setSeenKeys((prev) => {
+      const valid = prev.filter((key) => !key.endsWith(":none"));
+      return valid.includes(currentKey) ? valid : [...valid, currentKey];
+    });
+  }, [activePid, currentKey]);
   const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
 
   /**
@@ -114,6 +120,10 @@ const Main: React.FC = () => {
         return null;
     }
   }, []);
+
+  if (!activePid) {
+    return <LoadingPage />;
+  }
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
@@ -140,9 +150,9 @@ const Main: React.FC = () => {
   );
 };
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
-const InitialPage: React.FC = () => {
+const InitialPage: React.FC<{ onReady: () => void }> = ({ onReady }) => {
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
-    return <SetupPage />;
+    return <SetupPage onReady={onReady} />;
   }
   return <LoadingPage />;
 };
@@ -191,7 +201,7 @@ const WrappedApp: React.FC = () => {
           }}
           className="fixed inset-0 z-100"
         >
-          <InitialPage />
+          <InitialPage onReady={() => setReady(true)} />
         </motion.div>
       )}
 

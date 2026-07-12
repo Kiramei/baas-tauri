@@ -11,12 +11,21 @@ interface IndicatorProps {
 /** Renders the indicator base component. */
 export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   const [alive, setAlive] = useState(false);
-  const [connected, setConnected] = useState(true);
+  const [connected, setConnected] = useState(false);
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const transportMode = useBackendStore((s) => s.transportMode);
+  const connectionPhase = useBackendStore((s) => s.connectionPhase);
+  const authPhase = useBackendStore((s) => s._auth_phase);
+  const allDataInitialized = useBackendStore((s) => s._all_data_initialized);
   const heartbeatTime = useBackendStore((s) => s._heartbeat_time);
   const init = useBackendStore((s) => s.init);
   const lastBeatRef = useRef<number>(0);
+  const storeConnected =
+    transportMode === "shared-memory" &&
+    connectionPhase === "ready" &&
+    authPhase === "authenticated" &&
+    allDataInitialized;
 
   useEffect(() => {
     lastBeatRef.current = Date.now();
@@ -30,18 +39,31 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
     onStateChanged(true);
     const timer = setTimeout(() => setAlive(false), 300);
     return () => clearTimeout(timer);
-  }, [heartbeatTime]);
+  }, [heartbeatTime, onStateChanged]);
+
+  useEffect(() => {
+    if (transportMode !== "shared-memory") return;
+    setConnected(storeConnected);
+    onStateChanged(storeConnected);
+    if (!storeConnected) return;
+    setAlive(true);
+    const timer = setTimeout(() => setAlive(false), 300);
+    return () => clearTimeout(timer);
+  }, [onStateChanged, storeConnected, transportMode]);
 
   useEffect(() => {
     const checkInterval = setInterval(async () => {
+      if (storeConnected) return;
       if (Date.now() - lastBeatRef.current > 5000) {
         setConnected(false);
         onStateChanged(false);
-        await init();
+        if (authPhase === "authenticated") {
+          await init();
+        }
       }
     }, 1000);
     return () => clearInterval(checkInterval);
-  }, []);
+  }, [authPhase, init, onStateChanged, storeConnected]);
 
   const color =
     connected && !lowPerformanceMode && alive

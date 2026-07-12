@@ -70,12 +70,15 @@ pub struct TerminalSnapshot {
     pub session_id: Option<String>,
     /// Last planned workflow graph for the active session.
     pub workflow_plan: Option<WorkflowPlan>,
+    /// Last completion result for the active session.
+    pub success: Option<bool>,
 }
 
 #[derive(Clone)]
 pub struct UpdaterTermManager {
     inner: Arc<Mutex<TermState>>,
     cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
+    completion: Arc<Mutex<Option<(String, bool)>>>,
 }
 
 impl Default for UpdaterTermManager {
@@ -84,6 +87,7 @@ impl Default for UpdaterTermManager {
         Self {
             inner: Arc::new(Mutex::new(TermState::default())),
             cleanup_state: new_workflow_cleanup_state(),
+            completion: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -106,6 +110,10 @@ impl UpdaterTermManager {
                 .map_err(|_| "updater cleanup lock poisoned")?;
             *cleanup = WorkflowCleanupState::default();
         }
+        *self
+            .completion
+            .lock()
+            .map_err(|_| "updater completion lock poisoned")? = None;
 
         let session_id = Uuid::new_v4().to_string();
         let (renderer_tx, renderer_rx) = mpsc::channel();
@@ -152,14 +160,18 @@ impl UpdaterTermManager {
         let flow_inner = Arc::clone(&self.inner);
         let flow_session_id = session_id.clone();
         let flow_cleanup = Arc::clone(&self.cleanup_state);
+        let flow_completion = Arc::clone(&self.completion);
         thread::spawn(move || {
-            run_terminal_workflow_flow(
+            let success = run_terminal_workflow_flow(
                 flow_inner,
-                flow_session_id,
+                flow_session_id.clone(),
                 renderer_tx,
                 options,
                 flow_cleanup,
-            )
+            );
+            if let Ok(mut completion) = flow_completion.lock() {
+                *completion = Some((flow_session_id, success));
+            }
         });
 
         Ok(SessionMetadata {
@@ -174,9 +186,19 @@ impl UpdaterTermManager {
             .inner
             .lock()
             .map_err(|_| "updater manager lock poisoned")?;
+        let session_id = state.current_session_id.clone();
+        let success = self
+            .completion
+            .lock()
+            .map_err(|_| "updater completion lock poisoned")?
+            .as_ref()
+            .and_then(|(completed_session, success)| {
+                (Some(completed_session) == session_id.as_ref()).then_some(*success)
+            });
         Ok(TerminalSnapshot {
-            session_id: state.current_session_id.clone(),
+            session_id,
             workflow_plan: state.workflow_plan.clone(),
+            success,
         })
     }
 
@@ -290,5 +312,26 @@ mod tests {
         let report = manager.abort(WorkflowAbortRequest::default()).unwrap();
         assert_eq!(report.stopped_tasks, 0);
         assert!(report.cleaned_paths.is_empty());
+    }
+
+    #[test]
+    fn snapshot_preserves_completion_for_late_frontend_subscribers() {
+        let manager = UpdaterTermManager::default();
+        manager.inner.lock().unwrap().current_session_id = Some("session-1".to_string());
+        *manager.completion.lock().unwrap() = Some(("session-1".to_string(), true));
+
+        let snapshot = manager.snapshot().unwrap();
+
+        assert_eq!(snapshot.session_id.as_deref(), Some("session-1"));
+        assert_eq!(snapshot.success, Some(true));
+    }
+
+    #[test]
+    fn snapshot_ignores_completion_from_an_old_session() {
+        let manager = UpdaterTermManager::default();
+        manager.inner.lock().unwrap().current_session_id = Some("session-2".to_string());
+        *manager.completion.lock().unwrap() = Some(("session-1".to_string(), true));
+
+        assert_eq!(manager.snapshot().unwrap().success, None);
     }
 }

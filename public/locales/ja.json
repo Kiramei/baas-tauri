@@ -74,6 +74,7 @@
     "ui": {
       "$self": "UI設定",
       "assets": "資産詳細を表示",
+      "backendTransport": "Backend transport",
       "backgroundImage": "背景画像",
       "backgroundImageChoose": "背景を選択",
       "backgroundImageEmpty": "背景画像が設定されていません",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "システム通知を有効化",
       "lowPerformanceMode": "低パフォーマンスモード",
       "player": "プレイヤー",
+      "sharedMemory": "Shared Memory",
       "themeColor": "テーマカラー",
       "themeColorInvalid": "#RRGGBB 形式でテーマカラーを入力してください。",
-      "themeColorReset": "テーマカラーをリセット"
+      "themeColorReset": "テーマカラーをリセット",
+      "transportSwitchedSharedMemory": "Switched to Shared Memory",
+      "transportSwitchedWebSocket": "Switched to WebSocket",
+      "transportSwitchFailed": "Transport switch failed",
+      "transportSwitching": "Switching",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "設定の更新に成功しました"
   },

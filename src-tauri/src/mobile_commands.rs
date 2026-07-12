@@ -2082,6 +2082,12 @@ pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
     }))
 }
 
+/// Starts a desktop-style WebSocket backend.
+#[tauri::command]
+pub fn backend_websocket_start() -> Result<Value, String> {
+    Err("WebSocket transport selection is not supported on Android client builds".to_string())
+}
+
 /// Performs the updater abort workflow operation.
 #[tauri::command]
 pub fn updater_abort_workflow(

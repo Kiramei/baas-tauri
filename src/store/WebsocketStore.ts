@@ -1,6 +1,12 @@
 import { toast } from "sonner";
 import { create } from "zustand";
-import { openBackendChannel, startBackendTransport } from "@/transport/factory";
+import {
+  getPreferredBackendTransportMode,
+  normalizeBackendTransportMode,
+  openBackendChannel,
+  setPreferredBackendTransportMode,
+  startBackendTransport,
+} from "@/transport/factory";
 import type { BackendChannelName } from "@/transport/types";
 import type { BackendConnection } from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -21,7 +27,11 @@ import {
 import StorageUtil from "@/shared/StorageManager.ts";
 
 /** Returns the resolve base result. */
+let activeWebSocketBase: string | null = null;
+
+/** Returns the resolve base result. */
 const resolveBase = () => {
+  if (activeWebSocketBase) return activeWebSocketBase;
   if (import.meta.env.VITE_BAAS_WS_BASE) {
     return import.meta.env.VITE_BAAS_WS_BASE as string;
   }
@@ -302,11 +312,15 @@ export const waitForNormal = <T>(
 };
 void waitForNormal;
 
+const transportRequiresAuthentication = (mode: BackendState["transportMode"]) => mode === "websocket";
+const isSharedMemoryTransport = (mode: BackendState["transportMode"]) => mode === "shared-memory";
+const initialTransportMode = normalizeBackendTransportMode();
+
 export const useWebSocketStore = create<BackendState>()(
   subscribeWithSelector((set, get, api) => ({
-    transportMode: __WITH_TAURI_MODE__ ? "shared-memory" : "websocket",
+    transportMode: initialTransportMode,
     connectionPhase: "idle",
-    requiresAuthentication: !__WITH_TAURI_MODE__,
+    requiresAuthentication: transportRequiresAuthentication(initialTransportMode),
     connections: {},
     logStore: {},
     configStore: {},
@@ -330,6 +344,41 @@ export const useWebSocketStore = create<BackendState>()(
     _pwd_epoch: 0,
     _control: null,
     _session: null,
+
+    setTransportMode: async (mode) => {
+      const previousMode = get().transportMode;
+      const nextMode = setPreferredBackendTransportMode(mode);
+      if (previousMode === nextMode && get()._auth_phase === "authenticated") return;
+      if (nextMode === "shared-memory") activeWebSocketBase = null;
+
+      Object.values(get().connections).forEach((connection) => {
+        void connection?.close();
+      });
+      get()._control?.close();
+      if (previousMode === "shared-memory" && __WITH_TAURI__) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("backend_ipc_close");
+        } catch (error) {
+          console.warn("failed to close shared-memory backend", error);
+        }
+      }
+
+      set((state) => ({
+        ...state,
+        ...resetDataStores(),
+        transportMode: nextMode,
+        connectionPhase: "idle",
+        requiresAuthentication: transportRequiresAuthentication(nextMode),
+        _auth_phase: "idle",
+        _auth_error: null,
+        _server_initialized: false,
+        _server_verified: false,
+        _control: null,
+        _session: null,
+      }));
+      await get().startAuthFlow();
+    },
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
@@ -502,16 +551,17 @@ export const useWebSocketStore = create<BackendState>()(
         setTimeout(check, ANDROID_STARTUP_UPDATE_DELAY_MS);
         return;
       }
-      check();
+      setTimeout(check, 30_000);
     },
 
     startAuthFlow: async () => {
-      if (__WITH_TAURI_MODE__) {
+      const transportMode = get().transportMode;
+      if (isSharedMemoryTransport(transportMode)) {
         if (get()._auth_phase === "authenticated" || get().connectionPhase === "connecting") return;
         set((state) => ({
           ...state,
           ...resetConnectionStores(),
-          transportMode: "shared-memory",
+          transportMode,
           connectionPhase: "starting-backend",
           requiresAuthentication: false,
           _auth_phase: "idle",
@@ -522,7 +572,7 @@ export const useWebSocketStore = create<BackendState>()(
           _session: null,
         }));
         try {
-          await startBackendTransport();
+          await startBackendTransport(transportMode);
           set((state) => ({
             ...state,
             connectionPhase: "ready",
@@ -537,6 +587,30 @@ export const useWebSocketStore = create<BackendState>()(
           }));
         }
         return;
+      }
+      if (__WITH_TAURI__) {
+        set((state) => ({
+          ...state,
+          ...resetConnectionStores(),
+          transportMode: "websocket",
+          connectionPhase: "starting-backend",
+          requiresAuthentication: true,
+          _auth_error: null,
+        }));
+        try {
+          const startup = await startBackendTransport("websocket");
+          if (startup.baseBackendAddr && startup.baseBackendPort) {
+            activeWebSocketBase = `ws://${startup.baseBackendAddr}:${startup.baseBackendPort}`;
+          }
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            connectionPhase: "failed",
+            _auth_phase: "idle",
+            _auth_error: error instanceof Error ? error.message : String(error),
+          }));
+          return;
+        }
       }
       const phase = get()._auth_phase;
       if (
@@ -554,6 +628,9 @@ export const useWebSocketStore = create<BackendState>()(
 
       set((state) => ({
         ...state,
+        connectionPhase: "connecting",
+        transportMode: "websocket",
+        requiresAuthentication: true,
         _auth_phase: "control_connecting",
         _auth_error: phase === "revoked" ? state._auth_error : null,
         _server_verified: false,
@@ -574,6 +651,7 @@ export const useWebSocketStore = create<BackendState>()(
             set((state) => ({
               ...state,
               ...resetDataStores(),
+              connectionPhase: "failed",
               ...rejectPendingTransportCallbacks(state, "Control connection closed"),
               _auth_phase: "revoked",
               _auth_error:
@@ -596,6 +674,7 @@ export const useWebSocketStore = create<BackendState>()(
             set((state) => ({
               ...state,
               ...resetConnectionStores(),
+              connectionPhase: "failed",
               ...rejectPendingTransportCallbacks(state, "Control connection closed"),
               _auth_phase: "revoked",
               _auth_error: "Control connection closed. Authenticate again.",
@@ -633,6 +712,7 @@ export const useWebSocketStore = create<BackendState>()(
             set((state) => ({
               ...state,
               ...resetConnectionStores(),
+              connectionPhase: "ready",
               _auth_phase: "authenticated",
               _auth_error: null,
               _server_initialized: true,
@@ -650,6 +730,7 @@ export const useWebSocketStore = create<BackendState>()(
         console.error("[control] failed to connect", error);
         set((state) => ({
           ...state,
+          connectionPhase: "failed",
           _auth_phase: "idle",
           _auth_error: error instanceof Error ? error.message : "Failed to verify server identity.",
           _control: null,
@@ -659,10 +740,10 @@ export const useWebSocketStore = create<BackendState>()(
     },
 
     submitPassword: async (password: string) => {
-      if (__WITH_TAURI_MODE__) {
+      if (isSharedMemoryTransport(get().transportMode)) {
         set((state) => ({
           ...state,
-          _auth_error: "Client mode uses shared-memory transport and does not support WebUI password authentication.",
+          _auth_error: "Shared-memory transport does not use WebUI password authentication.",
         }));
         return;
       }
@@ -701,6 +782,7 @@ export const useWebSocketStore = create<BackendState>()(
         set((state) => ({
           ...state,
           ...resetConnectionStores(),
+          connectionPhase: "ready",
           _auth_phase: "authenticated",
           _auth_error: null,
           _server_initialized: true,
@@ -715,6 +797,7 @@ export const useWebSocketStore = create<BackendState>()(
         set((state) => ({
           ...state,
           ...resetDataStores(),
+          connectionPhase: "failed",
           _auth_phase: "idle",
           _auth_error: error instanceof Error ? error.message : "Authentication failed.",
           _server_verified: false,
@@ -727,7 +810,8 @@ export const useWebSocketStore = create<BackendState>()(
     connect: async (name: BackendChannelKey) => {
       if (get().connections[name]) return;
       const session = get()._session;
-      if (!__WITH_TAURI_MODE__ && !session) {
+      const transportMode = get().transportMode;
+      if (transportRequiresAuthentication(transportMode) && !session) {
         throw new Error("No authenticated session is available");
       }
 
@@ -922,13 +1006,13 @@ export const useWebSocketStore = create<BackendState>()(
           if (callback) {
             if (data?.binary) {
               get().pendingBinaryCallbacks[timestamp!] = (binary: ArrayBuffer) => {
-                callback({ command, data, status, binary });
+                callback({ command, data, status, error, binary });
                 delete get().pendingCallbacks[timestamp!];
               };
               get().pendingBinaryQueue.push(timestamp!);
               return;
             }
-            callback({ command, data, status });
+            callback({ command, data, status, error });
             delete get().pendingCallbacks[timestamp!];
           } else {
             console.warn("CallBack Not Found:", message);
@@ -978,11 +1062,12 @@ export const useWebSocketStore = create<BackendState>()(
 
       const ws = await openBackendChannel(
         channel,
-        __WITH_TAURI_MODE__
+        isSharedMemoryTransport(transportMode)
           ? { name, binaryType: "arraybuffer" }
           : {
               baseUrl: resolveBase(),
               session,
+              transportMode,
               name,
               binaryType: "arraybuffer",
             }
@@ -1035,18 +1120,20 @@ export const useWebSocketStore = create<BackendState>()(
         throw new Error("Remote control is disabled on Android.");
       }
       const session = get()._session;
-      if (!__WITH_TAURI_MODE__ && !session) {
+      const transportMode = get().transportMode;
+      if (transportRequiresAuthentication(transportMode) && !session) {
         throw new Error("No authenticated session is available");
       }
       const unique = randomUUID();
       const name = `remote-${unique}` as `remote-${string}`;
       const ws = await openBackendChannel(
         "remote",
-        __WITH_TAURI_MODE__
+        isSharedMemoryTransport(transportMode)
           ? { name, binaryType: "arraybuffer" }
           : {
               baseUrl: resolveBase(),
               session,
+              transportMode,
               name,
               binaryType: "arraybuffer",
             }
@@ -1172,14 +1259,16 @@ export const useWebSocketStore = create<BackendState>()(
           }));
           startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
         } else {
-          startBackendUpdaterPolling();
-
-          await waitFor(
-            get,
-            api.subscribe,
-            (state: BackendState) => state.versionStore,
-            (versionStore) => Object.keys(versionStore).length > 0
-          );
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              channel: state.updateStore?.channel ?? "dev",
+              method: "deferred",
+              checking: true,
+            },
+          }));
+          startBackendUpdaterPolling(5_000);
         }
 
         await waitFor(
@@ -1405,3 +1494,12 @@ export const useWebSocketStore = create<BackendState>()(
     },
   }))
 );
+
+/** Loads the persisted transport after the platform storage has initialized. */
+export const hydrateBackendTransportPreference = (): void => {
+  const transportMode = getPreferredBackendTransportMode();
+  useWebSocketStore.setState({
+    transportMode,
+    requiresAuthentication: transportRequiresAuthentication(transportMode),
+  });
+};

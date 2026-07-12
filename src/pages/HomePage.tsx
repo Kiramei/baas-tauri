@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
@@ -17,6 +17,21 @@ import StorageUtil from "@/shared/StorageManager.ts";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
+
+const schedulerErrorMessage = (response: any, command: string) => {
+  const message =
+    response?.message ??
+    response?.error ??
+    response?.data?.message ??
+    response?.data?.error ??
+    response?.data?.reason;
+  if (message) return String(message);
+  try {
+    return `${command} failed: ${JSON.stringify(response)}`;
+  } catch {
+    return `${command} failed`;
+  }
+};
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -39,6 +54,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const logStore = useBackendStore((state) => state.logStore);
 
   const scriptRunning = activeConfigId ? statusStore[activeConfigId]?.running || false : false;
+  const schedulerError = activeConfigId ? statusStore[activeConfigId]?.error : undefined;
   const settings = activeConfigId ? configStore[activeConfigId] : undefined;
   const remoteAvailable = !__WITH_ANDROID__;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
@@ -50,6 +66,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [pendingSchedulerCommand, setPendingSchedulerCommand] = useState<
     "start_scheduler" | "stop_scheduler" | null
   >(null);
+  const schedulerWaitNoticeRef = useRef<number | null>(null);
+  const schedulerErrorRef = useRef<string | null>(null);
 
   const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
 
@@ -216,6 +234,37 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     void refreshAndroidVirtualDisplayStatus();
   }, [refreshAndroidVirtualDisplayStatus]);
 
+  useEffect(() => {
+    if (
+      (pendingSchedulerCommand === "start_scheduler" && scriptRunning) ||
+      (pendingSchedulerCommand === "stop_scheduler" && !scriptRunning)
+    ) {
+      if (schedulerWaitNoticeRef.current !== null) {
+        window.clearInterval(schedulerWaitNoticeRef.current);
+        schedulerWaitNoticeRef.current = null;
+      }
+      appendLocalLog("INFO", `${pendingSchedulerCommand} state confirmed by backend status`);
+      setPendingSchedulerCommand(null);
+    }
+  }, [appendLocalLog, pendingSchedulerCommand, scriptRunning]);
+
+  useEffect(() => {
+    if (!schedulerError || schedulerErrorRef.current === schedulerError) return;
+    schedulerErrorRef.current = schedulerError;
+    appendLocalLog("ERROR", schedulerError);
+    toast.error("Scheduler startup failed", { description: schedulerError });
+    setPendingSchedulerCommand(null);
+  }, [appendLocalLog, schedulerError]);
+
+  useEffect(() => {
+    return () => {
+      if (schedulerWaitNoticeRef.current !== null) {
+        window.clearInterval(schedulerWaitNoticeRef.current);
+        schedulerWaitNoticeRef.current = null;
+      }
+    };
+  }, []);
+
   /**
    * Issues the scheduler start command for the active profile.
    * Guarded against duplicate submissions when a run is already active.
@@ -247,14 +296,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
 
         let settled = false;
-        const timeoutId = window.setTimeout(() => {
+        if (schedulerWaitNoticeRef.current !== null) {
+          window.clearInterval(schedulerWaitNoticeRef.current);
+        }
+        schedulerWaitNoticeRef.current = window.setInterval(() => {
           if (settled) return;
-          settled = true;
-          delete useBackendStore.getState().pendingCallbacks[timestamp];
-          setPendingSchedulerCommand(null);
-          const message = `${command} timed out after 10 seconds without backend acknowledgement`;
-          appendLocalLog("ERROR", message);
-          toast.error(`Scheduler ${label} timed out`, { description: message });
+          appendLocalLog("INFO", `${command} is still waiting for backend acknowledgement...`);
         }, 10000);
 
         useBackendStore.getState().trigger(
@@ -267,13 +314,14 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           (response) => {
             if (settled) return;
             settled = true;
-            window.clearTimeout(timeoutId);
+            if (schedulerWaitNoticeRef.current !== null) {
+              window.clearInterval(schedulerWaitNoticeRef.current);
+              schedulerWaitNoticeRef.current = null;
+            }
             setPendingSchedulerCommand(null);
             console.debug(`${command} acknowledged`, response);
             if ((response as any)?.status === "error") {
-              const message = String(
-                (response as any)?.message ?? (response as any)?.error ?? `${command} failed`
-              );
+              const message = schedulerErrorMessage(response, command);
               appendLocalLog("ERROR", message);
               toast.error(`Scheduler ${label} failed`, { description: message });
               return;
@@ -282,6 +330,10 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           }
         );
       } catch (error) {
+        if (schedulerWaitNoticeRef.current !== null) {
+          window.clearInterval(schedulerWaitNoticeRef.current);
+          schedulerWaitNoticeRef.current = null;
+        }
         setPendingSchedulerCommand(null);
         const message = String(error);
         appendLocalLog("ERROR", message);
@@ -418,7 +470,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
-            className="w-25 pl-3 flex items-center justify-center"
+            className="h-9 w-25 pl-3 flex items-center justify-center whitespace-nowrap"
             disabled={androidVirtualDisplayBusy || pendingSchedulerCommand !== null}
           >
             {scriptRunning ? (
@@ -475,14 +527,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       )}
 
       {/* Streaming log viewer with scroll management and export tooling. */}
-      <Card
-        className={
-          isAndroid
-            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
-            : "flex-1 min-h-100 flex flex-col"
-        }
-      >
-        <CardHeader className="flex justify-between items-center">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <CardHeader className="flex shrink-0 justify-between items-center">
           <CardTitle>
             <div className="flex items-center gap-2">
               <Logs /> {t("log")}

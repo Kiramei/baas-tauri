@@ -52,6 +52,7 @@ const TauriScriptNotifier: React.FC = () => {
       : () => {};
 
     for (const [configId, status] of Object.entries(statusStore as Record<string, ScriptStatus>)) {
+      if (!status) continue;
       const previous = previousRef.current[configId];
       const currentTask = status.current_task ?? null;
       const next: StatusSnapshot = {

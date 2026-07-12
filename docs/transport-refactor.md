@@ -6,14 +6,18 @@
 WebUI build:
 Browser -> Secure WebSocket/HTTP -> FastAPI routes -> channel handlers -> ServiceContext
 
-Tauri build after this slice:
-React/WebView -> Tauri command transport facade -> Rust BackendIpcManager
-    -> Windows named shared memory + directional named events -> Python shm entrypoint
+Tauri build, Shared Memory selected:
+React/WebView -> raw Tauri Channel/commands -> Rust BackendIpcManager
+    -> named shared memory + directional OS events -> Python shm entrypoint
+
+Tauri build, WebSocket selected:
+React/WebView -> secure WebSocket/HTTP -> managed Python FastAPI backend
 ```
 
-Tauri mode now selects the shared-memory facade at compile time, creates Windows native IPC
-resources, launches Python with `--transport shm`, and fails explicitly when shared memory is
-unavailable; it does not fall back to WebSocket.
+Desktop Tauri exposes an explicit persisted transport selector in Settings. Shared Memory is the
+default; selecting it creates native IPC resources and launches Python with `--transport shm`.
+Selecting WebSocket launches the managed secure WebUI backend. A Shared Memory failure is surfaced
+as an error and never triggers an automatic WebSocket fallback.
 
 ## Platform Support
 
@@ -117,14 +121,16 @@ The low-level IPC policy now names four lanes:
 - WebUI secure WebSocket behavior remains available and builds.
 - Python sync/provider/trigger/remote business handlers are transport-neutral.
 - WebSocket routes are now thin auth/encryption adapters.
-- Tauri frontend mode no longer emits `SecureWebSocket`, `WebSocketBackendTransport`,
-  `PasswordInputModal`, `ReconnectingOverlay`, or `libsodium` chunks in the production Tauri build.
-  WebUI-only password and reconnect UI are behind compile-time WebUI branches.
+- Desktop Tauri builds emit both transport adapters so Settings can switch explicitly at runtime.
+  Shared Memory bypasses control authentication; WebSocket retains server verification, password,
+  remembered-session, and SecretStream behavior. Web builds emit only the WebSocket transport.
 - Desktop Tauri setup now runs the updater workflow with `launch: false`; after sync/install
-  success it initializes the backend through `BackendStore.startAuthFlow()`, which starts the
-  shared-memory transport. It no longer listens for `updater://backend-ready`, stores localhost
-  backend host/port values, generates an automatic WebUI password, submits a password, or calls the
-  backend-auth reset command.
+  success it initializes the selected transport through `BackendStore.startAuthFlow()`. Shared
+  Memory startup does not listen for `updater://backend-ready`, store localhost backend host/port
+  values, generate an automatic WebUI password, or call the backend-auth reset command.
+- An already-installed backend now takes a direct startup path instead of rerunning the complete
+  updater workflow on every launch. A failed direct start returns to the installer for recovery.
+  Persisted WebSocket mode hands `waiting_password` off to the normal authentication UI.
 - `crates/baas-ipc` has Windows named shared-memory/named-event wrappers and POSIX desktop
   shared-memory/named-semaphore wrappers with tests. Remaining unsupported targets expose the same
   API surface and return `UnsupportedPlatform`, so builds fail through an explicit transport gate
@@ -147,13 +153,19 @@ The low-level IPC policy now names four lanes:
   and binary payloads, and routes inbound frames back to the original frontend connection name using
   the stream ID assigned at open time. `backend_ipc_recv` remains as a debug/test drain command, but
   the frontend transport no longer uses fixed-interval polling.
+- Rust-to-WebView delivery uses one ordered raw `ArrayBuffer` channel with a 20-byte binary envelope.
+  It no longer serializes `Vec<u8>` as JSON `number[]`; JSON remains UTF-8 and media remains raw
+  bytes. Remote pending delivery is bounded to 256 messages/8 MiB and drops stale media before
+  reliable control messages.
+- WebView-to-Rust binary sends use a raw Tauri invoke body with an 8-byte routing envelope, removing
+  the former `Array.from(Uint8Array)` conversion while preserving UTF-8 dynamic channel names.
 - The Rust reader now interprets the shared-memory lifecycle header after draining inbound frames.
   `stopped` is surfaced as `BackendExited`, `failed` as `BackendInitializationFailed`, and unknown
   lifecycle values as `SharedMemoryCorrupted`. Active Tauri channel subscribers receive a synthetic
   transport error before the Rust manager clears the run and moves status to `failed`.
 - Tauri also exposes `backend_ipc_benchmark_webview_copy` plus
   `benchmarkTauriWebviewCopy()` for measuring Rust-to-WebView `Channel` binary delivery cost using
-  the same serialized message shape as `TauriSharedMemoryTransport`. `bun run
+  the same raw response-body path as `TauriSharedMemoryTransport`. `bun run
   benchmark:webview-copy` starts a Tauri-mode Vite server, launches the desktop app with
   `BAAS_WEBVIEW_COPY_BENCHMARK_*` environment variables, writes a JSON report, and exits the app.
 - `TauriSharedMemoryTransport` receives pushed `Channel` messages and delivers JSON objects or
@@ -162,6 +174,8 @@ The low-level IPC policy now names four lanes:
   `sync` or `trigger` transport closes, errors, or is manually disconnected. Control-channel
   revocation/close also clears pending transport callbacks so operations cannot hang indefinitely
   after backend restart or transport loss.
+- Runtime status comes from the provider push channel; the duplicate one-second trigger polling loop
+  was removed, eliminating timestamp collisions and repeated `CallBack Not Found` warnings.
 - `src/store/BackendStore.ts` is the neutral frontend store import surface. Existing
   `WebsocketStore.ts` remains as the implementation and compatibility export, but app code now uses
   `useBackendStore` from `BackendStore` so business components no longer import a WebSocket-named
@@ -312,26 +326,26 @@ The low-level IPC policy now names four lanes:
 Command run on Windows/Python 3.11.9:
 
 ```bash
-python scripts/benchmark_transport.py --latency-iterations 300 --binary-iterations 60 --large-binary-iterations 10 --startup-iterations 3 --idle-seconds 2 --secure-websocket
+python scripts/benchmark_transport.py --latency-iterations 300 --binary-iterations 40 --large-binary-iterations 6 --message-burst-count 1000 --remote-stress-frames 120 --remote-stress-frame-size 65536 --startup-iterations 3 --idle-seconds 2 --secure-websocket
 ```
 
 Small JSON persistent echo latency:
 
 | Transport | p50 ms | p95 ms | p99 ms |
 | --- | ---: | ---: | ---: |
-| shared-memory ring | 0.0342 | 0.0375 | 0.0464 |
-| localhost WebSocket | 0.036 | 0.0913 | 0.1368 |
+| shared-memory ring | 0.0350 | 0.0635 | 0.0900 |
+| localhost WebSocket | 0.0765 | 0.1306 | 0.1638 |
 
 Binary persistent echo throughput, counting echoed bytes in both directions:
 
 | Transport | Payload | Iterations | MiB/s | Wall ms |
 | --- | ---: | ---: | ---: | ---: |
-| shared-memory ring | 1 KiB | 60 | 52.59 | 2.228 |
-| shared-memory ring | 64 KiB | 60 | 2497.25 | 3.003 |
-| shared-memory ring | 1 MiB | 10 | 604.37 | 33.092 |
-| localhost WebSocket | 1 KiB | 60 | 13.22 | 8.865 |
-| localhost WebSocket | 64 KiB | 60 | 20.86 | 359.568 |
-| localhost WebSocket | 1 MiB | 10 | 21.55 | 928.173 |
+| shared-memory ring | 1 KiB | 40 | 33.97 | 2.300 |
+| shared-memory ring | 64 KiB | 40 | 1835.54 | 2.724 |
+| shared-memory ring | 1 MiB | 6 | 365.28 | 32.852 |
+| localhost WebSocket | 1 KiB | 40 | 9.09 | 8.597 |
+| localhost WebSocket | 64 KiB | 40 | 19.84 | 252.037 |
+| localhost WebSocket | 1 MiB | 6 | 20.82 | 576.478 |
 
 Status/log burst throughput, using alternating `status` and `log` JSON payloads:
 
@@ -341,14 +355,14 @@ python scripts/benchmark_transport.py --latency-iterations 50 --binary-iteration
 
 | Transport | Messages | Payload bytes | Messages/s | MiB/s | Wall ms |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| shared-memory ring | 1,000 | 256 | 62,065.54 | 15.15 | 16.112 |
-| localhost WebSocket | 1,000 | 256 | 16,831.22 | 4.11 | 59.413 |
+| shared-memory ring | 1,000 | 256 | 63,691.83 | 15.55 | 15.701 |
+| localhost WebSocket | 1,000 | 256 | 17,448.23 | 4.26 | 57.312 |
 
 Shared-memory subprocess startup and idle CPU:
 
 | Transport | Startup p50 ms | Startup p95 ms | Idle seconds | Idle CPU seconds avg | Idle CPU % avg |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `main.service.py --transport shm` | 209.043 | 227.017 | 2.0 | 0.03125 | 1.562 |
+| `main.service.py --transport shm` | 239.475 | 371.842 | 2.0 | 0.0 | 0.0 |
 
 WebUI SecretStream overhead:
 
@@ -368,12 +382,12 @@ encrypted with the backend `SecretStreamBox` primitive:
 Transport-level synthetic remote media stress through `main.service.py --transport shm`:
 
 ```bash
-python scripts/benchmark_transport.py --latency-iterations 50 --binary-iterations 10 --large-binary-iterations 3 --remote-stress-frames 60 --remote-stress-frame-size 65536 --json
+python scripts/benchmark_transport.py --latency-iterations 50 --binary-iterations 10 --large-binary-iterations 3 --remote-stress-frames 120 --remote-stress-frame-size 65536 --json
 ```
 
 | Frames requested | Frame bytes | Frames received | Bytes received | Wall ms | MiB/s | Dropped frames | Close received |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 60 | 65,536 | 60 | 3,932,160 | 14117.447 | 0.27 | 0 | true |
+| 120 | 65,536 | 120 | 7,864,320 | 205.602 | 36.48 | 0 | true |
 
 Tauri WebView Rust-to-frontend `Channel` binary copy benchmark:
 
@@ -383,12 +397,14 @@ bun run benchmark:webview-copy -- --out benchmarks/webview-copy-windows.json --s
 
 | Payload | Iterations | Rust emit ms | WebView wall ms | WebView MiB/s |
 | ---: | ---: | ---: | ---: | ---: |
-| 1 KiB | 60 | 5.582 | 9.000 | 6.51 |
-| 64 KiB | 60 | 289.370 | 294.400 | 12.74 |
-| 1 MiB | 60 | 4470.477 | 4499.900 | 13.33 |
+| 1 KiB | 60 | 0.743 | 27.900 | 2.10 |
+| 64 KiB | 60 | 2.445 | 41.700 | 89.93 |
+| 1 MiB | 60 | 10.734 | 298.100 | 201.27 |
 
-The benchmark also drove an implementation fix: Python `SharedRingBuffer` now uses contiguous and
-wrap-around slice copies instead of byte-by-byte loops. Full acceptance benchmarks still need full
-browser WebUI authentication-flow overhead and high-load remote media measurements against an
-attached device or emulator. The current remote-media coverage is synthetic shared-memory
-backpressure plus subprocess byte-stream stress validation.
+The benchmark drove three implementation fixes: Python writes directly to the mapped ring instead
+of copying/diffing the whole 16 MiB region; Rust and Python ring operations use contiguous/wrap
+slice copies instead of byte loops; and Rust-to-WebView media uses Tauri raw response bodies instead
+of JSON byte arrays. `cargo run -p baas-ipc --example ring_benchmark --release` measures the Rust
+ring implementation independently. Full acceptance still needs remote-display measurements against
+an attached device or emulator; current remote coverage is synthetic backpressure and subprocess
+byte-stream stress validation.

@@ -8,6 +8,20 @@ if (!Object.hasOwn) {
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
+const StartupShell = () => (
+  <div id="baas-startup-shell">
+    <div className="baas-startup-content">
+      <div className="baas-startup-mark">
+        <img src="/images/logo.png" alt="BAAS" />
+        <div className="baas-startup-spinner" aria-hidden="true" />
+      </div>
+      <span>
+        Loading interface...
+      </span>
+    </div>
+  </div>
+);
+
 /** Renders the browser tauri dev fallback component. */
 const BrowserTauriDevFallback = () => (
   <div
@@ -47,6 +61,14 @@ const closeSplash = async () => {
 const runConfiguredBenchmark = async () => {
   if (!__WITH_TAURI_MODE__) return false;
   try {
+    const { runConfiguredTransportStartupBenchmark } = await import(
+      "@/transport/tauri-shm/transportStartupBenchmarkRunner"
+    );
+    if (await runConfiguredTransportStartupBenchmark()) return true;
+    const { runConfiguredRemoteE2eBenchmark } = await import(
+      "@/transport/tauri-shm/remoteE2eBenchmarkRunner"
+    );
+    if (await runConfiguredRemoteE2eBenchmark()) return true;
     const { runConfiguredWebviewCopyBenchmark } = await import(
       "@/transport/tauri-shm/webviewCopyBenchmarkRunner"
     );
@@ -58,6 +80,8 @@ const runConfiguredBenchmark = async () => {
 
 /** Handles the bootstrap workflow. */
 const bootstrap = async () => {
+  root.render(<StartupShell />);
+
   if (await runConfiguredBenchmark()) {
     return;
   }
@@ -74,6 +98,10 @@ const bootstrap = async () => {
   ]);
 
   await initI18n();
+  if (__WITH_TAURI_MODE__) {
+    const { hydrateBackendTransportPreference } = await import("@/store/BackendStore");
+    hydrateBackendTransportPreference();
+  }
   root.render(
     <React.StrictMode>
       <App />

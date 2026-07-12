@@ -74,6 +74,7 @@
     "ui": {
       "$self": "Paramètres de l'interface",
       "assets": "Afficher les détails des ressources",
+      "backendTransport": "Backend transport",
       "backgroundImage": "Image d'arriere-plan",
       "backgroundImageChoose": "Choisir un arriere-plan",
       "backgroundImageEmpty": "Aucune image d'arriere-plan definie",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "Activer les notifications systeme",
       "lowPerformanceMode": "Mode basse performance",
       "player": "Lecteur",
+      "sharedMemory": "Shared Memory",
       "themeColor": "Couleur du theme",
       "themeColorInvalid": "Saisissez une couleur de theme au format #RRGGBB.",
-      "themeColorReset": "Reinitialiser la couleur du theme"
+      "themeColorReset": "Reinitialiser la couleur du theme",
+      "transportSwitchedSharedMemory": "Switched to Shared Memory",
+      "transportSwitchedWebSocket": "Switched to WebSocket",
+      "transportSwitchFailed": "Transport switch failed",
+      "transportSwitching": "Switching",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "Paramètres mis à jour avec succès"
   },

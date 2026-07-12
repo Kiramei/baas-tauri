@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useTheme } from "@/context/ThemeProvider";
-import { Theme } from "@/types/app";
+import { Theme, TransportMode } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
@@ -198,12 +198,15 @@ const SettingsPage: React.FC = () => {
   const updateConfig = useBackendStore((state) => state.updateStore);
   const versionStore = useBackendStore((state) => state.versionStore);
   const checkTauriUpdater = useBackendStore((state) => state.checkTauriUpdater);
+  const transportMode = useBackendStore((state) => state.transportMode);
+  const setTransportMode = useBackendStore((state) => state.setTransportMode);
   const modify = useBackendStore((state) => state.modify);
   const tauriUpdate = useTauriSelfUpdate();
   const [reposInitState, setReposInitState] = useState(reposInit);
   const [themeColorInput, setThemeColorInput] = useState(
     uiSettings.themeColor || DEFAULT_THEME_COLOR
   );
+  const [transportSwitching, setTransportSwitching] = useState(false);
   const activeThemeColor = HEX_COLOR_RE.test(themeColorInput)
     ? themeColorInput
     : DEFAULT_THEME_COLOR;
@@ -747,6 +750,26 @@ const SettingsPage: React.FC = () => {
     modify("global::setup_toml", { channel });
   };
 
+  /** Handles the transport mode selection workflow. */
+  const handleTransportModeChange = async (value: string) => {
+    const mode: TransportMode = value === "websocket" ? "websocket" : "shared-memory";
+    setTransportSwitching(true);
+    try {
+      await setTransportMode(mode);
+      toast.success(
+        mode === "websocket"
+          ? t("settings.ui.transportSwitchedWebSocket")
+          : t("settings.ui.transportSwitchedSharedMemory")
+      );
+    } catch (error) {
+      toast.error(t("settings.ui.transportSwitchFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setTransportSwitching(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card className="relative overflow-hidden rounded-2xl border border-slate-200/50 bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 shadow-lg">
@@ -820,6 +843,31 @@ const SettingsPage: React.FC = () => {
             className="hidden"
             onChange={handleWebBackgroundImageChange}
           />
+
+          {__WITH_TAURI_MODE__ && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                {t("settings.ui.backendTransport")}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
+                <FormSelect
+                  value={transportMode}
+                  disabled={transportSwitching}
+                  onChange={handleTransportModeChange}
+                  options={[
+                    { label: t("settings.ui.sharedMemory"), value: "shared-memory" },
+                    { label: t("settings.ui.webSocket"), value: "websocket" },
+                  ]}
+                />
+                {transportSwitching && (
+                  <div className="inline-flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{t("settings.ui.transportSwitching")}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Theme Settings */}
           <div>

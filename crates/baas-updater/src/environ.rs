@@ -426,30 +426,94 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
 
         let requirements = requirements_path(config)
             .ok_or_else(|| UpdaterError::Environment("requirements file not found".to_string()))?;
-        let pypi_index = ranked_environment_source_with_output(
+        let pypi_indexes = ranked_environment_sources_with_output(
             EnvironmentSourceKind::Pypi,
             config,
             ranking_dir,
             &HttpSourceProbe,
             output,
         )?;
-        if requirements_compile_cached(config, &requirements, &pypi_index)? {
+
+        let mut last_error = None;
+        for pypi_index in pypi_indexes {
+            if requirements_lock_cached(config, &requirements, &pypi_index)? {
+                output.line(
+                    OutputStyle::Success,
+                    "requirements lock unchanged; skipping uv compile",
+                );
+                if lock_packages_installed(config, &requirements_lock_path(config))? {
+                    output.line(
+                        OutputStyle::Success,
+                        "requirements lock already installed; skipping uv sync and cache clean",
+                    );
+                    return Ok(());
+                }
+                output.line(
+                    OutputStyle::Info,
+                    "requirements lock is cached but venv packages are missing; running uv sync",
+                );
+                repair_corrupt_lock_package_metadata(
+                    config,
+                    &requirements_lock_path(config),
+                    output,
+                )?;
+                if let Err(error) = self
+                    .runner
+                    .run(&uv_sync_command_with_index(config, &pypi_index), output)
+                {
+                    output.line(
+                        OutputStyle::Error,
+                        &format!(
+                            "dependency sync failed with {pypi_index}; trying next PyPI source"
+                        ),
+                    );
+                    last_error = Some(error);
+                    continue;
+                }
+                self.runner.run(&uv_cache_clean_command(config), output)?;
+                save_requirements_cache(config, &requirements, &pypi_index)?;
+                return Ok(());
+            }
+
             output.line(
-                OutputStyle::Success,
-                "requirements unchanged; skipping uv compile, sync, and cache clean",
+                OutputStyle::Info,
+                &format!("Resolving dependencies using {pypi_index}"),
             );
-            return Ok(());
-        } else {
-            self.runner.run(
+            if let Err(error) = self.runner.run(
                 &uv_compile_command_with_index(config, &requirements, &pypi_index),
                 output,
-            )?;
+            ) {
+                output.line(
+                    OutputStyle::Error,
+                    &format!(
+                        "dependency compile failed with {pypi_index}; trying next PyPI source"
+                    ),
+                );
+                last_error = Some(error);
+                continue;
+            }
+
+            repair_corrupt_lock_package_metadata(config, &requirements_lock_path(config), output)?;
+            if let Err(error) = self
+                .runner
+                .run(&uv_sync_command_with_index(config, &pypi_index), output)
+            {
+                output.line(
+                    OutputStyle::Error,
+                    &format!("dependency sync failed with {pypi_index}; trying next PyPI source"),
+                );
+                last_error = Some(error);
+                continue;
+            }
+
+            self.runner.run(&uv_cache_clean_command(config), output)?;
+            save_requirements_cache(config, &requirements, &pypi_index)?;
+            return Ok(());
         }
-        self.runner
-            .run(&uv_sync_command_with_index(config, &pypi_index), output)?;
-        self.runner.run(&uv_cache_clean_command(config), output)?;
-        save_requirements_cache(config, &requirements, &pypi_index)?;
-        Ok(())
+
+        Err(last_error.unwrap_or_else(|| {
+            UpdaterError::Environment("all PyPI sources failed during dependency sync".to_string())
+        }))
     }
 
     /// Launches the backend service script.
@@ -860,6 +924,16 @@ pub fn requirements_compile_cached(
     requirements: &Path,
     pypi_index: &str,
 ) -> UpdaterResult<bool> {
+    Ok(requirements_lock_cached(config, requirements, pypi_index)?
+        && lock_packages_installed(config, &requirements_lock_path(config))?)
+}
+
+/// Returns true when cached requirements metadata and lock file match current inputs.
+pub fn requirements_lock_cached(
+    config: &UpdaterConfig,
+    requirements: &Path,
+    pypi_index: &str,
+) -> UpdaterResult<bool> {
     let cache_path = requirements_cache_path(config);
     let lock_path = requirements_lock_path(config);
     if !cache_path.exists() || !lock_path.exists() {
@@ -903,6 +977,22 @@ pub fn save_requirements_cache(
     Ok(())
 }
 
+/// Removes stale metadata for locked packages whose import files are missing.
+pub fn repair_corrupt_lock_package_metadata(
+    config: &UpdaterConfig,
+    lock_path: &Path,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
+    let site_packages = venv_site_packages(config);
+    if !site_packages.exists() {
+        return Ok(());
+    }
+    for package in locked_package_names(lock_path)? {
+        remove_corrupt_distribution_metadata(&site_packages, &package, output)?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RequirementsCompileCache {
@@ -919,6 +1009,158 @@ fn requirements_cache_path(config: &UpdaterConfig) -> PathBuf {
         .baas_root()
         .join(".baas-updater")
         .join("requirements-cache.json")
+}
+
+/// Returns whether packages pinned in the lock file are present in the venv.
+fn lock_packages_installed(config: &UpdaterConfig, lock_path: &Path) -> UpdaterResult<bool> {
+    let site_packages = venv_site_packages(config);
+    if !site_packages.exists() {
+        return Ok(false);
+    }
+    for package in locked_package_names(lock_path)? {
+        if !python_distribution_present(&site_packages, &package)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Returns package names pinned by a uv pip compile lock file.
+fn locked_package_names(lock_path: &Path) -> UpdaterResult<Vec<String>> {
+    let content = fs::read_to_string(lock_path)?;
+    Ok(content
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') || line.starts_with(' ') {
+                return None;
+            }
+            trimmed
+                .split_once("==")
+                .map(|(name, _)| normalize_python_distribution_name(name))
+        })
+        .collect())
+}
+
+/// Returns the managed venv site-packages path.
+fn venv_site_packages(config: &UpdaterConfig) -> PathBuf {
+    let venv = config.baas_root().join(".venv");
+    if cfg!(target_os = "windows") {
+        return venv.join("Lib").join("site-packages");
+    }
+    let lib = venv.join("lib");
+    fs::read_dir(&lib)
+        .ok()
+        .and_then(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.path().join("site-packages"))
+                .find(|path| path.exists())
+        })
+        .unwrap_or_else(|| lib.join("python").join("site-packages"))
+}
+
+/// Returns whether a Python distribution appears installed in site-packages.
+fn python_distribution_present(site_packages: &Path, distribution: &str) -> UpdaterResult<bool> {
+    for entry in fs::read_dir(site_packages)? {
+        let entry = entry?;
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let lower_file_name = file_name.to_ascii_lowercase();
+        let normalized = normalize_python_distribution_name(&file_name);
+        if normalized.starts_with(&format!("{distribution}-"))
+            && (lower_file_name.ends_with(".dist-info") || lower_file_name.ends_with(".egg-info"))
+        {
+            return distribution_top_level_present(site_packages, &entry.path());
+        }
+    }
+    Ok(false)
+}
+
+/// Removes metadata for a distribution when top-level modules are missing.
+fn remove_corrupt_distribution_metadata(
+    site_packages: &Path,
+    distribution: &str,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<()> {
+    for entry in fs::read_dir(site_packages)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let lower_file_name = file_name.to_ascii_lowercase();
+        let normalized = normalize_python_distribution_name(&file_name);
+        if normalized.starts_with(&format!("{distribution}-"))
+            && (lower_file_name.ends_with(".dist-info") || lower_file_name.ends_with(".egg-info"))
+            && !distribution_top_level_present(site_packages, &path)?
+        {
+            fs::remove_dir_all(&path)?;
+            output.line(
+                OutputStyle::Warning,
+                &format!("removed corrupt Python package metadata: {file_name}"),
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Returns whether top-level import packages listed by metadata are present.
+fn distribution_top_level_present(
+    site_packages: &Path,
+    metadata_dir: &Path,
+) -> UpdaterResult<bool> {
+    let top_level = metadata_dir.join("top_level.txt");
+    let modules = if top_level.exists() {
+        fs::read_to_string(top_level)?
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>()
+    } else {
+        distribution_record_top_level_modules(metadata_dir)?
+    };
+    if modules.is_empty() {
+        return Ok(true);
+    }
+    Ok(modules.iter().all(|module| {
+        site_packages.join(module).exists() || site_packages.join(format!("{module}.py")).exists()
+    }))
+}
+
+/// Returns top-level import paths inferred from dist-info RECORD entries.
+fn distribution_record_top_level_modules(metadata_dir: &Path) -> UpdaterResult<Vec<String>> {
+    let record = metadata_dir.join("RECORD");
+    if !record.exists() {
+        return Ok(Vec::new());
+    }
+    let metadata_name = metadata_dir
+        .file_name()
+        .map(|name| name.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    let mut modules = Vec::<String>::new();
+    for line in fs::read_to_string(record)?.lines() {
+        let Some((path, _)) = line.split_once(',') else {
+            continue;
+        };
+        let normalized = path.replace('\\', "/");
+        if normalized.starts_with(&metadata_name) {
+            continue;
+        }
+        let Some(first) = normalized.split('/').next() else {
+            continue;
+        };
+        let module = first.strip_suffix(".py").unwrap_or(first);
+        if !module.is_empty() && !modules.iter().any(|existing| existing == module) {
+            modules.push(module.to_string());
+        }
+    }
+    Ok(modules)
+}
+
+/// Normalizes Python distribution names according to PEP 503 matching rules.
+fn normalize_python_distribution_name(name: &str) -> String {
+    name.trim()
+        .to_ascii_lowercase()
+        .replace(['_', '.', '-'], "-")
 }
 
 /// Returns the normalize cache path result.
@@ -961,6 +1203,35 @@ pub fn ranked_environment_source_with_output(
     probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<String> {
+    ranked_environment_sources_with_output(kind, config, ranking_dir, probe, output)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+            UpdaterError::Network(format!(
+                "all {} sources failed during ranking",
+                kind.as_str()
+            ))
+        })
+}
+
+/// Returns ranked active URLs for an environment source kind.
+pub fn ranked_environment_sources(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+    ranking_dir: Option<&Path>,
+    probe: &impl SourceProbe,
+) -> UpdaterResult<Vec<String>> {
+    ranked_environment_sources_with_output(kind, config, ranking_dir, probe, &crate::NoopOutput)
+}
+
+/// Returns ranked active URLs and renders source probing when possible.
+pub fn ranked_environment_sources_with_output(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+    ranking_dir: Option<&Path>,
+    probe: &impl SourceProbe,
+    output: &(impl OutputSink + ?Sized),
+) -> UpdaterResult<Vec<String>> {
     let expected_urls = environment_source_urls(kind, config)?;
     let source_probes = environment_source_probe_urls(kind, &expected_urls);
     let ranking_path = ranking_dir.map(|dir| dir.join(format!("{}.json", kind.as_str())));
@@ -993,12 +1264,18 @@ pub fn ranked_environment_source_with_output(
             kind.as_str()
         )));
     }
-    first_active_source(&ranking).ok_or_else(|| {
-        UpdaterError::Network(format!(
+    let sources = ranking
+        .active_sources()
+        .into_iter()
+        .map(|source| source.url)
+        .collect::<Vec<_>>();
+    if sources.is_empty() {
+        return Err(UpdaterError::Network(format!(
             "all {} sources failed during ranking",
             kind.as_str()
-        ))
-    })
+        )));
+    }
+    Ok(sources)
 }
 
 /// Handles the environment source probe urls workflow.
@@ -1074,15 +1351,6 @@ pub fn environment_source_urls(
     }
 }
 
-/// Handles the first active source workflow.
-fn first_active_source(ranking: &SourceRanking) -> Option<String> {
-    ranking
-        .active_sources()
-        .into_iter()
-        .next()
-        .map(|source| source.url)
-}
-
 /// Handles the uv cache dir workflow.
 fn uv_cache_dir(config: &UpdaterConfig) -> PathBuf {
     config.toolkit_dir().join("uv").join("cache")
@@ -1122,6 +1390,32 @@ mod tests {
             _output: &O,
         ) -> UpdaterResult<()> {
             self.commands.lock().unwrap().push(command.clone());
+            Ok(())
+        }
+    }
+
+    struct FailCompileForIndexRunner {
+        commands: Arc<Mutex<Vec<CommandSpec>>>,
+        failing_index: String,
+    }
+
+    impl ProcessRunner for FailCompileForIndexRunner {
+        /// Performs the run operation.
+        fn run<O: OutputSink + ?Sized>(
+            &self,
+            command: &CommandSpec,
+            _output: &O,
+        ) -> UpdaterResult<()> {
+            self.commands.lock().unwrap().push(command.clone());
+            let index = command
+                .env
+                .iter()
+                .find_map(|(key, value)| (key == "UV_INDEX").then_some(value.as_str()));
+            if command.args.iter().any(|arg| arg == "compile")
+                && index == Some(self.failing_index.as_str())
+            {
+                return Err(UpdaterError::Environment("compile failed".to_string()));
+            }
             Ok(())
         }
     }
@@ -1263,13 +1557,14 @@ mod tests {
         let requirements = config.baas_root().join("requirements.txt");
         let lock = requirements_lock_path(&config);
         fs::write(&requirements, "a==1\n").unwrap();
-        fs::write(&lock, "lock-a").unwrap();
+        fs::write(&lock, "a==1\n").unwrap();
 
         assert!(
             !requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
                 .unwrap()
         );
         save_requirements_cache(&config, &requirements, "https://pypi.example/simple").unwrap();
+        fs::create_dir_all(venv_site_packages(&config).join("a-1.dist-info")).unwrap();
         assert!(
             requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
                 .unwrap()
@@ -1279,6 +1574,112 @@ mod tests {
             !requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
                 .unwrap()
         );
+    }
+
+    /// Handles the requirements compile cache misses when venv package is absent workflow.
+    #[test]
+    fn requirements_compile_cache_misses_when_venv_package_is_absent() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        fs::create_dir_all(config.baas_root()).unwrap();
+        let requirements = config.baas_root().join("requirements.txt");
+        let lock = requirements_lock_path(&config);
+        fs::write(&requirements, "requests==2\n").unwrap();
+        fs::write(&lock, "requests==2\nurllib3==2\n").unwrap();
+        save_requirements_cache(&config, &requirements, "https://pypi.example/simple").unwrap();
+        let site_packages = venv_site_packages(&config);
+        fs::create_dir_all(site_packages.join("requests")).unwrap();
+        fs::create_dir_all(site_packages.join("requests-2.dist-info")).unwrap();
+        fs::write(
+            site_packages
+                .join("requests-2.dist-info")
+                .join("top_level.txt"),
+            "requests\n",
+        )
+        .unwrap();
+        fs::create_dir_all(site_packages.join("urllib3-2.dist-info")).unwrap();
+        fs::write(
+            site_packages.join("urllib3-2.dist-info").join("RECORD"),
+            "urllib3/__init__.py,,\nurllib3-2.dist-info/RECORD,,\n",
+        )
+        .unwrap();
+
+        assert!(
+            requirements_lock_cached(&config, &requirements, "https://pypi.example/simple")
+                .unwrap()
+        );
+        assert!(
+            !requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
+                .unwrap()
+        );
+        repair_corrupt_lock_package_metadata(&config, &lock, &crate::NoopOutput).unwrap();
+        assert!(!site_packages.join("urllib3-2.dist-info").exists());
+    }
+
+    /// Handles the ranked PyPI fallback when the fastest source is incomplete workflow.
+    #[test]
+    fn dependency_sync_tries_next_ranked_pypi_source_after_compile_failure() {
+        let root = tempfile::tempdir().unwrap();
+        let ranking = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec![
+            "https://slow.example/simple".to_string(),
+            "https://fast.example/simple".to_string(),
+        ];
+        fs::write(
+            ranking.path().join("pypi.json"),
+            r#"{
+  "sources": [
+    { "url": "https://fast.example/simple", "order": 0 },
+    { "url": "https://slow.example/simple", "order": 1 }
+  ],
+  "allFailedCycles": 0
+}"#,
+        )
+        .unwrap();
+        fs::create_dir_all(config.baas_root()).unwrap();
+        fs::write(config.baas_root().join("requirements.txt"), "av==12.0.0\n").unwrap();
+        fs::write(requirements_lock_path(&config), "av==12.0.0\n").unwrap();
+        let commands = Arc::new(Mutex::new(Vec::new()));
+        let manager = EnvironmentManager::new(
+            FailCompileForIndexRunner {
+                commands: Arc::clone(&commands),
+                failing_index: "https://fast.example/simple".to_string(),
+            },
+            EmptyDownloader,
+        );
+
+        manager
+            .sync_dependencies_with_ranking(&config, Some(ranking.path()), &crate::NoopOutput)
+            .unwrap();
+
+        let commands = commands.lock().unwrap();
+        let compile_indexes = commands
+            .iter()
+            .filter(|command| command.args.iter().any(|arg| arg == "compile"))
+            .filter_map(|command| {
+                command
+                    .env
+                    .iter()
+                    .find_map(|(key, value)| (key == "UV_INDEX").then_some(value.clone()))
+            })
+            .collect::<Vec<_>>();
+        let sync_indexes = commands
+            .iter()
+            .filter(|command| command.args.iter().any(|arg| arg == "sync"))
+            .filter_map(|command| {
+                command
+                    .env
+                    .iter()
+                    .find_map(|(key, value)| (key == "UV_INDEX").then_some(value.clone()))
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            compile_indexes,
+            ["https://fast.example/simple", "https://slow.example/simple"]
+        );
+        assert_eq!(sync_indexes, ["https://slow.example/simple"]);
     }
 
     /// Handles the launch command uses custom runtime when configured workflow.

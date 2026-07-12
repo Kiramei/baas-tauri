@@ -74,6 +74,7 @@
     "ui": {
       "$self": "UI 설정",
       "assets": "자산 세부 정보 표시",
+      "backendTransport": "Backend transport",
       "backgroundImage": "배경 이미지",
       "backgroundImageChoose": "배경 선택",
       "backgroundImageEmpty": "설정된 배경 이미지 없음",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "시스템 알림 활성화",
       "lowPerformanceMode": "저성능 모드",
       "player": "플레이어",
+      "sharedMemory": "Shared Memory",
       "themeColor": "테마 색상",
       "themeColorInvalid": "#RRGGBB 형식의 테마 색상을 입력하세요.",
-      "themeColorReset": "테마 색상 초기화"
+      "themeColorReset": "테마 색상 초기화",
+      "transportSwitchedSharedMemory": "Switched to Shared Memory",
+      "transportSwitchedWebSocket": "Switched to WebSocket",
+      "transportSwitchFailed": "Transport switch failed",
+      "transportSwitching": "Switching",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "설정이 성공적으로 업데이트되었습니다"
   },

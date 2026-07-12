@@ -80,14 +80,25 @@ impl<'a> SharedRingBuffer<'a> {
     }
 
     pub fn write_packet(&mut self, payload: &[u8]) -> Result<(), RingBufferError> {
-        let packet_len = payload.len() + 4;
+        self.write_packet_parts(payload.len(), &[payload])
+    }
+
+    fn write_packet_parts(
+        &mut self,
+        payload_len: usize,
+        parts: &[&[u8]],
+    ) -> Result<(), RingBufferError> {
+        if parts.iter().map(|part| part.len()).sum::<usize>() != payload_len {
+            return Err(RingBufferError::InvalidPacketLength);
+        }
+        let packet_len = payload_len + 4;
         if packet_len > self.available_write()? {
             return Err(RingBufferError::QueueFull);
         }
-        let mut packet = Vec::with_capacity(packet_len);
-        packet.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        packet.extend_from_slice(payload);
-        self.write_bytes(&packet)?;
+        self.write_bytes(&(payload_len as u32).to_le_bytes())?;
+        for part in parts {
+            self.write_bytes(part)?;
+        }
         let block = self.control_block()?;
         self.write_u64(
             SEQUENCE_NUMBER_OFFSET,
@@ -117,22 +128,30 @@ impl<'a> SharedRingBuffer<'a> {
         frame: &crate::protocol::EncodedFrame,
     ) -> Result<(), RingBufferError> {
         let header = frame.header.encode()?;
-        let mut payload = Vec::with_capacity(FRAME_HEADER_LEN + frame.payload.len());
-        payload.extend_from_slice(&header);
-        payload.extend_from_slice(&frame.payload);
-        self.write_packet(&payload)
+        self.write_packet_parts(
+            FRAME_HEADER_LEN + frame.payload.len(),
+            &[&header, &frame.payload],
+        )
     }
 
     pub fn read_frame(
         &mut self,
         max_payload_len: usize,
     ) -> Result<crate::protocol::EncodedFrame, RingBufferError> {
-        let packet = self.read_packet(FRAME_HEADER_LEN + max_payload_len)?;
-        if packet.len() < FRAME_HEADER_LEN {
+        if self.available_read()? < 4 {
+            return Err(RingBufferError::NotEnoughData);
+        }
+        let packet_len = u32::from_le_bytes(self.peek_bytes(4)?.try_into().unwrap()) as usize;
+        if packet_len < FRAME_HEADER_LEN || packet_len > FRAME_HEADER_LEN + max_payload_len {
             return Err(RingBufferError::InvalidPacketLength);
         }
-        let header = crate::protocol::FrameHeader::decode(&packet[..FRAME_HEADER_LEN])?;
-        let payload = packet[FRAME_HEADER_LEN..].to_vec();
+        if packet_len + 4 > self.available_read()? {
+            return Err(RingBufferError::NotEnoughData);
+        }
+        let _ = self.read_bytes(4)?;
+        let header_bytes = self.read_bytes(FRAME_HEADER_LEN)?;
+        let header = crate::protocol::FrameHeader::decode(&header_bytes)?;
+        let payload = self.read_bytes(packet_len - FRAME_HEADER_LEN)?;
         if payload.len() != header.payload_length as usize {
             return Err(RingBufferError::InvalidPacketLength);
         }
@@ -143,10 +162,14 @@ impl<'a> SharedRingBuffer<'a> {
         let mut block = self.control_block()?;
         let capacity = block.capacity as usize;
         let data = &mut self.region[RING_CONTROL_BLOCK_LEN..];
-        for byte in payload {
-            data[block.write_cursor as usize] = *byte;
-            block.write_cursor = (block.write_cursor + 1) % capacity as u32;
+        let cursor = block.write_cursor as usize;
+        let first_len = payload.len().min(capacity - cursor);
+        data[cursor..cursor + first_len].copy_from_slice(&payload[..first_len]);
+        let remaining = payload.len() - first_len;
+        if remaining > 0 {
+            data[..remaining].copy_from_slice(&payload[first_len..]);
         }
+        block.write_cursor = ((cursor + payload.len()) % capacity) as u32;
         self.write_u32(WRITE_CURSOR_OFFSET, block.write_cursor);
         Ok(())
     }
@@ -158,11 +181,15 @@ impl<'a> SharedRingBuffer<'a> {
         let mut block = self.control_block()?;
         let capacity = block.capacity as usize;
         let data = &self.region[RING_CONTROL_BLOCK_LEN..];
-        let mut output = Vec::with_capacity(len);
-        for _ in 0..len {
-            output.push(data[block.read_cursor as usize]);
-            block.read_cursor = (block.read_cursor + 1) % capacity as u32;
+        let cursor = block.read_cursor as usize;
+        let first_len = len.min(capacity - cursor);
+        let mut output = vec![0_u8; len];
+        output[..first_len].copy_from_slice(&data[cursor..cursor + first_len]);
+        let remaining = len - first_len;
+        if remaining > 0 {
+            output[first_len..].copy_from_slice(&data[..remaining]);
         }
+        block.read_cursor = ((cursor + len) % capacity) as u32;
         self.write_u32(READ_CURSOR_OFFSET, block.read_cursor);
         Ok(output)
     }
@@ -174,11 +201,13 @@ impl<'a> SharedRingBuffer<'a> {
         let block = self.control_block()?;
         let capacity = block.capacity as usize;
         let data = &self.region[RING_CONTROL_BLOCK_LEN..];
-        let mut cursor = block.read_cursor as usize;
-        let mut output = Vec::with_capacity(len);
-        for _ in 0..len {
-            output.push(data[cursor]);
-            cursor = (cursor + 1) % capacity;
+        let cursor = block.read_cursor as usize;
+        let first_len = len.min(capacity - cursor);
+        let mut output = vec![0_u8; len];
+        output[..first_len].copy_from_slice(&data[cursor..cursor + first_len]);
+        let remaining = len - first_len;
+        if remaining > 0 {
+            output[first_len..].copy_from_slice(&data[..remaining]);
         }
         Ok(output)
     }

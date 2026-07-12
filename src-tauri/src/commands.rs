@@ -714,9 +714,30 @@ pub fn updater_reset_backend_auth_and_restart(
     delete_backend_auth_files(&manager.config)?;
 
     let port = available_backend_port()?;
-    start_backend_detached(&manager.config, port)?;
+    let (mut child, startup_log) = start_backend_detached(&manager.config, port)?;
     backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
+    wait_for_backend_auth_endpoint(port, &mut child, &startup_log)?;
+
+    Ok(BackendReadyPayload {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    })
+}
+
+/// Starts the managed backend in WebSocket mode without resetting WebUI auth.
+#[tauri::command]
+pub fn backend_websocket_start(
+    app: AppHandle,
+    backend: State<'_, BackendProcessManager>,
+) -> Result<BackendReadyPayload, String> {
+    let manager = ensure_default_config(&app)?;
+    backend.stop_for_config(&manager.config)?;
+    thread::sleep(Duration::from_millis(100));
+
+    let port = available_backend_port()?;
+    let (mut child, startup_log) = start_backend_detached(&manager.config, port)?;
+    backend.remember_config(&manager.config)?;
+    wait_for_backend_auth_endpoint(port, &mut child, &startup_log)?;
 
     Ok(BackendReadyPayload {
         base_backend_addr: "127.0.0.1".to_string(),
@@ -1374,8 +1395,20 @@ fn available_backend_port() -> Result<u16, String> {
 }
 
 /// Performs the start backend detached operation.
-fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
+fn start_backend_detached(
+    config: &UpdaterConfig,
+    port: u16,
+) -> Result<(std::process::Child, PathBuf), String> {
     let command = launch_backend_command(config, port);
+    let log_path = config
+        .baas_root()
+        .join(".baas-updater")
+        .join("backend-startup.log");
+    if let Some(parent) = log_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let stdout = fs::File::create(&log_path).map_err(|error| error.to_string())?;
+    let stderr = stdout.try_clone().map_err(|error| error.to_string())?;
     let mut process = Command::new(&command.program);
     process.args(&command.args);
     if let Some(cwd) = &command.cwd {
@@ -1384,6 +1417,9 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
     for (key, value) in &command.env {
         process.env(key, value);
     }
+    process
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr));
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
@@ -1398,21 +1434,47 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
     fs::write(&pid_file, child.id().to_string()).map_err(|error| error.to_string())?;
-    Ok(())
+    Ok((child, log_path))
 }
 
 /// Performs the wait for backend auth endpoint operation.
-fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
+fn wait_for_backend_auth_endpoint(
+    port: u16,
+    child: &mut std::process::Child,
+    startup_log: &Path,
+) -> Result<(), String> {
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(30) {
         if backend_auth_endpoint_ready(port) {
             return Ok(());
         }
+        if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+            return Err(format!(
+                "WebSocket backend exited with status {status}. {}",
+                backend_startup_log_tail(startup_log)
+            ));
+        }
         thread::sleep(Duration::from_millis(300));
     }
     Err(format!(
-        "backend auth endpoint did not become ready on 127.0.0.1:{port}"
+        "backend auth endpoint did not become ready on 127.0.0.1:{port}. {}",
+        backend_startup_log_tail(startup_log)
     ))
+}
+
+fn backend_startup_log_tail(path: &Path) -> String {
+    let Ok(content) = fs::read_to_string(path) else {
+        return "No backend startup output was captured.".to_string();
+    };
+    let lines = content.lines().rev().take(40).collect::<Vec<_>>();
+    if lines.is_empty() {
+        "No backend startup output was captured.".to_string()
+    } else {
+        format!(
+            "Backend startup output:\n{}",
+            lines.into_iter().rev().collect::<Vec<_>>().join("\n")
+        )
+    }
 }
 
 /// Handles the backend auth endpoint ready workflow.

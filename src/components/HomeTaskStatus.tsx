@@ -13,17 +13,15 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const taskQueue = useBackendStore((e) => e.statusStore[profileId]?.waiting_tasks);
 
   return (
-    <div className={"grid grid-cols-1 lg:grid-cols-2 gap-1"}>
+    <div className="grid shrink-0 grid-cols-1 gap-1 lg:grid-cols-2">
       <div
-        className={
-          "bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center"
-        }
+        className="flex h-11 min-h-11 items-center overflow-hidden rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/50"
       >
         <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
         <div className="grow">{t("task.running")}:</div>
-        <div className={"flex flex-col items-center justify-center float-end"}>
+        <div className="flex h-6 min-w-0 max-w-[65%] items-center justify-end overflow-hidden">
           {runningTask ? (
-            <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
+            <span className="truncate font-semibold text-primary-600 dark:text-primary-400">
               {t(eventNameKey(runningTask))}
             </span>
           ) : (
@@ -32,13 +30,13 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center">
+      <div className="flex h-11 min-h-11 items-center overflow-hidden rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/50">
         <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
         <div className="flex-grow">{t("task.next")}:</div>
 
-        <div className="flex flex-col items-center justify-center float-end mr-2">
+        <div className="mr-2 flex h-6 min-w-0 max-w-[55%] items-center justify-end overflow-hidden">
           {taskQueue && taskQueue.length > 0 ? (
-            <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
+            <span className="truncate font-semibold text-primary-600 dark:text-primary-400">
               {t(eventNameKey(taskQueue[0]))}
             </span>
           ) : (

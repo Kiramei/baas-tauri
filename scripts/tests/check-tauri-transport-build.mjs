@@ -12,28 +12,8 @@ const permissionsPath = path.join(
   "mobile-commands.toml"
 );
 const setupPagePath = path.join(root, "src", "pages", "SetupPage.tsx");
-const forbiddenFilePatterns = [
-  /SecureWebSocket/i,
-  /WebSocketBackendTransport/i,
-  /PasswordInputModal/i,
-  /ReconnectingOverlay/i,
-  /libsodium/i,
-];
-const forbiddenContent = [
-  "new WebSocket(",
-  "baseBackendAddr",
-  "baseBackendPort",
-  "baasAutoPassword",
-  "updater://backend-ready",
-  "/ws/control",
-  "/auth/remember",
-  "Password proof",
-  "Control connection",
-  "ControlConnection",
-  "rememberControlSession",
-  "PasswordInputModal",
-  "crypto_secretstream",
-];
+const transportFactoryPath = path.join(root, "src", "transport", "factory.ts");
+const settingsPagePath = path.join(root, "src", "pages", "SettingsPage.tsx");
 const forbiddenSetupContent = [
   "updater://backend-ready",
   "baseBackendAddr",
@@ -53,7 +33,10 @@ const requiredIpcCommands = [
   "backend_ipc_recv",
   "backend_ipc_benchmark_webview_copy",
   "backend_ipc_webview_benchmark_config",
+  "backend_ipc_remote_benchmark_config",
+  "backend_transport_startup_benchmark_config",
   "backend_ipc_finish_webview_benchmark",
+  "backend_websocket_start",
 ];
 
 async function walk(dir) {
@@ -71,27 +54,12 @@ async function walk(dir) {
 }
 
 const files = await walk(assetsDir);
-const badNames = files
-  .map((file) => path.relative(root, file))
-  .filter((file) => forbiddenFilePatterns.some((pattern) => pattern.test(file)));
-
-if (badNames.length > 0) {
-  throw new Error(`Tauri build emitted forbidden WebSocket/auth chunks:\n${badNames.join("\n")}`);
-}
-
 const jsFiles = files.filter((file) => file.endsWith(".js"));
-const badContent = [];
-for (const file of jsFiles) {
-  const content = await readFile(file, "utf8");
-  for (const needle of forbiddenContent) {
-    if (content.includes(needle)) {
-      badContent.push(`${path.relative(root, file)} contains ${needle}`);
-    }
+const emittedNames = jsFiles.map((file) => path.basename(file));
+for (const requiredChunk of [/WebSocketBackendTransport/i, /SecureWebSocket/i, /TauriSharedMemoryTransport/i]) {
+  if (!emittedNames.some((name) => requiredChunk.test(name))) {
+    throw new Error(`Selectable Tauri build is missing transport chunk ${requiredChunk}`);
   }
-}
-
-if (badContent.length > 0) {
-  throw new Error(`Tauri build contains forbidden WebSocket/auth code:\n${badContent.join("\n")}`);
 }
 
 const permissions = await readFile(permissionsPath, "utf8");
@@ -113,7 +81,36 @@ if (!setupPage.includes("launch: false")) {
   throw new Error("Desktop setup page must run updater workflow with launch: false");
 }
 if (!setupPage.includes("startAuthFlow()")) {
-  throw new Error("Desktop setup page must initialize the shared-memory backend through BackendStore");
+  throw new Error("Desktop setup page must initialize the selected backend transport through BackendStore");
+}
+if (!setupPage.includes('phase === "waiting_password"')) {
+  throw new Error("Desktop WebSocket startup must hand off to the password authentication UI");
+}
+
+const transportFactory = await readFile(transportFactoryPath, "utf8");
+for (const required of [
+  'mode === "websocket"',
+  'return mode === "websocket" ? "websocket" : "shared-memory"',
+  '"@/transport/tauri-shm/TauriSharedMemoryTransport"',
+  '"@/transport/websocket/WebSocketBackendTransport"',
+]) {
+  if (!transportFactory.includes(required)) {
+    throw new Error(`Transport factory is missing selectable-mode behavior: ${required}`);
+  }
+}
+if (/catch\s*\([^)]*\)\s*\{[^}]*websocket/is.test(transportFactory)) {
+  throw new Error("Shared-memory transport must not silently fall back to WebSocket");
+}
+
+const settingsPage = await readFile(settingsPagePath, "utf8");
+for (const required of [
+  "setTransportMode",
+  '{ label: t("settings.ui.sharedMemory"), value: "shared-memory" }',
+  '{ label: t("settings.ui.webSocket"), value: "websocket" }',
+]) {
+  if (!settingsPage.includes(required)) {
+    throw new Error(`Settings page is missing transport selection UI: ${required}`);
+  }
 }
 
 console.log("tauri transport build check passed");

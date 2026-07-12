@@ -74,6 +74,7 @@
     "ui": {
       "$self": "界面设置",
       "assets": "显示资产详细信息",
+      "backendTransport": "后端传输方式",
       "backgroundImage": "背景图",
       "backgroundImageChoose": "选择背景图",
       "backgroundImageEmpty": "未设置背景图",
@@ -88,9 +89,15 @@
       "enableSystemNotifications": "启用系统通知",
       "lowPerformanceMode": "低性能模式",
       "player": "远程模拟器解码器",
+      "sharedMemory": "共享内存",
       "themeColor": "主题色",
       "themeColorInvalid": "请输入 #RRGGBB 格式的主题色。",
-      "themeColorReset": "重置主题色"
+      "themeColorReset": "重置主题色",
+      "transportSwitchedSharedMemory": "已切换到共享内存",
+      "transportSwitchedWebSocket": "已切换到 WebSocket",
+      "transportSwitchFailed": "传输方式切换失败",
+      "transportSwitching": "正在切换",
+      "webSocket": "WebSocket"
     },
     "updateSuccess": "设置更新成功"
   },

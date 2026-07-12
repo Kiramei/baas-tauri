@@ -9,11 +9,27 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tauri::{ipc::Channel, AppHandle, State};
+use tauri::{
+    ipc::{Channel, InvokeBody, InvokeResponseBody, Request},
+    AppHandle, State,
+};
 use uuid::Uuid;
 
 const START_TIMEOUT: Duration = Duration::from_secs(3);
 const SHM_REGION_BYTES: u32 = 16 * 1024 * 1024;
+const WEBVIEW_FRAME_MAGIC: &[u8; 4] = b"BIPC";
+const WEBVIEW_FRAME_VERSION: u8 = 1;
+const WEBVIEW_FRAME_HEADER_BYTES: usize = 20;
+const WEBVIEW_KIND_JSON: u8 = 1;
+const WEBVIEW_KIND_BYTES: u8 = 2;
+const WEBVIEW_KIND_CLOSE: u8 = 3;
+const WEBVIEW_KIND_ERROR: u8 = 4;
+const MAX_PENDING_MESSAGES_PER_CHANNEL: usize = 4096;
+const MAX_PENDING_REMOTE_MESSAGES: usize = 256;
+const MAX_PENDING_REMOTE_BYTES: usize = 8 * 1024 * 1024;
+const WEBVIEW_REQUEST_MAGIC: &[u8; 4] = b"BIPR";
+const WEBVIEW_REQUEST_VERSION: u8 = 1;
+const WEBVIEW_REQUEST_HEADER_BYTES: usize = 8;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +81,22 @@ pub struct WebviewCopyBenchmarkRunConfig {
     pub timeout_ms: u32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteE2eBenchmarkRunConfig {
+    pub output_path: String,
+    pub config_id: String,
+    pub duration_ms: u32,
+    pub timeout_ms: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransportStartupBenchmarkRunConfig {
+    pub output_path: String,
+    pub mode: String,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebviewCopyBenchmarkReport {
@@ -89,7 +121,7 @@ struct BackendIpcRun {
     connection_streams: HashMap<String, u16>,
     stream_names: HashMap<(u16, u16), String>,
     pending_messages: HashMap<String, Vec<BackendIpcMessage>>,
-    subscribers: HashMap<String, Vec<Channel<BackendIpcMessage>>>,
+    subscribers: HashMap<String, Vec<Channel<InvokeResponseBody>>>,
     reader_started: bool,
 }
 
@@ -160,6 +192,7 @@ impl Drop for BackendIpcManager {
 pub async fn backend_ipc_start(
     app: AppHandle,
     manager: State<'_, BackendIpcManager>,
+    backend: State<'_, crate::commands::BackendProcessManager>,
 ) -> Result<BackendIpcStatus, String> {
     use crate::commands::updater_get_startup_state;
     use baas_ipc::{
@@ -175,6 +208,7 @@ pub async fn backend_ipc_start(
     if !startup.baas_root_exists_non_empty {
         return Err("BackendLaunchFailed: BAAS backend is not installed".to_string());
     }
+    backend.stop_for_config(&startup.config)?;
 
     let generation_id = Uuid::new_v4();
     let ipc_instance = format!("baas-ipc-{}-{}", std::process::id(), generation_id);
@@ -417,15 +451,22 @@ pub async fn backend_ipc_close_channel(
     name: Option<String>,
 ) -> Result<(), String> {
     let key = connection_key(&channel, name.as_deref());
-    {
+    let is_open = {
         let mut state = manager
             .inner
             .lock()
             .map_err(|_| "BackendInitializationFailed: backend IPC state lock poisoned")?;
         if let Some(run) = state.run.as_mut() {
+            let is_open = run.connection_streams.contains_key(&key);
             run.subscribers.remove(&key);
             run.pending_messages.remove(&key);
+            is_open
+        } else {
+            false
         }
+    };
+    if !is_open {
+        return Ok(());
     }
     write_backend_frame(
         &manager,
@@ -453,20 +494,35 @@ pub async fn backend_ipc_send_json(
     )
 }
 
+#[cfg(not(mobile))]
 #[tauri::command]
 pub async fn backend_ipc_send_bytes(
     manager: State<'_, BackendIpcManager>,
-    channel: String,
-    name: Option<String>,
-    payload: Vec<u8>,
+    request: Request<'_>,
 ) -> Result<(), String> {
+    let raw = match request.body() {
+        InvokeBody::Raw(raw) => raw,
+        InvokeBody::Json(_) => {
+            return Err("SharedMemoryCorrupted: binary IPC command requires a raw body".to_string())
+        }
+    };
+    let (channel, name, payload) = decode_webview_binary_request(raw)?;
     write_backend_frame(
         &manager,
-        &channel,
-        name.as_deref(),
+        channel,
+        Some(name),
         baas_ipc::protocol::MESSAGE_KIND_BYTES,
-        payload,
+        payload.to_vec(),
     )
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn backend_ipc_send_bytes(
+    _manager: State<'_, BackendIpcManager>,
+    _payload: Vec<u8>,
+) -> Result<(), String> {
+    Err("UnsupportedTransport: mobile shared-memory adapter is not implemented".to_string())
 }
 
 #[tauri::command]
@@ -474,7 +530,7 @@ pub async fn backend_ipc_subscribe(
     manager: State<'_, BackendIpcManager>,
     channel: String,
     name: Option<String>,
-    on_message: Channel<BackendIpcMessage>,
+    on_message: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
     let key = connection_key(&channel, name.as_deref());
     {
@@ -524,7 +580,7 @@ pub async fn backend_ipc_recv(
 #[tauri::command]
 pub async fn backend_ipc_benchmark_webview_copy(
     request: WebviewCopyBenchmarkRequest,
-    on_message: Channel<BackendIpcMessage>,
+    on_message: Channel<InvokeResponseBody>,
 ) -> Result<WebviewCopyBenchmarkResult, String> {
     if request.iterations == 0 || request.iterations > 10_000 {
         return Err(
@@ -539,17 +595,9 @@ pub async fn backend_ipc_benchmark_webview_copy(
 
     let payload = vec![0xA5; request.payload_size];
     let started = Instant::now();
-    for index in 0..request.iterations {
+    for _ in 0..request.iterations {
         on_message
-            .send(BackendIpcMessage {
-                channel: "benchmark".to_string(),
-                name: "webview-copy".to_string(),
-                stream_id: 0,
-                kind: "bytes".to_string(),
-                sequence_number: u64::from(index) + 1,
-                json: None,
-                bytes: Some(payload.clone()),
-            })
+            .send(InvokeResponseBody::Raw(payload.clone()))
             .map_err(|error| format!("ChannelClosed: benchmark channel send failed: {error}"))?;
     }
     Ok(WebviewCopyBenchmarkResult {
@@ -592,11 +640,66 @@ pub async fn backend_ipc_webview_benchmark_config(
 }
 
 #[tauri::command]
+pub async fn backend_ipc_remote_benchmark_config(
+) -> Result<Option<RemoteE2eBenchmarkRunConfig>, String> {
+    let output_path = match std::env::var("BAAS_REMOTE_E2E_BENCHMARK_OUT") {
+        Ok(path) if !path.trim().is_empty() => path,
+        _ => return Ok(None),
+    };
+    let config_id = std::env::var("BAAS_REMOTE_E2E_CONFIG_ID")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "default_config".to_string());
+    let duration_ms = parse_benchmark_u32(
+        "BAAS_REMOTE_E2E_DURATION_MS",
+        std::env::var("BAAS_REMOTE_E2E_DURATION_MS").ok(),
+        5_000,
+        500,
+        120_000,
+    )?;
+    let timeout_ms = parse_benchmark_u32(
+        "BAAS_REMOTE_E2E_TIMEOUT_MS",
+        std::env::var("BAAS_REMOTE_E2E_TIMEOUT_MS").ok(),
+        60_000,
+        5_000,
+        300_000,
+    )?;
+    Ok(Some(RemoteE2eBenchmarkRunConfig {
+        output_path,
+        config_id,
+        duration_ms,
+        timeout_ms,
+    }))
+}
+
+#[tauri::command]
+pub async fn backend_transport_startup_benchmark_config(
+) -> Result<Option<TransportStartupBenchmarkRunConfig>, String> {
+    let output_path = match std::env::var("BAAS_TRANSPORT_STARTUP_BENCHMARK_OUT") {
+        Ok(path) if !path.trim().is_empty() => path,
+        _ => return Ok(None),
+    };
+    let mode = std::env::var("BAAS_TRANSPORT_STARTUP_MODE")
+        .unwrap_or_else(|_| "shared-memory".to_string());
+    if mode != "shared-memory" && mode != "websocket" {
+        return Err(format!(
+            "UnsupportedTransport: invalid benchmark mode {mode}"
+        ));
+    }
+    Ok(Some(TransportStartupBenchmarkRunConfig {
+        output_path,
+        mode,
+    }))
+}
+
+#[tauri::command]
 pub async fn backend_ipc_finish_webview_benchmark(
     app: AppHandle,
     report: WebviewCopyBenchmarkReport,
 ) -> Result<(), String> {
     let output_path = std::env::var("BAAS_WEBVIEW_COPY_BENCHMARK_OUT")
+        .or_else(|_| std::env::var("BAAS_REMOTE_E2E_BENCHMARK_OUT"))
+        .or_else(|_| std::env::var("BAAS_TRANSPORT_STARTUP_BENCHMARK_OUT"))
         .map_err(|_| "BenchmarkUnavailable: output path is not configured".to_string())?;
     let path = PathBuf::from(output_path);
     if let Some(parent) = path.parent() {
@@ -717,8 +820,11 @@ fn start_backend_reader(state: Arc<Mutex<BackendIpcState>>) {
             }
             if let Some(run) = guard.run.as_mut() {
                 flush_all_pending_messages(run);
-                if run.child.try_wait().ok().flatten().is_some() {
-                    let message = "BackendExited: shared-memory backend process exited".to_string();
+                if let Some(status) = run.child.try_wait().ok().flatten() {
+                    let output = read_child_output(&mut run.child);
+                    let message = format!(
+                        "BackendExited: shared-memory backend process exited with status {status}; {output}"
+                    );
                     notify_subscribers_transport_error(run, &message);
                     guard.last_failure = Some(message);
                     BackendIpcManager::close_locked(&mut guard);
@@ -739,27 +845,69 @@ fn drain_backend_messages_locked(state: &mut BackendIpcState) -> Result<(), Stri
     let header = read_shared_memory_header(&run.region)?;
     let start = header.python_to_rust_ring_offset as usize;
     let end = start + header.python_to_rust_ring_length as usize;
-    let region = run.region.as_mut_slice();
-    if end > region.len() {
+    if end > run.region.len() {
         return Err("SharedMemoryCorrupted: python_to_rust ring is out of bounds".to_string());
     }
-    let mut ring = baas_ipc::ring_buffer::SharedRingBuffer::open(&mut region[start..end])
-        .map_err(|error| format!("SharedMemoryCorrupted: {error}"))?;
-    loop {
-        match ring.read_frame(baas_ipc::protocol::MAX_FRAME_LENGTH as usize) {
-            Ok(frame) => {
-                let message = backend_message_from_frame(frame, &run.stream_names)?;
-                run.pending_messages
-                    .entry(connection_key(&message.channel, Some(&message.name)))
-                    .or_default()
-                    .push(message);
+    let frames = {
+        let region = run.region.as_mut_slice();
+        let mut ring = baas_ipc::ring_buffer::SharedRingBuffer::open(&mut region[start..end])
+            .map_err(|error| format!("SharedMemoryCorrupted: {error}"))?;
+        let mut frames = Vec::new();
+        loop {
+            match ring.read_frame(baas_ipc::protocol::MAX_FRAME_LENGTH as usize) {
+                Ok(frame) => frames.push(frame),
+                Err(baas_ipc::ring_buffer::RingBufferError::NotEnoughData) => break,
+                Err(error) => return Err(format!("SharedMemoryCorrupted: {error}")),
             }
-            Err(baas_ipc::ring_buffer::RingBufferError::NotEnoughData) => break,
-            Err(error) => return Err(format!("SharedMemoryCorrupted: {error}")),
         }
+        frames
+    };
+    for frame in frames {
+        let message = backend_message_from_frame(frame, &run.stream_names)?;
+        queue_pending_message(run, message)?;
     }
     let header = read_shared_memory_header(&run.region)?;
     require_backend_lifecycle_ready(&header)?;
+    Ok(())
+}
+
+fn queue_pending_message(
+    run: &mut BackendIpcRun,
+    message: BackendIpcMessage,
+) -> Result<(), String> {
+    let is_remote = message.channel == "remote";
+    let key = connection_key(&message.channel, Some(&message.name));
+    let pending = run.pending_messages.entry(key).or_default();
+    pending.push(message);
+    if !is_remote {
+        if pending.len() > MAX_PENDING_MESSAGES_PER_CHANNEL {
+            return Err(
+                "SharedMemoryQueueFull: reliable WebView IPC queue exceeded its message limit"
+                    .to_string(),
+            );
+        }
+        return Ok(());
+    }
+
+    while pending.len() > MAX_PENDING_REMOTE_MESSAGES
+        || pending
+            .iter()
+            .filter_map(|item| item.bytes.as_ref())
+            .map(Vec::len)
+            .sum::<usize>()
+            > MAX_PENDING_REMOTE_BYTES
+    {
+        let Some(index) = pending.iter().position(|item| item.kind == "bytes") else {
+            break;
+        };
+        pending.remove(index);
+    }
+    if pending.len() > MAX_PENDING_REMOTE_MESSAGES {
+        return Err(
+            "SharedMemoryQueueFull: reliable remote control queue exceeded its message limit"
+                .to_string(),
+        );
+    }
     Ok(())
 }
 
@@ -798,7 +946,7 @@ fn notify_subscribers_transport_error(run: &mut BackendIpcRun, message: &str) {
         bytes: None,
     };
     for subscribers in run.subscribers.values_mut() {
-        subscribers.retain(|subscriber| subscriber.send(error.clone()).is_ok());
+        subscribers.retain(|subscriber| send_webview_message(subscriber, &error).is_ok());
     }
 }
 
@@ -820,7 +968,7 @@ fn flush_pending_messages_for_key(run: &mut BackendIpcRun, key: &str) {
     subscribers.retain(|subscriber| {
         let mut alive = true;
         for message in &messages {
-            if subscriber.send(message.clone()).is_err() {
+            if send_webview_message(subscriber, message).is_err() {
                 alive = false;
                 break;
             }
@@ -830,6 +978,89 @@ fn flush_pending_messages_for_key(run: &mut BackendIpcRun, key: &str) {
     if subscribers.is_empty() {
         run.subscribers.remove(key);
     }
+}
+
+fn send_webview_message(
+    subscriber: &Channel<InvokeResponseBody>,
+    message: &BackendIpcMessage,
+) -> Result<(), String> {
+    subscriber
+        .send(InvokeResponseBody::Raw(encode_webview_message(message)?))
+        .map_err(|error| format!("ChannelClosed: WebView IPC channel send failed: {error}"))
+}
+
+fn encode_webview_message(message: &BackendIpcMessage) -> Result<Vec<u8>, String> {
+    let (kind, payload) = match message.kind.as_str() {
+        "json" => (
+            WEBVIEW_KIND_JSON,
+            message
+                .json
+                .as_ref()
+                .map(serde_json::to_vec)
+                .transpose()
+                .map_err(|error| format!("SharedMemoryCorrupted: JSON encode failed: {error}"))?
+                .unwrap_or_default(),
+        ),
+        "bytes" => (
+            WEBVIEW_KIND_BYTES,
+            message.bytes.clone().unwrap_or_default(),
+        ),
+        "close" => (WEBVIEW_KIND_CLOSE, Vec::new()),
+        "error" => (
+            WEBVIEW_KIND_ERROR,
+            message
+                .json
+                .as_ref()
+                .map(serde_json::to_vec)
+                .transpose()
+                .map_err(|error| {
+                    format!("SharedMemoryCorrupted: error JSON encode failed: {error}")
+                })?
+                .unwrap_or_default(),
+        ),
+        _ => (
+            WEBVIEW_KIND_ERROR,
+            b"{\"error\":\"unknown IPC message kind\"}".to_vec(),
+        ),
+    };
+    let mut frame = Vec::with_capacity(WEBVIEW_FRAME_HEADER_BYTES + payload.len());
+    frame.extend_from_slice(WEBVIEW_FRAME_MAGIC);
+    frame.push(WEBVIEW_FRAME_VERSION);
+    frame.push(kind);
+    frame.extend_from_slice(&message.stream_id.to_le_bytes());
+    frame.extend_from_slice(&message.sequence_number.to_le_bytes());
+    frame.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+    frame.extend_from_slice(&payload);
+    Ok(frame)
+}
+
+fn decode_webview_binary_request(raw: &[u8]) -> Result<(&str, &str, &[u8]), String> {
+    if raw.len() < WEBVIEW_REQUEST_HEADER_BYTES {
+        return Err("SharedMemoryCorrupted: truncated WebView binary request".to_string());
+    }
+    if &raw[..4] != WEBVIEW_REQUEST_MAGIC {
+        return Err("SharedMemoryCorrupted: invalid WebView binary request magic".to_string());
+    }
+    if raw[4] != WEBVIEW_REQUEST_VERSION {
+        return Err(format!(
+            "ProtocolVersionMismatch: unsupported WebView binary request version {}",
+            raw[4]
+        ));
+    }
+    let channel = baas_ipc::protocol::logical_channel_name(u16::from(raw[5]))
+        .map_err(|error| format!("SharedMemoryCorrupted: {error}"))?;
+    let name_length = u16::from_le_bytes([raw[6], raw[7]]) as usize;
+    let name_end = WEBVIEW_REQUEST_HEADER_BYTES
+        .checked_add(name_length)
+        .ok_or_else(|| {
+            "SharedMemoryCorrupted: WebView binary request length overflow".to_string()
+        })?;
+    if name_end > raw.len() {
+        return Err("SharedMemoryCorrupted: truncated WebView binary request name".to_string());
+    }
+    let name = std::str::from_utf8(&raw[WEBVIEW_REQUEST_HEADER_BYTES..name_end])
+        .map_err(|error| format!("SharedMemoryCorrupted: request name is not UTF-8: {error}"))?;
+    Ok((channel, name, &raw[name_end..]))
 }
 
 fn backend_message_from_frame(
@@ -1154,6 +1385,69 @@ mod tests {
             require_backend_lifecycle_ready(&header),
             Err("SharedMemoryCorrupted: unknown shared-memory lifecycle state 99".to_string())
         );
+    }
+
+    #[test]
+    fn webview_binary_frame_preserves_raw_payload_and_metadata() {
+        let message = BackendIpcMessage {
+            channel: "remote".to_string(),
+            name: "screen".to_string(),
+            stream_id: 7,
+            kind: "bytes".to_string(),
+            sequence_number: 99,
+            json: None,
+            bytes: Some(vec![0, 1, 2, 255]),
+        };
+
+        let encoded = encode_webview_message(&message).unwrap();
+
+        assert_eq!(&encoded[..4], WEBVIEW_FRAME_MAGIC);
+        assert_eq!(encoded[4], WEBVIEW_FRAME_VERSION);
+        assert_eq!(encoded[5], WEBVIEW_KIND_BYTES);
+        assert_eq!(u16::from_le_bytes(encoded[6..8].try_into().unwrap()), 7);
+        assert_eq!(u64::from_le_bytes(encoded[8..16].try_into().unwrap()), 99);
+        assert_eq!(u32::from_le_bytes(encoded[16..20].try_into().unwrap()), 4);
+        assert_eq!(&encoded[WEBVIEW_FRAME_HEADER_BYTES..], &[0, 1, 2, 255]);
+    }
+
+    #[test]
+    fn webview_json_frame_keeps_utf8_json_payload() {
+        let message = BackendIpcMessage {
+            channel: "trigger".to_string(),
+            name: "trigger".to_string(),
+            stream_id: 3,
+            kind: "json".to_string(),
+            sequence_number: 10,
+            json: Some(serde_json::json!({"type": "command_response", "status": "done"})),
+            bytes: None,
+        };
+
+        let encoded = encode_webview_message(&message).unwrap();
+        let decoded: Value =
+            serde_json::from_slice(&encoded[WEBVIEW_FRAME_HEADER_BYTES..]).unwrap();
+
+        assert_eq!(encoded[5], WEBVIEW_KIND_JSON);
+        assert_eq!(decoded["type"], "command_response");
+        assert_eq!(decoded["status"], "done");
+    }
+
+    #[test]
+    fn webview_binary_request_preserves_utf8_name_and_raw_payload() {
+        let name = "remote-配置";
+        let name_bytes = name.as_bytes();
+        let mut request = Vec::new();
+        request.extend_from_slice(WEBVIEW_REQUEST_MAGIC);
+        request.push(WEBVIEW_REQUEST_VERSION);
+        request.push(baas_ipc::protocol::CHANNEL_REMOTE as u8);
+        request.extend_from_slice(&(name_bytes.len() as u16).to_le_bytes());
+        request.extend_from_slice(name_bytes);
+        request.extend_from_slice(&[0, 1, 2, 255]);
+
+        let (channel, decoded_name, payload) = decode_webview_binary_request(&request).unwrap();
+
+        assert_eq!(channel, "remote");
+        assert_eq!(decoded_name, name);
+        assert_eq!(payload, &[0, 1, 2, 255]);
     }
 
     fn test_header(lifecycle_state: u32) -> baas_ipc::protocol::SharedMemoryHeader {
