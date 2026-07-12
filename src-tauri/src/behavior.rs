@@ -1,3 +1,4 @@
+use crate::system_logs::system_log;
 #[cfg(not(mobile))]
 use baas_i18n::{tray_menu_labels, Language};
 #[cfg(not(mobile))]
@@ -66,6 +67,7 @@ impl BehaviorState {
 /// Handles the splash off workflow.
 #[tauri::command]
 pub async fn splash_off(app: AppHandle) {
+    system_log("DEBUG", "window", "Splash close requested");
     if let Some(main) = app.get_webview_window("main") {
         // This causes `create webview window` malfunction.
         // main.center().ok();
@@ -80,6 +82,11 @@ pub async fn splash_off(app: AppHandle) {
 #[cfg(not(mobile))]
 #[tauri::command]
 pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Result<(), String> {
+    system_log(
+        "INFO",
+        "locale",
+        format!("Backend locale change requested lang={lang}"),
+    );
     state.set_language(Language::parse(&lang))
 }
 
@@ -87,6 +94,11 @@ pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Resu
 #[cfg(mobile)]
 #[tauri::command]
 pub fn set_backend_locale(_state: State<'_, BehaviorState>, _lang: String) -> Result<(), String> {
+    system_log(
+        "DEBUG",
+        "locale",
+        "Backend locale command ignored on mobile",
+    );
     Ok(())
 }
 

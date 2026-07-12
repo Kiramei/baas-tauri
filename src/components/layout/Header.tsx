@@ -108,11 +108,12 @@ const Header: React.FC = () => {
     }
     setTabs(list);
     const exists = list.find((p) => p.id === activeProfile?.id);
-    setActiveProfile(exists ?? list[0]);
+    const nextActive = exists ?? list[0];
+    setActiveProfile(nextActive);
     (async () => {
       setTimeout(() => {
-        if (!(exists ?? list[0])) return;
-        const el = document.getElementById(`tab-${exists ?? list[0].id}`);
+        if (!nextActive) return;
+        const el = document.getElementById(`tab-${nextActive.id}`);
         el?.scrollIntoView({
           behavior: lowPerformanceMode ? "auto" : "smooth",
           inline: "center",

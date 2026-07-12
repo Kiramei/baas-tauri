@@ -71,6 +71,26 @@
   "settings": {
     "feature": "Настройки функций",
     "general": "Общие настройки",
+    "systemLogs": {
+      "allLevels": "全部级别",
+      "allSources": "全部来源",
+      "autoRefresh": "自动刷新",
+      "clear": "清理日志",
+      "clearConfirm": "确认清理 Tauri、前端和 Python 系统日志？",
+      "copied": "系统日志已复制",
+      "copy": "复制日志",
+      "count": "{{count}} 条日志",
+      "description": "查看客户端、前端和 Python 后端的诊断日志",
+      "empty": "没有符合条件的系统日志",
+      "export": "导出日志",
+      "followTail": "跟随末尾",
+      "level": "日志级别",
+      "open": "查看系统日志",
+      "refresh": "刷新日志",
+      "search": "搜索消息、模块或异常堆栈",
+      "source": "日志来源",
+      "title": "系统日志"
+    },
     "ui": {
       "$self": "Настройки интерфейса",
       "assets": "Показать детали ресурсов",
@@ -557,6 +577,7 @@
   },
   "shaTest": {
     "method": "Метод",
+    "results": "测试结果",
     "sha": "Значение SHA",
     "status": "Статус",
     "testAll": "Протестировать все методы",

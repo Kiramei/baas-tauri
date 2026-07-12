@@ -16,15 +16,13 @@ import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
 import TauriScriptNotifier from "@/components/TauriScriptNotifier";
 import LoadingPage from "@/pages/LoadingPage";
+import MainLayout from "@/components/layout/MainLayout";
+import HomePage from "@/pages/HomePage";
+import SchedulerPage from "@/pages/SchedulerPage";
+import ConfigurationPage from "@/pages/ConfigurationPage";
+import SettingsPage from "@/pages/SettingsPage";
+import WikiPage from "@/pages/WikiPage.tsx";
 
-const loadHomePage = () => import("@/pages/HomePage");
-const loadMainLayout = () => import("@/components/layout/MainLayout");
-const HomePage = React.lazy(loadHomePage);
-const MainLayout = React.lazy(loadMainLayout);
-const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
-const ConfigurationPage = React.lazy(() => import("@/pages/ConfigurationPage"));
-const SettingsPage = React.lazy(() => import("@/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
 const WebWikiViewer = React.lazy(() => import("@/components/WebWikiViewer"));
 
 /**
@@ -86,7 +84,11 @@ const Main: React.FC = () => {
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
-  const activePid = activeProfile!.id;
+  if (!activeProfile) {
+    return <MainLayout activePage={activePage} setActivePage={setActivePage}>{null}</MainLayout>;
+  }
+
+  const activePid = activeProfile.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
   const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
@@ -132,7 +134,7 @@ const Main: React.FC = () => {
               style={{ pointerEvents: isActive ? "auto" : "none" }}
               aria-hidden={!isActive}
             >
-              {renderPage(page, pid!)}
+              {renderPage(page, pid ?? activePid)}
             </motion.div>
           );
         })}
@@ -163,11 +165,6 @@ const WrappedApp: React.FC = () => {
       setHasReadyOnce(true);
     }
   }, [ready]);
-
-  useEffect(() => {
-    void loadMainLayout();
-    void loadHomePage();
-  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("low-performance-mode", lowPerformanceMode);

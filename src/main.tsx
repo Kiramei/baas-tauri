@@ -1,5 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { installFrontendSystemLogging } from "@/shared/SystemLogService";
+
+installFrontendSystemLogging();
 
 if (!Object.hasOwn) {
   Object.hasOwn = (object: object, property: PropertyKey) =>

@@ -59,6 +59,16 @@ let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
+const MAX_SYNC_PATCH_RETRIES = 3;
+
+type PendingSyncPatch = {
+  resource: string;
+  resourceId: string;
+  ops: Array<{ op: string; path: string; value: unknown }>;
+  retries: number;
+};
+
+const pendingSyncPatches = new Map<number, PendingSyncPatch>();
 
 /** Returns the is tauri no update enabled result. */
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
@@ -915,6 +925,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
 
         "patch_ack": (message: WsMessageItem) => {
+          pendingSyncPatches.delete(message.timestamp!);
           const callback = get().pendingCallbacks[message.timestamp!];
           if (callback) {
             callback();
@@ -922,6 +933,46 @@ export const useWebSocketStore = create<WebSocketState>()(
           } else {
             console.warn("CallBack Not Found:", message);
           }
+        },
+
+        "patch_conflict": (message: WsMessageItem) => {
+          resourceCallBack[message.resource!]?.(message);
+
+          const requestTimestamp = Number(message.request_timestamp);
+          const pending = pendingSyncPatches.get(requestTimestamp);
+          const callback = get().pendingCallbacks[requestTimestamp];
+          pendingSyncPatches.delete(requestTimestamp);
+          delete get().pendingCallbacks[requestTimestamp];
+          if (!pending) return;
+
+          if (pending.retries >= MAX_SYNC_PATCH_RETRIES) {
+            appendGlobalLog({
+              level: "error",
+              message: `Sync patch retry limit reached for ${pending.resource}:${pending.resourceId}`,
+            } as any);
+            return;
+          }
+
+          let retryTimestamp = Math.max(
+            getTimestampMs(),
+            Math.ceil(Number(message.timestamp) || 0)
+          );
+          while (pendingSyncPatches.has(retryTimestamp) || get().pendingCallbacks[retryTimestamp]) {
+            retryTimestamp += 1;
+          }
+
+          pendingSyncPatches.set(retryTimestamp, {
+            ...pending,
+            retries: pending.retries + 1,
+          });
+          if (callback) get().pendingCallbacks[retryTimestamp] = callback;
+          get().send("sync", {
+            type: "patch",
+            resource_id: pending.resourceId,
+            resource: pending.resource,
+            timestamp: retryTimestamp,
+            ops: pending.ops,
+          });
         },
       };
 
@@ -1060,7 +1111,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         await connectWithRetry("trigger");
 
         const skipBackendUpdater = await isTauriNoUpdateEnabled();
-        if (skipBackendUpdater) {
+        if (skipBackendUpdater && __WITH_ANDROID__) {
           set((state) => ({
             ...state,
             versionStore: {
@@ -1085,6 +1136,38 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
           startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
+        } else if (skipBackendUpdater) {
+          let local: string | null = null;
+          try {
+            const { invoke } = await import("@tauri-apps/api/core");
+            const startup = await invoke<any>("updater_get_startup_state");
+            const general = startup?.config?.general ?? {};
+            local =
+              general.current_baas_sha ??
+              general.currentBaasSha ??
+              general.current_baas_version ??
+              null;
+          } catch (error) {
+            appendGlobalLog({
+              level: "warning",
+              message: `Failed to read the local backend version: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            } as any);
+          }
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              local,
+              remote: null,
+              updateAvailable: false,
+              channel: state.updateStore?.channel ?? "stable",
+              method: "disabled",
+              checking: false,
+              lastChecked: Date.now(),
+            },
+          }));
         } else {
           startBackendUpdaterPolling();
 
@@ -1171,7 +1254,8 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     modify: (path: string, patch: any, showToast = false) => {
       const [resourceId, scope] = path.split("::");
-      const timestamp = getTimestampMs();
+      let timestamp = getTimestampMs();
+      while (pendingSyncPatches.has(timestamp) || get().pendingCallbacks[timestamp]) timestamp += 1;
       const ops = isPlainObject(patch)
         ? Object.entries(patch).map(([key, value]) => ({
             op: "replace",
@@ -1193,6 +1277,12 @@ export const useWebSocketStore = create<WebSocketState>()(
           });
         }
       };
+      pendingSyncPatches.set(timestamp, {
+        resource: scope,
+        resourceId,
+        ops,
+        retries: 0,
+      });
 
       get().send("sync", {
         type: "patch",

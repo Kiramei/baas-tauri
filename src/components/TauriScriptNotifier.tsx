@@ -12,6 +12,7 @@ type ScriptStatus = {
   current_task?: string | null;
   waiting_tasks?: string[];
   exit_code?: number | string | null;
+  run_mode?: "scheduler" | "single" | null;
 };
 
 type StatusSnapshot = {
@@ -19,6 +20,7 @@ type StatusSnapshot = {
   currentTask: string | null;
   lastTask: string | null;
   exitCode: number | string | null;
+  runMode: "scheduler" | "single" | null;
 };
 
 /** Treats any non-zero numeric exit code or opaque non-empty exit marker as a failure. */
@@ -59,6 +61,7 @@ const TauriScriptNotifier: React.FC = () => {
         currentTask,
         lastTask: currentTask ?? previous?.lastTask ?? null,
         exitCode: status.exit_code ?? null,
+        runMode: status.run_mode ?? null,
       };
       nextSnapshots[configId] = next;
 
@@ -66,33 +69,50 @@ const TauriScriptNotifier: React.FC = () => {
         continue;
       }
 
-      const completedTask =
-        previous.currentTask && previous.currentTask !== currentTask ? previous.currentTask : null;
+      const schedulerMode = next.runMode === "scheduler";
+      const runStarted = !previous.running && next.running;
+      const runStopped = previous.running && !next.running;
+      const completedTask = previous.currentTask && !currentTask ? previous.currentTask : null;
+      const schedulerCompleted = Boolean(
+        schedulerMode &&
+        next.running &&
+        previous.currentTask &&
+        !currentTask &&
+        (status.waiting_tasks?.length ?? 0) === 0
+      );
       const failed = previous.running && !next.running && isFailureExitCode(next.exitCode);
-      const stoppedTask = previous.currentTask ?? previous.lastTask;
+      const stoppedTask = schedulerMode
+        ? t("nav.scheduler")
+        : (previous.currentTask ?? previous.lastTask);
 
       if (failed && stoppedTask) {
-        const task = t(eventNameKey(stoppedTask));
+        const task = schedulerMode ? stoppedTask : t(eventNameKey(stoppedTask));
         notify(
           t("notification.script.failedTitle"),
           t("notification.script.failedBody", { task, exitCode: next.exitCode }),
-          `script:${configId}:failed:${stoppedTask}:${next.exitCode}`,
+          `script:${configId}:failed:${stoppedTask}:${next.exitCode}`
         );
-      } else if (completedTask) {
-        const task = t(eventNameKey(completedTask));
+      } else if (schedulerCompleted || (!schedulerMode && runStopped && completedTask)) {
+        const task = schedulerMode ? t("nav.scheduler") : t(eventNameKey(completedTask as string));
         notify(
           t("notification.script.completedTitle"),
           t("notification.script.completedBody", { task }),
-          `script:${configId}:completed:${completedTask}`,
+          `script:${configId}:completed:${schedulerMode ? "scheduler" : completedTask}`
         );
       }
 
-      if (currentTask && currentTask !== previous.currentTask) {
-        const task = t(eventNameKey(currentTask));
+      const startedTask = schedulerMode
+        ? runStarted
+          ? t("nav.scheduler")
+          : null
+        : currentTask && currentTask !== previous.currentTask
+          ? t(eventNameKey(currentTask))
+          : null;
+      if (startedTask) {
         notify(
           t("notification.script.startedTitle"),
-          t("notification.script.startedBody", { task }),
-          `script:${configId}:started:${currentTask}`,
+          t("notification.script.startedBody", { task: startedTask }),
+          `script:${configId}:started:${schedulerMode ? "scheduler" : currentTask}`
         );
       }
     }

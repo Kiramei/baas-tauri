@@ -9,6 +9,7 @@ mod commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
 mod notifier_commands;
+mod system_logs;
 
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
@@ -25,6 +26,10 @@ use crate::mobile_commands::{
     updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::notifier_commands::baas_notify;
+use crate::system_logs::{
+    initialize_system_logs, install_panic_logging, system_log, system_logs_clear,
+    system_logs_ingest_frontend, system_logs_snapshot,
+};
 #[cfg(not(mobile))]
 use crate::{
     behavior::inject_tray_icon,
@@ -54,6 +59,7 @@ use tauri::{Manager, RunEvent, WindowEvent};
 /// Performs the run operation.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    install_panic_logging();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -80,7 +86,10 @@ pub fn run() {
             open_main_devtools,
             android_prepare_scrcpy_virtual_display,
             android_cleanup_scrcpy_virtual_display,
-            android_scrcpy_virtual_display_status
+            android_scrcpy_virtual_display_status,
+            system_logs_snapshot,
+            system_logs_clear,
+            system_logs_ingest_frontend
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -89,6 +98,11 @@ pub fn run() {
     #[cfg(not(mobile))]
     let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            system_log(
+                "INFO",
+                "single_instance",
+                "Existing application instance activated",
+            );
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
@@ -97,6 +111,9 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
+            app.manage(log_state);
+            system_log("INFO", "lifecycle", "Desktop setup started");
             configure_portable_working_dir().map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
             install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
@@ -113,6 +130,7 @@ pub fn run() {
             let _ = backend.remember_config(&config_manager.config);
             app.manage(backend);
             disable_f5_press_event(app);
+            system_log("INFO", "lifecycle", "Desktop setup completed");
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -124,6 +142,11 @@ pub fn run() {
                 return;
             }
             if let WindowEvent::CloseRequested { api, .. } = event {
+                system_log(
+                    "INFO",
+                    "window",
+                    "Main window close requested; hiding to tray",
+                );
                 api.prevent_close();
                 let _ = window.hide();
             }
@@ -134,10 +157,14 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder
         .setup(|app| {
+            let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
+            app.manage(log_state);
+            system_log("INFO", "lifecycle", "Mobile setup started");
             app.manage(BehaviorState::default());
             #[cfg(target_os = "android")]
             app.manage(AndroidUpdaterTermManager::default());
             disable_f5_press_event(app);
+            system_log("INFO", "lifecycle", "Mobile setup completed");
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -146,6 +173,11 @@ pub fn run() {
     #[cfg(not(mobile))]
     builder.run(|app, event| match event {
         RunEvent::ExitRequested { .. } | RunEvent::Exit => {
+            system_log(
+                "INFO",
+                "lifecycle",
+                "Tauri exit requested; stopping managed processes",
+            );
             let updater = app.state::<UpdaterTermManager>();
             let _ = updater.abort(Default::default());
             let backend = app.state::<BackendProcessManager>();
@@ -155,5 +187,12 @@ pub fn run() {
     });
 
     #[cfg(mobile)]
-    builder.run(|_app, _event| {});
+    builder.run(|_app, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) {
+            system_log("INFO", "lifecycle", "Mobile Tauri exit requested");
+        }
+    });
 }

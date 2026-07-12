@@ -69,7 +69,11 @@ const Main: React.FC = () => {
   const { uiSettings } = useUISettings();
   const lowPerformanceMode = uiSettings.lowPerformanceMode;
 
-  const activePid = activeProfile!.id;
+  if (!activeProfile) {
+    return <MainLayout activePage={activePage} setActivePage={setActivePage}>{null}</MainLayout>;
+  }
+
+  const activePid = activeProfile.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
   const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
@@ -122,7 +126,7 @@ const Main: React.FC = () => {
               }}
               aria-hidden={!isActive}
             >
-              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, pid!)}</Suspense>
+              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, pid ?? activePid)}</Suspense>
             </div>
           );
         })}
