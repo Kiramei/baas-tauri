@@ -2145,13 +2145,13 @@ pub fn updater_start_workflow(
 
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
-pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
+pub fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
     system_log(
         "WARNING",
         "backend_auth",
         "Android backend authentication reset requested",
     );
-    restart_android_backend_service()?;
+    ensure_android_backend_service(&app)?;
     Ok(json!({
         "base_backend_addr": "127.0.0.1",
         "base_backend_port": 8190,
@@ -2162,13 +2162,18 @@ pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
 
 /// Android always uses its loopback WebSocket transport.
 #[tauri::command]
-pub fn backend_transport_start(mode: String) -> Result<Value, String> {
+pub async fn backend_transport_start(app: tauri::AppHandle, mode: String) -> Result<Value, String> {
     if mode != "websocket" {
         return Err("Named pipe transport is unavailable on Android".to_string());
     }
+    ensure_android_backend_service(&app)?;
+    tauri::async_runtime::spawn_blocking(wait_for_android_backend_health)
+        .await
+        .map_err(|error| format!("Android backend readiness task failed: {error}"))??;
     Ok(serde_json::json!({
         "baseBackendAddr": "127.0.0.1",
         "baseBackendPort": 8190,
+        "restarted": true,
     }))
 }
 
@@ -2617,19 +2622,28 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     Ok(setup_path)
 }
 
-/// Verifies the Chaquopy backend after an Android update without killing it.
-fn restart_android_backend_service() -> Result<(), String> {
-    let response = minreq::get("http://127.0.0.1:8190/health")
-        .with_timeout(5)
-        .send()
-        .map_err(|error| format!("failed to contact Android backend after update: {error}"))?;
-    if (200..300).contains(&response.status_code) {
-        return Ok(());
+/// Ensures the dedicated Android foreground service is running.
+fn ensure_android_backend_service(app: &tauri::AppHandle) -> Result<(), String> {
+    crate::android_backend_service::ensure_started(app)
+}
+
+/// Waits until the restarted Android backend accepts HTTP requests.
+fn wait_for_android_backend_health() -> Result<(), String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut last_error = String::new();
+    while std::time::Instant::now() < deadline {
+        match minreq::get("http://127.0.0.1:8190/health")
+            .with_timeout(1)
+            .send()
+        {
+            Ok(response) if (200..300).contains(&response.status_code) => return Ok(()),
+            Ok(response) => last_error = format!("HTTP {}", response.status_code),
+            Err(error) => last_error = error.to_string(),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
     }
     Err(format!(
-        "Android backend health check returned HTTP {}: {}",
-        response.status_code,
-        response.as_str().unwrap_or("")
+        "Android backend did not become ready within 20 seconds: {last_error}"
     ))
 }
 

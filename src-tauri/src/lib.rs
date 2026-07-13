@@ -3,6 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+#[cfg(target_os = "android")]
+mod android_backend_service;
 mod behavior;
 #[cfg(not(mobile))]
 mod commands;
@@ -106,6 +108,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init());
+
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(android_backend_service::init());
 
     #[cfg(not(mobile))]
     let builder = builder

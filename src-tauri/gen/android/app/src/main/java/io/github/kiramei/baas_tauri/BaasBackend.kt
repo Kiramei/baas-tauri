@@ -33,8 +33,9 @@ object BaasBackend {
             appContext.applicationInfo.nativeLibraryDir,
           )
       } catch (error: Throwable) {
-        started.set(false)
         Log.e(TAG, "Python backend bootstrap failed", error)
+      } finally {
+        started.set(false)
       }
     }
   }
