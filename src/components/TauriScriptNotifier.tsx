@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@/shared/TauriInvoke";
 
@@ -26,19 +26,22 @@ const TauriScriptNotifier: React.FC = () => {
   const previousRef = useRef<Record<string, StatusSnapshot>>({});
   const initializedRef = useRef(false);
 
+  const notify = useCallback(
+    (title: string, body: string, tag: string) => {
+      if (!notificationsEnabled) return;
+      void invoke("baas_notify", {
+        payload: { title, body, tag },
+      }).catch((error) => {
+        console.warn("[notifier] failed to send system notification", error);
+      });
+    },
+    [notificationsEnabled]
+  );
+
   useEffect(() => {
     if (!__WITH_TAURI__) return;
 
     const nextSnapshots: Record<string, StatusSnapshot> = {};
-    const notify = notificationsEnabled
-      ? (title: string, body: string, tag: string) => {
-          void invoke("baas_notify", {
-            payload: { title, body, tag },
-          }).catch((error) => {
-            console.warn("[notifier] failed to send system notification", error);
-          });
-        }
-      : () => {};
 
     for (const [configId, status] of Object.entries(statusStore as Record<string, ScriptStatus>)) {
       const previous = previousRef.current[configId];
@@ -101,7 +104,7 @@ const TauriScriptNotifier: React.FC = () => {
 
     previousRef.current = nextSnapshots;
     initializedRef.current = true;
-  }, [notificationsEnabled, statusStore, t]);
+  }, [notify, statusStore, t]);
 
   return null;
 };

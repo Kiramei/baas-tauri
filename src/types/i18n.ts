@@ -43,6 +43,8 @@ export type TranslationKey =
   | "notification.script.failedTitle"
   | "notification.script.startedBody"
   | "notification.script.startedTitle"
+  | "notification.service.disconnectedBody"
+  | "notification.service.disconnectedTitle"
   | "time.daysAgo"
   | "time.hoursAgo"
   | "time.minutesAgo"

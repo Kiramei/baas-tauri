@@ -60,6 +60,10 @@
       "failedTitle": "BAAS スクリプトが異常終了しました",
       "startedBody": "{{task}} を開始しました。",
       "startedTitle": "BAAS タスク開始"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 接続が切断されました。自動的に再接続しています。",
+      "disconnectedTitle": "BAAS サービスが切断されました"
     }
   },
   "time": {

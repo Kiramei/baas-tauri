@@ -157,6 +157,7 @@ interface WebSocketState {
   startTauriUpdaterPolling: () => void;
   connect: (name: WsName) => Promise<void>;
   disconnect: (name: WsName) => void;
+  recoverTransport: () => Promise<void>;
   send: (name: WsName, data: any) => void;
   init: () => Promise<void>;
   modify: (path: string, value: any, showToast?: boolean) => void;

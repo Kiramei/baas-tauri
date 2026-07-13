@@ -60,6 +60,10 @@
       "failedTitle": "BAAS script exited abnormally",
       "startedBody": "{{task}} has started.",
       "startedTitle": "BAAS task started"
+    },
+    "service": {
+      "disconnectedBody": "The {{transport}} connection was interrupted. Reconnecting automatically.",
+      "disconnectedTitle": "BAAS service disconnected"
     }
   },
   "time": {

@@ -27,6 +27,11 @@ import {
   WsName,
 } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
+import {
+  announceServiceTransportDisconnected,
+  transportRecoveryDelay,
+} from "@/shared/ServiceTransportEvents";
+import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 
 /** Returns the resolve base result. */
 let activeWebSocketBase: string | null = null;
@@ -70,6 +75,14 @@ let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
 let transportStartupPromise: ReturnType<typeof startBackendTransport> | null = null;
 let transportStartupFailureAt = 0;
+let transportGeneration = 0;
+let transportRecoveryEpoch = 0;
+let transportRecoveryPromise: Promise<void> | null = null;
+let transportRecoveryMustRestart = false;
+let transportRecoveryRestarting = false;
+let transportOutageAnnounced = false;
+const desiredConnectionNames = new Set<WsName>();
+const connectionOpenPromises = new Map<WsName, Promise<void>>();
 const MAX_SYNC_PATCH_RETRIES = 3;
 
 type PendingSyncPatch = {
@@ -90,7 +103,9 @@ const startManagedBackendTransport = async (mode: "websocket" | "pipe") => {
     transportStartupPromise = null;
   });
   try {
-    return await transportStartupPromise;
+    const startup = await transportStartupPromise;
+    transportStartupFailureAt = 0;
+    return startup;
   } catch (error) {
     transportStartupFailureAt = Date.now();
     throw error;
@@ -249,6 +264,145 @@ const resetDataStores = (): Partial<WebSocketState> => ({
   versionStore: {},
 });
 
+/** Persists the dynamic loopback address returned by the managed backend. */
+const applyManagedBackendAddress = (startup: {
+  baseBackendAddr?: string;
+  baseBackendPort?: number;
+}) => {
+  if (!startup.baseBackendAddr || !startup.baseBackendPort) return;
+  activeWebSocketBase = `ws://${startup.baseBackendAddr}:${startup.baseBackendPort}`;
+  StorageUtil.set("baseBackendAddr", startup.baseBackendAddr);
+  StorageUtil.set("baseBackendPort", startup.baseBackendPort);
+};
+
+/** Invalidates close handlers from the old generation and clears business channels. */
+const closeBusinessConnections = (closeControl: boolean): number => {
+  transportGeneration += 1;
+  const state = useWebSocketStore.getState();
+  Object.values(state.connections).forEach((connection) => void connection?.close());
+  if (closeControl) state._control?.close();
+  useWebSocketStore.setState((current) => ({
+    ...current,
+    ...resetConnectionStores(),
+    ...(closeControl ? { _control: null, _session: null } : {}),
+  }));
+  return transportGeneration;
+};
+
+/** Reopens every core channel that the application had requested. */
+const connectDesiredChannels = async () => {
+  for (const name of ["provider", "sync", "trigger"] as const) {
+    if (desiredConnectionNames.has(name)) {
+      await useWebSocketStore.getState().connect(name);
+    }
+  }
+};
+
+/** Restores authentication after a managed backend restart. */
+const restoreTransportAuthentication = async (mode: "websocket" | "pipe") => {
+  if (mode === "pipe") {
+    activeWebSocketBase = null;
+    useWebSocketStore.setState({
+      _auth_phase: "authenticated",
+      _auth_error: null,
+      _server_initialized: true,
+      _server_verified: true,
+      _control: null,
+      _session: null,
+    });
+    return true;
+  }
+
+  useWebSocketStore.setState({
+    _auth_phase: "idle",
+    _auth_error: null,
+    _server_verified: false,
+    _control: null,
+    _session: null,
+  });
+  await useWebSocketStore.getState().startAuthFlow();
+  if (useWebSocketStore.getState()._auth_phase === "waiting_password") {
+    const password = __WITH_ANDROID__
+      ? getAndroidAutoPassword()
+      : StorageUtil.get<string>("baasAutoPassword");
+    if (!password) return false;
+    await useWebSocketStore.getState().submitPassword(password);
+  }
+  if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+    throw new Error(useWebSocketStore.getState()._auth_error || "Backend authentication failed");
+  }
+  return true;
+};
+
+/** Runs the single coalesced recovery loop shared by WebSocket and Pipe channels. */
+const runTransportRecovery = async (epoch: number) => {
+  let attempt = 0;
+  while (desiredConnectionNames.size > 0 && epoch === transportRecoveryEpoch) {
+    const mode = useWebSocketStore.getState().transportMode;
+    const restartBackend = transportRecoveryMustRestart;
+    transportRecoveryMustRestart = false;
+    transportRecoveryRestarting = restartBackend;
+    closeBusinessConnections(restartBackend);
+
+    try {
+      if (restartBackend) {
+        useWebSocketStore.setState({
+          _auth_phase: "control_connecting",
+          _auth_error: null,
+          _server_verified: mode === "pipe",
+        });
+        const startup = await startManagedBackendTransport(mode);
+        if (epoch !== transportRecoveryEpoch) return;
+        if (mode === "websocket") applyManagedBackendAddress(startup);
+        const authenticated = await restoreTransportAuthentication(mode);
+        if (epoch !== transportRecoveryEpoch) return;
+        if (!authenticated) return;
+      } else if (mode === "websocket" && !useWebSocketStore.getState()._session) {
+        transportRecoveryMustRestart = true;
+        continue;
+      }
+
+      if (transportRecoveryMustRestart) continue;
+      await connectDesiredChannels();
+      if (epoch !== transportRecoveryEpoch) return;
+      if (transportRecoveryMustRestart) continue;
+
+      transportOutageAnnounced = false;
+      transportRecoveryRestarting = false;
+      void useWebSocketStore.getState().init();
+      return;
+    } catch (error) {
+      transportRecoveryRestarting = false;
+      transportRecoveryMustRestart = true;
+      appendGlobalLog({
+        level: "warning",
+        message: `Backend ${mode} recovery failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      } as any);
+      await new Promise((resolve) => setTimeout(resolve, transportRecoveryDelay(attempt)));
+      attempt += 1;
+    }
+  }
+};
+
+/** Requests recovery without allowing concurrent channels to start duplicate restarts. */
+const requestTransportRecovery = (restartBackend = false): Promise<void> => {
+  if (desiredConnectionNames.size === 0) return Promise.resolve();
+  if (restartBackend && !transportRecoveryRestarting) {
+    transportRecoveryMustRestart = true;
+  }
+  if (!transportOutageAnnounced) {
+    transportOutageAnnounced = true;
+    announceServiceTransportDisconnected(useWebSocketStore.getState().transportMode);
+  }
+  transportRecoveryPromise ??= runTransportRecovery(transportRecoveryEpoch).finally(() => {
+    transportRecoveryRestarting = false;
+    transportRecoveryPromise = null;
+  });
+  return transportRecoveryPromise;
+};
+
 /** Performs the connect with retry operation. */
 const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
   const { connect } = useWebSocketStore.getState();
@@ -258,7 +412,9 @@ const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
       await connect(name);
       return;
     } catch (error) {
-      console.error(`[${name}] connect failed, retrying in ${retryInterval}ms`, error);
+      console.error(`[${name}] connect failed, starting transport recovery`, error);
+      await requestTransportRecovery(true);
+      if (useWebSocketStore.getState().connections[name]) return;
       await new Promise((resolve) => setTimeout(resolve, retryInterval));
     }
   }
@@ -333,11 +489,16 @@ void waitForNormal;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
-    transportMode: "websocket",
+    transportMode: __WITH_TAURI__ && !__WITH_ANDROID__ ? "pipe" : "websocket",
     setTransportMode: async (mode) => {
       const nextMode = normalizeTransportMode(mode);
-      Object.values(get().connections).forEach((connection) => void connection?.close());
-      get()._control?.close();
+      transportRecoveryEpoch += 1;
+      transportRecoveryMustRestart = false;
+      transportRecoveryRestarting = false;
+      transportOutageAnnounced = false;
+      const pendingRecovery = transportRecoveryPromise;
+      if (pendingRecovery) await pendingRecovery.catch(() => undefined);
+      closeBusinessConnections(true);
       if (__WITH_TAURI__) {
         try {
           const { invoke } = await import("@/shared/TauriInvoke");
@@ -367,21 +528,19 @@ export const useWebSocketStore = create<WebSocketState>()(
             _server_initialized: true,
             _server_verified: true,
           }));
-          return;
-        }
-        if (startup.baseBackendAddr && startup.baseBackendPort) {
-          activeWebSocketBase = `ws://${startup.baseBackendAddr}:${startup.baseBackendPort}`;
-          StorageUtil.set("baseBackendAddr", startup.baseBackendAddr);
-          StorageUtil.set("baseBackendPort", startup.baseBackendPort);
-        }
-        await get().startAuthFlow();
-        if (get()._auth_phase === "waiting_password") {
-          const password = StorageUtil.get<string>("baasAutoPassword");
-          if (!password) {
-            throw new Error("The managed backend password is unavailable");
+        } else {
+          applyManagedBackendAddress(startup);
+          await get().startAuthFlow();
+          if (get()._auth_phase === "waiting_password") {
+            const password = StorageUtil.get<string>("baasAutoPassword");
+            if (!password) {
+              throw new Error("The managed backend password is unavailable");
+            }
+            await get().submitPassword(password);
           }
-          await get().submitPassword(password);
         }
+        await connectDesiredChannels();
+        void get().init();
       } catch (error) {
         set((state) => ({
           ...state,
@@ -639,6 +798,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
           if (payload.type === "auth_revoked") {
             const activeControl = get()._control;
+            transportGeneration += 1;
             activeControl?.close();
             Object.values(get().connections).forEach((connection) => connection?.close());
             set((state) => ({
@@ -658,20 +818,21 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
         };
 
+        const controlGeneration = transportGeneration;
         control.onClose = () => {
           if (get()._control !== control) return;
+          if (controlGeneration !== transportGeneration) return;
           if (get()._auth_phase === "authenticated") {
-            Object.values(get().connections).forEach((connection) => connection?.close());
             set((state) => ({
               ...state,
-              ...resetConnectionStores(),
-              _auth_phase: "revoked",
-              _auth_error: "Control connection closed. Authenticate again.",
+              _auth_phase: "idle",
+              _auth_error: "Control connection closed. Reconnecting.",
               _server_initialized: true,
               _server_verified: false,
               _control: null,
               _session: null,
             }));
+            void requestTransportRecovery(true);
           } else {
             set((state) => ({
               ...state,
@@ -770,6 +931,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           _control: control,
           _session: session,
         }));
+        if (transportOutageAnnounced) void requestTransportRecovery(false);
       } catch (error) {
         console.error("[control] authentication failed", error);
         control.close();
@@ -786,7 +948,13 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     connect: async (name: WsName) => {
+      if (!name.startsWith("remote-")) desiredConnectionNames.add(name);
       if (get().connections[name]) return;
+      const pendingOpen = connectionOpenPromises.get(name);
+      if (pendingOpen) return pendingOpen;
+
+      const opening = (async () => {
+        const connectionGeneration = transportGeneration;
       const session = get()._session;
       const transportMode = get().transportMode;
       if (transportMode === "websocket" && !session) {
@@ -1084,6 +1252,25 @@ export const useWebSocketStore = create<WebSocketState>()(
         baseUrl: resolveBase(),
         session,
       });
+      let connectionErrored = false;
+      ws.onClose = () => {
+        set((state) => {
+          if (state.connections[name] !== ws) return state;
+          const next = { ...state.connections };
+          delete next[name];
+          return { connections: next };
+        });
+        if (
+          connectionGeneration === transportGeneration &&
+          desiredConnectionNames.has(name)
+        ) {
+          void requestTransportRecovery(connectionErrored);
+        }
+      };
+      ws.onError = (event) => {
+        connectionErrored = true;
+        console.error("Socket error:", event);
+      };
       await ws.connect((message: any) => {
         if (message instanceof ArrayBuffer) {
           const timestamp = get().pendingBinaryQueue.shift();
@@ -1098,24 +1285,27 @@ export const useWebSocketStore = create<WebSocketState>()(
         }
         callbackDict[message.type]?.(message as WsMessageItem);
       });
+      if (connectionGeneration !== transportGeneration) {
+        await ws.close();
+        return;
+      }
       console.info(`[transport] opened ${transportMode} channel=${channel} name=${name}`);
 
-      ws.onClose = () => {
-        set((state) => {
-          const next = { ...state.connections };
-          delete next[name];
-          return { connections: next };
-        });
-      };
-
-      ws.onError = (event) => console.error("Socket error:", event);
-
-      set((state) => ({
-        connections: {
-          ...state.connections,
-          [name]: ws,
-        },
-      }));
+        set((state) => ({
+          connections: {
+            ...state.connections,
+            [name]: ws,
+          },
+        }));
+      })();
+      connectionOpenPromises.set(name, opening);
+      try {
+        await opening;
+      } finally {
+        if (connectionOpenPromises.get(name) === opening) {
+          connectionOpenPromises.delete(name);
+        }
+      }
     },
 
     connectRemote: async (): Promise<BackendConnection> => {
@@ -1156,6 +1346,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     disconnect: (name: WsName) => {
+      desiredConnectionNames.delete(name);
       const conn = get().connections[name];
       if (conn) {
         conn.close();
@@ -1166,6 +1357,8 @@ export const useWebSocketStore = create<WebSocketState>()(
         });
       }
     },
+
+    recoverTransport: () => requestTransportRecovery(true),
 
     send: (name: WsName, data: any) => {
       const conn = get().connections[name];

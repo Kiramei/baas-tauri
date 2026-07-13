@@ -60,6 +60,10 @@
       "failedTitle": "BAAS 脚本异常退出",
       "startedBody": "{{task}} 已开始执行。",
       "startedTitle": "BAAS 任务已开始"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 链路已断开，正在自动重连。",
+      "disconnectedTitle": "BAAS 服务已断开"
     }
   },
   "time": {

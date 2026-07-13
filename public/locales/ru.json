@@ -60,6 +60,10 @@
       "failedTitle": "Скрипт BAAS завершился аварийно",
       "startedBody": "{{task}} запущена.",
       "startedTitle": "Задача BAAS запущена"
+    },
+    "service": {
+      "disconnectedBody": "Соединение {{transport}} прервано. Выполняется автоматическое переподключение.",
+      "disconnectedTitle": "Служба BAAS отключена"
     }
   },
   "time": {

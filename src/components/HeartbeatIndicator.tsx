@@ -19,7 +19,7 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
       Boolean(s.connections.provider) &&
       Boolean(s.connections.sync)
   );
-  const init = useWebSocketStore((s) => s.init);
+  const recoverTransport = useWebSocketStore((s) => s.recoverTransport);
   const lastBeatRef = useRef<number>(0);
 
   useEffect(() => {
@@ -46,11 +46,11 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
       if (Date.now() - lastBeatRef.current > 5000) {
         setConnected(false);
         onStateChanged(false);
-        await init();
+        await recoverTransport();
       }
     }, 1000);
     return () => clearInterval(checkInterval);
-  }, [init, onStateChanged, transportMode]);
+  }, [onStateChanged, recoverTransport, transportMode]);
 
   const color = connected ? "var(--color-primary-500)" : "var(--color-slate-500)";
 

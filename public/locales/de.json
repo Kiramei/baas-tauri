@@ -60,6 +60,10 @@
       "failedTitle": "BAAS-Skript wurde unerwartet beendet",
       "startedBody": "{{task}} wurde gestartet.",
       "startedTitle": "BAAS-Aufgabe gestartet"
+    },
+    "service": {
+      "disconnectedBody": "Die {{transport}}-Verbindung wurde unterbrochen. Die Verbindung wird automatisch wiederhergestellt.",
+      "disconnectedTitle": "BAAS-Dienst getrennt"
     }
   },
   "time": {
