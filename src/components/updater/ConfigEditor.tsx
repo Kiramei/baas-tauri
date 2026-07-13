@@ -85,7 +85,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
-  const transport = __WITH_ANDROID__ ? "websocket" : (props.config?.general?.transport ?? "websocket");
+  const transport = __WITH_ANDROID__ ? "websocket" : (props.config?.general?.transport ?? "pipe");
 
   /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {

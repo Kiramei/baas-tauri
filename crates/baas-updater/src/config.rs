@@ -23,9 +23,9 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 #[serde(rename_all = "kebab-case")]
 pub enum BackendTransport {
     /// Encrypted loopback WebSocket transport.
-    #[default]
     Websocket,
     /// Windows named-pipe transport owned by the Tauri process.
+    #[default]
     Pipe,
 }
 
@@ -142,7 +142,7 @@ impl Default for GeneralConfig {
     /// Handles the default workflow.
     fn default() -> Self {
         Self {
-            transport: BackendTransport::Websocket,
+            transport: BackendTransport::Pipe,
             mirrorc_cdk: String::new(),
             channel: UpdateChannel::Stable,
             current_baas_sha: String::new(),
@@ -451,6 +451,7 @@ mod tests {
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
+        assert_eq!(config.general.transport, BackendTransport::Pipe);
         assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
         assert!(!config.general.source_list.is_empty());

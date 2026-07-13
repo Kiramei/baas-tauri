@@ -7,8 +7,18 @@ import type {
 } from "@/transport/types";
 
 export function normalizeTransportMode(value: unknown): BackendTransportMode {
-  if (__WITH_ANDROID__ || !__WITH_TAURI__) return "websocket";
-  return value === "pipe" ? "pipe" : "websocket";
+  return resolveTransportMode(value, {
+    android: __WITH_ANDROID__,
+    tauri: __WITH_TAURI__,
+  });
+}
+
+export function resolveTransportMode(
+  value: unknown,
+  environment: { android: boolean; tauri: boolean }
+): BackendTransportMode {
+  if (environment.android || !environment.tauri) return "websocket";
+  return value === "websocket" ? "websocket" : "pipe";
 }
 
 export async function configuredTransportMode(): Promise<BackendTransportMode> {
@@ -18,7 +28,7 @@ export async function configuredTransportMode(): Promise<BackendTransportMode> {
     const startup = await invoke<any>("updater_get_startup_state");
     return normalizeTransportMode(startup?.config?.general?.transport);
   } catch {
-    return "websocket";
+    return "pipe";
   }
 }
 
