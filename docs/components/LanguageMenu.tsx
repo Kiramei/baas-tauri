@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Languages } from "lucide-react";
 import { locales, switchLocalePath, type Locale } from "@/lib/i18n";
 
+/** Renders the language menu component. */
 export function LanguageMenu({ locale }: { locale: Locale }) {
   const pathname = usePathname();
   const activeName = locales.find((item) => item.locale === locale)?.name ?? "中文";

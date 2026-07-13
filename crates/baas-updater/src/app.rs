@@ -1,16 +1,10 @@
-//! Tauri-facing adapter functions.
-//!
-//! The main application can register these commands when it is ready to switch
-//! from the legacy installer module. This module intentionally keeps the core
-//! workflow independent from Tauri event emitters.
+//! Tauri-facing updater session manager.
 
 use crate::{
-    GitBackend, WorkflowOptions,
-    config::{ConfigManager, UpdaterConfig},
+    WorkflowOptions,
     workflow::{
-        WorkflowCleanupState, WorkflowFailure, WorkflowReport, cleanup_workflow_state,
-        new_workflow_cleanup_state, run_terminal_workflow_flow, run_workflow,
-        terminal_workflow_plan,
+        WorkflowCleanupState, cleanup_workflow_state, new_workflow_cleanup_state,
+        run_terminal_workflow_flow, terminal_workflow_plan,
     },
 };
 use baas_term::{
@@ -28,99 +22,10 @@ use std::{
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
-/// Request payload for updating one setup.toml field from Tauri.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConfigUpdateRequest {
-    /// Optional explicit setup.toml path.
-    pub config_path: Option<PathBuf>,
-    /// Optional BAAS installation root.
-    pub baas_root_path: Option<PathBuf>,
-    /// Optional MirrorC CDK.
-    pub mirrorc_cdk: Option<String>,
-    /// Optional runtime path.
-    pub runtime_path: Option<String>,
-    /// Optional Git backend.
-    pub git_backend: Option<String>,
-}
-
-/// Returns the default updater configuration.
-pub fn updater_default_config() -> UpdaterConfig {
-    UpdaterConfig::default()
-}
-
-/// Loads and migrates setup.toml from the default or explicit path.
-pub fn updater_load_config(config_path: Option<PathBuf>) -> Result<UpdaterConfig, String> {
-    let manager = if let Some(path) = config_path {
-        ConfigManager::load_from(path)
-    } else {
-        ConfigManager::load_default_path()
-    };
-    manager
-        .map(|manager| manager.config)
-        .map_err(|error| error.message())
-}
-
-/// Updates selected setup.toml fields and saves the file.
-pub fn updater_update_config(request: ConfigUpdateRequest) -> Result<UpdaterConfig, String> {
-    let mut manager = if let Some(path) = request.config_path {
-        ConfigManager::load_from(path)
-    } else {
-        ConfigManager::load_default_path()
-    }
-    .map_err(|error| error.message())?;
-    let parsed_git_backend = match request.git_backend.as_deref() {
-        Some(value) => Some(GitBackend::parse(value).map_err(|error| error.message())?),
-        None => None,
-    };
-
-    manager
-        .update(|config| {
-            if let Some(path) = request.baas_root_path {
-                config.paths.baas_root_path = path.to_string_lossy().to_string();
-            }
-            if let Some(cdk) = request.mirrorc_cdk {
-                config.general.mirrorc_cdk = cdk;
-            }
-            if let Some(runtime) = request.runtime_path {
-                config.python.runtime_path = runtime;
-            }
-            if let Some(git_backend) = parsed_git_backend {
-                config.general.git_backend = git_backend;
-            }
-        })
-        .map_err(|error| error.message())?;
-    Ok(manager.config)
-}
-
-/// Runs the updater workflow.
-pub fn updater_run_workflow(options: WorkflowOptions) -> Result<WorkflowReport, WorkflowFailure> {
-    run_workflow(options)
-}
-
-/// Aborts a terminal updater workflow owned by the provided manager.
-pub fn updater_abort_workflow(
-    manager: &UpdaterTermManager,
-    request: WorkflowAbortRequest,
-) -> Result<WorkflowAbortReport, String> {
-    manager.abort(request)
-}
-
-/// Command names exported by this adapter.
-pub const COMMAND_NAMES: &[&str] = &[
-    "updater_default_config",
-    "updater_load_config",
-    "updater_update_config",
-    "updater_run_workflow",
-    "updater_abort_workflow",
-    "updater_terminal_snapshot",
-];
-
 /// Terminal-backed updater session manager.
 ///
 /// This manager starts the real updater workflow through `baas-term` renderer,
-/// process tasks, and thread tasks. It is separate from the legacy installer so
-/// the main application can opt in without replacing existing commands first.
+/// process tasks, and thread tasks.
 /// Request payload for aborting a terminal updater workflow.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,6 +38,7 @@ pub struct WorkflowAbortRequest {
 }
 
 impl Default for WorkflowAbortRequest {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             cleanup: true,
@@ -141,6 +47,7 @@ impl Default for WorkflowAbortRequest {
     }
 }
 
+/// Handles the default abort emit events workflow.
 fn default_abort_emit_events() -> bool {
     true
 }
@@ -172,6 +79,7 @@ pub struct UpdaterTermManager {
 }
 
 impl Default for UpdaterTermManager {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             inner: Arc::new(Mutex::new(TermState::default())),
@@ -330,6 +238,7 @@ impl UpdaterTermManager {
         })
     }
 
+    /// Performs the stop all operation.
     fn stop_all(&self) -> Result<(usize, Option<mpsc::Sender<RendererEvent>>), String> {
         let (tasks, tx) = {
             let mut state = self
@@ -374,11 +283,7 @@ impl UpdaterTermManager {
 mod tests {
     use super::*;
 
-    #[test]
-    fn default_config_command_returns_schema_one() {
-        assert_eq!(updater_default_config().schema_version, 1);
-    }
-
+    /// Handles the abort idle workflow is idempotent workflow.
     #[test]
     fn abort_idle_workflow_is_idempotent() {
         let manager = UpdaterTermManager::default();

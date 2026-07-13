@@ -16,6 +16,7 @@ interface Draft {
   maxArenaRefreshTimes: number;
 }
 
+/** Renders the arena config component. */
 const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(
@@ -23,6 +24,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       ArenaLevelDiff: settings.ArenaLevelDiff,
@@ -35,6 +37,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: string) => (value: string) => {
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue)) {
@@ -42,6 +45,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
     }
   };
 
+  /** Handles the handle numeric change interaction. */
   const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value, 10);
@@ -50,6 +54,7 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
     }
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {

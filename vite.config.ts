@@ -3,28 +3,63 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import compression from "vite-plugin-compression";
+import { androidCssCompatPlugin } from "./scripts/android-css-compat-vite";
+import { asciiJsOutputPlugin } from "./scripts/vite/ascii-js-output";
+import { manualChunks } from "./scripts/vite/manual-chunks";
+import packageMetadata from "./package.json";
 // import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
   if (mode === "development" || mode === "production") {
     mode = "webui";
   }
+  const withTauri = mode === "tauri" || mode === "android";
+  const isAndroid = mode === "android";
+  const srcRoot = path.resolve(__dirname, "src");
   return {
     base: "/",
     clearScreen: false,
     define: {
       global: "globalThis",
       __WITH_WEBUI__: mode === "webui",
-      __WITH_TAURI__: mode === "tauri",
+      __WITH_TAURI_MODE__: withTauri,
+      __WITH_TAURI__: withTauri
+        ? "(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)"
+        : false,
+      __WITH_ANDROID__: isAndroid,
+      __APP_VERSION__: JSON.stringify(packageMetadata.version),
     },
     server: {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
-      port: mode === "tauri" ? 8191 : 8192,
+      port: withTauri ? 8191 : 8192,
       strictPort: true,
+      watch: {
+        ignored: ["**/target/**", "**/.git/**"],
+      },
+      warmup: {
+        clientFiles: [
+          "./src/main.tsx",
+          "./src/App.tsx",
+          "./src/pages/SetupPage.tsx",
+          "./src/pages/LoadingPage.tsx",
+          "./src/store/WebsocketStore.ts",
+          "./src/shared/I18nTranslator.ts",
+        ],
+      },
+    },
+    optimizeDeps: {
+      entries: ["index.html", "src/main.tsx"],
+      holdUntilCrawlEnd: false,
     },
     plugins: [
-      react(),
+      react({
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      }),
       tailwindcss(),
+      androidCssCompatPlugin(isAndroid),
+      asciiJsOutputPlugin(isAndroid),
       mode === "webui"
         ? compression({
             algorithm: "brotliCompress",
@@ -40,72 +75,31 @@ export default defineConfig(({ mode }) => {
       // }),
     ],
     build: {
+      target: isAndroid ? "chrome64" : undefined,
       rolldownOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes("node_modules/framer-motion")) {
-              return "motion";
-            }
-
-            if (id.includes("node_modules/rehype-highlight")) {
-              return "highlight";
-            }
-
-            if (id.includes("node_modules/libsodium-wrappers-sumo")) {
-              return "libsodium";
-            }
-
-            if (
-              id.includes("node_modules/remark-gfm") ||
-              id.includes("node_modules/react-markdown")
-            ) {
-              return "markdown";
-            }
-
-            if (
-              [
-                "react",
-                "react-dom",
-                "i18next",
-                "zustand",
-                "next-themes",
-                "react-window",
-                "lucide-react",
-                "react-i18next",
-                "tailwind-merge",
-                "class-variance-authority",
-              ].some((pkg) => id.includes(`node_modules/${pkg}`))
-            ) {
-              return "misc";
-            }
-
-            if (
-              [
-                "sonner",
-                "date-fns",
-                "react-day-picker",
-                "@headlessui/react",
-                "@radix-ui/react-popover",
-                "@radix-ui/react-select",
-                "@radix-ui/react-separator",
-                "@radix-ui/react-slot",
-                "@radix-ui/react-switch",
-                "@radix-ui/react-tabs",
-                "@radix-ui/react-tooltip",
-              ].some((pkg) => id.includes(`node_modules/${pkg}`))
-            ) {
-              return "ui";
-            }
-          },
+          manualChunks,
         },
       },
       chunkSizeWarningLimit: 1000,
     },
     resolve: {
-      alias: {
-        buffer: "buffer",
-        "@": path.resolve(__dirname, "src"),
-      },
+      alias: [
+        {
+          find: "@/platform/App",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "App.tsx")
+            : path.join(srcRoot, "platform", "App.tsx"),
+        },
+        {
+          find: "@/platform/startup",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "startup.ts")
+            : path.join(srcRoot, "platform", "startup.ts"),
+        },
+        { find: "buffer", replacement: "buffer" },
+        { find: "@", replacement: srcRoot },
+      ],
     },
   };
 });

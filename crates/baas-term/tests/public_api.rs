@@ -6,6 +6,7 @@ use baas_term::{
 use serde_json::json;
 use std::sync::mpsc;
 
+/// Handles the recv output workflow.
 fn recv_output(rx: &mpsc::Receiver<RendererEvent>) -> String {
     match rx.recv().unwrap() {
         RendererEvent::Output { chunk, .. } => String::from_utf8(chunk).unwrap(),
@@ -13,6 +14,7 @@ fn recv_output(rx: &mpsc::Receiver<RendererEvent>) -> String {
     }
 }
 
+/// Handles the public process task constructor preserves command metadata workflow.
 #[test]
 fn public_process_task_constructor_preserves_command_metadata() {
     let spec = create_process_task(
@@ -41,6 +43,7 @@ fn public_process_task_constructor_preserves_command_metadata() {
     assert_eq!(spec.args, ["test"]);
 }
 
+/// Handles the public thread task constructor preserves display metadata workflow.
 #[test]
 fn public_thread_task_constructor_preserves_display_metadata() {
     let spec = create_thread_task("task", "region", 3, "Scan", "scan assets");
@@ -55,6 +58,7 @@ fn public_thread_task_constructor_preserves_display_metadata() {
     assert!(spec.args.is_empty());
 }
 
+/// Handles the public thread output helpers emit renderer output events workflow.
 #[test]
 fn public_thread_output_helpers_emit_renderer_output_events() {
     let (tx, rx) = mpsc::channel();
@@ -71,6 +75,7 @@ fn public_thread_output_helpers_emit_renderer_output_events() {
     assert_eq!(recv_output(&rx), "\x1b[36minfo\x1b[0m\r\n");
 }
 
+/// Handles the public payloads serialize with camel case fields workflow.
 #[test]
 fn public_payloads_serialize_with_camel_case_fields() {
     assert_eq!(

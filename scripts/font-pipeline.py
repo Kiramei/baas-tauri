@@ -74,6 +74,7 @@ def add_matching_chars(chars, pattern, text: str):
         chars.add(match)
 
 
+# Handles the fetch remote text workflow.
 def fetch_remote_text(url: str) -> Optional[str]:
     try:
         request = urllib.request.Request(
@@ -89,6 +90,7 @@ def fetch_remote_text(url: str) -> Optional[str]:
         return None
 
 
+# Handles the collect chars workflow.
 def collect_chars():
     chars = set()
     pattern = re.compile(
@@ -128,10 +130,12 @@ def collect_chars():
     return "".join(sorted(chars))
 
 
+# Handles the calc hash workflow.
 def calc_hash(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+# Handles the calc file hash workflow.
 def calc_file_hash(path: Path) -> str:
     hasher = hashlib.sha256()
     with path.open("rb") as file:
@@ -140,26 +144,31 @@ def calc_file_hash(path: Path) -> str:
     return hasher.hexdigest()
 
 
+# Returns the load cache result.
 def load_cache():
     if CACHE_FILE.exists():
         return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
     return {}
 
 
+# Performs the save cache operation.
 def save_cache(data):
     CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+# Handles the in ranges workflow.
 def in_ranges(char: str, ranges) -> bool:
     code = ord(char)
     return any(start <= code <= end for start, end in ranges)
 
 
+# Handles the filter chars workflow.
 def filter_chars(chars: str, ranges) -> str:
     filtered = [char for char in chars if in_ranges(char, ranges)]
     return "".join(filtered) or " "
 
 
+# Performs the run pyftsubset operation.
 def run_pyftsubset(target, textfile: Path):
     OUTPUT_FONT_DIR.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -177,6 +186,7 @@ def run_pyftsubset(target, textfile: Path):
     subprocess.check_call(cmd)
 
 
+# Handles the main workflow.
 def main():
     for target in FONT_TARGETS:
         if not target["source"].exists():

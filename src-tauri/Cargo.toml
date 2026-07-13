@@ -19,25 +19,39 @@ tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 # Borrow from workspace
-baas-updater = { workspace = true }
-baas-term = { workspace = true }
 baas-i18n = { workspace = true }
-baas-shortcut = { workspace = true }
+baas-notifier = { workspace = true }
 tauri = { workspace = true }
 serde = { workspace = true }
-chrono = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
 
 # Main App Specified Packages
-directories = "6.0.0"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-store = "2"
 tauri-plugin-process = "2"
+tauri-plugin-notification = { workspace = true }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+baas-updater = { workspace = true }
+baas-term = { workspace = true }
+baas-shortcut = { workspace = true }
+directories = "6.0.0"
+chrono = { workspace = true }
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-single-instance = "2"
 tauri-plugin-global-shortcut = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+baas-updater = { workspace = true }
+base64 = "0.22.1"
+minreq = { version = "3.0.0", features = ["https-rustls"] }
+rand = "0.8.5"
+rsa = { version = "0.9.8", features = ["pem"] }
+sha1 = { version = "0.10.6", features = ["oid"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

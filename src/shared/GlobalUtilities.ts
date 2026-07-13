@@ -1,13 +1,9 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { StringKVMap } from "@/types/app";
 
-export const cn = (...inputs: ClassValue[]) => {
-  return twMerge(clsx(inputs));
-};
-
+/** Returns the is plain object result. */
 export const isPlainObject = (v: any) => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** Handles the deep merge workflow. */
 export const deepMerge = <T extends Record<string, any>>(target: T, patch: any): T => {
   if (!isPlainObject(target) || !isPlainObject(patch)) {
     if (Array.isArray(patch)) return patch.slice() as any;
@@ -32,6 +28,7 @@ export const deepMerge = <T extends Record<string, any>>(target: T, patch: any):
   return out as T;
 };
 
+/** Handles the pause workflow. */
 export const pause = (ms: number, label?: string) => {
   return new Promise<void>((resolve) => {
     console.log(`[pause] start${label ? " - " + label : ""}, waiting ${ms}ms`);
@@ -44,9 +41,11 @@ export const pause = (ms: number, label?: string) => {
   });
 };
 
+/** Returns the format iso to readable result. */
 export const formatIsoToReadable = (iso: string): string => {
   const date = new Date(iso);
 
+  /** Handles the pad workflow. */
   const pad = (n: number, len = 2) => String(n).padStart(len, "0");
 
   return (
@@ -60,9 +59,11 @@ export const formatIsoToReadable = (iso: string): string => {
   );
 };
 
+/** Returns the format iso to readable time result. */
 export const formatIsoToReadableTime = (iso: string): string => {
   const date = new Date(iso);
 
+  /** Handles the pad workflow. */
   const pad = (n: number, len = 2) => String(n).padStart(len, "0");
 
   return (
@@ -73,8 +74,10 @@ export const formatIsoToReadableTime = (iso: string): string => {
   );
 };
 
+/** Returns the get timestamp result. */
 export const getTimestamp = (): number => Math.floor(Date.now() / 1000);
 
+/** Returns the get timestamp ms result. */
 export const getTimestampMs = (): number => Date.now();
 
 export const serverMap: StringKVMap = {

@@ -1,6 +1,22 @@
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
+import GlobalContextMenu from "@/components/GlobalContextMenu";
+import type { Variants } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
+import { Toaster } from "@/components/ui/Sonner";
+import { PageKey } from "@/types/app";
+import i18n from "@/shared/I18nTranslator.ts";
+import BAComet from "@/components/ui/BAComet.tsx";
+import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
+import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
+import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
+import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
+import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
+import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
+import TauriScriptNotifier from "@/components/TauriScriptNotifier";
+import TauriServiceNotifier from "@/components/TauriServiceNotifier";
+import LoadingPage from "@/pages/LoadingPage";
 import MainLayout from "@/components/layout/MainLayout";
 import HomePage from "@/pages/HomePage";
 import SchedulerPage from "@/pages/SchedulerPage";
@@ -8,19 +24,9 @@ import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
 import WebWikiViewer from "@/components/WebWikiViewer";
-import GlobalContextMenu from "@/components/GlobalContextMenu";
-import type { Variants } from "framer-motion";
-import { motion, MotionConfig } from "framer-motion";
-import { Toaster } from "@/components/ui/Sonner";
-import { PageKey } from "@/types/app";
-import i18n, { loadLocale } from "@/shared/I18nTranslator.ts";
-import BAComet from "@/components/ui/BAComet.tsx";
-import { UISettingsProvider, useUISettings } from "@/context/UISettingsProvider.tsx";
-import ReconnectingOverlay from "@/components/ReconnectingOverlay.tsx";
-import { TauriShortcutProvider } from "@/context/TauriShortcutProvider.tsx";
-import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
-import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
-import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
+import PageActivity from "@/components/PageActivity";
+import SetupPage from "@/pages/SetupPage";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -74,21 +80,23 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
   return [k as PageKey, undefined];
 };
 
+/** Renders the main component. */
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
-
-  const activePid = activeProfile!.id;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
 
-  const [seenKeys, setSeenKeys] = React.useState<string[]>([instanceKeyOf("home", activePid)]);
+  const [seenKeys, setSeenKeys] = React.useState<string[]>(() =>
+    activePid ? [instanceKeyOf("home", activePid)] : []
+  );
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
+    if (!activePid) return;
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [currentKey]);
+  }, [activePid, currentKey]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -110,10 +118,20 @@ const Main: React.FC = () => {
     }
   }, []);
 
+  if (!activeProfile || !activePid) {
+    return (
+      <MainLayout activePage={activePage} setActivePage={setActivePage}>
+        {null}
+      </MainLayout>
+    );
+  }
+
+  const renderedKeys = seenKeys.includes(currentKey) ? seenKeys : [...seenKeys, currentKey];
+
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        {seenKeys.map((instKey) => {
+        {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
           return (
@@ -126,7 +144,9 @@ const Main: React.FC = () => {
               style={{ pointerEvents: isActive ? "auto" : "none" }}
               aria-hidden={!isActive}
             >
-              {renderPage(page, pid!)}
+              <PageActivity active={isActive} suspendDelayMs={lowPerformanceMode ? 0 : 200}>
+                {renderPage(page, pid ?? activePid)}
+              </PageActivity>
             </motion.div>
           );
         })}
@@ -134,18 +154,29 @@ const Main: React.FC = () => {
     </MainLayout>
   );
 };
-const InitialPage = React.lazy(async () => {
-  if (__WITH_WEBUI__) return import("@/pages/LoadingPage");
-  if (__WITH_TAURI__) return import("@/pages/SetupPage");
-  return import("@/pages/LoadingPage");
-});
+/** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
+const InitialPage: React.FC = () => {
+  if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
+    return (
+      <StartupShellHandoff>
+        <SetupPage />
+      </StartupShellHandoff>
+    );
+  }
+  return (
+    <StartupShellHandoff>
+      <LoadingPage />
+    </StartupShellHandoff>
+  );
+};
 
+/** Renders the wrapped app component. */
 const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const enableBAComet = useUISetting((settings) => settings.enableBAComet);
 
   useEffect(() => {
     if (ready) {
@@ -168,7 +199,7 @@ const WrappedApp: React.FC = () => {
 
   return (
     <MotionConfig reducedMotion={lowPerformanceMode ? "always" : "never"}>
-      {uiSettings.enableBAComet && !lowPerformanceMode && <BAComet />}
+      {enableBAComet && !lowPerformanceMode && <BAComet />}
       <GlobalContextMenu />
 
       {!hideLoading && (
@@ -183,9 +214,7 @@ const WrappedApp: React.FC = () => {
           }}
           className="fixed inset-0 z-100"
         >
-          <Suspense fallback={<></>}>
-            <InitialPage />
-          </Suspense>
+          <InitialPage />
         </motion.div>
       )}
 
@@ -195,6 +224,8 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <GlobalAppearanceEffects />
+                {__WITH_TAURI__ && <TauriServiceNotifier />}
+                {__WITH_TAURI__ && <TauriScriptNotifier />}
                 <Main />
                 <ConfigArchiveDropOverlay />
                 {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
@@ -208,9 +239,11 @@ const WrappedApp: React.FC = () => {
   );
 };
 
+/** Renders the app component. */
 const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = i18n.language;
+    /** Handles the on lang change interaction. */
     const onLangChange = (lng: string) => {
       document.documentElement.lang = lng;
     };
@@ -220,16 +253,18 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    loadLocale(i18n.language || "en").then(undefined);
-  }, []);
-
   const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
 
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        {isWebWikiWindow ? <WebWikiViewer /> : <WrappedApp />}
+        {isWebWikiWindow ? (
+          <StartupShellHandoff>
+            <WebWikiViewer />
+          </StartupShellHandoff>
+        ) : (
+          <WrappedApp />
+        )}
       </UISettingsProvider>
     </ThemeProvider>
   );

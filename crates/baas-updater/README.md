@@ -112,16 +112,11 @@ skipped, and launch commands use the configured interpreter directly.
 
 `app.rs` exposes:
 
-- `updater_default_config`
-- `updater_load_config`
-- `updater_update_config`
-- `updater_run_workflow`
 - `UpdaterTermManager`
 
-The command-style functions use serializable request/response types and can be
-wrapped with `#[tauri::command]` in the main app crate. `UpdaterTermManager` is
-the preferred runtime integration because it emits the same terminal events as
-`baas-term::TermManager`.
+The main app wraps the session manager with its own `#[tauri::command]` layer.
+`UpdaterTermManager` owns the renderer session and emits the terminal events
+consumed by the frontend.
 
 ## Testing
 

@@ -11,6 +11,7 @@ type LayoutProps = {
   }>;
 };
 
+/** Renders the layout component. */
 export default async function Layout({ children, params }: LayoutProps) {
   const { lang } = await params;
   const locale = normalizeLocale(lang);

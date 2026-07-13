@@ -8,6 +8,7 @@ type SlideOutButtonProps = {
   children: React.ReactNode;
 };
 
+/** Renders the slide out button component. */
 export const SlideOutButton: React.FC<SlideOutButtonProps> = ({
   icon,
   width = 256,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, startTransition } from "react";
+import React, { useMemo, useState, useCallback, useDeferredValue, startTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -45,6 +45,9 @@ const TaskRow = React.memo(function TaskRow({
   onChangeTime: (task: EventConfig, ts: number) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const MoveToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
+  const MoveToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
+
   return (
     <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
       {side === "left" ? (
@@ -58,23 +61,21 @@ const TaskRow = React.memo(function TaskRow({
             className="hidden xl:flex"
           />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
-            <Settings className="w-4 h-4 -translate-x-2" />
+            <Settings className="w-4 h-4" />
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onMove(task, true)} className="rounded-[50%] w-8 h-8">
-            <ArrowRight className="w-4 h-4 -translate-x-2 max-md:hidden" />
-            <ArrowDown className="w-4 h-4 -translate-x-2 md:hidden" />
+            <MoveToEnabledIcon className="w-4 h-4" />
           </CButton>
         </>
       ) : (
         <>
           <CButton onClick={() => onMove(task, false)} className="rounded-[50%] w-8 h-8">
-            <ArrowLeft className="w-4 h-4 -translate-x-2 max-md:hidden" />
-            <ArrowUp className="w-4 h-4 -translate-x-2 md:hidden" />
+            <MoveToInactiveIcon className="w-4 h-4" />
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
           <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
-            <Settings className="w-4 h-4 -translate-x-2" />
+            <Settings className="w-4 h-4" />
           </CButton>
           <DateTimePicker
             value={task.next_tick * 1000}
@@ -90,17 +91,22 @@ const TaskRow = React.memo(function TaskRow({
   );
 });
 
+/** Renders the scheduler page component. */
 const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
+  const MoveAllToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
+  const MoveAllToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   const pid = profileId ?? activeProfile?.id;
+  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
   );
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sortKey, setSortKey] = useState<"default" | "time">("default");
   const [modalTask, setModalTask] = useState<EventConfig | null>(null);
 
@@ -111,8 +117,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const modify = useWebSocketStore((e) => e.modify);
 
+  /** Handles the filtered workflow. */
   const filtered = useMemo(() => {
-    let base = eventConfigs.filter((t) => t.event_name.includes(search));
+    let base = eventConfigs.filter((t) => t.event_name.includes(deferredSearch));
 
     if (sortKey === "default") {
       base = [...base].sort((a, b) => a.priority - b.priority);
@@ -122,15 +129,21 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
       );
     }
     return base;
-  }, [eventConfigs, search, sortKey]);
+  }, [deferredSearch, eventConfigs, sortKey]);
 
-  const left = filtered.filter((t) => !t.enabled);
-  const right = filtered.filter((t) => t.enabled);
+  const { left, right } = useMemo(() => {
+    const inactive: EventConfig[] = [];
+    const enabled: EventConfig[] = [];
+    filtered.forEach((task) => (task.enabled ? enabled : inactive).push(task));
+    return { left: inactive, right: enabled };
+  }, [filtered]);
 
+  /** Handles the on update interaction. */
   const onUpdate = useCallback((newConfigs: EventConfig[]) => {
     modify(`${profileId}::event`, newConfigs);
   }, []);
 
+  /** Handles the handle move one interaction. */
   const handleMoveOne = useCallback(
     (task: EventConfig, toRight: boolean) => {
       startTransition(() => {
@@ -142,6 +155,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     [eventConfigs, onUpdate]
   );
 
+  /** Handles the handle change time interaction. */
   const handleChangeTime = useCallback(
     (task: EventConfig, ts: number) => {
       onUpdate(
@@ -153,16 +167,19 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     [eventConfigs, onUpdate]
   );
 
+  /** Handles the handle edit interaction. */
   const handleEdit = useCallback((task: EventConfig) => {
     setModalTask(task);
   }, []);
 
+  /** Handles the move all workflow. */
   const moveAll = (toRight: boolean) => {
     startTransition(() => {
       onUpdate(eventConfigs.map((t) => ({ ...t, enabled: toRight })));
     });
   };
 
+  /** Handles the refresh all workflow. */
   const refreshAll = () => {
     const now = new Date().getTime();
     startTransition(() => {
@@ -170,6 +187,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     });
   };
 
+  /** Handles the handle update task interaction. */
   const handleUpdateTask = (updated: EventConfig) => {
     startTransition(() => {
       onUpdate(eventConfigs.map((t) => (t.func_name === updated.func_name ? updated : t)));
@@ -252,7 +270,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
           />
         </div>
         <CButton variant="primary" onClick={refreshAll} className="mr-2 rounded-[50%] w-8 h-8">
-          <RefreshCw className="w-4 h-4 -translate-x-2" />
+          <RefreshCw className="w-4 h-4" />
         </CButton>
       </div>
       {/* Dual column layout showing inactive and active task queues. */}
@@ -270,8 +288,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                 onClick={() => moveAll(true)}
                 className="rounded-[50%] w-8 h-8 mr-4.5"
               >
-                <ArrowRight className="w-4 h-4 -translate-x-2 max-md:hidden" />
-                <ArrowDown className="w-4 h-4 -translate-x-2 md:hidden" />
+                <MoveAllToEnabledIcon className="w-4 h-4" />
               </CButton>
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
@@ -298,8 +315,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
                 onClick={() => moveAll(false)}
                 className="rounded-[50%] w-8 h-8 ml-2"
               >
-                <ArrowLeft className="w-4 h-4 -translate-x-2 max-md:hidden" />
-                <ArrowUp className="w-4 h-4 -translate-x-2 md:hidden" />
+                <MoveAllToInactiveIcon className="w-4 h-4" />
               </CButton>
               <div className="flex items-center">
                 <span className="font-medium">{t("scheduler.activeTasks")}</span>

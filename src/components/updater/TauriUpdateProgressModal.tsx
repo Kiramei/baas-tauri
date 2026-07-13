@@ -2,11 +2,12 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Info, Loader2 } from "lucide-react";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 const overlayCls =
   "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50";
 
+/** Renders the tauri update progress modal component. */
 export const TauriUpdateProgressModal: React.FC<{
   open: boolean;
   onClose: () => void;
@@ -15,8 +16,7 @@ export const TauriUpdateProgressModal: React.FC<{
   tauriStatus: string;
 }> = ({ open, onClose, updating, tauriProgress, tauriStatus }) => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   if (!open) return null;
 
   return (

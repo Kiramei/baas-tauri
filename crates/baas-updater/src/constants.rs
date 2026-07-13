@@ -23,6 +23,7 @@ pub const MAIN_REPO_SRC_DEV: Source = Source {
     main: "https://github.com/Kiramei/baas-dev.git",
     proxy: &[
         "https://gitee.com/kiramei/baas-dev.git",
+        "https://gitcode.com/Kiramei/baas-dev",
         "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-dev.git",
         "https://v6.gh-proxy.org/https://github.com/Kiramei/baas-dev.git",
         "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-dev.git",

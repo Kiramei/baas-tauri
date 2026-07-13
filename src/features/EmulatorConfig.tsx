@@ -32,6 +32,7 @@ const multiMap: Record<string, string> = {
   wsa: "wsa",
 };
 
+/** Renders the emulator config component. */
 const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
@@ -40,6 +41,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
   );
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       open_emulator_stat: settings.open_emulator_stat,
@@ -55,10 +57,12 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: keyof Draft) => (value: string | boolean) => {
     setDraft((prev) => ({ ...prev, [key]: value as any }));
   };
 
+  /** Handles the emulator type label workflow. */
   const emulatorTypeLabel = (key: string) => {
     switch (key) {
       case "mumu":
@@ -82,6 +86,7 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
     }
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {

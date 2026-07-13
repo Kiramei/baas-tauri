@@ -179,6 +179,7 @@ pub trait GitExecutor {
 pub struct GitSourceProbe;
 
 impl SourceProbe for GitSourceProbe {
+    /// Handles the measure workflow.
     fn measure(&self, url: &str) -> UpdaterResult<Duration> {
         let start = Instant::now();
         let mut command = Command::new("git");
@@ -203,10 +204,13 @@ impl SourceProbe for GitSourceProbe {
 }
 
 /// Real source probe for git2-only environments that cannot rely on Git CLI.
+#[cfg(not(target_os = "android"))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GitHttpSourceProbe;
 
+#[cfg(not(target_os = "android"))]
 impl SourceProbe for GitHttpSourceProbe {
+    /// Handles the measure workflow.
     fn measure(&self, url: &str) -> UpdaterResult<Duration> {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(5))
@@ -235,6 +239,7 @@ impl SourceProbe for GitHttpSourceProbe {
 pub struct RealGitExecutor;
 
 impl GitExecutor for RealGitExecutor {
+    /// Returns the has cli result.
     fn has_cli(&self) -> bool {
         let mut command = Command::new("git");
         hide_command_window(&mut command);
@@ -246,6 +251,7 @@ impl GitExecutor for RealGitExecutor {
             .unwrap_or(false)
     }
 
+    /// Handles the clone cli workflow.
     fn clone_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
         run_git(
             &[
@@ -261,6 +267,7 @@ impl GitExecutor for RealGitExecutor {
         )
     }
 
+    /// Performs the update cli operation.
     fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
         run_git(&["remote", "set-url", "origin", url], Some(target))?;
         run_git(&["fetch", "--depth", "1", "origin", branch], Some(target))?;
@@ -270,6 +277,7 @@ impl GitExecutor for RealGitExecutor {
         Ok(())
     }
 
+    /// Handles the local sha cli workflow.
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
         hide_command_window(&mut cmd);
@@ -290,6 +298,7 @@ impl GitExecutor for RealGitExecutor {
         }
     }
 
+    /// Handles the remote sha workflow.
     fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
         let mut cmd = Command::new("git");
         hide_command_window(&mut cmd);
@@ -318,6 +327,7 @@ impl GitExecutor for RealGitExecutor {
             .ok_or_else(|| UpdaterError::Git(format!("remote branch not found: {url} {branch}")))
     }
 
+    /// Handles the clone git2 workflow.
     fn clone_git2(
         &self,
         url: &str,
@@ -334,6 +344,7 @@ impl GitExecutor for RealGitExecutor {
         Ok(())
     }
 
+    /// Performs the update git2 operation.
     fn update_git2(
         &self,
         url: &str,
@@ -353,10 +364,12 @@ impl GitExecutor for RealGitExecutor {
         remote.fetch(&[branch], Some(&mut fetch_options), None)?;
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         let object = fetch_head.peel(git2::ObjectType::Commit)?;
+        remove_git_index(target)?;
         repo.reset(&object, git2::ResetType::Hard, None)?;
         Ok(())
     }
 
+    /// Handles the local sha git2 workflow.
     fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String> {
         let repo = Repository::open(target)?;
         let head = repo.head()?.peel_to_commit()?;
@@ -482,6 +495,7 @@ impl<E: GitExecutor> RepoManager<E> {
         ))
     }
 
+    /// Handles the try source workflow.
     fn try_source(
         &self,
         url: &str,
@@ -547,6 +561,7 @@ impl<E: GitExecutor> RepoManager<E> {
         }
     }
 
+    /// Handles the try source git2 workflow.
     fn try_source_git2(
         &self,
         url: &str,
@@ -564,6 +579,7 @@ impl<E: GitExecutor> RepoManager<E> {
         }
     }
 
+    /// Handles the local sha workflow.
     fn local_sha(&self, target: &Path, git_backend: GitBackend) -> UpdaterResult<String> {
         match git_backend {
             GitBackend::GitCli => self.executor.local_sha_cli(target),
@@ -618,7 +634,7 @@ pub fn cpp_branch_for(os: &str, arch: &str) -> UpdaterResult<String> {
 pub fn load_or_benchmark_ranking(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
 ) -> UpdaterResult<SourceRanking> {
     load_or_benchmark_ranking_with_output(path, expected_urls, probe, &crate::NoopOutput)
 }
@@ -627,7 +643,7 @@ pub fn load_or_benchmark_ranking(
 pub fn load_or_benchmark_ranking_with_output(
     path: Option<&Path>,
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> UpdaterResult<SourceRanking> {
     if let Some(path) = path
@@ -662,17 +678,14 @@ pub fn load_or_default_ranking(
 }
 
 /// Benchmarks sources and returns a sorted ranking.
-pub fn benchmark_sources(
-    expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
-) -> SourceRanking {
+pub fn benchmark_sources(expected_urls: &[String], probe: &impl SourceProbe) -> SourceRanking {
     benchmark_sources_with_output(expected_urls, probe, &crate::NoopOutput)
 }
 
 /// Benchmarks sources and renders multi-line status when terminal output exists.
 pub fn benchmark_sources_with_output(
     expected_urls: &[String],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> SourceRanking {
     let source_probes = expected_urls
@@ -689,7 +702,7 @@ pub fn benchmark_sources_with_output(
 /// consumed by a tool but do not respond successfully themselves.
 pub fn benchmark_source_probes_with_output(
     source_probes: &[(String, String)],
-    probe: &(impl SourceProbe + Sync),
+    probe: &impl SourceProbe,
     output: &(impl OutputSink + ?Sized),
 ) -> SourceRanking {
     let mut measured = Vec::new();
@@ -755,6 +768,7 @@ pub fn benchmark_source_probes_with_output(
     }
 }
 
+/// Handles the render probe status workflow.
 fn render_probe_status(
     repaint: &mut Option<baas_term::threader::ThreadBlockRepaint>,
     statuses: &[String],
@@ -776,6 +790,7 @@ pub fn save_ranking(path: &Path, ranking: &SourceRanking) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the run git operation.
 fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
     let mut command = Command::new("git");
     hide_command_window(&mut command);
@@ -799,15 +814,26 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
     }
 }
 
+/// Handles the configure git cli command workflow.
 fn configure_git_cli_command(command: &mut Command) {
     command
+        .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "");
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo");
 }
 
+/// Handles the git smart http probe url workflow.
+#[cfg(not(target_os = "android"))]
 fn git_smart_http_probe_url(url: &str) -> String {
     format!(
         "{}/info/refs?service=git-upload-pack",
@@ -815,15 +841,18 @@ fn git_smart_http_probe_url(url: &str) -> String {
     )
 }
 
+/// Handles the hide command window workflow.
 #[cfg(target_os = "windows")]
 fn hide_command_window(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     command.creation_flags(0x08000000);
 }
 
+/// Handles the hide command window workflow.
 #[cfg(not(target_os = "windows"))]
 fn hide_command_window(_command: &mut Command) {}
 
+/// Handles the git2 fetch options workflow.
 fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
     let mut callbacks = RemoteCallbacks::new();
     let term = output.thread_output().cloned();
@@ -852,6 +881,7 @@ fn git2_fetch_options(output: &(impl OutputSink + ?Sized)) -> FetchOptions<'_> {
     fetch_options
 }
 
+/// Performs the cleanup failed clone operation.
 fn cleanup_failed_clone(target: &Path) -> UpdaterResult<()> {
     if is_valid_git_repository(target) {
         return Ok(());
@@ -862,6 +892,7 @@ fn cleanup_failed_clone(target: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Handles the prepare repository target workflow.
 fn prepare_repository_target(
     target: &Path,
     output: &(impl OutputSink + ?Sized),
@@ -889,10 +920,12 @@ fn prepare_repository_target(
     Ok(false)
 }
 
+/// Returns the is valid git repository result.
 fn is_valid_git_repository(target: &Path) -> bool {
     target.join(".git").exists() && Repository::open(target).is_ok()
 }
 
+/// Performs the remove dir all retry operation.
 fn remove_dir_all_retry(target: &Path) -> UpdaterResult<()> {
     let mut last_error = None;
     for attempt in 0..5 {
@@ -914,13 +947,10 @@ fn remove_dir_all_retry(target: &Path) -> UpdaterResult<()> {
     }
 }
 
+/// Performs the clear readonly recursive operation.
 fn clear_readonly_recursive(target: &Path) {
     if let Ok(metadata) = fs::metadata(target) {
-        let mut permissions = metadata.permissions();
-        if permissions.readonly() {
-            permissions.set_readonly(false);
-            let _ = fs::set_permissions(target, permissions);
-        }
+        clear_readonly(target, metadata);
     }
     if let Ok(entries) = fs::read_dir(target) {
         for entry in entries.flatten() {
@@ -929,6 +959,31 @@ fn clear_readonly_recursive(target: &Path) {
     }
 }
 
+/// Performs the clear readonly operation.
+#[cfg(target_family = "windows")]
+#[allow(clippy::permissions_set_readonly_false)]
+fn clear_readonly(target: &Path, metadata: fs::Metadata) {
+    let mut permissions = metadata.permissions();
+    if permissions.readonly() {
+        permissions.set_readonly(false);
+        let _ = fs::set_permissions(target, permissions);
+    }
+}
+
+/// Performs the clear readonly operation.
+#[cfg(target_family = "unix")]
+fn clear_readonly(target: &Path, metadata: fs::Metadata) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = metadata.permissions();
+    let mode = permissions.mode();
+    if mode & 0o200 == 0 {
+        permissions.set_mode(mode | 0o200);
+        let _ = fs::set_permissions(target, permissions);
+    }
+}
+
+/// Handles the release repository locks workflow.
 #[cfg(target_os = "windows")]
 fn release_repository_locks(target: &Path) {
     let script = r#"
@@ -955,8 +1010,19 @@ Get-CimInstance Win32_Process |
         .status();
 }
 
+/// Handles the release repository locks workflow.
 #[cfg(not(target_os = "windows"))]
 fn release_repository_locks(_target: &Path) {}
+
+/// Removes the existing Git index before a hard reset.
+fn remove_git_index(target: &Path) -> UpdaterResult<()> {
+    let index_path = target.join(".git").join("index");
+    match fs::remove_file(&index_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -975,6 +1041,7 @@ mod tests {
     }
 
     impl SourceProbe for Probe {
+        /// Handles the measure workflow.
         fn measure(&self, url: &str) -> UpdaterResult<Duration> {
             if self.ok.iter().any(|item| item == url) {
                 Ok(Duration::from_millis(if url.contains("fast") {
@@ -998,6 +1065,7 @@ mod tests {
     }
 
     impl MockGit {
+        /// Handles the with cli failure then git2 workflow.
         fn with_cli_failure_then_git2() -> Self {
             let mut cli_results = VecDeque::new();
             cli_results.push_back(Err(UpdaterError::Git("cli failed".to_string())));
@@ -1010,6 +1078,7 @@ mod tests {
             }
         }
 
+        /// Handles the up to date workflow.
         fn up_to_date() -> Self {
             Self {
                 has_cli: true,
@@ -1020,6 +1089,7 @@ mod tests {
             }
         }
 
+        /// Handles the git2 failure workflow.
         fn git2_failure(message: &str) -> Self {
             Self {
                 has_cli: true,
@@ -1032,10 +1102,12 @@ mod tests {
     }
 
     impl GitExecutor for MockGit {
+        /// Returns the has cli result.
         fn has_cli(&self) -> bool {
             self.has_cli
         }
 
+        /// Handles the clone cli workflow.
         fn clone_cli(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
             self.calls
                 .lock()
@@ -1048,6 +1120,7 @@ mod tests {
                 .unwrap_or(Ok(()))
         }
 
+        /// Performs the update cli operation.
         fn update_cli(&self, url: &str, branch: &str, _target: &Path) -> UpdaterResult<()> {
             self.calls
                 .lock()
@@ -1060,14 +1133,17 @@ mod tests {
                 .unwrap_or(Ok(()))
         }
 
+        /// Handles the local sha cli workflow.
         fn local_sha_cli(&self, _target: &Path) -> UpdaterResult<String> {
             Ok("cli-sha".to_string())
         }
 
+        /// Handles the remote sha workflow.
         fn remote_sha(&self, _url: &str, _branch: &str) -> UpdaterResult<String> {
             Ok(self.remote_sha.clone())
         }
 
+        /// Handles the clone git2 workflow.
         fn clone_git2(
             &self,
             url: &str,
@@ -1085,6 +1161,7 @@ mod tests {
             Ok(())
         }
 
+        /// Performs the update git2 operation.
         fn update_git2(
             &self,
             url: &str,
@@ -1102,11 +1179,13 @@ mod tests {
             Ok(())
         }
 
+        /// Handles the local sha git2 workflow.
         fn local_sha_git2(&self, _target: &Path) -> UpdaterResult<String> {
             Ok("git2-sha".to_string())
         }
     }
 
+    /// Handles the ranking detects stale url set and demotes failures workflow.
     #[test]
     fn ranking_detects_stale_url_set_and_demotes_failures() {
         let mut ranking = SourceRanking::from_urls(&["a".to_string(), "b".to_string()]);
@@ -1119,6 +1198,7 @@ mod tests {
         assert_eq!(ranking.active_sources()[0].url, "b");
     }
 
+    /// Handles the benchmarks sources by duration and marks failures workflow.
     #[test]
     fn benchmarks_sources_by_duration_and_marks_failures() {
         let ranking = benchmark_sources(
@@ -1140,6 +1220,7 @@ mod tests {
         assert_eq!(ranking.sources[2].order, -1);
     }
 
+    /// Handles the benchmarks sources in parallel workflow.
     #[test]
     fn benchmarks_sources_in_parallel() {
         struct ParallelProbe {
@@ -1148,6 +1229,7 @@ mod tests {
         }
 
         impl SourceProbe for ParallelProbe {
+            /// Handles the measure workflow.
             fn measure(&self, _url: &str) -> UpdaterResult<Duration> {
                 let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
                 self.max_active.fetch_max(active, Ordering::SeqCst);
@@ -1168,6 +1250,7 @@ mod tests {
         assert!(probe.max_active.load(Ordering::SeqCst) > 1);
     }
 
+    /// Handles the git http probe uses smart http refs endpoint workflow.
     #[test]
     fn git_http_probe_uses_smart_http_refs_endpoint() {
         assert_eq!(
@@ -1176,6 +1259,7 @@ mod tests {
         );
     }
 
+    /// Handles the cpp branch mapping matches reference script workflow.
     #[test]
     fn cpp_branch_mapping_matches_reference_script() {
         assert_eq!(cpp_branch_for("windows", "x86_64").unwrap(), "windows-x64");
@@ -1184,6 +1268,21 @@ mod tests {
         assert!(cpp_branch_for("windows", "aarch64").is_err());
     }
 
+    /// Handles the remove git index before hard reset workflow.
+    #[test]
+    fn remove_git_index_ignores_missing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let git_dir = dir.path().join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        let index = git_dir.join("index");
+        fs::write(&index, b"stale index").unwrap();
+
+        remove_git_index(dir.path()).unwrap();
+        assert!(!index.exists());
+        remove_git_index(dir.path()).unwrap();
+    }
+
+    /// Performs the sync falls back from cli to git2 operation.
     #[test]
     fn sync_falls_back_from_cli_to_git2() {
         let dir = tempfile::tempdir().unwrap();
@@ -1231,11 +1330,12 @@ mod tests {
         );
     }
 
+    /// Performs the sync skips update when remote sha matches local head operation.
     #[test]
     fn sync_skips_update_when_remote_sha_matches_local_head() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("repo");
-        fs::create_dir_all(target.join(".git")).unwrap();
+        Repository::init(&target).unwrap();
         let ranking = dir.path().join("ranking.json");
         let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
         let url = urls.first().unwrap().clone();
@@ -1262,6 +1362,7 @@ mod tests {
         assert!(calls.lock().unwrap().is_empty());
     }
 
+    /// Performs the sync with git2 uses ranked sources operation.
     #[test]
     fn sync_with_git2_uses_ranked_sources() {
         struct FastSourceProbe {
@@ -1269,6 +1370,7 @@ mod tests {
         }
 
         impl SourceProbe for FastSourceProbe {
+            /// Handles the measure workflow.
             fn measure(&self, url: &str) -> UpdaterResult<Duration> {
                 if url == self.fast_url {
                     Ok(Duration::from_millis(1))
@@ -1310,6 +1412,7 @@ mod tests {
         );
     }
 
+    /// Performs the sync removes incomplete staging directory before clone operation.
     #[test]
     fn sync_removes_incomplete_staging_directory_before_clone() {
         let dir = tempfile::tempdir().unwrap();
@@ -1349,6 +1452,7 @@ mod tests {
         );
     }
 
+    /// Handles the git2 only failure preserves git2 error without rebenchmarking workflow.
     #[test]
     fn git2_only_failure_preserves_git2_error_without_rebenchmarking() {
         let dir = tempfile::tempdir().unwrap();
@@ -1378,6 +1482,7 @@ mod tests {
         assert!(!message.contains("ranking was rebuilt"));
     }
 
+    /// Handles the all disabled ranking errors after three cycles workflow.
     #[test]
     fn all_disabled_ranking_errors_after_three_cycles() {
         let dir = tempfile::tempdir().unwrap();

@@ -115,6 +115,7 @@ mod tests {
 
     const ALL_KEYS: [I18nKey; 2] = [I18nKey::TrayShowMainWindow, I18nKey::TrayExit];
 
+    /// Returns the normalizes frontend language codes result.
     #[test]
     fn normalizes_frontend_language_codes() {
         assert_eq!(normalize_language("zh-CN"), Language::Zh);
@@ -125,6 +126,7 @@ mod tests {
         assert_eq!(normalize_language(""), Language::En);
     }
 
+    /// Handles the all backend strings are present workflow.
     #[test]
     fn all_backend_strings_are_present() {
         for language in ALL_LANGUAGES {
@@ -134,6 +136,7 @@ mod tests {
         }
     }
 
+    /// Handles the tray labels are grouped by language workflow.
     #[test]
     fn tray_labels_are_grouped_by_language() {
         let labels = tray_menu_labels(Language::Zh);

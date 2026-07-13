@@ -14,6 +14,7 @@ interface Draft {
   totalForceFightDifficulty: string;
 }
 
+/** Renders the tactical config component. */
 const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
@@ -26,6 +27,7 @@ const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) =
     serverMap[settings.server!]
   ] as string[];
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       totalForceFightDifficulty: settings?.totalForceFightDifficulty,
@@ -36,6 +38,7 @@ const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) =
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle save interaction. */
   const handleSave = () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
@@ -53,6 +56,7 @@ const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) =
     onClose();
   };
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: keyof Draft) => (value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };

@@ -108,6 +108,7 @@ const content = {
   },
 };
 
+/** Renders the site home component. */
 export function SiteHome() {
   const [locale, setLocale] = useState<Locale>("zh");
   const t = content[locale];
@@ -123,6 +124,7 @@ export function SiteHome() {
     setLocale(window.navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en");
   }, []);
 
+  /** Handles the choose locale workflow. */
   function chooseLocale(nextLocale: Locale) {
     setLocale(nextLocale);
     window.localStorage.setItem("baas-doc-home-locale", nextLocale);

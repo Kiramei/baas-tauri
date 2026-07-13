@@ -4,6 +4,7 @@ declare global {
   }
 }
 
+/** Handles the reload without prompt workflow. */
 export const reloadWithoutPrompt = () => {
   window.__BAAS_ALLOW_RELOAD__ = true;
   window.location.reload();

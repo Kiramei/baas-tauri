@@ -32,6 +32,7 @@ import {
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
+/** Handles the page tree icon workflow. */
 function pageTreeIcon(Icon: IconComponent, key: string) {
   return createElement(Icon, {
     key,
@@ -79,15 +80,18 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/reference/development", FileCog],
 ];
 
+/** Handles the with icon workflow. */
 function withIcon<T extends { icon?: ReactNode }>(node: T, Icon: IconComponent, key: string): T {
   return node.icon ? node : { ...node, icon: pageTreeIcon(Icon, key) };
 }
 
 const iconTransformer = {
+  /** Handles the file workflow. */
   file<T extends { icon?: ReactNode; url: string }>(node: T) {
     const match = pageIcons.find(([slug]) => node.url.endsWith(slug));
     return match ? withIcon(node, match[1], `page-tree-icon:${match[0]}`) : node;
   },
+  /** Handles the folder workflow. */
   folder<T extends { icon?: ReactNode }>(node: T, folderPath: string) {
     const folder = folderPath.split(/[\\/]/).filter(Boolean).at(-1);
     const Icon = folder ? folderIcons[folder] : undefined;

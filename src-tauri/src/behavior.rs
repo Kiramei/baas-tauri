@@ -1,24 +1,36 @@
+use crate::system_logs::system_log;
+#[cfg(not(mobile))]
 use baas_i18n::{tray_menu_labels, Language};
+#[cfg(not(mobile))]
 use std::{error::Error, sync::Mutex};
+#[cfg(not(mobile))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    App, AppHandle, Manager, State,
 };
+use tauri::{App, AppHandle, Manager, State};
 
+#[cfg(not(mobile))]
 #[derive(Default)]
 pub struct BehaviorState {
     pub tray_enabled: bool,
     tray_menu: Mutex<Option<TrayMenuItems>>,
 }
 
+#[cfg(mobile)]
+#[derive(Default)]
+pub struct BehaviorState;
+
+#[cfg(not(mobile))]
 pub struct TrayMenuItems {
     language: Language,
     show_item: MenuItem<tauri::Wry>,
     quit_item: MenuItem<tauri::Wry>,
 }
 
+#[cfg(not(mobile))]
 impl BehaviorState {
+    /// Handles the with tray menu workflow.
     pub fn with_tray_menu(tray_menu: Option<TrayMenuItems>) -> Self {
         Self {
             tray_enabled: tray_menu.is_some(),
@@ -26,6 +38,7 @@ impl BehaviorState {
         }
     }
 
+    /// Performs the set language operation.
     fn set_language(&self, language: Language) -> Result<(), String> {
         let mut guard = self
             .tray_menu
@@ -51,8 +64,10 @@ impl BehaviorState {
     }
 }
 
+/// Handles the splash off workflow.
 #[tauri::command]
 pub async fn splash_off(app: AppHandle) {
+    system_log("DEBUG", "window", "Splash close requested");
     if let Some(main) = app.get_webview_window("main") {
         // This causes `create webview window` malfunction.
         // main.center().ok();
@@ -63,11 +78,32 @@ pub async fn splash_off(app: AppHandle) {
     }
 }
 
+/// Performs the set backend locale operation.
+#[cfg(not(mobile))]
 #[tauri::command]
 pub fn set_backend_locale(state: State<'_, BehaviorState>, lang: String) -> Result<(), String> {
+    system_log(
+        "INFO",
+        "locale",
+        format!("Backend locale change requested lang={lang}"),
+    );
     state.set_language(Language::parse(&lang))
 }
 
+/// Performs the set backend locale operation.
+#[cfg(mobile)]
+#[tauri::command]
+pub fn set_backend_locale(_state: State<'_, BehaviorState>, _lang: String) -> Result<(), String> {
+    system_log(
+        "DEBUG",
+        "locale",
+        "Backend locale command ignored on mobile",
+    );
+    Ok(())
+}
+
+/// Handles the inject tray icon workflow.
+#[cfg(not(mobile))]
 pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> {
     let language = Language::default();
     let labels = tray_menu_labels(language);
@@ -117,6 +153,7 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
     })
 }
 
+/// Handles the disable f5 press event workflow.
 pub fn disable_f5_press_event(app: &mut App) {
     let _win = app
         .get_webview_window("main")

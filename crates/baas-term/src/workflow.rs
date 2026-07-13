@@ -154,6 +154,7 @@ impl WorkflowBuilder {
         }
     }
 
+    /// Handles the push stage workflow.
     fn push_stage(&mut self, mut tasks: Vec<TaskTemplate>) {
         let stage = self.next_stage;
         let current_ids = tasks
@@ -177,6 +178,7 @@ impl WorkflowBuilder {
         self.next_stage = self.next_stage.saturating_add(1);
     }
 
+    /// Returns the find task result.
     fn find_task(&self, task_id: &str) -> Option<&TaskTemplate> {
         self.tasks.iter().find(|task| task.task_id == task_id)
     }
@@ -229,6 +231,7 @@ impl WorkflowTask {
 }
 
 impl TaskTemplate {
+    /// Handles the new workflow.
     fn new(task_id: &str, region_id: &str, name: &str, description: &str, command: &str) -> Self {
         Self {
             task_id: task_id.to_string(),
@@ -243,6 +246,7 @@ impl TaskTemplate {
         }
     }
 
+    /// Handles the from workflow task workflow.
     fn from_workflow_task(task: WorkflowTask) -> Self {
         Self {
             task_id: task.task_id,
@@ -283,6 +287,7 @@ pub fn thread_task_spec(plan: &WorkflowPlan, task_id: &str) -> Option<TaskSpec> 
 mod tests {
     use super::*;
 
+    /// Returns the builder numbers serial and parallel tasks result.
     #[test]
     fn builder_numbers_serial_and_parallel_tasks() {
         let plan = WorkflowBuilder::new()
@@ -310,6 +315,7 @@ mod tests {
         );
     }
 
+    /// Returns the builder supports branch continuation dependencies result.
     #[test]
     fn builder_supports_branch_continuation_dependencies() {
         let plan = WorkflowBuilder::new()
@@ -348,6 +354,7 @@ mod tests {
         );
     }
 
+    /// Returns the builder preserves running region limit policy result.
     #[test]
     fn builder_preserves_running_region_limit_policy() {
         let plan = WorkflowBuilder::new()

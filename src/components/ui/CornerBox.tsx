@@ -10,6 +10,7 @@ interface CornerBoxProps {
   children?: React.ReactNode;
 }
 
+/** Renders the corner box component. */
 export const CornerBox = ({
   size = 200,
   cornerSize = 20,

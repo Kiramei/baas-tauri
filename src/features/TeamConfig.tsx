@@ -20,6 +20,7 @@ interface Draft {
   preset_team_attribute: string[][];
 }
 
+/** Renders the team config component. */
 const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
 
@@ -28,6 +29,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       choose_team_method: settings.choose_team_method,
@@ -40,6 +42,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle cell change interaction. */
   const handleCellChange = (tableKey: string, row: number, col: number) => (value: string) => {
     setDraft((prev) => {
       const newTable = (prev[tableKey as keyof Draft] as string[][]).map((r: any, ri: any) =>
@@ -49,10 +52,12 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
     });
   };
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: string) => (value: string) => {
     setDraft((d) => ({ ...d, [key]: value }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
@@ -70,6 +75,7 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
     onClose();
   };
 
+  /** Handles the render table workflow. */
   const renderTable = (key: string) => {
     const rows = draft[key as keyof Draft] as string[][];
     const cols = key == "preset_team_attribute" ? 4 : 1;

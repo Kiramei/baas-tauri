@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
+import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
@@ -15,6 +15,7 @@ interface TauriSelfUpdateContextType {
 
 const TauriSelfUpdateContext = createContext<TauriSelfUpdateContextType | undefined>(undefined);
 
+/** Renders the tauri self update provider component. */
 export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t } = useTranslation();
   const trigger = useWebSocketStore((state) => state.trigger);
@@ -23,6 +24,7 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [status, setStatus] = useState("");
   const [progressOpen, setProgressOpen] = useState(false);
 
+  /** Performs the stop all tasks operation. */
   const stopAllTasks = useCallback(async () => {
     trigger({
       timestamp: getTimestampMs(),
@@ -36,8 +38,21 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
     );
   }, [trigger]);
 
+  /** Performs the run update operation. */
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
+    if (__WITH_ANDROID__) {
+      const state = useWebSocketStore.getState();
+      const updateUrl = state.versionStore?.tauri?.url;
+      if (updateUrl) {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(updateUrl);
+        return;
+      }
+      await state.checkTauriUpdater(false, true);
+      toast.info(t("update.tauriUpToDate"));
+      return;
+    }
     if (await isTauriNoUpdateEnabled()) {
       toast.info(t("update.tauriUpToDate"));
       return;
@@ -85,22 +100,17 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   }, [stopAllTasks, t]);
 
+  const value = useMemo(
+    () => ({ updating, progress, status, progressOpen, setProgressOpen, runUpdate }),
+    [progress, progressOpen, runUpdate, status, updating]
+  );
+
   return (
-    <TauriSelfUpdateContext.Provider
-      value={{
-        updating,
-        progress,
-        status,
-        progressOpen,
-        setProgressOpen,
-        runUpdate,
-      }}
-    >
-      {children}
-    </TauriSelfUpdateContext.Provider>
+    <TauriSelfUpdateContext.Provider value={value}>{children}</TauriSelfUpdateContext.Provider>
   );
 };
 
+/** Coordinates the use tauri self update hook behavior. */
 export const useTauriSelfUpdate = (): TauriSelfUpdateContextType => {
   const context = useContext(TauriSelfUpdateContext);
 

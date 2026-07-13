@@ -15,4 +15,7 @@ declare interface ImportMeta {
 }
 
 declare const __WITH_WEBUI__: boolean;
+declare const __WITH_TAURI_MODE__: boolean;
 declare const __WITH_TAURI__: boolean;
+declare const __WITH_ANDROID__: boolean;
+declare const __APP_VERSION__: string;

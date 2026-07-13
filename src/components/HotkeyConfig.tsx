@@ -16,6 +16,7 @@ export interface HotkeyFieldProps {
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
 
+/** Handles the display key from event workflow. */
 function displayKeyFromEvent(e: KeyboardEvent): string | null {
   if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return null;
 
@@ -51,6 +52,7 @@ function displayKeyFromEvent(e: KeyboardEvent): string | null {
   return e.key || null;
 }
 
+/** Handles the combo from event workflow. */
 function comboFromEvent(e: KeyboardEvent, includeModifierOnly = false): string | null {
   const { ctrlKey, shiftKey, altKey, metaKey } = e;
   const main = displayKeyFromEvent(e);
@@ -72,6 +74,7 @@ function comboFromEvent(e: KeyboardEvent, includeModifierOnly = false): string |
   return parts.join("+");
 }
 
+/** Renders the hotkey field component. */
 export default function HotkeyField({
   label,
   value,
@@ -95,6 +98,7 @@ export default function HotkeyField({
   useEffect(() => {
     if (!recording) return;
 
+    /** Handles the on key down interaction. */
     const onKeyDown = (e: KeyboardEvent) => {
       // Prevent the host page from executing its default shortcut handlers.
       e.preventDefault();
@@ -124,6 +128,7 @@ export default function HotkeyField({
       }, 120);
     };
 
+    /** Handles the on key up interaction. */
     const onKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -269,6 +274,7 @@ const HotkeySettingsModal: React.FC<{
     return dups;
   }, [draft]);
 
+  /** Handles the handle save interaction. */
   const handleSave = () => {
     // Final validation: format and duplicates.
     const bad: Record<string, string> = {};

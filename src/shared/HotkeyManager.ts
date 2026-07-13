@@ -3,8 +3,9 @@
  */
 import type { TFunction } from "i18next";
 import type { HotkeyConfig } from "@/components/HotkeyConfig";
-import type { ConfigProfile } from "@/types/app";
+import type { ConfigProfileSummary } from "@/types/app";
 
+/** Returns the get default hotkeys result. */
 export function getDefaultHotkeys(t: TFunction): HotkeyConfig[] {
   return [
     { id: "toggle-run", label: t("hotkey.switch.start"), value: "" },
@@ -13,8 +14,10 @@ export function getDefaultHotkeys(t: TFunction): HotkeyConfig[] {
   ];
 }
 
+/** Handles the profile toggle hotkey id workflow. */
 export const profileToggleHotkeyId = (configId: string) => `toggle-run:${configId}`;
 
+/** Handles the default profile accelerator workflow. */
 export function defaultProfileAccelerator(index: number): string {
   if (index >= 0 && index < 9) return `Ctrl+Alt+Shift+${index + 1}`;
   if (index === 9) return "Ctrl+Alt+Shift+0";
@@ -22,8 +25,9 @@ export function defaultProfileAccelerator(index: number): string {
   return "";
 }
 
+/** Handles the reconcile profile hotkeys workflow. */
 export function reconcileProfileHotkeys(
-  profiles: ConfigProfile[],
+  profiles: ConfigProfileSummary[],
   stored: HotkeyConfig[] | null | undefined,
   toggleLabel = "Start/Stop"
 ): HotkeyConfig[] {
@@ -47,15 +51,18 @@ export function reconcileProfileHotkeys(
   });
 }
 
+/** Handles the config id from hotkey id workflow. */
 function configIdFromHotkeyId(id: string): string | null {
   const prefix = "toggle-run:";
   return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
+/** Returns the normalize combo result. */
 export function normalizeCombo(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, "");
 }
 
+/** Handles the event to combo workflow. */
 export function eventToCombo(e: KeyboardEvent): string {
   const mods: string[] = [];
   if (e.ctrlKey) mods.push("ctrl");

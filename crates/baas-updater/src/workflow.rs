@@ -1,8 +1,8 @@
 //! End-to-end updater workflow orchestration.
 
 use crate::{
-    GitBackend, NoopOutput, OutputSink, OutputStyle, RepositoryKind, UpdateStatus, UpdaterError,
-    UpdaterResult, WorkflowOptions,
+    GitBackend, OutputSink, OutputStyle, RepositoryKind, UpdateStatus, UpdaterError, UpdaterResult,
+    WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
@@ -15,18 +15,19 @@ use crate::{
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
         GitExecutor, GitHttpSourceProbe, GitSourceProbe, RealGitExecutor, RepoManager,
-        RepoSyncOptions, load_or_benchmark_ranking, repository_branch, repository_urls,
+        RepoSyncOptions, load_or_benchmark_ranking_with_output, repository_branch, repository_urls,
         save_ranking,
     },
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
     processor::{ScriptCommand, run_process_and_wait, spawn_process_task},
-    threader::{ThreadOutput, spawn_thread_task},
+    threader::{
+        ThreadOutput, ThreadTaskOutcome, spawn_thread_task, spawn_thread_task_with_outcome,
+    },
     types::{RendererEvent, TaskCompletion, TaskSpec, TermState, WorkflowPlan},
     workflow::{WorkflowBuilder, WorkflowTask},
 };
-use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
     fs,
@@ -40,45 +41,8 @@ use std::{
         mpsc::Sender,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
-
-/// Structured workflow failure payload for Tauri and UI callers.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkflowFailure {
-    /// Stable error code.
-    pub code: String,
-    /// Human-readable error message.
-    pub message: String,
-    /// Workflow step that failed.
-    pub step: String,
-}
-
-impl WorkflowFailure {
-    /// Builds a failure payload from an updater error.
-    pub fn from_error(step: impl Into<String>, error: UpdaterError) -> Self {
-        Self {
-            code: error.code().to_string(),
-            message: error.message(),
-            step: step.into(),
-        }
-    }
-}
-
-/// Successful workflow report.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkflowReport {
-    /// Path of the setup.toml used by the workflow.
-    pub config_path: PathBuf,
-    /// Main repository status.
-    pub main_status: UpdateStatus,
-    /// Cpp repository status.
-    pub cpp_status: UpdateStatus,
-    /// Whether the backend launch step ran.
-    pub launched: bool,
-}
 
 /// Shared cleanup registry for one updater workflow run.
 ///
@@ -179,6 +143,7 @@ pub struct RepositoryOutcome {
 pub struct RealWorkflowServices;
 
 impl WorkflowServices for RealWorkflowServices {
+    /// Performs the update repository operation.
     fn update_repository(
         &self,
         kind: RepositoryKind,
@@ -234,6 +199,7 @@ impl WorkflowServices for RealWorkflowServices {
         })
     }
 
+    /// Handles the prepare environment workflow.
     fn prepare_environment(
         &self,
         config: &UpdaterConfig,
@@ -247,6 +213,7 @@ impl WorkflowServices for RealWorkflowServices {
         )
     }
 
+    /// Performs the sync dependencies operation.
     fn sync_dependencies(
         &self,
         config: &UpdaterConfig,
@@ -257,6 +224,7 @@ impl WorkflowServices for RealWorkflowServices {
             .sync_dependencies_with_ranking(config, Some(&ranking_dir), output)
     }
 
+    /// Handles the launch backend workflow.
     fn launch_backend(
         &self,
         config: &UpdaterConfig,
@@ -268,190 +236,6 @@ impl WorkflowServices for RealWorkflowServices {
     }
 }
 
-/// Runs the updater workflow with real services and no terminal output.
-pub fn run_workflow(options: WorkflowOptions) -> Result<WorkflowReport, WorkflowFailure> {
-    run_workflow_with_services(
-        options,
-        Arc::new(RealWorkflowServices),
-        Arc::new(NoopOutput),
-    )
-}
-
-/// Runs the updater workflow with injected services and output.
-pub fn run_workflow_with_services(
-    options: WorkflowOptions,
-    services: Arc<dyn WorkflowServices>,
-    output: Arc<dyn OutputSink + Send + Sync>,
-) -> Result<WorkflowReport, WorkflowFailure> {
-    let cleanup_state = new_workflow_cleanup_state();
-    let result = run_workflow_with_services_inner(
-        options,
-        services,
-        Arc::clone(&output),
-        Arc::clone(&cleanup_state),
-    );
-    if result.is_err() {
-        let _ = cleanup_workflow_state(&cleanup_state);
-    }
-    result
-}
-
-fn run_workflow_with_services_inner(
-    options: WorkflowOptions,
-    services: Arc<dyn WorkflowServices>,
-    output: Arc<dyn OutputSink + Send + Sync>,
-    cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
-) -> Result<WorkflowReport, WorkflowFailure> {
-    let mut manager =
-        load_manager(&options).map_err(|error| WorkflowFailure::from_error("config", error))?;
-    if let Some(path) = &options.install_path {
-        manager.config.paths.baas_root_path = path.to_string_lossy().to_string();
-    }
-    if !manager.config.general.no_update {
-        validate_mirrorc_cdk_before_workflow(&manager.config)
-            .map_err(|error| WorkflowFailure::from_error("mirrorc_cdk", error))?;
-    }
-    manager
-        .save()
-        .map_err(|error| WorkflowFailure::from_error("config", error))?;
-    let config = manager.config.clone();
-    let root = config.baas_root();
-    fs::create_dir_all(&root)
-        .map_err(|error| WorkflowFailure::from_error("prepare_paths", error.into()))?;
-
-    if config.general.no_update {
-        output.line(
-            OutputStyle::Info,
-            "no_update is enabled; skipping repository synchronization",
-        );
-        services
-            .prepare_environment(&config, &*output)
-            .map_err(|error| WorkflowFailure::from_error("environment", error))?;
-        copy_setup_to_install_root(&manager)
-            .map_err(|error| WorkflowFailure::from_error("config", error))?;
-        services
-            .sync_dependencies(&manager.config, &*output)
-            .map_err(|error| WorkflowFailure::from_error("dependencies", error))?;
-
-        let should_launch = options.launch && manager.config.general.launch;
-        if should_launch {
-            services
-                .launch_backend(&manager.config, &*output)
-                .map_err(|error| WorkflowFailure::from_error("launch", error))?;
-        }
-
-        return Ok(WorkflowReport {
-            config_path: manager.config_path,
-            main_status: UpdateStatus::Skipped,
-            cpp_status: UpdateStatus::Skipped,
-            launched: should_launch,
-        });
-    }
-
-    output.line(
-        OutputStyle::Info,
-        "Starting BAAS repository synchronization",
-    );
-    let main_job = repository_job(&config, RepositoryKind::Main);
-    let cpp_job = repository_job(&config, RepositoryKind::Cpp);
-    let ranking_dir = environment_ranking_dir(&config);
-    fs::create_dir_all(&ranking_dir)
-        .map_err(|error| WorkflowFailure::from_error("prepare_paths", error.into()))?;
-    register_cleanup_paths(&cleanup_state, &main_job, &cpp_job)
-        .map_err(|error| WorkflowFailure::from_error("cleanup", error))?;
-
-    let main_services = Arc::clone(&services);
-    let cpp_services = Arc::clone(&services);
-    let main_config = config.clone();
-    let cpp_config = config.clone();
-    let main_output = Arc::clone(&output);
-    let cpp_output = Arc::clone(&output);
-    let main_ranking = ranking_dir.join("main.json");
-    let cpp_ranking = ranking_dir.join("cpp.json");
-    let prepare_services = Arc::clone(&services);
-    let prepare_config = config.clone();
-    let prepare_output = Arc::clone(&output);
-
-    let (main_result, cpp_result, prepare_result) = thread::scope(|scope| {
-        let main_handle = scope.spawn(|| {
-            main_services.update_repository(
-                RepositoryKind::Main,
-                &main_config,
-                &main_job.target_dir,
-                &main_ranking,
-                &*main_output,
-            )
-        });
-        let cpp_handle = scope.spawn(|| {
-            cpp_services.update_repository(
-                RepositoryKind::Cpp,
-                &cpp_config,
-                &cpp_job.target_dir,
-                &cpp_ranking,
-                &*cpp_output,
-            )
-        });
-        let prepare_handle =
-            scope.spawn(|| prepare_services.prepare_environment(&prepare_config, &*prepare_output));
-        (main_handle.join(), cpp_handle.join(), prepare_handle.join())
-    });
-
-    let main_outcome = main_result
-        .map_err(|_| {
-            WorkflowFailure::from_error(
-                "main_repo",
-                UpdaterError::Workflow("main repository task panicked".to_string()),
-            )
-        })?
-        .map_err(|error| WorkflowFailure::from_error("main_repo", error))?;
-    let cpp_outcome = cpp_result
-        .map_err(|_| {
-            WorkflowFailure::from_error(
-                "cpp_repo",
-                UpdaterError::Workflow("cpp repository task panicked".to_string()),
-            )
-        })?
-        .map_err(|error| WorkflowFailure::from_error("cpp_repo", error))?;
-    prepare_result
-        .map_err(|_| {
-            WorkflowFailure::from_error(
-                "environment",
-                UpdaterError::Workflow("environment prepare task panicked".to_string()),
-            )
-        })?
-        .map_err(|error| WorkflowFailure::from_error("environment", error))?;
-
-    finalize_job(&main_job)
-        .map_err(|error| WorkflowFailure::from_error("move_main_repo", error))?;
-    finalize_job(&cpp_job).map_err(|error| WorkflowFailure::from_error("move_cpp_repo", error))?;
-
-    manager.config.general.current_baas_sha = main_outcome.sha;
-    manager.config.general.current_baas_cpp_sha = cpp_outcome.sha;
-    manager
-        .save()
-        .map_err(|error| WorkflowFailure::from_error("config", error))?;
-    copy_setup_to_install_root(&manager)
-        .map_err(|error| WorkflowFailure::from_error("config", error))?;
-
-    services
-        .sync_dependencies(&manager.config, &*output)
-        .map_err(|error| WorkflowFailure::from_error("dependencies", error))?;
-
-    let should_launch = options.launch && manager.config.general.launch;
-    if should_launch {
-        services
-            .launch_backend(&manager.config, &*output)
-            .map_err(|error| WorkflowFailure::from_error("launch", error))?;
-    }
-
-    Ok(WorkflowReport {
-        config_path: manager.config_path,
-        main_status: main_outcome.status,
-        cpp_status: cpp_outcome.status,
-        launched: should_launch,
-    })
-}
-
 #[derive(Debug, Clone)]
 struct RepositoryJob {
     target_dir: PathBuf,
@@ -459,6 +243,7 @@ struct RepositoryJob {
     needs_move: bool,
 }
 
+/// Returns the load manager result.
 fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     if let Some(path) = &options.config_path {
         ConfigManager::load_from(path)
@@ -467,6 +252,7 @@ fn load_manager(options: &WorkflowOptions) -> UpdaterResult<ConfigManager> {
     }
 }
 
+/// Handles the repository job workflow.
 fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob {
     let root = config.baas_root();
     let tmp = config.tmp_dir();
@@ -518,6 +304,7 @@ fn repository_job(config: &UpdaterConfig, kind: RepositoryKind) -> RepositoryJob
     }
 }
 
+/// Handles the skipped repository outcome workflow.
 fn skipped_repository_outcome(kind: RepositoryKind, config: &UpdaterConfig) -> RepositoryOutcome {
     let sha = match kind {
         RepositoryKind::Main => config.general.current_baas_sha.clone(),
@@ -530,6 +317,7 @@ fn skipped_repository_outcome(kind: RepositoryKind, config: &UpdaterConfig) -> R
     }
 }
 
+/// Performs the register cleanup paths operation.
 fn register_cleanup_paths(
     cleanup_state: &Arc<Mutex<WorkflowCleanupState>>,
     main_job: &RepositoryJob,
@@ -547,6 +335,7 @@ fn register_cleanup_paths(
     Ok(())
 }
 
+/// Performs the finalize job operation.
 fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
     if !job.needs_move {
         return Ok(());
@@ -554,6 +343,7 @@ fn finalize_job(job: &RepositoryJob) -> UpdaterResult<()> {
     move_dir_contents(&job.target_dir, &job.final_dir)
 }
 
+/// Handles the validate mirrorc cdk before workflow workflow.
 fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult<()> {
     let cdk = config.general.mirrorc_cdk.trim();
     if cdk.is_empty() {
@@ -579,6 +369,7 @@ fn validate_mirrorc_cdk_before_workflow(config: &UpdaterConfig) -> UpdaterResult
     Err(UpdaterError::MirrorC(message))
 }
 
+/// Performs the remove git metadata if present operation.
 fn remove_git_metadata_if_present(
     target_dir: &Path,
     output: &(dyn OutputSink + Send + Sync),
@@ -602,6 +393,7 @@ fn remove_git_metadata_if_present(
     Ok(())
 }
 
+/// Performs the move dir contents operation.
 fn move_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     fs::create_dir_all(target)?;
     if !source.exists() {
@@ -632,6 +424,7 @@ fn move_dir_contents(source: &Path, target: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the copy dir operation.
 fn copy_dir(source: &Path, target: &Path) -> std::io::Result<()> {
     fs::create_dir_all(target)?;
     for entry in fs::read_dir(source)? {
@@ -647,6 +440,7 @@ fn copy_dir(source: &Path, target: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Handles the available port workflow.
 fn available_port() -> UpdaterResult<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .map_err(|error| UpdaterError::Workflow(error.to_string()))?;
@@ -656,6 +450,7 @@ fn available_port() -> UpdaterResult<u16> {
         .map_err(|error| UpdaterError::Workflow(error.to_string()))
 }
 
+/// Handles the environment ranking dir workflow.
 fn environment_ranking_dir(config: &UpdaterConfig) -> PathBuf {
     config.source_ranking_dir()
 }
@@ -675,7 +470,7 @@ struct TerminalWorkflowState {
 /// Runs the BAAS updater workflow as a `baas-term` task graph.
 ///
 /// This is the integration entry point intended for the Tauri app. It mirrors
-/// the orchestration style in `crates/baas-term/src/demo.rs`: configuration and
+/// the orchestration style in `crates/baas-term`: configuration and
 /// Rust-native work run as thread tasks, while Git CLI and UV commands run as
 /// PTY-backed process tasks so their output is captured by the terminal UI.
 pub fn run_terminal_workflow_flow(
@@ -756,6 +551,7 @@ pub fn run_terminal_workflow_flow(
     finish_terminal_session(&inner, &session_id, &renderer_tx, true);
 }
 
+/// Handles the terminal workflow plan workflow.
 pub fn terminal_workflow_plan() -> WorkflowPlan {
     WorkflowBuilder::new()
         .thread_task(
@@ -879,6 +675,7 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
         .build()
 }
 
+/// Handles the planned thread task workflow.
 fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
     let node = plan.node(task_id).expect("workflow task missing from plan");
     TaskSpec {
@@ -900,6 +697,7 @@ fn planned_thread_task(plan: &WorkflowPlan, task_id: &str) -> TaskSpec {
     }
 }
 
+/// Handles the planned process task workflow.
 fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptCommand) -> TaskSpec {
     let node = plan.node(task_id).expect("workflow task missing from plan");
     TaskSpec {
@@ -921,6 +719,7 @@ fn planned_process_task(plan: &WorkflowPlan, task_id: &str, script: ScriptComman
     }
 }
 
+/// Handles the planned direct process task workflow.
 fn planned_direct_process_task(
     plan: &WorkflowPlan,
     task_id: &str,
@@ -929,6 +728,7 @@ fn planned_direct_process_task(
     planned_command_process_task(plan, task_id, command, direct_script)
 }
 
+/// Handles the planned command process task workflow.
 fn planned_command_process_task(
     plan: &WorkflowPlan,
     task_id: &str,
@@ -947,6 +747,7 @@ fn planned_command_process_task(
     spec
 }
 
+/// Performs the run terminal update and prepare stage operation.
 fn run_terminal_update_and_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1000,6 +801,7 @@ struct TerminalConfigArgs {
     cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
 }
 
+/// Handles the terminal config task workflow.
 fn terminal_config_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1045,6 +847,7 @@ fn terminal_config_task(
     })
 }
 
+/// Performs the run terminal repo stage operation.
 fn run_terminal_repo_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1103,12 +906,67 @@ fn run_terminal_repo_stage(
         );
     }
 
-    let main_plan = match plan_git_cli_process(
-        RepositoryKind::Main,
-        &config,
-        &main_job.target_dir,
-        &ranking_dir.join("main.json"),
-    ) {
+    let main_start = planned_thread_task(workflow_plan, "main-repository");
+    let cpp_start = planned_thread_task(workflow_plan, "cpp-repository");
+    let _ = renderer_tx.send(RendererEvent::BufferRegions {
+        region_ids: vec![main_start.region_id.clone(), cpp_start.region_id.clone()],
+    });
+    if renderer_tx
+        .send(RendererEvent::TaskStarted(main_start.clone()))
+        .is_err()
+        || renderer_tx
+            .send(RendererEvent::TaskStarted(cpp_start.clone()))
+            .is_err()
+    {
+        return false;
+    }
+
+    let main_ranking_path = ranking_dir.join("main.json");
+    let cpp_ranking_path = ranking_dir.join("cpp.json");
+    let main_output = ThreadOutput {
+        task_id: main_start.task_id,
+        region_id: main_start.region_id,
+        tx: renderer_tx.clone(),
+    };
+    let cpp_output = ThreadOutput {
+        task_id: cpp_start.task_id,
+        region_id: cpp_start.region_id,
+        tx: renderer_tx.clone(),
+    };
+    let (main_plan_result, cpp_plan_result) = thread::scope(|scope| {
+        let main_handle = scope.spawn(|| {
+            plan_git_cli_process(
+                RepositoryKind::Main,
+                &config,
+                &main_job.target_dir,
+                &main_ranking_path,
+                &main_output,
+            )
+        });
+        let cpp_handle = scope.spawn(|| {
+            plan_git_cli_process(
+                RepositoryKind::Cpp,
+                &config,
+                &cpp_job.target_dir,
+                &cpp_ranking_path,
+                &cpp_output,
+            )
+        });
+        (
+            main_handle.join().unwrap_or_else(|_| {
+                Err(UpdaterError::Workflow(
+                    "main repository planning panicked".to_string(),
+                ))
+            }),
+            cpp_handle.join().unwrap_or_else(|_| {
+                Err(UpdaterError::Workflow(
+                    "cpp repository planning panicked".to_string(),
+                ))
+            }),
+        )
+    });
+
+    let main_plan = match main_plan_result {
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
@@ -1136,12 +994,7 @@ fn run_terminal_repo_stage(
             };
         }
     };
-    let cpp_plan = match plan_git_cli_process(
-        RepositoryKind::Cpp,
-        &config,
-        &cpp_job.target_dir,
-        &ranking_dir.join("cpp.json"),
-    ) {
+    let cpp_plan = match cpp_plan_result {
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
@@ -1175,9 +1028,6 @@ fn run_terminal_repo_stage(
     let cpp_spec = planned_direct_process_task(workflow_plan, "cpp-repository", &cpp_plan.command);
     let main_id = main_spec.task_id.clone();
     let cpp_id = cpp_spec.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
-        region_ids: vec![main_spec.region_id.clone(), cpp_spec.region_id.clone()],
-    });
     if spawn_process_task(inner, session_id, main_spec, renderer_tx, completion_tx).is_err()
         || spawn_process_task(inner, session_id, cpp_spec, renderer_tx, completion_tx).is_err()
     {
@@ -1221,6 +1071,7 @@ fn run_terminal_repo_stage(
         && wait_for_task(completion_rx, "git-record-sha")
 }
 
+/// Performs the run terminal thread repo stage operation.
 fn run_terminal_thread_repo_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1235,10 +1086,7 @@ fn run_terminal_thread_repo_stage(
     let cpp = planned_thread_task(workflow_plan, "cpp-repository");
     let main_id = main.task_id.clone();
     let cpp_id = cpp.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
-        region_ids: vec![main.region_id.clone(), cpp.region_id.clone()],
-    });
-    let main_spawn = spawn_thread_task(
+    let main_spawn = spawn_thread_task_with_outcome(
         inner,
         session_id,
         main,
@@ -1251,7 +1099,7 @@ fn run_terminal_thread_repo_stage(
         },
         terminal_repo_thread_task,
     );
-    let cpp_spawn = spawn_thread_task(
+    let cpp_spawn = spawn_thread_task_with_outcome(
         inner,
         session_id,
         cpp,
@@ -1280,11 +1128,12 @@ struct TerminalRepoArgs {
     git_backend_override: Option<GitBackend>,
 }
 
+/// Handles the terminal repo thread task workflow.
 fn terminal_repo_thread_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     args: TerminalRepoArgs,
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("repository task cancelled".to_string());
     }
@@ -1323,9 +1172,10 @@ fn terminal_repo_thread_task(
             ),
         );
     }
-    let outcome = if config.general.no_update {
+    let skipped = config.general.no_update;
+    let outcome = if skipped {
         output.line(
-            OutputStyle::Info,
+            OutputStyle::Muted,
             &format!(
                 "{} repository: no_update enabled; skipping repository sync",
                 args.kind.as_str()
@@ -1357,7 +1207,11 @@ fn terminal_repo_thread_task(
         RepositoryKind::Main => state.main_outcome = Some(outcome),
         RepositoryKind::Cpp => state.cpp_outcome = Some(outcome),
     }
-    Ok(())
+    Ok(if skipped {
+        ThreadTaskOutcome::Skipped
+    } else {
+        ThreadTaskOutcome::Success
+    })
 }
 
 #[derive(Clone)]
@@ -1368,14 +1222,26 @@ struct GitCliPlan {
     status: UpdateStatus,
 }
 
+/// Handles the plan git cli process workflow.
 fn plan_git_cli_process(
     kind: RepositoryKind,
     config: &UpdaterConfig,
     target_dir: &Path,
     ranking_path: &Path,
+    output: &ThreadOutput,
 ) -> UpdaterResult<GitCliPlan> {
+    let planning_started = Instant::now();
+    output.line(
+        OutputStyle::Info,
+        &format!("{} repository: loading source ranking", kind.as_str()),
+    );
     let expected_urls = repository_urls(kind, config.general.channel);
-    let ranking = load_or_benchmark_ranking(Some(ranking_path), &expected_urls, &GitSourceProbe)?;
+    let ranking = load_or_benchmark_ranking_with_output(
+        Some(ranking_path),
+        &expected_urls,
+        &GitSourceProbe,
+        output,
+    )?;
     save_ranking(ranking_path, &ranking)?;
     let source = ranking
         .active_sources()
@@ -1383,24 +1249,109 @@ fn plan_git_cli_process(
         .next()
         .ok_or_else(|| UpdaterError::Git("no active repository source".to_string()))?;
     let branch = repository_branch(kind)?;
+    output.line(
+        OutputStyle::Info,
+        &format!(
+            "{} repository: selected {} for branch {} ({})",
+            kind.as_str(),
+            source.url,
+            branch,
+            format_elapsed(planning_started.elapsed())
+        ),
+    );
     let is_update = target_dir.join(".git").exists();
     let executor = RealGitExecutor;
     let local_sha = if is_update {
-        executor
+        let started = Instant::now();
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: reading local HEAD", kind.as_str()),
+        );
+        match executor
             .local_sha_cli(target_dir)
             .or_else(|_| executor.local_sha_git2(target_dir))
-            .ok()
+        {
+            Ok(sha) => {
+                output.line(
+                    OutputStyle::Success,
+                    &format!(
+                        "{} repository: local HEAD {} ({})",
+                        kind.as_str(),
+                        sha.get(..8).unwrap_or(&sha),
+                        format_elapsed(started.elapsed())
+                    ),
+                );
+                Some(sha)
+            }
+            Err(error) => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!(
+                        "{} repository: local HEAD unavailable after {}: {}",
+                        kind.as_str(),
+                        format_elapsed(started.elapsed()),
+                        error.message()
+                    ),
+                );
+                None
+            }
+        }
     } else {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: no existing Git checkout; clone required",
+                kind.as_str()
+            ),
+        );
         None
     };
     let remote_sha = if is_update {
-        executor.remote_sha(&source.url, &branch).ok()
+        let started = Instant::now();
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: requesting remote HEAD", kind.as_str()),
+        );
+        match executor.remote_sha(&source.url, &branch) {
+            Ok(sha) => {
+                output.line(
+                    OutputStyle::Success,
+                    &format!(
+                        "{} repository: remote HEAD {} ({})",
+                        kind.as_str(),
+                        sha.get(..8).unwrap_or(&sha),
+                        format_elapsed(started.elapsed())
+                    ),
+                );
+                Some(sha)
+            }
+            Err(error) => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!(
+                        "{} repository: remote HEAD unavailable after {}: {}",
+                        kind.as_str(),
+                        format_elapsed(started.elapsed()),
+                        error.message()
+                    ),
+                );
+                None
+            }
+        }
     } else {
         None
     };
     let (command, status) = if is_update && local_sha.is_some() && local_sha == remote_sha {
+        output.line(
+            OutputStyle::Success,
+            &format!("{} repository: already current", kind.as_str()),
+        );
         (git_rev_parse_command(target_dir), UpdateStatus::Skipped)
     } else if is_update {
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: update required", kind.as_str()),
+        );
         (
             git_update_command(&source.url, &branch, target_dir),
             UpdateStatus::Updated,
@@ -1419,6 +1370,16 @@ fn plan_git_cli_process(
     })
 }
 
+/// Formats updater sub-step timings without exposing noisy nanosecond precision.
+fn format_elapsed(duration: Duration) -> String {
+    if duration >= Duration::from_secs(1) {
+        format!("{:.2}s", duration.as_secs_f64())
+    } else {
+        format!("{}ms", duration.as_millis())
+    }
+}
+
+/// Handles the git clone command workflow.
 fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("clone")
@@ -1430,6 +1391,7 @@ fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec 
         .arg(target_dir.to_string_lossy())
 }
 
+/// Handles the git update command workflow.
 fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("-C")
@@ -1474,6 +1436,7 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
         )
 }
 
+/// Handles the git rev parse command workflow.
 fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
     git_cli_command()
         .arg("-C")
@@ -1482,15 +1445,22 @@ fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
         .arg("HEAD")
 }
 
+/// Handles the git cli command workflow.
 fn git_cli_command() -> CommandSpec {
     CommandSpec::new("git")
         .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
         .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "")
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo")
 }
 
 struct TerminalGitRecordArgs {
@@ -1499,6 +1469,7 @@ struct TerminalGitRecordArgs {
     cpp_plan: GitCliPlan,
 }
 
+/// Handles the terminal git record task workflow.
 fn terminal_git_record_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1534,6 +1505,7 @@ fn terminal_git_record_task(
     Ok(())
 }
 
+/// Handles the terminal finalize repos task workflow.
 fn terminal_finalize_repos_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -1591,6 +1563,7 @@ fn terminal_finalize_repos_task(
     )
 }
 
+/// Performs the copy setup to install root operation.
 fn copy_setup_to_install_root(manager: &ConfigManager) -> UpdaterResult<()> {
     let root = manager.config.baas_root();
     if root.as_os_str().is_empty() {
@@ -1608,6 +1581,7 @@ fn copy_setup_to_install_root(manager: &ConfigManager) -> UpdaterResult<()> {
     Ok(())
 }
 
+/// Performs the run terminal environment prepare stage operation.
 fn run_terminal_environment_prepare_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1642,22 +1616,42 @@ fn run_terminal_environment_prepare_stage(
         }
     };
     if !uses_managed_runtime(&config) {
-        let spec = planned_thread_task(workflow_plan, "uv-install");
-        return spawn_thread_task(
-            inner,
-            session_id,
-            spec,
-            renderer_tx,
-            completion_tx,
-            config,
-            terminal_custom_runtime_task,
-        )
-        .is_ok()
-            && wait_for_task(completion_rx, "uv-install");
+        for (task_id, message) in [
+            (
+                "uv-install",
+                "Custom Python runtime configured; skipping UV install",
+            ),
+            (
+                "cpython-source-ranking",
+                "Custom Python runtime configured; skipping CPython source ranking",
+            ),
+            (
+                "uv-python-install",
+                "Custom Python runtime configured; skipping managed Python install",
+            ),
+            (
+                "uv-venv",
+                "Custom Python runtime configured; skipping managed virtual environment",
+            ),
+        ] {
+            if !run_terminal_skip_task(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                task_id,
+                message,
+            ) {
+                return false;
+            }
+        }
+        return true;
     }
 
     let uv_spec = planned_thread_task(workflow_plan, "uv-install");
-    if spawn_thread_task(
+    if spawn_thread_task_with_outcome(
         inner,
         session_id,
         uv_spec,
@@ -1767,6 +1761,7 @@ fn run_terminal_environment_prepare_stage(
     true
 }
 
+/// Performs the run terminal dependency stage operation.
 fn run_terminal_dependency_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1791,20 +1786,36 @@ fn run_terminal_dependency_stage(
     };
 
     if !uses_managed_runtime(&config) {
-        let spec = planned_thread_task(workflow_plan, "uv-sync");
-        if spawn_thread_task(
-            inner,
-            session_id,
-            spec,
-            renderer_tx,
-            completion_tx,
-            config.clone(),
-            terminal_custom_runtime_task,
-        )
-        .is_err()
-            || !wait_for_task(completion_rx, "uv-sync")
-        {
-            return false;
+        for (task_id, message) in [
+            (
+                "pypi-source-ranking",
+                "Custom Python runtime configured; skipping PyPI source ranking",
+            ),
+            (
+                "uv-compile",
+                "Custom Python runtime configured; skipping dependency compilation",
+            ),
+            (
+                "uv-sync",
+                "Custom Python runtime configured; skipping dependency synchronization",
+            ),
+            (
+                "uv-cache-clean",
+                "Custom Python runtime configured; skipping UV cache cleanup",
+            ),
+        ] {
+            if !run_terminal_skip_task(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                task_id,
+                message,
+            ) {
+                return false;
+            }
         }
         return run_terminal_launch_stage(
             inner,
@@ -1945,6 +1956,7 @@ fn run_terminal_dependency_stage(
     )
 }
 
+/// Performs the run terminal skip task operation.
 fn run_terminal_skip_task(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1955,7 +1967,7 @@ fn run_terminal_skip_task(
     task_id: &str,
     message: &str,
 ) -> bool {
-    spawn_thread_task(
+    spawn_thread_task_with_outcome(
         inner,
         session_id,
         planned_thread_task(workflow_plan, task_id),
@@ -1974,18 +1986,20 @@ struct TerminalSkipArgs {
     message: String,
 }
 
+/// Handles the terminal skip task workflow.
 fn terminal_skip_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     args: TerminalSkipArgs,
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("skip task cancelled".to_string());
     }
-    output.line(OutputStyle::Success, &args.message);
-    Ok(())
+    output.line(OutputStyle::Muted, &args.message);
+    Ok(ThreadTaskOutcome::Skipped)
 }
 
+/// Performs the run terminal launch stage operation.
 fn run_terminal_launch_stage(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -1997,7 +2011,16 @@ fn run_terminal_launch_stage(
     launch: bool,
 ) -> bool {
     if !launch || !config.general.launch {
-        return true;
+        return run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            "launch-backend",
+            "Backend launch disabled; skipping backend launch",
+        );
     }
     let port = match available_port() {
         Ok(port) => port,
@@ -2025,17 +2048,21 @@ fn run_terminal_launch_stage(
     true
 }
 
+/// Handles the terminal uv install task workflow.
 fn terminal_uv_install_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     (config, ranking_dir): (UpdaterConfig, PathBuf),
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("uv install task cancelled".to_string());
     }
     if uv_executable(&config).exists() {
-        output.line(OutputStyle::Success, "uv is already installed");
-        return Ok(());
+        output.line(
+            OutputStyle::Muted,
+            "uv is already installed; skipping UV install",
+        );
+        return Ok(ThreadTaskOutcome::Skipped);
     }
     let uv_url = ranked_environment_source_with_output(
         EnvironmentSourceKind::Uv,
@@ -2046,6 +2073,7 @@ fn terminal_uv_install_task(
     )
     .map_err(|error| error.message())?;
     ensure_uv_installed_from(&config, &uv_url, &ReqwestDownloader, &output)
+        .map(|()| ThreadTaskOutcome::Success)
         .map_err(|error| error.message())
 }
 
@@ -2055,6 +2083,7 @@ struct TerminalCpythonRankArgs {
     ranking_dir: PathBuf,
 }
 
+/// Handles the terminal cpython rank task workflow.
 fn terminal_cpython_rank_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -2086,6 +2115,7 @@ struct TerminalPypiRankArgs {
     ranking_dir: PathBuf,
 }
 
+/// Handles the terminal pypi rank task workflow.
 fn terminal_pypi_rank_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
@@ -2111,21 +2141,7 @@ fn terminal_pypi_rank_task(
     Ok(())
 }
 
-fn terminal_custom_runtime_task(
-    output: ThreadOutput,
-    cancelled: Arc<AtomicBool>,
-    config: UpdaterConfig,
-) -> Result<(), String> {
-    if cancelled.load(Ordering::Relaxed) {
-        return Err("custom runtime task cancelled".to_string());
-    }
-    output.line(
-        OutputStyle::Info,
-        &format!("Using custom runtime: {}", config.python.runtime_path),
-    );
-    Ok(())
-}
-
+/// Performs the wait for backend port for session operation.
 fn wait_for_backend_port_for_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -2147,6 +2163,7 @@ fn wait_for_backend_port_for_session(
     )))
 }
 
+/// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
     let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
         return false;
@@ -2167,6 +2184,7 @@ fn backend_auth_endpoint_ready(port: u16) -> bool {
         .unwrap_or(false)
 }
 
+/// Handles the terminal state snapshot workflow.
 fn terminal_state_snapshot(
     state: &Arc<Mutex<TerminalWorkflowState>>,
 ) -> Result<(UpdaterConfig, RepositoryJob, RepositoryJob, PathBuf), String> {
@@ -2194,6 +2212,7 @@ fn terminal_state_snapshot(
     ))
 }
 
+/// Handles the terminal config workflow.
 fn terminal_config(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<UpdaterConfig, String> {
     let state = state
         .lock()
@@ -2205,6 +2224,7 @@ fn terminal_config(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<UpdaterC
         .ok_or_else(|| "configuration not initialized".to_string())
 }
 
+/// Handles the terminal cpython source workflow.
 fn terminal_cpython_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
     let state = state
         .lock()
@@ -2215,6 +2235,7 @@ fn terminal_cpython_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<
         .ok_or_else(|| "CPython mirror not ranked".to_string())
 }
 
+/// Handles the terminal pypi source workflow.
 fn terminal_pypi_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<String, String> {
     let state = state
         .lock()
@@ -2225,6 +2246,7 @@ fn terminal_pypi_source(state: &Arc<Mutex<TerminalWorkflowState>>) -> Result<Str
         .ok_or_else(|| "PyPI index not ranked".to_string())
 }
 
+/// Handles the terminal environment ranking dir workflow.
 fn terminal_environment_ranking_dir(
     state: &Arc<Mutex<TerminalWorkflowState>>,
     config: &UpdaterConfig,
@@ -2238,12 +2260,14 @@ fn terminal_environment_ranking_dir(
         .unwrap_or_else(|| environment_ranking_dir(config)))
 }
 
+/// Performs the wait for task operation.
 fn wait_for_task(completion_rx: &mpsc::Receiver<TaskCompletion>, task_id: &str) -> bool {
     baas_term::common::wait_for_completion(completion_rx, task_id)
         .map(|completion| completion.success)
         .unwrap_or(false)
 }
 
+/// Handles the finish terminal session workflow.
 fn finish_terminal_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -2255,6 +2279,7 @@ fn finish_terminal_session(
     }
 }
 
+/// Handles the fail terminal session workflow.
 fn fail_terminal_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
@@ -2265,6 +2290,7 @@ fn fail_terminal_session(
     finish_terminal_session(inner, session_id, renderer_tx, false);
 }
 
+/// Handles the direct script workflow.
 fn direct_script(command: &CommandSpec) -> ScriptCommand {
     let program = command.program.to_string_lossy().to_string();
     let display = std::iter::once(program.as_str())
@@ -2293,104 +2319,9 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::NoopOutput;
 
-    #[derive(Default)]
-    struct MockServices {
-        calls: Mutex<Vec<String>>,
-    }
-
-    impl WorkflowServices for MockServices {
-        fn update_repository(
-            &self,
-            kind: RepositoryKind,
-            _config: &UpdaterConfig,
-            target_dir: &Path,
-            _ranking_path: &Path,
-            _output: &(dyn OutputSink + Send + Sync),
-        ) -> UpdaterResult<RepositoryOutcome> {
-            fs::create_dir_all(target_dir)?;
-            fs::write(target_dir.join(format!("{}.txt", kind.as_str())), "ok")?;
-            self.calls
-                .lock()
-                .unwrap()
-                .push(format!("repo:{}", kind.as_str()));
-            Ok(RepositoryOutcome {
-                kind,
-                status: UpdateStatus::Installed,
-                sha: format!("{}-sha", kind.as_str()),
-            })
-        }
-
-        fn prepare_environment(
-            &self,
-            config: &UpdaterConfig,
-            _output: &(dyn OutputSink + Send + Sync),
-        ) -> UpdaterResult<()> {
-            assert!(!config.baas_root().join("main.txt").exists());
-            self.calls.lock().unwrap().push("prepare".to_string());
-            Ok(())
-        }
-
-        fn sync_dependencies(
-            &self,
-            _config: &UpdaterConfig,
-            _output: &(dyn OutputSink + Send + Sync),
-        ) -> UpdaterResult<()> {
-            self.calls.lock().unwrap().push("sync".to_string());
-            Ok(())
-        }
-
-        fn launch_backend(
-            &self,
-            _config: &UpdaterConfig,
-            _output: &(dyn OutputSink + Send + Sync),
-        ) -> UpdaterResult<()> {
-            self.calls.lock().unwrap().push("launch".to_string());
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn workflow_runs_repo_steps_then_environment() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("setup.toml");
-        let install_path = dir.path().join("BAAS");
-        let mut manager = ConfigManager::load_from(&config_path).unwrap();
-        manager.config.paths.baas_root_path = install_path.to_string_lossy().to_string();
-        manager.config.general.launch = true;
-        manager.save().unwrap();
-
-        let services = Arc::new(MockServices::default());
-        let output = Arc::new(NoopOutput);
-        let report = run_workflow_with_services(
-            WorkflowOptions {
-                config_path: Some(config_path.clone()),
-                install_path: None,
-                launch: true,
-            },
-            services,
-            output,
-        )
-        .unwrap();
-
-        assert_eq!(report.main_status, UpdateStatus::Installed);
-        assert!(report.launched);
-        assert!(install_path.join("main.txt").exists());
-        assert!(
-            install_path
-                .join("core")
-                .join("ocr")
-                .join("baas_ocr_client")
-                .join("bin")
-                .join("cpp.txt")
-                .exists()
-        );
-        let reloaded = ConfigManager::load_from(config_path).unwrap();
-        assert_eq!(reloaded.config.general.current_baas_sha, "main-sha");
-        assert_eq!(reloaded.config.general.current_baas_cpp_sha, "cpp-sha");
-    }
-
+    /// Handles the git cpp job reclones when existing bin has no git metadata workflow.
     #[test]
     fn git_cpp_job_reclones_when_existing_bin_has_no_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2413,6 +2344,7 @@ mod tests {
         assert_eq!(job.final_dir, bin_dir);
     }
 
+    /// Handles the mirrorc jobs use final dirs without requiring git metadata workflow.
     #[test]
     fn mirrorc_jobs_use_final_dirs_without_requiring_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2437,6 +2369,7 @@ mod tests {
         );
     }
 
+    /// Handles the mirrorc cleanup removes extra git metadata workflow.
     #[test]
     fn mirrorc_cleanup_removes_extra_git_metadata() {
         let dir = tempfile::tempdir().unwrap();
@@ -2450,6 +2383,7 @@ mod tests {
         assert!(!git_dir.exists());
     }
 
+    /// Handles the terminal workflow plan models parallel update and dependency order workflow.
     #[test]
     fn terminal_workflow_plan_models_parallel_update_and_dependency_order() {
         let plan = terminal_workflow_plan();
@@ -2488,6 +2422,7 @@ mod tests {
         assert_eq!(launch.running_region_max_lines, None);
     }
 
+    /// Handles the git update command uses serial command chain workflow.
     #[test]
     fn git_update_command_uses_serial_command_chain() {
         let command = git_update_command(
@@ -2496,73 +2431,64 @@ mod tests {
             Path::new("repo"),
         );
         let sequence = command.command_sequence();
+        let git_prefix = [
+            "-c",
+            "credential.helper=",
+            "-c",
+            "credential.interactive=never",
+            "-c",
+            "core.askPass=echo",
+            "-c",
+            "core.sshCommand=ssh -o BatchMode=yes",
+        ];
 
         assert_eq!(sequence.len(), 5);
         assert_eq!(
             sequence[0].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "remote",
-                "set-url",
-                "origin",
-                "https://example.invalid/repo.git"
+                git_prefix.as_slice(),
+                &[
+                    "-C",
+                    "repo",
+                    "remote",
+                    "set-url",
+                    "origin",
+                    "https://example.invalid/repo.git",
+                ]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[1].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "fetch",
-                "--depth",
-                "1",
-                "origin",
-                "master"
+                git_prefix.as_slice(),
+                &["-C", "repo", "fetch", "--depth", "1", "origin", "master",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[2].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reset",
-                "--hard",
-                "FETCH_HEAD"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reset", "--hard", "FETCH_HEAD",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[3].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reflog",
-                "expire",
-                "--expire=now",
-                "--all"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reflog", "expire", "--expire=now", "--all",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[4].args,
-            [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "gc",
-                "--prune=now"
-            ]
+            [git_prefix.as_slice(), &["-C", "repo", "gc", "--prune=now",]].concat()
         );
     }
 
+    /// Handles the backend ready probe requires http response workflow.
     #[test]
     fn backend_ready_probe_requires_http_response() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
@@ -2578,69 +2504,5 @@ mod tests {
 
         assert!(backend_auth_endpoint_ready(port));
         handle.join().unwrap();
-    }
-
-    #[test]
-    fn workflow_returns_structured_failure() {
-        struct Failing;
-        impl WorkflowServices for Failing {
-            fn update_repository(
-                &self,
-                _kind: RepositoryKind,
-                _config: &UpdaterConfig,
-                target_dir: &Path,
-                _ranking_path: &Path,
-                _output: &(dyn OutputSink + Send + Sync),
-            ) -> UpdaterResult<RepositoryOutcome> {
-                fs::create_dir_all(target_dir)?;
-                fs::write(target_dir.join("partial.txt"), "partial")?;
-                Err(UpdaterError::Git("boom".to_string()))
-            }
-            fn prepare_environment(
-                &self,
-                _config: &UpdaterConfig,
-                _output: &(dyn OutputSink + Send + Sync),
-            ) -> UpdaterResult<()> {
-                Ok(())
-            }
-            fn sync_dependencies(
-                &self,
-                _config: &UpdaterConfig,
-                _output: &(dyn OutputSink + Send + Sync),
-            ) -> UpdaterResult<()> {
-                Ok(())
-            }
-            fn launch_backend(
-                &self,
-                _config: &UpdaterConfig,
-                _output: &(dyn OutputSink + Send + Sync),
-            ) -> UpdaterResult<()> {
-                Ok(())
-            }
-        }
-
-        let dir = tempfile::tempdir().unwrap();
-        let install_path = dir.path().join("BAAS");
-        let failure = run_workflow_with_services(
-            WorkflowOptions {
-                config_path: Some(dir.path().join("setup.toml")),
-                install_path: Some(install_path.clone()),
-                launch: false,
-            },
-            Arc::new(Failing),
-            Arc::new(NoopOutput),
-        )
-        .unwrap_err();
-
-        assert_eq!(failure.code, "git");
-        assert!(failure.step == "main_repo" || failure.step == "cpp_repo");
-        assert!(!install_path.join("tmp").join("main-repo").exists());
-        assert!(!install_path.join("tmp").join("cpp-repo").exists());
-        assert!(
-            install_path
-                .join(".baas-updater")
-                .join("source-ranking")
-                .exists()
-        );
     }
 }

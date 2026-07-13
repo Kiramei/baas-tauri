@@ -4,6 +4,7 @@
 "use client";
 
 import * as React from "react";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PipetteIcon } from "lucide-react";
 import {
@@ -22,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 
 type PossibleRef<T> = React.Ref<T> | undefined;
 
@@ -94,9 +95,11 @@ interface VisuallyHiddenInputProps<T = InputValue> extends Omit<
   bubbles?: boolean;
 }
 
+/** Renders the visually hidden input component. */
 function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>) {
   const { control, value, checked, bubbles = true, type = "hidden", style, ...inputProps } = props;
 
+  /** Returns the is check input result. */
   const isCheckInput = React.useMemo(
     () => type === "checkbox" || type === "radio" || type === "switch",
     [type]
@@ -123,32 +126,17 @@ function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>)
 
     if (typeof window === "undefined") return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!Array.isArray(entries) || !entries.length) return;
-
-      const entry = entries[0];
-      if (!entry) return;
-
-      let width: number;
-      let height: number;
-
-      if ("borderBoxSize" in entry) {
-        const borderSizeEntry = entry.borderBoxSize;
-        const borderSize = Array.isArray(borderSizeEntry) ? borderSizeEntry[0] : borderSizeEntry;
-        width = borderSize.inlineSize;
-        height = borderSize.blockSize;
-      } else {
-        width = control.offsetWidth;
-        height = control.offsetHeight;
-      }
-
-      setControlSize({ width, height });
-    });
-
-    resizeObserver.observe(control, { box: "border-box" });
-    return () => {
-      resizeObserver.disconnect();
-    };
+    return observeResizeOnAnimationFrame(
+      control,
+      () => {
+        const width = control.offsetWidth;
+        const height = control.offsetHeight;
+        setControlSize((current) =>
+          current.width === width && current.height === height ? current : { width, height }
+        );
+      },
+      { box: "border-box" }
+    );
   }, [control]);
 
   React.useEffect(() => {
@@ -180,6 +168,7 @@ function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>)
     }
   }, [value, checked, bubbles, isCheckInput]);
 
+  /** Handles the composed style workflow. */
   const composedStyle = React.useMemo<React.CSSProperties>(() => {
     return {
       ...style,
@@ -213,6 +202,7 @@ function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>)
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
 
+/** Coordinates the use lazy ref hook behavior. */
 function useLazyRef<T>(fn: () => T) {
   const ref = React.useRef<T | null>(null);
 
@@ -223,6 +213,7 @@ function useLazyRef<T>(fn: () => T) {
   return ref as React.RefObject<T>;
 }
 
+/** Coordinates the use as ref hook behavior. */
 function useAsRef<T>(props: T) {
   const ref = React.useRef<T>(props);
 
@@ -286,6 +277,7 @@ interface HSVColorValue {
   a: number;
 }
 
+/** Handles the hex to rgb workflow. */
 function hexToRgb(hex: string, alpha?: number): ColorValue {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
@@ -298,7 +290,9 @@ function hexToRgb(hex: string, alpha?: number): ColorValue {
     : { r: 0, g: 0, b: 0, a: alpha ?? 1 };
 }
 
+/** Handles the rgb to hex workflow. */
 function rgbToHex(color: ColorValue): string {
+  /** Handles the to hex workflow. */
   const toHex = (n: number) => {
     const hex = Math.round(n).toString(16);
     return hex.length === 1 ? `0${hex}` : hex;
@@ -306,6 +300,7 @@ function rgbToHex(color: ColorValue): string {
   return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
 }
 
+/** Handles the rgb to hsv workflow. */
 function rgbToHsv(color: ColorValue): HSVColorValue {
   const r = color.r / 255;
   const g = color.g / 255;
@@ -342,6 +337,7 @@ function rgbToHsv(color: ColorValue): HSVColorValue {
   };
 }
 
+/** Handles the hsv to rgb workflow. */
 function hsvToRgb(hsv: HSVColorValue): ColorValue {
   const h = hsv.h / 360;
   const s = hsv.s / 100;
@@ -409,6 +405,7 @@ function hsvToRgb(hsv: HSVColorValue): ColorValue {
   };
 }
 
+/** Handles the color to string workflow. */
 function colorToString(color: ColorValue, format: ColorFormat = "hex"): string {
   switch (format) {
     case "hex":
@@ -434,6 +431,7 @@ function colorToString(color: ColorValue, format: ColorFormat = "hex"): string {
   }
 }
 
+/** Handles the rgb to hsl workflow. */
 function rgbToHsl(color: ColorValue) {
   const r = color.r / 255;
   const g = color.g / 255;
@@ -469,6 +467,7 @@ function rgbToHsl(color: ColorValue) {
   };
 }
 
+/** Handles the hsl to rgb workflow. */
 function hslToRgb(hsl: { h: number; s: number; l: number }, alpha = 1): ColorValue {
   const h = hsl.h / 360;
   const s = hsl.s / 100;
@@ -516,6 +515,7 @@ function hslToRgb(hsl: { h: number; s: number; l: number }, alpha = 1): ColorVal
   };
 }
 
+/** Returns the parse color string result. */
 function parseColorString(value: string): ColorValue | null {
   const trimmed = value.trim();
 
@@ -630,6 +630,7 @@ interface Store {
 
 const StoreContext = React.createContext<Store | null>(null);
 
+/** Coordinates the use store context hook behavior. */
 function useStoreContext(consumerName: string) {
   const context = React.useContext(StoreContext);
   if (!context) {
@@ -638,9 +639,11 @@ function useStoreContext(consumerName: string) {
   return context;
 }
 
+/** Coordinates the use store hook behavior. */
 function useStore<U>(selector: (state: StoreState) => U): U {
   const store = useStoreContext("useStore");
 
+  /** Returns the get snapshot result. */
   const getSnapshot = React.useCallback(() => selector(store.getState()), [store, selector]);
 
   return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
@@ -656,6 +659,7 @@ interface ColorPickerContextValue {
 
 const ColorPickerContext = React.createContext<ColorPickerContextValue | null>(null);
 
+/** Coordinates the use color picker context hook behavior. */
 function useColorPickerContext(consumerName: string) {
   const context = React.useContext(ColorPickerContext);
   if (!context) {
@@ -683,6 +687,7 @@ interface ColorPickerProps
   required?: boolean;
 }
 
+/** Renders the color picker component. */
 function ColorPicker(props: ColorPickerProps) {
   const {
     value: valueProp,
@@ -721,6 +726,7 @@ function ColorPicker(props: ColorPickerProps) {
     onFormatChange,
   });
 
+  /** Handles the store workflow. */
   const store = React.useMemo<Store>(() => {
     return {
       subscribe: (cb) => {
@@ -807,6 +813,7 @@ type ColorPickerImplProps = Omit<
   "defaultValue" | "onValueChange" | "onOpenChange" | "format" | "defaultFormat" | "onFormatChange"
 >;
 
+/** Renders the color picker impl component. */
 function ColorPickerImpl(props: ColorPickerImplProps) {
   const {
     value: valueProp,
@@ -848,6 +855,7 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
     }
   }, [openProp]);
 
+  /** Handles the context value workflow. */
   const contextValue = React.useMemo<ColorPickerContextValue>(
     () => ({
       dir,
@@ -903,6 +911,7 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
   );
 }
 
+/** Renders the color picker trigger component. */
 function ColorPickerTrigger(props: React.ComponentProps<typeof PopoverTrigger>) {
   const { asChild, disabled, ...triggerProps } = props;
 
@@ -919,6 +928,7 @@ function ColorPickerTrigger(props: React.ComponentProps<typeof PopoverTrigger>) 
   );
 }
 
+/** Renders the color picker content component. */
 function ColorPickerContent(props: React.ComponentProps<typeof PopoverContent>) {
   const { asChild, className, children, ...popoverContentProps } = props;
 
@@ -950,6 +960,7 @@ function ColorPickerContent(props: React.ComponentProps<typeof PopoverContent>) 
   );
 }
 
+/** Renders the color picker area component. */
 function ColorPickerArea(props: DivProps) {
   const {
     asChild,
@@ -976,6 +987,7 @@ function ColorPickerArea(props: DivProps) {
   const areaRef = React.useRef<HTMLDivElement>(null);
   const composedRef = useComposedRefs(ref, areaRef);
 
+  /** Performs the update color from position operation. */
   const updateColorFromPosition = React.useCallback(
     (clientX: number, clientY: number) => {
       if (!areaRef.current) return;
@@ -997,6 +1009,7 @@ function ColorPickerArea(props: DivProps) {
     [hsv, store]
   );
 
+  /** Handles the on pointer down interaction. */
   const onPointerDown = React.useCallback(
     (event: React.PointerEvent<AreaElement>) => {
       if (context.disabled) return;
@@ -1010,6 +1023,7 @@ function ColorPickerArea(props: DivProps) {
     [context.disabled, updateColorFromPosition, propsRef]
   );
 
+  /** Handles the on pointer move interaction. */
   const onPointerMove = React.useCallback(
     (event: React.PointerEvent<AreaElement>) => {
       propsRef.current.onPointerMove?.(event);
@@ -1022,6 +1036,7 @@ function ColorPickerArea(props: DivProps) {
     [updateColorFromPosition, propsRef]
   );
 
+  /** Handles the on pointer up interaction. */
   const onPointerUp = React.useCallback(
     (event: React.PointerEvent<AreaElement>) => {
       propsRef.current.onPointerUp?.(event);
@@ -1083,6 +1098,7 @@ function ColorPickerArea(props: DivProps) {
   );
 }
 
+/** Renders the color picker hue slider component. */
 function ColorPickerHueSlider(props: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const { className, ...sliderProps } = props;
 
@@ -1091,6 +1107,7 @@ function ColorPickerHueSlider(props: React.ComponentProps<typeof SliderPrimitive
 
   const hsv = useStore((state) => state.hsv);
 
+  /** Handles the on value change interaction. */
   const onValueChange = React.useCallback(
     (values: number[]) => {
       const newHsv: HSVColorValue = {
@@ -1124,6 +1141,7 @@ function ColorPickerHueSlider(props: React.ComponentProps<typeof SliderPrimitive
   );
 }
 
+/** Renders the color picker alpha slider component. */
 function ColorPickerAlphaSlider(props: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const { className, ...sliderProps } = props;
 
@@ -1133,6 +1151,7 @@ function ColorPickerAlphaSlider(props: React.ComponentProps<typeof SliderPrimiti
   const color = useStore((state) => state.color);
   const hsv = useStore((state) => state.hsv);
 
+  /** Handles the on value change interaction. */
   const onValueChange = React.useCallback(
     (values: number[]) => {
       const alpha = (values[0] ?? 0) / 100;
@@ -1179,6 +1198,7 @@ function ColorPickerAlphaSlider(props: React.ComponentProps<typeof SliderPrimiti
   );
 }
 
+/** Renders the color picker swatch component. */
 function ColorPickerSwatch(props: DivProps) {
   const { asChild, className, ...swatchProps } = props;
 
@@ -1187,6 +1207,7 @@ function ColorPickerSwatch(props: DivProps) {
   const color = useStore((state) => state.color);
   const format = useStore((state) => state.format);
 
+  /** Handles the background style workflow. */
   const backgroundStyle = React.useMemo(() => {
     if (!color) {
       return {
@@ -1231,6 +1252,7 @@ function ColorPickerSwatch(props: DivProps) {
   );
 }
 
+/** Renders the color picker eye dropper component. */
 function ColorPickerEyeDropper(props: React.ComponentProps<typeof Button>) {
   const { size: sizeProp, children, disabled, ...buttonProps } = props;
 
@@ -1241,6 +1263,7 @@ function ColorPickerEyeDropper(props: React.ComponentProps<typeof Button>) {
 
   const isDisabled = disabled || context.disabled;
 
+  /** Handles the on eye dropper interaction. */
   const onEyeDropper = React.useCallback(async () => {
     if (!window.EyeDropper) return;
 
@@ -1285,6 +1308,7 @@ interface ColorPickerFormatSelectProps
     Omit<React.ComponentProps<typeof Select>, "value" | "onValueChange">,
     Pick<React.ComponentProps<typeof SelectTrigger>, "size" | "className"> {}
 
+/** Renders the color picker format select component. */
 function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
   const { size, disabled, className, ...selectProps } = props;
 
@@ -1294,6 +1318,7 @@ function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
 
   const format = useStore((state) => state.format);
 
+  /** Handles the on format change interaction. */
   const onFormatChange = React.useCallback(
     (value: ColorFormat) => {
       store.setFormat(value);
@@ -1334,6 +1359,7 @@ interface ColorPickerInputProps extends Omit<
   withoutAlpha?: boolean;
 }
 
+/** Renders the color picker input component. */
 function ColorPickerInput(props: ColorPickerInputProps) {
   const store = useStoreContext(INPUT_NAME);
   const context = useColorPickerContext(INPUT_NAME);
@@ -1342,6 +1368,7 @@ function ColorPickerInput(props: ColorPickerInputProps) {
   const format = useStore((state) => state.format);
   const hsv = useStore((state) => state.hsv);
 
+  /** Handles the on color change interaction. */
   const onColorChange = React.useCallback(
     (newColor: ColorValue) => {
       const newHsv = rgbToHsv(newColor);
@@ -1388,6 +1415,7 @@ const inputGroupItemVariants = cva(
 interface InputGroupItemProps
   extends React.ComponentProps<typeof Input>, VariantProps<typeof inputGroupItemVariants> {}
 
+/** Renders the input group item component. */
 function InputGroupItem({ className, position, ...props }: InputGroupItemProps) {
   return (
     <Input
@@ -1404,12 +1432,14 @@ interface FormatInputProps extends ColorPickerInputProps {
   context: ColorPickerContextValue;
 }
 
+/** Renders the hex input component. */
 function HexInput(props: FormatInputProps) {
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const hexValue = rgbToHex(color);
   const alphaValue = Math.round((color?.a ?? 1) * 100);
 
+  /** Handles the on hex change interaction. */
   const onHexChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const value = event.target.value;
@@ -1421,6 +1451,7 @@ function HexInput(props: FormatInputProps) {
     [color, onColorChange]
   );
 
+  /** Handles the on alpha change interaction. */
   const onAlphaChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const value = Number.parseInt(event.target.value, 10);
@@ -1476,6 +1507,7 @@ function HexInput(props: FormatInputProps) {
   );
 }
 
+/** Renders the rgb input component. */
 function RgbInput(props: FormatInputProps) {
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
@@ -1484,6 +1516,7 @@ function RgbInput(props: FormatInputProps) {
   const bValue = Math.round(color?.b ?? 0);
   const alphaValue = Math.round((color?.a ?? 1) * 100);
 
+  /** Handles the on channel change interaction. */
   const onChannelChange = React.useCallback(
     (channel: "r" | "g" | "b" | "a", max: number, isAlpha = false) =>
       (event: React.ChangeEvent<InputElement>) => {
@@ -1560,12 +1593,15 @@ function RgbInput(props: FormatInputProps) {
   );
 }
 
+/** Renders the hsl input component. */
 function HslInput(props: FormatInputProps) {
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
+  /** Handles the hsl workflow. */
   const hsl = React.useMemo(() => rgbToHsl(color), [color]);
   const alphaValue = Math.round((color?.a ?? 1) * 100);
 
+  /** Handles the on hsl channel change interaction. */
   const onHslChannelChange = React.useCallback(
     (channel: "h" | "s" | "l", max: number) => (event: React.ChangeEvent<InputElement>) => {
       const value = Number.parseInt(event.target.value, 10);
@@ -1578,6 +1614,7 @@ function HslInput(props: FormatInputProps) {
     [hsl, color, onColorChange]
   );
 
+  /** Handles the on alpha change interaction. */
   const onAlphaChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const value = Number.parseInt(event.target.value, 10);
@@ -1656,11 +1693,13 @@ interface HsbInputProps extends Omit<FormatInputProps, "color"> {
   hsv: HSVColorValue;
 }
 
+/** Renders the hsb input component. */
 function HsbInput(props: HsbInputProps) {
   const { hsv, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
   const alphaValue = Math.round((hsv?.a ?? 1) * 100);
 
+  /** Handles the on hsv channel change interaction. */
   const onHsvChannelChange = React.useCallback(
     (channel: "h" | "s" | "v", max: number) => (event: React.ChangeEvent<InputElement>) => {
       const value = Number.parseInt(event.target.value, 10);
@@ -1673,6 +1712,7 @@ function HsbInput(props: HsbInputProps) {
     [hsv, onColorChange]
   );
 
+  /** Handles the on alpha change interaction. */
   const onAlphaChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const value = Number.parseInt(event.target.value, 10);

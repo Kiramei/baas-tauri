@@ -52,6 +52,20 @@
     "overview": "Aperçu des tâches",
     "running": "Tâche en cours"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} est terminee.",
+      "completedTitle": "Tache BAAS terminee",
+      "failedBody": "{{task}} s'est arrete anormalement. Code de sortie : {{exitCode}}.",
+      "failedTitle": "Script BAAS quitte anormalement",
+      "startedBody": "{{task}} a demarre.",
+      "startedTitle": "Tache BAAS demarree"
+    },
+    "service": {
+      "disconnectedBody": "La connexion {{transport}} a ete interrompue. Reconnexion automatique en cours.",
+      "disconnectedTitle": "Service BAAS deconnecte"
+    }
+  },
   "time": {
     "daysAgo": "il y a {{count}} jours",
     "hoursAgo": "il y a {{count}} heures",
@@ -61,32 +75,53 @@
   "settings": {
     "feature": "Paramètres des fonctionnalités",
     "general": "Paramètres généraux",
+    "systemLogs": {
+      "allLevels": "全部级别",
+      "allSources": "全部来源",
+      "autoRefresh": "自动刷新",
+      "clear": "清理日志",
+      "clearConfirm": "确认清理 Tauri、前端和 Python 系统日志？",
+      "copied": "系统日志已复制",
+      "copy": "复制日志",
+      "count": "{{count}} 条日志",
+      "description": "查看客户端、前端和 Python 后端的诊断日志",
+      "empty": "没有符合条件的系统日志",
+      "export": "导出日志",
+      "followTail": "跟随末尾",
+      "level": "日志级别",
+      "open": "查看系统日志",
+      "refresh": "刷新日志",
+      "search": "搜索消息、模块或异常堆栈",
+      "source": "日志来源",
+      "title": "系统日志"
+    },
     "ui": {
       "$self": "Paramètres de l'interface",
       "assets": "Afficher les détails des ressources",
-      "backgroundImage": "Background image",
-      "backgroundImageChoose": "Choose background",
-      "backgroundImageEmpty": "No background image set",
-      "backgroundImageInvalidType": "Only PNG, JPG, JPEG, WEBP, or GIF images are supported.",
-      "backgroundImageOpacity": "Background opacity",
-      "backgroundImageReadFailed": "Failed to read background image",
-      "backgroundImageRemove": "Remove background",
-      "backgroundImageSelected": "Background image set",
-      "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
+      "backgroundImage": "Image d'arriere-plan",
+      "backgroundImageChoose": "Choisir un arriere-plan",
+      "backgroundImageEmpty": "Aucune image d'arriere-plan definie",
+      "backgroundImageInvalidType": "Seules les images PNG, JPG, JPEG, WEBP ou GIF sont prises en charge.",
+      "backgroundImageOpacity": "Opacite de l'arriere-plan",
+      "backgroundImageReadFailed": "Echec de la lecture de l'image d'arriere-plan",
+      "backgroundImageRemove": "Supprimer l'arriere-plan",
+      "backgroundImageSelected": "Image d'arriere-plan definie",
+      "backgroundImageTooLarge": "L'image d'arriere-plan doit faire 5 Mo ou moins.",
       "enableBAComet": "Activer BAComet",
       "enableSafeStream": "Stream sécurisé",
-      "lowPerformanceMode": "Low performance mode",
+      "enableSystemNotifications": "Activer les notifications systeme",
+      "lowPerformanceMode": "Mode basse performance",
       "player": "Lecteur",
-      "themeColor": "Theme color",
-      "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
-      "themeColorReset": "Reset color"
+      "themeColor": "Couleur du theme",
+      "themeColorInvalid": "Saisissez une couleur de theme au format #RRGGBB.",
+      "themeColorReset": "Reinitialiser la couleur du theme"
     },
     "updateSuccess": "Paramètres mis à jour avec succès"
   },
   "update": {
-    "backendAction": "Update BAAS",
-    "backendStarted": "BAAS update started",
-    "backendStartFailed": "Failed to start BAAS update",
+    "backendAction": "Mettre a jour BAAS",
+    "backendStarted": "Mise a jour BAAS demarree",
+    "backendStartFailed": "Echec du demarrage de la mise a jour BAAS",
     "channel": "Canal de mise à jour",
     "dueDate": "Date d'expiration",
     "enterCdk": "Entrez le CDK",
@@ -224,12 +259,13 @@
     "title": "Documentation Wiki",
     "web": {
       "detach": "Detacher",
-      "detachedDescription": "The documentation site is open in a separate window. Focus that window, or close it and return the page to the main window.",
-      "detachedTitle": "Opened in a separate window",
+      "detachedDescription": "Le Wiki web est ouvert dans une fenetre separee.",
+      "detachedTitle": "Wiki web detache",
       "failed": "Echec du chargement du Wiki web",
-      "focusDetached": "Focus separate window",
+      "focusDetached": "Afficher la fenetre",
       "loading": "Chargement du Wiki web...",
-      "openExternal": "Open in browser",
+      "openBrowser": "Ouvrir dans le navigateur",
+      "openExternal": "Ouvrir dans le navigateur",
       "return": "Retour",
       "title": "Wiki web"
     }
@@ -281,11 +317,11 @@
   },
   "cafe": {
     "$self": "Café",
-    "basicSettings": "Paramètres de base du café",
+    "basicSettings": "Général",
     "byName": "Par nom d'étudiant",
-    "cafe1Settings": "Paramètres du Café 1",
+    "cafe1Settings": "Café 1",
     "cafe1Students": "Liste des noms d'étudiants",
-    "cafe2Settings": "Paramètres du Café 2",
+    "cafe2Settings": "Café 2",
     "cafe2Students": "Liste des noms d'étudiants",
     "collectReward": "Collecter récompenses",
     "duplicateInvite": "Invitation doublon",
@@ -545,6 +581,7 @@
   },
   "shaTest": {
     "method": "Méthode",
+    "results": "测试结果",
     "sha": "Valeur SHA",
     "status": "Statut",
     "testAll": "Tester toutes les méthodes",
@@ -641,6 +678,11 @@
   "toast": {
     "dateUpdated": "Date mise à jour",
     "timeUpdated": "Heure mise à jour"
+  },
+  "transport": {
+    "label": "Transport des donnees",
+    "pipe": "Canal nomme (bureau)",
+    "websocket": "WebSocket (compatible)"
   },
   "ui": {
     "zoom": "Paramètres de zoom de l'interface"

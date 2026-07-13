@@ -1,0 +1,133 @@
+name: Pull Request Quality
+
+on:
+  pull_request:
+    branches:
+      - dev/optim
+  push:
+    branches:
+      - dev/optim
+
+permissions:
+  contents: read
+
+jobs:
+  generate-fonts:
+    name: Generate font assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Generate font assets
+        uses: ./.github/actions/generate-font-assets
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    needs: generate-fonts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download generated font assets
+        uses: actions/download-artifact@v8
+        with:
+          name: generated-fonts
+          path: public/fonts
+
+      - name: Setup Bun dependencies
+        uses: ./.github/actions/setup-bun-deps
+
+      - name: Lint frontend
+        run: bun run lint
+
+      - name: Test transport handshake
+        run: bun run test:transport
+
+      - name: Build desktop frontend
+        run: bun run build:tauri
+
+      - name: Build Android frontend
+        run: bun run build:tauri:android
+
+  desktop-rust:
+    name: ${{ matrix.name }} Rust tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: Linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - name: macOS
+            os: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    needs: generate-fonts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Tauri build environment
+        uses: ./.github/actions/setup-tauri-build-env
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Install Linux Tauri dependencies
+        if: matrix.name == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Run Rust tests
+        run: cargo test --workspace --all-targets
+
+  android:
+    name: Android arm64 debug APK
+    runs-on: ubuntu-22.04
+    needs: generate-fonts
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Tauri build environment
+        uses: ./.github/actions/setup-tauri-build-env
+        with:
+          target: aarch64-linux-android
+
+      - name: Install Android build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends make perl unzip
+          SDKMANAGER="${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358"
+
+      - name: Build Android debug APK
+        run: bun run tauri:android:build:debug -- --abi arm64

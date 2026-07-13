@@ -1,8 +1,9 @@
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 
+/** Renders the tooltip provider component. */
 function TooltipProvider({
   delayDuration = 0,
   ...props
@@ -16,6 +17,7 @@ function TooltipProvider({
   );
 }
 
+/** Renders the tooltip component. */
 function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
   return (
     <TooltipProvider>
@@ -24,6 +26,7 @@ function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root
   );
 }
 
+/** Renders the tooltip trigger component. */
 function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
@@ -32,6 +35,7 @@ type TooltipContentProps = React.ComponentProps<typeof TooltipPrimitive.Content>
   arrowClassName?: string;
 };
 
+/** Renders the tooltip content component. */
 function TooltipContent({
   className,
   arrowClassName,

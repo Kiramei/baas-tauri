@@ -15,6 +15,7 @@ interface FeatureSwitchModalProps {
   allTasks: string[];
 }
 
+/** Renders the feature switch modal component. */
 const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
   task,
   onClose,
@@ -24,10 +25,12 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
   const { t } = useTranslation();
   const [form, setForm] = useState<EventConfig>({ ...task });
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: keyof EventConfig, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = () => {
     onSave(form);
   };

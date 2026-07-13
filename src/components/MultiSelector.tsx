@@ -1,13 +1,13 @@
 import { Reorder } from "framer-motion";
 import { Plus, X } from "lucide-react";
-import React, { useMemo, useState } from "react";
-import { cn } from "@/shared/GlobalUtilities.ts";
+import React, { useDeferredValue, useMemo, useState } from "react";
+import { cn } from "@/shared/cn";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { eventNameKey } from "@/shared/I18nKeys";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface MultiSelectorProps {
   label?: string;
@@ -48,6 +48,7 @@ interface RangeModeProps extends BaseTimeProps {
   onChange: (list: number[][][]) => void;
 }
 
+/** Renders the selector modal component. */
 const SelectorModal: React.FC<SelectorModalProps> = ({
   isOpen,
   onClose,
@@ -58,16 +59,19 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
+  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      translateName(s.toString()).toString().toLowerCase().includes(query.toLowerCase())
+      translateName(s.toString()).toString().toLowerCase().includes(deferredQuery.toLowerCase())
     );
-  }, [query, alternatives]);
+  }, [alternatives, deferredQuery]);
 
+  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));
@@ -79,7 +83,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <DialogTitle className="text-lg font-semibold">{t("scheduler.selector")}</DialogTitle>
@@ -122,6 +126,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   );
 };
 
+/** Renders the ordered multi selector component. */
 export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   label,
   tooltip,
@@ -133,8 +138,8 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -238,6 +243,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   );
 };
 
+/** Renders the time selector modal component. */
 export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
   label,
   tooltip,
@@ -248,6 +254,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  /** Handles the handle time add interaction. */
   const handleTimeAdd = (): void => {
     if (mode === "time") {
       const list = values as number[][];
@@ -255,6 +262,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the handle range add interaction. */
   const handleRangeAdd = (): void => {
     if (mode === "range") {
       const list = values as number[][][];
@@ -268,12 +276,15 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the handle remove interaction. */
   const handleRemove = (index: number): void => {
     onChange(values.filter((_, i) => i !== index) as any);
   };
 
+  /** Handles the pad workflow. */
   const pad = (n: number) => String(n).padStart(2, "0");
 
+  /** Handles the forward handler workflow. */
   const forwardHandler = (value: number[]): string => {
     if (value.length === 2) {
       return `${pad(value[0])}:${pad(value[1])}`;
@@ -282,6 +293,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
+  /** Handles the backward handler workflow. */
   const backwardHandler = (value: string): number[] => {
     return value.split(":").map((e) => parseInt(e));
   };

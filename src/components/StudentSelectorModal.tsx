@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useDeferredValue, useState, useMemo } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -21,6 +21,7 @@ type Props = {
   lang?: string;
 };
 
+/** Renders the student selector modal component. */
 const StudentSelectorModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -31,7 +32,9 @@ const StudentSelectorModal: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
 
+  /** Handles the display name workflow. */
   const displayName = (s: Student) => {
     if (lang === "CN") return s.CN_name;
     if (lang === "Global") return s.Global_name;
@@ -41,11 +44,12 @@ const StudentSelectorModal: React.FC<Props> = ({
   // Search filter.
   const filtered = useMemo(() => {
     return allStudents.filter((s) => {
-      if (typeof s === "string") return s.toLowerCase().includes(query.toLowerCase());
-      return displayName(s).toLowerCase().includes(query.toLowerCase());
+      if (typeof s === "string") return s.toLowerCase().includes(deferredQuery.toLowerCase());
+      return displayName(s).toLowerCase().includes(deferredQuery.toLowerCase());
     });
-  }, [query, allStudents, lang]);
+  }, [deferredQuery, allStudents, lang]);
 
+  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));
@@ -57,7 +61,7 @@ const StudentSelectorModal: React.FC<Props> = ({
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <DialogTitle className="text-lg font-semibold">

@@ -11,6 +11,7 @@ interface LoggerProps {
   scrollToEnd: boolean; // Controls whether the logger scrolls to the bottom.
 }
 
+/** Returns the get level color result. */
 const getLevelColor = (level: string) => {
   switch (level) {
     case "INFO":
@@ -26,6 +27,7 @@ const getLevelColor = (level: string) => {
   }
 };
 
+/** Returns the get message style result. */
 const getMessageStyle = (level: string) => {
   switch (level) {
     case "INFO":
@@ -41,6 +43,7 @@ const getMessageStyle = (level: string) => {
   }
 };
 
+/** Returns the get log level display result. */
 const getLogLevelDisplay = (level: string) => {
   switch (level) {
     case "INFO":
@@ -56,6 +59,7 @@ const getLogLevelDisplay = (level: string) => {
   }
 };
 
+/** Renders the row component. */
 const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => {
   const log: LogItem = logs[index];
   return (
@@ -82,6 +86,7 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
   );
 };
 
+/** Renders the logger component. */
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
   const listRef = useRef<any>(null);
   const previousLengthRef = useRef(0);
@@ -96,6 +101,7 @@ const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
 
     let rafId = 0;
     let secondRafId = 0;
+    /** Handles the scroll to last row workflow. */
     const scrollToLastRow = () => {
       if (listRef.current && logs.length > 0) {
         listRef.current.scrollToRow({ index: logs.length - 1, align: "end" });

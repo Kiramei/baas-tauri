@@ -11,6 +11,7 @@ type WhiteListConfigProps = {
   profileId?: string;
 };
 
+/** Renders the white list config component. */
 const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
   const settings: Partial<DynamicConfig> = useWebSocketStore(
@@ -19,6 +20,7 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
   const modify = useWebSocketStore((state) => state.modify);
   const server_mode = serverMap[settings.server!];
 
+  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       clear_friend_white_list: settings.clear_friend_white_list!,
@@ -30,6 +32,7 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the validate code workflow. */
   const validateCode = (code: string): string | null => {
     let expectedLen = 7;
     if (server_mode === "JP" || server_mode === "Global") expectedLen = 8;
@@ -45,6 +48,7 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
     return null;
   };
 
+  /** Handles the handle add interaction. */
   const handleAdd = async () => {
     const code = inputCode.trim();
     const error = validateCode(code);
@@ -64,11 +68,13 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
     setDraft((d) => ({ ...d, clear_friend_white_list: newList }));
   };
 
+  /** Handles the handle delete interaction. */
   const handleDelete = async (code: string) => {
     const newList = draft.clear_friend_white_list.filter((c) => c !== code);
     setDraft((d) => ({ ...d, clear_friend_white_list: newList }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {
       clear_friend_white_list: draft.clear_friend_white_list,

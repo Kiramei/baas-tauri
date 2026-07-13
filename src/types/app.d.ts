@@ -5,14 +5,16 @@ import {
   AuthPhase,
   ControlConnection,
   ControlSessionBundle,
-  SecureWebSocket,
 } from "@/shared/SecureWebSocket";
+import type { BackendConnection, BackendTransportMode } from "@/transport/types";
 
 export interface ConfigProfile {
   id: string;
   name: string;
   settings: DynamicConfig;
 }
+
+export type ConfigProfileSummary = Pick<ConfigProfile, "id" | "name">;
 
 export interface RemoteSettings {
   streamPlayer: "mse" | "broadway" | "tinyh264" | "webcodecs";
@@ -36,6 +38,7 @@ export interface UISettings {
   assetsDisplay: boolean;
   enableBAComet: boolean;
   lowPerformanceMode: boolean;
+  enableSystemNotifications: boolean;
   remoteSettings: RemoteSettings;
 }
 
@@ -85,6 +88,7 @@ interface StatusItem {
   config_id: string | null;
   current_task: string | null;
   waiting_tasks: string[];
+  run_mode?: "scheduler" | "single" | null;
   timestamp: number;
 
   [key: string]: any;
@@ -123,6 +127,7 @@ interface WsMessageItem {
   entries?: RawLogItem[];
   status?: InitState | StatusItem | WrappedStatusItem | string;
   timestamp?: number;
+  request_timestamp?: number;
   data?: any;
   resource?: string;
   resource_id?: string;
@@ -136,7 +141,9 @@ interface LogStoreSet {
 }
 
 interface WebSocketState {
-  connections: Partial<Record<WsName, SecureWebSocket>>;
+  transportMode: BackendTransportMode;
+  setTransportMode: (mode: BackendTransportMode) => Promise<void>;
+  connections: Partial<Record<WsName, BackendConnection>>;
   logStore: LogStoreSet;
   configStore: any;
   staticStore: any;
@@ -150,6 +157,7 @@ interface WebSocketState {
   startTauriUpdaterPolling: () => void;
   connect: (name: WsName) => Promise<void>;
   disconnect: (name: WsName) => void;
+  recoverTransport: () => Promise<void>;
   send: (name: WsName, data: any) => void;
   init: () => Promise<void>;
   modify: (path: string, value: any, showToast?: boolean) => void;
@@ -161,7 +169,7 @@ interface WebSocketState {
     binary: ArrayBuffer | Uint8Array,
     callback?: (e: any) => void
   ) => void;
-  connectRemote: () => Promise<SecureWebSocket>;
+  connectRemote: () => Promise<BackendConnection>;
   pendingCallbacks: Record<string, (data?: any) => void>;
   pendingStreamCallbacks: Record<string, (data?: any) => void>;
   pendingBinaryCallbacks: Record<string, (data: ArrayBuffer) => void>;

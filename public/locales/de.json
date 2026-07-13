@@ -52,6 +52,20 @@
     "overview": "Aufgabenübersicht",
     "running": "Laufende Aufgabe"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} wurde abgeschlossen.",
+      "completedTitle": "BAAS-Aufgabe abgeschlossen",
+      "failedBody": "{{task}} wurde unerwartet beendet. Exit-Code: {{exitCode}}.",
+      "failedTitle": "BAAS-Skript wurde unerwartet beendet",
+      "startedBody": "{{task}} wurde gestartet.",
+      "startedTitle": "BAAS-Aufgabe gestartet"
+    },
+    "service": {
+      "disconnectedBody": "Die {{transport}}-Verbindung wurde unterbrochen. Die Verbindung wird automatisch wiederhergestellt.",
+      "disconnectedTitle": "BAAS-Dienst getrennt"
+    }
+  },
   "time": {
     "daysAgo": "vor {{count}} Tagen",
     "hoursAgo": "vor {{count}} Stunden",
@@ -61,32 +75,53 @@
   "settings": {
     "feature": "Funktionseinstellungen",
     "general": "Allgemeine Einstellungen",
+    "systemLogs": {
+      "allLevels": "全部级别",
+      "allSources": "全部来源",
+      "autoRefresh": "自动刷新",
+      "clear": "清理日志",
+      "clearConfirm": "确认清理 Tauri、前端和 Python 系统日志？",
+      "copied": "系统日志已复制",
+      "copy": "复制日志",
+      "count": "{{count}} 条日志",
+      "description": "查看客户端、前端和 Python 后端的诊断日志",
+      "empty": "没有符合条件的系统日志",
+      "export": "导出日志",
+      "followTail": "跟随末尾",
+      "level": "日志级别",
+      "open": "查看系统日志",
+      "refresh": "刷新日志",
+      "search": "搜索消息、模块或异常堆栈",
+      "source": "日志来源",
+      "title": "系统日志"
+    },
     "ui": {
       "$self": "UI-Einstellungen",
       "assets": "Ressourcendetails anzeigen",
-      "backgroundImage": "Background image",
-      "backgroundImageChoose": "Choose background",
-      "backgroundImageEmpty": "No background image set",
-      "backgroundImageInvalidType": "Only PNG, JPG, JPEG, WEBP, or GIF images are supported.",
-      "backgroundImageOpacity": "Background opacity",
-      "backgroundImageReadFailed": "Failed to read background image",
-      "backgroundImageRemove": "Remove background",
-      "backgroundImageSelected": "Background image set",
-      "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
+      "backgroundImage": "Hintergrundbild",
+      "backgroundImageChoose": "Hintergrund auswaehlen",
+      "backgroundImageEmpty": "Kein Hintergrundbild festgelegt",
+      "backgroundImageInvalidType": "Es werden nur PNG-, JPG-, JPEG-, WEBP- oder GIF-Bilder unterstuetzt.",
+      "backgroundImageOpacity": "Hintergrundtransparenz",
+      "backgroundImageReadFailed": "Hintergrundbild konnte nicht gelesen werden",
+      "backgroundImageRemove": "Hintergrund entfernen",
+      "backgroundImageSelected": "Hintergrundbild festgelegt",
+      "backgroundImageTooLarge": "Das Hintergrundbild darf hoechstens 5 MB gross sein.",
       "enableBAComet": "BAComet aktivieren",
       "enableSafeStream": "Sicheren Stream aktivieren",
-      "lowPerformanceMode": "Low performance mode",
+      "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
+      "lowPerformanceMode": "Leistungsarmer Modus",
       "player": "Wiedergabe",
-      "themeColor": "Theme color",
-      "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
-      "themeColorReset": "Reset color"
+      "themeColor": "Designfarbe",
+      "themeColorInvalid": "Geben Sie eine Designfarbe im Format #RRGGBB ein.",
+      "themeColorReset": "Designfarbe zuruecksetzen"
     },
     "updateSuccess": "Einstellungen erfolgreich aktualisiert"
   },
   "update": {
-    "backendAction": "Update BAAS",
-    "backendStarted": "BAAS update started",
-    "backendStartFailed": "Failed to start BAAS update",
+    "backendAction": "BAAS aktualisieren",
+    "backendStarted": "BAAS-Aktualisierung gestartet",
+    "backendStartFailed": "BAAS-Aktualisierung konnte nicht gestartet werden",
     "channel": "Update-Kanal",
     "dueDate": "Ablaufdatum",
     "enterCdk": "CDK eingeben",
@@ -224,12 +259,13 @@
     "title": "Wiki-Dokumentation",
     "web": {
       "detach": "Abtrennen",
-      "detachedDescription": "The documentation site is open in a separate window. Focus that window, or close it and return the page to the main window.",
-      "detachedTitle": "Opened in a separate window",
+      "detachedDescription": "Das Web-Wiki ist in einem eigenen Fenster geoeffnet.",
+      "detachedTitle": "Web-Wiki getrennt",
       "failed": "Web-Wiki konnte nicht laden",
-      "focusDetached": "Focus separate window",
+      "focusDetached": "Fenster fokussieren",
       "loading": "Web-Wiki wird geladen...",
-      "openExternal": "Open in browser",
+      "openBrowser": "Im Browser öffnen",
+      "openExternal": "Im Browser oeffnen",
       "return": "Zurueck",
       "title": "Web-Wiki"
     }
@@ -281,11 +317,11 @@
   },
   "cafe": {
     "$self": "Café",
-    "basicSettings": "Grundlegende Café-Einstellungen",
+    "basicSettings": "Grundlagen",
     "byName": "Nach Schülernamen",
-    "cafe1Settings": "Einstellungen Café 1",
+    "cafe1Settings": "Café 1",
     "cafe1Students": "Liste der Schülernamen",
-    "cafe2Settings": "Einstellungen Café 2",
+    "cafe2Settings": "Café 2",
     "cafe2Students": "Liste der Schülernamen",
     "collectReward": "Belohnungen sammeln",
     "duplicateInvite": "Doppelte Einladung",
@@ -545,6 +581,7 @@
   },
   "shaTest": {
     "method": "Methode",
+    "results": "测试结果",
     "sha": "SHA-Wert",
     "status": "Status",
     "testAll": "Alle Methoden testen",
@@ -641,6 +678,11 @@
   "toast": {
     "dateUpdated": "Datum aktualisiert",
     "timeUpdated": "Zeit aktualisiert"
+  },
+  "transport": {
+    "label": "Datentransport",
+    "pipe": "Named Pipe (Desktop)",
+    "websocket": "WebSocket (kompatibel)"
   },
   "ui": {
     "zoom": "UI-Zoom-Einstellungen"

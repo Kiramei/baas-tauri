@@ -2,12 +2,14 @@ import * as React from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { Accordion as AccordionPrimitive } from "radix-ui";
 
-import { cn } from "@/shared/GlobalUtilities.ts";
+import { cn } from "@/shared/cn";
 
+/** Renders the accordion component. */
 function Accordion({ ...props }: React.ComponentProps<typeof AccordionPrimitive.Root>) {
   return <AccordionPrimitive.Root data-slot="accordion" {...props} />;
 }
 
+/** Renders the accordion item component. */
 function AccordionItem({
   className,
   ...props
@@ -21,6 +23,7 @@ function AccordionItem({
   );
 }
 
+/** Renders the accordion trigger component. */
 function AccordionTrigger({
   className,
   children,
@@ -43,6 +46,7 @@ function AccordionTrigger({
   );
 }
 
+/** Renders the accordion content component. */
 function AccordionContent({
   className,
   children,

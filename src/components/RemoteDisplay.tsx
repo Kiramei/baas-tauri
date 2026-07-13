@@ -17,7 +17,7 @@ import { Modal } from "@/components/ui/Modal.tsx";
 import { t } from "i18next";
 import { BTN_FUNC_MAP, StreamClientScrcpy, WSMiddleware } from "./remote/StreamClientScrcpy";
 import { BasePlayer, QualityParsed } from "./remote/player/BasePlayer";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { VideoSettings } from "@/components/remote/CommonUtil.ts";
 import { Size } from "@/components/remote/GeometryInfo.ts";
 import {
@@ -101,14 +101,15 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   /**
    * Get the RemoteSettings from Hook. And the specific settings.
    */
-  const { uiSettings, setUiSettings } = useUISettings();
-  const { connectRemote } = useWebSocketStore();
-  const [showStatus, setShowStatus] = useState<boolean>(uiSettings.remoteSettings.showStatus);
-  const [maxWidth, setMaxWidth] = useState<number>(uiSettings.remoteSettings.maxWidth);
-  const [maxHeight, setMaxHeight] = useState<number>(uiSettings.remoteSettings.maxHeight);
-  const [maxFPS, setMaxFPS] = useState<number>(uiSettings.remoteSettings.maxFPS);
-  const [iFrameRate, setIFrameRate] = useState<number>(uiSettings.remoteSettings.iFrameRate);
-  const [bitRate, setBitRate] = useState<number>(uiSettings.remoteSettings.bitRate);
+  const remoteSettings = useUISetting((settings) => settings.remoteSettings);
+  const setUiSettings = useSetUISettings();
+  const connectRemote = useWebSocketStore((state) => state.connectRemote);
+  const [showStatus, setShowStatus] = useState<boolean>(remoteSettings.showStatus);
+  const [maxWidth, setMaxWidth] = useState<number>(remoteSettings.maxWidth);
+  const [maxHeight, setMaxHeight] = useState<number>(remoteSettings.maxHeight);
+  const [maxFPS, setMaxFPS] = useState<number>(remoteSettings.maxFPS);
+  const [iFrameRate, setIFrameRate] = useState<number>(remoteSettings.iFrameRate);
+  const [bitRate, setBitRate] = useState<number>(remoteSettings.bitRate);
   const [quality, setQuality] = useState<QualityParsed>({
     padAvgDecoded: "",
     padAvgDropped: "",
@@ -122,6 +123,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   const [keyListenStatus, setKeyListenStatus] = useState<boolean>(false);
   const [clipBoardText, setClipBoardText] = useState<string>("");
 
+  /** Performs the set value operation. */
   const setValue = (
     func: React.Dispatch<React.SetStateAction<number>>,
     e: ChangeEvent<HTMLInputElement>
@@ -130,13 +132,14 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     func(parseInt(value, 10));
   };
 
+  /** Handles the construct video setting workflow. */
   const constructVideoSetting: () => VideoSettings = () => {
     return new VideoSettings({
       lockedVideoOrientation: -1,
-      bounds: new Size(uiSettings.remoteSettings.maxWidth, uiSettings.remoteSettings.maxHeight),
-      maxFps: uiSettings.remoteSettings.maxFPS,
-      bitrate: uiSettings.remoteSettings.bitRate,
-      iFrameInterval: uiSettings.remoteSettings.iFrameRate,
+      bounds: new Size(remoteSettings.maxWidth, remoteSettings.maxHeight),
+      maxFps: remoteSettings.maxFPS,
+      bitrate: remoteSettings.bitRate,
+      iFrameInterval: remoteSettings.iFrameRate,
       sendFrameMeta: false,
     });
   };
@@ -155,6 +158,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     );
   };
 
+  /** Handles the btn trigger workflow. */
   const btnTrigger = (key: keyof typeof BTN_FUNC_MAP, type: number): (() => void) => {
     return () => {
       const action = BTN_FUNC_MAP[key];
@@ -165,52 +169,58 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     };
   };
 
+  /** Performs the toggle keyboard operation. */
   const toggleKeyboard = () => {
     const newKeyListenStatus = !keyListenStatus;
     setKeyListenStatus(newKeyListenStatus);
     scrcpyClientRef.current!.setHandleKeyboardEvents(newKeyListenStatus);
   };
 
+  /** Performs the save settings operation. */
   const saveSettings = () => {
-    setUiSettings({
-      ...uiSettings,
+    setUiSettings((settings) => ({
+      ...settings,
       remoteSettings: {
-        ...uiSettings.remoteSettings,
+        ...settings.remoteSettings,
         maxWidth: maxWidth,
         maxHeight: maxHeight,
         maxFPS: maxFPS,
         bitRate: bitRate,
         iFrameRate: iFrameRate,
       },
-    });
+    }));
     const videoSetting = constructVideoSetting();
     scrcpyClientRef.current!.setRequestedVideoSettings(videoSetting);
     const commandMsg = CommandControlMessage.createSetVideoSettingsCommand(videoSetting);
     scrcpyClientRef.current!.sendMessage(commandMsg);
   };
 
+  /** Performs the toggle show status operation. */
   const toggleShowStatus = (value: boolean) => {
     setShowStatus(value);
-    setUiSettings({
-      ...uiSettings,
+    setUiSettings((settings) => ({
+      ...settings,
       remoteSettings: {
-        ...uiSettings.remoteSettings,
+        ...settings.remoteSettings,
         showStatus: value,
       },
-    });
+    }));
     playerRef.current?.setShowQualityStats(value);
   };
 
+  /** Performs the set clip board operation. */
   const setClipBoard = () => {
     const commandMsg = CommandControlMessage.createSetClipboardCommand(clipBoardText);
     scrcpyClientRef.current!.sendMessage(commandMsg);
   };
 
+  /** Returns the get clip board result. */
   const getClipBoard = () => {
     const commandMsg = new CommandControlMessage(ControlMessage.TYPE_GET_CLIPBOARD);
     scrcpyClientRef.current!.sendMessage(commandMsg);
   };
 
+  /** Handles the on clip board received interaction. */
   const onClipBoardReceived = (text: string) => {
     setClipBoardText(text);
     try {
@@ -225,6 +235,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
    */
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
+  /** Returns the create view result. */
   const createView = (showType: "video" | "canvas") => {
     return {
       "canvas": () => {
@@ -308,6 +319,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
     let disposed = false;
 
+    /** Handles the cleanup workflow. */
     const cleanup = () => {
       try {
         playerRef.current?.stop?.();
@@ -338,6 +350,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
       viewRef.current = null;
     };
 
+    /** Performs the start operation. */
     const start = async () => {
       try {
         const ws = await connectRemote();
@@ -367,7 +380,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
             wsm.dispatchEvent("message", new MessageEvent("message", { data: buffer }));
           },
           false,
-          uiSettings.remoteSettings.enableSafeStream
+          remoteSettings.enableSafeStream
         );
 
         if (disposed) {
@@ -377,13 +390,13 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
         ws.sendJson({
           config_id: profileId,
-          decrypt: uiSettings.remoteSettings.enableSafeStream,
+          decrypt: remoteSettings.enableSafeStream,
         });
 
         const touch = document.createElement("canvas");
         touch.className = "absolute top-0 w-full h-full block select-none z-1";
 
-        const type = uiSettings.remoteSettings.streamPlayer as PlayerType;
+        const type = remoteSettings.streamPlayer as PlayerType;
 
         const videoSettings = constructVideoSetting();
 
@@ -494,7 +507,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Power size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Power size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("vol_dn", 0)}
@@ -502,7 +515,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Volume1 size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Volume1 size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("vol_up", 0)}
@@ -510,7 +523,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Volume2 size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Volume2 size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("back", 0)}
@@ -518,7 +531,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Play size={20} className="rounded w-4 h-4 -translate-x-2 scale-x-[-1]" />
+              <Play size={20} className="rounded w-4 h-4 scale-x-[-1]" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("home", 0)}
@@ -526,7 +539,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Circle size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Circle size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton
               onMouseDown={btnTrigger("switch", 0)}
@@ -534,17 +547,17 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
               className="ml-2 w-8 h-8"
               variant="secondary"
             >
-              <Squircle size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Squircle size={20} className="rounded w-4 h-4" />
             </CButton>
             <CButton onClick={screenshot} className="ml-2 w-8 h-8" variant="secondary">
-              <Camera size={20} className="rounded w-4 h-4 -translate-x-2" />
+              <Camera size={20} className="rounded w-4 h-4" />
             </CButton>
             <SwitchButton
               onChange={toggleKeyboard}
               checked={keyListenStatus}
               className="ml-2 w-8! h-8! p-0!"
             >
-              <Keyboard size={20} className="rounded w-4! h-4! translate-x-2" />
+              <Keyboard size={20} className="rounded w-4! h-4!" />
             </SwitchButton>
           </div>
         </SlideOutButton>

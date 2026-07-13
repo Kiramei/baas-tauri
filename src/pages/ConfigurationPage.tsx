@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 import { useApp } from "@/context/AppContext";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { ProfileProps } from "@/types/app";
 import WhiteListConfig from "@/features/WhiteListConfig.tsx";
 import ArtifactConfig from "@/features/ArtifactConfig.tsx";
@@ -44,6 +44,7 @@ import TeamConfig from "@/features/TeamConfig.tsx";
 import { PageKey } from "@/types/app";
 import { featureTranslationKey, i18nKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
+import FeaturePanelErrorBoundary from "@/components/FeaturePanelErrorBoundary";
 
 type Feature =
   | "cafe"
@@ -130,6 +131,7 @@ const cardVariants: Variants = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.18, ease: "easeOut" } },
 };
 
+/** Renders the motion card component. */
 const MotionCard: React.FC<
   React.PropsWithChildren<{ lowPerformanceMode: boolean; onClick?: () => void }>
 > = ({ children, lowPerformanceMode, onClick }) => (
@@ -154,10 +156,10 @@ const MotionCard: React.FC<
 const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   const pid = profileId ?? activeProfile?.id;
+  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
@@ -166,11 +168,13 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const [modalContent, setModalContent] = useState<Feature | null>(null);
   const [modalWidth, setModalWidth] = useState<number | null>(null);
 
+  /** Performs the open modal operation. */
   const openModal = (feature: Feature) => {
     setModalWidth(FeatureWidthDict[feature]);
     setModalContent(feature);
   };
 
+  /** Performs the close modal operation. */
   const closeModal = () => {
     setModalContent(null);
   };
@@ -190,6 +194,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
     [t("settings.general")]: ["server", "script", "emulator", "stage", "team", "push", "other"],
   };
 
+  /** Handles the render feature card workflow. */
   const renderFeatureCard = (feature: Feature) => {
     const { icon: Icon, descKey } = featureMap[feature];
     return (
@@ -198,7 +203,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         lowPerformanceMode={lowPerformanceMode}
         onClick={() => openModal(feature)}
       >
-        <CardHeader>
+        <CardHeader className="border-b-0">
           <div className="flex items-center gap-4">
             <div className="bg-primary-100 dark:bg-primary-900/50 p-3 rounded-lg">
               <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
@@ -253,11 +258,13 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           onClose={closeModal}
           width={modalWidth ?? 0}
         >
-          <CurrentModalContent
-            onClose={closeModal}
-            profileId={profile!.id}
-            setActivePage={setActivePage}
-          />
+          <FeaturePanelErrorBoundary closeLabel={t("common.cancel")} onClose={closeModal}>
+            <CurrentModalContent
+              onClose={closeModal}
+              profileId={profile!.id}
+              setActivePage={setActivePage}
+            />
+          </FeaturePanelErrorBoundary>
         </Modal>
       )}
     </div>

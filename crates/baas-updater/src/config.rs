@@ -18,6 +18,17 @@ use std::{
 /// Current configuration schema version.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
+/// Frontend/backend data transport used by desktop clients.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum BackendTransport {
+    /// Encrypted loopback WebSocket transport.
+    Websocket,
+    /// Windows named-pipe transport owned by the Tauri process.
+    #[default]
+    Pipe,
+}
+
 /// Default Python package indexes used by UV.
 pub fn default_pypi_sources() -> Vec<String> {
     PYPI_SOURCE_LIST
@@ -44,6 +55,7 @@ pub struct UpdaterConfig {
 }
 
 impl Default for UpdaterConfig {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             schema_version: CURRENT_SCHEMA_VERSION,
@@ -93,6 +105,8 @@ impl UpdaterConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GeneralConfig {
+    /// Frontend/backend data transport. Android always uses WebSocket.
+    pub transport: BackendTransport,
     /// MirrorC CDK. Empty means Git update mode.
     #[serde(alias = "mirrorc_cdk")]
     pub mirrorc_cdk: String,
@@ -125,8 +139,10 @@ pub struct GeneralConfig {
 }
 
 impl Default for GeneralConfig {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
+            transport: BackendTransport::Pipe,
             mirrorc_cdk: String::new(),
             channel: UpdateChannel::Stable,
             current_baas_sha: String::new(),
@@ -158,6 +174,7 @@ pub struct PathConfig {
 }
 
 impl Default for PathConfig {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             baas_root_path: String::new(),
@@ -211,6 +228,7 @@ pub struct PythonConfig {
 }
 
 impl Default for PythonConfig {
+    /// Handles the default workflow.
     fn default() -> Self {
         Self {
             runtime_path: "default".to_string(),
@@ -397,6 +415,7 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
     Ok(config)
 }
 
+/// Handles the string value workflow.
 fn string_value(table: &toml::map::Map<String, toml::Value>, key: &str) -> String {
     table
         .get(key)
@@ -405,6 +424,7 @@ fn string_value(table: &toml::map::Map<String, toml::Value>, key: &str) -> Strin
         .to_string()
 }
 
+/// Handles the first string value workflow.
 fn first_string_value(table: &toml::map::Map<String, toml::Value>, keys: &[&str]) -> String {
     keys.iter()
         .map(|key| string_value(table, key))
@@ -412,6 +432,7 @@ fn first_string_value(table: &toml::map::Map<String, toml::Value>, keys: &[&str]
         .unwrap_or_default()
 }
 
+/// Handles the bool value workflow.
 fn bool_value(table: &toml::map::Map<String, toml::Value>, key: &str, default: bool) -> bool {
     table
         .get(key)
@@ -423,17 +444,20 @@ fn bool_value(table: &toml::map::Map<String, toml::Value>, key: &str, default: b
 mod tests {
     use super::*;
 
+    /// Handles the default config uses stable channel and default runtime workflow.
     #[test]
     fn default_config_uses_stable_channel_and_default_runtime() {
         let config = UpdaterConfig::default();
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
+        assert_eq!(config.general.transport, BackendTransport::Pipe);
         assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
         assert!(!config.general.source_list.is_empty());
     }
 
+    /// Handles the migrates legacy setup toml workflow.
     #[test]
     fn migrates_legacy_setup_toml() {
         let config = migrate_toml(
@@ -476,6 +500,7 @@ TOOL_KIT_PATH = "tools"
         assert_eq!(config.paths.toolkit_path, "tools");
     }
 
+    /// Returns the reads current snake case setup toml result.
     #[test]
     fn reads_current_snake_case_setup_toml() {
         let config = migrate_toml(
@@ -524,6 +549,7 @@ cpp_sources = []
         assert_eq!(config.python.python_version, "3.11.0");
     }
 
+    /// Handles the current schema preserves legacy git backend override workflow.
     #[test]
     fn current_schema_preserves_legacy_git_backend_override() {
         let config = migrate_toml(
@@ -542,6 +568,7 @@ git_backend = "git2"
         assert_eq!(config.general.git_backend, GitBackend::Git2);
     }
 
+    /// Handles the legacy setup toml reads camel case git backend workflow.
     #[test]
     fn legacy_setup_toml_reads_camel_case_git_backend() {
         let config = migrate_toml(
@@ -555,6 +582,7 @@ gitBackend = "git_cli"
         assert_eq!(config.general.git_backend, GitBackend::GitCli);
     }
 
+    /// Returns the load save round trip and setters work result.
     #[test]
     fn load_save_round_trip_and_setters_work() {
         let dir = tempfile::tempdir().unwrap();
@@ -584,6 +612,7 @@ gitBackend = "git_cli"
         assert!(!saved.contains("runtimePath"));
     }
 
+    /// Handles the app data compat default path uses exe adjacent path workflow.
     #[test]
     fn app_data_compat_default_path_uses_exe_adjacent_path() {
         let dir = tempfile::tempdir().unwrap();
@@ -595,6 +624,7 @@ gitBackend = "git_cli"
         );
     }
 
+    /// Handles the rejects unknown channel text workflow.
     #[test]
     fn rejects_unknown_channel_text() {
         assert!(UpdateChannel::parse("nightly").is_err());

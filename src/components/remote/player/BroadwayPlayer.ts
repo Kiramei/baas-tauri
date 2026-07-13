@@ -37,6 +37,7 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
    */
   private avc?: DecoderInstance;
 
+  /** Handles the constructor workflow. */
   public constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -52,6 +53,7 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
     return typeof WebAssembly === "object" && typeof WebAssembly.instantiate === "function";
   }
 
+  /** Performs the init canvas operation. */
   protected initCanvas(width: number, height: number): void {
     super.initCanvas(width, height);
 
@@ -77,6 +79,7 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
     };
   }
 
+  /** Handles the decode workflow. */
   protected decode(data: Uint8Array): void {
     if (!this.avc) {
       return;

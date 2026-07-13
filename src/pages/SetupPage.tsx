@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { exit } from "@tauri-apps/plugin-process";
 import { Copy, RotateCcw } from "lucide-react";
@@ -10,6 +10,7 @@ import StorageUtil from "@/shared/StorageManager";
 import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
+import { reloadWithoutPrompt } from "@/shared/reload";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
@@ -26,6 +27,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    transport?: "websocket" | "pipe";
   };
   paths?: {
     baas_root_path?: string;
@@ -53,14 +55,18 @@ interface FailureInfo {
 }
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
+/** Handles the delay workflow. */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
+/** Performs the setup no update operation. */
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
+/** Handles the random password workflow. */
 const randomPassword = () => {
   if (globalThis.crypto?.randomUUID) {
     return `baas-${globalThis.crypto.randomUUID()}`;
@@ -68,6 +74,7 @@ const randomPassword = () => {
   return `baas-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+/** Performs the reset websocket runtime state operation. */
 const resetWebsocketRuntimeState = () => {
   const state = useWebSocketStore.getState();
   Object.values(state.connections).forEach((connection) => connection?.close());
@@ -94,6 +101,7 @@ const resetWebsocketRuntimeState = () => {
   });
 };
 
+/** Renders the setup page component. */
 const SetupPage = () => {
   const [started, setStarted] = useState(false);
   const [settingModal, setSettingModal] = useState(false);
@@ -110,12 +118,14 @@ const SetupPage = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
+  /** Handles the show workflow failure workflow. */
   const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
     pendingWorkflowRef.current = null;
     workflowStartedRef.current = false;
     setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
   }, []);
 
+  /** Handles the persist config workflow. */
   const persistConfig = useCallback(
     async (path = installPath, nextConfig = config) => {
       const updated = await invoke<UpdaterConfig>("updater_update_config", {
@@ -124,6 +134,7 @@ const SetupPage = () => {
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
           noUpdate: setupNoUpdate(nextConfig),
+          transport: nextConfig?.general?.transport ?? "pipe",
         },
       });
       setConfig(updated);
@@ -132,6 +143,7 @@ const SetupPage = () => {
     [config, installPath]
   );
 
+  /** Performs the start install operation. */
   const startInstall = useCallback(
     async (path = installPath, nextConfig = config) => {
       const targetPath = portable ? "." : path || installPath;
@@ -146,6 +158,7 @@ const SetupPage = () => {
     [config, installPath, portable]
   );
 
+  /** Performs the start workflow when terminal ready operation. */
   const startWorkflowWhenTerminalReady = useCallback(async () => {
     if (workflowStartedRef.current || !pendingWorkflowRef.current) return;
     workflowStartedRef.current = true;
@@ -169,6 +182,7 @@ const SetupPage = () => {
     }
   }, [persistConfig, showWorkflowFailure]);
 
+  /** Performs the ensure auto password operation. */
   const ensureAutoPassword = (forceNew = false) => {
     let password = StorageUtil.get<string>("baasAutoPassword");
     if (!password || forceNew) {
@@ -178,6 +192,7 @@ const SetupPage = () => {
     return password;
   };
 
+  /** Handles the authenticate backend workflow. */
   const authenticateBackend = useCallback(
     async (payload: BackendReadyPayload, forceNewPassword = false) => {
       StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
@@ -237,6 +252,7 @@ const SetupPage = () => {
     []
   );
 
+  /** Handles the handle abort interaction. */
   const handleAbort = async () => {
     abortingRef.current = true;
     pendingWorkflowRef.current = null;
@@ -253,6 +269,7 @@ const SetupPage = () => {
     }
   };
 
+  /** Handles the copy failure logs workflow. */
   const copyFailureLogs = () => {
     const text = terminalLogData
       .map((log) => `[${log.time}] [${log.level.toUpperCase()}] ${log.message}`)
@@ -261,6 +278,7 @@ const SetupPage = () => {
     toast.success("Logs copied to clipboard");
   };
 
+  /** Handles the return to setup workflow. */
   const returnToSetup = async () => {
     setFailure(null);
     try {
@@ -280,6 +298,7 @@ const SetupPage = () => {
             "updater_reset_backend_auth_and_restart"
           );
           await authenticateBackend(recovered, true);
+          reloadWithoutPrompt();
         } catch (retryError) {
           const firstMessage = error instanceof Error ? error.message : String(error);
           const retryMessage =

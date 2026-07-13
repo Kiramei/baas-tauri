@@ -26,8 +26,10 @@ interface FormSelectProps {
   className?: string;
   selectId?: string;
   disabled?: boolean;
+  ariaLabel?: string;
 }
 
+/** Renders the form select component. */
 export const FormSelect: React.FC<FormSelectProps> = ({
   label,
   tooltip,
@@ -38,12 +40,14 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   className,
   selectId,
   disabled = false,
+  ariaLabel,
 }) => {
   const autoId = React.useId();
   const id = selectId ?? autoId;
   const global = useGlobalSelect();
 
   const open = global ? global.openId === id : undefined;
+  /** Handles the handle open change interaction. */
   const handleOpenChange = (next: boolean) => {
     if (!global) return;
     global.setOpenId(next ? id : null);
@@ -67,7 +71,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
         }}
         {...(global && { open, onOpenChange: handleOpenChange })}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full" aria-label={ariaLabel}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 

@@ -52,6 +52,20 @@
     "overview": "タスク概要",
     "running": "実行中のタスク"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} が完了しました。",
+      "completedTitle": "BAAS タスク完了",
+      "failedBody": "{{task}} が異常終了しました。終了コード: {{exitCode}}。",
+      "failedTitle": "BAAS スクリプトが異常終了しました",
+      "startedBody": "{{task}} を開始しました。",
+      "startedTitle": "BAAS タスク開始"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 接続が切断されました。自動的に再接続しています。",
+      "disconnectedTitle": "BAAS サービスが切断されました"
+    }
+  },
   "time": {
     "daysAgo": "{{count}}日前",
     "hoursAgo": "{{count}}時間前",
@@ -61,32 +75,53 @@
   "settings": {
     "feature": "機能設定",
     "general": "一般設定",
+    "systemLogs": {
+      "allLevels": "全部级别",
+      "allSources": "全部来源",
+      "autoRefresh": "自动刷新",
+      "clear": "清理日志",
+      "clearConfirm": "确认清理 Tauri、前端和 Python 系统日志？",
+      "copied": "系统日志已复制",
+      "copy": "复制日志",
+      "count": "{{count}} 条日志",
+      "description": "查看客户端、前端和 Python 后端的诊断日志",
+      "empty": "没有符合条件的系统日志",
+      "export": "导出日志",
+      "followTail": "跟随末尾",
+      "level": "日志级别",
+      "open": "查看系统日志",
+      "refresh": "刷新日志",
+      "search": "搜索消息、模块或异常堆栈",
+      "source": "日志来源",
+      "title": "系统日志"
+    },
     "ui": {
       "$self": "UI設定",
       "assets": "資産詳細を表示",
-      "backgroundImage": "Background image",
-      "backgroundImageChoose": "Choose background",
-      "backgroundImageEmpty": "No background image set",
-      "backgroundImageInvalidType": "Only PNG, JPG, JPEG, WEBP, or GIF images are supported.",
-      "backgroundImageOpacity": "Background opacity",
-      "backgroundImageReadFailed": "Failed to read background image",
-      "backgroundImageRemove": "Remove background",
-      "backgroundImageSelected": "Background image set",
-      "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
+      "backgroundImage": "背景画像",
+      "backgroundImageChoose": "背景を選択",
+      "backgroundImageEmpty": "背景画像が設定されていません",
+      "backgroundImageInvalidType": "PNG、JPG、JPEG、WEBP、GIF 画像のみ対応しています。",
+      "backgroundImageOpacity": "背景の不透明度",
+      "backgroundImageReadFailed": "背景画像の読み込みに失敗しました",
+      "backgroundImageRemove": "背景を削除",
+      "backgroundImageSelected": "背景画像を設定しました",
+      "backgroundImageTooLarge": "背景画像は 5MB 以下にしてください。",
       "enableBAComet": "BAComet有効",
       "enableSafeStream": "安全ストリーム",
-      "lowPerformanceMode": "Low performance mode",
+      "enableSystemNotifications": "システム通知を有効化",
+      "lowPerformanceMode": "低パフォーマンスモード",
       "player": "プレイヤー",
-      "themeColor": "Theme color",
-      "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
-      "themeColorReset": "Reset color"
+      "themeColor": "テーマカラー",
+      "themeColorInvalid": "#RRGGBB 形式でテーマカラーを入力してください。",
+      "themeColorReset": "テーマカラーをリセット"
     },
     "updateSuccess": "設定の更新に成功しました"
   },
   "update": {
-    "backendAction": "Update BAAS",
-    "backendStarted": "BAAS update started",
-    "backendStartFailed": "Failed to start BAAS update",
+    "backendAction": "BAAS を更新",
+    "backendStarted": "BAAS の更新を開始しました",
+    "backendStartFailed": "BAAS の更新を開始できませんでした",
     "channel": "更新チャンネル",
     "dueDate": "有効期限",
     "enterCdk": "CDKを入力",
@@ -224,12 +259,13 @@
     "title": "Wikiドキュメント",
     "web": {
       "detach": "別ウィンドウ",
-      "detachedDescription": "The documentation site is open in a separate window. Focus that window, or close it and return the page to the main window.",
-      "detachedTitle": "Opened in a separate window",
+      "detachedDescription": "Web Wiki は別ウィンドウで開いています。",
+      "detachedTitle": "Web Wiki を分離",
       "failed": "Web Wikiの読み込みに失敗",
-      "focusDetached": "Focus separate window",
+      "focusDetached": "ウィンドウを表示",
       "loading": "Web Wikiを読み込み中...",
-      "openExternal": "Open in browser",
+      "openBrowser": "ブラウザで開く",
+      "openExternal": "外部で開く",
       "return": "戻る",
       "title": "Web Wiki"
     }
@@ -281,11 +317,11 @@
   },
   "cafe": {
     "$self": "カフェ",
-    "basicSettings": "カフェ基本設定",
+    "basicSettings": "基本設定",
     "byName": "生徒名順",
-    "cafe1Settings": "1号店カフェ設定",
+    "cafe1Settings": "カフェ1",
     "cafe1Students": "生徒名リスト",
-    "cafe2Settings": "2号店カフェ設定",
+    "cafe2Settings": "カフェ2",
     "cafe2Students": "生徒名リスト",
     "collectReward": "報酬を回収",
     "duplicateInvite": "重複招待",
@@ -545,6 +581,7 @@
   },
   "shaTest": {
     "method": "方法",
+    "results": "测试结果",
     "sha": "SHA値",
     "status": "ステータス",
     "testAll": "すべての方法をテスト",
@@ -641,6 +678,11 @@
   "toast": {
     "dateUpdated": "日付を更新しました",
     "timeUpdated": "時刻を更新しました"
+  },
+  "transport": {
+    "label": "データ転送方式",
+    "pipe": "名前付きパイプ（デスクトップ）",
+    "websocket": "WebSocket（互換）"
   },
   "ui": {
     "zoom": "UIズーム設定"

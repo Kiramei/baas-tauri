@@ -4,8 +4,14 @@ import {
   ControlConnection,
   randomUUID,
   rememberControlSession,
-  SecureWebSocket,
 } from "@/shared/SecureWebSocket";
+import {
+  configuredTransportMode,
+  normalizeTransportMode,
+  openBackendChannel,
+  startBackendTransport,
+} from "@/transport/factory";
+import type { BackendChannelName, BackendConnection } from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
@@ -21,8 +27,17 @@ import {
   WsName,
 } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
+import {
+  announceServiceTransportDisconnected,
+  transportRecoveryDelay,
+} from "@/shared/ServiceTransportEvents";
+import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
+
+/** Returns the resolve base result. */
+let activeWebSocketBase: string | null = null;
 
 const resolveBase = () => {
+  if (activeWebSocketBase) return activeWebSocketBase;
   if (import.meta.env.VITE_BAAS_WS_BASE) {
     return import.meta.env.VITE_BAAS_WS_BASE as string;
   }
@@ -31,6 +46,9 @@ const resolveBase = () => {
   if (storedAddr && storedPort) {
     return `ws://${storedAddr}:${Number(storedPort)}`;
   }
+  if (__WITH_ANDROID__) {
+    return "ws://127.0.0.1:8190";
+  }
   if (typeof window !== "undefined" && window.location.hostname) {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${wsProtocol}//${window.location.hostname}:8190`;
@@ -38,7 +56,8 @@ const resolveBase = () => {
   return "ws://127.0.0.1:8190";
 };
 
-const resolveHttpBase = () => {
+/** Returns the resolve http base result. */
+export const resolveHttpBase = () => {
   const wsBase = resolveBase();
   if (wsBase.startsWith("wss://")) return `https://${wsBase.slice("wss://".length)}`;
   if (wsBase.startsWith("ws://")) return `http://${wsBase.slice("ws://".length)}`;
@@ -47,16 +66,68 @@ const resolveHttpBase = () => {
 
 const { appendGlobalLog } = useGlobalLogStore.getState();
 const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+const ANDROID_STARTUP_UPDATE_DELAY_MS = 30 * 1000;
 let backendUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
+let backendUpdaterPollDelayTimer: ReturnType<typeof setTimeout> | null = null;
 let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
+let transportStartup:
+  | {
+      mode: "websocket" | "pipe";
+      promise: ReturnType<typeof startBackendTransport>;
+    }
+  | null = null;
+let transportStartupFailureAt = 0;
+let transportGeneration = 0;
+let transportRecoveryEpoch = 0;
+let transportRecoveryPromise: Promise<void> | null = null;
+let transportRecoveryMustRestart = false;
+let transportRecoveryRestarting = false;
+let transportOutageAnnounced = false;
+let transportSwitching = false;
+const desiredConnectionNames = new Set<WsName>();
+const connectionOpenPromises = new Map<WsName, Promise<void>>();
+const MAX_SYNC_PATCH_RETRIES = 3;
 
+type PendingSyncPatch = {
+  resource: string;
+  resourceId: string;
+  ops: Array<{ op: string; path: string; value: unknown }>;
+  retries: number;
+};
+
+const pendingSyncPatches = new Map<number, PendingSyncPatch>();
+
+/** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
+const startManagedBackendTransport = async (mode: "websocket" | "pipe") => {
+  if (Date.now() - transportStartupFailureAt < 5_000) {
+    throw new Error("Backend transport startup is cooling down after a failure");
+  }
+  if (transportStartup) {
+    if (transportStartup.mode === mode) return transportStartup.promise;
+    await transportStartup.promise.catch(() => undefined);
+  }
+  const promise = startBackendTransport(mode);
+  transportStartup = { mode, promise };
+  try {
+    const startup = await promise;
+    transportStartupFailureAt = 0;
+    return startup;
+  } catch (error) {
+    transportStartupFailureAt = Date.now();
+    throw error;
+  } finally {
+    if (transportStartup?.promise === promise) transportStartup = null;
+  }
+};
+
+/** Returns the is tauri no update enabled result. */
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   if (!__WITH_TAURI__) return false;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     const startup = await invoke<any>("updater_get_startup_state");
     const general = startup?.config?.general ?? {};
     return Boolean(general.no_update ?? general.noUpdate ?? false);
@@ -65,7 +136,55 @@ export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
   }
 };
 
-const checkBackendUpdater = () => {
+/** Handles the check backend updater workflow. */
+const checkBackendUpdater = async () => {
+  if (__WITH_TAURI__) {
+    if (backendUpdaterChecking) return;
+    backendUpdaterChecking = true;
+    const resetTimer = setTimeout(() => {
+      backendUpdaterChecking = false;
+    }, 30_000);
+    try {
+      const { invoke } = await import("@/shared/TauriInvoke");
+      const report = await invoke<any>("updater_check_version", { request: {} });
+      clearTimeout(resetTimer);
+      backendUpdaterChecking = false;
+      useWebSocketStore.setState((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          local: report.local,
+          remote: report.remote,
+          updateAvailable:
+            report.updateAvailable ?? report.update_available ?? report.local !== report.remote,
+          channel: report.channel ?? state.versionStore.channel,
+          method: report.method ?? state.versionStore.method,
+          checking: false,
+          lastChecked: Date.now(),
+        },
+      }));
+    } catch (error) {
+      clearTimeout(resetTimer);
+      backendUpdaterChecking = false;
+      appendGlobalLog({
+        level: "warning",
+        message: `Backend updater check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      } as any);
+      useWebSocketStore.setState((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          checking: false,
+          error: error instanceof Error ? error.message : String(error),
+          lastChecked: Date.now(),
+        },
+      }));
+    }
+    return;
+  }
+
   const store = useWebSocketStore.getState();
   if (
     backendUpdaterChecking ||
@@ -96,6 +215,7 @@ const checkBackendUpdater = () => {
           updateAvailable: event.data.update_available ?? event.data.local !== event.data.remote,
           channel: event.data.channel ?? state.versionStore.channel,
           method: event.data.method ?? state.versionStore.method,
+          checking: false,
           lastChecked: Date.now(),
         },
       }));
@@ -103,12 +223,35 @@ const checkBackendUpdater = () => {
   );
 };
 
-const startBackendUpdaterPolling = () => {
-  if (backendUpdaterPollTimer) return;
-  checkBackendUpdater();
-  backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+/** Performs the start backend updater polling operation. */
+const startBackendUpdaterPolling = (initialDelayMs = 0) => {
+  if (backendUpdaterPollTimer || backendUpdaterPollDelayTimer) return;
+
+  const beginPolling = () => {
+    backendUpdaterPollDelayTimer = null;
+    void checkBackendUpdater();
+    backendUpdaterPollTimer = setInterval(checkBackendUpdater, UPDATE_CHECK_INTERVAL_MS);
+  };
+
+  if (initialDelayMs > 0) {
+    backendUpdaterPollDelayTimer = setTimeout(beginPolling, initialDelayMs);
+    return;
+  }
+
+  beginPolling();
 };
 
+/** Handles the check android client update workflow. */
+const checkAndroidClientUpdate = async (currentVersion?: string) => {
+  const { invoke } = await import("@/shared/TauriInvoke");
+  return await invoke<any>("tauri_client_check_update", {
+    request: {
+      currentVersion,
+    },
+  });
+};
+
+/** Performs the reset connection stores operation. */
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   connections: {},
   pendingCallbacks: {},
@@ -120,6 +263,7 @@ const resetConnectionStores = (): Partial<WebSocketState> => ({
   _initiating: false,
 });
 
+/** Performs the reset data stores operation. */
 const resetDataStores = (): Partial<WebSocketState> => ({
   ...resetConnectionStores(),
   logStore: {},
@@ -131,6 +275,146 @@ const resetDataStores = (): Partial<WebSocketState> => ({
   versionStore: {},
 });
 
+/** Persists the dynamic loopback address returned by the managed backend. */
+const applyManagedBackendAddress = (startup: {
+  baseBackendAddr?: string;
+  baseBackendPort?: number;
+}) => {
+  if (!startup.baseBackendAddr || !startup.baseBackendPort) return;
+  activeWebSocketBase = `ws://${startup.baseBackendAddr}:${startup.baseBackendPort}`;
+  StorageUtil.set("baseBackendAddr", startup.baseBackendAddr);
+  StorageUtil.set("baseBackendPort", startup.baseBackendPort);
+};
+
+/** Invalidates close handlers from the old generation and clears business channels. */
+const closeBusinessConnections = (closeControl: boolean): number => {
+  transportGeneration += 1;
+  const state = useWebSocketStore.getState();
+  Object.values(state.connections).forEach((connection) => void connection?.close());
+  if (closeControl) state._control?.close();
+  useWebSocketStore.setState((current) => ({
+    ...current,
+    ...resetConnectionStores(),
+    ...(closeControl ? { _control: null, _session: null } : {}),
+  }));
+  return transportGeneration;
+};
+
+/** Reopens every core channel that the application had requested. */
+const connectDesiredChannels = async () => {
+  for (const name of ["provider", "sync", "trigger"] as const) {
+    if (desiredConnectionNames.has(name)) {
+      await useWebSocketStore.getState().connect(name);
+    }
+  }
+};
+
+/** Restores authentication after a managed backend restart. */
+const restoreTransportAuthentication = async (mode: "websocket" | "pipe") => {
+  if (mode === "pipe") {
+    activeWebSocketBase = null;
+    useWebSocketStore.setState({
+      _auth_phase: "authenticated",
+      _auth_error: null,
+      _server_initialized: true,
+      _server_verified: true,
+      _control: null,
+      _session: null,
+    });
+    return true;
+  }
+
+  useWebSocketStore.setState({
+    _auth_phase: "idle",
+    _auth_error: null,
+    _server_verified: false,
+    _control: null,
+    _session: null,
+  });
+  await useWebSocketStore.getState().startAuthFlow();
+  if (useWebSocketStore.getState()._auth_phase === "waiting_password") {
+    const password = __WITH_ANDROID__
+      ? getAndroidAutoPassword()
+      : StorageUtil.get<string>("baasAutoPassword");
+    if (!password) return false;
+    await useWebSocketStore.getState().submitPassword(password);
+  }
+  if (useWebSocketStore.getState()._auth_phase !== "authenticated") {
+    throw new Error(useWebSocketStore.getState()._auth_error || "Backend authentication failed");
+  }
+  return true;
+};
+
+/** Runs the single coalesced recovery loop shared by WebSocket and Pipe channels. */
+const runTransportRecovery = async (epoch: number) => {
+  let attempt = 0;
+  while (desiredConnectionNames.size > 0 && epoch === transportRecoveryEpoch) {
+    const mode = useWebSocketStore.getState().transportMode;
+    const restartBackend = transportRecoveryMustRestart;
+    transportRecoveryMustRestart = false;
+    transportRecoveryRestarting = restartBackend;
+    closeBusinessConnections(restartBackend);
+
+    try {
+      if (restartBackend) {
+        useWebSocketStore.setState({
+          _auth_phase: "control_connecting",
+          _auth_error: null,
+          _server_verified: mode === "pipe",
+        });
+        const startup = await startManagedBackendTransport(mode);
+        if (epoch !== transportRecoveryEpoch) return;
+        if (mode === "websocket") applyManagedBackendAddress(startup);
+        const authenticated = await restoreTransportAuthentication(mode);
+        if (epoch !== transportRecoveryEpoch) return;
+        if (!authenticated) return;
+      } else if (mode === "websocket" && !useWebSocketStore.getState()._session) {
+        transportRecoveryMustRestart = true;
+        continue;
+      }
+
+      if (transportRecoveryMustRestart) continue;
+      await connectDesiredChannels();
+      if (epoch !== transportRecoveryEpoch) return;
+      if (transportRecoveryMustRestart) continue;
+
+      transportOutageAnnounced = false;
+      transportRecoveryRestarting = false;
+      void useWebSocketStore.getState().init();
+      return;
+    } catch (error) {
+      transportRecoveryRestarting = false;
+      transportRecoveryMustRestart = true;
+      appendGlobalLog({
+        level: "warning",
+        message: `Backend ${mode} recovery failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      } as any);
+      await new Promise((resolve) => setTimeout(resolve, transportRecoveryDelay(attempt)));
+      attempt += 1;
+    }
+  }
+};
+
+/** Requests recovery without allowing concurrent channels to start duplicate restarts. */
+const requestTransportRecovery = (restartBackend = false): Promise<void> => {
+  if (desiredConnectionNames.size === 0) return Promise.resolve();
+  if (restartBackend && !transportRecoveryRestarting) {
+    transportRecoveryMustRestart = true;
+  }
+  if (!transportOutageAnnounced) {
+    transportOutageAnnounced = true;
+    announceServiceTransportDisconnected(useWebSocketStore.getState().transportMode);
+  }
+  transportRecoveryPromise ??= runTransportRecovery(transportRecoveryEpoch).finally(() => {
+    transportRecoveryRestarting = false;
+    transportRecoveryPromise = null;
+  });
+  return transportRecoveryPromise;
+};
+
+/** Performs the connect with retry operation. */
 const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
   const { connect } = useWebSocketStore.getState();
 
@@ -139,12 +423,15 @@ const connectWithRetry = async (name: WsName, retryInterval = 1000) => {
       await connect(name);
       return;
     } catch (error) {
-      console.error(`[${name}] connect failed, retrying in ${retryInterval}ms`, error);
+      console.error(`[${name}] connect failed, starting transport recovery`, error);
+      await requestTransportRecovery(true);
+      if (useWebSocketStore.getState().connections[name]) return;
       await new Promise((resolve) => setTimeout(resolve, retryInterval));
     }
   }
 };
 
+/** Handles the wait for workflow. */
 export const waitFor = <T>(
   get: () => any,
   subscribe: any,
@@ -177,6 +464,7 @@ export const waitFor = <T>(
   });
 };
 
+/** Handles the wait for normal workflow. */
 export const waitForNormal = <T>(
   getter: () => T,
   predicate: (val: T) => boolean,
@@ -187,6 +475,7 @@ export const waitForNormal = <T>(
     const start = Date.now();
     let timer: ReturnType<typeof setInterval> | null = null;
 
+    /** Handles the check workflow. */
     const check = () => {
       try {
         const val = getter();
@@ -211,6 +500,85 @@ void waitForNormal;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
+    transportMode: __WITH_TAURI__ ? "pipe" : "websocket",
+    setTransportMode: async (mode) => {
+      const nextMode = normalizeTransportMode(mode);
+      transportSwitching = true;
+      transportRecoveryEpoch += 1;
+      transportRecoveryMustRestart = false;
+      transportRecoveryRestarting = false;
+      transportOutageAnnounced = false;
+      const pendingRecovery = transportRecoveryPromise;
+      if (pendingRecovery) await pendingRecovery.catch(() => undefined);
+      closeBusinessConnections(true);
+      if (__WITH_TAURI__) {
+        try {
+          const { invoke } = await import("@/shared/TauriInvoke");
+          await invoke("backend_pipe_close_all");
+        } catch {
+          // The pipe manager may not have been started yet.
+        }
+      }
+      set((state) => ({
+        ...state,
+        ...resetConnectionStores(),
+        transportMode: nextMode,
+        _auth_phase: "idle",
+        _auth_error: null,
+        _server_initialized: false,
+        _server_verified: false,
+        _control: null,
+        _session: null,
+      }));
+      try {
+        const startup = await startManagedBackendTransport(nextMode);
+        if (nextMode === "pipe") {
+          activeWebSocketBase = null;
+          set((state) => ({
+            ...state,
+            _auth_phase: "authenticated",
+            _server_initialized: true,
+            _server_verified: true,
+          }));
+        } else {
+          applyManagedBackendAddress(startup);
+          transportSwitching = false;
+          await get().startAuthFlow();
+          await waitForNormal(
+            () => get()._auth_phase,
+            (phase) =>
+              phase === "waiting_password" ||
+              phase === "authenticated" ||
+              phase === "idle" ||
+              phase === "revoked",
+            15_000
+          );
+          if (get()._auth_phase === "waiting_password") {
+            const password = __WITH_ANDROID__
+              ? getAndroidAutoPassword()
+              : StorageUtil.get<string>("baasAutoPassword");
+            if (!password) {
+              throw new Error("The managed backend password is unavailable");
+            }
+            await get().submitPassword(password);
+          }
+          if (get()._auth_phase !== "authenticated") {
+            throw new Error(get()._auth_error || "Backend authentication failed");
+          }
+        }
+        await connectDesiredChannels();
+        void get().init();
+      } catch (error) {
+        set((state) => ({
+          ...state,
+          _auth_phase: "idle",
+          _auth_error: error instanceof Error ? error.message : String(error),
+        }));
+        throw error;
+      } finally {
+        transportSwitching = false;
+      }
+    },
     connections: {},
     logStore: {},
     configStore: {},
@@ -237,6 +605,70 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     checkTauriUpdater: async (notify = false, visible = false) => {
       if (!__WITH_TAURI__ || tauriUpdaterChecking) return;
+      set((state) => ({
+        ...state,
+        versionStore: {
+          ...state.versionStore,
+          tauri: {
+            ...(state.versionStore.tauri ?? {}),
+            currentVersion: state.versionStore.tauri?.currentVersion ?? __APP_VERSION__,
+            version: state.versionStore.tauri?.version ?? __APP_VERSION__,
+            checking: true,
+            error: null,
+          },
+        },
+      }));
+      if (__WITH_ANDROID__) {
+        tauriUpdaterChecking = true;
+        try {
+          const { getVersion } = await import("@tauri-apps/api/app");
+          const currentVersion = await getVersion().catch(() => __APP_VERSION__);
+          const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                ...nextTauriVersion,
+                currentVersion: nextTauriVersion.currentVersion ?? currentVersion,
+              },
+            },
+          }));
+          if (nextTauriVersion.updateAvailable) {
+            if (notify && tauriUpdaterNotifiedVersion !== nextTauriVersion.version) {
+              toast.info(t("update.tauriAvailable"), {
+                description: nextTauriVersion.version,
+              });
+              tauriUpdaterNotifiedVersion = nextTauriVersion.version;
+            }
+          } else {
+            tauriUpdaterNotifiedVersion = null;
+            if (visible) toast.success(t("update.tauriUpToDate"));
+          }
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              tauri: {
+                ...(state.versionStore.tauri ?? {}),
+                checking: false,
+                updateAvailable: false,
+                lastChecked: Date.now(),
+                error: error instanceof Error ? error.message : String(error),
+              },
+            },
+          }));
+          if (visible) {
+            toast.error(t("update.tauriFailed"), {
+              description: error instanceof Error ? error.message : String(error),
+            });
+          }
+        } finally {
+          tauriUpdaterChecking = false;
+        }
+        return;
+      }
       if (await isTauriNoUpdateEnabled()) {
         tauriUpdaterNotifiedVersion = null;
         set((state) => ({
@@ -255,26 +687,13 @@ export const useWebSocketStore = create<WebSocketState>()(
         return;
       }
       tauriUpdaterChecking = true;
-      if (visible) {
-        set((state) => ({
-          ...state,
-          versionStore: {
-            ...state.versionStore,
-            tauri: {
-              ...(state.versionStore.tauri ?? {}),
-              checking: true,
-              error: null,
-            },
-          },
-        }));
-      }
 
       try {
         const [{ check }, { getVersion }] = await Promise.all([
           import("@tauri-apps/plugin-updater"),
           import("@tauri-apps/api/app"),
         ]);
-        const currentVersion = await getVersion().catch(() => undefined);
+        const currentVersion = await getVersion().catch(() => __APP_VERSION__);
         const update = await check();
         const nextTauriVersion = update
           ? {
@@ -337,13 +756,51 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     startTauriUpdaterPolling: () => {
       if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
-      void get().checkTauriUpdater(true, false);
-      tauriUpdaterPollTimer = setInterval(() => {
+      const check = () => {
         void get().checkTauriUpdater(true, false);
-      }, UPDATE_CHECK_INTERVAL_MS);
+      };
+      tauriUpdaterPollTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+      if (__WITH_ANDROID__) {
+        setTimeout(check, ANDROID_STARTUP_UPDATE_DELAY_MS);
+        return;
+      }
+      check();
     },
 
     startAuthFlow: async () => {
+      if (transportSwitching) return;
+      const authGeneration = transportGeneration;
+      const transportMode = await configuredTransportMode();
+      if (transportSwitching || authGeneration !== transportGeneration) return;
+      if (transportMode === "pipe") {
+        if (get()._auth_phase === "authenticated") return;
+        set((state) => ({
+          ...state,
+          ...resetConnectionStores(),
+          transportMode,
+          _auth_phase: "control_connecting",
+          _auth_error: null,
+          _server_initialized: true,
+          _server_verified: true,
+          _control: null,
+          _session: null,
+        }));
+        try {
+          await startManagedBackendTransport(transportMode);
+          if (transportSwitching || authGeneration !== transportGeneration) return;
+          activeWebSocketBase = null;
+          set((state) => ({ ...state, _auth_phase: "authenticated" }));
+        } catch (error) {
+          if (transportSwitching || authGeneration !== transportGeneration) return;
+          set((state) => ({
+            ...state,
+            _auth_phase: "idle",
+            _auth_error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+        return;
+      }
+
       const phase = get()._auth_phase;
       if (
         get()._control ||
@@ -360,6 +817,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       set((state) => ({
         ...state,
+        transportMode: "websocket",
         _auth_phase: "control_connecting",
         _auth_error: phase === "revoked" ? state._auth_error : null,
         _server_verified: false,
@@ -367,6 +825,14 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       try {
         const control = await ControlConnection.open(`${resolveBase()}/ws/control`);
+        if (
+          transportSwitching ||
+          authGeneration !== transportGeneration ||
+          get().transportMode !== "websocket"
+        ) {
+          control.close();
+          return;
+        }
         control.onSecureMessage = (payload) => {
           if (payload.type === "heartbeat") {
             set((state) => ({ ...state, _heartbeat_time: payload.timestamp }));
@@ -374,6 +840,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
           if (payload.type === "auth_revoked") {
             const activeControl = get()._control;
+            transportGeneration += 1;
             activeControl?.close();
             Object.values(get().connections).forEach((connection) => connection?.close());
             set((state) => ({
@@ -393,20 +860,21 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
         };
 
+        const controlGeneration = authGeneration;
         control.onClose = () => {
           if (get()._control !== control) return;
+          if (controlGeneration !== transportGeneration) return;
           if (get()._auth_phase === "authenticated") {
-            Object.values(get().connections).forEach((connection) => connection?.close());
             set((state) => ({
               ...state,
-              ...resetConnectionStores(),
-              _auth_phase: "revoked",
-              _auth_error: "Control connection closed. Authenticate again.",
+              _auth_phase: "idle",
+              _auth_error: "Control connection closed. Reconnecting.",
               _server_initialized: true,
               _server_verified: false,
               _control: null,
               _session: null,
             }));
+            void requestTransportRecovery(true);
           } else {
             set((state) => ({
               ...state,
@@ -432,6 +900,14 @@ export const useWebSocketStore = create<WebSocketState>()(
         if (control.initialized) {
           set((state) => ({ ...state, _auth_phase: "resuming", _auth_error: null }));
           const session = await control.resumeWithCookie();
+          if (
+            transportSwitching ||
+            authGeneration !== transportGeneration ||
+            get().transportMode !== "websocket"
+          ) {
+            control.close();
+            return;
+          }
           if (session) {
             set((state) => ({
               ...state,
@@ -450,6 +926,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         set((state) => ({ ...state, _auth_phase: "waiting_password" }));
       } catch (error) {
+        if (transportSwitching || authGeneration !== transportGeneration) return;
         console.error("[control] failed to connect", error);
         set((state) => ({
           ...state,
@@ -462,6 +939,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     submitPassword: async (password: string) => {
+      if (get().transportMode === "pipe") return;
       const secret = password.trim();
       if (!secret) {
         set((state) => ({
@@ -504,6 +982,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           _control: control,
           _session: session,
         }));
+        if (transportOutageAnnounced) void requestTransportRecovery(false);
       } catch (error) {
         console.error("[control] authentication failed", error);
         control.close();
@@ -520,16 +999,20 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     connect: async (name: WsName) => {
+      if (!name.startsWith("remote-")) desiredConnectionNames.add(name);
       if (get().connections[name]) return;
+      const pendingOpen = connectionOpenPromises.get(name);
+      if (pendingOpen) return pendingOpen;
+
+      const opening = (async () => {
+        const connectionGeneration = transportGeneration;
       const session = get()._session;
-      if (!session) {
+      const transportMode = get().transportMode;
+      if (transportMode === "websocket" && !session) {
         throw new Error("No authenticated session is available");
       }
-
-      let url = "";
-      if (name === "provider") url = `${resolveBase()}/ws/provider`;
-      if (name === "sync") url = `${resolveBase()}/ws/sync`;
-      if (name === "trigger") url = `${resolveBase()}/ws/trigger`;
+      const channel = (name.startsWith("remote-") ? "remote" : name) as BackendChannelName;
+      console.info(`[transport] opening ${transportMode} channel=${channel} name=${name}`);
 
       const resourceCallBack: WsCallBackDict = {
         config: (message: WsMessageItem) => {
@@ -598,9 +1081,11 @@ export const useWebSocketStore = create<WebSocketState>()(
               Object.entries(state.eventStore).filter(([id]) => message.data.includes(id))
             );
             const log_kept = Object.fromEntries(
-              Object.entries(state.logStore).filter(([key]) =>
-                message.data.some((id: string) => key === `config:${id}`)
-              )
+              Object.entries(state.logStore).filter(([key]) => {
+                // Keep provider-owned scopes such as global logs while pruning removed config scopes.
+                if (!key.startsWith("config:")) return true;
+                return message.data.some((id: string) => key === `config:${id}`);
+              })
             );
             const status_kept = Object.fromEntries(
               Object.entries(state.statusStore).filter(([id]) => message.data.includes(id))
@@ -621,7 +1106,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         "logs_full": (message: WsMessageItem) => {
           const scopes = message.scopes ?? [];
-          const log_added: { [key: string]: LogItem[] } = Object.fromEntries(
+          const logSnapshot: { [key: string]: LogItem[] } = Object.fromEntries(
             scopes.map((id) => [id, []])
           );
           message.entries?.forEach((entry: RawLogItem) => {
@@ -630,10 +1115,16 @@ export const useWebSocketStore = create<WebSocketState>()(
               level: entry.level,
               message: entry.message,
             };
-            log_added[entry.scope].push(info);
+            if (!logSnapshot[entry.scope]) logSnapshot[entry.scope] = [];
+            logSnapshot[entry.scope].push(info);
             if (entry.scope === "global") appendGlobalLog(info);
           });
-          set(() => ({ logStore: log_added }));
+          set((state) => ({
+            logStore: {
+              ...state.logStore,
+              ...logSnapshot,
+            },
+          }));
         },
 
         "log": (message: WsMessageItem) => {
@@ -659,11 +1150,10 @@ export const useWebSocketStore = create<WebSocketState>()(
           const data = message.status;
           if (typeof data === "string" || !data) return;
           if ("is_all_data_initialized" in data) {
-            set((state) => ({ ...state, _all_data_initialized: true }));
+            set({ _all_data_initialized: true });
           } else if ("version" in data) {
             const version = (data as any).version;
             set((state) => ({
-              ...state,
               versionStore: {
                 ...state.versionStore,
                 local: version.local,
@@ -676,16 +1166,15 @@ export const useWebSocketStore = create<WebSocketState>()(
           } else {
             const firstKey = Object.keys(data)[0];
             if (typeof data[firstKey] === "object" && "config_id" in data[firstKey]) {
-              Object.keys(data).forEach((key) => {
-                set((state) => ({
-                  statusStore: {
-                    ...state.statusStore,
-                    [key]: {
-                      ...(state.statusStore[key] ?? {}),
-                      ...(data[key] as StatusItem),
-                    },
-                  },
-                }));
+              set((state) => {
+                const statusStore = { ...state.statusStore };
+                Object.keys(data).forEach((key) => {
+                  statusStore[key] = {
+                    ...(statusStore[key] ?? {}),
+                    ...(data[key] as StatusItem),
+                  };
+                });
+                return { statusStore };
               });
             } else {
               set((state) => ({
@@ -756,6 +1245,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
 
         "patch_ack": (message: WsMessageItem) => {
+          pendingSyncPatches.delete(message.timestamp!);
           const callback = get().pendingCallbacks[message.timestamp!];
           if (callback) {
             callback();
@@ -764,9 +1254,74 @@ export const useWebSocketStore = create<WebSocketState>()(
             console.warn("CallBack Not Found:", message);
           }
         },
+
+        "patch_conflict": (message: WsMessageItem) => {
+          resourceCallBack[message.resource!]?.(message);
+
+          const requestTimestamp = Number(message.request_timestamp);
+          const pending = pendingSyncPatches.get(requestTimestamp);
+          const callback = get().pendingCallbacks[requestTimestamp];
+          pendingSyncPatches.delete(requestTimestamp);
+          delete get().pendingCallbacks[requestTimestamp];
+          if (!pending) return;
+
+          if (pending.retries >= MAX_SYNC_PATCH_RETRIES) {
+            appendGlobalLog({
+              level: "error",
+              message: `Sync patch retry limit reached for ${pending.resource}:${pending.resourceId}`,
+            } as any);
+            return;
+          }
+
+          let retryTimestamp = Math.max(
+            getTimestampMs(),
+            Math.ceil(Number(message.timestamp) || 0)
+          );
+          while (pendingSyncPatches.has(retryTimestamp) || get().pendingCallbacks[retryTimestamp]) {
+            retryTimestamp += 1;
+          }
+
+          pendingSyncPatches.set(retryTimestamp, {
+            ...pending,
+            retries: pending.retries + 1,
+          });
+          if (callback) get().pendingCallbacks[retryTimestamp] = callback;
+          get().send("sync", {
+            type: "patch",
+            resource_id: pending.resourceId,
+            resource: pending.resource,
+            timestamp: retryTimestamp,
+            ops: pending.ops,
+          });
+        },
       };
 
-      const ws = new SecureWebSocket(url, name, session, "arraybuffer");
+      const ws = await openBackendChannel({
+        mode: transportMode,
+        channel,
+        name,
+        baseUrl: resolveBase(),
+        session,
+      });
+      let connectionErrored = false;
+      ws.onClose = () => {
+        set((state) => {
+          if (state.connections[name] !== ws) return state;
+          const next = { ...state.connections };
+          delete next[name];
+          return { connections: next };
+        });
+        if (
+          connectionGeneration === transportGeneration &&
+          desiredConnectionNames.has(name)
+        ) {
+          void requestTransportRecovery(connectionErrored);
+        }
+      };
+      ws.onError = (event) => {
+        connectionErrored = true;
+        console.error("Socket error:", event);
+      };
       await ws.connect((message: any) => {
         if (message instanceof ArrayBuffer) {
           const timestamp = get().pendingBinaryQueue.shift();
@@ -781,33 +1336,47 @@ export const useWebSocketStore = create<WebSocketState>()(
         }
         callbackDict[message.type]?.(message as WsMessageItem);
       });
+      if (connectionGeneration !== transportGeneration) {
+        await ws.close();
+        return;
+      }
+      console.info(`[transport] opened ${transportMode} channel=${channel} name=${name}`);
 
-      ws.onClose = () => {
-        set((state) => {
-          const next = { ...state.connections };
-          delete next[name];
-          return { connections: next };
-        });
-      };
-
-      ws.onError = (event) => console.error("Socket error:", event);
-
-      set((state) => ({
-        connections: {
-          ...state.connections,
-          [name]: ws,
-        },
-      }));
+        set((state) => ({
+          connections: {
+            ...state.connections,
+            [name]: ws,
+          },
+        }));
+      })();
+      connectionOpenPromises.set(name, opening);
+      try {
+        await opening;
+      } finally {
+        if (connectionOpenPromises.get(name) === opening) {
+          connectionOpenPromises.delete(name);
+        }
+      }
     },
 
-    connectRemote: async (): Promise<SecureWebSocket> => {
+    connectRemote: async (): Promise<BackendConnection> => {
+      if (__WITH_ANDROID__) {
+        throw new Error("Remote control is disabled on Android.");
+      }
       const session = get()._session;
-      if (!session) {
+      const transportMode = get().transportMode;
+      if (transportMode === "websocket" && !session) {
         throw new Error("No authenticated session is available");
       }
       const unique = randomUUID();
       const name = `remote-${unique}` as `remote-${string}`;
-      const ws = new SecureWebSocket(`${resolveBase()}/ws/remote`, name, session, "arraybuffer");
+      const ws = await openBackendChannel({
+        mode: transportMode,
+        channel: "remote",
+        name,
+        baseUrl: resolveBase(),
+        session,
+      });
 
       ws.hookClose = () => {
         set((state) => {
@@ -828,6 +1397,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     disconnect: (name: WsName) => {
+      desiredConnectionNames.delete(name);
       const conn = get().connections[name];
       if (conn) {
         conn.close();
@@ -839,6 +1409,8 @@ export const useWebSocketStore = create<WebSocketState>()(
       }
     },
 
+    recoverTransport: () => requestTransportRecovery(true),
+
     send: (name: WsName, data: any) => {
       const conn = get().connections[name];
       conn?.sendJson(data);
@@ -849,6 +1421,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get()._auth_phase !== "authenticated") return;
 
       set((state) => ({ ...state, _initiating: true }));
+      console.info(`[transport] initializing data over ${get().transportMode}`);
 
       await StorageUtil.init();
 
@@ -884,6 +1457,10 @@ export const useWebSocketStore = create<WebSocketState>()(
           get().send("sync", { type: "pull", resource: "config", resource_id: key });
         });
 
+        Object.keys(get().configStore).forEach((key: string) => {
+          get().send("sync", { type: "pull", resource: "event", resource_id: key });
+        });
+
         await waitFor(
           get,
           api.subscribe,
@@ -891,20 +1468,76 @@ export const useWebSocketStore = create<WebSocketState>()(
           (length) => length > 0
         );
 
-        Object.keys(get().configStore).forEach((key: string) => {
-          get().send("sync", { type: "pull", resource: "event", resource_id: key });
-        });
-
         await connectWithRetry("trigger");
 
-        startBackendUpdaterPolling();
+        const skipBackendUpdater = await isTauriNoUpdateEnabled();
+        if (skipBackendUpdater && __WITH_ANDROID__) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              local: "android-bundled",
+              remote: "android-bundled",
+              updateAvailable: false,
+              channel: "dev",
+              method: "disabled",
+              lastChecked: Date.now(),
+            },
+          }));
+        } else if (__WITH_ANDROID__) {
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              updateAvailable: false,
+              channel: state.updateStore?.channel ?? "dev",
+              method: "deferred",
+              checking: true,
+            },
+          }));
+          startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
+        } else if (skipBackendUpdater) {
+          let local: string | null = null;
+          try {
+            const { invoke } = await import("@/shared/TauriInvoke");
+            const startup = await invoke<any>("updater_get_startup_state");
+            const general = startup?.config?.general ?? {};
+            local =
+              general.current_baas_sha ??
+              general.currentBaasSha ??
+              general.current_baas_version ??
+              null;
+          } catch (error) {
+            appendGlobalLog({
+              level: "warning",
+              message: `Failed to read the local backend version: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            } as any);
+          }
+          set((state) => ({
+            ...state,
+            versionStore: {
+              ...state.versionStore,
+              local,
+              remote: null,
+              updateAvailable: false,
+              channel: state.updateStore?.channel ?? "stable",
+              method: "disabled",
+              checking: false,
+              lastChecked: Date.now(),
+            },
+          }));
+        } else {
+          startBackendUpdaterPolling();
 
-        await waitFor(
-          get,
-          api.subscribe,
-          (state: WebSocketState) => state.versionStore,
-          (versionStore) => Object.keys(versionStore).length > 0
-        );
+          await waitFor(
+            get,
+            api.subscribe,
+            (state: WebSocketState) => state.versionStore,
+            (versionStore) => Object.keys(versionStore).length > 0
+          );
+        }
 
         await waitFor(
           get,
@@ -913,7 +1546,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           (status) => status
         );
       } finally {
-        set((state) => ({ ...state, _initiating: false }));
+        set({ _initiating: false });
       }
     },
 
@@ -961,7 +1594,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         if (resourceId === "global") {
           return {
-            ...state,
             [storeKey]: {
               ...store,
               ...base,
@@ -970,7 +1602,6 @@ export const useWebSocketStore = create<WebSocketState>()(
         }
 
         return {
-          ...state,
           [storeKey]: {
             ...store,
             [resourceId]: base,
@@ -981,7 +1612,8 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     modify: (path: string, patch: any, showToast = false) => {
       const [resourceId, scope] = path.split("::");
-      const timestamp = getTimestampMs();
+      let timestamp = getTimestampMs();
+      while (pendingSyncPatches.has(timestamp) || get().pendingCallbacks[timestamp]) timestamp += 1;
       const ops = isPlainObject(patch)
         ? Object.entries(patch).map(([key, value]) => ({
             op: "replace",
@@ -1003,6 +1635,12 @@ export const useWebSocketStore = create<WebSocketState>()(
           });
         }
       };
+      pendingSyncPatches.set(timestamp, {
+        resource: scope,
+        resourceId,
+        ops,
+        retries: 0,
+      });
 
       get().send("sync", {
         type: "patch",

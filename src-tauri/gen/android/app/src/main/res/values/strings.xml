@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">BAAS Tauri</string>
+    <string name="main_activity_title">BAAS Tauri</string>
+    <string name="baas_backend_channel_name">BAAS 后台服务</string>
+    <string name="baas_backend_channel_description">保持 BAAS 后端运行，以支持从通知栏启停脚本。</string>
+    <string name="baas_backend_notification_title">BAAS 后端运行中</string>
+    <string name="baas_backend_notification_text">点击通知启停脚本。</string>
+    <string name="baas_backend_notification_toggle_action">启停脚本</string>
+    <string name="baas_backend_notification_toggling">正在切换脚本状态...</string>
+    <string name="baas_accessibility_description">允许 BAAS 在本机 Android 环境中读取屏幕并执行点击、滑动操作。</string>
+    <string name="baas_accessibility_summary">用于 Android 本机脚本控制。</string>
+</resources>

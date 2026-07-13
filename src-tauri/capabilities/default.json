@@ -4,8 +4,11 @@
   "description": "Capability for the main window",
   "windows": ["main", "baas-wiki-viewer"],
   "webviews": ["main", "baas-wiki-viewer"],
+  "platforms": ["windows", "macOS", "linux"],
   "permissions": [
     "core:default",
+    "default",
+    "allow-mobile-commands",
     "core:webview:allow-create-webview-window",
     "core:window:allow-center",
     "core:window:allow-destroy",

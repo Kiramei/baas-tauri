@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, ExternalLink, Loader2, Maximize2, RotateCcw } from "lucide-react";
+import AndroidRemoteWiki from "@/components/AndroidRemoteWiki";
 import { Button } from "@/components/ui/Button";
 import {
   getWebWikiWindow,
@@ -17,7 +18,7 @@ const WikiPage: React.FC = () => {
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "failed">("loading");
 
   useEffect(() => {
-    if (!__WITH_TAURI__) return;
+    if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
 
     let cleanup: Array<() => void> = [];
     (async () => {
@@ -46,6 +47,7 @@ const WikiPage: React.FC = () => {
   }, [detached, loadState]);
 
   const detachWiki = useCallback(async () => {
+    if (__WITH_ANDROID__) return;
     if (!__WITH_TAURI__) {
       window.open(WEB_WIKI_URL, "_blank", "noopener,noreferrer");
       return;
@@ -55,6 +57,20 @@ const WikiPage: React.FC = () => {
     setLoadState("loading");
     await openWebWikiWindow("detached", t("wiki.web.title"));
   }, [t]);
+
+  const openWikiInBrowser = useCallback(async () => {
+    if (__WITH_TAURI__) {
+      try {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(WEB_WIKI_URL);
+        return;
+      } catch (error) {
+        console.error("[wiki] failed to open system browser:", error);
+      }
+    }
+
+    window.open(WEB_WIKI_URL, "_blank", "noopener,noreferrer");
+  }, []);
 
   const focusDetachedWiki = useCallback(async () => {
     const detachedWindow = await getWebWikiWindow();
@@ -72,6 +88,36 @@ const WikiPage: React.FC = () => {
     setDetached(false);
     setLoadState("loading");
   }, []);
+
+  if (__WITH_ANDROID__) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <header className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {t("wiki.title")}
+            </h1>
+            <p className="max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+              {t("wiki.subtitle")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="self-start sm:self-auto"
+            onClick={() => openWikiInBrowser().catch(console.error)}
+          >
+            <ExternalLink className="h-4 w-4" />
+            {t("wiki.web.openBrowser")}
+          </Button>
+        </header>
+
+        <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+          <AndroidRemoteWiki />
+        </div>
+      </div>
+    );
+  }
 
   if (detached) {
     return (
@@ -133,7 +179,7 @@ const WikiPage: React.FC = () => {
         </Button>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700">
+      <div className="relative min-h-0 flex-1 overflow-hidden border border-slate-200 bg-white shadow-sm dark:border-slate-700">
         <iframe
           title={t("wiki.web.title")}
           src={WEB_WIKI_URL}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 
@@ -19,6 +19,7 @@ interface Draft {
   TacticalChallengeShopRefreshTime: number | string;
 }
 
+/** Renders the shop config component. */
 const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
   profileId,
   onClose,
@@ -78,14 +79,10 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
 
   /** draft = local editing state */
   const [draft, setDraft] = useState<Draft>(ext);
-
-  /** Keep the draft in sync when external updates arrive. */
-  useEffect(() => {
-    setDraft(ext);
-  }, [ext]);
+  const [baseline] = useState<Draft>(ext);
 
   /** Dirty check. */
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   /** Toggle whether an item is enabled. */
   const toggleItem = (tab: TabKey, i: number) => {
@@ -127,7 +124,7 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
     }
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (draft[k] !== ext[k]) {
+      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
         patch[k] = draft[k] as any;
       }
     });

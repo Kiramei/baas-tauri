@@ -6,24 +6,26 @@ import React, {
   useRef,
   useState,
 } from "react";
+import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/Button";
-import { Copy, Terminal as TerminalIcon } from "lucide-react";
+import { CircleSlash2, Copy, LoaderCircle, Terminal as TerminalIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
+import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
 
 export interface TerminalHandle {
-  write: (chunk: string) => void;
+  write: (chunk: string, onRendered?: () => void) => void;
   reset: () => void;
   resize: () => void;
   setRunning: (running: boolean) => void;
 }
 
-type TermTaskStatus = "idle" | "pending" | "running" | "success" | "failed" | "stopped";
+type TermTaskStatus = "idle" | "pending" | "running" | "success" | "skipped" | "failed" | "stopped";
 
 interface TermChunkPayload {
   sessionId: string;
@@ -125,11 +127,13 @@ interface TermViewerProps {
   onSessionFinished?: (success: boolean) => void;
 }
 
+/** Renders the term emulator component. */
 const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
 
+  /** Handles the resize workflow. */
   const resize = () => {
     const term = termRef.current;
     const fit = fitRef.current;
@@ -145,7 +149,7 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      write: (chunk: string) => termRef.current?.write(chunk),
+      write: (chunk: string, onRendered?: () => void) => termRef.current?.write(chunk, onRendered),
       reset: () => {
         const term = termRef.current;
         if (!term) return;
@@ -189,12 +193,10 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
     termRef.current = term;
     fitRef.current = fit;
 
-    const observer = new ResizeObserver(() => resize());
-    observer.observe(hostRef.current);
-    requestAnimationFrame(() => resize());
+    const stopObserving = observeResizeOnAnimationFrame(hostRef.current, resize);
 
     return () => {
-      observer.disconnect();
+      stopObserving();
       fit.dispose();
       term.dispose();
       termRef.current = null;
@@ -212,6 +214,7 @@ const statusClass: Record<TermTaskStatus, string> = {
   pending: "border-slate-400 bg-slate-300 dark:border-slate-600 dark:bg-slate-700",
   running: "border-blue-300 bg-blue-500 shadow-blue-500/40",
   success: "border-green-300 bg-green-500 shadow-green-500/30",
+  skipped: "border-slate-500 bg-slate-900",
   failed: "border-red-300 bg-red-500 shadow-red-500/30",
   stopped: "border-yellow-300 bg-yellow-500 shadow-yellow-500/30",
 };
@@ -221,6 +224,7 @@ const statusEdgeClass: Record<TermTaskStatus, string> = {
   pending: "#94a3b8",
   running: "#3b82f6",
   success: "#22c55e",
+  skipped: "#64748b",
   failed: "#ef4444",
   stopped: "#eab308",
 };
@@ -230,6 +234,7 @@ const statusLabel: Record<TermTaskStatus, string> = {
   pending: "Pending",
   running: "Running",
   success: "Success",
+  skipped: "Skipped",
   failed: "Failed",
   stopped: "Stopped",
 };
@@ -239,13 +244,16 @@ const statusPillClass: Record<TermTaskStatus, string> = {
   pending: "border-slate-600 bg-slate-800 text-slate-200",
   running: "border-blue-400/40 bg-blue-500/15 text-blue-200",
   success: "border-green-400/40 bg-green-500/15 text-green-200",
+  skipped: "border-slate-500/60 bg-slate-700/30 text-slate-300",
   failed: "border-red-400/40 bg-red-500/15 text-red-200",
   stopped: "border-yellow-400/40 bg-yellow-500/15 text-yellow-100",
 };
 
+/** Returns the is terminal task status result. */
 const isTerminalTaskStatus = (status?: TermTaskStatus) =>
-  status === "success" || status === "failed" || status === "stopped";
+  status === "success" || status === "skipped" || status === "failed" || status === "stopped";
 
+/** Returns the format duration result. */
 const formatDuration = (durationMs?: number) => {
   if (durationMs === undefined) return null;
   if (durationMs < 1000) return `${durationMs}ms`;
@@ -256,6 +264,7 @@ const formatDuration = (durationMs?: number) => {
   return `${minutes}m ${rest}s`;
 };
 
+/** Handles the fallback duration workflow. */
 const fallbackDuration = (task: TermTaskView) => {
   if (task.durationMs !== undefined) return task.durationMs;
   if (!task.startedAt || !task.finishedAt) return undefined;
@@ -266,6 +275,7 @@ const fallbackDuration = (task: TermTaskView) => {
   return finished - started;
 };
 
+/** Returns the format time result. */
 const formatTime = (value?: string) => {
   if (!value) return null;
   const timestamp = Date.parse(value);
@@ -273,6 +283,7 @@ const formatTime = (value?: string) => {
   return new Date(timestamp).toLocaleTimeString();
 };
 
+/** Handles the strip ansi workflow. */
 const stripAnsi = (value: string) =>
   value.replace(
     // eslint-disable-next-line no-control-regex
@@ -280,6 +291,7 @@ const stripAnsi = (value: string) =>
     ""
   );
 
+/** Handles the planned tasks from nodes workflow. */
 const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
   const planned: Record<string, TermTaskView> = {};
   for (const node of nodes) {
@@ -299,6 +311,7 @@ const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
   return planned;
 };
 
+/** Renders the workflow node dot component. */
 const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
   const duration = task.status === "success" ? formatDuration(fallbackDuration(task)) : null;
   const startedAt = formatTime(task.startedAt);
@@ -311,9 +324,13 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
           className="relative flex h-4.5 w-4.5 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           aria-label={`${task.name}: ${task.status}`}
         >
-          <div
-            className={`h-3.5 w-3.5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
-          />
+          {task.status === "skipped" ? (
+            <CircleSlash2 className="h-4 w-4 text-slate-500" strokeWidth={2.25} />
+          ) : (
+            <div
+              className={`h-3.5 w-3.5 rounded-full border-2 shadow-sm transition ${statusClass[task.status]}`}
+            />
+          )}
           {duration && (
             <span className="pointer-events-none absolute left-0 translate-x-4 -top-2  whitespace-nowrap text-[9px] font-medium leading-none text-green-600 dark:text-green-300 text-shadow-sm text-shadow-accent-100">
               {duration}
@@ -383,12 +400,14 @@ const WorkflowNodeDot: React.FC<{ task: TermTaskView }> = ({ task }) => {
   );
 };
 
+/** Renders the workflow graph component. */
 const WorkflowGraph: React.FC<{
   tasks: Record<string, TermTaskView>;
   edges: WorkflowEdgePayload[];
 }> = ({ tasks, edges }) => {
   const graphRef = useRef<HTMLDivElement | null>(null);
   const [graphWidth, setGraphWidth] = useState(602);
+  /** Handles the task list workflow. */
   const taskList = useMemo(
     () =>
       Object.values(tasks).sort(
@@ -400,13 +419,12 @@ const WorkflowGraph: React.FC<{
   useEffect(() => {
     const node = graphRef.current;
     if (!node) return;
+    /** Performs the update operation. */
     const update = () => setGraphWidth(Math.max(240, node.clientWidth));
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeResizeOnAnimationFrame(node, update);
   }, []);
 
+  /** Handles the layout workflow. */
   const layout = useMemo(() => {
     const byStage = new Map<number, TermTaskView[]>();
     for (const task of taskList) {
@@ -463,11 +481,61 @@ const WorkflowGraph: React.FC<{
             const y1 = from.y + layout.nodeSize / 2;
             const x2 = to.x;
             const y2 = to.y + layout.nodeSize / 2;
-            const mid = x1 + Math.max(8, (x2 - x1) / 2);
+            const source = tasks[edge.from];
+            const crossesIntermediateStage = source && target && target.stage - source.stage > 1;
+            let path: string;
+            if (crossesIntermediateStage) {
+              const clearance = 4;
+              let topControlY = Number.POSITIVE_INFINITY;
+              let bottomControlY = Number.NEGATIVE_INFINITY;
+              for (const obstacle of taskList) {
+                if (obstacle.taskId === edge.from || obstacle.taskId === edge.to) continue;
+                const obstaclePosition = layout.positions.get(obstacle.taskId);
+                if (!obstaclePosition) continue;
+                const obstacleX = obstaclePosition.x + layout.nodeSize / 2;
+                if (obstacleX <= x1 || obstacleX >= x2) continue;
+                const t = (obstacleX - x1) / (x2 - x1);
+                const inverseT = 1 - t;
+                const controlWeight = 2 * inverseT * t;
+                const endpointY = inverseT * inverseT * y1 + t * t * y2;
+                topControlY = Math.min(
+                  topControlY,
+                  (obstaclePosition.y - clearance - endpointY) / controlWeight
+                );
+                bottomControlY = Math.max(
+                  bottomControlY,
+                  (obstaclePosition.y + layout.nodeSize + clearance - endpointY) / controlWeight
+                );
+              }
+
+              if (Number.isFinite(topControlY) && Number.isFinite(bottomControlY)) {
+                const routeCost = (controlY: number) => {
+                  let overflow = 0;
+                  for (let sample = 1; sample < 10; sample += 1) {
+                    const t = sample / 10;
+                    const inverseT = 1 - t;
+                    const y = inverseT * inverseT * y1 + 2 * inverseT * t * controlY + t * t * y2;
+                    overflow += Math.max(0, 3 - y, y - (layout.height - 3));
+                  }
+                  return Math.abs(controlY - y1) + Math.abs(controlY - y2) + overflow * 100;
+                };
+                const controlY =
+                  routeCost(topControlY) <= routeCost(bottomControlY)
+                    ? topControlY
+                    : bottomControlY;
+                path = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${controlY}, ${x2} ${y2}`;
+              } else {
+                const mid = x1 + Math.max(8, (x2 - x1) / 2);
+                path = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+              }
+            } else {
+              const mid = x1 + Math.max(8, (x2 - x1) / 2);
+              path = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+            }
             return (
               <path
                 key={`${edge.from}-${edge.to}`}
-                d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
+                d={path}
                 stroke={color}
                 strokeWidth="2"
                 fill="none"
@@ -494,6 +562,7 @@ const WorkflowGraph: React.FC<{
   );
 };
 
+/** Renders the term viewer component. */
 const TermViewer: React.FC<TermViewerProps> = ({
   onAbort,
   onReady,
@@ -512,8 +581,12 @@ const TermViewer: React.FC<TermViewerProps> = ({
   const appendTerminalLogRef = useRef(appendTerminalLog);
   const appendTerminalLogsRef = useRef(appendTerminalLogs);
   const concreteFailureRef = useRef(false);
+  const terminalOutputSeenRef = useRef(false);
   const [tasks, setTasks] = useState<Record<string, TermTaskView>>({});
   const [edges, setEdges] = useState<WorkflowEdgePayload[]>([]);
+  const [terminalDisplayState, setTerminalDisplayState] = useState<
+    "preparing" | "active" | "empty"
+  >("preparing");
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -523,6 +596,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
     appendTerminalLogsRef.current = appendTerminalLogs;
   }, [appendTerminalLog, appendTerminalLogs, onFailure, onReady, onSessionFinished]);
 
+  /** Handles the copy logs workflow. */
   const copyLogs = () => {
     const text = terminalLogData
       .map((l) => `[${l.time}] [${l.level.toUpperCase()}] ${l.message}`)
@@ -537,15 +611,22 @@ const TermViewer: React.FC<TermViewerProps> = ({
     let chunkBuffer = "";
     let chunkFrame: number | null = null;
     const capturedStableRegions = new Set<string>();
+    const pendingStableRegions = new Map<string, TermStableRegionPayload>();
 
+    /** Handles the flush chunks workflow. */
     const flushChunks = () => {
       chunkFrame = null;
       if (!chunkBuffer) return;
       const chunk = chunkBuffer;
       chunkBuffer = "";
-      terminalRef.current?.write(chunk);
+      terminalRef.current?.write(chunk, () => {
+        if (disposed) return;
+        terminalOutputSeenRef.current = true;
+        setTerminalDisplayState("active");
+      });
     };
 
+    /** Performs the write chunk operation. */
     const writeChunk = (chunk: string) => {
       chunkBuffer += chunk;
       if (chunkFrame === null) {
@@ -553,6 +634,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
       }
     };
 
+    /** Performs the append status log operation. */
     const appendStatusLog = (level: string, message: string) => {
       appendTerminalLogRef.current({
         message,
@@ -561,6 +643,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
       });
     };
 
+    /** Performs the append stable region log operation. */
     const appendStableRegionLog = (payload: TermStableRegionPayload) => {
       if (capturedStableRegions.has(payload.regionId)) return;
       capturedStableRegions.add(payload.regionId);
@@ -582,6 +665,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
       );
     };
 
+    /** Handles the bind events workflow. */
     async function bindEvents() {
       const listeners = await Promise.all([
         listen<WorkflowPlannedPayload>("term:workflow-planned", (event) => {
@@ -595,7 +679,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
         }),
         listen<TermStableRegionPayload>("term:region-stable", (event) => {
           if (disposed) return;
-          appendStableRegionLog(event.payload);
+          pendingStableRegions.set(event.payload.taskId, event.payload);
         }),
         listen<TermTaskStartedPayload>("term:task-started", (event) => {
           if (disposed) return;
@@ -655,12 +739,17 @@ const TermViewer: React.FC<TermViewerProps> = ({
           if (payload.status === "failed" || payload.status === "stopped") {
             const message = payload.error || `${payload.taskId} ${payload.status}`;
             appendStatusLog(payload.status === "failed" ? "error" : "warning", message);
+            const stableRegion = pendingStableRegions.get(payload.taskId);
+            if (stableRegion) {
+              appendStableRegionLog(stableRegion);
+            }
             concreteFailureRef.current = true;
             onFailureRef.current?.({ step: payload.taskId, message });
           }
         }),
         listen<TermSessionFinishedPayload>("term:session-finished", (event) => {
           if (disposed) return;
+          if (!terminalOutputSeenRef.current) setTerminalDisplayState("empty");
           flushChunks();
           terminalRef.current?.setRunning(false);
           onSessionFinishedRef.current?.(event.payload.success);
@@ -676,7 +765,10 @@ const TermViewer: React.FC<TermViewerProps> = ({
           terminalRef.current?.setRunning(true);
           terminalRef.current?.reset();
           concreteFailureRef.current = false;
+          terminalOutputSeenRef.current = false;
           capturedStableRegions.clear();
+          pendingStableRegions.clear();
+          setTerminalDisplayState("preparing");
           setTasks({});
           setEdges([]);
         }),
@@ -750,8 +842,26 @@ const TermViewer: React.FC<TermViewerProps> = ({
 
       <WorkflowGraph tasks={tasks} edges={edges} />
 
-      <div className="flex-1 overflow-auto p-2 font-mono text-xs bg-black/90 dark:bg-black/50 text-gray-300">
+      <div className="relative flex-1 overflow-auto bg-black/90 p-2 font-mono text-xs text-gray-300 dark:bg-black/50">
         <TermEmulator ref={terminalRef} />
+        {terminalDisplayState !== "active" && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-black/90 dark:bg-black/50"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2 text-slate-400">
+              {terminalDisplayState === "preparing" && (
+                <LoaderCircle className="h-4 w-4 animate-spin text-cyan-400" />
+              )}
+              <span>
+                {terminalDisplayState === "preparing"
+                  ? "Preparing terminal..."
+                  : "No terminal output."}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { PageKey } from "@/types/app";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -10,6 +10,7 @@ interface MainLayoutProps {
   setActivePage: (page: PageKey) => void;
 }
 
+/** Coordinates the use zoom hook behavior. */
 export function useZoom(scale: number) {
   const ref = useRef<HTMLDivElement | null>(null);
   let _scale = scale;
@@ -26,9 +27,10 @@ export function useZoom(scale: number) {
   return ref;
 }
 
+/** Renders the main layout component. */
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
-  const { uiSettings } = useUISettings();
-  const zoomRef = useZoom(uiSettings?.zoomScale / 100);
+  const zoomScale = useUISetting((settings) => settings.zoomScale);
+  const zoomRef = useZoom(zoomScale / 100);
   return (
     <div
       className="flex h-full w-full overflow-hidden text-slate-800 dark:text-slate-200"

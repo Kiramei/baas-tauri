@@ -45,6 +45,7 @@ export const useRemoteHotkeys = (t: TFunction, enabled: boolean) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Handles the reload workflow. */
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -63,6 +64,7 @@ export const useRemoteHotkeys = (t: TFunction, enabled: boolean) => {
     if (enabled) reload();
   }, [enabled, reload]);
 
+  /** Performs the save operation. */
   const save = useCallback(async (list: HotkeyConfig[]) => {
     await saveHotkeys(list);
   }, []);
@@ -75,6 +77,7 @@ export const useRemoteHotkeys = (t: TFunction, enabled: boolean) => {
  * Only normalized combos that have a matching handler are registered.
  */
 export function useBindHotkeyHandlers(hotkeys: HotkeyConfig[] | null, handlers: HotkeyHandlers) {
+  /** Handles the combo map workflow. */
   const comboMap = useMemo(() => {
     const map = new Map<string, () => void>();
     if (!hotkeys) return map;
@@ -88,6 +91,7 @@ export function useBindHotkeyHandlers(hotkeys: HotkeyConfig[] | null, handlers: 
   }, [hotkeys, handlers]);
 
   useEffect(() => {
+    /** Handles the on key interaction. */
     const onKey = (e: KeyboardEvent) => {
       const fn = comboMap.get(eventToCombo(e));
       if (fn) {

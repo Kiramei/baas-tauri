@@ -5,6 +5,7 @@ import StorageUtil from "@/shared/StorageManager.ts";
 const baseUrl = import.meta.env.BASE_URL;
 const selfKey = "$self";
 
+/** Handles the flatten locale workflow. */
 function flattenLocale(value: unknown, prefix = "", output: Record<string, string> = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return output;
 
@@ -25,10 +26,11 @@ function flattenLocale(value: unknown, prefix = "", output: Record<string, strin
   return output;
 }
 
+/** Performs the sync backend locale operation. */
 async function syncBackendLocale(lang: string) {
-  if (!__WITH_TAURI__) return;
+  if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("set_backend_locale", { lang });
   } catch (err) {
     console.error(`[i18n] failed to sync backend locale ${lang}:`, err);
@@ -53,7 +55,7 @@ export async function initI18n() {
     interpolation: { escapeValue: false },
   });
 
-  await syncBackendLocale(lang);
+  await loadLocale(lang);
 
   console.log("[i18n] initialized");
 }

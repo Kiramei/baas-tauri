@@ -60,6 +60,7 @@ struct RegisteredBinding {
 }
 
 impl RegisteredBinding {
+    /// Handles the to public workflow.
     fn to_public(&self) -> ShortcutRegisteredBinding {
         ShortcutRegisteredBinding {
             id: self.id.clone(),
@@ -68,6 +69,7 @@ impl RegisteredBinding {
         }
     }
 
+    /// Handles the to payload workflow.
     fn to_payload(&self) -> ShortcutTogglePayload {
         ShortcutTogglePayload {
             id: self.id.clone(),
@@ -83,6 +85,7 @@ pub struct ShortcutRegistry {
 }
 
 impl ShortcutRegistry {
+    /// Handles the snapshot workflow.
     fn snapshot(&self) -> Result<HashMap<Shortcut, RegisteredBinding>, String> {
         self.bindings
             .lock()
@@ -90,6 +93,7 @@ impl ShortcutRegistry {
             .map(|bindings| bindings.clone())
     }
 
+    /// Handles the replace workflow.
     fn replace(&self, next: HashMap<Shortcut, RegisteredBinding>) -> Result<(), String> {
         let mut bindings = self
             .bindings
@@ -99,6 +103,7 @@ impl ShortcutRegistry {
         Ok(())
     }
 
+    /// Handles the binding for workflow.
     fn binding_for(&self, shortcut: &Shortcut) -> Result<Option<RegisteredBinding>, String> {
         self.bindings
             .lock()
@@ -107,6 +112,7 @@ impl ShortcutRegistry {
     }
 }
 
+/// Performs the install global shortcut plugin operation.
 pub fn install_global_shortcut_plugin<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     app.plugin(
         tauri_plugin_global_shortcut::Builder::new()
@@ -126,6 +132,7 @@ pub fn install_global_shortcut_plugin<R: Runtime>(app: &AppHandle<R>) -> tauri::
     )
 }
 
+/// Performs the apply shortcut bindings operation.
 pub fn apply_shortcut_bindings<R: Runtime>(
     app: AppHandle<R>,
     registry: &ShortcutRegistry,
@@ -199,6 +206,7 @@ struct PreparedBindings {
     rejected: Vec<ShortcutRejectedBinding>,
 }
 
+/// Handles the prepare bindings workflow.
 fn prepare_bindings(bindings: Vec<ShortcutBindingRequest>) -> PreparedBindings {
     let mut next = HashMap::new();
     let mut rejected = Vec::new();
@@ -244,6 +252,7 @@ fn prepare_bindings(bindings: Vec<ShortcutBindingRequest>) -> PreparedBindings {
     }
 }
 
+/// Returns the parse shortcut result.
 fn parse_shortcut(accelerator: &str) -> Result<Shortcut, &'static str> {
     let parts = accelerator
         .split('+')
@@ -281,6 +290,7 @@ fn parse_shortcut(accelerator: &str) -> Result<Shortcut, &'static str> {
     Ok(Shortcut::new((!mods.is_empty()).then_some(mods), key))
 }
 
+/// Returns the parse key result.
 fn parse_key(key: &str) -> Result<Code, &'static str> {
     match key {
         "0" => Ok(Code::Digit0),
@@ -354,6 +364,7 @@ fn parse_key(key: &str) -> Result<Code, &'static str> {
     }
 }
 
+/// Handles the rejected from request workflow.
 fn rejected_from_request(
     binding: &ShortcutBindingRequest,
     reason: impl Into<String>,
@@ -366,6 +377,7 @@ fn rejected_from_request(
     }
 }
 
+/// Handles the rejected from binding workflow.
 fn rejected_from_binding(
     binding: &RegisteredBinding,
     reason: impl Into<String>,
@@ -378,6 +390,7 @@ fn rejected_from_binding(
     }
 }
 
+/// Handles the default enabled workflow.
 fn default_enabled() -> bool {
     true
 }
@@ -386,6 +399,7 @@ fn default_enabled() -> bool {
 mod tests {
     use super::*;
 
+    /// Returns the parses default accelerators result.
     #[test]
     fn parses_default_accelerators() {
         assert!(parse_shortcut("Ctrl+Alt+Shift+1").is_ok());
@@ -393,6 +407,7 @@ mod tests {
         assert!(parse_shortcut("Ctrl+Alt+Shift+F12").is_ok());
     }
 
+    /// Handles the rejects modifier only shortcuts workflow.
     #[test]
     fn rejects_modifier_only_shortcuts() {
         assert_eq!(
@@ -401,6 +416,7 @@ mod tests {
         );
     }
 
+    /// Handles the detects duplicate accelerators workflow.
     #[test]
     fn detects_duplicate_accelerators() {
         let prepared = prepare_bindings(vec![
@@ -423,6 +439,7 @@ mod tests {
         assert_eq!(prepared.rejected[0].reason, "duplicate accelerator");
     }
 
+    /// Handles the ignores disabled or empty bindings workflow.
     #[test]
     fn ignores_disabled_or_empty_bindings() {
         let prepared = prepare_bindings(vec![

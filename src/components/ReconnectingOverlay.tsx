@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import PasswordInputModal from "@/components/PasswordInputModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 const reconnectingMessages: Record<string, string> = {
   idle: "Opening secure control channel...",
@@ -15,6 +15,7 @@ const reconnectingMessages: Record<string, string> = {
   revoked: "Re-establishing backend connection...",
 };
 
+/** Renders the reconnecting overlay component. */
 const ReconnectingOverlay: React.FC = () => {
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);
@@ -22,8 +23,7 @@ const ReconnectingOverlay: React.FC = () => {
   const serverVerified = useWebSocketStore((state) => state._server_verified);
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const requiresPassword =
     authPhase === "server_verified" ||
     authPhase === "waiting_password" ||
@@ -94,16 +94,18 @@ const ReconnectingOverlay: React.FC = () => {
         </div>
       </motion.div>
 
-      <PasswordInputModal
-        open={requiresPassword}
-        setupMode={!serverInitialized}
-        serverVerified={serverVerified}
-        submitting={authPhase === "initializing" || authPhase === "authenticating"}
-        error={authError}
-        onConfirm={async (password: string) => {
-          await submitPassword(password);
-        }}
-      />
+      {!__WITH_ANDROID__ && (
+        <PasswordInputModal
+          open={requiresPassword}
+          setupMode={!serverInitialized}
+          serverVerified={serverVerified}
+          submitting={authPhase === "initializing" || authPhase === "authenticating"}
+          error={authError}
+          onConfirm={async (password: string) => {
+            await submitPassword(password);
+          }}
+        />
+      )}
     </>
   );
 };

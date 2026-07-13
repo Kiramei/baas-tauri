@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import {
   Select,
@@ -41,6 +41,7 @@ type Draft = {
   }[];
 };
 
+/** Renders the artifact config component. */
 const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
 
@@ -63,20 +64,16 @@ const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) =
   }, [settings]);
 
   const [draft, setDraft] = useState<Draft>(ext);
-
-  /** Reset the draft whenever the upstream configuration changes. */
-  useEffect(() => {
-    setDraft(ext);
-  }, [ext]);
+  const [baseline] = useState<Draft>(ext);
 
   /** Track whether the user has modified the draft state. */
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   /** Persist only the fields that have diverged from the server baseline. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
+      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
         (patch as any)[k] = draft[k];
       }
     });
@@ -173,6 +170,7 @@ type ArtifactPhaseConfigProps = {
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
 };
 
+/** Renders the artifact phase config component. */
 const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
   settings,
   phase,
@@ -202,6 +200,7 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
 
   const staticConfig = useWebSocketStore((state) => state.staticStore);
 
+  /** Returns the get phase2 recommended priority result. */
   const getPhase2RecommendedPriority = (name: string): string[] => {
     const indexes = staticConfig.create_phase2_recommended_priority[name];
     const originPriority =

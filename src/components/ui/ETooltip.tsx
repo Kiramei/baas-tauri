@@ -7,6 +7,7 @@ interface EllipsisWithTooltipProps {
   className?: string;
 }
 
+/** Renders the ellipsis with tooltip component. */
 export const EllipsisWithTooltip: React.FC<EllipsisWithTooltipProps> = ({
   text,
   tooltip,

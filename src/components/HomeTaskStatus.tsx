@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { eventNameKey } from "@/shared/I18nKeys";
 
+/** Renders the task status component. */
 export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

@@ -1,7 +1,7 @@
 //! Shared constants for terminal session orchestration and rendering.
 //!
 //! These values define public-facing behavior or cross-module timing/terminal
-//! semantics. Demo-only sample data intentionally stays in `demo.rs`.
+//! semantics.
 
 /// Default terminal row count used when a session starts before any resize.
 pub const DEFAULT_TERMINAL_ROWS: u16 = 32;
@@ -21,15 +21,11 @@ pub const PTY_PIXEL_WIDTH: u16 = 0;
 /// Pixel height passed to PTY resize calls when cell dimensions are unknown.
 pub const PTY_PIXEL_HEIGHT: u16 = 0;
 
-/// Number of steps shown by the built-in demo flow.
-pub const DEMO_STEP_TOTAL: u8 = 4;
+/// Default total step count used by legacy task constructors.
+pub const DEFAULT_TASK_STEP_TOTAL: u8 = 4;
 
 /// Default maximum number of recent output lines shown per region while tasks run.
 pub const DEFAULT_RUNNING_REGION_MAX_LINES: usize = 3;
-
-/// Default maximum number of recent output lines shown per region while tasks run.
-#[deprecated(note = "use DEFAULT_RUNNING_REGION_MAX_LINES; per-task overrides live on TaskSpec")]
-pub const RUNNING_REGION_MAX_LINES: usize = DEFAULT_RUNNING_REGION_MAX_LINES;
 
 /// Maximum number of historical lines retained per renderer region.
 pub const REGION_MAX_KEPT_LINES: usize = 2_000;
@@ -78,6 +74,9 @@ pub const STATUS_RUNNING: &str = "running";
 
 /// Status string for successful tasks.
 pub const STATUS_SUCCESS: &str = "success";
+
+/// Status string for tasks intentionally omitted by workflow conditions.
+pub const STATUS_SKIPPED: &str = "skipped";
 
 /// Status string for failed tasks.
 pub const STATUS_FAILED: &str = "failed";

@@ -5,6 +5,7 @@ import { FormInput } from "@/components/ui/FormInput.tsx";
 import ADBSeekModal from "@/components/ADBSeekModal.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig } from "@/types/dynamic";
+import { buildServerOptions } from "@/shared/serverOptions";
 
 interface ServerConfigProps {
   profileId: string;
@@ -17,11 +18,13 @@ interface Draft {
   adbPort: string;
 }
 
+/** Renders the server config component. */
 const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const { t } = useTranslation();
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
   const modify = useWebSocketStore((state) => state.modify);
 
+  /** Handles the ext workflow. */
   const ext = React.useMemo(() => {
     return {
       server: settings.server,
@@ -33,10 +36,12 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const [draft, setDraft] = React.useState(ext);
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
+  /** Handles the handle change interaction. */
   const handleChange = (key: string) => (value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** Handles the handle save interaction. */
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
@@ -54,6 +59,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
     onClose();
   };
 
+  /** Handles the handle input change interaction. */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setDraft((prev) => ({ ...prev, [name]: value }));
@@ -66,14 +72,7 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
         value={draft.server}
         disabled={true}
         onChange={handleChange("server")}
-        options={[
-          { label: t("server.cn.official"), value: "官服" },
-          { label: t("server.cn.bilibili"), value: "B服" },
-          { label: t("server.global"), value: "国际服" },
-          { label: t("server.global.teen"), value: "国际服青少年" },
-          { label: t("server.kr.one"), value: "韩国ONE" },
-          { label: t("server.jp"), value: "日服" },
-        ]}
+        options={buildServerOptions(t)}
       />
 
       <FormInput

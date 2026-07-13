@@ -5,7 +5,7 @@ import { ClipboardPaste, Copy, RotateCw, SearchCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { reloadWithoutPrompt } from "@/shared/reload";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type MenuState = {
   x: number;
@@ -84,8 +84,7 @@ const openInspector = async (webuiHint: string) => {
 
 const GlobalContextMenu: React.FC = () => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [menu, setMenu] = React.useState<MenuState | null>(null);
 
   const close = React.useCallback(() => setMenu(null), []);

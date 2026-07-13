@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import {
   AppWindow,
   CheckCircle2,
+  ChevronDown,
   Cloud,
   Download,
   GitBranch,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
+import { resolveClientVersion } from "@/shared/ClientVersion";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
@@ -45,6 +47,7 @@ import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
+import { SystemLogSettings } from "@/components/SystemLogSettings";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -66,6 +69,24 @@ type ShaTestResult = {
   status: "pending" | "success" | "error" | "testing";
   time?: string;
   sha?: string;
+};
+
+type TauriBackendVersionReport = {
+  local?: string | null;
+  remote?: string | null;
+  updateAvailable?: boolean;
+  update_available?: boolean;
+  channel?: string;
+  method?: string;
+};
+
+type TauriShaMethodReport = {
+  success: boolean;
+  name: string;
+  order?: number;
+  duration: number;
+  value?: string | null;
+  error?: string | null;
 };
 
 const reposInit: RepoConfig[] = [
@@ -135,6 +156,11 @@ const backgroundMimeByExtension: Record<string, string> = {
   webp: "image/webp",
 };
 
+const isPresentVersionValue = (value: unknown) => value !== "" && value !== undefined;
+const shortDesktopShaOrNull = (value: unknown) =>
+  typeof value === "string" && /^[0-9a-f]{7,64}$/i.test(value) ? value.slice(0, 6) : null;
+
+/** Handles the bytes to base64 workflow. */
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = "";
   const chunkSize = 0x8000;
@@ -144,11 +170,13 @@ const bytesToBase64 = (bytes: Uint8Array) => {
   return btoa(binary);
 };
 
+/** Handles the mime from filename workflow. */
 const mimeFromFilename = (filename: string) => {
   const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   return backgroundMimeByExtension[extension] ?? "";
 };
 
+/** Returns the is supported background mime result. */
 const isSupportedBackgroundMime = (mime: string) =>
   ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime);
 
@@ -166,6 +194,7 @@ const shaMethodsInit = [
   { label: "shaMethod.baasCdn", value: "baas_cdn" },
 ];
 
+/** Renders the settings page component. */
 const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -177,6 +206,8 @@ const SettingsPage: React.FC = () => {
   const versionStore = useWebSocketStore((state) => state.versionStore);
   const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
   const modify = useWebSocketStore((state) => state.modify);
+  const transportMode = useWebSocketStore((state) => state.transportMode);
+  const setTransportMode = useWebSocketStore((state) => state.setTransportMode);
   const tauriUpdate = useTauriSelfUpdate();
   const [reposInitState, setReposInitState] = useState(reposInit);
   const [themeColorInput, setThemeColorInput] = useState(
@@ -186,22 +217,26 @@ const SettingsPage: React.FC = () => {
     ? themeColorInput
     : DEFAULT_THEME_COLOR;
 
+  /** Handles the handle theme change interaction. */
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     setUiSettings((state) => ({ ...state, theme: newTheme }));
   };
 
+  /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
     loadLocale(value).then(() => {
       setUiSettings((state) => ({ ...state, lang: value }));
     });
   };
 
+  /** Handles the handle zoom change interaction. */
   const handleZoomChange = (value: string) => {
     const newZoom = Number(value);
     setUiSettings((state) => ({ ...state, zoomScale: newZoom }));
   };
 
+  /** Handles the commit theme color workflow. */
   const commitThemeColor = (value: string) => {
     const nextColor = value.trim();
     if (!HEX_COLOR_RE.test(nextColor)) {
@@ -214,6 +249,7 @@ const SettingsPage: React.FC = () => {
     setUiSettings((state) => ({ ...state, themeColor: normalizedColor }));
   };
 
+  /** Handles the handle background image bytes interaction. */
   const handleBackgroundImageBytes = (bytes: Uint8Array, mime: string) => {
     if (!isSupportedBackgroundMime(mime)) {
       toast.error(t("settings.ui.backgroundImageInvalidType"));
@@ -230,6 +266,7 @@ const SettingsPage: React.FC = () => {
     }));
   };
 
+  /** Handles the handle web background image change interaction. */
   const handleWebBackgroundImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -248,6 +285,7 @@ const SettingsPage: React.FC = () => {
     handleBackgroundImageBytes(new Uint8Array(await file.arrayBuffer()), mime);
   };
 
+  /** Handles the handle select background image interaction. */
   const handleSelectBackgroundImage = async () => {
     if (!__WITH_TAURI__) {
       backgroundFileInputRef.current?.click();
@@ -284,15 +322,18 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  /** Handles the handle remove background image interaction. */
   const handleRemoveBackgroundImage = () => {
     setUiSettings((state) => ({ ...state, backgroundImageBase64: null }));
   };
 
+  /** Handles the handle background opacity change interaction. */
   const handleBackgroundOpacityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const opacity = Number(event.target.value) / 100;
     setUiSettings((state) => ({ ...state, backgroundImageOpacity: opacity }));
   };
 
+  /** Handles the handle player change interaction. */
   const handlePlayerChange = (value: string) => {
     setUiSettings((state) => ({
       ...state,
@@ -321,12 +362,10 @@ const SettingsPage: React.FC = () => {
   const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
   const [dueDate, setDueDate] = useState("");
   const tauriVersion = versionStore["tauri"] ?? {};
-  const tauriCurrentVersion = tauriVersion.currentVersion ?? t("version.fetching");
-  const tauriRemoteVersion = tauriVersion.checking
-    ? t("version.fetching")
-    : tauriVersion.error
-      ? t("version.checkError")
-      : (tauriVersion.version ?? tauriVersion.currentVersion ?? t("version.fetching"));
+  const tauriCurrentVersion = resolveClientVersion(tauriVersion.currentVersion);
+  const tauriRemoteVersion = tauriVersion.error
+    ? t("version.checkError")
+    : resolveClientVersion(tauriVersion.version, tauriCurrentVersion);
   const tauriStatus = tauriVersion.checking
     ? t("update.tauriChecking")
     : tauriVersion.error
@@ -335,6 +374,7 @@ const SettingsPage: React.FC = () => {
         ? t("update.tauriAvailable")
         : t("update.tauriUpToDate");
 
+  /** Handles the handle tauri version action interaction. */
   const handleTauriVersionAction = async () => {
     if (!__WITH_TAURI__) return;
     if (tauriVersion.updateAvailable) {
@@ -395,6 +435,7 @@ const SettingsPage: React.FC = () => {
   const [shaResults, setShaResults] = useState<ShaTestResult[]>(
     shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
+  const [showShaResults, setShowShaResults] = useState(false);
   const shaTestRunRef = useRef<number | null>(null);
   const shaTestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -402,7 +443,8 @@ const SettingsPage: React.FC = () => {
     setThemeColorInput(uiSettings.themeColor || DEFAULT_THEME_COLOR);
   }, [uiSettings.themeColor]);
 
-  const fetchVersion = () => {
+  /** Handles the fetch version workflow. */
+  const fetchVersion = async () => {
     setVersionChecking(true);
     setShaRemote("");
     setShaLocal("");
@@ -412,6 +454,42 @@ const SettingsPage: React.FC = () => {
     setLocalVersion(t("version.fetching"));
     setRemoteVersion(t("version.fetching"));
     setUpdateStatus("version.testing");
+
+    if (__WITH_TAURI__) {
+      try {
+        const { invoke } = await import("@/shared/TauriInvoke");
+        const report = await invoke<TauriBackendVersionReport>("updater_check_version", {
+          request: {
+            channel: updateChannel,
+          },
+        });
+        setShaLocal(report.local ?? null);
+        setShaRemote(report.remote ?? null);
+        useWebSocketStore.setState((state: any) => ({
+          ...state,
+          versionStore: {
+            ...state.versionStore,
+            local: report.local ?? null,
+            remote: report.remote ?? null,
+            updateAvailable:
+              report.updateAvailable ?? report.update_available ?? report.local !== report.remote,
+            channel: report.channel ?? updateChannel,
+            method: report.method ?? state.versionStore?.method,
+            lastChecked: Date.now(),
+          },
+        }));
+        setUpdateStatus("version.tapToTest");
+      } catch (error) {
+        setShaLocal(null);
+        setShaRemote(null);
+        setLocalVersion(t("version.checkError"));
+        setRemoteVersion(t("version.checkError"));
+        toast.error(String(error ?? t("version.checkError")));
+      } finally {
+        setVersionChecking(false);
+      }
+      return;
+    }
 
     trigger(
       {
@@ -430,6 +508,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
+  /** Handles the handle test cdk interaction. */
   const handleTestCdk = (_: any, showMessage: boolean = true) => {
     if (!cdk) {
       if (showMessage) {
@@ -500,13 +579,23 @@ const SettingsPage: React.FC = () => {
   }, [updateConfig]);
 
   useEffect(() => {
-    if (verLocal + shaLocal + verRemote + shaRemote !== "") {
-      if (verLocal === null || shaLocal === null) setLocalVersion(t("version.checkError"));
-      else setLocalVersion(`${shaLocal.slice(0, 6)}`);
-      if (verRemote === null || shaRemote === null) setRemoteVersion(t("version.checkError"));
-      else setRemoteVersion(`${shaRemote.slice(0, 6)}`);
+    if (versionStore.local !== undefined) setShaLocal(versionStore.local);
+    if (versionStore.remote !== undefined) setShaRemote(versionStore.remote);
+  }, [versionStore.local, versionStore.remote]);
+
+  useEffect(() => {
+    if (![verLocal, shaLocal, verRemote, shaRemote].some(isPresentVersionValue)) return;
+
+    const localSha = shortDesktopShaOrNull(shaLocal);
+    setLocalVersion(localSha ?? t("version.checkError"));
+
+    if (versionStore.method === "disabled" && shaRemote === null) {
+      setRemoteVersion(t("version.tapToTest"));
+      return;
     }
-  }, [verLocal, shaLocal, verRemote, shaRemote]);
+    const remoteSha = shortDesktopShaOrNull(shaRemote);
+    setRemoteVersion(remoteSha ?? t("version.checkError"));
+  }, [verLocal, shaLocal, verRemote, shaRemote, t, versionStore.method]);
 
   useEffect(() => {
     return () => {
@@ -516,7 +605,9 @@ const SettingsPage: React.FC = () => {
     };
   }, []);
 
-  const handleTestSha = () => {
+  /** Handles the handle test sha interaction. */
+  const handleTestSha = async () => {
+    setShowShaResults(true);
     const timestamp = getTimestampMs();
     shaTestRunRef.current = timestamp;
     if (shaTestTimeoutRef.current) {
@@ -544,6 +635,65 @@ const SettingsPage: React.FC = () => {
       );
       toast.error(t("shaTest.timeout"));
     }, SHA_TEST_TIMEOUT_MS);
+
+    if (__WITH_TAURI__) {
+      const { invoke } = await import("@/shared/TauriInvoke");
+      /** Performs the apply result operation. */
+      const applyResult = (result: TauriShaMethodReport) => {
+        if (shaTestRunRef.current !== timestamp) return;
+        setShaResults((prev) =>
+          prev.map((item) =>
+            item.method === shaMethodKey(result.name)
+              ? {
+                  ...item,
+                  status: result.success ? "success" : "error",
+                  time: result.duration.toFixed(3),
+                  sha: result.success ? (result.value ?? undefined) : undefined,
+                }
+              : item
+          )
+        );
+      };
+      try {
+        await Promise.allSettled(
+          shaMethodsInit.map(async (method) => {
+            try {
+              const result = await invoke<TauriShaMethodReport>("updater_test_sha_method", {
+                request: {
+                  channel: updateChannel,
+                  timeout: SHA_TEST_TIMEOUT_SECONDS,
+                  method: method.value,
+                },
+              });
+              applyResult(result);
+            } catch (error) {
+              applyResult({
+                success: false,
+                name: method.value,
+                duration: SHA_TEST_TIMEOUT_SECONDS,
+                value: null,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          })
+        );
+      } catch (error) {
+        if (shaTestRunRef.current === timestamp) {
+          toast.error(String(error ?? t("version.checkError")));
+        }
+      } finally {
+        if (shaTestRunRef.current === timestamp) {
+          if (shaTestTimeoutRef.current) {
+            clearTimeout(shaTestTimeoutRef.current);
+            shaTestTimeoutRef.current = null;
+          }
+          shaTestRunRef.current = null;
+          setApiLoading(false);
+        }
+      }
+      return;
+    }
+
     triggerStream(
       {
         timestamp,
@@ -580,7 +730,7 @@ const SettingsPage: React.FC = () => {
                   ...item,
                   status: result.success ? "success" : "error",
                   time: result.duration.toFixed(3),
-                  sha: result.value ?? undefined,
+                  sha: result.success ? (result.value ?? undefined) : undefined,
                 }
               : item
           )
@@ -589,6 +739,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
+  /** Handles the handle update method interaction. */
   const handleUpdateMethod = (value: string) => {
     if (value === "mirrorc") {
       modify("global::setup_toml", { updateMethod: value });
@@ -603,10 +754,21 @@ const SettingsPage: React.FC = () => {
     setUpdateMethod(value);
   };
 
+  /** Handles the handle update channel interaction. */
   const handleUpdateChannel = (value: string) => {
     const channel = value === "dev" ? "dev" : "stable";
     setUpdateChannel(channel);
     modify("global::setup_toml", { channel });
+  };
+
+  /** Persists and activates the selected desktop backend transport. */
+  const handleTransportMode = async (value: string) => {
+    const mode = value === "pipe" ? "pipe" : "websocket";
+    try {
+      await setTransportMode(mode);
+    } catch {
+      toast.error(t("update.backendStartFailed"));
+    }
   };
 
   return (
@@ -625,9 +787,11 @@ const SettingsPage: React.FC = () => {
           {infos.map((info, i) => (
             <div
               key={i}
+              role={info.onClick || info.label === t("update.method") ? "button" : undefined}
+              tabIndex={info.onClick || info.label === t("update.method") ? 0 : undefined}
               className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${
                 info.label === t("update.method") || info.onClick
-                  ? " cursor-link hover:bg-white/70 dark:hover:bg-slate-700/50"
+                  ? " cursor-pointer hover:bg-white/70 dark:hover:bg-slate-700/50"
                   : ""
               }`}
               onClick={
@@ -637,6 +801,14 @@ const SettingsPage: React.FC = () => {
                     ? fetchVersion
                     : undefined
               }
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                const action =
+                  info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
+                if (!action) return;
+                event.preventDefault();
+                void action();
+              }}
             >
               {info.icon}
               <div className="flex flex-col">
@@ -862,16 +1034,17 @@ const SettingsPage: React.FC = () => {
             }))}
           />
 
-          {/* Player Settings */}
-          <FormSelect
-            value={uiSettings?.remoteSettings.streamPlayer}
-            label={t("settings.ui.player")}
-            onChange={handlePlayerChange}
-            options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
-              value: v.toString(),
-              label: v.charAt(0).toUpperCase() + v.slice(1),
-            }))}
-          />
+          {!__WITH_ANDROID__ && (
+            <FormSelect
+              value={uiSettings?.remoteSettings.streamPlayer}
+              label={t("settings.ui.player")}
+              onChange={handlePlayerChange}
+              options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
+                value: v.toString(),
+                label: v.charAt(0).toUpperCase() + v.slice(1),
+              }))}
+            />
+          )}
 
           <Separator />
 
@@ -904,17 +1077,30 @@ const SettingsPage: React.FC = () => {
                 setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
               }}
             />
-            <SwitchButton
-              label={t("settings.ui.enableSafeStream")}
-              checked={uiSettings?.remoteSettings.enableSafeStream}
-              onChange={(value) => {
-                setUiSettings((state) => ({
-                  ...state,
-                  remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
-                }));
-              }}
-            />
+            {__WITH_TAURI__ && (
+              <SwitchButton
+                label={t("settings.ui.enableSystemNotifications")}
+                checked={uiSettings?.enableSystemNotifications}
+                onChange={(value) => {
+                  setUiSettings((state) => ({ ...state, enableSystemNotifications: value }));
+                }}
+              />
+            )}
+            {!__WITH_ANDROID__ && (
+              <SwitchButton
+                label={t("settings.ui.enableSafeStream")}
+                checked={uiSettings?.remoteSettings.enableSafeStream}
+                onChange={(value) => {
+                  setUiSettings((state) => ({
+                    ...state,
+                    remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
+                  }));
+                }}
+              />
+            )}
           </div>
+          <Separator />
+          <SystemLogSettings />
         </CardContent>
       </Card>
 
@@ -965,6 +1151,16 @@ const SettingsPage: React.FC = () => {
           <Separator />
 
           <FormSelect
+            label={t("transport.label")}
+            value={transportMode}
+            onChange={(value) => void handleTransportMode(value)}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
+            ]}
+          />
+
+          <FormSelect
             label={t("update.method")}
             value={updateMethod}
             onChange={handleUpdateMethod}
@@ -1011,64 +1207,87 @@ const SettingsPage: React.FC = () => {
             </CButton>
           </div>
 
-          <div className="overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-md">
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-linear-to-r from-cyan-50 to-purple-50 dark:from-slate-800 dark:to-slate-900">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.method")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.status")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.time")}
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                    {t("shaTest.sha")}
-                  </th>
-                </tr>
-              </thead>
+          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => setShowShaResults((visible) => !visible)}
+              aria-expanded={showShaResults}
+            >
+              <TestTube className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <span>{t("shaTest.results")}</span>
+              <span className="ml-auto text-xs font-normal text-slate-500 dark:text-slate-400">
+                {shaResults.filter((result) => ["success", "error"].includes(result.status)).length}
+                /{shaResults.length}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showShaResults ? "rotate-180" : ""}`}
+              />
+            </button>
 
-              <tbody>
-                {shaResults.map((r, idx) => (
-                  <tr
-                    key={idx}
-                    className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <td className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex">
-                      <EllipsisWithTooltip text={t(i18nKey(r.method))} />
-                      <div className="grow"></div>
-                    </td>
+            {showShaResults && (
+              <div className="max-h-60 overflow-auto border-t border-slate-200 dark:border-slate-700">
+                <table className="w-full text-xs sm:text-sm border-collapse">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.method")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.status")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.time")}
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                        {t("shaTest.sha")}
+                      </th>
+                    </tr>
+                  </thead>
 
-                    <td className="px-4 py-3 text-center border-b border-slate-200 dark:border-slate-700 w-20">
-                      {r.status === "success" && (
-                        <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
-                      )}
-                      {r.status === "error" && <XCircle className="w-5 h-5 mx-auto text-red-500" />}
-                      {r.status === "testing" && (
-                        <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
-                      )}
-                      {!["success", "error", "testing"].includes(r.status) && (
-                        <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
-                      )}
-                    </td>
+                  <tbody>
+                    {shaResults.map((r, idx) => (
+                      <tr
+                        key={idx}
+                        className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex">
+                          <EllipsisWithTooltip text={t(i18nKey(r.method))} />
+                          <div className="grow"></div>
+                        </td>
 
-                    <td className="px-4 py-3 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-24">
-                      {r.time ?? "-"}
-                    </td>
+                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 w-16">
+                          {r.status === "success" && (
+                            <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
+                          )}
+                          {r.status === "error" && (
+                            <XCircle className="w-5 h-5 mx-auto text-red-500" />
+                          )}
+                          {r.status === "testing" && (
+                            <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
+                          )}
+                          {!["success", "error", "testing"].includes(r.status) && (
+                            <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
+                          )}
+                        </td>
 
-                    <td className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 font-mono w-20">
-                      {r.sha ? (
-                        <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-20">
+                          {r.time ?? "-"}
+                        </td>
+
+                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 font-mono w-16">
+                          {r.sha ? (
+                            <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
