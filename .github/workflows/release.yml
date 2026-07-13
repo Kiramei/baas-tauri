@@ -500,6 +500,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
@@ -518,7 +524,9 @@ jobs:
             SDKMANAGER="$(command -v sdkmanager)"
           fi
 
+          set +o pipefail
           yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
           "$SDKMANAGER" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
