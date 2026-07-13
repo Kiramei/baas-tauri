@@ -4,8 +4,14 @@ import {
   ControlConnection,
   randomUUID,
   rememberControlSession,
-  SecureWebSocket,
 } from "@/shared/SecureWebSocket";
+import {
+  configuredTransportMode,
+  normalizeTransportMode,
+  openBackendChannel,
+  startBackendTransport,
+} from "@/transport/factory";
+import type { BackendChannelName, BackendConnection } from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
@@ -23,7 +29,10 @@ import {
 import StorageUtil from "@/shared/StorageManager.ts";
 
 /** Returns the resolve base result. */
+let activeWebSocketBase: string | null = null;
+
 const resolveBase = () => {
+  if (activeWebSocketBase) return activeWebSocketBase;
   if (import.meta.env.VITE_BAAS_WS_BASE) {
     return import.meta.env.VITE_BAAS_WS_BASE as string;
   }
@@ -59,6 +68,8 @@ let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
+let transportStartupPromise: ReturnType<typeof startBackendTransport> | null = null;
+let transportStartupFailureAt = 0;
 const MAX_SYNC_PATCH_RETRIES = 3;
 
 type PendingSyncPatch = {
@@ -69,6 +80,22 @@ type PendingSyncPatch = {
 };
 
 const pendingSyncPatches = new Map<number, PendingSyncPatch>();
+
+/** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
+const startManagedBackendTransport = async (mode: "websocket" | "pipe") => {
+  if (Date.now() - transportStartupFailureAt < 5_000) {
+    throw new Error("Backend transport startup is cooling down after a failure");
+  }
+  transportStartupPromise ??= startBackendTransport(mode).finally(() => {
+    transportStartupPromise = null;
+  });
+  try {
+    return await transportStartupPromise;
+  } catch (error) {
+    transportStartupFailureAt = Date.now();
+    throw error;
+  }
+};
 
 /** Returns the is tauri no update enabled result. */
 export const isTauriNoUpdateEnabled = async (): Promise<boolean> => {
@@ -306,6 +333,64 @@ void waitForNormal;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
+    transportMode: "websocket",
+    setTransportMode: async (mode) => {
+      const nextMode = normalizeTransportMode(mode);
+      Object.values(get().connections).forEach((connection) => void connection?.close());
+      get()._control?.close();
+      if (__WITH_TAURI__) {
+        try {
+          const { invoke } = await import("@/shared/TauriInvoke");
+          await invoke("backend_pipe_close_all");
+        } catch {
+          // The pipe manager may not have been started yet.
+        }
+      }
+      set((state) => ({
+        ...state,
+        ...resetConnectionStores(),
+        transportMode: nextMode,
+        _auth_phase: "idle",
+        _auth_error: null,
+        _server_initialized: false,
+        _server_verified: false,
+        _control: null,
+        _session: null,
+      }));
+      try {
+        const startup = await startManagedBackendTransport(nextMode);
+        if (nextMode === "pipe") {
+          activeWebSocketBase = null;
+          set((state) => ({
+            ...state,
+            _auth_phase: "authenticated",
+            _server_initialized: true,
+            _server_verified: true,
+          }));
+          return;
+        }
+        if (startup.baseBackendAddr && startup.baseBackendPort) {
+          activeWebSocketBase = `ws://${startup.baseBackendAddr}:${startup.baseBackendPort}`;
+          StorageUtil.set("baseBackendAddr", startup.baseBackendAddr);
+          StorageUtil.set("baseBackendPort", startup.baseBackendPort);
+        }
+        await get().startAuthFlow();
+        if (get()._auth_phase === "waiting_password") {
+          const password = StorageUtil.get<string>("baasAutoPassword");
+          if (!password) {
+            throw new Error("The managed backend password is unavailable");
+          }
+          await get().submitPassword(password);
+        }
+      } catch (error) {
+        set((state) => ({
+          ...state,
+          _auth_phase: "idle",
+          _auth_error: error instanceof Error ? error.message : String(error),
+        }));
+        throw error;
+      }
+    },
     connections: {},
     logStore: {},
     configStore: {},
@@ -495,6 +580,34 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     startAuthFlow: async () => {
+      const transportMode = await configuredTransportMode();
+      if (transportMode === "pipe") {
+        if (get()._auth_phase === "authenticated") return;
+        set((state) => ({
+          ...state,
+          ...resetConnectionStores(),
+          transportMode,
+          _auth_phase: "control_connecting",
+          _auth_error: null,
+          _server_initialized: true,
+          _server_verified: true,
+          _control: null,
+          _session: null,
+        }));
+        try {
+          await startManagedBackendTransport(transportMode);
+          activeWebSocketBase = null;
+          set((state) => ({ ...state, _auth_phase: "authenticated" }));
+        } catch (error) {
+          set((state) => ({
+            ...state,
+            _auth_phase: "idle",
+            _auth_error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+        return;
+      }
+
       const phase = get()._auth_phase;
       if (
         get()._control ||
@@ -511,6 +624,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       set((state) => ({
         ...state,
+        transportMode: "websocket",
         _auth_phase: "control_connecting",
         _auth_error: phase === "revoked" ? state._auth_error : null,
         _server_verified: false,
@@ -613,6 +727,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     submitPassword: async (password: string) => {
+      if (get().transportMode === "pipe") return;
       const secret = password.trim();
       if (!secret) {
         set((state) => ({
@@ -673,14 +788,12 @@ export const useWebSocketStore = create<WebSocketState>()(
     connect: async (name: WsName) => {
       if (get().connections[name]) return;
       const session = get()._session;
-      if (!session) {
+      const transportMode = get().transportMode;
+      if (transportMode === "websocket" && !session) {
         throw new Error("No authenticated session is available");
       }
-
-      let url = "";
-      if (name === "provider") url = `${resolveBase()}/ws/provider`;
-      if (name === "sync") url = `${resolveBase()}/ws/sync`;
-      if (name === "trigger") url = `${resolveBase()}/ws/trigger`;
+      const channel = (name.startsWith("remote-") ? "remote" : name) as BackendChannelName;
+      console.info(`[transport] opening ${transportMode} channel=${channel} name=${name}`);
 
       const resourceCallBack: WsCallBackDict = {
         config: (message: WsMessageItem) => {
@@ -964,7 +1077,13 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
       };
 
-      const ws = new SecureWebSocket(url, name, session, "arraybuffer");
+      const ws = await openBackendChannel({
+        mode: transportMode,
+        channel,
+        name,
+        baseUrl: resolveBase(),
+        session,
+      });
       await ws.connect((message: any) => {
         if (message instanceof ArrayBuffer) {
           const timestamp = get().pendingBinaryQueue.shift();
@@ -979,6 +1098,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         }
         callbackDict[message.type]?.(message as WsMessageItem);
       });
+      console.info(`[transport] opened ${transportMode} channel=${channel} name=${name}`);
 
       ws.onClose = () => {
         set((state) => {
@@ -998,17 +1118,24 @@ export const useWebSocketStore = create<WebSocketState>()(
       }));
     },
 
-    connectRemote: async (): Promise<SecureWebSocket> => {
+    connectRemote: async (): Promise<BackendConnection> => {
       if (__WITH_ANDROID__) {
         throw new Error("Remote control is disabled on Android.");
       }
       const session = get()._session;
-      if (!session) {
+      const transportMode = get().transportMode;
+      if (transportMode === "websocket" && !session) {
         throw new Error("No authenticated session is available");
       }
       const unique = randomUUID();
       const name = `remote-${unique}` as `remote-${string}`;
-      const ws = new SecureWebSocket(`${resolveBase()}/ws/remote`, name, session, "arraybuffer");
+      const ws = await openBackendChannel({
+        mode: transportMode,
+        channel: "remote",
+        name,
+        baseUrl: resolveBase(),
+        session,
+      });
 
       ws.hookClose = () => {
         set((state) => {
@@ -1050,6 +1177,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get()._auth_phase !== "authenticated") return;
 
       set((state) => ({ ...state, _initiating: true }));
+      console.info(`[transport] initializing data over ${get().transportMode}`);
 
       await StorageUtil.init();
 

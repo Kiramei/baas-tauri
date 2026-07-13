@@ -675,6 +675,11 @@
     "dateUpdated": "Date updated",
     "timeUpdated": "Time updated"
   },
+  "transport": {
+    "label": "Data transport",
+    "pipe": "Named pipe (desktop)",
+    "websocket": "WebSocket (compatible)"
+  },
   "ui": {
     "zoom": "UI Zoom Settings"
   },

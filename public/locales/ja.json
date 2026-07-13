@@ -675,6 +675,11 @@
     "dateUpdated": "日付を更新しました",
     "timeUpdated": "時刻を更新しました"
   },
+  "transport": {
+    "label": "データ転送方式",
+    "pipe": "名前付きパイプ（デスクトップ）",
+    "websocket": "WebSocket（互換）"
+  },
   "ui": {
     "zoom": "UIズーム設定"
   },

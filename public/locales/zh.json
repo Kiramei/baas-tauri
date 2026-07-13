@@ -675,6 +675,11 @@
     "dateUpdated": "日期已更新",
     "timeUpdated": "时间已更新"
   },
+  "transport": {
+    "label": "数据传输方式",
+    "pipe": "命名管道（主机端）",
+    "websocket": "WebSocket（兼容模式）"
+  },
   "ui": {
     "zoom": "UI 缩放设置"
   },

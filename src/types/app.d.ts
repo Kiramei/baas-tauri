@@ -5,8 +5,8 @@ import {
   AuthPhase,
   ControlConnection,
   ControlSessionBundle,
-  SecureWebSocket,
 } from "@/shared/SecureWebSocket";
+import type { BackendConnection, BackendTransportMode } from "@/transport/types";
 
 export interface ConfigProfile {
   id: string;
@@ -141,7 +141,9 @@ interface LogStoreSet {
 }
 
 interface WebSocketState {
-  connections: Partial<Record<WsName, SecureWebSocket>>;
+  transportMode: BackendTransportMode;
+  setTransportMode: (mode: BackendTransportMode) => Promise<void>;
+  connections: Partial<Record<WsName, BackendConnection>>;
   logStore: LogStoreSet;
   configStore: any;
   staticStore: any;
@@ -166,7 +168,7 @@ interface WebSocketState {
     binary: ArrayBuffer | Uint8Array,
     callback?: (e: any) => void
   ) => void;
-  connectRemote: () => Promise<SecureWebSocket>;
+  connectRemote: () => Promise<BackendConnection>;
   pendingCallbacks: Record<string, (data?: any) => void>;
   pendingStreamCallbacks: Record<string, (data?: any) => void>;
   pendingBinaryCallbacks: Record<string, (data: ArrayBuffer) => void>;

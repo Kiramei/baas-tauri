@@ -675,6 +675,11 @@
     "dateUpdated": "Date mise à jour",
     "timeUpdated": "Heure mise à jour"
   },
+  "transport": {
+    "label": "Transport des donnees",
+    "pipe": "Canal nomme (bureau)",
+    "websocket": "WebSocket (compatible)"
+  },
   "ui": {
     "zoom": "Paramètres de zoom de l'interface"
   },

@@ -675,6 +675,11 @@
     "dateUpdated": "날짜가 업데이트됨",
     "timeUpdated": "시간이 업데이트됨"
   },
+  "transport": {
+    "label": "데이터 전송 방식",
+    "pipe": "명명된 파이프 (데스크톱)",
+    "websocket": "WebSocket (호환)"
+  },
   "ui": {
     "zoom": "UI 확대/축소 설정"
   },

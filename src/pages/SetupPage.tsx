@@ -27,6 +27,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    transport?: "websocket" | "pipe";
   };
   paths?: {
     baas_root_path?: string;
@@ -133,6 +134,7 @@ const SetupPage = () => {
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
           noUpdate: setupNoUpdate(nextConfig),
+          transport: __WITH_ANDROID__ ? "websocket" : (nextConfig?.general?.transport ?? "websocket"),
         },
       });
       setConfig(updated);

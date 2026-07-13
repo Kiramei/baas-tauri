@@ -675,6 +675,11 @@
     "dateUpdated": "Datum aktualisiert",
     "timeUpdated": "Zeit aktualisiert"
   },
+  "transport": {
+    "label": "Datentransport",
+    "pipe": "Named Pipe (Desktop)",
+    "websocket": "WebSocket (kompatibel)"
+  },
   "ui": {
     "zoom": "UI-Zoom-Einstellungen"
   },
