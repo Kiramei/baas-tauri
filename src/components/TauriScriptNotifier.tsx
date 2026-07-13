@@ -5,23 +5,11 @@ import { invoke } from "@/shared/TauriInvoke";
 import { useUISetting } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-
-type ScriptStatus = {
-  running?: boolean;
-  config_id?: string | null;
-  current_task?: string | null;
-  waiting_tasks?: string[];
-  exit_code?: number | string | null;
-  run_mode?: "scheduler" | "single" | null;
-};
-
-type StatusSnapshot = {
-  running: boolean;
-  currentTask: string | null;
-  lastTask: string | null;
-  exitCode: number | string | null;
-  runMode: "scheduler" | "single" | null;
-};
+import {
+  createStatusSnapshot,
+  type ScriptStatus,
+  type StatusSnapshot,
+} from "@/components/tauriScriptNotifierState";
 
 /** Treats any non-zero numeric exit code or opaque non-empty exit marker as a failure. */
 const isFailureExitCode = (exitCode: number | string | null | undefined) => {
@@ -54,14 +42,9 @@ const TauriScriptNotifier: React.FC = () => {
 
     for (const [configId, status] of Object.entries(statusStore as Record<string, ScriptStatus>)) {
       const previous = previousRef.current[configId];
-      const currentTask = status.current_task ?? null;
-      const next: StatusSnapshot = {
-        running: Boolean(status.running),
-        currentTask,
-        lastTask: currentTask ?? previous?.lastTask ?? null,
-        exitCode: status.exit_code ?? null,
-        runMode: status.run_mode ?? null,
-      };
+      const next = createStatusSnapshot(status, previous);
+      if (!next) continue;
+      const currentTask = next.currentTask;
       nextSnapshots[configId] = next;
 
       if (!initializedRef.current || !previous) {
