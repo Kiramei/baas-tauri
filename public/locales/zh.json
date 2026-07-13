@@ -60,6 +60,10 @@
       "failedTitle": "BAAS 脚本异常退出",
       "startedBody": "{{task}} 已开始执行。",
       "startedTitle": "BAAS 任务已开始"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 链路已断开，正在自动重连。",
+      "disconnectedTitle": "BAAS 服务已断开"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "日期已更新",
     "timeUpdated": "时间已更新"
+  },
+  "transport": {
+    "label": "数据传输方式",
+    "pipe": "命名管道（主机端）",
+    "websocket": "WebSocket（兼容模式）"
   },
   "ui": {
     "zoom": "UI 缩放设置"

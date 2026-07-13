@@ -60,6 +60,10 @@
       "failedTitle": "BAAS-Skript wurde unerwartet beendet",
       "startedBody": "{{task}} wurde gestartet.",
       "startedTitle": "BAAS-Aufgabe gestartet"
+    },
+    "service": {
+      "disconnectedBody": "Die {{transport}}-Verbindung wurde unterbrochen. Die Verbindung wird automatisch wiederhergestellt.",
+      "disconnectedTitle": "BAAS-Dienst getrennt"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "Datum aktualisiert",
     "timeUpdated": "Zeit aktualisiert"
+  },
+  "transport": {
+    "label": "Datentransport",
+    "pipe": "Named Pipe (Desktop)",
+    "websocket": "WebSocket (kompatibel)"
   },
   "ui": {
     "zoom": "UI-Zoom-Einstellungen"

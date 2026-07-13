@@ -1,3 +1,4 @@
+use crate::pipe_commands::BackendPipeManager;
 use crate::system_logs::system_log;
 use baas_updater::{
     android::{
@@ -63,6 +64,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub runtime_path: Option<String>,
     pub no_update: Option<bool>,
     pub git_backend: Option<String>,
+    pub transport: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2144,19 +2146,77 @@ pub fn updater_start_workflow(
 
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
-pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
+pub fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
     system_log(
         "WARNING",
         "backend_auth",
         "Android backend authentication reset requested",
     );
-    restart_android_backend_service()?;
+    let _ = ensure_android_backend_service(&app)?;
     Ok(json!({
         "base_backend_addr": "127.0.0.1",
         "base_backend_port": 8190,
         "restarted": false,
         "restart_deferred": true
     }))
+}
+
+/// Starts the Android backend and configures its selected local transport.
+#[tauri::command]
+pub async fn backend_transport_start(
+    app: tauri::AppHandle,
+    pipe: State<'_, BackendPipeManager>,
+    mode: String,
+) -> Result<Value, String> {
+    if mode != "websocket" && mode != "pipe" {
+        return Err(format!("Unsupported Android backend transport: {mode}"));
+    }
+    persist_android_transport(&app, &mode)?;
+    let service = ensure_android_backend_service(&app)?;
+    tauri::async_runtime::spawn_blocking(wait_for_android_backend_health)
+        .await
+        .map_err(|error| format!("Android backend readiness task failed: {error}"))??;
+    pipe.close_all()?;
+    if mode == "pipe" {
+        pipe.configure(service.pipe_path)?;
+    }
+    Ok(serde_json::json!({
+        "baseBackendAddr": "127.0.0.1",
+        "baseBackendPort": 8190,
+        "restarted": true,
+    }))
+}
+
+/// Persists the selected transport without resetting the remaining Android setup fields.
+fn persist_android_transport(app: &tauri::AppHandle, transport: &str) -> Result<(), String> {
+    let root = android_storage_root(app)?;
+    fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let request = UpdaterConfigUpdateRequest {
+        baas_root_path: Some(root.clone()),
+        mirrorc_cdk: read_setup_value(&setup_path, "mirrorc_cdk"),
+        channel: read_setup_value(&setup_path, "channel"),
+        runtime_path: read_setup_value(&setup_path, "runtime_path"),
+        no_update: read_setup_value(&setup_path, "no_update")
+            .and_then(|value| value.parse::<bool>().ok()),
+        git_backend: read_setup_value(&setup_path, "git_backend"),
+        transport: Some(transport.to_string()),
+    };
+    let current_sha = read_setup_value(&setup_path, "current_baas_sha").unwrap_or_default();
+    let current_cpp_sha = read_setup_value(&setup_path, "current_baas_cpp_sha").unwrap_or_default();
+    let remote_sha_method =
+        read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default();
+    fs::write(
+        setup_path,
+        mobile_setup_toml(
+            &root,
+            &request,
+            &current_sha,
+            &current_cpp_sha,
+            &remote_sha_method,
+        ),
+    )
+    .map_err(|error| error.to_string())
 }
 
 /// Performs the updater abort workflow operation.
@@ -2495,9 +2555,17 @@ fn mobile_config_with_request(
     let runtime_path = request
         .and_then(|request| request.runtime_path.as_deref())
         .unwrap_or("embedded-python-3.9");
+    let persisted_transport = read_setup_value(&root.join("setup.toml"), "transport");
+    let transport = request
+        .and_then(|request| request.transport.as_deref())
+        .or(persisted_transport.as_deref())
+        .filter(|value| matches!(*value, "websocket" | "pipe"))
+        .unwrap_or("pipe")
+        .to_string();
 
     json!({
         "general": {
+            "transport": transport,
             "channel": channel,
             "mirrorc_cdk": mirrorc_cdk,
             "no_update": no_update,
@@ -2532,6 +2600,11 @@ fn mobile_setup_toml(
     let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
     let no_update = request.no_update.unwrap_or(false);
     let git_backend = request.git_backend.as_deref().unwrap_or("auto");
+    let requested_transport = request
+        .transport
+        .as_deref()
+        .filter(|value| matches!(*value, "websocket" | "pipe"))
+        .unwrap_or("pipe");
     let runtime_path = request
         .runtime_path
         .as_deref()
@@ -2545,6 +2618,7 @@ fn mobile_setup_toml(
     format!(
         "schema_version = 1\n\n\
          [general]\n\
+         transport = \"{}\"\n\
          mirrorc_cdk = \"{}\"\n\
          channel = \"{}\"\n\
          current_baas_sha = \"{}\"\n\
@@ -2566,6 +2640,7 @@ fn mobile_setup_toml(
          [repositories]\n\
          main_sources = []\n\
          cpp_sources = []\n",
+        escape_toml_string(requested_transport),
         escape_toml_string(mirrorc_cdk),
         escape_toml_string(channel),
         escape_toml_string(current_sha),
@@ -2591,6 +2666,7 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
         runtime_path: Some("embedded-python-3.9".to_string()),
         no_update: Some(false),
         git_backend: Some("auto".to_string()),
+        transport: Some("pipe".to_string()),
     };
     fs::write(
         &setup_path,
@@ -2600,19 +2676,30 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     Ok(setup_path)
 }
 
-/// Verifies the Chaquopy backend after an Android update without killing it.
-fn restart_android_backend_service() -> Result<(), String> {
-    let response = minreq::get("http://127.0.0.1:8190/health")
-        .with_timeout(5)
-        .send()
-        .map_err(|error| format!("failed to contact Android backend after update: {error}"))?;
-    if (200..300).contains(&response.status_code) {
-        return Ok(());
+/// Ensures the dedicated Android foreground service is running.
+fn ensure_android_backend_service(
+    app: &tauri::AppHandle,
+) -> Result<crate::android_backend_service::AndroidBackendServiceInfo, String> {
+    crate::android_backend_service::ensure_started(app)
+}
+
+/// Waits until the restarted Android backend accepts HTTP requests.
+fn wait_for_android_backend_health() -> Result<(), String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut last_error = String::new();
+    while std::time::Instant::now() < deadline {
+        match minreq::get("http://127.0.0.1:8190/health")
+            .with_timeout(1)
+            .send()
+        {
+            Ok(response) if (200..300).contains(&response.status_code) => return Ok(()),
+            Ok(response) => last_error = format!("HTTP {}", response.status_code),
+            Err(error) => last_error = error.to_string(),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
     }
     Err(format!(
-        "Android backend health check returned HTTP {}: {}",
-        response.status_code,
-        response.as_str().unwrap_or("")
+        "Android backend did not become ready within 20 seconds: {last_error}"
     ))
 }
 
@@ -2649,12 +2736,14 @@ mod tests {
             runtime_path: Some("embedded-python-3.9".to_string()),
             no_update: Some(false),
             git_backend: Some("auto".to_string()),
+            transport: Some("pipe".to_string()),
         };
 
         let setup = mobile_setup_toml(root, &request, "main-sha", "cpp-sha", "github");
 
         assert!(setup.contains("launch = true"));
         assert!(setup.contains("git_backend = \"auto\""));
+        assert!(setup.contains("transport = \"pipe\""));
         assert!(setup.contains("current_baas_sha = \"main-sha\""));
         assert!(setup.contains("current_baas_cpp_sha = \"cpp-sha\""));
     }

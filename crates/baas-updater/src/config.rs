@@ -18,6 +18,17 @@ use std::{
 /// Current configuration schema version.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
+/// Frontend/backend data transport used by desktop clients.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum BackendTransport {
+    /// Encrypted loopback WebSocket transport.
+    Websocket,
+    /// Windows named-pipe transport owned by the Tauri process.
+    #[default]
+    Pipe,
+}
+
 /// Default Python package indexes used by UV.
 pub fn default_pypi_sources() -> Vec<String> {
     PYPI_SOURCE_LIST
@@ -94,6 +105,8 @@ impl UpdaterConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GeneralConfig {
+    /// Frontend/backend data transport. Android always uses WebSocket.
+    pub transport: BackendTransport,
     /// MirrorC CDK. Empty means Git update mode.
     #[serde(alias = "mirrorc_cdk")]
     pub mirrorc_cdk: String,
@@ -129,6 +142,7 @@ impl Default for GeneralConfig {
     /// Handles the default workflow.
     fn default() -> Self {
         Self {
+            transport: BackendTransport::Pipe,
             mirrorc_cdk: String::new(),
             channel: UpdateChannel::Stable,
             current_baas_sha: String::new(),
@@ -437,6 +451,7 @@ mod tests {
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
+        assert_eq!(config.general.transport, BackendTransport::Pipe);
         assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
         assert!(!config.general.source_list.is_empty());

@@ -178,10 +178,18 @@ const hkdfSha256 = async (
 };
 
 /** Handles the wait for json message workflow. */
+const HANDSHAKE_MESSAGE_TIMEOUT_MS = 10_000;
+
 const waitForJsonMessage = (ws: WebSocket): Promise<Record<string, any>> =>
   new Promise((resolve, reject) => {
+    const timer = globalThis.setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for a websocket handshake response"));
+    }, HANDSHAKE_MESSAGE_TIMEOUT_MS);
+
     /** Handles the cleanup workflow. */
     const cleanup = () => {
+      globalThis.clearTimeout(timer);
       ws.removeEventListener("message", onMessage);
       ws.removeEventListener("close", onClose);
       ws.removeEventListener("error", onError);
@@ -220,6 +228,19 @@ const waitForJsonMessage = (ws: WebSocket): Promise<Record<string, any>> =>
     ws.addEventListener("close", onClose);
     ws.addEventListener("error", onError);
   });
+
+/** Registers the response listener before sending to avoid losing an immediate reply. */
+export const sendJsonAndWaitForMessage = async (
+  ws: WebSocket,
+  payload: Record<string, any>
+): Promise<Record<string, any>> => {
+  // WebView2 can ignore a listener registered while dispatching the previous message event.
+  await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+  const response = waitForJsonMessage(ws);
+  console.info(`[transport] websocket handshake send type=${String(payload.type ?? "unknown")}`);
+  ws.send(JSON.stringify(payload));
+  return response;
+};
 
 /** Handles the wait for open workflow. */
 const waitForOpen = (ws: WebSocket): Promise<void> =>
@@ -397,9 +418,7 @@ async function deriveHandshake(
     client_kx_pub: bytesToBase64Url(toUint8Array(keyPair.publicKey)),
     ...extra,
   };
-  ws.send(JSON.stringify(clientHello));
-
-  const serverHello = requireServerHello(await waitForJsonMessage(ws));
+  const serverHello = requireServerHello(await sendJsonAndWaitForMessage(ws, clientHello));
   const pinnedKey = base64UrlToBytes(DEFAULT_SERVER_SIGN_PUBLIC_KEY_B64);
   if (serverHello.server_sign_pub !== DEFAULT_SERVER_SIGN_PUBLIC_KEY_B64) {
     throw new Error("Server signing key does not match the pinned public key");
@@ -524,8 +543,11 @@ export class ControlConnection {
 
   /** Handles the resume with cookie workflow. */
   async resumeWithCookie(): Promise<ControlSessionBundle | null> {
-    this.ws.send(JSON.stringify(this.preauthChannel.encrypt({ type: "resume_control" })));
-    const payload = this.preauthChannel.decrypt(await waitForJsonMessage(this.ws));
+    const response = await sendJsonAndWaitForMessage(
+      this.ws,
+      this.preauthChannel.encrypt({ type: "resume_control" })
+    );
+    const payload = this.preauthChannel.decrypt(response);
     if (payload.type === "resume_unavailable") {
       return null;
     }
@@ -542,8 +564,9 @@ export class ControlConnection {
 
   /** Handles the authenticate workflow. */
   async authenticate(password: string): Promise<ControlSessionBundle> {
+    let request: Record<string, any>;
     if (!this.initialized) {
-      this.ws.send(JSON.stringify(this.preauthChannel.encrypt({ type: "initialize", password })));
+      request = this.preauthChannel.encrypt({ type: "initialize", password });
     } else {
       if (!this.pwdSalt) {
         throw new Error("Server did not provide a password salt");
@@ -556,17 +579,15 @@ export class ControlConnection {
         this.transcriptHash
       );
       const proof = toUint8Array(sodium.crypto_auth_hmacsha256(authContext, pwKey));
-      this.ws.send(
-        JSON.stringify(
-          this.preauthChannel.encrypt({
-            type: "authenticate",
-            proof: bytesToBase64Url(proof),
-          })
-        )
-      );
+      request = this.preauthChannel.encrypt({
+        type: "authenticate",
+        proof: bytesToBase64Url(proof),
+      });
     }
 
-    const authOk = this.preauthChannel.decrypt(await waitForJsonMessage(this.ws));
+    const authOk = this.preauthChannel.decrypt(
+      await sendJsonAndWaitForMessage(this.ws, request)
+    );
     if (authOk.type !== "auth_ok") {
       throw new Error("Expected auth_ok from control server");
     }
@@ -756,16 +777,15 @@ export class SecureWebSocket {
     const resumeMac = toUint8Array(
       sodium.crypto_auth_hmacsha256(resumeContext, this.session.resumeSecret)
     );
-    handshake.ws.send(
-      JSON.stringify(
+    const resumeOk = handshake.preauthChannel.decrypt(
+      await sendJsonAndWaitForMessage(
+        handshake.ws,
         handshake.preauthChannel.encrypt({
           type: "resume_proof",
           resume_mac: bytesToBase64Url(resumeMac),
         })
       )
     );
-
-    const resumeOk = handshake.preauthChannel.decrypt(await waitForJsonMessage(handshake.ws));
     if (resumeOk.type !== "resume_ok") {
       throw new Error("Expected resume_ok from business websocket");
     }

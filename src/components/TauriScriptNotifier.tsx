@@ -1,27 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@/shared/TauriInvoke";
 
 import { useUISetting } from "@/context/UISettingsProvider";
 import { eventNameKey } from "@/shared/I18nKeys";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-
-type ScriptStatus = {
-  running?: boolean;
-  config_id?: string | null;
-  current_task?: string | null;
-  waiting_tasks?: string[];
-  exit_code?: number | string | null;
-  run_mode?: "scheduler" | "single" | null;
-};
-
-type StatusSnapshot = {
-  running: boolean;
-  currentTask: string | null;
-  lastTask: string | null;
-  exitCode: number | string | null;
-  runMode: "scheduler" | "single" | null;
-};
+import {
+  createStatusSnapshot,
+  type ScriptStatus,
+  type StatusSnapshot,
+} from "@/components/tauriScriptNotifierState";
 
 /** Treats any non-zero numeric exit code or opaque non-empty exit marker as a failure. */
 const isFailureExitCode = (exitCode: number | string | null | undefined) => {
@@ -38,30 +26,28 @@ const TauriScriptNotifier: React.FC = () => {
   const previousRef = useRef<Record<string, StatusSnapshot>>({});
   const initializedRef = useRef(false);
 
+  const notify = useCallback(
+    (title: string, body: string, tag: string) => {
+      if (!notificationsEnabled) return;
+      void invoke("baas_notify", {
+        payload: { title, body, tag },
+      }).catch((error) => {
+        console.warn("[notifier] failed to send system notification", error);
+      });
+    },
+    [notificationsEnabled]
+  );
+
   useEffect(() => {
     if (!__WITH_TAURI__) return;
 
     const nextSnapshots: Record<string, StatusSnapshot> = {};
-    const notify = notificationsEnabled
-      ? (title: string, body: string, tag: string) => {
-          void invoke("baas_notify", {
-            payload: { title, body, tag },
-          }).catch((error) => {
-            console.warn("[notifier] failed to send system notification", error);
-          });
-        }
-      : () => {};
 
     for (const [configId, status] of Object.entries(statusStore as Record<string, ScriptStatus>)) {
       const previous = previousRef.current[configId];
-      const currentTask = status.current_task ?? null;
-      const next: StatusSnapshot = {
-        running: Boolean(status.running),
-        currentTask,
-        lastTask: currentTask ?? previous?.lastTask ?? null,
-        exitCode: status.exit_code ?? null,
-        runMode: status.run_mode ?? null,
-      };
+      const next = createStatusSnapshot(status, previous);
+      if (!next) continue;
+      const currentTask = next.currentTask;
       nextSnapshots[configId] = next;
 
       if (!initializedRef.current || !previous) {
@@ -118,7 +104,7 @@ const TauriScriptNotifier: React.FC = () => {
 
     previousRef.current = nextSnapshots;
     initializedRef.current = true;
-  }, [notificationsEnabled, statusStore, t]);
+  }, [notify, statusStore, t]);
 
   return null;
 };

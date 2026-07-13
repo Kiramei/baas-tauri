@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type Channel = "stable" | "dev";
+type Transport = "websocket" | "pipe";
 
 interface MirrorCValidateReport {
   success: boolean;
@@ -40,6 +41,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    transport?: Transport;
   };
 }
 
@@ -83,6 +85,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
+  const transport = props.config?.general?.transport ?? "pipe";
 
   /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
@@ -225,6 +228,15 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             options={[
               { value: "stable", label: t("updateChannel.stable") },
               { value: "dev", label: t("updateChannel.dev") },
+            ]}
+          />
+          <FormSelect
+            label={t("transport.label")}
+            value={transport}
+            onChange={(value) => patchGeneral({ transport: value as Transport })}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
             ]}
           />
           <SwitchButton

@@ -60,6 +60,10 @@
       "failedTitle": "BAAS script exited abnormally",
       "startedBody": "{{task}} has started.",
       "startedTitle": "BAAS task started"
+    },
+    "service": {
+      "disconnectedBody": "The {{transport}} connection was interrupted. Reconnecting automatically.",
+      "disconnectedTitle": "BAAS service disconnected"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "Date updated",
     "timeUpdated": "Time updated"
+  },
+  "transport": {
+    "label": "Data transport",
+    "pipe": "Named pipe (desktop)",
+    "websocket": "WebSocket (compatible)"
   },
   "ui": {
     "zoom": "UI Zoom Settings"

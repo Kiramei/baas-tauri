@@ -15,6 +15,7 @@ import { TauriSelfUpdateProvider } from "@/context/TauriSelfUpdateProvider";
 import ConfigArchiveDropOverlay from "@/components/ConfigArchiveDropOverlay";
 import GlobalAppearanceEffects from "@/components/GlobalAppearanceEffects";
 import TauriScriptNotifier from "@/components/TauriScriptNotifier";
+import TauriServiceNotifier from "@/components/TauriServiceNotifier";
 import LoadingPage from "@/pages/LoadingPage";
 import MainLayout from "@/components/layout/MainLayout";
 import HomePage from "@/pages/HomePage";
@@ -223,6 +224,7 @@ const WrappedApp: React.FC = () => {
             <TauriSelfUpdateProvider>
               <TauriShortcutProvider>
                 <GlobalAppearanceEffects />
+                {__WITH_TAURI__ && <TauriServiceNotifier />}
                 {__WITH_TAURI__ && <TauriScriptNotifier />}
                 <Main />
                 <ConfigArchiveDropOverlay />

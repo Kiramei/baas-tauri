@@ -60,6 +60,10 @@
       "failedTitle": "BAAS スクリプトが異常終了しました",
       "startedBody": "{{task}} を開始しました。",
       "startedTitle": "BAAS タスク開始"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 接続が切断されました。自動的に再接続しています。",
+      "disconnectedTitle": "BAAS サービスが切断されました"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "日付を更新しました",
     "timeUpdated": "時刻を更新しました"
+  },
+  "transport": {
+    "label": "データ転送方式",
+    "pipe": "名前付きパイプ（デスクトップ）",
+    "websocket": "WebSocket（互換）"
   },
   "ui": {
     "zoom": "UIズーム設定"

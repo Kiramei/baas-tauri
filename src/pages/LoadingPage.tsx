@@ -4,6 +4,7 @@ import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { useTheme } from "@/context/ThemeProvider.tsx";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 
 const baseUrl = import.meta.env.BASE_URL;
 const ANDROID_TERMINAL_DELAY_MS = 2_000;
@@ -19,19 +20,6 @@ const statusColorMap: Record<string, string> = {
   WARNING: "var(--color-yello-500)",
   ERROR: "var(--color-red-500)",
   CRITICAL: "var(--color-purple-500)",
-};
-
-const androidPasswordKey = "baasAndroidAutoPassword";
-
-/** Returns the get android auto password result. */
-const getAndroidAutoPassword = () => {
-  const stored = window.localStorage.getItem(androidPasswordKey);
-  if (stored) return stored;
-  const next = globalThis.crypto?.randomUUID
-    ? `baas-android-${globalThis.crypto.randomUUID()}`
-    : `baas-android-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.localStorage.setItem(androidPasswordKey, next);
-  return next;
 };
 
 /** Renders the auto scroll terminal component. */

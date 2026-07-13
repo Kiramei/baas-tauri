@@ -312,7 +312,7 @@ const Header: React.FC = () => {
   const runningByProfile = useWebSocketStore(
     useShallow((state) =>
       Object.fromEntries(
-        Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status.running)])
+          Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status?.running)])
       )
     )
   );

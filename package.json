@@ -17,6 +17,7 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "lint": "eslint . --ext .ts,.tsx && bun run i18n:check",
+    "test:transport": "bun test tests/frontend",
     "i18n:check": "bun scripts/i18n.mjs check",
     "i18n:sync": "bun scripts/i18n.mjs sync",
     "tauri": "tauri",

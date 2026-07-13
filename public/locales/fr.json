@@ -60,6 +60,10 @@
       "failedTitle": "Script BAAS quitte anormalement",
       "startedBody": "{{task}} a demarre.",
       "startedTitle": "Tache BAAS demarree"
+    },
+    "service": {
+      "disconnectedBody": "La connexion {{transport}} a ete interrompue. Reconnexion automatique en cours.",
+      "disconnectedTitle": "Service BAAS deconnecte"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "Date mise à jour",
     "timeUpdated": "Heure mise à jour"
+  },
+  "transport": {
+    "label": "Transport des donnees",
+    "pipe": "Canal nomme (bureau)",
+    "websocket": "WebSocket (compatible)"
   },
   "ui": {
     "zoom": "Paramètres de zoom de l'interface"

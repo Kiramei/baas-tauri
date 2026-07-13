@@ -60,6 +60,10 @@
       "failedTitle": "Скрипт BAAS завершился аварийно",
       "startedBody": "{{task}} запущена.",
       "startedTitle": "Задача BAAS запущена"
+    },
+    "service": {
+      "disconnectedBody": "Соединение {{transport}} прервано. Выполняется автоматическое переподключение.",
+      "disconnectedTitle": "Служба BAAS отключена"
     }
   },
   "time": {
@@ -674,6 +678,11 @@
   "toast": {
     "dateUpdated": "Дата обновлена",
     "timeUpdated": "Время обновлено"
+  },
+  "transport": {
+    "label": "Передача данных",
+    "pipe": "Именованный канал (ПК)",
+    "websocket": "WebSocket (совместимый)"
   },
   "ui": {
     "zoom": "Настройки масштабирования интерфейса"

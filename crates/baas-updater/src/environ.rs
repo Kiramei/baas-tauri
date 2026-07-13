@@ -631,6 +631,18 @@ pub fn launch_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec 
         .detached_pid_file(backend_pid_path(config))
 }
 
+/// Builds the backend launch command with Windows named-pipe transport enabled.
+pub fn launch_backend_pipe_command(
+    config: &UpdaterConfig,
+    port: u16,
+    pipe_name: &str,
+) -> CommandSpec {
+    let mut command = launch_backend_command(config, port);
+    command.args.push("--pipe-name".to_string());
+    command.args.push(pipe_name.to_string());
+    command
+}
+
 /// Returns the pid file used for the currently launched backend process.
 pub fn backend_pid_path(config: &UpdaterConfig) -> PathBuf {
     config.baas_root().join(".baas-updater").join("backend.pid")

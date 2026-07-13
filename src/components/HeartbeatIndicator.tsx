@@ -12,7 +12,14 @@ interface IndicatorProps {
 export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   const [connected, setConnected] = useState(true);
   const heartbeatTime = useWebSocketStore((s) => s._heartbeat_time);
-  const init = useWebSocketStore((s) => s.init);
+  const transportMode = useWebSocketStore((s) => s.transportMode);
+  const pipeConnected = useWebSocketStore(
+    (s) =>
+      s._auth_phase === "authenticated" &&
+      Boolean(s.connections.provider) &&
+      Boolean(s.connections.sync)
+  );
+  const recoverTransport = useWebSocketStore((s) => s.recoverTransport);
   const lastBeatRef = useRef<number>(0);
 
   useEffect(() => {
@@ -20,22 +27,30 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   }, []);
 
   useEffect(() => {
+    if (transportMode !== "pipe") return;
+    setConnected(pipeConnected);
+    onStateChanged(pipeConnected);
+  }, [onStateChanged, pipeConnected, transportMode]);
+
+  useEffect(() => {
+    if (transportMode === "pipe") return;
     if (!heartbeatTime) return;
     lastBeatRef.current = Date.now();
     setConnected(true);
     onStateChanged(true);
-  }, [heartbeatTime]);
+  }, [heartbeatTime, onStateChanged, transportMode]);
 
   useEffect(() => {
     const checkInterval = setInterval(async () => {
+      if (transportMode === "pipe") return;
       if (Date.now() - lastBeatRef.current > 5000) {
         setConnected(false);
         onStateChanged(false);
-        await init();
+        await recoverTransport();
       }
     }, 1000);
     return () => clearInterval(checkInterval);
-  }, []);
+  }, [onStateChanged, recoverTransport, transportMode]);
 
   const color = connected ? "var(--color-primary-500)" : "var(--color-slate-500)";
 

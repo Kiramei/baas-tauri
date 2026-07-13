@@ -201,6 +201,8 @@ const SettingsPage: React.FC = () => {
   const versionStore = useWebSocketStore((state) => state.versionStore);
   const checkTauriUpdater = useWebSocketStore((state) => state.checkTauriUpdater);
   const modify = useWebSocketStore((state) => state.modify);
+  const transportMode = useWebSocketStore((state) => state.transportMode);
+  const setTransportMode = useWebSocketStore((state) => state.setTransportMode);
   const tauriUpdate = useTauriSelfUpdate();
   const [reposInitState, setReposInitState] = useState(reposInit);
   const [themeColorInput, setThemeColorInput] = useState(
@@ -756,6 +758,16 @@ const SettingsPage: React.FC = () => {
     modify("global::setup_toml", { channel });
   };
 
+  /** Persists and activates the selected Android backend transport. */
+  const handleTransportMode = async (value: string) => {
+    const mode = value === "pipe" ? "pipe" : "websocket";
+    try {
+      await setTransportMode(mode);
+    } catch {
+      toast.error(t("update.backendStartFailed"));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card className="relative overflow-hidden rounded-2xl border border-slate-200/50 bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 shadow-lg">
@@ -1088,6 +1100,16 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <Separator />
+
+          <FormSelect
+            label={t("transport.label")}
+            value={transportMode}
+            onChange={(value) => void handleTransportMode(value)}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
+            ]}
+          />
 
           <FormSelect
             label={t("update.method")}
