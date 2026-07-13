@@ -63,6 +63,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub runtime_path: Option<String>,
     pub no_update: Option<bool>,
     pub git_backend: Option<String>,
+    pub transport: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2159,6 +2160,18 @@ pub fn updater_reset_backend_auth_and_restart() -> Result<Value, String> {
     }))
 }
 
+/// Android always uses its loopback WebSocket transport.
+#[tauri::command]
+pub fn backend_transport_start(mode: String) -> Result<Value, String> {
+    if mode != "websocket" {
+        return Err("Named pipe transport is unavailable on Android".to_string());
+    }
+    Ok(serde_json::json!({
+        "baseBackendAddr": "127.0.0.1",
+        "baseBackendPort": 8190,
+    }))
+}
+
 /// Performs the updater abort workflow operation.
 #[tauri::command]
 pub fn updater_abort_workflow(
@@ -2498,6 +2511,7 @@ fn mobile_config_with_request(
 
     json!({
         "general": {
+            "transport": "websocket",
             "channel": channel,
             "mirrorc_cdk": mirrorc_cdk,
             "no_update": no_update,
@@ -2532,6 +2546,7 @@ fn mobile_setup_toml(
     let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
     let no_update = request.no_update.unwrap_or(false);
     let git_backend = request.git_backend.as_deref().unwrap_or("auto");
+    let _requested_transport = request.transport.as_deref().unwrap_or("websocket");
     let runtime_path = request
         .runtime_path
         .as_deref()
@@ -2545,6 +2560,7 @@ fn mobile_setup_toml(
     format!(
         "schema_version = 1\n\n\
          [general]\n\
+         transport = \"websocket\"\n\
          mirrorc_cdk = \"{}\"\n\
          channel = \"{}\"\n\
          current_baas_sha = \"{}\"\n\
@@ -2591,6 +2607,7 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
         runtime_path: Some("embedded-python-3.9".to_string()),
         no_update: Some(false),
         git_backend: Some("auto".to_string()),
+        transport: Some("websocket".to_string()),
     };
     fs::write(
         &setup_path,
@@ -2649,12 +2666,14 @@ mod tests {
             runtime_path: Some("embedded-python-3.9".to_string()),
             no_update: Some(false),
             git_backend: Some("auto".to_string()),
+            transport: Some("websocket".to_string()),
         };
 
         let setup = mobile_setup_toml(root, &request, "main-sha", "cpp-sha", "github");
 
         assert!(setup.contains("launch = true"));
         assert!(setup.contains("git_backend = \"auto\""));
+        assert!(setup.contains("transport = \"websocket\""));
         assert!(setup.contains("current_baas_sha = \"main-sha\""));
         assert!(setup.contains("current_baas_cpp_sha = \"cpp-sha\""));
     }

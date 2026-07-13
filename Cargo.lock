@@ -310,6 +310,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tokio",
+ "uuid",
  "windows 0.62.2",
 ]
 

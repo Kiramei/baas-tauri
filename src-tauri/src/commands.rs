@@ -1,3 +1,4 @@
+use crate::pipe_commands::BackendPipeManager;
 use crate::system_logs::system_log;
 use baas_shortcut::{
     apply_shortcut_bindings, ShortcutBindingRequest, ShortcutRegistrationReport, ShortcutRegistry,
@@ -5,8 +6,8 @@ use baas_shortcut::{
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
-    config::{exe_adjacent_config_path, ConfigManager, UpdaterConfig},
-    environ::{backend_pid_path, launch_backend_command},
+    config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
+    environ::{backend_pid_path, launch_backend_command, launch_backend_pipe_command},
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
@@ -63,6 +64,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub runtime_path: Option<String>,
     pub no_update: Option<bool>,
     pub git_backend: Option<String>,
+    pub transport: Option<String>,
 }
 
 /// MirrorC CDK validation request.
@@ -534,10 +536,11 @@ pub fn updater_update_config(
         "INFO",
         "updater",
         format!(
-            "Updater config change requested channel={:?} no_update={:?} git_backend={:?} cdk_present={}",
+            "Updater config change requested channel={:?} no_update={:?} git_backend={:?} transport={:?} cdk_present={}",
             request.channel,
             request.no_update,
             request.git_backend,
+            request.transport,
             request
                 .mirrorc_cdk
                 .as_deref()
@@ -560,6 +563,12 @@ pub fn updater_update_config(
         Some(value) => Some(GitBackend::parse(value).map_err(|error| error.message())?),
         None => None,
     };
+    let parsed_transport = match request.transport.as_deref() {
+        Some("websocket") => Some(BackendTransport::Websocket),
+        Some("pipe") => Some(BackendTransport::Pipe),
+        Some(value) => return Err(format!("unsupported backend transport: {value}")),
+        None => None,
+    };
     manager
         .update(|config| {
             if let Some(path) = request_baas_root_path {
@@ -579,6 +588,9 @@ pub fn updater_update_config(
             }
             if let Some(git_backend) = parsed_git_backend {
                 config.general.git_backend = git_backend;
+            }
+            if let Some(transport) = parsed_transport {
+                config.general.transport = transport;
             }
         })
         .map_err(|error| error.message())?;
@@ -831,6 +843,42 @@ pub fn updater_reset_backend_auth_and_restart(
         format!("Backend restarted and ready port={port}"),
     );
 
+    Ok(BackendReadyPayload {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    })
+}
+
+/// Restarts the managed backend for the selected frontend transport.
+#[tauri::command]
+pub fn backend_transport_start(
+    app: AppHandle,
+    backend: State<'_, BackendProcessManager>,
+    pipe: State<'_, BackendPipeManager>,
+    mode: String,
+) -> Result<BackendReadyPayload, String> {
+    let manager = ensure_default_config(&app)?;
+    backend.stop_for_config(&manager.config)?;
+    pipe.close_all()?;
+    thread::sleep(Duration::from_millis(300));
+
+    let port = available_backend_port()?;
+    match mode.as_str() {
+        "websocket" => start_backend_detached(&manager.config, port)?,
+        "pipe" => {
+            let pipe_name = format!(r"\\.\pipe\baas-{}", uuid::Uuid::new_v4());
+            start_backend_pipe_detached(&manager.config, port, &pipe_name)?;
+            pipe.configure(pipe_name)?;
+        }
+        _ => return Err(format!("unsupported backend transport: {mode}")),
+    }
+    backend.remember_config(&manager.config)?;
+    wait_for_backend_auth_endpoint(port)?;
+    system_log(
+        "INFO",
+        "backend_process",
+        format!("Backend transport ready mode={mode} port={port}"),
+    );
     Ok(BackendReadyPayload {
         base_backend_addr: "127.0.0.1".to_string(),
         base_backend_port: port,
@@ -1500,6 +1548,25 @@ fn available_backend_port() -> Result<u16, String> {
 /// Performs the start backend detached operation.
 fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
     let command = launch_backend_command(config, port);
+    spawn_backend_detached(config, port, command)
+}
+
+/// Starts a managed backend with its named-pipe listener enabled.
+fn start_backend_pipe_detached(
+    config: &UpdaterConfig,
+    port: u16,
+    pipe_name: &str,
+) -> Result<(), String> {
+    let command = launch_backend_pipe_command(config, port, pipe_name);
+    spawn_backend_detached(config, port, command)
+}
+
+/// Spawns one prepared backend command and records its PID.
+fn spawn_backend_detached(
+    config: &UpdaterConfig,
+    port: u16,
+    command: baas_updater::environ::CommandSpec,
+) -> Result<(), String> {
     system_log(
         "INFO",
         "backend_process",
