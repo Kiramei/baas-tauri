@@ -17,12 +17,12 @@ export function resolveTransportMode(
   value: unknown,
   environment: { android: boolean; tauri: boolean }
 ): BackendTransportMode {
-  if (environment.android || !environment.tauri) return "websocket";
+  if (!environment.tauri) return "websocket";
   return value === "websocket" ? "websocket" : "pipe";
 }
 
 export async function configuredTransportMode(): Promise<BackendTransportMode> {
-  if (!__WITH_TAURI__ || __WITH_ANDROID__) return "websocket";
+  if (!__WITH_TAURI__) return "websocket";
   try {
     const { invoke } = await import("@/shared/TauriInvoke");
     const startup = await invoke<any>("updater_get_startup_state");

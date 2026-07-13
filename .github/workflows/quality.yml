@@ -52,8 +52,21 @@ jobs:
         run: bun run build:tauri:android
 
   desktop-rust:
-    name: Windows Rust tests
-    runs-on: windows-latest
+    name: ${{ matrix.name }} Rust tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: Linux
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - name: macOS
+            os: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
     needs: generate-fonts
     steps:
       - name: Checkout repository
@@ -62,7 +75,17 @@ jobs:
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
-          target: x86_64-pc-windows-msvc
+          target: ${{ matrix.target }}
+
+      - name: Install Linux Tauri dependencies
+        if: matrix.name == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Run Rust tests
         run: cargo test --workspace --all-targets

@@ -85,7 +85,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
-  const transport = __WITH_ANDROID__ ? "websocket" : (props.config?.general?.transport ?? "pipe");
+  const transport = props.config?.general?.transport ?? "pipe";
 
   /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
@@ -230,17 +230,15 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
               { value: "dev", label: t("updateChannel.dev") },
             ]}
           />
-          {!__WITH_ANDROID__ && (
-            <FormSelect
-              label={t("transport.label")}
-              value={transport}
-              onChange={(value) => patchGeneral({ transport: value as Transport })}
-              options={[
-                { value: "websocket", label: t("transport.websocket") },
-                { value: "pipe", label: t("transport.pipe") },
-              ]}
-            />
-          )}
+          <FormSelect
+            label={t("transport.label")}
+            value={transport}
+            onChange={(value) => patchGeneral({ transport: value as Transport })}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
+            ]}
+          />
           <SwitchButton
             label={t("update.skip")}
             checked={noUpdate}

@@ -32,6 +32,22 @@ ANDROID_OVERLAY_FILES = (
     "service/api/http.py",
     "service/injection.py",
 )
+SERVICE_TRANSPORT_OVERLAY_FILES = (
+    "service/app.py",
+    "service/channels/__init__.py",
+    "service/channels/provider.py",
+    "service/channels/remote.py",
+    "service/channels/sync.py",
+    "service/channels/trigger.py",
+    "service/conf/manager.py",
+    "service/transport/__init__.py",
+    "service/transport/base.py",
+    "service/transport/framing.py",
+    "service/transport/pipe_endpoint.py",
+    "service/transport/pipe_server.py",
+    "service/transport/websocket_endpoint.py",
+    "service/update/setup_schema.py",
+)
 _SERVER = None
 _HOT_RESTART_DONE = False
 _SERVER_LOCK = threading.RLock()
@@ -93,6 +109,7 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         status["installedThisRun"] = installed
         status["ok"] = True
         _write_status(root, status)
+        _activate_bundled_service_transport(root)
         _run_baas_service(root, port)
         return
     except Exception as error:
@@ -124,6 +141,7 @@ def _configure_environment(files_dir, storage_root_or_port, port=None, native_li
     os.environ["BAAS_ANDROID"] = "1"
     os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
     os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
+    os.environ["BAAS_PIPE_NAME"] = str(Path(files_dir) / "baas-service.sock")
     if native_library_dir:
         os.environ["BAAS_ANDROID_NATIVE_LIBRARY_DIR"] = str(native_library_dir)
 
@@ -458,6 +476,52 @@ def _apply_bundled_android_overlay(root):
                             cached.unlink(missing_ok=True)
     except Exception as exc:
         print(f"Android backend overlay failed: {exc}", flush=True)
+
+
+# Loads the client-matched service transport without modifying the user's backend tree.
+def _activate_bundled_service_transport(root):
+    archive_path = _bundled_backend_archive()
+    files_dir = os.environ.get("BAAS_ANDROID_INTERNAL_FILES_DIR", "").strip()
+    if not files_dir:
+        return
+    overlay_root = Path(files_dir) / "backend-service-overlay"
+    try:
+        if archive_path.exists():
+            shutil.rmtree(overlay_root, ignore_errors=True)
+            with zipfile.ZipFile(archive_path) as archive:
+                names = set(archive.namelist())
+                for relative_name in SERVICE_TRANSPORT_OVERLAY_FILES:
+                    if relative_name not in names:
+                        raise RuntimeError(f"Bundled backend is missing {relative_name}")
+                    target = overlay_root / relative_name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(relative_name) as source:
+                        target.write_bytes(source.read())
+        else:
+            missing = [
+                relative_name
+                for relative_name in SERVICE_TRANSPORT_OVERLAY_FILES
+                if not (overlay_root / relative_name).exists()
+            ]
+            if missing:
+                raise RuntimeError(
+                    f"Bundled backend archive is unavailable and overlay is incomplete: {missing[0]}"
+                )
+
+        for package_path in ("service", "service/conf", "service/update"):
+            overlay_package = overlay_root / package_path
+            external_package = root / package_path
+            external_init = external_package / "__init__.py"
+            (overlay_package / "__init__.py").write_text(
+                f"__path__ = [{str(overlay_package)!r}, {str(external_package)!r}]\n"
+                f"_external_init = {str(external_init)!r}\n"
+                "with open(_external_init, 'rb') as _source:\n"
+                "    exec(compile(_source.read(), _external_init, 'exec'), globals(), globals())\n",
+                encoding="utf-8",
+            )
+        os.environ["BAAS_SERVICE_OVERLAY_ROOT"] = str(overlay_root)
+    except Exception as exc:
+        print(f"Android service transport overlay failed: {exc}", flush=True)
 
 
 def _patch_scrcpy_virtual_display(root):
@@ -2607,6 +2671,12 @@ def _run_baas_service(root, port):
     elif sys.path[0] != root_path:
         sys.path.remove(root_path)
         sys.path.insert(0, root_path)
+    overlay_path = os.environ.get("BAAS_SERVICE_OVERLAY_ROOT", "").strip()
+    had_overlay_path = overlay_path in sys.path
+    if overlay_path:
+        if had_overlay_path:
+            sys.path.remove(overlay_path)
+        sys.path.insert(0, overlay_path)
     _clear_backend_modules()
     try:
         _start_android_direct_adb_server_if_needed(root)
@@ -2637,6 +2707,11 @@ def _run_baas_service(root, port):
         if not had_root_path:
             try:
                 sys.path.remove(root_path)
+            except ValueError:
+                pass
+        if overlay_path and not had_overlay_path:
+            try:
+                sys.path.remove(overlay_path)
             except ValueError:
                 pass
         os.chdir(cwd)

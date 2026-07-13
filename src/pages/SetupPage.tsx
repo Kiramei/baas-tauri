@@ -134,7 +134,7 @@ const SetupPage = () => {
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
           noUpdate: setupNoUpdate(nextConfig),
-          transport: __WITH_ANDROID__ ? "websocket" : (nextConfig?.general?.transport ?? "pipe"),
+          transport: nextConfig?.general?.transport ?? "pipe",
         },
       });
       setConfig(updated);

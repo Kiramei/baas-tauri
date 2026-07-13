@@ -105,6 +105,7 @@ mirrorc_cdk = ""
 no_update = false
 launch = true
 debug = false
+transport = "pipe"
 git_backend = "auto"
 current_baas_sha = "${backendSha}"
 

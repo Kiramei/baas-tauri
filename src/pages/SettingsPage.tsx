@@ -764,15 +764,6 @@ const SettingsPage: React.FC = () => {
   /** Persists and activates the selected desktop backend transport. */
   const handleTransportMode = async (value: string) => {
     const mode = value === "pipe" ? "pipe" : "websocket";
-    modify("global::setup_toml", { transport: mode }, true);
-    const deadline = Date.now() + 5_000;
-    while (useWebSocketStore.getState().updateStore?.transport !== mode) {
-      if (Date.now() >= deadline) {
-        toast.error(t("update.backendStartFailed"));
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
     try {
       await setTransportMode(mode);
     } catch {
@@ -1159,17 +1150,15 @@ const SettingsPage: React.FC = () => {
 
           <Separator />
 
-          {!__WITH_ANDROID__ && (
-            <FormSelect
-              label={t("transport.label")}
-              value={transportMode}
-              onChange={(value) => void handleTransportMode(value)}
-              options={[
-                { value: "websocket", label: t("transport.websocket") },
-                { value: "pipe", label: t("transport.pipe") },
-              ]}
-            />
-          )}
+          <FormSelect
+            label={t("transport.label")}
+            value={transportMode}
+            onChange={(value) => void handleTransportMode(value)}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
+            ]}
+          />
 
           <FormSelect
             label={t("update.method")}

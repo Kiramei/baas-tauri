@@ -857,7 +857,15 @@ pub fn backend_transport_start(
     pipe: State<'_, BackendPipeManager>,
     mode: String,
 ) -> Result<BackendReadyPayload, String> {
-    let manager = ensure_default_config(&app)?;
+    let transport = match mode.as_str() {
+        "websocket" => BackendTransport::Websocket,
+        "pipe" => BackendTransport::Pipe,
+        _ => return Err(format!("unsupported backend transport: {mode}")),
+    };
+    let mut manager = ensure_default_config(&app)?;
+    manager
+        .update(|config| config.general.transport = transport)
+        .map_err(|error| error.message())?;
     backend.stop_for_config(&manager.config)?;
     pipe.close_all()?;
     thread::sleep(Duration::from_millis(300));
@@ -866,11 +874,11 @@ pub fn backend_transport_start(
     match mode.as_str() {
         "websocket" => start_backend_detached(&manager.config, port)?,
         "pipe" => {
-            let pipe_name = format!(r"\\.\pipe\baas-{}", uuid::Uuid::new_v4());
+            let pipe_name = backend_pipe_endpoint();
             start_backend_pipe_detached(&manager.config, port, &pipe_name)?;
             pipe.configure(pipe_name)?;
         }
-        _ => return Err(format!("unsupported backend transport: {mode}")),
+        _ => unreachable!("transport mode was validated before backend restart"),
     }
     backend.remember_config(&manager.config)?;
     wait_for_backend_auth_endpoint(port)?;
@@ -1551,7 +1559,15 @@ fn start_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), Strin
     spawn_backend_detached(config, port, command)
 }
 
-/// Starts a managed backend with its named-pipe listener enabled.
+/// Returns a platform-native local Pipe endpoint.
+fn backend_pipe_endpoint() -> String {
+    #[cfg(windows)]
+    return format!(r"\\.\pipe\baas-{}", uuid::Uuid::new_v4());
+    #[cfg(unix)]
+    return format!("/tmp/baas-{}.sock", uuid::Uuid::new_v4());
+}
+
+/// Starts a managed backend with its Pipe listener enabled.
 fn start_backend_pipe_detached(
     config: &UpdaterConfig,
     port: u16,

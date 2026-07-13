@@ -1,51 +1,59 @@
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 use crate::system_logs::system_log;
 use serde_json::Value;
 use std::sync::Mutex;
 use tauri::{
-    State,
     ipc::{Channel, InvokeResponseBody},
+    State,
 };
 
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const MAGIC: &[u8; 4] = b"BPIP";
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const VERSION: u8 = 1;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const KIND_JSON: u8 = 1;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const KIND_BYTES: u8 = 2;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const KIND_CLOSE: u8 = 3;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const KIND_ERROR: u8 = 4;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const HEADER_BYTES: usize = 10;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 use std::sync::Arc;
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 use std::{collections::HashMap, time::Duration};
 #[cfg(windows)]
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
+#[cfg(unix)]
+use tokio::net::UnixStream;
+#[cfg(any(windows, unix))]
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net::windows::named_pipe::{ClientOptions, NamedPipeClient},
     sync::Mutex as AsyncMutex,
     task::JoinHandle,
 };
 
 #[cfg(windows)]
+type NativePipeStream = NamedPipeClient;
+#[cfg(unix)]
+type NativePipeStream = UnixStream;
+
+#[cfg(any(windows, unix))]
 struct PipeConnection {
-    writer: Arc<AsyncMutex<WriteHalf<NamedPipeClient>>>,
+    writer: Arc<AsyncMutex<WriteHalf<NativePipeStream>>>,
     reader: JoinHandle<()>,
 }
 
 #[derive(Default)]
 struct PipeState {
     pipe_name: Option<String>,
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     connections: HashMap<String, PipeConnection>,
 }
 
@@ -55,13 +63,12 @@ pub struct BackendPipeManager {
 }
 
 impl BackendPipeManager {
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     pub fn configure(&self, pipe_name: String) -> Result<(), String> {
         let mut state = self
             .inner
             .lock()
             .map_err(|_| "pipe transport state lock poisoned".to_string())?;
-        #[cfg(windows)]
         for (_, connection) in state.connections.drain() {
             connection.reader.abort();
         }
@@ -74,7 +81,7 @@ impl BackendPipeManager {
             .inner
             .lock()
             .map_err(|_| "pipe transport state lock poisoned".to_string())?;
-        #[cfg(windows)]
+        #[cfg(any(windows, unix))]
         for (_, connection) in state.connections.drain() {
             connection.reader.abort();
         }
@@ -83,12 +90,12 @@ impl BackendPipeManager {
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 fn connection_key(channel: &str, name: &str) -> String {
     format!("{channel}:{name}")
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 fn encode_frame(kind: u8, payload: &[u8]) -> Result<Vec<u8>, String> {
     if payload.len() > MAX_PAYLOAD_BYTES {
         return Err("pipe payload exceeds the 64 MiB limit".to_string());
@@ -102,8 +109,8 @@ fn encode_frame(kind: u8, payload: &[u8]) -> Result<Vec<u8>, String> {
     Ok(frame)
 }
 
-#[cfg(windows)]
-async fn read_frame(reader: &mut ReadHalf<NamedPipeClient>) -> Result<(u8, Vec<u8>), String> {
+#[cfg(any(windows, unix))]
+async fn read_frame(reader: &mut ReadHalf<NativePipeStream>) -> Result<(u8, Vec<u8>), String> {
     let mut header = [0_u8; HEADER_BYTES];
     reader
         .read_exact(&mut header)
@@ -126,7 +133,7 @@ async fn read_frame(reader: &mut ReadHalf<NamedPipeClient>) -> Result<(u8, Vec<u
 }
 
 #[cfg(windows)]
-async fn connect_pipe(pipe_name: &str) -> Result<NamedPipeClient, String> {
+async fn connect_pipe(pipe_name: &str) -> Result<NativePipeStream, String> {
     let started = tokio::time::Instant::now();
     loop {
         match ClientOptions::new().open(pipe_name) {
@@ -140,6 +147,21 @@ async fn connect_pipe(pipe_name: &str) -> Result<NamedPipeClient, String> {
     }
 }
 
+#[cfg(unix)]
+async fn connect_pipe(pipe_name: &str) -> Result<NativePipeStream, String> {
+    let started = tokio::time::Instant::now();
+    loop {
+        match UnixStream::connect(pipe_name).await {
+            Ok(client) => return Ok(client),
+            Err(error) if started.elapsed() < Duration::from_secs(10) => {
+                let _ = error;
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            Err(error) => return Err(format!("failed to connect Unix pipe {pipe_name}: {error}")),
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn backend_pipe_open(
     manager: State<'_, BackendPipeManager>,
@@ -147,13 +169,13 @@ pub async fn backend_pipe_open(
     name: String,
     on_message: Channel<InvokeResponseBody>,
 ) -> Result<(), String> {
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, unix)))]
     {
         let _ = (manager, channel, name, on_message);
-        return Err("Named pipe transport is only available on Windows desktop".to_string());
+        return Err("Pipe transport is unavailable on this platform".to_string());
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     {
         let key = connection_key(&channel, &name);
         let pipe_name = manager
@@ -256,7 +278,7 @@ pub async fn backend_pipe_open(
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, unix))]
 async fn send_frame(
     manager: &BackendPipeManager,
     channel: &str,
@@ -288,7 +310,7 @@ pub async fn backend_pipe_send_json(
     name: String,
     payload: Value,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     return send_frame(
         &manager,
         &channel,
@@ -297,10 +319,10 @@ pub async fn backend_pipe_send_json(
         &serde_json::to_vec(&payload).map_err(|error| error.to_string())?,
     )
     .await;
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, unix)))]
     {
         let _ = (manager, channel, name, payload);
-        Err("Named pipe transport is only available on Windows desktop".to_string())
+        Err("Pipe transport is unavailable on this platform".to_string())
     }
 }
 
@@ -311,12 +333,12 @@ pub async fn backend_pipe_send_bytes(
     name: String,
     payload: Vec<u8>,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     return send_frame(&manager, &channel, &name, KIND_BYTES, &payload).await;
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, unix)))]
     {
         let _ = (manager, channel, name, payload);
-        Err("Named pipe transport is only available on Windows desktop".to_string())
+        Err("Pipe transport is unavailable on this platform".to_string())
     }
 }
 
@@ -326,7 +348,7 @@ pub async fn backend_pipe_close(
     channel: String,
     name: String,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, unix))]
     {
         let key = connection_key(&channel, &name);
         let connection = manager
@@ -346,7 +368,7 @@ pub async fn backend_pipe_close(
         }
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, unix)))]
     {
         let _ = (manager, channel, name);
         Ok(())

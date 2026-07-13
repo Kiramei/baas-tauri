@@ -6,7 +6,9 @@ import android.os.Build
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import java.io.File
 
 @TauriPlugin
 class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
@@ -20,7 +22,9 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       } else {
         context.startService(intent)
       }
-      invoke.resolve()
+      val result = JSObject()
+      result.put("pipePath", File(context.filesDir, "baas-service.sock").absolutePath)
+      invoke.resolve(result)
     } catch (error: Exception) {
       invoke.reject(error.message, error)
     }

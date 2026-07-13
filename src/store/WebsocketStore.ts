@@ -73,7 +73,12 @@ let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
-let transportStartupPromise: ReturnType<typeof startBackendTransport> | null = null;
+let transportStartup:
+  | {
+      mode: "websocket" | "pipe";
+      promise: ReturnType<typeof startBackendTransport>;
+    }
+  | null = null;
 let transportStartupFailureAt = 0;
 let transportGeneration = 0;
 let transportRecoveryEpoch = 0;
@@ -81,6 +86,7 @@ let transportRecoveryPromise: Promise<void> | null = null;
 let transportRecoveryMustRestart = false;
 let transportRecoveryRestarting = false;
 let transportOutageAnnounced = false;
+let transportSwitching = false;
 const desiredConnectionNames = new Set<WsName>();
 const connectionOpenPromises = new Map<WsName, Promise<void>>();
 const MAX_SYNC_PATCH_RETRIES = 3;
@@ -99,16 +105,21 @@ const startManagedBackendTransport = async (mode: "websocket" | "pipe") => {
   if (Date.now() - transportStartupFailureAt < 5_000) {
     throw new Error("Backend transport startup is cooling down after a failure");
   }
-  transportStartupPromise ??= startBackendTransport(mode).finally(() => {
-    transportStartupPromise = null;
-  });
+  if (transportStartup) {
+    if (transportStartup.mode === mode) return transportStartup.promise;
+    await transportStartup.promise.catch(() => undefined);
+  }
+  const promise = startBackendTransport(mode);
+  transportStartup = { mode, promise };
   try {
-    const startup = await transportStartupPromise;
+    const startup = await promise;
     transportStartupFailureAt = 0;
     return startup;
   } catch (error) {
     transportStartupFailureAt = Date.now();
     throw error;
+  } finally {
+    if (transportStartup?.promise === promise) transportStartup = null;
   }
 };
 
@@ -489,9 +500,10 @@ void waitForNormal;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
-    transportMode: __WITH_TAURI__ && !__WITH_ANDROID__ ? "pipe" : "websocket",
+    transportMode: __WITH_TAURI__ ? "pipe" : "websocket",
     setTransportMode: async (mode) => {
       const nextMode = normalizeTransportMode(mode);
+      transportSwitching = true;
       transportRecoveryEpoch += 1;
       transportRecoveryMustRestart = false;
       transportRecoveryRestarting = false;
@@ -530,13 +542,28 @@ export const useWebSocketStore = create<WebSocketState>()(
           }));
         } else {
           applyManagedBackendAddress(startup);
+          transportSwitching = false;
           await get().startAuthFlow();
+          await waitForNormal(
+            () => get()._auth_phase,
+            (phase) =>
+              phase === "waiting_password" ||
+              phase === "authenticated" ||
+              phase === "idle" ||
+              phase === "revoked",
+            15_000
+          );
           if (get()._auth_phase === "waiting_password") {
-            const password = StorageUtil.get<string>("baasAutoPassword");
+            const password = __WITH_ANDROID__
+              ? getAndroidAutoPassword()
+              : StorageUtil.get<string>("baasAutoPassword");
             if (!password) {
               throw new Error("The managed backend password is unavailable");
             }
             await get().submitPassword(password);
+          }
+          if (get()._auth_phase !== "authenticated") {
+            throw new Error(get()._auth_error || "Backend authentication failed");
           }
         }
         await connectDesiredChannels();
@@ -548,6 +575,8 @@ export const useWebSocketStore = create<WebSocketState>()(
           _auth_error: error instanceof Error ? error.message : String(error),
         }));
         throw error;
+      } finally {
+        transportSwitching = false;
       }
     },
     connections: {},
@@ -739,7 +768,10 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     startAuthFlow: async () => {
+      if (transportSwitching) return;
+      const authGeneration = transportGeneration;
       const transportMode = await configuredTransportMode();
+      if (transportSwitching || authGeneration !== transportGeneration) return;
       if (transportMode === "pipe") {
         if (get()._auth_phase === "authenticated") return;
         set((state) => ({
@@ -755,9 +787,11 @@ export const useWebSocketStore = create<WebSocketState>()(
         }));
         try {
           await startManagedBackendTransport(transportMode);
+          if (transportSwitching || authGeneration !== transportGeneration) return;
           activeWebSocketBase = null;
           set((state) => ({ ...state, _auth_phase: "authenticated" }));
         } catch (error) {
+          if (transportSwitching || authGeneration !== transportGeneration) return;
           set((state) => ({
             ...state,
             _auth_phase: "idle",
@@ -791,6 +825,14 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       try {
         const control = await ControlConnection.open(`${resolveBase()}/ws/control`);
+        if (
+          transportSwitching ||
+          authGeneration !== transportGeneration ||
+          get().transportMode !== "websocket"
+        ) {
+          control.close();
+          return;
+        }
         control.onSecureMessage = (payload) => {
           if (payload.type === "heartbeat") {
             set((state) => ({ ...state, _heartbeat_time: payload.timestamp }));
@@ -818,7 +860,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
         };
 
-        const controlGeneration = transportGeneration;
+        const controlGeneration = authGeneration;
         control.onClose = () => {
           if (get()._control !== control) return;
           if (controlGeneration !== transportGeneration) return;
@@ -858,6 +900,14 @@ export const useWebSocketStore = create<WebSocketState>()(
         if (control.initialized) {
           set((state) => ({ ...state, _auth_phase: "resuming", _auth_error: null }));
           const session = await control.resumeWithCookie();
+          if (
+            transportSwitching ||
+            authGeneration !== transportGeneration ||
+            get().transportMode !== "websocket"
+          ) {
+            control.close();
+            return;
+          }
           if (session) {
             set((state) => ({
               ...state,
@@ -876,6 +926,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         set((state) => ({ ...state, _auth_phase: "waiting_password" }));
       } catch (error) {
+        if (transportSwitching || authGeneration !== transportGeneration) return;
         console.error("[control] failed to connect", error);
         set((state) => ({
           ...state,
