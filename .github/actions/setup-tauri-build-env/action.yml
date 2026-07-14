@@ -1,5 +1,5 @@
 name: Setup Tauri Build Environment
-description: Download generated fonts, install Rust target, cache Cargo artifacts, and install Bun dependencies.
+description: Install the requested Rust toolchain and optionally prepare frontend assets and dependencies.
 
 inputs:
   target:
@@ -13,11 +13,28 @@ inputs:
     description: Font artifact name.
     required: false
     default: generated-fonts
+  download-fonts:
+    description: Whether to download generated font assets.
+    required: false
+    default: "true"
+  install-frontend:
+    description: Whether to install Bun and frontend dependencies.
+    required: false
+    default: "true"
+  bun-version:
+    description: Bun version passed to oven-sh/setup-bun.
+    required: false
+    default: "1.3.14"
+  save-cache:
+    description: Whether to save a new Rust cache entry.
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
     - name: Download generated font assets
+      if: ${{ inputs.download-fonts == 'true' }}
       uses: actions/download-artifact@v8
       with:
         name: ${{ inputs.font-artifact-name }}
@@ -29,17 +46,10 @@ runs:
         toolchain: ${{ inputs.rust-toolchain }}
         targets: ${{ inputs.target }}
 
-    - name: Add Rust Target
-      shell: bash
-      run: |
-        rustup target add ${{ inputs.target }} --toolchain ${{ inputs.rust-toolchain }} || rustup target add ${{ inputs.target }}
-        rustup target list --installed
-        echo "Rust target ${{ inputs.target }} installed."
-
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
       with:
-        save-if: false
+        save-if: ${{ inputs.save-cache == 'true' }}
         prefix-key: "v1-rust"
         key: "rust-shared-stable-${{ runner.os }}-${{ inputs.target }}"
         workspaces: |
@@ -48,10 +58,12 @@ runs:
         cache-workspace-crates: true
 
     - name: Install Bun
+      if: ${{ inputs.install-frontend == 'true' }}
       uses: oven-sh/setup-bun@v2
       with:
-        bun-version: latest
+        bun-version: ${{ inputs.bun-version }}
 
     - name: Bun install
+      if: ${{ inputs.install-frontend == 'true' }}
       shell: bash
       run: bun install --frozen-lockfile

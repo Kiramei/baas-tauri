@@ -133,7 +133,7 @@ Documentation policy:
 - Only Chinese and English documentation are maintained.
 - Other in-app documentation languages fall back to English.
 - Screenshots are named by visible content under `docs/public/cn` and `docs/public/en`.
-- GitHub Pages deployment is handled by `.github/workflows/docs-pages.yml`.
+- GitHub Pages deployment is handled by `.github/workflows/wiki-pages.yml`.
 
 ## 🛠️ Development
 

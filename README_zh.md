@@ -82,7 +82,7 @@ bun run build
 - 只维护中文和英文文档。
 - 其他应用语言下，文档回退到英文。
 - 截图资源按可见内容命名，分别放在 `docs/public/cn` 和 `docs/public/en`。
-- GitHub Pages 部署由 `.github/workflows/docs-pages.yml` 处理。
+- GitHub Pages 部署由 `.github/workflows/wiki-pages.yml` 处理。
 
 ## 🛠️ 开发
 
