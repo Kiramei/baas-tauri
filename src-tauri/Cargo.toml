@@ -5,6 +5,12 @@ description = "Tauri App for pur1fying/blue_archive_auto_script"
 authors = ["Kiramei"]
 edition = "2021"
 
+[package.metadata.cargo-machete]
+# `tauri-build` is invoked by build.rs. The notification plugin is registered through
+# `baas-notifier`, but it must also remain a direct application dependency so Tauri's build-time
+# capability generator can discover the `notification:default` permission definition.
+ignored = ["tauri-build", "tauri-plugin-notification"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -43,7 +49,6 @@ directories = "6.0.0"
 chrono = { workspace = true }
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-single-instance = "2"
-tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }

@@ -41,7 +41,6 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
   );
   const modify = useWebSocketStore((state) => state.modify);
 
-  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       open_emulator_stat: settings.open_emulator_stat,
@@ -62,7 +61,6 @@ const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) =
     setDraft((prev) => ({ ...prev, [key]: value as any }));
   };
 
-  /** Handles the emulator type label workflow. */
   const emulatorTypeLabel = (key: string) => {
     switch (key) {
       case "mumu":

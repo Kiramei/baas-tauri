@@ -7,6 +7,9 @@ import { androidCssCompatPlugin } from "./scripts/android-css-compat-vite";
 import { asciiJsOutputPlugin } from "./scripts/vite/ascii-js-output";
 import { manualChunks } from "./scripts/vite/manual-chunks";
 import packageMetadata from "./package.json";
+// KEEP(bundle-analysis): Uncomment this import together with the plugin block below when a
+// release needs an interactive chunk report. Keeping the recipe here makes ad-hoc analysis
+// reproducible without adding the visualizer to every normal build.
 // import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
@@ -68,7 +71,8 @@ export default defineConfig(({ mode }) => {
             deleteOriginFile: false,
           })
         : undefined,
-      // Consider using this plugin to analyze the chunk :)
+      // KEEP(bundle-analysis): Enable only for a local profiling build; `open: true` launches
+      // the generated report and is intentionally unsuitable for CI and release builds.
       // visualizer({
       //   filename: "dist/stats.html",
       //   open: true,
@@ -85,6 +89,9 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: [
+        // Android has a dedicated shell because its backend lifecycle and eager/lazy page
+        // loading rules differ from desktop. Keep both aliases together so a build can never
+        // combine an Android App component with desktop startup services (or the reverse).
         {
           find: "@/platform/App",
           replacement: isAndroid

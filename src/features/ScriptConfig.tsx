@@ -37,7 +37,6 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
     [t("script.shutdown"), "关机"],
   ];
 
-  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       screenshot_interval: settings.screenshot_interval,

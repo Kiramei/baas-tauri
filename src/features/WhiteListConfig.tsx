@@ -20,7 +20,6 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
   const modify = useWebSocketStore((state) => state.modify);
   const server_mode = serverMap[settings.server!];
 
-  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       clear_friend_white_list: settings.clear_friend_white_list!,
@@ -32,7 +31,6 @@ const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId })
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
 
-  /** Handles the validate code workflow. */
   const validateCode = (code: string): string | null => {
     let expectedLen = 7;
     if (server_mode === "JP" || server_mode === "Global") expectedLen = 8;

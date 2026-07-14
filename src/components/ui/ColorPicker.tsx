@@ -99,7 +99,6 @@ interface VisuallyHiddenInputProps<T = InputValue> extends Omit<
 function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>) {
   const { control, value, checked, bubbles = true, type = "hidden", style, ...inputProps } = props;
 
-  /** Returns the is check input result. */
   const isCheckInput = React.useMemo(
     () => type === "checkbox" || type === "radio" || type === "switch",
     [type]
@@ -168,7 +167,6 @@ function VisuallyHiddenInput<T = InputValue>(props: VisuallyHiddenInputProps<T>)
     }
   }, [value, checked, bubbles, isCheckInput]);
 
-  /** Handles the composed style workflow. */
   const composedStyle = React.useMemo<React.CSSProperties>(() => {
     return {
       ...style,
@@ -277,7 +275,6 @@ interface HSVColorValue {
   a: number;
 }
 
-/** Handles the hex to rgb workflow. */
 function hexToRgb(hex: string, alpha?: number): ColorValue {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
@@ -290,9 +287,7 @@ function hexToRgb(hex: string, alpha?: number): ColorValue {
     : { r: 0, g: 0, b: 0, a: alpha ?? 1 };
 }
 
-/** Handles the rgb to hex workflow. */
 function rgbToHex(color: ColorValue): string {
-  /** Handles the to hex workflow. */
   const toHex = (n: number) => {
     const hex = Math.round(n).toString(16);
     return hex.length === 1 ? `0${hex}` : hex;
@@ -300,7 +295,6 @@ function rgbToHex(color: ColorValue): string {
   return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
 }
 
-/** Handles the rgb to hsv workflow. */
 function rgbToHsv(color: ColorValue): HSVColorValue {
   const r = color.r / 255;
   const g = color.g / 255;
@@ -337,7 +331,6 @@ function rgbToHsv(color: ColorValue): HSVColorValue {
   };
 }
 
-/** Handles the hsv to rgb workflow. */
 function hsvToRgb(hsv: HSVColorValue): ColorValue {
   const h = hsv.h / 360;
   const s = hsv.s / 100;
@@ -405,7 +398,6 @@ function hsvToRgb(hsv: HSVColorValue): ColorValue {
   };
 }
 
-/** Handles the color to string workflow. */
 function colorToString(color: ColorValue, format: ColorFormat = "hex"): string {
   switch (format) {
     case "hex":
@@ -431,7 +423,6 @@ function colorToString(color: ColorValue, format: ColorFormat = "hex"): string {
   }
 }
 
-/** Handles the rgb to hsl workflow. */
 function rgbToHsl(color: ColorValue) {
   const r = color.r / 255;
   const g = color.g / 255;
@@ -467,7 +458,6 @@ function rgbToHsl(color: ColorValue) {
   };
 }
 
-/** Handles the hsl to rgb workflow. */
 function hslToRgb(hsl: { h: number; s: number; l: number }, alpha = 1): ColorValue {
   const h = hsl.h / 360;
   const s = hsl.s / 100;
@@ -515,7 +505,6 @@ function hslToRgb(hsl: { h: number; s: number; l: number }, alpha = 1): ColorVal
   };
 }
 
-/** Returns the parse color string result. */
 function parseColorString(value: string): ColorValue | null {
   const trimmed = value.trim();
 
@@ -643,7 +632,6 @@ function useStoreContext(consumerName: string) {
 function useStore<U>(selector: (state: StoreState) => U): U {
   const store = useStoreContext("useStore");
 
-  /** Returns the get snapshot result. */
   const getSnapshot = React.useCallback(() => selector(store.getState()), [store, selector]);
 
   return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
@@ -726,7 +714,6 @@ function ColorPicker(props: ColorPickerProps) {
     onFormatChange,
   });
 
-  /** Handles the store workflow. */
   const store = React.useMemo<Store>(() => {
     return {
       subscribe: (cb) => {
@@ -855,7 +842,6 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
     }
   }, [openProp]);
 
-  /** Handles the context value workflow. */
   const contextValue = React.useMemo<ColorPickerContextValue>(
     () => ({
       dir,
@@ -987,7 +973,6 @@ function ColorPickerArea(props: DivProps) {
   const areaRef = React.useRef<HTMLDivElement>(null);
   const composedRef = useComposedRefs(ref, areaRef);
 
-  /** Performs the update color from position operation. */
   const updateColorFromPosition = React.useCallback(
     (clientX: number, clientY: number) => {
       if (!areaRef.current) return;
@@ -1207,7 +1192,6 @@ function ColorPickerSwatch(props: DivProps) {
   const color = useStore((state) => state.color);
   const format = useStore((state) => state.format);
 
-  /** Handles the background style workflow. */
   const backgroundStyle = React.useMemo(() => {
     if (!color) {
       return {
@@ -1597,7 +1581,6 @@ function RgbInput(props: FormatInputProps) {
 function HslInput(props: FormatInputProps) {
   const { color, onColorChange, context, withoutAlpha, className, ...inputProps } = props;
 
-  /** Handles the hsl workflow. */
   const hsl = React.useMemo(() => rgbToHsl(color), [color]);
   const alphaValue = Math.round((color?.a ?? 1) * 100);
 

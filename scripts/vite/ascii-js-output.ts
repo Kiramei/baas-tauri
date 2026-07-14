@@ -2,7 +2,6 @@ import type { Plugin } from "vite";
 
 const nonAsciiPattern = /[^\x00-\x7F]/g;
 
-/** Handles the escape non ascii workflow. */
 const escapeNonAscii = (code: string): string =>
   code.replace(nonAsciiPattern, (char) =>
     [...char]
@@ -16,13 +15,11 @@ const escapeNonAscii = (code: string): string =>
       .join("")
   );
 
-/** Handles the ascii js output plugin workflow. */
 export const asciiJsOutputPlugin = (enabled: boolean): Plugin | undefined => {
   if (!enabled) return undefined;
 
   return {
     name: "baas-ascii-js-output",
-    /** Handles the generate bundle workflow. */
     generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
         if (output.type === "chunk") {

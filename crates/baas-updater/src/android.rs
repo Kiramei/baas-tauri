@@ -161,7 +161,13 @@ impl AndroidUpdaterTermManager {
         let flow_session_id = session_id.clone();
         let flow_status = Arc::clone(&self.status);
         thread::spawn(move || {
-            run_android_update_flow(flow_inner, flow_session_id, renderer_tx, options, flow_status)
+            run_android_update_flow(
+                flow_inner,
+                flow_session_id,
+                renderer_tx,
+                options,
+                flow_status,
+            )
         });
 
         Ok(SessionMetadata {
@@ -387,7 +393,8 @@ fn run_android_update_flow(
             &renderer_tx,
             &status,
             false,
-            android_state_error(&state).unwrap_or_else(|| "android finalize task failed".to_string()),
+            android_state_error(&state)
+                .unwrap_or_else(|| "android finalize task failed".to_string()),
         );
         return;
     }
@@ -549,7 +556,11 @@ fn android_repository_task(
     let outcome = match sync_android_repository(args.kind, &config, &output) {
         Ok(outcome) => outcome,
         Err(error) => {
-            let message = format!("{} repository failed: {}", args.kind.as_str(), error.message());
+            let message = format!(
+                "{} repository failed: {}",
+                args.kind.as_str(),
+                error.message()
+            );
             set_android_state_error(&args.state, &message);
             return Err(message);
         }
@@ -1297,8 +1308,7 @@ mod tests {
     #[test]
     fn android_missing_object_error_is_recoverable() {
         assert!(is_missing_git_object_error(&UpdaterError::Git(
-            "object not found - no match for id abc; class=Odb (9); code=NotFound (-3)"
-                .to_string()
+            "object not found - no match for id abc; class=Odb (9); code=NotFound (-3)".to_string()
         )));
         assert!(is_missing_git_object_error(&UpdaterError::Git(
             "missing object abc".to_string()

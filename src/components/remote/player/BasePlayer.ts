@@ -97,7 +97,6 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
   private qualityAnimationId?: number;
   private showQualityStats = BasePlayer.DEFAULT_SHOW_QUALITY_STATS;
 
-  /** Handles the constructor workflow. */
   protected constructor(
     public readonly _videoSettings: VideoSettings,
     protected displayInfo?: DisplayInfo,
@@ -113,7 +112,6 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     this.videoSettings = _videoSettings;
   }
 
-  /** Returns the is iframe result. */
   protected static isIFrame(frame: Uint8Array): boolean {
     // last 5 bits === 5: Coded slice of an IDR picture
 
@@ -124,10 +122,8 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     return frame && frame.length > 4 && (frame[4] & 31) === 5;
   }
 
-  /** Returns the get image data url result. */
   public abstract getImageDataURL(): string;
 
-  /** Handles the play workflow. */
   public play(): void {
     if (this.needScreenInfoBeforePlay() && !this.screenInfo) {
       return;
@@ -135,23 +131,19 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     this.state = BasePlayer.STATE.PLAYING;
   }
 
-  /** Handles the pause workflow. */
   public pause(): void {
     this.state = BasePlayer.STATE.PAUSED;
   }
 
-  /** Performs the stop operation. */
   public stop(): void {
     this.state = BasePlayer.STATE.STOPPED;
     this.statUpdateCallback = () => undefined;
   }
 
-  /** Returns the get state result. */
   public getState(): number {
     return this.state;
   }
 
-  /** Handles the push frame workflow. */
   public pushFrame(frame: Uint8Array): void {
     if (!this.receivedFirstFrame) {
       this.receivedFirstFrame = true;
@@ -165,29 +157,24 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     });
   }
 
-  /** Returns the get touchable element result. */
   public getTouchableElement(): HTMLCanvasElement {
     return this.touchableCanvas;
   }
 
-  /** Returns the get video settings result. */
   public getVideoSettings(): VideoSettings {
     return this.videoSettings;
   }
 
-  /** Performs the set video settings operation. */
   public setVideoSettings(videoSettings: VideoSettings): void {
     this.videoSettings = videoSettings;
     this.resetStats();
     this.emit("video-settings", VideoSettings.copy(videoSettings));
   }
 
-  /** Returns the get screen info result. */
   public getScreenInfo(): ScreenInfo | undefined {
     return this.screenInfo;
   }
 
-  /** Performs the set screen info operation. */
   public setScreenInfo(screenInfo: ScreenInfo): void {
     if (this.needScreenInfoBeforePlay()) {
       this.pause();
@@ -205,14 +192,12 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     this.emit("video-view-resize", size);
   }
 
-  /** Performs the set show quality stats operation. */
   public setShowQualityStats(value: boolean): void {
     this.showQualityStats = value;
     if (!value) return;
     this.drawStats();
   }
 
-  /** Performs the set display info operation. */
   public setDisplayInfo(displayInfo: DisplayInfo): void {
     this.displayInfo = displayInfo;
   }
@@ -222,7 +207,6 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     this.statUpdateCallback = callback;
   }
 
-  /** Returns the calculate screen info for bounds result. */
   protected calculateScreenInfoForBounds(videoWidth: number, videoHeight: number): void {
     this.videoWidth = videoWidth;
     this.videoHeight = videoHeight;
@@ -262,15 +246,12 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     }
   }
 
-  /** Returns the calculate momentum stats result. */
   protected abstract calculateMomentumStats(): void;
 
-  /** Handles the need screen info before play workflow. */
   protected needScreenInfoBeforePlay(): boolean {
     return true;
   }
 
-  /** Performs the reset stats operation. */
   protected resetStats(): void {
     this.receivedFirstFrame = false;
     this.totalStatsCounter = 0;
@@ -323,7 +304,6 @@ export abstract class BasePlayer extends TypedEmitter<PlayerEvents> {
     }
   };
 
-  /** Handles the draw stats workflow. */
   private drawStats(): void {
     if (!this.showQualityStats) return;
     if (this.perSecondQualityStats && this.momentumQualityStats) {
@@ -358,7 +338,6 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
   protected animationFrameId?: number;
   protected canvas?: CanvasDecoder;
 
-  /** Handles the constructor workflow. */
   protected constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -370,7 +349,6 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     super(videoSettings, displayInfo, name, storageKeyPrefix, tag, touchableCanvas);
   }
 
-  /** Returns the has web glsupport result. */
   public static hasWebGLSupport(): boolean {
     // For some reason if I use here `this.tag` image on canvas will be flattened
     const testCanvas: HTMLCanvasElement = document.createElement("canvas");
@@ -389,7 +367,6 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     return !!gl;
   }
 
-  /** Returns the create element result. */
   public static createElement(id?: string): HTMLCanvasElement {
     const tag = document.createElement("canvas") as HTMLCanvasElement;
     if (typeof id === "string") {
@@ -399,12 +376,10 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     return tag;
   }
 
-  /** Returns the get image data url result. */
   public getImageDataURL(): string {
     return this.tag.toDataURL();
   }
 
-  /** Handles the play workflow. */
   public play(): void {
     super.play();
     if (this.getState() !== BasePlayer.STATE.PLAYING || !this.screenInfo) {
@@ -418,13 +393,11 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     this.shiftFrame();
   }
 
-  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     this.clearState();
   }
 
-  /** Performs the set screen info operation. */
   public setScreenInfo(screenInfo: ScreenInfo): void {
     super.setScreenInfo(screenInfo);
     this.clearState();
@@ -437,7 +410,6 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     }
   }
 
-  /** Handles the push frame workflow. */
   public pushFrame(frame: Uint8Array): void {
     super.pushFrame(frame);
     if (BasePlayer.isIFrame(frame)) {
@@ -460,7 +432,6 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     this.shiftFrame();
   }
 
-  /** Handles the decode workflow. */
   protected abstract decode(data: Uint8Array): void;
 
   protected drawDecoded = (): void => {
@@ -510,12 +481,10 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     }
   }
 
-  /** Handles the drop frame workflow. */
   protected dropFrame(_frame: any): void {
     // dispose frame if required
   }
 
-  /** Returns the calculate momentum stats result. */
   protected calculateMomentumStats(): void {
     const timestamp = Date.now();
     const oneSecondBefore = timestamp - 1000;
@@ -545,13 +514,11 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     };
   }
 
-  /** Performs the reset stats operation. */
   protected resetStats(): void {
     super.resetStats();
     this.videoStats = [];
   }
 
-  /** Performs the init canvas operation. */
   protected initCanvas(width: number, height: number): void {
     if (this.canvas) {
       const parent = this.tag.parentNode;
@@ -573,12 +540,10 @@ export abstract class BaseCanvasBasedPlayer extends BasePlayer {
     this.tag.height = Math.round(height);
   }
 
-  /** Performs the clear state operation. */
   protected clearState(): void {
     this.framesList = [];
   }
 
-  /** Handles the shift frame workflow. */
   private shiftFrame(): void {
     if (this.getState() !== BasePlayer.STATE.PLAYING) {
       return;

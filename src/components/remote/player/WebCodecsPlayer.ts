@@ -12,7 +12,6 @@ type ParametersSubSet = {
   height: number;
 };
 
-/** Handles the to hex workflow. */
 function toHex(value: number) {
   return value.toString(16).padStart(2, "0").toUpperCase();
 }
@@ -20,7 +19,6 @@ function toHex(value: number) {
 export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
   public static readonly storageKeyPrefix = "WebCodecsPlayer";
   public static readonly playerFullName = "WebCodecs";
-  // noinspection JSUnusedGlobalSymbols
   public static readonly playerCodeName = "webcodecs";
 
   public static readonly preferredVideoSettings: VideoSettings = new VideoSettings({
@@ -38,7 +36,6 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
   private bufferedSPS = false;
   private bufferedPPS = false;
 
-  /** Handles the constructor workflow. */
   constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -55,14 +52,12 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     this.decoder = this.createDecoder();
   }
 
-  // noinspection JSUnusedGlobalSymbols
   public static isSupported(): boolean {
     return !(
       typeof VideoDecoder !== "function" || typeof VideoDecoder.isConfigSupported !== "function"
     );
   }
 
-  /** Returns the parse sps result. */
   private static parseSPS(data: Uint8Array): ParametersSubSet {
     const {
       profile_idc,
@@ -92,7 +87,6 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     return { codec, width, height };
   }
 
-  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     if (this.decoder.state === "configured") {
@@ -100,7 +94,6 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     }
   }
 
-  /** Handles the add to buffer workflow. */
   protected addToBuffer(data: Uint8Array): Uint8Array {
     let array: Uint8Array;
     if (this.buffer) {
@@ -114,7 +107,6 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     return array;
   }
 
-  /** Handles the scale canvas workflow. */
   protected scaleCanvas(width: number, height: number): void {
     const videoSize = new Size(width, height);
     let scale = 1;
@@ -127,7 +119,10 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     this.emit("input-video-resize", screenInfo);
     this.setScreenInfo(screenInfo);
 
-    // FIXME: canvas was initialized from `.setScreenInfo()` call above, but with wrong values
+    // `screenInfo.videoSize` is the CSS-scaled display size used for pointer mapping, while the
+    // decoder outputs frames at the encoded SPS dimensions. BasePlayer initializes from the
+    // former, so immediately restore the canvas backing buffer to the latter to avoid resampling
+    // decoded frames and corrupting input coordinates on constrained viewports.
     this.initCanvas(width, height);
     if (scale !== 1) {
       this.tag.style.transform = `scale(${scale.toFixed(4)})`;
@@ -137,7 +132,6 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     this.tag.style.transformOrigin = "top left";
   }
 
-  /** Handles the decode workflow. */
   protected decode(data: Uint8Array): void {
     if (!data || data.length < 4) {
       return;
@@ -201,17 +195,14 @@ export class WebCodecsPlayer extends BaseCanvasBasedPlayer {
     }
   };
 
-  /** Handles the drop frame workflow. */
   protected dropFrame(frame: VideoFrame): void {
     frame.close();
   }
 
-  /** Handles the need screen info before play workflow. */
   protected needScreenInfoBeforePlay(): boolean {
     return false;
   }
 
-  /** Returns the create decoder result. */
   private createDecoder(): VideoDecoder {
     return new VideoDecoder({
       output: (frame) => {

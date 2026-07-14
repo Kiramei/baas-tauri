@@ -24,7 +24,6 @@ const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
   const modify = useWebSocketStore((state) => state.modify);
 
-  /** Handles the ext workflow. */
   const ext = React.useMemo(() => {
     return {
       server: settings.server,

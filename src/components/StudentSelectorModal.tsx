@@ -34,7 +34,6 @@ const StudentSelectorModal: React.FC<Props> = ({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
-  /** Handles the display name workflow. */
   const displayName = (s: Student) => {
     if (lang === "CN") return s.CN_name;
     if (lang === "Global") return s.Global_name;
@@ -49,7 +48,6 @@ const StudentSelectorModal: React.FC<Props> = ({
     });
   }, [deferredQuery, allStudents, lang]);
 
-  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));

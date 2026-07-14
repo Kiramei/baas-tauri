@@ -36,7 +36,6 @@ const StageConfig: React.FC<StageConfigProps> = ({ profileId, setActivePage, onC
   const modify = useWebSocketStore((state) => state.modify);
   const trigger = useWebSocketStore((state) => state.trigger);
 
-  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       manual_boss: settings.manual_boss,

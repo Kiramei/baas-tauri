@@ -47,6 +47,9 @@ jobs:
       - name: Test transport handshake
         run: bun run test:transport
 
+      - name: Test Android bootstrap preservation
+        run: bun run test:android-bootstrap
+
       - name: Build desktop frontend
         run: bun run build:tauri
 

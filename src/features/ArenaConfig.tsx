@@ -24,7 +24,6 @@ const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
-  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       ArenaLevelDiff: settings.ArenaLevelDiff,

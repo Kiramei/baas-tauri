@@ -1,9 +1,7 @@
 import type { TranslationKey } from "@/types/i18n";
 
-/** Handles the i18n key workflow. */
 export const i18nKey = (key: TranslationKey) => key;
 
-/** Handles the from record workflow. */
 const fromRecord = <T extends string>(
   map: Record<T, TranslationKey>,
   value: string | null | undefined,
@@ -167,46 +165,35 @@ const wikiCategoryMap: Record<string, TranslationKey> = {
   support: "wiki.category.support",
 };
 
-/** Handles the artifact phase key workflow. */
 export const artifactPhaseKey = (phase: number): TranslationKey =>
   i18nKey(`artifact.phase${phase}` as TranslationKey);
 
-/** Handles the event name key workflow. */
 export const eventNameKey = (value: string | null | undefined): TranslationKey =>
   fromRecord(eventNameMap, value, "eventName.unknown");
 
-/** Handles the feature translation key workflow. */
 export const featureTranslationKey = (value: string): TranslationKey =>
   fromRecord(featureMap, value, "nav.configuration");
 
-/** Handles the mirrorc message key workflow. */
 export const mirrorcMessageKey = (value: string): TranslationKey =>
   fromRecord(mirrorcMessageMap, value, "mirrorc.message.confirmCdkey");
 
-/** Handles the property key workflow. */
 export const propertyKey = (value: string): TranslationKey =>
   fromRecord(propertyMap, value, "property.unused");
 
-/** Handles the schedule level key workflow. */
 export const scheduleLevelKey = (value: string): TranslationKey =>
   fromRecord(scheduleLevelMap, value, "schedule.normal");
 
-/** Handles the sha method key workflow. */
 export const shaMethodKey = (value: string): TranslationKey =>
   fromRecord(shaMethodMap, value, "shaMethod.github");
 
-/** Handles the team method key workflow. */
 export const teamMethodKey = (value: string): TranslationKey =>
   fromRecord(teamMethodMap, value, "team.preset");
 
-/** Handles the theme key workflow. */
 export const themeKey = (value: string): TranslationKey =>
   fromRecord(themeMap, value, "common.theme.system");
 
-/** Performs the update method key operation. */
 export const updateMethodKey = (value: string): TranslationKey =>
   fromRecord(updateMethodMap, value, "updateMethod.github");
 
-/** Handles the wiki category key workflow. */
 export const wikiCategoryKey = (value: string): TranslationKey =>
   fromRecord(wikiCategoryMap, value, "wiki.category.all");

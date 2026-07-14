@@ -14,7 +14,6 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
   public static readonly storageKeyPrefix = "BroadwayDecoder";
   public static readonly playerFullName = "Broadway.js";
 
-  // noinspection JSUnusedGlobalSymbols
   public static readonly playerCodeName = "broadway";
 
   public static readonly preferredVideoSettings: VideoSettings = new VideoSettings({
@@ -37,7 +36,6 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
    */
   private avc?: DecoderInstance;
 
-  /** Handles the constructor workflow. */
   public constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -48,12 +46,10 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
     super(videoSettings, displayInfo, name, BroadwayPlayer.storageKeyPrefix, tag, touchableCanvas);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   public static isSupported(): boolean {
     return typeof WebAssembly === "object" && typeof WebAssembly.instantiate === "function";
   }
 
-  /** Performs the init canvas operation. */
   protected initCanvas(width: number, height: number): void {
     super.initCanvas(width, height);
 
@@ -79,7 +75,6 @@ export class BroadwayPlayer extends BaseCanvasBasedPlayer {
     };
   }
 
-  /** Handles the decode workflow. */
   protected decode(data: Uint8Array): void {
     if (!this.avc) {
       return;

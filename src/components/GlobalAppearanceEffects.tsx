@@ -11,10 +11,8 @@ type Rgb = {
   b: number;
 };
 
-/** Handles the clamp workflow. */
 const clamp = (value: number, min = 0, max = 255) => Math.min(max, Math.max(min, value));
 
-/** Handles the hex to rgb workflow. */
 const hexToRgb = (hex: string): Rgb | null => {
   if (!HEX_COLOR_RE.test(hex)) return null;
   return {
@@ -24,18 +22,15 @@ const hexToRgb = (hex: string): Rgb | null => {
   };
 };
 
-/** Handles the rgb to hex workflow. */
 const rgbToHex = ({ r, g, b }: Rgb) =>
   `#${[r, g, b].map((value) => clamp(Math.round(value)).toString(16).padStart(2, "0")).join("")}`;
 
-/** Handles the mix workflow. */
 const mix = (a: Rgb, b: Rgb, weight: number): Rgb => ({
   r: a.r + (b.r - a.r) * weight,
   g: a.g + (b.g - a.g) * weight,
   b: a.b + (b.b - a.b) * weight,
 });
 
-/** Returns the build primary scale result. */
 const buildPrimaryScale = (baseHex: string) => {
   const base = hexToRgb(baseHex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
   const white = { r: 255, g: 255, b: 255 };
@@ -98,7 +93,6 @@ const slateThemeMixWeights: Record<SlateShade, number> = {
   950: 0.025,
 };
 
-/** Returns the build slate scale result. */
 const buildSlateScale = (baseHex: string) => {
   const theme = hexToRgb(baseHex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
   const black = { r: 0, g: 0, b: 0 };
@@ -120,7 +114,6 @@ const buildSlateScale = (baseHex: string) => {
   ) as Record<SlateShade, string>;
 };
 
-/** Handles the contrast text workflow. */
 const contrastText = (hex: string) => {
   const rgb = hexToRgb(hex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
   const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
@@ -136,9 +129,7 @@ const GlobalAppearanceEffects: React.FC = () => {
     ? selectedThemeColor
     : DEFAULT_THEME_COLOR;
   const backgroundOpacity = Math.min(1, Math.max(0, selectedBackgroundOpacity ?? 0.18));
-  /** Handles the primary scale workflow. */
   const primaryScale = useMemo(() => buildPrimaryScale(themeColor), [themeColor]);
-  /** Handles the slate scale workflow. */
   const slateScale = useMemo(() => buildSlateScale(themeColor), [themeColor]);
 
   useEffect(() => {

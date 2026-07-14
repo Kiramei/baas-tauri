@@ -31,7 +31,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const { hotkeys, saveHotkeys, setShortcutsSuspended } = useTauriShortcuts();
   const { profiles, activeProfile } = useApp();
   const pid = profileId ?? activeProfile?.id;
-  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
@@ -241,7 +240,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    * Serializes the on-screen log buffer and triggers a local download for auditing or support.
    */
   const pad = (n: number) => n.toString().padStart(2, "0");
-  /** Handles the export log workflow. */
   const exportLog = async () => {
     const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)

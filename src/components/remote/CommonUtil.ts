@@ -24,7 +24,6 @@ export class DataUtil {
   };
   private static supportsPassiveValue: boolean | undefined;
 
-  /** Handles the filter trailing zeroes workflow. */
   public static filterTrailingZeroes(bytes: Uint8Array): Uint8Array {
     let b = 0;
     return bytes
@@ -33,7 +32,6 @@ export class DataUtil {
       .reverse();
   }
 
-  /** Handles the pretty bytes workflow. */
   public static prettyBytes(value: number): string {
     let suffix = 0;
     while (value >= 512) {
@@ -43,7 +41,6 @@ export class DataUtil {
     return `${value.toFixed(suffix ? 1 : 0)}${DataUtil.SUFFIX[suffix]}`;
   }
 
-  /** Returns the parse string result. */
   public static parseString(params: URLSearchParams, name: string, required?: boolean): string {
     const value = params.get(name);
     if (required && value === null) {
@@ -52,7 +49,6 @@ export class DataUtil {
     return value || "";
   }
 
-  /** Returns the parse boolean env result. */
   public static parseBooleanEnv(
     input: string | string[] | boolean | undefined | null
   ): boolean | undefined {
@@ -68,7 +64,6 @@ export class DataUtil {
     return input === "1" || input.toLowerCase() === "true";
   }
 
-  /** Returns the parse string env result. */
   public static parseStringEnv(input: string | string[] | undefined | null): string | undefined {
     if (typeof input === "undefined" || input === null) {
       return undefined;
@@ -78,7 +73,6 @@ export class DataUtil {
     }
     return input;
   }
-  /** Returns the parse int env result. */
   public static parseIntEnv(
     input: string | string[] | number | undefined | null
   ): number | undefined {
@@ -155,7 +149,10 @@ export class DataUtil {
    * @return {string} 16-bit Unicode string.
    */
   static utf8ByteArrayToString(bytes: Uint8Array): string {
-    // TODO(user): Use native implementations if/when available
+    // Keep this codec paired with `stringToUtf8ByteArray`: these helpers are part of the scrcpy
+    // wire-format implementation and are also used while parsing fixed-width protocol fields.
+    // Changing only one side to a platform codec can alter malformed-surrogate replacement and
+    // break byte-for-byte compatibility with peers still using this implementation.
     const out = [];
     let pos = 0,
       c = 0;
@@ -226,7 +223,6 @@ export class VideoSettings {
   public readonly codecOptions?: string;
   public readonly encoderName?: string;
 
-  /** Handles the constructor workflow. */
   constructor(
     data?: Settings,
     public readonly bytesLength: number = VideoSettings.BASE_BUFFER_LENGTH
@@ -251,7 +247,6 @@ export class VideoSettings {
     }
   }
 
-  /** Handles the from buffer workflow. */
   public static fromBuffer(buffer: Buffer): VideoSettings {
     let offset = 0;
     const bitrate = buffer.readInt32BE(offset);
@@ -319,7 +314,6 @@ export class VideoSettings {
     );
   }
 
-  /** Handles the copy workflow. */
   public static copy(a: VideoSettings): VideoSettings {
     return new VideoSettings(
       {
@@ -338,7 +332,6 @@ export class VideoSettings {
     );
   }
 
-  /** Handles the equals workflow. */
   public equals(o?: VideoSettings | null): boolean {
     if (!o) {
       return false;
@@ -356,7 +349,6 @@ export class VideoSettings {
     );
   }
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     let additionalLength = 0;
     let codecOptionsBytes;
@@ -401,7 +393,6 @@ export class VideoSettings {
     return buffer;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     // prettier-ignore
     return `VideoSettings{bitrate=${
@@ -431,17 +422,14 @@ export interface Emitter<T extends EventMap> {
 export class TypedEmitter<T extends EventMap> implements Emitter<T> {
   private emitter = new EventEmitter();
 
-  /** Handles the on workflow. */
   on<K extends EventKey<T>>(eventName: K, fn: EventReceiver<T[K]>): void {
     this.emitter.on(eventName, fn);
   }
 
-  /** Handles the off workflow. */
   off<K extends EventKey<T>>(eventName: K, fn: EventReceiver<T[K]>): void {
     this.emitter.off(eventName, fn);
   }
 
-  /** Performs the emit operation. */
   emit<K extends EventKey<T>>(eventName: K, params: T[K]): boolean {
     return this.emitter.emit(eventName, params);
   }

@@ -16,15 +16,12 @@ export class ControlMessage {
   public static TYPE_ROTATE_DEVICE = 11;
   public static TYPE_CHANGE_STREAM_PARAMETERS = 101;
 
-  /** Handles the constructor workflow. */
   constructor(readonly type: number) {}
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     throw Error("Not implemented");
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     return "ControlMessage";
   }
@@ -34,13 +31,11 @@ export class DeviceMessage {
   public static TYPE_CLIPBOARD = 0;
   public static readonly MAGIC_BYTES_MESSAGE = DataUtil.stringToUtf8ByteArray("scrcpy_message");
 
-  /** Handles the constructor workflow. */
   constructor(
     public readonly type: number,
     protected readonly buffer: Buffer
   ) {}
 
-  /** Handles the from buffer workflow. */
   public static fromBuffer(data: ArrayBuffer): DeviceMessage {
     const magicSize = this.MAGIC_BYTES_MESSAGE.length;
     const buffer = Buffer.from(data, magicSize, data.byteLength - magicSize);
@@ -48,7 +43,6 @@ export class DeviceMessage {
     return new DeviceMessage(type, buffer);
   }
 
-  /** Returns the get text result. */
   public getText(): string {
     if (this.type !== DeviceMessage.TYPE_CLIPBOARD) {
       throw TypeError(`Wrong message type: ${this.type}`);
@@ -62,7 +56,6 @@ export class DeviceMessage {
     const textBytes = this.buffer.slice(offset, offset + length);
     return DataUtil.utf8ByteArrayToString(textBytes);
   }
-  /** Handles the to string workflow. */
   public toString(): string {
     let desc: string;
     if (this.type === DeviceMessage.TYPE_CLIPBOARD && this.buffer) {
@@ -88,12 +81,10 @@ export class CommandControlMessage extends ControlMessage {
   ]);
   private buffer?: Buffer;
 
-  /** Handles the constructor workflow. */
   constructor(readonly type: number) {
     super(type);
   }
 
-  /** Returns the create set video settings command result. */
   public static createSetVideoSettingsCommand(videoSettings: VideoSettings): CommandControlMessage {
     const temp = videoSettings.toBuffer();
     const event = new CommandControlMessage(ControlMessage.TYPE_CHANGE_STREAM_PARAMETERS);
@@ -107,7 +98,6 @@ export class CommandControlMessage extends ControlMessage {
     return event;
   }
 
-  /** Returns the create set clipboard command result. */
   public static createSetClipboardCommand(text: string, paste = false): CommandControlMessage {
     const event = new CommandControlMessage(ControlMessage.TYPE_SET_CLIPBOARD);
     const textBytes: Uint8Array | null = text ? DataUtil.stringToUtf8ByteArray(text) : null;
@@ -126,7 +116,6 @@ export class CommandControlMessage extends ControlMessage {
     return event;
   }
 
-  /** Returns the create set screen power mode command result. */
   public static createSetScreenPowerModeCommand(mode: boolean): CommandControlMessage {
     const event = new CommandControlMessage(ControlMessage.TYPE_SET_SCREEN_POWER_MODE);
     let offset = 0;
@@ -137,7 +126,6 @@ export class CommandControlMessage extends ControlMessage {
     return event;
   }
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     if (!this.buffer) {
       const buffer = Buffer.alloc(CommandControlMessage.PAYLOAD_LENGTH + 1);
@@ -147,7 +135,6 @@ export class CommandControlMessage extends ControlMessage {
     return this.buffer!;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     const buffer = this.buffer ? `, buffer=[${this.buffer.join(",")}]` : "";
     return `CommandControlMessage{action=${this.type}${buffer}}`;
@@ -157,7 +144,6 @@ export class CommandControlMessage extends ControlMessage {
 export class KeyCodeControlMessage extends ControlMessage {
   public static PAYLOAD_LENGTH = 13;
 
-  /** Handles the constructor workflow. */
   constructor(
     readonly action: number,
     readonly keycode: number,
@@ -167,7 +153,6 @@ export class KeyCodeControlMessage extends ControlMessage {
     super(ControlMessage.TYPE_KEYCODE);
   }
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     const buffer = Buffer.alloc(KeyCodeControlMessage.PAYLOAD_LENGTH + 1);
     let offset = 0;
@@ -179,7 +164,6 @@ export class KeyCodeControlMessage extends ControlMessage {
     return buffer;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     return `KeyCodeControlMessage{action=${this.action}, keycode=${this.keycode}, metaState=${this.metaState}}`;
   }
@@ -188,7 +172,6 @@ export class KeyCodeControlMessage extends ControlMessage {
 export class ScrollControlMessage extends ControlMessage {
   public static PAYLOAD_LENGTH = 20;
 
-  /** Handles the constructor workflow. */
   constructor(
     readonly position: Position,
     readonly hScroll: number,
@@ -197,7 +180,6 @@ export class ScrollControlMessage extends ControlMessage {
     super(ControlMessage.TYPE_SCROLL);
   }
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     const buffer = Buffer.alloc(ScrollControlMessage.PAYLOAD_LENGTH + 1);
     let offset = 0;
@@ -211,7 +193,6 @@ export class ScrollControlMessage extends ControlMessage {
     return buffer;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     return `ScrollControlMessage{hScroll=${this.hScroll}, vScroll=${this.vScroll}, position=${this.position}}`;
   }
@@ -219,12 +200,10 @@ export class ScrollControlMessage extends ControlMessage {
 
 export class TextControlMessage extends ControlMessage {
   private static TEXT_SIZE_FIELD_LENGTH = 4;
-  /** Handles the constructor workflow. */
   constructor(readonly text: string) {
     super(ControlMessage.TYPE_TEXT);
   }
 
-  /** Handles the to buffer workflow. */
   public toBuffer(): Buffer {
     const length = this.text.length;
     const buffer = Buffer.alloc(length + 1 + TextControlMessage.TEXT_SIZE_FIELD_LENGTH);
@@ -235,7 +214,6 @@ export class TextControlMessage extends ControlMessage {
     return buffer;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     return `TextControlMessage{text=${this.text}}`;
   }
@@ -260,7 +238,6 @@ export class TouchControlMessage extends ControlMessage {
    */
   public static readonly MAX_PRESSURE_VALUE = 0xffff;
 
-  /** Handles the constructor workflow. */
   constructor(
     readonly action: number,
     readonly pointerId: number,
@@ -290,7 +267,6 @@ export class TouchControlMessage extends ControlMessage {
     return buffer;
   }
 
-  /** Handles the to string workflow. */
   public toString(): string {
     return `TouchControlMessage{action=${this.action}, pointerId=${this.pointerId}, position=${this.position}, pressure=${this.pressure}, buttons=${this.buttons}}`;
   }

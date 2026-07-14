@@ -99,7 +99,6 @@ export interface Availability {
   phase3: boolean;
 }
 
-// noinspection JSUnusedGlobalSymbols
 export enum MaterialType {
   Material = "Material",
   Special = "Special",

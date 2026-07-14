@@ -99,7 +99,6 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const MoveAllToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   const pid = profileId ?? activeProfile?.id;
-  /** Handles the profile workflow. */
   const profile = useMemo(
     () => profiles.find((p) => p.id === pid) ?? activeProfile ?? null,
     [profiles, pid, activeProfile]
@@ -117,7 +116,6 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const modify = useWebSocketStore((e) => e.modify);
 
-  /** Handles the filtered workflow. */
   const filtered = useMemo(() => {
     let base = eventConfigs.filter((t) => t.event_name.includes(deferredSearch));
 
@@ -172,14 +170,12 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     setModalTask(task);
   }, []);
 
-  /** Handles the move all workflow. */
   const moveAll = (toRight: boolean) => {
     startTransition(() => {
       onUpdate(eventConfigs.map((t) => ({ ...t, enabled: toRight })));
     });
   };
 
-  /** Handles the refresh all workflow. */
   const refreshAll = () => {
     const now = new Date().getTime();
     startTransition(() => {

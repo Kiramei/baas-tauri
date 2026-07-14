@@ -9,7 +9,6 @@ export const SERVER_VALUES = {
   JP: "\u65e5\u670d",
 } as const;
 
-/** Returns the build server options result. */
 export const buildServerOptions = (t: TFunction) => [
   { label: t("server.cn.official"), value: SERVER_VALUES.CN_OFFICIAL },
   { label: t("server.cn.bilibili"), value: SERVER_VALUES.CN_BILIBILI },

@@ -160,7 +160,6 @@ const isPresentVersionValue = (value: unknown) => value !== "" && value !== unde
 const shortDesktopShaOrNull = (value: unknown) =>
   typeof value === "string" && /^[0-9a-f]{7,64}$/i.test(value) ? value.slice(0, 6) : null;
 
-/** Handles the bytes to base64 workflow. */
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = "";
   const chunkSize = 0x8000;
@@ -170,13 +169,11 @@ const bytesToBase64 = (bytes: Uint8Array) => {
   return btoa(binary);
 };
 
-/** Handles the mime from filename workflow. */
 const mimeFromFilename = (filename: string) => {
   const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   return backgroundMimeByExtension[extension] ?? "";
 };
 
-/** Returns the is supported background mime result. */
 const isSupportedBackgroundMime = (mime: string) =>
   ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(mime);
 
@@ -236,7 +233,6 @@ const SettingsPage: React.FC = () => {
     setUiSettings((state) => ({ ...state, zoomScale: newZoom }));
   };
 
-  /** Handles the commit theme color workflow. */
   const commitThemeColor = (value: string) => {
     const nextColor = value.trim();
     if (!HEX_COLOR_RE.test(nextColor)) {
@@ -443,7 +439,6 @@ const SettingsPage: React.FC = () => {
     setThemeColorInput(uiSettings.themeColor || DEFAULT_THEME_COLOR);
   }, [uiSettings.themeColor]);
 
-  /** Handles the fetch version workflow. */
   const fetchVersion = async () => {
     setVersionChecking(true);
     setShaRemote("");
@@ -638,7 +633,6 @@ const SettingsPage: React.FC = () => {
 
     if (__WITH_TAURI__) {
       const { invoke } = await import("@/shared/TauriInvoke");
-      /** Performs the apply result operation. */
       const applyResult = (result: TauriShaMethodReport) => {
         if (shaTestRunRef.current !== timestamp) return;
         setShaResults((prev) =>
