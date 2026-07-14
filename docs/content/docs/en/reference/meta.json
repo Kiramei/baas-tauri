@@ -1,6 +1,7 @@
 {
   "title": "Reference",
   "pages": [
+    "release-history",
     "troubleshooting",
     "report-uninstall",
     "setup-toml",

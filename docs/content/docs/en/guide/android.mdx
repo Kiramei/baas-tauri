@@ -1,0 +1,86 @@
+---
+title: Android Client
+description: Install the Android APK, start the bundled backend, configure permissions, use notification script toggles, and troubleshoot common problems.
+---
+
+Starting from v0.0.7, BAAS Tauri ships a native Android client. It bundles the frontend UI, Python backend runtime, updater, accessibility automation bridge, and foreground service into one APK for Android-local automation and testing.
+
+## Scope
+
+Android and desktop clients serve different use cases:
+
+| Scenario | Recommendation |
+| --- | --- |
+| Daily desktop emulator hosting | Prefer the Windows / macOS / Linux desktop client |
+| Local Android device or Android environment | Use the Android APK |
+| Need to inspect backend logs and update progress | Android shows startup terminal and update logs directly |
+| Need long-running background behavior | Keep the foreground service notification alive |
+
+## Install the APK
+
+### Download the Matching Build [step]
+
+Download the latest Android APK from GitHub Releases. Prefer the arm64 APK from the current release. If your device architecture is not supported, wait for a matching build or use the desktop client.
+
+### Allow App Installation [step]
+
+Android may ask you to allow the browser or file manager to install apps from unknown sources. Enable it only for trusted sources and disable it again after installation if desired.
+
+### First Launch [step]
+
+On first launch, the app prepares the bundled backend runtime. This can take a while; do not force close the app while the startup terminal is still active.
+
+## Required Permissions
+
+| Permission / State | Purpose | Symptom When Missing |
+| --- | --- | --- |
+| Accessibility service | Allows automation controls | Scripts cannot click or toggle correctly |
+| Foreground service notification | Keeps backend and scripts alive | Backend disconnects after running for a while |
+| Network access | Updates and resource synchronization | Update or backend preparation fails |
+| Storage / file access | Stores runtime, logs, and profiles | Config or logs cannot be written |
+
+Android background restrictions vary by system version. If scripts stop frequently, check battery optimization, background restrictions, and notification permissions.
+
+## Startup and Connection State
+
+After launch, Android starts the bundled backend. The UI connection state, startup terminal, and system logs indicate where startup is blocked:
+
+- Startup terminal still printing: backend is still preparing or updating.
+- UI keeps connecting: backend startup, authentication, or transport connection has not completed.
+- Backend disconnects then recovers: this is part of v0.0.7 recoverable transport behavior; preserve system logs if it happens repeatedly.
+
+## Notification Script Toggle
+
+Android supports starting or stopping scripts from the notification.
+
+Before using it, confirm:
+
+1. The app is open and backend startup has completed.
+2. The foreground service notification is present.
+3. Accessibility service is enabled.
+4. The current profile and task configuration are correct.
+
+If the notification button does nothing, return to the app, confirm connection state, then start or stop the script in-app to verify backend health.
+
+## Update Android Backend
+
+Android backend updates show update logs and byte progress. Do not force close the app during updates.
+
+If update fails:
+
+- Switch update source or SHA method and retry.
+- Check network proxy and system network permission.
+- If UI does not recover after update, close and reopen the app.
+- Preserve startup terminal, system logs, and update logs.
+
+## Common Problems
+
+| Problem | Action |
+| --- | --- |
+| APK cannot install | Check Android version, CPU architecture, and unknown-source install permission |
+| Backend keeps preparing | Wait for terminal output; preserve startup logs if it fails |
+| Script cannot click | Check accessibility service and notification script toggle state |
+| Disconnects after a while | Check foreground service notification, battery optimization, and background restrictions |
+| Old state after update | Restart the app, then confirm version and update logs |
+
+For centralized troubleshooting, see [Troubleshooting](../reference/troubleshooting#android-client-problems).

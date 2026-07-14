@@ -16,9 +16,9 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
     </div>
     <div className="baas-doc-actions">
       <a href="./guide/install">开始安装</a>
+      <a href="./guide/android">Android 客户端</a>
       <a href="./guide/interface">认识界面</a>
       <a href="./guide/scheduler">配置调度</a>
-      <a href="#download">下载客户端</a>
     </div>
   </section>
 
@@ -28,6 +28,12 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
     title="第一次使用"
     href="./guide/install"
     description="下载客户端、启动后端、初始化密钥，并完成第一次连接验证。"
+  />
+  <Card
+    icon={<DocHomeIcon name="emulator" />}
+    title="Android 客户端"
+    href="./guide/android"
+    description="安装 APK、启用无障碍服务、保持前台服务，并使用通知栏脚本开关。"
   />
   <Card
     icon={<DocHomeIcon name="interface" />}
@@ -101,10 +107,12 @@ description: BAAS Tauri 桌面端、调度器、功能配置、远程画面、�
 | 场景         | 优先阅读                                | 你应该确认                             |
 | ------------ | --------------------------------------- | -------------------------------------- |
 | 第一次安装   | [安装与连接](./guide/install)           | 后端已启动、密钥正确、服务已连接       |
+| Android 端   | [Android 客户端](./guide/android)       | APK、权限、前台服务、通知栏开关        |
 | 刚进入主界面 | [界面总览](./guide/interface)           | 配置档、日志、远程画面、侧边栏入口     |
 | 准备自动运行 | [调度](./guide/scheduler)               | 任务启用状态、下次执行时间、前后置任务 |
 | 配置功能     | 下方独立功能页                          | 每个任务会消耗什么、如何验证           |
 | 出现异常     | [故障排查](./reference/troubleshooting) | 日志、截图、配置、区服和模拟器信息     |
+| 查看更新     | [版本历史](./reference/release-history) | 当前版本变化、影响范围和升级建议       |
 
 ## 功能配置
 

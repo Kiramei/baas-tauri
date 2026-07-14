@@ -17,9 +17,9 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
     </div>
     <div className="baas-doc-actions">
       <a href="./guide/install">Install</a>
+      <a href="./guide/android">Android Client</a>
       <a href="./guide/interface">Interface</a>
       <a href="./guide/scheduler">Scheduler</a>
-      <a href="#download">Download</a>
     </div>
   </section>
 
@@ -29,6 +29,12 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
     title="First Run"
     href="./guide/install"
     description="Download the client, start the backend, initialize the key, and validate the first connection."
+  />
+  <Card
+    icon={<DocHomeIcon name="emulator" />}
+    title="Android Client"
+    href="./guide/android"
+    description="Install the APK, enable accessibility, keep the foreground service, and use notification script toggles."
   />
   <Card
     icon={<DocHomeIcon name="interface" />}
@@ -105,10 +111,12 @@ description: Documentation for the BAAS Tauri desktop client, scheduler, feature
 | Scenario              | Read First                                     | Confirm                                          |
 | --------------------- | ---------------------------------------------- | ------------------------------------------------ |
 | First installation    | [Installation and Connection](./guide/install) | Backend started, key accepted, service connected |
+| Android client        | [Android Client](./guide/android)              | APK, permissions, foreground service, toggle     |
 | First main-window use | [Interface Overview](./guide/interface)        | Profiles, logs, remote display, sidebar          |
 | Daily automation      | [Scheduler](./guide/scheduler)                 | Enabled tasks, next run time, dependencies       |
 | Feature setup         | Individual feature pages below                 | Resource cost and validation method              |
 | Something broke       | [Troubleshooting](./reference/troubleshooting) | Logs, screenshots, profile, server, emulator     |
+| Release changes       | [Release History](./reference/release-history) | Affected areas and upgrade notes                 |
 
 ## Feature Configuration
 
