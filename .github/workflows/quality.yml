@@ -4,9 +4,11 @@ on:
   pull_request:
     branches:
       - dev/optim
+      - main
   push:
     branches:
       - dev/optim
+      - main
 
 permissions:
   contents: read

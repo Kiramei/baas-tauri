@@ -153,7 +153,7 @@ async function resolveUpdater() {
     const response = await github.rest.repos.createRelease({
       ...options,
       tag_name: UPDATE_TAG_NAME,
-      target_commitish: "master",
+      target_commitish: "main",
       name: "Auto-update Stable Channel",
       body: "This release contains the fixed WebView2 update information for the stable channel.",
       draft: false,
