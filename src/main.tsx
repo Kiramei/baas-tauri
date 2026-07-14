@@ -1,5 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
+import { installFrontendSystemLogging } from "@/shared/SystemLogService";
+
+installFrontendSystemLogging();
 
 if (!Object.hasOwn) {
   Object.hasOwn = (object: object, property: PropertyKey) =>
@@ -37,7 +41,7 @@ const BrowserTauriDevFallback = () => (
 const closeSplash = async () => {
   if (!__WITH_TAURI__) return;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     await invoke("splash_off");
   } catch (e) {
     console.error("invoke failed:", e);
@@ -47,26 +51,30 @@ const closeSplash = async () => {
 /** Handles the bootstrap workflow. */
 const bootstrap = async () => {
   if (__WITH_TAURI_MODE__ && !__WITH_TAURI__ && !__WITH_ANDROID__) {
-    root.render(<BrowserTauriDevFallback />);
+    root.render(
+      <StartupShellHandoff>
+        <BrowserTauriDevFallback />
+      </StartupShellHandoff>
+    );
     return;
   }
 
-  await import("@xterm/xterm/css/xterm.css");
-  const { Buffer } = await import("buffer");
-  (globalThis as any).Buffer = Buffer;
-  const [{ default: App }, { initI18n }, { useWebSocketStore }] = await Promise.all([
-    import("@/App.tsx"),
+  const [{ default: App }, { initI18n }, { startPlatformServices }] = await Promise.all([
+    import("@/platform/App"),
     import("@/shared/I18nTranslator.ts"),
-    import("@/store/WebsocketStore.ts"),
+    import("@/platform/startup"),
   ]);
 
   await initI18n();
-  useWebSocketStore.getState().startTauriUpdaterPolling();
   root.render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
+  startPlatformServices();
+  void import("buffer").then(({ Buffer }) => {
+    (globalThis as any).Buffer = Buffer;
+  });
 
   await closeSplash();
 };

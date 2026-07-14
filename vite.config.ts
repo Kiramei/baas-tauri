@@ -6,6 +6,7 @@ import compression from "vite-plugin-compression";
 import { androidCssCompatPlugin } from "./scripts/android-css-compat-vite";
 import { asciiJsOutputPlugin } from "./scripts/vite/ascii-js-output";
 import { manualChunks } from "./scripts/vite/manual-chunks";
+import packageMetadata from "./package.json";
 // import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
@@ -14,6 +15,7 @@ export default defineConfig(({ mode }) => {
   }
   const withTauri = mode === "tauri" || mode === "android";
   const isAndroid = mode === "android";
+  const srcRoot = path.resolve(__dirname, "src");
   return {
     base: "/",
     clearScreen: false,
@@ -25,11 +27,15 @@ export default defineConfig(({ mode }) => {
         ? "(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)"
         : false,
       __WITH_ANDROID__: isAndroid,
+      __APP_VERSION__: JSON.stringify(packageMetadata.version),
     },
     server: {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
       port: withTauri ? 8191 : 8192,
       strictPort: true,
+      watch: {
+        ignored: ["**/target/**", "**/.git/**"],
+      },
       warmup: {
         clientFiles: [
           "./src/main.tsx",
@@ -46,7 +52,11 @@ export default defineConfig(({ mode }) => {
       holdUntilCrawlEnd: false,
     },
     plugins: [
-      react(),
+      react({
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      }),
       tailwindcss(),
       androidCssCompatPlugin(isAndroid),
       asciiJsOutputPlugin(isAndroid),
@@ -74,10 +84,22 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1000,
     },
     resolve: {
-      alias: {
-        buffer: "buffer",
-        "@": path.resolve(__dirname, "src"),
-      },
+      alias: [
+        {
+          find: "@/platform/App",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "App.tsx")
+            : path.join(srcRoot, "platform", "App.tsx"),
+        },
+        {
+          find: "@/platform/startup",
+          replacement: isAndroid
+            ? path.join(srcRoot, "android", "startup.ts")
+            : path.join(srcRoot, "platform", "startup.ts"),
+        },
+        { find: "buffer", replacement: "buffer" },
+        { find: "@", replacement: srcRoot },
+      ],
     },
   };
 });

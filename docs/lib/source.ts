@@ -52,6 +52,7 @@ const folderIcons: Record<string, IconComponent> = {
 
 const pageIcons: Array<[string, IconComponent]> = [
   ["/guide/install", Download],
+  ["/guide/android", Smartphone],
   ["/guide/interface", LayoutDashboard],
   ["/guide/scheduler", CalendarClock],
   ["/guide/wiki", FileCog],
@@ -78,6 +79,7 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/features/maintenance", Wrench],
   ["/features/system", Gauge],
   ["/features/update", RefreshCw],
+  ["/reference/release-history", RefreshCw],
   ["/reference/troubleshooting", Bug],
   ["/reference/report-uninstall", FileCog],
   ["/reference/setup-toml", Settings],

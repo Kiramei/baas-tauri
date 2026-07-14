@@ -21,30 +21,38 @@ import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { buildServerOptions } from "@/shared/serverOptions";
+import { useShallow } from "zustand/react/shallow";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-type Tab = ProfileDTO;
+type Tab = Pick<ProfileDTO, "id" | "name" | "server">;
 
 /** Returns the is profile ready result. */
-const isProfileReady = (profile: Tab): boolean =>
-  Boolean(profile.name && profile.settings?.ap && profile.settings?._pass);
+const isProfileReady = (settings: any): boolean =>
+  Boolean(settings?.name && settings?.ap && settings?._pass);
 
 /** Renders the header component. */
 const Header: React.FC = () => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
 
-  const configStore = useWebSocketStore((s) => s.configStore);
-  const { modify, trigger, triggerBinary } = useWebSocketStore();
+  const profileEntries = useWebSocketStore(
+    useShallow((state) =>
+      Object.entries(state.configStore).map(([id, config]: [string, any]) =>
+        JSON.stringify([id, String(config.name ?? ""), String(config.server ?? "")])
+      )
+    )
+  );
+  const modify = useWebSocketStore((s) => s.modify);
+  const trigger = useWebSocketStore((s) => s.trigger);
+  const triggerBinary = useWebSocketStore((s) => s.triggerBinary);
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
@@ -89,12 +97,10 @@ const Header: React.FC = () => {
   const hideCtxMenu = () => setCtxMenu(null);
 
   useEffect(() => {
-    const list = Object.keys(configStore).map((key) => ({
-      id: key,
-      name: configStore[key].name,
-      server: configStore[key].server,
-      settings: configStore[key],
-    }));
+    const list: Tab[] = profileEntries.map((entry) => {
+      const [id, name, server] = JSON.parse(entry) as [string, string, string];
+      return { id, name, server };
+    });
     const order = StorageUtil.get("tabOrder");
     if (order && order.length) {
       list.sort((a, b) => {
@@ -108,11 +114,12 @@ const Header: React.FC = () => {
     }
     setTabs(list);
     const exists = list.find((p) => p.id === activeProfile?.id);
-    setActiveProfile(exists ?? list[0]);
+    const nextActive = exists ?? list[0];
+    setActiveProfile(nextActive);
     (async () => {
       setTimeout(() => {
-        if (!(exists ?? list[0])) return;
-        const el = document.getElementById(`tab-${exists ?? list[0].id}`);
+        if (!nextActive) return;
+        const el = document.getElementById(`tab-${nextActive.id}`);
         el?.scrollIntoView({
           behavior: lowPerformanceMode ? "auto" : "smooth",
           inline: "center",
@@ -120,7 +127,7 @@ const Header: React.FC = () => {
         });
       }, 0);
     })();
-  }, [configStore, lowPerformanceMode]);
+  }, [profileEntries, lowPerformanceMode, setActiveProfile]);
 
   /** Handles the on reorder interaction. */
   const onReorder = (next: Tab[]) => {
@@ -163,10 +170,7 @@ const Header: React.FC = () => {
       );
     });
 
-    await waitForNormal(
-      () => tabsRef.current.filter((p) => p.id === serialName),
-      (val) => val.some(isProfileReady)
-    );
+    await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
 
     const next = tabsRef.current.find((p) => p.id === serialName);
     if (next) setActiveProfile(next);
@@ -196,10 +200,7 @@ const Header: React.FC = () => {
 
   /** Handles the wait for config workflow. */
   const waitForConfig = async (serialName: string) => {
-    await waitForNormal(
-      () => tabsRef.current.filter((p) => p.id === serialName),
-      (val) => val.some(isProfileReady)
-    );
+    await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
     const next = tabsRef.current.find((p) => p.id === serialName);
     if (next) setActiveProfile(next);
   };
@@ -308,7 +309,13 @@ const Header: React.FC = () => {
     };
   }, []);
 
-  const statusStore = useWebSocketStore((e) => e.statusStore);
+  const runningByProfile = useWebSocketStore(
+    useShallow((state) =>
+      Object.fromEntries(
+          Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status?.running)])
+      )
+    )
+  );
 
   return (
     <header className="h-16 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-3">
@@ -339,7 +346,7 @@ const Header: React.FC = () => {
         >
           {tabs.map((tab) => {
             const active = activeProfile?.id === tab.id;
-            return statusStore[tab.id] ? (
+            return tab.id in runningByProfile ? (
               <Reorder.Item
                 id={`tab-${tab.id}`}
                 key={tab.id}
@@ -367,7 +374,7 @@ const Header: React.FC = () => {
                   setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                 }}
               >
-                {statusStore[tab.id].running ? (
+                {runningByProfile[tab.id] ? (
                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 ) : (
                   <></>
@@ -503,21 +510,20 @@ const Header: React.FC = () => {
 export default Header;
 
 const overlayCls =
-  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
+  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
 
 /** Renders the profile editor modal component. */
 const ProfileEditorModal = (props: {
   open: boolean;
   mode: "create" | "edit";
-  initial: ProfileDTO | null;
+  initial: Tab | null;
   onClose: () => void;
   onSubmit: (vals: { name: string; server: string }) => Promise<void>;
   onImport: () => Promise<void>;
   checkName: (name: string, selfId?: string) => boolean;
 }) => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [name, setName] = React.useState(props.initial?.name ?? "");
   const [server, setServer] = React.useState("CN");
   const [err, setErr] = React.useState<string | null>(null);
@@ -575,7 +581,7 @@ const ProfileEditorModal = (props: {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, type: "tween", ease: "easeOut" }}
-        className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="text-lg font-semibold mb-4">
@@ -652,8 +658,7 @@ const ConfirmDeleteModal = (props: {
   onConfirm: () => void | Promise<void>;
 }) => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   if (!props.open) return null;
   return (
     <div
@@ -667,7 +672,7 @@ const ConfirmDeleteModal = (props: {
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
-        className="w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">

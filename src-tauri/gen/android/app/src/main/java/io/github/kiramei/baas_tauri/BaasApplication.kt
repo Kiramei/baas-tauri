@@ -5,6 +5,5 @@ import android.app.Application
 class BaasApplication : Application() {
   override fun onCreate() {
     super.onCreate()
-    BaasBackend.ensureStarted(this)
   }
 }

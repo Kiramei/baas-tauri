@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Plus, X } from "lucide-react";
 import { Reorder } from "framer-motion";
@@ -10,7 +10,7 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig, LessonEachRegionObjectPriority } from "@/types/dynamic";
 import { serverMap, serverMapSpec } from "@/shared/GlobalUtilities.ts";
 import { scheduleLevelKey } from "@/shared/I18nKeys";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type LessonConfigProps = {
   onClose: () => void;
@@ -32,83 +32,46 @@ const levels: LessonEachRegionObjectPriority[] = ["primary", "normal", "advanced
 /** Renders the lesson config component. */
 const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const settings: Partial<DynamicConfig> = useWebSocketStore(
     (state) => state.configStore[profileId!]
   );
   const modify = useWebSocketStore((state) => state.modify);
   const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const lessonNames = staticConfig.lesson_region_name[serverMapSpec[settings.server!]];
-  const studentNames = staticConfig.student_names;
+  const lessonNames: string[] =
+    staticConfig.lesson_region_name?.[serverMapSpec[settings.server!]] ?? [];
+  const studentNames: string[] = staticConfig.student_names ?? [];
   const [showSelector, setShowSelector] = useState(false);
 
   // Convert external settings → default draft values
   const ext: Draft = useMemo(() => {
-    let _lesson_each_region_object_priority: LessonEachRegionObjectPriority[][];
-    if (!settings.lesson_each_region_object_priority) {
-      _lesson_each_region_object_priority = lessonNames.map(() => [...levels]);
-    } else if (settings.lesson_each_region_object_priority.length < lessonNames.length) {
-      const results = Array.from(
-        { length: lessonNames.length - settings.lesson_times!.length },
-        () => levels
-      );
-      _lesson_each_region_object_priority = [
-        ...settings.lesson_each_region_object_priority,
-        ...results,
-      ];
-    } else if (settings.lesson_each_region_object_priority.length > lessonNames.length) {
-      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority.slice(
-        0,
-        lessonNames.length
-      );
-    } else {
-      _lesson_each_region_object_priority = settings.lesson_each_region_object_priority;
-    }
-
-    let _lesson_times: number[];
-    if (!settings.lesson_times) {
-      _lesson_times = lessonNames.map(() => 1);
-    } else if (settings.lesson_times.length < lessonNames.length) {
-      const results = Array.from(
-        { length: lessonNames.length - settings.lesson_times.length },
-        () => 1
-      );
-      _lesson_times = [...settings.lesson_times, ...results];
-    } else if (settings.lesson_times.length > lessonNames.length) {
-      _lesson_times = settings.lesson_times.slice(0, lessonNames.length);
-    } else {
-      _lesson_times = settings.lesson_times;
-    }
+    const configuredPriorities = settings.lesson_each_region_object_priority ?? [];
+    const configuredTimes = settings.lesson_times ?? [];
+    const normalizedPriorities = lessonNames.map((_, index) => {
+      const configured = configuredPriorities[index];
+      return Array.isArray(configured) ? [...configured] : [...levels];
+    });
+    const normalizedTimes = lessonNames.map((_, index) => configuredTimes[index] ?? 1);
 
     return {
       lesson_enableInviteFavorStudent: settings.lesson_enableInviteFavorStudent ?? false,
       lesson_favorStudent: settings.lesson_favorStudent ?? [],
       lesson_relationship_first: settings.lesson_relationship_first ?? false,
-      lesson_each_region_object_priority: _lesson_each_region_object_priority,
-      lesson_times: _lesson_times,
+      lesson_each_region_object_priority: normalizedPriorities,
+      lesson_times: normalizedTimes,
     };
-  }, [settings]);
+  }, [lessonNames, settings]);
 
   const [draft, setDraft] = useState<Draft>(ext);
+  const [baseline] = useState<Draft>(ext);
 
-  useEffect(() => {
-    setDraft((prev) => {
-      // Simple shallow comparison to prevent recursive updates
-      if (JSON.stringify(prev) !== JSON.stringify(ext)) {
-        return ext;
-      }
-      return prev;
-    });
-  }, [ext]);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   // Save configuration
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
+      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
         patch[k] = draft[k] as any;
       }
     });
@@ -246,24 +209,45 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
         className="overflow-y-auto overflow-x-auto border rounded-md"
         style={{ maxHeight: "calc(100vh - 320px)", minHeight: "80px" }}
       >
-        <table className="min-w-full text-sm">
+        <table
+          className={`w-full text-sm max-sm:table-fixed max-sm:text-xs ${
+            __WITH_ANDROID__ ? "table-fixed text-xs" : ""
+          }`}
+        >
+          <colgroup>
+            <col className={__WITH_ANDROID__ ? "w-[34%]" : "max-sm:w-[30%]"} />
+            {levels.map((level) => (
+              <col key={level} className={__WITH_ANDROID__ ? "w-[9%]" : "max-sm:w-[10%]"} />
+            ))}
+            <col className={__WITH_ANDROID__ ? "w-[30%]" : "max-sm:w-[30%]"} />
+          </colgroup>
           <thead className="sticky top-0 bg-slate-100 dark:bg-slate-700 z-10">
             <tr>
-              <th className="px-2 py-1 border text-left">{t("lesson.region")}</th>
+              <th className="whitespace-nowrap border px-2 py-1 text-left max-sm:px-1">
+                {t("lesson.region")}
+              </th>
               {levels.map((l) => (
-                <th key={l} className="px-2 py-1 border">
+                <th key={l} className="whitespace-nowrap border px-2 py-1 max-sm:px-0.5">
                   {t(scheduleLevelKey(l))}
                 </th>
               ))}
-              <th className="px-2 py-1 border">{t("lesson.times")}</th>
+              <th className="whitespace-nowrap border px-2 py-1 max-sm:px-1">
+                {t("lesson.times")}
+              </th>
             </tr>
           </thead>
           <tbody>
             {lessonNames.map((name: any, i: number) => (
               <tr key={i}>
-                <td className="px-2 py-1 border">{name}</td>
+                <td
+                  className={`whitespace-nowrap border px-2 py-1 max-sm:px-1 ${
+                    __WITH_ANDROID__ ? "px-1 text-[11px]" : ""
+                  }`}
+                >
+                  {name}
+                </td>
                 {levels.map((lvl, j) => (
-                  <td key={j} className="px-2 py-1 border text-center">
+                  <td key={j} className="border px-2 py-1 text-center max-sm:px-0.5">
                     <label className="relative inline-flex items-center cursor-pointer mt-1">
                       <input
                         type="checkbox"
@@ -291,14 +275,14 @@ const LessonConfig: React.FC<LessonConfigProps> = ({ onClose, profileId }) => {
                     </label>
                   </td>
                 ))}
-                <td className="px-2 py-1 border ">
+                <td className="border px-2 py-1 max-sm:px-1">
                   <FormInput
                     type="number"
                     value={draft.lesson_times[i]}
                     onChange={(e) => updateTimes(i, e.target.value)}
                     min={0}
                     max={99}
-                    className="w-20 px-1 m-auto"
+                    className="m-auto w-20 px-1 max-sm:w-full"
                   />
                 </td>
               </tr>

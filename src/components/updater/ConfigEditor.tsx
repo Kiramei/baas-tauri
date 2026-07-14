@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -13,9 +13,10 @@ import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useEffect, useState } from "react";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type Channel = "stable" | "dev";
+type Transport = "websocket" | "pipe";
 
 interface MirrorCValidateReport {
   success: boolean;
@@ -40,6 +41,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    transport?: Transport;
   };
 }
 
@@ -53,7 +55,7 @@ interface ConfigEditorProps {
 }
 
 const overlayCls =
-  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50";
+  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
 
 /** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
@@ -67,8 +69,7 @@ const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
 const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
   const [validating, setValidating] = useState(false);
   const [cdkStatus, setCdkStatus] = useState<MirrorCStatus | null>(null);
@@ -84,6 +85,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
+  const transport = props.config?.general?.transport ?? "pipe";
 
   /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
@@ -192,7 +194,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
-        className="w-full mx-2 md:mx-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        className="w-full md:mx-20 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h3 className="font-semibold text-lg">{t("installer.setting")}</h3>
@@ -226,6 +228,15 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
             options={[
               { value: "stable", label: t("updateChannel.stable") },
               { value: "dev", label: t("updateChannel.dev") },
+            ]}
+          />
+          <FormSelect
+            label={t("transport.label")}
+            value={transport}
+            onChange={(value) => patchGeneral({ transport: value as Transport })}
+            options={[
+              { value: "websocket", label: t("transport.websocket") },
+              { value: "pipe", label: t("transport.pipe") },
             ]}
           />
           <SwitchButton

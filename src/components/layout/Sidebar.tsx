@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpenText,
@@ -19,13 +19,12 @@ import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import { invoke } from "@tauri-apps/api/core";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
 
 const baseUrl = import.meta.env.BASE_URL;
+const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
 interface SidebarProps {
   activePage: string;
@@ -112,7 +111,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           }),
           listen<any>("term:task-started", (event) => {
             const payload = event.payload;
-            appendTerminalLine(`[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`);
+            appendTerminalLine(
+              `[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`
+            );
           }),
           listen<any>("term:region-stable", (event) => {
             const payload = event.payload ?? {};
@@ -125,27 +126,39 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
             const payload = event.payload;
             if (payload.status === "failed" || payload.status === "stopped") {
               sawAndroidUpdateError = true;
-              appendTerminalLine(`${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`);
+              appendTerminalLine(
+                `${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`
+              );
               const stableRegion = stableRegions.get(String(payload.taskId ?? ""));
               if (stableRegion) {
                 appendStableRegion(stableRegion);
               }
             }
           }),
-          listen<any>("term:session-finished", (event) => {
+          listen<any>("term:session-finished", async (event) => {
             const success = Boolean(event.payload?.success);
-            appendTerminalLine(success ? "DONE android git2 update" : "ERROR android git2 update failed");
+            appendTerminalLine(
+              success ? "DONE android git2 update" : "ERROR android git2 update failed"
+            );
             setBackendUpdating(false);
             for (const unlisten of unlisteners) unlisten();
             if (success) {
               toast.success(t("update.backendStarted"));
+              try {
+                await invoke("updater_reset_backend_auth_and_restart");
+                reloadWithoutPrompt();
+              } catch (error) {
+                toast.error(t("update.backendStartFailed"), {
+                  description: error instanceof Error ? error.message : String(error),
+                });
+              }
             } else {
               toast.error(t("update.backendStartFailed"));
             }
           }),
         ]);
         appendTerminalLine("START android git2 update");
-        await invoke("updater_start_workflow", { request: { launch: false } });
+        await invoke("updater_start_workflow", { request: { launch: true } });
         toast.info(t("update.backendStarted"));
         return;
       }
@@ -194,10 +207,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
               });
               if (__WITH_ANDROID__) {
                 try {
-                  const { relaunch } = await import("@tauri-apps/plugin-process");
-                  await relaunch();
-                } catch {
+                  await invoke("updater_reset_backend_auth_and_restart");
                   reloadWithoutPrompt();
+                } catch (error) {
+                  toast.error(t("update.backendStartFailed"), {
+                    description: error instanceof Error ? error.message : String(error),
+                  });
                 }
               }
               return;
@@ -349,7 +364,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
           </div>
           {__WITH_ANDROID__ ? (
             <div className="h-64 overflow-hidden rounded bg-slate-950 p-3">
-              <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
+              <React.Suspense
+                fallback={
+                  <pre className="h-full overflow-auto text-xs leading-5 text-slate-100">
+                    {backendUpdateTerminalText || "waiting...\r\n"}
+                  </pre>
+                }
+              >
+                <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
+              </React.Suspense>
             </div>
           ) : (
             <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
@@ -363,79 +386,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
 };
 
 export default Sidebar;
-
-/** Renders the inline xterm log component. */
-const InlineXTermLog: React.FC<{ text: string }> = ({ text }) => {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const writtenLengthRef = useRef(0);
-  const previousTextRef = useRef("");
-
-  useEffect(() => {
-    if (!hostRef.current) return;
-    const term = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      disableStdin: true,
-      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 12,
-      lineHeight: 1.18,
-      scrollback: 1000,
-      theme: {
-        background: "#00000000",
-        foreground: "#dbe7f3",
-        cursor: "transparent",
-        selectionBackground: "#38506b",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current);
-    termRef.current = term;
-    fitRef.current = fit;
-
-    /** Handles the resize workflow. */
-    const resize = () => {
-      try {
-        fit.fit();
-      } catch {
-        // The terminal may be hidden while the update popover is closing.
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
-
-    return () => {
-      observer.disconnect();
-      fit.dispose();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      writtenLengthRef.current = 0;
-      previousTextRef.current = "";
-    };
-  }, []);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
-      term.reset();
-      term.clear();
-      writtenLengthRef.current = 0;
-    }
-    const chunk = text.slice(writtenLengthRef.current);
-    if (!chunk) return;
-    writtenLengthRef.current = text.length;
-    previousTextRef.current = text;
-    term.write(chunk);
-    term.scrollToBottom();
-  }, [text]);
-
-  return <div ref={hostRef} className="terminal-host h-full w-full" />;
-};
 
 type UpdateTone = "red" | "blue";
 
@@ -482,8 +432,7 @@ const FloatingUpdateButton: React.FC<{
   onClick: () => void | Promise<void>;
   tone: UpdateTone;
 }> = ({ title, icon: Icon, busy, onClick, tone }) => {
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   return (
     <motion.button
@@ -517,11 +466,13 @@ const formatBytes = (value?: number): string => {
 /** Returns the format backend update event result. */
 const formatBackendUpdateEvent = (data: any): string => {
   const stage = String(data.stage ?? "progress");
-  if (stage === "fetch_sha") return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
+  if (stage === "fetch_sha")
+    return `FETCH SHA channel=${data.channel ?? ""} method=${data.method ?? ""}`;
   if (stage === "remote_sha") return `REMOTE SHA ${String(data.sha ?? "").slice(0, 12)}`;
   if (stage === "download_start") return `DOWNLOAD ${data.url ?? ""}`;
   if (stage === "download_progress") {
-    if (data.total) return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
+    if (data.total)
+      return `DOWNLOADING ${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`;
     return `DOWNLOADING ${formatBytes(data.downloaded)}`;
   }
   if (stage === "download_done") return `DOWNLOADED ${formatBytes(data.downloaded)}`;

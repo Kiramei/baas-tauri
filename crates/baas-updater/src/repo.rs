@@ -364,6 +364,7 @@ impl GitExecutor for RealGitExecutor {
         remote.fetch(&[branch], Some(&mut fetch_options), None)?;
         let fetch_head = repo.find_reference("FETCH_HEAD")?;
         let object = fetch_head.peel(git2::ObjectType::Commit)?;
+        remove_git_index(target)?;
         repo.reset(&object, git2::ResetType::Hard, None)?;
         Ok(())
     }
@@ -816,11 +817,19 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> UpdaterResult<()> {
 /// Handles the configure git cli command workflow.
 fn configure_git_cli_command(command: &mut Command) {
     command
+        .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
+        .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "");
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo");
 }
 
 /// Handles the git smart http probe url workflow.
@@ -1004,6 +1013,16 @@ Get-CimInstance Win32_Process |
 /// Handles the release repository locks workflow.
 #[cfg(not(target_os = "windows"))]
 fn release_repository_locks(_target: &Path) {}
+
+/// Removes the existing Git index before a hard reset.
+fn remove_git_index(target: &Path) -> UpdaterResult<()> {
+    let index_path = target.join(".git").join("index");
+    match fs::remove_file(&index_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1249,6 +1268,20 @@ mod tests {
         assert!(cpp_branch_for("windows", "aarch64").is_err());
     }
 
+    /// Handles the remove git index before hard reset workflow.
+    #[test]
+    fn remove_git_index_ignores_missing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let git_dir = dir.path().join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        let index = git_dir.join("index");
+        fs::write(&index, b"stale index").unwrap();
+
+        remove_git_index(dir.path()).unwrap();
+        assert!(!index.exists());
+        remove_git_index(dir.path()).unwrap();
+    }
+
     /// Performs the sync falls back from cli to git2 operation.
     #[test]
     fn sync_falls_back_from_cli_to_git2() {
@@ -1302,7 +1335,7 @@ mod tests {
     fn sync_skips_update_when_remote_sha_matches_local_head() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("repo");
-        fs::create_dir_all(target.join(".git")).unwrap();
+        Repository::init(&target).unwrap();
         let ranking = dir.path().join("ranking.json");
         let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
         let url = urls.first().unwrap().clone();

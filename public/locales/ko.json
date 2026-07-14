@@ -52,6 +52,20 @@
     "overview": "작업 개요",
     "running": "실행 중인 작업"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} 작업이 완료되었습니다.",
+      "completedTitle": "BAAS 작업 완료됨",
+      "failedBody": "{{task}} 작업이 비정상 종료되었습니다. 종료 코드: {{exitCode}}.",
+      "failedTitle": "BAAS 스크립트 비정상 종료",
+      "startedBody": "{{task}} 작업을 시작했습니다.",
+      "startedTitle": "BAAS 작업 시작됨"
+    },
+    "service": {
+      "disconnectedBody": "{{transport}} 연결이 끊어졌습니다. 자동으로 다시 연결하는 중입니다.",
+      "disconnectedTitle": "BAAS 서비스 연결 끊김"
+    }
+  },
   "time": {
     "daysAgo": "{{count}}일 전",
     "hoursAgo": "{{count}}시간 전",
@@ -61,6 +75,26 @@
   "settings": {
     "feature": "기능 설정",
     "general": "일반 설정",
+    "systemLogs": {
+      "allLevels": "全部级别",
+      "allSources": "全部来源",
+      "autoRefresh": "自动刷新",
+      "clear": "清理日志",
+      "clearConfirm": "确认清理 Tauri、前端和 Python 系统日志？",
+      "copied": "系统日志已复制",
+      "copy": "复制日志",
+      "count": "{{count}} 条日志",
+      "description": "查看客户端、前端和 Python 后端的诊断日志",
+      "empty": "没有符合条件的系统日志",
+      "export": "导出日志",
+      "followTail": "跟随末尾",
+      "level": "日志级别",
+      "open": "查看系统日志",
+      "refresh": "刷新日志",
+      "search": "搜索消息、模块或异常堆栈",
+      "source": "日志来源",
+      "title": "系统日志"
+    },
     "ui": {
       "$self": "UI 설정",
       "assets": "자산 세부 정보 표시",
@@ -75,6 +109,7 @@
       "backgroundImageTooLarge": "배경 이미지는 5MB 이하여야 합니다.",
       "enableBAComet": "BAComet 켜기",
       "enableSafeStream": "보안 스트림",
+      "enableSystemNotifications": "시스템 알림 활성화",
       "lowPerformanceMode": "저성능 모드",
       "player": "플레이어",
       "themeColor": "테마 색상",
@@ -282,11 +317,11 @@
   },
   "cafe": {
     "$self": "카페",
-    "basicSettings": "카페 기본 설정",
+    "basicSettings": "기본 설정",
     "byName": "학생 이름 순",
-    "cafe1Settings": "1호점 카페 설정",
+    "cafe1Settings": "카페 1",
     "cafe1Students": "학생 이름 목록",
-    "cafe2Settings": "2호점 카페 설정",
+    "cafe2Settings": "카페 2",
     "cafe2Students": "학생 이름 목록",
     "collectReward": "보상 받기",
     "duplicateInvite": "중복 초대",
@@ -546,6 +581,7 @@
   },
   "shaTest": {
     "method": "방법",
+    "results": "测试结果",
     "sha": "SHA 값",
     "status": "상태",
     "testAll": "모든 방법 테스트",
@@ -642,6 +678,11 @@
   "toast": {
     "dateUpdated": "날짜가 업데이트됨",
     "timeUpdated": "시간이 업데이트됨"
+  },
+  "transport": {
+    "label": "데이터 전송 방식",
+    "pipe": "명명된 파이프 (데스크톱)",
+    "websocket": "WebSocket (호환)"
   },
   "ui": {
     "zoom": "UI 확대/축소 설정"

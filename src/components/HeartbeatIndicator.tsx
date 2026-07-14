@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useTranslation } from "react-i18next";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface IndicatorProps {
   onStateChanged: (state: boolean) => void;
@@ -10,12 +10,16 @@ interface IndicatorProps {
 
 /** Renders the indicator base component. */
 export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
-  const [alive, setAlive] = useState(false);
   const [connected, setConnected] = useState(true);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
   const heartbeatTime = useWebSocketStore((s) => s._heartbeat_time);
-  const init = useWebSocketStore((s) => s.init);
+  const transportMode = useWebSocketStore((s) => s.transportMode);
+  const pipeConnected = useWebSocketStore(
+    (s) =>
+      s._auth_phase === "authenticated" &&
+      Boolean(s.connections.provider) &&
+      Boolean(s.connections.sync)
+  );
+  const recoverTransport = useWebSocketStore((s) => s.recoverTransport);
   const lastBeatRef = useRef<number>(0);
 
   useEffect(() => {
@@ -23,57 +27,40 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
   }, []);
 
   useEffect(() => {
+    if (transportMode !== "pipe") return;
+    setConnected(pipeConnected);
+    onStateChanged(pipeConnected);
+  }, [onStateChanged, pipeConnected, transportMode]);
+
+  useEffect(() => {
+    if (transportMode === "pipe") return;
     if (!heartbeatTime) return;
     lastBeatRef.current = Date.now();
-    setAlive(true);
     setConnected(true);
     onStateChanged(true);
-    const timer = setTimeout(() => setAlive(false), 300);
-    return () => clearTimeout(timer);
-  }, [heartbeatTime]);
+  }, [heartbeatTime, onStateChanged, transportMode]);
 
   useEffect(() => {
     const checkInterval = setInterval(async () => {
+      if (transportMode === "pipe") return;
       if (Date.now() - lastBeatRef.current > 5000) {
         setConnected(false);
         onStateChanged(false);
-        await init();
+        await recoverTransport();
       }
     }, 1000);
     return () => clearInterval(checkInterval);
-  }, []);
+  }, [onStateChanged, recoverTransport, transportMode]);
 
-  const color =
-    connected && !lowPerformanceMode && alive
-      ? "var(--color-primary-400)"
-      : connected
-        ? "var(--color-primary-500)"
-        : "var(--color-slate-500)";
-
-  if (lowPerformanceMode) {
-    return (
-      <div
-        className="w-4 h-4 rounded-full mx-auto"
-        style={{
-          backgroundColor: color,
-        }}
-      />
-    );
-  }
+  const color = connected ? "var(--color-primary-500)" : "var(--color-slate-500)";
 
   return (
-    <motion.div
+    <div
       className="w-4 h-4 rounded-full mx-auto"
-      animate={{
-        scale: connected ? (alive ? 1.3 : 1) : 1,
+      style={{
         backgroundColor: color,
-        boxShadow: connected
-          ? alive
-            ? "0 0 25px var(--color-primary-500)"
-            : "0 0 10px var(--color-primary-400)"
-          : "none",
+        boxShadow: connected ? "0 0 10px var(--color-primary-400)" : "none",
       }}
-      transition={{ type: "spring", stiffness: 300, damping: 15 }}
     />
   );
 };
@@ -82,8 +69,7 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
 const HeartbeatIndicator = () => {
   const { t } = useTranslation();
   const [connected, setConnected] = useState(false);
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const textColor = connected ? "var(--color-primary-400)" : "var(--color-slate-400)";
 
   return (

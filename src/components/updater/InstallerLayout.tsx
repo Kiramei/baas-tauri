@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 interface InstallerLayoutProps {
   children: React.ReactNode;
@@ -9,8 +9,7 @@ interface InstallerLayoutProps {
 
 /** Renders the installer layout component. */
 const InstallerLayout: React.FC<InstallerLayoutProps> = ({ children, title }) => {
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   return (
     <div className="h-dvh overflow-hidden bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">

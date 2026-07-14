@@ -5,7 +5,7 @@ import { ClipboardPaste, Copy, RotateCw, SearchCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { reloadWithoutPrompt } from "@/shared/reload";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 type MenuState = {
   x: number;
@@ -20,7 +20,6 @@ const menuClass =
 const itemClass =
   "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-45 disabled:pointer-events-none";
 
-/** Returns the get editable element result. */
 const getEditableElement = (target: EventTarget | null): HTMLElement | null => {
   const element = target instanceof HTMLElement ? target : document.activeElement;
   if (!(element instanceof HTMLElement)) return null;
@@ -33,7 +32,6 @@ const getEditableElement = (target: EventTarget | null): HTMLElement | null => {
   return null;
 };
 
-/** Returns the selected text from editable result. */
 const selectedTextFromEditable = (element: Element | null): string => {
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) return "";
   const start = element.selectionStart ?? 0;
@@ -41,7 +39,6 @@ const selectedTextFromEditable = (element: Element | null): string => {
   return start === end ? "" : element.value.slice(start, end);
 };
 
-/** Returns the get selected text result. */
 const getSelectedText = (target: EventTarget | null): string => {
   const targetText = selectedTextFromEditable(target instanceof Element ? target : null);
   if (targetText) return targetText;
@@ -50,13 +47,11 @@ const getSelectedText = (target: EventTarget | null): string => {
   return window.getSelection()?.toString() ?? "";
 };
 
-/** Handles the menu position workflow. */
 const menuPosition = (event: MouseEvent) => ({
   x: Math.max(8, Math.min(event.clientX + 2, window.innerWidth - 170)),
   y: Math.max(8, Math.min(event.clientY + 2, window.innerHeight - 178)),
 });
 
-/** Handles the insert text workflow. */
 const insertText = (target: EventTarget | null, text: string) => {
   const editable = getEditableElement(target);
   if (!editable || !text) return;
@@ -76,7 +71,6 @@ const insertText = (target: EventTarget | null, text: string) => {
   document.execCommand("insertText", false, text);
 };
 
-/** Performs the open inspector operation. */
 const openInspector = async (webuiHint: string) => {
   if (__WITH_TAURI__) {
     const { invoke } = await import("@tauri-apps/api/core");
@@ -88,18 +82,14 @@ const openInspector = async (webuiHint: string) => {
   toast.info(webuiHint);
 };
 
-/** Renders the global context menu component. */
 const GlobalContextMenu: React.FC = () => {
   const { t } = useTranslation();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [menu, setMenu] = React.useState<MenuState | null>(null);
 
-  /** Performs the close operation. */
   const close = React.useCallback(() => setMenu(null), []);
 
   React.useEffect(() => {
-    /** Handles the on context menu interaction. */
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
       event.preventDefault();
@@ -113,13 +103,11 @@ const GlobalContextMenu: React.FC = () => {
       });
     };
 
-    /** Handles the on pointer down interaction. */
     const onPointerDown = (event: MouseEvent) => {
       if (!(event.target instanceof Element) || !event.target.closest("[data-context-menu]")) {
         close();
       }
     };
-    /** Handles the on key down interaction. */
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
@@ -136,14 +124,12 @@ const GlobalContextMenu: React.FC = () => {
     };
   }, [close]);
 
-  /** Handles the copy selection workflow. */
   const copySelection = async () => {
     if (!menu?.selectedText) return;
     await navigator.clipboard?.writeText(menu.selectedText);
     close();
   };
 
-  /** Handles the paste clipboard workflow. */
   const pasteClipboard = async () => {
     if (!menu) return;
     try {
@@ -155,13 +141,11 @@ const GlobalContextMenu: React.FC = () => {
     close();
   };
 
-  /** Handles the reload page workflow. */
   const reloadPage = () => {
     close();
     reloadWithoutPrompt();
   };
 
-  /** Handles the inspect page workflow. */
   const inspectPage = () => {
     close();
     void openInspector(t("contextMenu.inspectWebuiHint"));

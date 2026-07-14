@@ -304,7 +304,7 @@ pub struct TaskStatusPayload {
     pub task_id: String,
     /// Renderer region for the task output.
     pub region_id: String,
-    /// Status such as `"running"`, `"success"`, `"failed"`, or `"stopped"`.
+    /// Status such as `"running"`, `"success"`, `"skipped"`, `"failed"`, or `"stopped"`.
     pub status: String,
     /// Process exit code when available.
     pub exit_code: Option<i32>,

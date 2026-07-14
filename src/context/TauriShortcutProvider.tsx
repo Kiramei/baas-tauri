@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -72,7 +73,7 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   const applyBindings = useCallback(async (nextHotkeys: HotkeyConfig[]) => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__) return { registered: [], rejected: [] };
 
-    const { invoke } = await import("@tauri-apps/api/core");
+    const { invoke } = await import("@/shared/TauriInvoke");
     const bindings: ShortcutBindingRequest[] = nextHotkeys.map((hotkey) => ({
       id: hotkey.id,
       configId: hotkey.configId ?? hotkey.id.replace(/^toggle-run:/, ""),
@@ -161,11 +162,12 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
     [applyBindings]
   );
 
-  return (
-    <TauriShortcutContext.Provider value={{ hotkeys, saveHotkeys, setShortcutsSuspended }}>
-      {children}
-    </TauriShortcutContext.Provider>
+  const value = useMemo(
+    () => ({ hotkeys, saveHotkeys, setShortcutsSuspended }),
+    [hotkeys, saveHotkeys]
   );
+
+  return <TauriShortcutContext.Provider value={value}>{children}</TauriShortcutContext.Provider>;
 };
 
 /** Coordinates the use tauri shortcuts hook behavior. */

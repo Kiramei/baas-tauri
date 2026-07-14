@@ -9,6 +9,7 @@ export default [
     ignores: [
       "**/node_modules/**",
       ".cache/**",
+      ".codex_tmp/**",
       "dist",
       "build",
       "public",
@@ -46,7 +47,7 @@ export default [
     },
     rules: {
       ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
+      ...reactHooks.configs["recommended-latest"].rules,
       "@typescript-eslint/no-explicit-any": "off",
       "react/react-in-jsx-scope": "off",
       "react-hooks/set-state-in-effect": "off",

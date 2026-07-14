@@ -15,14 +15,16 @@ use crate::{
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
         GitExecutor, GitHttpSourceProbe, GitSourceProbe, RealGitExecutor, RepoManager,
-        RepoSyncOptions, load_or_benchmark_ranking, repository_branch, repository_urls,
+        RepoSyncOptions, load_or_benchmark_ranking_with_output, repository_branch, repository_urls,
         save_ranking,
     },
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
     processor::{ScriptCommand, run_process_and_wait, spawn_process_task},
-    threader::{ThreadOutput, spawn_thread_task},
+    threader::{
+        ThreadOutput, ThreadTaskOutcome, spawn_thread_task, spawn_thread_task_with_outcome,
+    },
     types::{RendererEvent, TaskCompletion, TaskSpec, TermState, WorkflowPlan},
     workflow::{WorkflowBuilder, WorkflowTask},
 };
@@ -39,7 +41,7 @@ use std::{
         mpsc::Sender,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 /// Shared cleanup registry for one updater workflow run.
@@ -904,12 +906,67 @@ fn run_terminal_repo_stage(
         );
     }
 
-    let main_plan = match plan_git_cli_process(
-        RepositoryKind::Main,
-        &config,
-        &main_job.target_dir,
-        &ranking_dir.join("main.json"),
-    ) {
+    let main_start = planned_thread_task(workflow_plan, "main-repository");
+    let cpp_start = planned_thread_task(workflow_plan, "cpp-repository");
+    let _ = renderer_tx.send(RendererEvent::BufferRegions {
+        region_ids: vec![main_start.region_id.clone(), cpp_start.region_id.clone()],
+    });
+    if renderer_tx
+        .send(RendererEvent::TaskStarted(main_start.clone()))
+        .is_err()
+        || renderer_tx
+            .send(RendererEvent::TaskStarted(cpp_start.clone()))
+            .is_err()
+    {
+        return false;
+    }
+
+    let main_ranking_path = ranking_dir.join("main.json");
+    let cpp_ranking_path = ranking_dir.join("cpp.json");
+    let main_output = ThreadOutput {
+        task_id: main_start.task_id,
+        region_id: main_start.region_id,
+        tx: renderer_tx.clone(),
+    };
+    let cpp_output = ThreadOutput {
+        task_id: cpp_start.task_id,
+        region_id: cpp_start.region_id,
+        tx: renderer_tx.clone(),
+    };
+    let (main_plan_result, cpp_plan_result) = thread::scope(|scope| {
+        let main_handle = scope.spawn(|| {
+            plan_git_cli_process(
+                RepositoryKind::Main,
+                &config,
+                &main_job.target_dir,
+                &main_ranking_path,
+                &main_output,
+            )
+        });
+        let cpp_handle = scope.spawn(|| {
+            plan_git_cli_process(
+                RepositoryKind::Cpp,
+                &config,
+                &cpp_job.target_dir,
+                &cpp_ranking_path,
+                &cpp_output,
+            )
+        });
+        (
+            main_handle.join().unwrap_or_else(|_| {
+                Err(UpdaterError::Workflow(
+                    "main repository planning panicked".to_string(),
+                ))
+            }),
+            cpp_handle.join().unwrap_or_else(|_| {
+                Err(UpdaterError::Workflow(
+                    "cpp repository planning panicked".to_string(),
+                ))
+            }),
+        )
+    });
+
+    let main_plan = match main_plan_result {
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
@@ -937,12 +994,7 @@ fn run_terminal_repo_stage(
             };
         }
     };
-    let cpp_plan = match plan_git_cli_process(
-        RepositoryKind::Cpp,
-        &config,
-        &cpp_job.target_dir,
-        &ranking_dir.join("cpp.json"),
-    ) {
+    let cpp_plan = match cpp_plan_result {
         Ok(plan) => plan,
         Err(_) => {
             return if config.general.git_backend == GitBackend::Auto {
@@ -976,9 +1028,6 @@ fn run_terminal_repo_stage(
     let cpp_spec = planned_direct_process_task(workflow_plan, "cpp-repository", &cpp_plan.command);
     let main_id = main_spec.task_id.clone();
     let cpp_id = cpp_spec.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
-        region_ids: vec![main_spec.region_id.clone(), cpp_spec.region_id.clone()],
-    });
     if spawn_process_task(inner, session_id, main_spec, renderer_tx, completion_tx).is_err()
         || spawn_process_task(inner, session_id, cpp_spec, renderer_tx, completion_tx).is_err()
     {
@@ -1037,10 +1086,7 @@ fn run_terminal_thread_repo_stage(
     let cpp = planned_thread_task(workflow_plan, "cpp-repository");
     let main_id = main.task_id.clone();
     let cpp_id = cpp.task_id.clone();
-    let _ = renderer_tx.send(RendererEvent::BufferRegions {
-        region_ids: vec![main.region_id.clone(), cpp.region_id.clone()],
-    });
-    let main_spawn = spawn_thread_task(
+    let main_spawn = spawn_thread_task_with_outcome(
         inner,
         session_id,
         main,
@@ -1053,7 +1099,7 @@ fn run_terminal_thread_repo_stage(
         },
         terminal_repo_thread_task,
     );
-    let cpp_spawn = spawn_thread_task(
+    let cpp_spawn = spawn_thread_task_with_outcome(
         inner,
         session_id,
         cpp,
@@ -1087,7 +1133,7 @@ fn terminal_repo_thread_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     args: TerminalRepoArgs,
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("repository task cancelled".to_string());
     }
@@ -1126,9 +1172,10 @@ fn terminal_repo_thread_task(
             ),
         );
     }
-    let outcome = if config.general.no_update {
+    let skipped = config.general.no_update;
+    let outcome = if skipped {
         output.line(
-            OutputStyle::Info,
+            OutputStyle::Muted,
             &format!(
                 "{} repository: no_update enabled; skipping repository sync",
                 args.kind.as_str()
@@ -1160,7 +1207,11 @@ fn terminal_repo_thread_task(
         RepositoryKind::Main => state.main_outcome = Some(outcome),
         RepositoryKind::Cpp => state.cpp_outcome = Some(outcome),
     }
-    Ok(())
+    Ok(if skipped {
+        ThreadTaskOutcome::Skipped
+    } else {
+        ThreadTaskOutcome::Success
+    })
 }
 
 #[derive(Clone)]
@@ -1177,9 +1228,20 @@ fn plan_git_cli_process(
     config: &UpdaterConfig,
     target_dir: &Path,
     ranking_path: &Path,
+    output: &ThreadOutput,
 ) -> UpdaterResult<GitCliPlan> {
+    let planning_started = Instant::now();
+    output.line(
+        OutputStyle::Info,
+        &format!("{} repository: loading source ranking", kind.as_str()),
+    );
     let expected_urls = repository_urls(kind, config.general.channel);
-    let ranking = load_or_benchmark_ranking(Some(ranking_path), &expected_urls, &GitSourceProbe)?;
+    let ranking = load_or_benchmark_ranking_with_output(
+        Some(ranking_path),
+        &expected_urls,
+        &GitSourceProbe,
+        output,
+    )?;
     save_ranking(ranking_path, &ranking)?;
     let source = ranking
         .active_sources()
@@ -1187,24 +1249,109 @@ fn plan_git_cli_process(
         .next()
         .ok_or_else(|| UpdaterError::Git("no active repository source".to_string()))?;
     let branch = repository_branch(kind)?;
+    output.line(
+        OutputStyle::Info,
+        &format!(
+            "{} repository: selected {} for branch {} ({})",
+            kind.as_str(),
+            source.url,
+            branch,
+            format_elapsed(planning_started.elapsed())
+        ),
+    );
     let is_update = target_dir.join(".git").exists();
     let executor = RealGitExecutor;
     let local_sha = if is_update {
-        executor
+        let started = Instant::now();
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: reading local HEAD", kind.as_str()),
+        );
+        match executor
             .local_sha_cli(target_dir)
             .or_else(|_| executor.local_sha_git2(target_dir))
-            .ok()
+        {
+            Ok(sha) => {
+                output.line(
+                    OutputStyle::Success,
+                    &format!(
+                        "{} repository: local HEAD {} ({})",
+                        kind.as_str(),
+                        sha.get(..8).unwrap_or(&sha),
+                        format_elapsed(started.elapsed())
+                    ),
+                );
+                Some(sha)
+            }
+            Err(error) => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!(
+                        "{} repository: local HEAD unavailable after {}: {}",
+                        kind.as_str(),
+                        format_elapsed(started.elapsed()),
+                        error.message()
+                    ),
+                );
+                None
+            }
+        }
     } else {
+        output.line(
+            OutputStyle::Info,
+            &format!(
+                "{} repository: no existing Git checkout; clone required",
+                kind.as_str()
+            ),
+        );
         None
     };
     let remote_sha = if is_update {
-        executor.remote_sha(&source.url, &branch).ok()
+        let started = Instant::now();
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: requesting remote HEAD", kind.as_str()),
+        );
+        match executor.remote_sha(&source.url, &branch) {
+            Ok(sha) => {
+                output.line(
+                    OutputStyle::Success,
+                    &format!(
+                        "{} repository: remote HEAD {} ({})",
+                        kind.as_str(),
+                        sha.get(..8).unwrap_or(&sha),
+                        format_elapsed(started.elapsed())
+                    ),
+                );
+                Some(sha)
+            }
+            Err(error) => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!(
+                        "{} repository: remote HEAD unavailable after {}: {}",
+                        kind.as_str(),
+                        format_elapsed(started.elapsed()),
+                        error.message()
+                    ),
+                );
+                None
+            }
+        }
     } else {
         None
     };
     let (command, status) = if is_update && local_sha.is_some() && local_sha == remote_sha {
+        output.line(
+            OutputStyle::Success,
+            &format!("{} repository: already current", kind.as_str()),
+        );
         (git_rev_parse_command(target_dir), UpdateStatus::Skipped)
     } else if is_update {
+        output.line(
+            OutputStyle::Info,
+            &format!("{} repository: update required", kind.as_str()),
+        );
         (
             git_update_command(&source.url, &branch, target_dir),
             UpdateStatus::Updated,
@@ -1221,6 +1368,15 @@ fn plan_git_cli_process(
         target_dir: target_dir.to_path_buf(),
         status,
     })
+}
+
+/// Formats updater sub-step timings without exposing noisy nanosecond precision.
+fn format_elapsed(duration: Duration) -> String {
+    if duration >= Duration::from_secs(1) {
+        format!("{:.2}s", duration.as_secs_f64())
+    } else {
+        format!("{}ms", duration.as_millis())
+    }
 }
 
 /// Handles the git clone command workflow.
@@ -1293,12 +1449,18 @@ fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
 fn git_cli_command() -> CommandSpec {
     CommandSpec::new("git")
         .arg("-c")
+        .arg("credential.helper=")
+        .arg("-c")
         .arg("credential.interactive=never")
+        .arg("-c")
+        .arg("core.askPass=echo")
+        .arg("-c")
+        .arg("core.sshCommand=ssh -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .env("GCM_MODAL_PROMPT", "0")
-        .env("GIT_ASKPASS", "")
-        .env("SSH_ASKPASS", "")
+        .env("GIT_ASKPASS", "echo")
+        .env("SSH_ASKPASS", "echo")
 }
 
 struct TerminalGitRecordArgs {
@@ -1454,22 +1616,42 @@ fn run_terminal_environment_prepare_stage(
         }
     };
     if !uses_managed_runtime(&config) {
-        let spec = planned_thread_task(workflow_plan, "uv-install");
-        return spawn_thread_task(
-            inner,
-            session_id,
-            spec,
-            renderer_tx,
-            completion_tx,
-            config,
-            terminal_custom_runtime_task,
-        )
-        .is_ok()
-            && wait_for_task(completion_rx, "uv-install");
+        for (task_id, message) in [
+            (
+                "uv-install",
+                "Custom Python runtime configured; skipping UV install",
+            ),
+            (
+                "cpython-source-ranking",
+                "Custom Python runtime configured; skipping CPython source ranking",
+            ),
+            (
+                "uv-python-install",
+                "Custom Python runtime configured; skipping managed Python install",
+            ),
+            (
+                "uv-venv",
+                "Custom Python runtime configured; skipping managed virtual environment",
+            ),
+        ] {
+            if !run_terminal_skip_task(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                task_id,
+                message,
+            ) {
+                return false;
+            }
+        }
+        return true;
     }
 
     let uv_spec = planned_thread_task(workflow_plan, "uv-install");
-    if spawn_thread_task(
+    if spawn_thread_task_with_outcome(
         inner,
         session_id,
         uv_spec,
@@ -1604,20 +1786,36 @@ fn run_terminal_dependency_stage(
     };
 
     if !uses_managed_runtime(&config) {
-        let spec = planned_thread_task(workflow_plan, "uv-sync");
-        if spawn_thread_task(
-            inner,
-            session_id,
-            spec,
-            renderer_tx,
-            completion_tx,
-            config.clone(),
-            terminal_custom_runtime_task,
-        )
-        .is_err()
-            || !wait_for_task(completion_rx, "uv-sync")
-        {
-            return false;
+        for (task_id, message) in [
+            (
+                "pypi-source-ranking",
+                "Custom Python runtime configured; skipping PyPI source ranking",
+            ),
+            (
+                "uv-compile",
+                "Custom Python runtime configured; skipping dependency compilation",
+            ),
+            (
+                "uv-sync",
+                "Custom Python runtime configured; skipping dependency synchronization",
+            ),
+            (
+                "uv-cache-clean",
+                "Custom Python runtime configured; skipping UV cache cleanup",
+            ),
+        ] {
+            if !run_terminal_skip_task(
+                inner,
+                session_id,
+                renderer_tx,
+                completion_tx,
+                completion_rx,
+                workflow_plan,
+                task_id,
+                message,
+            ) {
+                return false;
+            }
         }
         return run_terminal_launch_stage(
             inner,
@@ -1769,7 +1967,7 @@ fn run_terminal_skip_task(
     task_id: &str,
     message: &str,
 ) -> bool {
-    spawn_thread_task(
+    spawn_thread_task_with_outcome(
         inner,
         session_id,
         planned_thread_task(workflow_plan, task_id),
@@ -1793,12 +1991,12 @@ fn terminal_skip_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     args: TerminalSkipArgs,
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("skip task cancelled".to_string());
     }
-    output.line(OutputStyle::Success, &args.message);
-    Ok(())
+    output.line(OutputStyle::Muted, &args.message);
+    Ok(ThreadTaskOutcome::Skipped)
 }
 
 /// Performs the run terminal launch stage operation.
@@ -1813,7 +2011,16 @@ fn run_terminal_launch_stage(
     launch: bool,
 ) -> bool {
     if !launch || !config.general.launch {
-        return true;
+        return run_terminal_skip_task(
+            inner,
+            session_id,
+            renderer_tx,
+            completion_tx,
+            completion_rx,
+            workflow_plan,
+            "launch-backend",
+            "Backend launch disabled; skipping backend launch",
+        );
     }
     let port = match available_port() {
         Ok(port) => port,
@@ -1846,13 +2053,16 @@ fn terminal_uv_install_task(
     output: ThreadOutput,
     cancelled: Arc<AtomicBool>,
     (config, ranking_dir): (UpdaterConfig, PathBuf),
-) -> Result<(), String> {
+) -> Result<ThreadTaskOutcome, String> {
     if cancelled.load(Ordering::Relaxed) {
         return Err("uv install task cancelled".to_string());
     }
     if uv_executable(&config).exists() {
-        output.line(OutputStyle::Success, "uv is already installed");
-        return Ok(());
+        output.line(
+            OutputStyle::Muted,
+            "uv is already installed; skipping UV install",
+        );
+        return Ok(ThreadTaskOutcome::Skipped);
     }
     let uv_url = ranked_environment_source_with_output(
         EnvironmentSourceKind::Uv,
@@ -1863,6 +2073,7 @@ fn terminal_uv_install_task(
     )
     .map_err(|error| error.message())?;
     ensure_uv_installed_from(&config, &uv_url, &ReqwestDownloader, &output)
+        .map(|()| ThreadTaskOutcome::Success)
         .map_err(|error| error.message())
 }
 
@@ -1927,22 +2138,6 @@ fn terminal_pypi_rank_task(
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
     state.pypi_index = Some(pypi_index);
     output.line(OutputStyle::Success, "PyPI source ranked");
-    Ok(())
-}
-
-/// Handles the terminal custom runtime task workflow.
-fn terminal_custom_runtime_task(
-    output: ThreadOutput,
-    cancelled: Arc<AtomicBool>,
-    config: UpdaterConfig,
-) -> Result<(), String> {
-    if cancelled.load(Ordering::Relaxed) {
-        return Err("custom runtime task cancelled".to_string());
-    }
-    output.line(
-        OutputStyle::Info,
-        &format!("Using custom runtime: {}", config.python.runtime_path),
-    );
     Ok(())
 }
 
@@ -2236,70 +2431,60 @@ mod tests {
             Path::new("repo"),
         );
         let sequence = command.command_sequence();
+        let git_prefix = [
+            "-c",
+            "credential.helper=",
+            "-c",
+            "credential.interactive=never",
+            "-c",
+            "core.askPass=echo",
+            "-c",
+            "core.sshCommand=ssh -o BatchMode=yes",
+        ];
 
         assert_eq!(sequence.len(), 5);
         assert_eq!(
             sequence[0].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "remote",
-                "set-url",
-                "origin",
-                "https://example.invalid/repo.git"
+                git_prefix.as_slice(),
+                &[
+                    "-C",
+                    "repo",
+                    "remote",
+                    "set-url",
+                    "origin",
+                    "https://example.invalid/repo.git",
+                ]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[1].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "fetch",
-                "--depth",
-                "1",
-                "origin",
-                "master"
+                git_prefix.as_slice(),
+                &["-C", "repo", "fetch", "--depth", "1", "origin", "master",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[2].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reset",
-                "--hard",
-                "FETCH_HEAD"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reset", "--hard", "FETCH_HEAD",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[3].args,
             [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "reflog",
-                "expire",
-                "--expire=now",
-                "--all"
+                git_prefix.as_slice(),
+                &["-C", "repo", "reflog", "expire", "--expire=now", "--all",]
             ]
+            .concat()
         );
         assert_eq!(
             sequence[4].args,
-            [
-                "-c",
-                "credential.interactive=never",
-                "-C",
-                "repo",
-                "gc",
-                "--prune=now"
-            ]
+            [git_prefix.as_slice(), &["-C", "repo", "gc", "--prune=now",]].concat()
         );
     }
 

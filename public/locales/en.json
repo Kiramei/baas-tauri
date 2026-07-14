@@ -52,6 +52,20 @@
     "overview": "Task Overview",
     "running": "Running Task"
   },
+  "notification": {
+    "script": {
+      "completedBody": "{{task}} completed.",
+      "completedTitle": "BAAS task completed",
+      "failedBody": "{{task}} exited abnormally. Exit code: {{exitCode}}.",
+      "failedTitle": "BAAS script exited abnormally",
+      "startedBody": "{{task}} has started.",
+      "startedTitle": "BAAS task started"
+    },
+    "service": {
+      "disconnectedBody": "The {{transport}} connection was interrupted. Reconnecting automatically.",
+      "disconnectedTitle": "BAAS service disconnected"
+    }
+  },
   "time": {
     "daysAgo": "{{count}} days ago",
     "hoursAgo": "{{count}} hours ago",
@@ -61,6 +75,26 @@
   "settings": {
     "feature": "Feature Settings",
     "general": "General Settings",
+    "systemLogs": {
+      "allLevels": "All levels",
+      "allSources": "All sources",
+      "autoRefresh": "Auto refresh",
+      "clear": "Clear logs",
+      "clearConfirm": "Clear Tauri, frontend, and Python system logs?",
+      "copied": "System logs copied",
+      "copy": "Copy logs",
+      "count": "{{count}} entries",
+      "description": "Inspect diagnostic logs from the client, frontend, and Python backend",
+      "empty": "No system logs match the current filters",
+      "export": "Export logs",
+      "followTail": "Follow tail",
+      "level": "Log level",
+      "open": "View system logs",
+      "refresh": "Refresh logs",
+      "search": "Search messages, modules, or exception stacks",
+      "source": "Log source",
+      "title": "System logs"
+    },
     "ui": {
       "$self": "UI Settings",
       "assets": "Display Asset Details",
@@ -75,6 +109,7 @@
       "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
       "enableBAComet": "Enable BAComet",
       "enableSafeStream": "Enable safe stream",
+      "enableSystemNotifications": "Enable system notifications",
       "lowPerformanceMode": "Low performance mode",
       "player": "Player",
       "themeColor": "Theme color",
@@ -282,11 +317,11 @@
   },
   "cafe": {
     "$self": "Cafe",
-    "basicSettings": "Basic Cafe Settings",
+    "basicSettings": "Basic",
     "byName": "By Student Name",
-    "cafe1Settings": "Cafe 1 Settings",
+    "cafe1Settings": "Cafe 1",
     "cafe1Students": "Student Name List",
-    "cafe2Settings": "Cafe 2 Settings",
+    "cafe2Settings": "Cafe 2",
     "cafe2Students": "Student Name List",
     "collectReward": "Collect rewards",
     "duplicateInvite": "Duplicate invite",
@@ -546,6 +581,7 @@
   },
   "shaTest": {
     "method": "Method",
+    "results": "Test results",
     "sha": "SHA Value",
     "status": "Status",
     "testAll": "Test All Methods",
@@ -642,6 +678,11 @@
   "toast": {
     "dateUpdated": "Date updated",
     "timeUpdated": "Time updated"
+  },
+  "transport": {
+    "label": "Data transport",
+    "pipe": "Named pipe (desktop)",
+    "websocket": "WebSocket (compatible)"
   },
   "ui": {
     "zoom": "UI Zoom Settings"

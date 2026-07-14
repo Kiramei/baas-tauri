@@ -2,6 +2,7 @@
 identifier = "allow-mobile-commands"
 description = "Allows Android frontend startup, setup and updater bridge commands."
 commands.allow = [
+  "baas_notify",
   "splash_off",
   "set_backend_locale",
   "updater_get_storage_state",
@@ -15,9 +16,21 @@ commands.allow = [
   "updater_test_sha_methods",
   "updater_start_workflow",
   "updater_reset_backend_auth_and_restart",
+  "backend_transport_start",
+  "backend_pipe_open",
+  "backend_pipe_send_json",
+  "backend_pipe_send_bytes",
+  "backend_pipe_close",
+  "backend_pipe_close_all",
   "updater_abort_workflow",
   "updater_terminal_snapshot",
   "updater_resize_term",
   "shortcut_apply_bindings",
   "open_main_devtools",
+  "android_prepare_scrcpy_virtual_display",
+  "android_cleanup_scrcpy_virtual_display",
+  "android_scrcpy_virtual_display_status",
+  "system_logs_snapshot",
+  "system_logs_clear",
+  "system_logs_ingest_frontend",
 ]

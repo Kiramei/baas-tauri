@@ -42,6 +42,7 @@ export function run(command, args = [], options = {}) {
     shell: false,
     windowsHide: true,
     encoding: "utf8",
+    maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {

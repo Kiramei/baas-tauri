@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { exit } from "@tauri-apps/plugin-process";
 import { Copy, RotateCcw } from "lucide-react";
@@ -10,6 +10,7 @@ import StorageUtil from "@/shared/StorageManager";
 import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
+import { reloadWithoutPrompt } from "@/shared/reload";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
@@ -26,6 +27,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    transport?: "websocket" | "pipe";
   };
   paths?: {
     baas_root_path?: string;
@@ -132,6 +134,7 @@ const SetupPage = () => {
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
           noUpdate: setupNoUpdate(nextConfig),
+          transport: nextConfig?.general?.transport ?? "pipe",
         },
       });
       setConfig(updated);
@@ -295,6 +298,7 @@ const SetupPage = () => {
             "updater_reset_backend_auth_and_restart"
           );
           await authenticateBackend(recovered, true);
+          reloadWithoutPrompt();
         } catch (retryError) {
           const firstMessage = error instanceof Error ? error.message : String(error);
           const retryMessage =

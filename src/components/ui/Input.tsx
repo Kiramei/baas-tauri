@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/shared/GlobalUtilities";
+import { cn } from "@/shared/cn";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
 /** Renders the input component. */

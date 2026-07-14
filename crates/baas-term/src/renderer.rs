@@ -268,6 +268,12 @@ pub fn renderer_loop(
             }
             RendererEvent::TaskStarted(spec) => {
                 emit_dashboard_chunk(&app, &session_id, &mut pending_chunk);
+                // Repository planning can start a logical node before its concrete
+                // process command is known. Ignore the process hand-off event so
+                // timing and buffered planning output remain attached to one node.
+                if task_started_at.contains_key(&spec.task_id) {
+                    continue;
+                }
                 let started = Utc::now();
                 let started_at = Some(started.to_rfc3339());
                 task_started_at.insert(spec.task_id.clone(), started);

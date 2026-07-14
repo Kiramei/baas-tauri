@@ -51,19 +51,39 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   const timeAgo = useTimeAgo();
   const config = useWebSocketStore((e) => e.configStore[profileId]);
   const [open, setOpen] = useState(Array.from({ length: 8 }).map(() => false));
+  const isAndroid = __WITH_ANDROID__;
+
+  const containerClass = isAndroid
+    ? "max-[320px]:hidden scrollbar-hide flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory"
+    : "max-[320px]:hidden grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2";
+  const cardClass = isAndroid
+    ? "bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex w-32 shrink-0 snap-start flex-col items-center justify-center transition-transform active:scale-[0.98]"
+    : "bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-start transition-transform hover:scale-[1.02]";
+  const iconColumnClass = isAndroid
+    ? "flex w-full shrink-0 flex-col items-center justify-center"
+    : "mr-4 ml-1 flex w-16 shrink-0 flex-col items-center justify-center";
+  const valueColumnClass = isAndroid ? "mt-1 w-full text-center" : "";
 
   const noData = !hasAssetData(config);
 
   if (noData) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2 p-2">
+      <div
+        className={
+          isAndroid
+            ? "scrollbar-hide flex gap-2 overflow-x-auto overscroll-x-contain p-2 snap-x snap-mandatory"
+            : "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2 p-2"
+        }
+      >
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700"
+            className={`flex items-center bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 ${
+              isAndroid ? "w-32 shrink-0 snap-start" : ""
+            }`}
           >
-            <Skeleton className="w-10 h-10 rounded-full mr-4" />
-            <div className="flex-1 space-y-2">
+            <Skeleton className="w-10 h-10 rounded-full mr-4 shrink-0" />
+            <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
             </div>
@@ -125,7 +145,7 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   ];
 
   return (
-    <div className="max-[320px]:hidden grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
+    <div className={containerClass}>
       {assetItems.map((item, idx) => (
         <Popover
           key={item.name}
@@ -154,21 +174,21 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
                   return copy;
                 })
               }
-              className="bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-start transition-transform hover:scale-[1.02]"
+              className={cardClass}
             >
-              <div className="mr-4 ml-1 flex w-16 shrink-0 flex-col items-center justify-center">
+              <div className={iconColumnClass}>
                 <div className="flex h-9 w-12 items-center justify-center">
                   <img src={item.icon} className="max-h-8 max-w-10 object-contain" alt={item.name} />
                 </div>
-                <div className="w-full text-center text-sm leading-tight text-slate-500 dark:text-slate-400">
+                <div className="w-full text-center text-sm leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
                   {item.name}
                 </div>
               </div>
-              <div>
-                <div className="text-l font-bold text-slate-800 dark:text-slate-100">
+              <div className={valueColumnClass}>
+                <div className="truncate text-l font-bold text-slate-800 dark:text-slate-100">
                   {item.value}
                 </div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                <div className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">
                   {timeAgo(item.time)}
                 </div>
               </div>

@@ -81,12 +81,25 @@ pub struct AndroidTerminalSnapshot {
     pub session_id: Option<String>,
     /// Last planned workflow graph for the active session.
     pub workflow_plan: Option<WorkflowPlan>,
+    /// Currently registered worker task ids.
+    pub active_tasks: Vec<String>,
+    /// Last known session success state.
+    pub success: Option<bool>,
+    /// Last known Android updater error.
+    pub last_error: Option<String>,
 }
 
 /// Terminal-backed Android updater session manager.
 #[derive(Clone, Default)]
 pub struct AndroidUpdaterTermManager {
     inner: Arc<Mutex<TermState>>,
+    status: Arc<Mutex<AndroidUpdaterStatus>>,
+}
+
+#[derive(Debug, Default)]
+struct AndroidUpdaterStatus {
+    success: Option<bool>,
+    last_error: Option<String>,
 }
 
 impl AndroidUpdaterTermManager {
@@ -118,6 +131,10 @@ impl AndroidUpdaterTermManager {
             }
             (state.rows, state.cols)
         };
+        if let Ok(mut status) = self.status.lock() {
+            status.success = None;
+            status.last_error = None;
+        }
 
         app.emit(
             "build:session-started",
@@ -142,8 +159,9 @@ impl AndroidUpdaterTermManager {
 
         let flow_inner = Arc::clone(&self.inner);
         let flow_session_id = session_id.clone();
+        let flow_status = Arc::clone(&self.status);
         thread::spawn(move || {
-            run_android_update_flow(flow_inner, flow_session_id, renderer_tx, options)
+            run_android_update_flow(flow_inner, flow_session_id, renderer_tx, options, flow_status)
         });
 
         Ok(SessionMetadata {
@@ -158,9 +176,16 @@ impl AndroidUpdaterTermManager {
             .inner
             .lock()
             .map_err(|_| "android updater manager lock poisoned")?;
+        let status = self
+            .status
+            .lock()
+            .map_err(|_| "android updater status lock poisoned")?;
         Ok(AndroidTerminalSnapshot {
             session_id: state.current_session_id.clone(),
             workflow_plan: state.workflow_plan.clone(),
+            active_tasks: state.tasks.keys().cloned().collect(),
+            success: status.success,
+            last_error: status.last_error.clone(),
         })
     }
 
@@ -225,6 +250,10 @@ impl AndroidUpdaterTermManager {
         {
             let _ = tx.send(RendererEvent::SessionFinished { success: false });
         }
+        if let Ok(mut status) = self.status.lock() {
+            status.success = Some(false);
+            status.last_error = Some("android updater aborted".to_string());
+        }
         Ok(AndroidWorkflowAbortReport { stopped_tasks })
     }
 }
@@ -270,6 +299,7 @@ struct AndroidWorkflowState {
     manager: Option<ConfigManager>,
     main_outcome: Option<AndroidRepositoryOutcome>,
     cpp_outcome: Option<AndroidRepositoryOutcome>,
+    last_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -285,6 +315,7 @@ fn run_android_update_flow(
     session_id: String,
     renderer_tx: Sender<RendererEvent>,
     options: WorkflowOptions,
+    status: Arc<Mutex<AndroidUpdaterStatus>>,
 ) {
     let (completion_tx, completion_rx) = mpsc::channel::<TaskCompletion>();
     let state = Arc::new(Mutex::new(AndroidWorkflowState::default()));
@@ -306,7 +337,14 @@ fn run_android_update_flow(
     .is_err()
         || !wait_for_android_task(&completion_rx, "android-config")
     {
-        finish_android_session(&inner, &session_id, &renderer_tx, false);
+        finish_android_session(
+            &inner,
+            &session_id,
+            &renderer_tx,
+            &status,
+            false,
+            android_state_error(&state).unwrap_or_else(|| "android config task failed".to_string()),
+        );
         return;
     }
 
@@ -319,7 +357,15 @@ fn run_android_update_flow(
         &workflow_plan,
         Arc::clone(&state),
     ) {
-        finish_android_session(&inner, &session_id, &renderer_tx, false);
+        finish_android_session(
+            &inner,
+            &session_id,
+            &renderer_tx,
+            &status,
+            false,
+            android_state_error(&state)
+                .unwrap_or_else(|| "android repository synchronization failed".to_string()),
+        );
         return;
     }
 
@@ -329,17 +375,24 @@ fn run_android_update_flow(
         android_task(&workflow_plan, "android-finalize"),
         &renderer_tx,
         &completion_tx,
-        state,
+        Arc::clone(&state),
         android_finalize_task,
     )
     .is_err()
         || !wait_for_android_task(&completion_rx, "android-finalize")
     {
-        finish_android_session(&inner, &session_id, &renderer_tx, false);
+        finish_android_session(
+            &inner,
+            &session_id,
+            &renderer_tx,
+            &status,
+            false,
+            android_state_error(&state).unwrap_or_else(|| "android finalize task failed".to_string()),
+        );
         return;
     }
 
-    finish_android_session(&inner, &session_id, &renderer_tx, true);
+    finish_android_session(&inner, &session_id, &renderer_tx, &status, true, "");
 }
 
 /// Handles the android task workflow.
@@ -393,7 +446,11 @@ fn android_config_task(
             config.general.launch = args.options.launch;
             config.python.runtime_path = "embedded-python-3.9".to_string();
         })
-        .map_err(|error| error.message())?;
+        .map_err(|error| {
+            let message = error.message();
+            set_android_state_error(&args.state, &message);
+            message
+        })?;
     output.line(
         OutputStyle::Info,
         &format!("Android BAAS root: {}", install_path.display()),
@@ -489,8 +546,14 @@ fn android_repository_task(
             .config
             .clone()
     };
-    let outcome =
-        sync_android_repository(args.kind, &config, &output).map_err(|error| error.message())?;
+    let outcome = match sync_android_repository(args.kind, &config, &output) {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            let message = format!("{} repository failed: {}", args.kind.as_str(), error.message());
+            set_android_state_error(&args.state, &message);
+            return Err(message);
+        }
+    };
     output.line(
         OutputStyle::Success,
         &format!(
@@ -519,6 +582,13 @@ fn sync_android_repository(
 ) -> UpdaterResult<AndroidRepositoryOutcome> {
     let root = config.baas_root();
     let target_dir = android_repository_target(&root, kind);
+    let target_is_repo = is_git_repository(&target_dir);
+    let local_sha = if target_is_repo {
+        android_repository_local_sha(&root, kind).ok()
+    } else {
+        None
+    };
+    let recorded_sha = android_recorded_repository_sha(config, kind);
     let ranking_dir = root.join(".baas-updater").join("source-ranking");
     fs::create_dir_all(&ranking_dir)?;
     let ranking_path = ranking_dir.join(format!("android-{}.json", kind.as_str()));
@@ -537,6 +607,45 @@ fn sync_android_repository(
     let mut last_error = None;
 
     for source in ranking.active_sources() {
+        if should_probe_android_remote_for_skip(target_is_repo, recorded_sha) {
+            match android_repository_remote_sha(&root, kind, config.general.channel, &source.url) {
+                Ok(remote_sha) => {
+                    if should_skip_android_fetch(
+                        target_is_repo,
+                        recorded_sha,
+                        local_sha.as_deref(),
+                        &remote_sha,
+                    ) {
+                        output.line(
+                            OutputStyle::Info,
+                            &format!(
+                                "git2 {} already latest at {} from {}; skip fetch",
+                                kind.as_str(),
+                                short_sha(&remote_sha),
+                                source.url
+                            ),
+                        );
+                        save_ranking(&ranking_path, &ranking)?;
+                        return Ok(AndroidRepositoryOutcome {
+                            status: UpdateStatus::Skipped,
+                            sha: remote_sha,
+                            source_url: source.url,
+                        });
+                    }
+                }
+                Err(error) => {
+                    output.line(
+                        OutputStyle::Warning,
+                        &format!(
+                            "git2 {} remote SHA probe failed for {}; falling back to fetch: {}",
+                            kind.as_str(),
+                            source.url,
+                            error.message()
+                        ),
+                    );
+                }
+            }
+        }
         output.line(
             OutputStyle::Info,
             &format!(
@@ -575,6 +684,30 @@ fn sync_android_repository(
             .map(|error| format!("; last error: {}", error.message()))
             .unwrap_or_default()
     )))
+}
+
+/// Returns the persisted repository SHA from setup.toml for Android skip checks.
+fn android_recorded_repository_sha(config: &UpdaterConfig, kind: RepositoryKind) -> &str {
+    match kind {
+        RepositoryKind::Main => config.general.current_baas_sha.trim(),
+        RepositoryKind::Cpp => config.general.current_baas_cpp_sha.trim(),
+    }
+}
+
+/// Returns whether Android git2 fetch can be skipped after a remote SHA probe.
+fn should_skip_android_fetch(
+    target_is_repo: bool,
+    recorded_sha: &str,
+    local_sha: Option<&str>,
+    remote_sha: &str,
+) -> bool {
+    (!recorded_sha.is_empty() && recorded_sha == remote_sha)
+        || (target_is_repo && local_sha == Some(remote_sha))
+}
+
+/// Returns whether a remote SHA probe can prevent an unnecessary Android fetch.
+fn should_probe_android_remote_for_skip(target_is_repo: bool, recorded_sha: &str) -> bool {
+    target_is_repo || !recorded_sha.is_empty()
 }
 
 /// Handles the android repository target workflow.
@@ -671,7 +804,20 @@ fn sync_git2_worktree(
     fs::create_dir_all(target_dir)?;
     let repo = open_or_init_repository(target_dir, output)?;
     let before = head_oid(&repo).ok();
-    fetch_and_reset_git2(&repo, url, branch, output)?;
+    if let Err(error) = fetch_and_reset_git2(&repo, url, branch, output) {
+        if !is_missing_git_object_error(&error) {
+            return Err(error);
+        }
+        output.line(
+            OutputStyle::Warning,
+            "Android git2 metadata is missing objects; rebuilding .git metadata and retrying",
+        );
+        drop(repo);
+        replace_git_metadata(target_dir)?;
+        let repo = Repository::init(target_dir)?;
+        fetch_and_reset_git2(&repo, url, branch, output)?;
+    }
+    let repo = Repository::open(target_dir)?;
     let sha = head_sha(&repo)?;
     let after = Oid::from_str(&sha).ok();
     let status = match (before, after) {
@@ -680,6 +826,23 @@ fn sync_git2_worktree(
         _ => UpdateStatus::Updated,
     };
     Ok((status, sha))
+}
+
+/// Returns whether a git error is caused by a missing object in the local ODB.
+fn is_missing_git_object_error(error: &UpdaterError) -> bool {
+    let message = error.message();
+    message.contains("object not found")
+        || message.contains("code=NotFound")
+        || message.contains("missing object")
+}
+
+/// Replaces only Git metadata while keeping Android app data files in place.
+fn replace_git_metadata(target_dir: &Path) -> UpdaterResult<()> {
+    let git_dir = target_dir.join(".git");
+    if git_dir.exists() {
+        fs::remove_dir_all(git_dir)?;
+    }
+    Ok(())
 }
 
 /// Handles the configure android git2 ssl workflow.
@@ -809,8 +972,22 @@ fn fetch_and_reset_git2(
     let branch_ref = format!("refs/heads/{branch}");
     repo.reference(&branch_ref, commit_id, true, "Android git2 update")?;
     repo.set_head(&branch_ref)?;
+    remove_android_git_index(repo)?;
     repo.reset(&object, git2::ResetType::Hard, None)?;
     Ok(())
+}
+
+/// Removes the current index so hard reset can recover from stale missing objects.
+fn remove_android_git_index(repo: &Repository) -> UpdaterResult<()> {
+    let Some(workdir) = repo.workdir() else {
+        return Ok(());
+    };
+    let index_path = workdir.join(".git").join("index");
+    match fs::remove_file(&index_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// Handles the android fetch options workflow.
@@ -924,7 +1101,11 @@ fn android_finalize_task(
             config.general.current_baas_cpp_sha = cpp.sha.clone();
             config.general.git_backend = GitBackend::Git2;
         })
-        .map_err(|error| error.message())?;
+        .map_err(|error| {
+            let message = error.message();
+            state.last_error = Some(message.clone());
+            message
+        })?;
     output.line(
         OutputStyle::Info,
         &format!(
@@ -957,13 +1138,34 @@ fn wait_for_android_task(completion_rx: &mpsc::Receiver<TaskCompletion>, task_id
         .unwrap_or(false)
 }
 
+fn set_android_state_error(state: &Arc<Mutex<AndroidWorkflowState>>, message: &str) {
+    if let Ok(mut state) = state.lock() {
+        state.last_error = Some(message.to_string());
+    }
+}
+
+fn android_state_error(state: &Arc<Mutex<AndroidWorkflowState>>) -> Option<String> {
+    state.lock().ok().and_then(|state| state.last_error.clone())
+}
+
 /// Handles the finish android session workflow.
 fn finish_android_session(
     inner: &Arc<Mutex<TermState>>,
     session_id: &str,
     renderer_tx: &Sender<RendererEvent>,
+    status: &Arc<Mutex<AndroidUpdaterStatus>>,
     success: bool,
+    error: impl Into<String>,
 ) {
+    let error = error.into();
+    if let Ok(mut status) = status.lock() {
+        status.success = Some(success);
+        status.last_error = if success || error.is_empty() {
+            None
+        } else {
+            Some(error)
+        };
+    }
     if session_is_current(inner, session_id) {
         let _ = renderer_tx.send(RendererEvent::SessionFinished { success });
     }
@@ -1010,5 +1212,99 @@ mod tests {
                 .join("baas_ocr_client")
                 .join("bin")
         );
+    }
+
+    /// Handles the skip fetch decision workflow.
+    #[test]
+    fn android_fetch_skip_requires_existing_repo_and_matching_sha() {
+        assert!(should_skip_android_fetch(
+            true,
+            "remote-sha",
+            None,
+            "remote-sha"
+        ));
+        assert!(should_skip_android_fetch(
+            true,
+            "",
+            Some("remote-sha"),
+            "remote-sha"
+        ));
+        assert!(should_skip_android_fetch(
+            false,
+            "remote-sha",
+            Some("remote-sha"),
+            "remote-sha"
+        ));
+        assert!(should_skip_android_fetch(
+            false,
+            "remote-sha",
+            None,
+            "remote-sha"
+        ));
+        assert!(!should_skip_android_fetch(
+            true,
+            "old-sha",
+            Some("old-sha"),
+            "remote-sha"
+        ));
+    }
+
+    /// Handles the remote probe decision workflow.
+    #[test]
+    fn android_remote_probe_runs_for_recorded_sha_without_git_repo() {
+        assert!(should_probe_android_remote_for_skip(false, "recorded-sha"));
+        assert!(should_probe_android_remote_for_skip(true, ""));
+        assert!(!should_probe_android_remote_for_skip(false, ""));
+    }
+
+    /// Handles recorded SHA lookup for both Android repositories.
+    #[test]
+    fn android_recorded_sha_lookup_covers_main_and_cpp_repositories() {
+        let mut config = UpdaterConfig::default();
+        config.general.current_baas_sha = "main-sha".to_string();
+        config.general.current_baas_cpp_sha = "cpp-sha".to_string();
+
+        for (kind, expected) in [
+            (RepositoryKind::Main, "main-sha"),
+            (RepositoryKind::Cpp, "cpp-sha"),
+        ] {
+            let recorded_sha = android_recorded_repository_sha(&config, kind);
+            assert_eq!(recorded_sha, expected);
+            assert!(should_probe_android_remote_for_skip(false, recorded_sha));
+            assert!(should_skip_android_fetch(
+                false,
+                recorded_sha,
+                None,
+                expected
+            ));
+        }
+    }
+
+    /// Handles the android remove index workflow.
+    #[test]
+    fn android_remove_git_index_ignores_missing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::init(dir.path()).unwrap();
+        let index = dir.path().join(".git").join("index");
+        fs::write(&index, b"stale index").unwrap();
+
+        remove_android_git_index(&repo).unwrap();
+        assert!(!index.exists());
+        remove_android_git_index(&repo).unwrap();
+    }
+
+    /// Handles missing object errors triggering Android metadata recovery.
+    #[test]
+    fn android_missing_object_error_is_recoverable() {
+        assert!(is_missing_git_object_error(&UpdaterError::Git(
+            "object not found - no match for id abc; class=Odb (9); code=NotFound (-3)"
+                .to_string()
+        )));
+        assert!(is_missing_git_object_error(&UpdaterError::Git(
+            "missing object abc".to_string()
+        )));
+        assert!(!is_missing_git_object_error(&UpdaterError::Git(
+            "failed to connect to github.com".to_string()
+        )));
     }
 }

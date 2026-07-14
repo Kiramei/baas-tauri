@@ -75,6 +75,9 @@ pub const STATUS_RUNNING: &str = "running";
 /// Status string for successful tasks.
 pub const STATUS_SUCCESS: &str = "success";
 
+/// Status string for tasks intentionally omitted by workflow conditions.
+pub const STATUS_SKIPPED: &str = "skipped";
+
 /// Status string for failed tasks.
 pub const STATUS_FAILED: &str = "failed";
 

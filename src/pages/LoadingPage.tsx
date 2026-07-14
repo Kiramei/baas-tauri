@@ -1,16 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { TextGenerateEffect } from "@/components/ui/TextGenerateEffect.tsx";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
-import { motion } from "framer-motion";
 import { useTheme } from "@/context/ThemeProvider.tsx";
-import { useWebSocketStore } from "@/store/WebsocketStore";
-import PasswordInputModal from "@/components/PasswordInputModal.tsx";
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
+import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 
 const baseUrl = import.meta.env.BASE_URL;
+const ANDROID_TERMINAL_DELAY_MS = 2_000;
+const AndroidStartupTerminal = React.lazy(() => import("@/components/AndroidStartupTerminal"));
+const PasswordInputModal = React.lazy(() => import("@/components/PasswordInputModal.tsx"));
 
 interface LoadingPageProps {
   message?: string;
@@ -23,29 +22,16 @@ const statusColorMap: Record<string, string> = {
   CRITICAL: "var(--color-purple-500)",
 };
 
-const androidPasswordKey = "baasAndroidAutoPassword";
-
-/** Returns the get android auto password result. */
-const getAndroidAutoPassword = () => {
-  const stored = window.localStorage.getItem(androidPasswordKey);
-  if (stored) return stored;
-  const next = globalThis.crypto?.randomUUID
-    ? `baas-android-${globalThis.crypto.randomUUID()}`
-    : `baas-android-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.localStorage.setItem(androidPasswordKey, next);
-  return next;
-};
-
 /** Renders the auto scroll terminal component. */
 export function AutoScrollTerminal({ children }: { children: React.ReactNode }) {
   const endRef = useRef<HTMLDivElement>(null);
-  const { uiSettings } = useUISettings();
+  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({
-      behavior: uiSettings.lowPerformanceMode ? "auto" : "smooth",
+      behavior: lowPerformanceMode ? "auto" : "smooth",
     });
-  }, [children, uiSettings.lowPerformanceMode]);
+  }, [children, lowPerformanceMode]);
 
   return (
     <div className="w-full h-full opacity-50 scrollbar-hide font-mono overflow-auto p-2 text-sm">
@@ -53,93 +39,6 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
       <div ref={endRef} />
     </div>
   );
-}
-
-/** Renders the android startup terminal component. */
-function AndroidStartupTerminal({ text, theme }: { text: string; theme: string }) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const writtenLengthRef = useRef(0);
-  const previousTextRef = useRef("");
-
-  useEffect(() => {
-    if (!hostRef.current) return;
-
-    const isLight = theme === "light";
-    const term = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      disableStdin: true,
-      fontFamily: '"JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 12,
-      lineHeight: 1.18,
-      scrollback: 160,
-      theme: {
-        background: "#00000000",
-        foreground: isLight ? "#334155" : "#dbe7f3",
-        cursor: "transparent",
-        selectionBackground: isLight ? "#cbd5e1" : "#38506b",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(hostRef.current);
-
-    termRef.current = term;
-    fitRef.current = fit;
-
-    /** Handles the resize workflow. */
-    const resize = () => {
-      try {
-        fit.fit();
-      } catch {
-        // The terminal can briefly be detached during route transitions.
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(hostRef.current);
-    requestAnimationFrame(resize);
-
-    return () => {
-      observer.disconnect();
-      fit.dispose();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      writtenLengthRef.current = 0;
-    };
-  }, []);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    const isLight = theme === "light";
-    term.options.theme = {
-      background: "#00000000",
-      foreground: isLight ? "#334155" : "#dbe7f3",
-      cursor: "transparent",
-      selectionBackground: isLight ? "#cbd5e1" : "#38506b",
-    };
-  }, [theme]);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
-    if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
-      term.reset();
-      term.clear();
-      writtenLengthRef.current = 0;
-    }
-    const chunk = text.slice(writtenLengthRef.current);
-    if (!chunk) return;
-    writtenLengthRef.current = text.length;
-    previousTextRef.current = text;
-    term.write(chunk.replace(/\n/g, "\r\n"));
-    term.scrollToBottom();
-  }, [text]);
-
-  return <div ref={hostRef} className="terminal-host h-full w-full" />;
 }
 
 const androidLevelMap: Record<string, string> = {
@@ -167,8 +66,10 @@ const keepRecentLogLines = (text: string, maxLines = 120) => {
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
   const logoRef = useRef<HTMLImageElement>(null);
   const androidLogCursorRef = useRef(0);
+  const androidAuthResetAttemptedRef = useRef(false);
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
   const [androidStartupLogChunk, setAndroidStartupLogChunk] = useState("");
+  const [androidTerminalReady, setAndroidTerminalReady] = useState(!__WITH_ANDROID__);
   const authPhase = useWebSocketStore((state) => state._auth_phase);
   const authError = useWebSocketStore((state) => state._auth_error);
   const serverInitialized = useWebSocketStore((state) => state._server_initialized);
@@ -178,12 +79,22 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
   const { theme } = useTheme();
-  const { uiSettings } = useUISettings();
-  const lowPerformanceMode = uiSettings.lowPerformanceMode;
+
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    const timer = setTimeout(() => {
+      setAndroidTerminalReady(true);
+    }, ANDROID_TERMINAL_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (authPhase === "idle" || authPhase === "revoked") {
-      void startAuthFlow();
+      const delay = __WITH_ANDROID__ ? 400 : 0;
+      const timer = setTimeout(() => {
+        void startAuthFlow();
+      }, delay);
+      return () => clearTimeout(timer);
     }
   }, [authPhase, startAuthFlow]);
 
@@ -195,6 +106,21 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
 
   useEffect(() => {
     if (!__WITH_ANDROID__) return;
+    if (androidAuthResetAttemptedRef.current) return;
+    if (!authError?.includes("Password proof verification failed")) return;
+    androidAuthResetAttemptedRef.current = true;
+    const password = getAndroidAutoPassword();
+    void fetch(`${resolveHttpBase()}/android/reset-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    }).finally(() => {
+      void startAuthFlow();
+    });
+  }, [authError, startAuthFlow]);
+
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
     const previousLength = androidLogCursorRef.current;
     if (globalLogData.length < previousLength) {
       androidLogCursorRef.current = 0;
@@ -203,7 +129,9 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
     if (!nextLogs.length) return;
     androidLogCursorRef.current = globalLogData.length;
     const chunk = nextLogs.map(formatStartupLogChunk).join("\n");
-    setAndroidStartupLogChunk((current) => keepRecentLogLines(`${current}${current ? "\n" : ""}${chunk}`));
+    setAndroidStartupLogChunk((current) =>
+      keepRecentLogLines(`${current}${current ? "\n" : ""}${chunk}`)
+    );
   }, [globalLogData]);
 
   const loadingMessage =
@@ -220,36 +148,52 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   return (
     <>
       <div className="fixed inset-0 bg-slate-100 dark:bg-slate-950 overflow-hidden">
-        <img
-          src={
-            theme === "light" ? `${baseUrl}images/bg-light.webp` : `${baseUrl}images/bg-dark.webp`
-          }
-          alt="Loading BG"
-          className="w-full h-full object-cover object-center"
-        />
+        {!__WITH_ANDROID__ && (
+          <img
+            src={
+              theme === "light" ? `${baseUrl}images/bg-light.webp` : `${baseUrl}images/bg-dark.webp`
+            }
+            alt="Loading BG"
+            className="w-full h-full object-cover object-center"
+          />
+        )}
       </div>
 
       <div className="fixed w-full h-full p-2">
         <div className="w-full h-full bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-[5px] rounded-md p-2 border-2 border-primary-500/70">
           {__WITH_ANDROID__ ? (
-            <AndroidStartupTerminal
-              text={androidStartupLogChunk || "Waiting for backend startup logs..."}
-              theme={theme}
-            />
+            <React.Suspense
+              fallback={
+                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-2 font-mono text-xs leading-5 text-slate-200">
+                  {androidStartupLogChunk || "Waiting for backend startup logs..."}
+                </pre>
+              }
+            >
+              {androidTerminalReady ? (
+                <AndroidStartupTerminal
+                  text={androidStartupLogChunk || "Waiting for backend startup logs..."}
+                  theme={theme}
+                />
+              ) : (
+                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-2 font-mono text-xs leading-5 text-slate-200">
+                  {androidStartupLogChunk || "Waiting for backend startup logs..."}
+                </pre>
+              )}
+            </React.Suspense>
           ) : (
             <AutoScrollTerminal>
               {globalLogData.map((log, idx) => (
                 <div className="flex" key={`${log.time}-${idx}`}>
                   <div className="min-w-20 text-slate-600 dark:text-slate-400">
-                    <TextGenerateEffect words={formatIsoToReadableTime(log.time)} mode="all" />
+                    {formatIsoToReadableTime(log.time)}
                   </div>
                   <div
                     className="min-w-20 flex justify-end mr-2 font-bold"
                     style={{ color: statusColorMap[log.level] }}
                   >
-                    <TextGenerateEffect words={log.level} mode="all" />
+                    {log.level}
                   </div>
-                  <motion.div
+                  <div
                     className="flex-1 border-l-3 pl-4"
                     style={{
                       borderColor: statusColorMap[log.level],
@@ -258,12 +202,9 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
                       color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
                       fontWeight: log.level === "INFO" ? "inherit" : "bold",
                     }}
-                    initial={lowPerformanceMode ? false : { opacity: 0, filter: "blur(10px)" }}
-                    animate={{ opacity: 1, filter: "blur(0px)" }}
-                    transition={{ duration: lowPerformanceMode ? 0 : 0.5 }}
                   >
                     {log.message}
-                  </motion.div>
+                  </div>
                 </div>
               ))}
             </AutoScrollTerminal>
@@ -319,28 +260,33 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
             <div className="grid gap-1 font-mono text-xs">
               <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
               <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
-              <div>Configuration sync: {initiating ? "running" : allDataInitialized ? "done" : "waiting"}</div>
+              <div>
+                Configuration sync:{" "}
+                {initiating ? "running" : allDataInitialized ? "done" : "waiting"}
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {!__WITH_ANDROID__ && (
-        <PasswordInputModal
-          open={
-            authPhase === "server_verified" ||
-            authPhase === "waiting_password" ||
-            authPhase === "initializing" ||
-            authPhase === "authenticating"
-          }
-          setupMode={!serverInitialized}
-          serverVerified={serverVerified}
-          submitting={authPhase === "initializing" || authPhase === "authenticating"}
-          error={authError}
-          onConfirm={async (password: string) => {
-            await submitPassword(password);
-          }}
-        />
+        <React.Suspense fallback={null}>
+          <PasswordInputModal
+            open={
+              authPhase === "server_verified" ||
+              authPhase === "waiting_password" ||
+              authPhase === "initializing" ||
+              authPhase === "authenticating"
+            }
+            setupMode={!serverInitialized}
+            serverVerified={serverVerified}
+            submitting={authPhase === "initializing" || authPhase === "authenticating"}
+            error={authError}
+            onConfirm={async (password: string) => {
+              await submitPassword(password);
+            }}
+          />
+        </React.Suspense>
       )}
     </>
   );

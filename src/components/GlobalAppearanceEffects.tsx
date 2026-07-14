@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 
-import { useUISettings } from "@/context/UISettingsProvider.tsx";
+import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 const DEFAULT_THEME_COLOR = "#0891b2";
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -129,11 +129,13 @@ const contrastText = (hex: string) => {
 
 /** Renders the global appearance effects component. */
 const GlobalAppearanceEffects: React.FC = () => {
-  const { uiSettings } = useUISettings();
-  const themeColor = HEX_COLOR_RE.test(uiSettings.themeColor)
-    ? uiSettings.themeColor
+  const selectedThemeColor = useUISetting((settings) => settings.themeColor);
+  const backgroundImageBase64 = useUISetting((settings) => settings.backgroundImageBase64);
+  const selectedBackgroundOpacity = useUISetting((settings) => settings.backgroundImageOpacity);
+  const themeColor = HEX_COLOR_RE.test(selectedThemeColor)
+    ? selectedThemeColor
     : DEFAULT_THEME_COLOR;
-  const backgroundOpacity = Math.min(1, Math.max(0, uiSettings.backgroundImageOpacity ?? 0.18));
+  const backgroundOpacity = Math.min(1, Math.max(0, selectedBackgroundOpacity ?? 0.18));
   /** Handles the primary scale workflow. */
   const primaryScale = useMemo(() => buildPrimaryScale(themeColor), [themeColor]);
   /** Handles the slate scale workflow. */
@@ -176,14 +178,14 @@ const GlobalAppearanceEffects: React.FC = () => {
     };
   }, [primaryScale, slateScale, themeColor]);
 
-  if (!uiSettings.backgroundImageBase64) return null;
+  if (!backgroundImageBase64) return null;
 
   return (
     <div
       aria-hidden="true"
       className="fixed inset-0 z-30 pointer-events-none bg-cover bg-center bg-no-repeat"
       style={{
-        backgroundImage: `url(${uiSettings.backgroundImageBase64})`,
+        backgroundImage: `url(${backgroundImageBase64})`,
         opacity: backgroundOpacity,
       }}
     />

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
@@ -69,12 +69,11 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   }, [settings]);
 
   const [draft, setDraft] = useState<Draft>(ext);
+  const [baseline] = useState<Draft>(ext);
   const [showSelector1, setShowSelector1] = useState(false);
   const [showSelector2, setShowSelector2] = useState(false);
 
-  useEffect(() => setDraft(ext), [ext]);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   // Toggle handlers for boolean fields.
   const onBoolChange = (key: keyof Draft) => (value: boolean) =>
@@ -94,7 +93,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   };
 
   /** Handles the on select change interaction. */
-  const onSelectChange = (key: string) => (value: string) => {
+  const onSelectChange = (key: keyof Draft) => (value: string) => {
     setDraft((d) => ({ ...d, [key]: value }));
   };
 
@@ -102,7 +101,14 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   const handleSave = async () => {
     const patch: Partial<DynamicConfig> = {};
     (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (draft[k] !== ext[k]) {
+      if (draft[k] !== baseline[k]) {
+        if (
+          k === "cafe_reward_invite1_starred_student_position" ||
+          k === "cafe_reward_invite2_starred_student_position"
+        ) {
+          patch[k] = Number(draft[k]);
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
         patch[k] = draft[k] as DynamicConfig[typeof k];
@@ -121,7 +127,9 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
   return (
     <div className="space-y-2">
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList
+          className={`grid w-full ${draft.cafe_reward_has_no2_cafe ? "grid-cols-3" : "grid-cols-2"}`}
+        >
           <TabsTrigger value="basic">{t("cafe.basicSettings")}</TabsTrigger>
           <TabsTrigger value="cafe1">{t("cafe.cafe1Settings")}</TabsTrigger>
           {draft.cafe_reward_has_no2_cafe && (
@@ -164,7 +172,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
             <FormSelect
               label={t("cafe.patStyle")}
               value={draft.patStyle}
-              onChange={onSelectChange("pat_style")}
+              onChange={onSelectChange("patStyle")}
               options={[{ value: "拖动礼物", label: t("cafe.patStyleDragGift") }]}
             />
           </div>
@@ -188,7 +196,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
             <FormSelect
               label={t("cafe.starredPosition")}
               value={draft.cafe_reward_invite1_starred_student_position}
-              onChange={onSelectChange("cafe_invite1_starred_position")}
+              onChange={onSelectChange("cafe_reward_invite1_starred_student_position")}
               options={[1, 2, 3, 4, 5].map((n) => ({
                 value: String(n),
                 label: String(n),
@@ -248,7 +256,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
               <FormSelect
                 label={t("cafe.starredPosition")}
                 value={draft.cafe_reward_invite2_starred_student_position}
-                onChange={onSelectChange("cafe_invite2_starred_position")}
+                onChange={onSelectChange("cafe_reward_invite2_starred_student_position")}
                 options={[1, 2, 3, 4, 5].map((n) => ({
                   value: String(n),
                   label: String(n),

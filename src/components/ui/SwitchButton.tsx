@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { t } from "i18next";
-import { cn } from "@/shared/GlobalUtilities";
+import { cn } from "@/shared/cn";
 
 interface SwitchButtonProps {
   checked: boolean;

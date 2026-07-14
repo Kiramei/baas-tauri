@@ -16,7 +16,7 @@ import {
 
 import { Size, DisplayInfo, ScreenInfo } from "./GeometryInfo";
 import { KeyEvent } from "@/components/remote/KeySpaceMap.ts";
-import { SecureWebSocket } from "@/shared/SecureWebSocket.ts";
+import type { BackendConnection } from "@/transport/types";
 
 type StartParams = {
   player: BasePlayer;
@@ -73,7 +73,7 @@ export class WSMiddleware {
   } = {};
 
   /** Handles the constructor workflow. */
-  constructor(private ws: SecureWebSocket) {}
+  constructor(private ws: BackendConnection) {}
 
   /** Returns the ready state result. */
   get readyState(): number {
