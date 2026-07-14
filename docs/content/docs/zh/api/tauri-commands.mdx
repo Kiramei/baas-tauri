@@ -1,0 +1,65 @@
+---
+title: Tauri 命令
+description: BAAS Tauri 宿主注册的命令，以及桌面端和 Android 端的行为差异。
+---
+
+`src-tauri/src/lib.rs` 是命令注册的权威来源。请求结构使用 `camelCase` 序列化；通过 `invoke()` 传入结构体时，仍需用 Rust 参数名包装，通常是 `request`。
+
+## 窗口与宿主命令
+
+| 命令 | 参数 | 结果或行为 |
+| --- | --- | --- |
+| `baas_notify` | 通知参数 | 显示应用通知。 |
+| `splash_off` | 无 | 主界面就绪后关闭启动页。 |
+| `set_backend_locale` | locale 值 | 同步后端语言。 |
+| `shortcut_apply_bindings` | `{ bindings }` | 注册启用的快捷键；Android 返回被拒绝的项目。 |
+| `open_main_devtools` | 无 | 桌面端打开 DevTools；Android 为空操作。 |
+| `android_prepare_scrcpy_virtual_display` | `{ request }` | 创建或准备 scrcpy 虚拟显示器。 |
+| `android_cleanup_scrcpy_virtual_display` | 清理参数 | 清理已准备的虚拟显示器。 |
+| `android_scrcpy_virtual_display_status` | 状态参数 | 返回虚拟显示器状态。 |
+
+## 安装与更新命令
+
+| 命令 | 主要参数 | 结果 |
+| --- | --- | --- |
+| `updater_get_storage_state` | 无 | 存储路径和便携模式状态。 |
+| `updater_get_startup_state` | 无 | 当前配置、安装路径和启动状态。 |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean`。 |
+| `updater_update_config` | `{ request }` | 更新后的配置；transport 接受 `"pipe"` 或 `"websocket"`。 |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | 验证报告。 |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android 更新元数据；桌面端由 updater 插件处理。 |
+| `updater_check_version` | `{ request: { channel? } }` | 本地与远端 SHA 报告。 |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 单个来源测试。 |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 并发测试全部来源。 |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 终端会话元数据。 |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 中止报告。 |
+| `updater_terminal_snapshot` | 无 | 当前结构化终端快照。 |
+| `updater_resize_term` | `{ rows, cols }` | 调整终端模型尺寸。 |
+| `updater_reset_backend_auth_and_restart` | 无 | 重置并重启后的后端地址与端口。 |
+
+Android 尽量保持相同的前端返回形状，但操作对象是应用存储和内嵌 Python Runtime。
+
+## 后端传输命令
+
+| 命令 | 参数 | 结果或事件 |
+| --- | --- | --- |
+| `backend_transport_start` | `{ mode }` | 接受 `"pipe"` 或 `"websocket"`，持久化模式，启动或重启托管后端并返回地址与端口。 |
+| `backend_pipe_open` | `{ name, channel, onMessage }` | 打开一个原生连接，并通过 Tauri Channel 发送二进制消息。 |
+| `backend_pipe_send_json` | `{ channel, name, payload }` | 发送 JSON 帧。 |
+| `backend_pipe_send_bytes` | `{ channel, name, payload }` | 发送二进制帧。 |
+| `backend_pipe_close` | `{ channel, name }` | 发送关闭帧并释放一个连接。 |
+| `backend_pipe_close_all` | 无 | 释放全部 Pipe 连接。 |
+
+合法业务通道是 `provider`、`sync`、`trigger` 和 `remote`。前端业务代码应使用 `BackendConnection`，只有 `TauriPipeConnection` 可以直接调用 Pipe 命令。
+
+## 系统日志命令
+
+| 命令 | 参数 | 结果 |
+| --- | --- | --- |
+| `system_logs_snapshot` | `{ request?: { limit? } }` | 日志路径、条目和文件大小；默认上限为 4000。 |
+| `system_logs_clear` | 无 | 清理当前及轮转日志，并记录本次清理。 |
+| `system_logs_ingest_frontend` | `{ request: { entries } }` | 每次最多追加 250 条前端日志。 |
+
+## 错误契约
+
+可恢复的 Rust 错误使用 `Err(String)`，在前端表现为被拒绝的 `invoke()` Promise。错误文本必须包含失败操作和可定位上下文；需要稳定分支判断时，应返回结构化结果，不要解析错误字符串。

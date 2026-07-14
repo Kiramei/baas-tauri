@@ -1,0 +1,64 @@
+---
+title: Contracts and Testing
+description: Configuration compatibility, transport parity, service boundaries, and the required verification matrix.
+---
+
+An API change is complete only when configuration remains migratable, Pipe and WebSocket behavior stays aligned, and both desktop and Android builds pass.
+
+## Config Contracts
+
+| Value | Rule |
+| --- | --- |
+| `general.transport` | `"pipe"` or `"websocket"`; native default is Pipe, WebUI is WebSocket-only. |
+| `setup.toml` | New fields require defaults and must preserve unrelated existing values. |
+| Profile snapshots/patches | Incoming stale patches must recover from an authoritative snapshot, not terminate sync. |
+| `screenshot_method`, `control_method` | Fixed to `android_local` on Android. |
+| App/system logs | Errors need source, target, timestamp, and enough context to locate the caller. |
+
+## Transport Parity
+
+Provider, sync, trigger, and remote tests should run through transport-neutral handlers. Adapter tests additionally cover:
+
+- WebSocket authentication, resume, encryption, and reconnect.
+- Pipe open/open-ok handshake, fragmented frames, JSON/binary payloads, close/error frames, and 64 MiB enforcement.
+- Windows named-pipe and Unix-domain-socket endpoint setup.
+- Connection cleanup when switching transport or stopping the backend.
+
+## Service Boundary
+
+Service-specific changes belong in `service`, using shared channel handlers and `ChannelEndpoint`. Android may wrap the service injection point, but should not scatter platform branches through BAAS core modules.
+
+## Required Local and CI Checks
+
+From the `baas-tauri` repository:
+
+```bash
+bun run lint
+bun run test:transport
+bun run build:tauri
+bun run build:tauri:android
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+```
+
+From `baas-tauri/docs`:
+
+```bash
+bun install --frozen-lockfile
+bun run build
+```
+
+CI additionally runs Rust tests on Windows, Linux, and macOS, and builds an Android arm64 debug APK with:
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## Smoke Tests
+
+1. Desktop: start with Pipe, open all four channels, change configuration, run a low-risk task, then switch to WebSocket and repeat.
+2. Android emulator: install the APK, verify first startup, Pipe connection, config sync, logs, and an Android-local control action; repeat the connection check in WebSocket mode.
+3. WebUI: verify authentication/resume and confirm no native Pipe command is invoked.
+4. Failure paths: stop the backend, feed a stale sync patch, interrupt a workflow, and confirm recovery plus locatable logs.
+
+Update both Chinese and English API pages whenever a public command, frame, config field, or platform behavior changes.

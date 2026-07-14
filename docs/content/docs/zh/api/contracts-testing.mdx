@@ -1,0 +1,64 @@
+---
+title: 契约与测试
+description: 配置兼容、传输一致性、Service 边界和必须执行的验证矩阵。
+---
+
+只有当配置可迁移、Pipe 与 WebSocket 行为对齐，并且桌面端和 Android 构建都通过时，API 变更才算完成。
+
+## 配置契约
+
+| 值 | 规则 |
+| --- | --- |
+| `general.transport` | `"pipe"` 或 `"websocket"`；原生默认 Pipe，WebUI 仅支持 WebSocket。 |
+| `setup.toml` | 新字段必须有默认值，并保留其他已有值。 |
+| Profile 快照与 patch | 收到旧 patch 时应从权威快照恢复，不能终止 sync。 |
+| `screenshot_method`、`control_method` | Android 固定为 `android_local`。 |
+| 应用与系统日志 | 错误应包含 source、target、时间和足够定位调用方的上下文。 |
+
+## 传输一致性
+
+provider、sync、trigger 和 remote 测试应通过与传输无关的处理器执行。适配器测试还要覆盖：
+
+- WebSocket 认证、resume、加密和重连。
+- Pipe 的 open/open-ok 握手、分段帧、JSON/二进制 payload、close/error 帧和 64 MiB 限制。
+- Windows named pipe 与 Unix domain socket 的端点创建。
+- 切换传输或停止后端时清理连接。
+
+## Service 边界
+
+Service 专用改动放在 `service` 内，并使用共享通道处理器和 `ChannelEndpoint`。Android 可以包装 Service 注入点，但不能把平台分支散落到 BAAS core 模块。
+
+## 必须执行的本地与 CI 检查
+
+在 `baas-tauri` 仓库执行：
+
+```bash
+bun run lint
+bun run test:transport
+bun run build:tauri
+bun run build:tauri:android
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+```
+
+在 `baas-tauri/docs` 执行：
+
+```bash
+bun install --frozen-lockfile
+bun run build
+```
+
+CI 还会在 Windows、Linux 和 macOS 运行 Rust 测试，并构建 Android arm64 debug APK：
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## 冒烟测试
+
+1. 桌面端：以 Pipe 启动，打开四个业务通道，修改配置并运行低风险任务；切到 WebSocket 后重复。
+2. Android 模拟器：安装 APK，验证首次启动、Pipe 连接、配置同步、日志和 Android 本地控制；再用 WebSocket 重复连接检查。
+3. WebUI：验证认证与 resume，并确认没有调用原生 Pipe 命令。
+4. 失败路径：停止后端、输入旧 sync patch、中止 workflow，确认能够恢复且日志可定位。
+
+公开命令、帧、配置字段或平台行为变化时，必须同时更新中英文 API 页面。

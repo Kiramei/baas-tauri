@@ -1,0 +1,65 @@
+---
+title: Tauri Commands
+description: Commands registered by the BAAS Tauri host, with desktop and Android behavior.
+---
+
+The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camelCase` serialization; `invoke()` still wraps struct parameters with their Rust parameter name, usually `request`.
+
+## Window and Host Commands
+
+| Command | Arguments | Result / behavior |
+| --- | --- | --- |
+| `baas_notify` | notification payload | Shows an application notification. |
+| `splash_off` | none | Closes the startup splash after the main UI is ready. |
+| `set_backend_locale` | locale value | Synchronizes the backend locale. |
+| `shortcut_apply_bindings` | `{ bindings }` | Registers enabled shortcuts; Android returns rejected entries. |
+| `open_main_devtools` | none | Opens desktop DevTools; Android is a no-op. |
+| `android_prepare_scrcpy_virtual_display` | `{ request }` | Creates or prepares a scrcpy virtual display. |
+| `android_cleanup_scrcpy_virtual_display` | cleanup arguments | Removes the prepared virtual display. |
+| `android_scrcpy_virtual_display_status` | status arguments | Returns the current virtual-display state. |
+
+## Setup and Updater Commands
+
+| Command | Main arguments | Result |
+| --- | --- | --- |
+| `updater_get_storage_state` | none | Storage paths and portable state. |
+| `updater_get_startup_state` | none | Current config, install path, and startup state. |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean`. |
+| `updater_update_config` | `{ request }` | Updated config. Transport accepts `"pipe"` or `"websocket"`. |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report. |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; desktop delegates to the updater plugin. |
+| `updater_check_version` | `{ request: { channel? } }` | Local/remote SHA report. |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One source probe. |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Concurrent source probes. |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Terminal session metadata. |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Abort report. |
+| `updater_terminal_snapshot` | none | Current structured terminal snapshot. |
+| `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
+| `updater_reset_backend_auth_and_restart` | none | Backend address and port after reset/restart. |
+
+On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime.
+
+## Backend Transport Commands
+
+| Command | Arguments | Result / event |
+| --- | --- | --- |
+| `backend_transport_start` | `{ mode }` | Accepts `"pipe"` or `"websocket"`, persists the mode, starts/restarts the managed backend, and returns its address and port. |
+| `backend_pipe_open` | `{ name, channel, onMessage }` | Opens one native connection and emits binary Tauri channel messages. |
+| `backend_pipe_send_json` | `{ channel, name, payload }` | Sends a JSON frame. |
+| `backend_pipe_send_bytes` | `{ channel, name, payload }` | Sends a binary frame. |
+| `backend_pipe_close` | `{ channel, name }` | Sends close and releases one connection. |
+| `backend_pipe_close_all` | none | Releases every Pipe connection. |
+
+Valid business channels are `provider`, `sync`, `trigger`, and `remote`. Frontend code should use `BackendConnection`; direct use of Pipe commands belongs in `TauriPipeConnection`.
+
+## System Log Commands
+
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `system_logs_snapshot` | `{ request?: { limit? } }` | Log path, entries, and file size. Default limit: 4000. |
+| `system_logs_clear` | none | Clears rotated/current host logs and records the clear action. |
+| `system_logs_ingest_frontend` | `{ request: { entries } }` | Appends at most 250 frontend entries per call. |
+
+## Error Contract
+
+Recoverable Rust failures return `Err(String)` and become rejected `invoke()` promises. Messages must identify the failed operation and useful context. Use a structured result when callers need stable branching fields rather than parsing error text.
