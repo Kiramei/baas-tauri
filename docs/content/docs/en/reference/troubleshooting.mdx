@@ -23,6 +23,34 @@ Check:
 - Whether MirrorC CDK is valid.
 - Which step the logs stopped at.
 
+### Install Path Contains Non-ASCII Characters
+
+Older backend docs recorded Qt plugin startup failures when the BAAS install path contains Chinese or unusual characters. Symptoms include Qt platform plugin errors, a missing window, or the UI failing immediately.
+
+Try:
+
+1. Prefer installing BAAS into a simple path such as `D:\BAAS`.
+2. If you must keep the current path, check whether `QT_QPA_PLATFORM_PLUGIN_PATH` points to a valid Qt plugins directory.
+3. Avoid setting a custom global Qt directory permanently; it can conflict with emulator-bundled Qt, especially MuMu.
+
+### Installer Opens a Blank Console
+
+If the installer or launcher only shows a black console window:
+
+- Wait a few minutes first; dependency extraction or downloads may be slow.
+- Check whether Windows Security or another security tool blocked the installer, Python runtime, or backend files.
+- Add the BAAS directory to the allowlist and retry.
+- Preserve installer logs before reinstalling, otherwise the useful failure evidence may be lost.
+
+### Network or Repository Errors During Install
+
+If installer logs show repository download failures, HTTP 400, timeouts, or denied service:
+
+- Switch update source in advanced installer settings or `setup.toml`.
+- If GitHub is unstable, test GitCode, Gitee, BAAS CDN, or MirrorC.
+- If using MirrorC, verify the CDK and remove accidental whitespace.
+- Proxy settings can affect Git, PyPI, and update sources; keep terminal, system, and installer proxy behavior consistent.
+
 ## Service Keeps Connecting
 
 If the lower-left heartbeat stays connecting, the client has not completed backend connection or authentication.
@@ -56,6 +84,30 @@ Common causes:
 
 Test with one emulator instance first, then configure multi-instance.
 
+### Common Emulator ADB Ports
+
+When auto detection fails, fill ADB IP and port manually. Common single-instance ports:
+
+| Emulator | Common Port |
+| --- | --- |
+| MuMu 12 5.0+ | `5555` |
+| MuMu 12 | `16384` |
+| Older MuMu | `7555` |
+| LDPlayer | `5555` |
+| BlueStacks | `5555` |
+| MEmu | `21503` |
+| NoxPlayer | `62001` or `59865` |
+
+For multi-instance setups:
+
+| Emulator | Rule |
+| --- | --- |
+| MuMu 12 5.0+ | `5555 + instance number * 2` |
+| MuMu 12 | `16384 + instance number * 32`, or inspect the ADB panel in MuMu multi-instance manager |
+| BlueStacks / LDPlayer / Nox / MEmu | Use the emulator manager or BAAS ADB detection result |
+
+BlueStacks and LDPlayer usually require ADB debugging to be enabled in emulator settings. If the port looks correct but connection still fails, restart the emulator and backend, then test with only one instance.
+
 ## Screenshot or Recognition Errors
 
 If logs show recognition failure or wrong click coordinates:
@@ -68,6 +120,37 @@ If logs show recognition failure or wrong click coordinates:
 - Keep the emulator visible and not minimized.
 
 Remote display issues and script screenshot issues are related but separate; troubleshoot them separately.
+
+### Choosing Screenshot Method
+
+Typical tradeoffs:
+
+| Method | Best For | Notes |
+| --- | --- | --- |
+| `nemu` | MuMu 12 with speed priority | Only for compatible MuMu environments; emulator version and path must match |
+| `scrcpy` | Faster screenshots when scrcpy channel works | If unstable, switch back to a conservative method |
+| `uiautomator2` | Conservative compatibility checks | Slower but stable |
+| `adb` | Most conservative common baseline | Slow, but useful for validating basic connectivity |
+
+When troubleshooting recognition, change one setting at a time. First confirm stable screenshots with `adb` or `uiautomator2`, then switch to faster methods.
+
+### Choosing Control Method
+
+Available methods include `adb`, `uiautomator2`, `scrcpy`, and `nemu`. If clicks do nothing or coordinates are visibly wrong:
+
+- Confirm the screenshot aspect ratio first.
+- Use `uiautomator2` or `adb` for a conservative test.
+- Use `nemu` control only with MuMu 12 and correct path/version settings.
+- PC client automation uses desktop screenshot and mouse control settings; do not apply ADB emulator assumptions there.
+
+### Logs Repeatedly Print tentative click
+
+The old FAQ points to MuMu background keep-alive or game settings as common causes. Try:
+
+1. If using MuMu, disable background keep-alive in emulator settings.
+2. Confirm game aspect ratio, language, server, and graphics settings match recommended configuration.
+3. Check whether the task expects you to manually enter a specific page first.
+4. Export logs and capture the current game screen to identify the exact recognition step.
 
 ## Task Does Not Run
 
@@ -127,6 +210,25 @@ Recommendations:
 - Switch SHA method when tests time out.
 - Restart the Tauri client before retrying failed client updates.
 - Preserve installer and backend logs for backend update failures.
+
+## Android Client Problems
+
+v0.0.7 added the Android client. If Android cannot start, script toggles fail, or the backend keeps restarting:
+
+- Confirm the APK is current and Android allows the app to be installed and run.
+- Enable the accessibility service; some automation controls depend on it.
+- Keep the foreground service notification alive; if the system kills the app, backend and scripts stop.
+- If the notification script toggle does not work, open the app, confirm the backend has started, then retry from the notification.
+- If the UI does not recover after an Android backend update, close and reopen the app.
+
+## Transport and System Log Problems
+
+v0.0.7 prefers named pipe transport on desktop while WebSocket remains available for compatibility. If connection repeatedly recovers or logs look interrupted:
+
+- Check system log settings and confirm frontend system logs are enabled.
+- Restart the backend after switching transport mode to avoid stale connections.
+- If named pipe transport fails, temporarily switch back to WebSocket and preserve logs.
+- Include backend logs, system logs, and transport mode when reporting.
 
 ## Docs 404 or Missing Images
 
