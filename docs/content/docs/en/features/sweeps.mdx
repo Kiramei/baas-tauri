@@ -44,4 +44,14 @@ Count values can be:
 | Fraction         | Use a fraction of current AP, such as `1/3`                  |
 | `-1`             | For event stages, distribute AP evenly among selected stages |
 
+Event sweeps use two lists: one for stages and one for counts. For example, stages `9,10,11` and counts `0.5,3,1/3`. If current AP is 999 and event stages 9-12 cost 20 AP each, BAAS roughly runs:
+
+| Stage | Count Value | Result |
+| --- | --- | --- |
+| 9 | `0.5` | `999 * 0.5 / 20`, about 25 sweeps |
+| 10 | `3` | Exactly 3 sweeps |
+| 11 | `1/3` | `999 * 1/3 / 20`, about 16 sweeps |
+
+If the count list is `-1`, BAAS distributes available AP across selected event stages and tries to spend as much as possible. Event stages commonly cost 10 AP for stages 1-4, 15 AP for stages 5-8, and 20 AP for stages 9-12; the current event is authoritative.
+
 Sweeps spend AP, sweep counts, and sometimes purchase resources. Validate new settings with small counts first.

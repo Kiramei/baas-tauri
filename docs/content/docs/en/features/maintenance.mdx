@@ -28,3 +28,27 @@ Maintenance tasks usually avoid high-intensity combat, but they can modify frien
 />
 
 Low-risk tasks include mail, rewards, club AP, and pass rewards. Medium-risk tasks include friend cleanup, MomoTalk, crafting, and push. Uncensoring is server-specific; do not run it when unsure.
+
+## Uncensoring
+
+Uncensoring only applies to CN-server related scenarios. Legacy docs state that BAAS generally works before and after uncensoring, but character art and some text may change. Stop scheduling and confirm the current server before running it.
+
+Before running:
+
+- The target emulator is open and connected.
+- The current profile is actually CN server.
+- No task is currently running.
+- Re-enter the game afterward and confirm resource state.
+
+## Push JSON Format
+
+For custom JSON push URLs, the backend sends a payload similar to:
+
+```json
+{
+  "title": "Baas Error",
+  "desp": "error..."
+}
+```
+
+Custom receivers should handle this shape. If you only use ServerChan, fill the corresponding SendKey.
