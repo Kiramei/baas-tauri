@@ -37,8 +37,44 @@ Use attribute teams for stages, event challenges, or accounts with uneven team s
 
 The legacy docs recommend sidebar order for some normal/hard stage workflows when you already arranged teams in game. For example, normal area 20 commonly uses team 1 Burst and team 2 Pierce; hard stages may require a third team.
 
+When using preset teams, the in-game preset grid should map to Burst, Pierce, Mystic, Shock, and unused slots. Do not freely rename presets. If there are not enough teams for the required attack type or students conflict between teams, BAAS may fail to choose a preset team and fall back to sidebar order.
+
 <img
   className="baas-screenshot"
   src="/backend-assets/config/employ_team_method.png"
   alt="Legacy BAAS team-selection method setting"
 />
+
+## Area Attack-Type Reference
+
+The legacy area table can help arrange normal/hard stage teams. Newer areas should follow the current backend configuration.
+
+| Area | Common Types |
+| --- | --- |
+| 30 | Mystic, Pierce |
+| 29 | Shock, Pierce |
+| 28 | Burst, Shock |
+| 27 | Pierce, Burst |
+| 26 | Mystic, Burst |
+| 25 | Shock, Pierce |
+| 24 | Shock, Burst |
+| 23 | Burst, Pierce |
+| 22 | Pierce, Mystic |
+| 21 | Mystic, Burst |
+| 20 | Burst, Pierce |
+| 19 | Pierce, Mystic |
+| 18 | Mystic, Burst |
+| 17 | Burst, Pierce |
+| 16 | Pierce, Mystic |
+| 15 | Mystic, Mystic |
+| 14 | Burst, Mystic |
+| 13 | Pierce, Pierce |
+| 12 | Mystic, Burst |
+| 11 | Pierce, Mystic |
+| 10 | Burst, Mystic |
+| 9 | Burst, Pierce |
+| 8 | Pierce, Pierce |
+| 7 | Burst, Burst |
+| 6 | Pierce, Pierce |
+| 5 | Burst |
+| 4 | Pierce |

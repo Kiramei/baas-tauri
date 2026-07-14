@@ -1,6 +1,6 @@
 [package]
 name = "baas-tauri"
-version = "0.0.6"
+version = "0.0.7"
 description = "Tauri App for pur1fying/blue_archive_auto_script"
 authors = ["Kiramei"]
 edition = "2021"

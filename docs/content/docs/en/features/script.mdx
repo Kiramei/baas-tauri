@@ -21,6 +21,21 @@ Script settings decide how the backend screenshots, clicks, and handles the envi
 
 If recognition fails or clicks do not work, check 16:9 aspect ratio, HDR, screenshot method, control method, and emulator foreground state.
 
+## Recommended Baseline
+
+Legacy BAAS docs repeatedly emphasize that recognition depends on stable images. Start from conservative game/emulator settings before optimizing for speed.
+
+| Item | Recommended Value | Reason |
+| --- | --- | --- |
+| Emulator resolution | `1280x720` or equivalent 16:9 | More stable templates and coordinates |
+| FPS | 60 | Avoid delayed page-transition checks |
+| Accelerated rendering mode | Compatible | Reduces screenshot anomalies |
+| Post-processing / Anti-aliasing | ON | Keeps images close to template assets |
+| Combat letterboxing | OFF | Avoids combat screenshot ratio and coordinate shifts |
+| Memorial lobby | Prefer disabled | Some dynamic lobbies interfere with home recognition |
+
+Do not use translation patches that modify game images. Template matching depends on original UI images, and patched buttons, text, or icons may no longer match.
+
 ## Screenshot and Control Methods
 
 Legacy backend guidance remains useful for troubleshooting:

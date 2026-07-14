@@ -5,6 +5,8 @@ description: Version information, update source, update channel, MirrorC CDK, SH
 
 Update settings show backend and Tauri client version state, and choose update source and channel.
 
+For detailed client changes, affected areas, and upgrade notes by version, see [Release History](../reference/release-history).
+
 <img
   className="baas-screenshot"
   src="/en/settings-version-overview.png"
@@ -23,6 +25,14 @@ Update settings show backend and Tauri client version state, and choose update s
 | ----------- | --------------------- | ------------------------------------- |
 | Stable      | Daily users           | Prefer stability                      |
 | Development | Testers / maintainers | Faster features, more regression risk |
+
+## Update Targets
+
+| Target | Notes | Troubleshooting |
+| --- | --- | --- |
+| Tauri desktop client | Windows, macOS, Linux shell and frontend UI | [Release History](../reference/release-history) |
+| BAAS backend | Python backend, task execution, screenshot recognition, and update source | [setup.toml](../reference/setup-toml) |
+| Android client | APK, bundled backend, foreground service, and notification script toggle | [Android Client](../guide/android) |
 
 ## Recommended Update Order
 

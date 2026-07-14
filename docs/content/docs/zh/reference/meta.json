@@ -1,6 +1,7 @@
 {
   "title": "参考",
   "pages": [
+    "release-history",
     "troubleshooting",
     "report-uninstall",
     "setup-toml",
