@@ -49,13 +49,11 @@ const androidLevelMap: Record<string, string> = {
   DEBUG: "D",
 };
 
-/** Returns the format startup log chunk result. */
 const formatStartupLogChunk = (log: { time: string; level: string; message: string }) => {
   const level = androidLevelMap[String(log.level).toUpperCase()] ?? String(log.level).slice(0, 1);
   return `${formatIsoToReadableTime(log.time)} ${level} ${log.message}`;
 };
 
-/** Handles the keep recent log lines workflow. */
 const keepRecentLogLines = (text: string, maxLines = 120) => {
   const lines = text.split("\n");
   if (lines.length <= maxLines) return text;

@@ -88,7 +88,7 @@ Static output is written to `docs/out`.
 
 ## GitHub Pages
 
-`.github/workflows/docs-pages.yml` builds and deploys the docs. It checks out the repository, configures Pages, installs Bun, runs `bun install --frozen-lockfile` in `docs`, passes `NEXT_PUBLIC_BASE_PATH`, builds, uploads `docs/out`, and deploys it.
+`.github/workflows/wiki-pages.yml` builds and deploys the docs. It checks out the repository, configures Pages, installs Bun, runs `bun install --frozen-lockfile` in `docs`, passes `NEXT_PUBLIC_BASE_PATH`, builds, uploads `docs/out`, and deploys it.
 
 `NEXT_PUBLIC_BASE_PATH` matters because repository Pages is often not hosted at the domain root. Without it, routes and static assets may 404.
 

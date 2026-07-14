@@ -60,7 +60,6 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
-  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -71,7 +70,6 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
     );
   }, [alternatives, deferredQuery]);
 
-  /** Performs the toggle student operation. */
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
       onChange(selected.filter((n) => n !== name));
@@ -139,7 +137,6 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  /** Handles the translate name workflow. */
   const translateName = (name: string) =>
     translatePrefix === "eventName" ? t(eventNameKey(name)) : name;
 
@@ -281,10 +278,8 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     onChange(values.filter((_, i) => i !== index) as any);
   };
 
-  /** Handles the pad workflow. */
   const pad = (n: number) => String(n).padStart(2, "0");
 
-  /** Handles the forward handler workflow. */
   const forwardHandler = (value: number[]): string => {
     if (value.length === 2) {
       return `${pad(value[0])}:${pad(value[1])}`;
@@ -293,7 +288,6 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
     }
   };
 
-  /** Handles the backward handler workflow. */
   const backwardHandler = (value: string): number[] => {
     return value.split(":").map((e) => parseInt(e));
   };

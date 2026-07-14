@@ -366,7 +366,7 @@ pub async fn backend_pipe_close(
                 .await;
             connection.reader.abort();
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(any(windows, unix)))]
     {

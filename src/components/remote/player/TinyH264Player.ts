@@ -16,7 +16,6 @@ type WorkerMessage = {
 export class TinyH264Player extends BaseCanvasBasedPlayer {
   public static readonly storageKeyPrefix = "Tinyh264Decoder";
   public static readonly playerFullName = "Tiny H264";
-  // noinspection JSUnusedGlobalSymbols
   public static readonly playerCodeName = "tinyh264";
   public static readonly preferredVideoSettings: VideoSettings = new VideoSettings({
     lockedVideoOrientation: -1,
@@ -31,7 +30,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
   private worker?: Worker;
   private isDecoderReady = false;
 
-  /** Handles the constructor workflow. */
   constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -42,12 +40,10 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     super(videoSettings, displayInfo, name, TinyH264Player.storageKeyPrefix, tag, touchableCanvas);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   public static isSupported(): boolean {
     return typeof WebAssembly === "object" && typeof WebAssembly.instantiate === "function";
   }
 
-  /** Handles the play workflow. */
   public play(): void {
     super.play();
     if (!this.worker) {
@@ -55,7 +51,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     }
   }
 
-  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     if (this.worker) {
@@ -65,7 +60,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     }
   }
 
-  /** Performs the init canvas operation. */
   protected initCanvas(width: number, height: number): void {
     super.initCanvas(width, height);
 
@@ -76,7 +70,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     }
   }
 
-  /** Handles the decode workflow. */
   protected decode(data: Uint8Array): void {
     if (!this.worker || !this.isDecoderReady) {
       return;
@@ -94,7 +87,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     );
   }
 
-  /** Performs the clear state operation. */
   protected clearState(): void {
     super.clearState();
     if (this.worker) {
@@ -119,7 +111,6 @@ export class TinyH264Player extends BaseCanvasBasedPlayer {
     }
   };
 
-  /** Performs the init worker operation. */
   private initWorker(): void {
     this.worker = new TinyH264Worker();
     this.worker.addEventListener("message", this.onWorkerMessage);

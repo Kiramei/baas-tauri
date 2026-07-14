@@ -126,7 +126,6 @@ declare global {
   }
 }
 
-/** Handles the hex to rgb workflow. */
 const hexToRgb = (hex: string): RGB => {
   const clean = hex.replace("#", "");
   const full =
@@ -194,14 +193,10 @@ const FX_COLOR: ColorTree = Object.freeze({
   },
 });
 
-/** Handles the rgba workflow. */
 const rgba = (rgb: RGB, a = 1): RGBA => [rgb[0], rgb[1], rgb[2], a];
-/** Handles the rgb string workflow. */
 const rgbString = (rgb: RGB): string => `${rgb[0]},${rgb[1]},${rgb[2]}`;
-/** Handles the fill rgba workflow. */
 const fillRgba = (count: number, rgb: RGB, a = 1): RGBA[] =>
   Array.from({ length: count }, () => rgba(rgb, a));
-/** Handles the fill transparent workflow. */
 const fillTransparent = (count: number): RGBA[] =>
   Array.from({ length: count }, () => rgba(FX_COLOR.transparent, 0));
 
@@ -222,7 +217,6 @@ class GlowLayer {
   private aIntensity = -1;
   private uResolution: WebGLUniformLocation | null = null;
 
-  /** Handles the constructor workflow. */
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const gl = canvas.getContext("webgl", {
@@ -238,7 +232,6 @@ class GlowLayer {
     this.initGL();
   }
 
-  /** Returns the create shader result. */
   private createShader(type: number, source: string): WebGLShader {
     const shader = this.gl.createShader(type);
     if (!shader) throw new Error("Failed to create shader");
@@ -252,7 +245,6 @@ class GlowLayer {
     return shader;
   }
 
-  /** Returns the create program result. */
   private createProgram(vsSource: string, fsSource: string): WebGLProgram {
     const vs = this.createShader(this.gl.VERTEX_SHADER, vsSource);
     const fs = this.createShader(this.gl.FRAGMENT_SHADER, fsSource);
@@ -275,7 +267,6 @@ class GlowLayer {
     return program;
   }
 
-  /** Performs the init gl operation. */
   private initGL(): void {
     const vsSource = `
       attribute vec2 a_pos;
@@ -336,7 +327,6 @@ class GlowLayer {
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  /** Handles the resize workflow. */
   resize(viewW: number, viewH: number, dpr: number): void {
     this.viewW = viewW;
     this.viewH = viewH;
@@ -346,7 +336,6 @@ class GlowLayer {
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  /** Handles the begin frame workflow. */
   beginFrame(): void {
     this.points.length = 0;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -354,7 +343,6 @@ class GlowLayer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
   }
 
-  /** Handles the add point workflow. */
   addPoint(x: number, y: number, radius: number, color: RGBA, intensity = 1, softness = 1): void {
     if (radius <= 0) return;
     if (!color || color[3] <= 0.0001) return;
@@ -373,7 +361,6 @@ class GlowLayer {
     );
   }
 
-  /** Handles the flush workflow. */
   flush(): void {
     if (this.points.length === 0) return;
 
@@ -481,7 +468,6 @@ class MouseSparkEngine {
   private borderPeakAngle = 360;
   private borderPeakFrame = 9;
 
-  /** Handles the constructor workflow. */
   constructor(
     canvas: HTMLCanvasElement,
     glowCanvas: HTMLCanvasElement | null,
@@ -512,63 +498,52 @@ class MouseSparkEngine {
     this.scheduleFrame();
   }
 
-  /** Handles the clamp workflow. */
   clamp(v: number, a: number, b: number): number {
     return Math.max(a, Math.min(b, v));
   }
 
-  /** Handles the linear interpolate workflow. */
   linearInterpolate(a: number, b: number, t: number): number {
     return a + (b - a) * t;
   }
 
-  /** Handles the smoothstep01 workflow. */
   smoothstep01(t: number): number {
     t = this.clamp(t, 0, 1);
     return t * t * (3 - 2 * t);
   }
 
-  /** Handles the ease out cubic workflow. */
   easeOutCubic(t: number): number {
     t = this.clamp(t, 0, 1);
     return 1 - Math.pow(1 - t, 3);
   }
 
-  /** Handles the alpha workflow. */
   alpha(v: number): number {
     return this.clamp(v, 0, 1) * this.opacity;
   }
 
-  /** Handles the deg2rad workflow. */
   deg2rad(d: number): number {
     return (d * Math.PI) / 180;
   }
 
-  /** Handles the rand workflow. */
   rand(a: number, b: number): number {
     return a + Math.random() * (b - a);
   }
 
-  /** Returns the normalize2 d result. */
   normalize2D(x: number, y: number): { x: number; y: number } {
     const len = Math.hypot(x, y);
     if (len < 1e-6) return { x: 1, y: 0 };
     return { x: x / len, y: y / len };
   }
 
-  /** Handles the rotate2 d workflow. */
   rotate2D(x: number, y: number, rad: number): { x: number; y: number } {
     const c = Math.cos(rad);
     const s = Math.sin(rad);
     return { x: x * c - y * s, y: x * s + y * c };
   }
 
-  /** Handles the distance2 d workflow. */
   distance2D(a: { x: number; y: number }, b: { x: number; y: number }): number {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
-  /** Returns the compute max outward travel result. */
   computeMaxOutwardTravel(startOffset: number, maxRadial: number, deltaAbsRad: number): number {
     const c = Math.cos(deltaAbsRad);
     const s = Math.sin(deltaAbsRad);
@@ -577,12 +552,10 @@ class MouseSparkEngine {
     return Math.max(0, -startOffset * c + Math.sqrt(disc));
   }
 
-  /** Handles the rgba to string workflow. */
   rgbaToString(c: RGBA): string {
     return `rgba(${c[0]},${c[1]},${c[2]},${this.clamp(c[3], 0, 1)})`;
   }
 
-  /** Handles the mix color workflow. */
   mixColor(a: RGBA, b: RGBA, t: number): RGBA {
     return [
       Math.round(this.linearInterpolate(a[0], b[0], t)),
@@ -592,7 +565,6 @@ class MouseSparkEngine {
     ];
   }
 
-  /** Handles the rgb string to rgba workflow. */
   rgbStringToRgba(value: string, alphaValue = 1): RGBA {
     const parts = String(value)
       .split(",")
@@ -608,7 +580,6 @@ class MouseSparkEngine {
     ];
   }
 
-  /** Handles the add trail glow segment workflow. */
   addTrailGlowSegment(
     x0: number,
     y0: number,
@@ -646,7 +617,6 @@ class MouseSparkEngine {
     }
   }
 
-  /** Returns the resolve numeric track result. */
   resolveNumericTrack(raw: Array<number | null>): number[] {
     const out = raw.map((v) => (v == null ? null : Number(v)));
     const first = out.findIndex((v) => v != null && Number.isFinite(v));
@@ -671,7 +641,6 @@ class MouseSparkEngine {
     return out as number[];
   }
 
-  /** Handles the sample numeric workflow. */
   sampleNumeric(track: number[], framePos1: number): number {
     const pos = this.clamp(framePos1 - 1, 0, track.length - 1);
     const i0 = Math.floor(pos);
@@ -680,7 +649,6 @@ class MouseSparkEngine {
     return this.linearInterpolate(track[i0], track[i1], t);
   }
 
-  /** Handles the sample color workflow. */
   sampleColor(track: RGBA[], framePos1: number): RGBA {
     const pos = this.clamp(framePos1 - 1, 0, track.length - 1);
     const i0 = Math.floor(pos);
@@ -689,16 +657,13 @@ class MouseSparkEngine {
     return this.mixColor(track[i0], track[i1], t);
   }
 
-  /** Handles the sample step workflow. */
   sampleStep(track: string[], framePos1: number): string {
     const idx = this.clamp(Math.floor(framePos1 - 1 + 1e-6), 0, track.length - 1);
     return track[idx];
   }
 
-  /** Performs the init tracks operation. */
   initTracks(): void {
     const N = 44;
-    /** Handles the fill workflow. */
     const fill = (count: number, value: number | string): Array<number | string> =>
       Array.from({ length: count }, () => value);
 
@@ -902,7 +867,6 @@ class MouseSparkEngine {
     this.isDown = false;
   };
 
-  /** Handles the bind events workflow. */
   bindEvents(): void {
     window.addEventListener("mousedown", this.onMouseDown);
     window.addEventListener("mousemove", this.onMouseMove);
@@ -914,7 +878,6 @@ class MouseSparkEngine {
     this.cleanupFns.push(() => window.removeEventListener("resize", this.resize));
   }
 
-  /** Handles the spawn effect workflow. */
   spawnEffect(x: number, y: number, strength = 1): void {
     const minSize = this.sampleNumeric(this.tracks.triaMinAt7, 7);
     const maxSize = this.sampleNumeric(this.tracks.triaMaxAt7, 7);
@@ -957,7 +920,6 @@ class MouseSparkEngine {
     this.scheduleFrame();
   }
 
-  /** Handles the maybe spawn trail side particles workflow. */
   maybeSpawnTrailSideParticles(
     prevPos: { x: number; y: number },
     currPos: { x: number; y: number }
@@ -978,7 +940,6 @@ class MouseSparkEngine {
     this.lastTrailSideSpawnPos = mid;
   }
 
-  /** Handles the spawn trail side particle burst workflow. */
   spawnTrailSideParticleBurst(
     prevPos: { x: number; y: number },
     currPos: { x: number; y: number }
@@ -1032,7 +993,6 @@ class MouseSparkEngine {
     });
   }
 
-  /** Handles the render trail side particle workflow. */
   renderTrailSideParticle(particle: TrailSideParticle, now: number): boolean {
     const elapsed = ((now - particle.bornAt) / 1000) * this.speed * 1.5;
     if (elapsed < 0) return false;
@@ -1055,7 +1015,6 @@ class MouseSparkEngine {
     return false;
   }
 
-  /** Handles the draw glow disc workflow. */
   drawGlowDisc(
     x: number,
     y: number,
@@ -1070,7 +1029,6 @@ class MouseSparkEngine {
     this.glow.addPoint(x, y, radius, c, intensity, this.centerGlowSoftness);
   }
 
-  /** Handles the draw solid disc workflow. */
   drawSolidDisc(x: number, y: number, diameter: number, color: RGBA, alphaMul = 1): void {
     const r = diameter * 0.5;
     if (r <= 0) return;
@@ -1082,7 +1040,6 @@ class MouseSparkEngine {
     this.ctx.fill();
   }
 
-  /** Handles the draw trail workflow. */
   drawTrail(): void {
     for (let i = this.trail.length - 1; i >= 0; i--) {
       const t = this.trail[i];
@@ -1099,7 +1056,6 @@ class MouseSparkEngine {
     const trailBase = this.rgbStringToRgba(this.color, 1);
     const glowBase = this.rgbStringToRgba(this.color, 1);
 
-    /** Handles the sample trail color workflow. */
     const sampleTrailColor = (u: number, alphaScale = 1): RGBA => {
       const fade = u <= 0.6 ? 1 : this.linearInterpolate(1, 0, (u - 0.6) / 0.4);
       return [trailBase[0], trailBase[1], trailBase[2], alphaScale * fade];
@@ -1141,14 +1097,12 @@ class MouseSparkEngine {
     }
   }
 
-  /** Handles the smoothstep workflow. */
   smoothstep(edge0: number, edge1: number, x: number): number {
     if (edge0 === edge1) return x < edge0 ? 0 : 1;
     const t = this.clamp((x - edge0) / (edge1 - edge0), 0, 1);
     return t * t * (3 - 2 * t);
   }
 
-  /** Returns the compute border side spans result. */
   computeBorderSideSpans(
     framePos1: number,
     totalSweepDeg: number
@@ -1187,7 +1141,6 @@ class MouseSparkEngine {
     };
   }
 
-  /** Returns the get border segment color result. */
   getBorderSegmentColor(framePos1: number, u: number): RGBA {
     const bell = Math.sin(Math.PI * u);
     const baseColor = this.mixColor(
@@ -1214,7 +1167,6 @@ class MouseSparkEngine {
     return this.mixColor(baseColor, this.borderFinalColor, edgeFrontBlend);
   }
 
-  /** Handles the draw meteor arc workflow. */
   drawMeteorArc(
     cx: number,
     cy: number,
@@ -1289,7 +1241,6 @@ class MouseSparkEngine {
     return [start, end];
   }
 
-  /** Handles the draw triangle workflow. */
   drawTriangle(
     x: number,
     y: number,
@@ -1315,7 +1266,6 @@ class MouseSparkEngine {
     this.ctx.restore();
   }
 
-  /** Returns the compute triangle alpha result. */
   computeTriangleAlpha(
     framePos1: number,
     tri: {
@@ -1339,7 +1289,6 @@ class MouseSparkEngine {
     return 1;
   }
 
-  /** Handles the render effect workflow. */
   renderEffect(effect: ClickEffect, now: number): boolean {
     const elapsed = ((now - effect.bornAt) / 1000) * this.speed;
     if (elapsed < 0) return false;
@@ -1422,7 +1371,6 @@ class MouseSparkEngine {
     return false;
   }
 
-  /** Handles the loop workflow. */
   loop(now: number): void {
     this.animationId = 0;
     this.ctx.clearRect(0, 0, this.viewW, this.viewH);
@@ -1454,7 +1402,6 @@ class MouseSparkEngine {
     this.animationId = window.requestAnimationFrame(this.loop);
   }
 
-  /** Performs the install window bindings operation. */
   installWindowBindings(): () => void {
     let lastBoomX = -1;
     let lastBoomY = -1;
@@ -1603,7 +1550,6 @@ class MouseSparkEngine {
     };
   }
 
-  /** Handles the destroy workflow. */
   destroy(): void {
     if (this.animationId !== 0) window.cancelAnimationFrame(this.animationId);
     this.animationId = 0;

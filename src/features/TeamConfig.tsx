@@ -29,7 +29,6 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
-  /** Handles the ext workflow. */
   const ext = useMemo<Draft>(() => {
     return {
       choose_team_method: settings.choose_team_method,
@@ -75,7 +74,6 @@ const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
     onClose();
   };
 
-  /** Handles the render table workflow. */
   const renderTable = (key: string) => {
     const rows = draft[key as keyof Draft] as string[][];
     const cols = key == "preset_team_attribute" ? 4 : 1;

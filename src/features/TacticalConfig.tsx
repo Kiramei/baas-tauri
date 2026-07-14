@@ -27,7 +27,6 @@ const TacticalConfig: React.FC<TacticalConfigProps> = ({ profileId, onClose }) =
     serverMap[settings.server!]
   ] as string[];
 
-  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       totalForceFightDifficulty: settings?.totalForceFightDifficulty,

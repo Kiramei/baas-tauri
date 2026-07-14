@@ -17,7 +17,6 @@ type Block = {
 export class MsePlayer extends BasePlayer {
   public static readonly storageKeyPrefix = "MseDecoder";
   public static readonly playerFullName = "H264 Converter";
-  // noinspection JSUnusedGlobalSymbols
   public static readonly playerCodeName = "mse";
   public static readonly preferredVideoSettings: VideoSettings = new VideoSettings({
     lockedVideoOrientation: -1,
@@ -30,7 +29,6 @@ export class MsePlayer extends BasePlayer {
   private static DEFAULT_FRAMES_PER_FRAGMENT = 1;
   private static DEFAULT_FRAMES_PER_SECOND = 60;
 
-  /** Returns the create element result. */
   public static createElement(id?: string): HTMLVideoElement {
     const tag = document.createElement("video") as HTMLVideoElement;
     tag.muted = true;
@@ -71,12 +69,10 @@ export class MsePlayer extends BasePlayer {
   private MAX_BUFFER = this.isSafari ? 2 : this.isChrome && this.isMac ? 0.9 : 0.2;
   private MAX_AHEAD = -0.2;
 
-  // noinspection JSUnusedGlobalSymbols
   public static isSupported(): boolean {
     return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(mimeType);
   }
 
-  /** Handles the constructor workflow. */
   constructor(
     videoSettings: VideoSettings,
     displayInfo?: DisplayInfo,
@@ -103,7 +99,6 @@ export class MsePlayer extends BasePlayer {
     this.onCanPlayHandler();
   };
 
-  /** Returns the create converter result. */
   private static createConverter(
     tag: HTMLVideoElement,
     fps: number = MsePlayer.DEFAULT_FRAMES_PER_SECOND,
@@ -112,7 +107,6 @@ export class MsePlayer extends BasePlayer {
     return new (VideoConverter as any).default(tag, fps, fpf);
   }
 
-  /** Returns the get video playback quality result. */
   private getVideoPlaybackQuality(): QualityStats | null {
     const video = this.tag as any;
     if (typeof video.mozDecodedFrames !== "undefined") {
@@ -147,7 +141,6 @@ export class MsePlayer extends BasePlayer {
     this.checkVideoResize();
   }
 
-  /** Returns the calculate momentum stats result. */
   protected calculateMomentumStats(): void {
     const stat = this.getVideoPlaybackQuality();
     if (!stat) {
@@ -173,7 +166,6 @@ export class MsePlayer extends BasePlayer {
       const oldest = this.videoStats[0];
       const decodedFrames = stat.decodedFrames - oldest.decodedFrames;
       const droppedFrames = stat.droppedFrames - oldest.droppedFrames;
-      // const droppedFrames = inputFrames - decodedFrames;
       this.momentumQualityStats = {
         decodedFrames,
         droppedFrames,
@@ -184,13 +176,11 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
-  /** Performs the reset stats operation. */
   protected resetStats(): void {
     super.resetStats();
     this.videoStats = [];
   }
 
-  /** Returns the get image data url result. */
   public getImageDataURL(): string {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
@@ -203,7 +193,6 @@ export class MsePlayer extends BasePlayer {
     return canvas.toDataURL();
   }
 
-  /** Handles the play workflow. */
   public play(): void {
     super.play();
     if (this.getState() !== BasePlayer.STATE.PLAYING) {
@@ -221,19 +210,16 @@ export class MsePlayer extends BasePlayer {
     this.converter.play();
   }
 
-  /** Handles the pause workflow. */
   public pause(): void {
     super.pause();
     this.stopConverter();
   }
 
-  /** Performs the stop operation. */
   public stop(): void {
     super.stop();
     this.stopConverter();
   }
 
-  /** Performs the set video settings operation. */
   public setVideoSettings(videoSettings: VideoSettings): void {
     if (this.videoSettings && this.videoSettings.maxFps !== videoSettings.maxFps) {
       const state = this.getState();
@@ -305,7 +291,6 @@ export class MsePlayer extends BasePlayer {
     this.sourceBuffer.removeEventListener("updateend", this.jumpToEnd);
   };
 
-  /** Handles the push frame workflow. */
   public pushFrame(frame: Uint8Array): void {
     super.pushFrame(frame);
     if (!this.checkForIFrame(frame)) {
@@ -315,12 +300,10 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
-  /** Handles the check for bad state workflow. */
   protected checkForBadState(): void {
     // Workaround for stalled playback (`stalled` event is not fired, but the image freezes)
     const { currentTime } = this.tag;
     const now = Date.now();
-    // let reasonToJump = '';
     let hasReasonToJump = false;
     if (this.momentumQualityStats) {
       if (
@@ -332,7 +315,6 @@ export class MsePlayer extends BasePlayer {
         } else {
           const time = now - this.noDecodedFramesSince;
           if (time > this.MAX_TIME_TO_RECOVER) {
-            // reasonToJump = `No frames decoded for ${time} ms.`;
             hasReasonToJump = true;
           }
         }
@@ -356,9 +338,6 @@ export class MsePlayer extends BasePlayer {
         } else {
           const time = now - this.bigBufferSince;
           if (time > this.MAX_TIME_TO_RECOVER) {
-            // reasonToJump = `Buffer is bigger then ${this.MAX_BUFFER} (${buffered.toFixed(
-            //     3,
-            // )}) for ${time} ms.`;
             hasReasonToJump = true;
           }
         }
@@ -371,7 +350,6 @@ export class MsePlayer extends BasePlayer {
         } else {
           const time = now - this.aheadOfBufferSince;
           if (time > this.MAX_TIME_TO_RECOVER) {
-            // reasonToJump = `Current time is ahead of end (${buffered}) for ${time} ms.`;
             hasReasonToJump = true;
           }
         }
@@ -381,7 +359,6 @@ export class MsePlayer extends BasePlayer {
       if (this.currentTimeNotChangedSince !== -1) {
         const time = now - this.currentTimeNotChangedSince;
         if (time > this.MAX_TIME_TO_RECOVER) {
-          // reasonToJump = `Current time not changed for ${time} ms.`;
           hasReasonToJump = true;
         }
       }
@@ -414,7 +391,6 @@ export class MsePlayer extends BasePlayer {
     }
   }
 
-  /** Handles the check for iframe workflow. */
   protected checkForIFrame(frame: Uint8Array): boolean {
     if (!this.converter) {
       return false;
@@ -453,7 +429,6 @@ export class MsePlayer extends BasePlayer {
     return true;
   }
 
-  /** Performs the stop converter operation. */
   private stopConverter(): void {
     if (this.converter) {
       this.converter.appendRawData(new Uint8Array([]));

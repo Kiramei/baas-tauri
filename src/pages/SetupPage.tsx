@@ -55,18 +55,14 @@ interface FailureInfo {
 }
 
 const authReadyPhases = new Set(["server_verified", "waiting_password", "authenticated"]);
-/** Handles the delay workflow. */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
-/** Performs the setup no update operation. */
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
-/** Handles the random password workflow. */
 const randomPassword = () => {
   if (globalThis.crypto?.randomUUID) {
     return `baas-${globalThis.crypto.randomUUID()}`;
@@ -74,7 +70,6 @@ const randomPassword = () => {
   return `baas-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-/** Performs the reset websocket runtime state operation. */
 const resetWebsocketRuntimeState = () => {
   const state = useWebSocketStore.getState();
   Object.values(state.connections).forEach((connection) => connection?.close());
@@ -118,14 +113,12 @@ const SetupPage = () => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
-  /** Handles the show workflow failure workflow. */
   const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
     pendingWorkflowRef.current = null;
     workflowStartedRef.current = false;
     setFailure((current) => (preserveExisting ? (current ?? nextFailure) : nextFailure));
   }, []);
 
-  /** Handles the persist config workflow. */
   const persistConfig = useCallback(
     async (path = installPath, nextConfig = config) => {
       const updated = await invoke<UpdaterConfig>("updater_update_config", {
@@ -143,7 +136,6 @@ const SetupPage = () => {
     [config, installPath]
   );
 
-  /** Performs the start install operation. */
   const startInstall = useCallback(
     async (path = installPath, nextConfig = config) => {
       const targetPath = portable ? "." : path || installPath;
@@ -158,7 +150,6 @@ const SetupPage = () => {
     [config, installPath, portable]
   );
 
-  /** Performs the start workflow when terminal ready operation. */
   const startWorkflowWhenTerminalReady = useCallback(async () => {
     if (workflowStartedRef.current || !pendingWorkflowRef.current) return;
     workflowStartedRef.current = true;
@@ -182,7 +173,6 @@ const SetupPage = () => {
     }
   }, [persistConfig, showWorkflowFailure]);
 
-  /** Performs the ensure auto password operation. */
   const ensureAutoPassword = (forceNew = false) => {
     let password = StorageUtil.get<string>("baasAutoPassword");
     if (!password || forceNew) {
@@ -192,7 +182,6 @@ const SetupPage = () => {
     return password;
   };
 
-  /** Handles the authenticate backend workflow. */
   const authenticateBackend = useCallback(
     async (payload: BackendReadyPayload, forceNewPassword = false) => {
       StorageUtil.set("baseBackendAddr", payload.baseBackendAddr);
@@ -269,7 +258,6 @@ const SetupPage = () => {
     }
   };
 
-  /** Handles the copy failure logs workflow. */
   const copyFailureLogs = () => {
     const text = terminalLogData
       .map((log) => `[${log.time}] [${log.level.toUpperCase()}] ${log.message}`)
@@ -278,7 +266,6 @@ const SetupPage = () => {
     toast.success("Logs copied to clipboard");
   };
 
-  /** Handles the return to setup workflow. */
   const returnToSetup = async () => {
     setFailure(null);
     try {
@@ -388,7 +375,6 @@ const SetupPage = () => {
 
             {!setupPhase && started && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-4">
-                {/*<ProgressBar />*/}
                 <TermViewer
                   onAbort={handleAbort}
                   onReady={startWorkflowWhenTerminalReady}

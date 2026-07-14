@@ -16,7 +16,6 @@ export interface HotkeyFieldProps {
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
 
-/** Handles the display key from event workflow. */
 function displayKeyFromEvent(e: KeyboardEvent): string | null {
   if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return null;
 
@@ -52,7 +51,6 @@ function displayKeyFromEvent(e: KeyboardEvent): string | null {
   return e.key || null;
 }
 
-/** Handles the combo from event workflow. */
 function comboFromEvent(e: KeyboardEvent, includeModifierOnly = false): string | null {
   const { ctrlKey, shiftKey, altKey, metaKey } = e;
   const main = displayKeyFromEvent(e);

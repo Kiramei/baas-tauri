@@ -4,14 +4,19 @@ import React, { useLayoutEffect, useRef } from "react";
 import type { LogItem } from "@/types/app";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { List } from "react-window";
-import { type RowComponentProps, useDynamicRowHeight } from "react-window";
+import {
+  type ListImperativeAPI,
+  type RowComponentProps,
+  useDynamicRowHeight,
+} from "react-window";
 
 interface LoggerProps {
   logs: LogItem[];
   scrollToEnd: boolean; // Controls whether the logger scrolls to the bottom.
 }
 
-/** Returns the get level color result. */
+const LOG_ROW_LINE_HEIGHT = 20;
+
 const getLevelColor = (level: string) => {
   switch (level) {
     case "INFO":
@@ -27,7 +32,6 @@ const getLevelColor = (level: string) => {
   }
 };
 
-/** Returns the get message style result. */
 const getMessageStyle = (level: string) => {
   switch (level) {
     case "INFO":
@@ -43,7 +47,6 @@ const getMessageStyle = (level: string) => {
   }
 };
 
-/** Returns the get log level display result. */
 const getLogLevelDisplay = (level: string) => {
   switch (level) {
     case "INFO":
@@ -88,37 +91,14 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
 
 /** Renders the logger component. */
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
-  const listRef = useRef<any>(null);
-  const previousLengthRef = useRef(0);
-  const rowHeight = useDynamicRowHeight({ defaultRowHeight: 28 });
+  const listRef = useRef<ListImperativeAPI | null>(null);
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: LOG_ROW_LINE_HEIGHT });
 
   useLayoutEffect(() => {
-    if (!scrollToEnd || !listRef.current) return;
-    const previousLength = previousLengthRef.current;
-    previousLengthRef.current = logs.length;
+    if (!scrollToEnd || logs.length === 0) return;
 
-    if (logs.length === 0 || logs.length < previousLength) return;
-
-    let rafId = 0;
-    let secondRafId = 0;
-    /** Handles the scroll to last row workflow. */
-    const scrollToLastRow = () => {
-      if (listRef.current && logs.length > 0) {
-        listRef.current.scrollToRow({ index: logs.length - 1, align: "end" });
-      }
-    };
-
-    scrollToLastRow();
-    rafId = requestAnimationFrame(() => {
-      scrollToLastRow();
-      secondRafId = requestAnimationFrame(scrollToLastRow);
-    });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      cancelAnimationFrame(secondRafId);
-    };
-  }, [scrollToEnd, logs.length]);
+    listRef.current?.scrollToRow({ index: logs.length - 1, align: "end" });
+  }, [scrollToEnd, logs.length, rowHeight]);
 
   return (
     <div className="w-full h-full bg-slate-900/80 dark:bg-slate/50 rounded-lg font-mono text-sm text-white py-1 pl-1 sm:py-4 sm:pl-4 overflow-x-auto allow-select-text">

@@ -57,11 +57,9 @@ interface ConfigEditorProps {
 const overlayCls =
   "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
 
-/** Performs the setup mirrorc cdk operation. */
 const setupMirrorcCdk = (config: UpdaterConfig | null | undefined) =>
   config?.general?.mirrorc_cdk || config?.general?.mirrorcCdk || "";
 
-/** Performs the setup no update operation. */
 const setupNoUpdate = (config: UpdaterConfig | null | undefined) =>
   Boolean(config?.general?.no_update ?? config?.general?.noUpdate ?? false);
 
@@ -87,7 +85,6 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
   const noUpdate = setupNoUpdate(props.config);
   const transport = props.config?.general?.transport ?? "pipe";
 
-  /** Handles the patch general workflow. */
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
     props.setConfig({
       ...props.config,
@@ -115,7 +112,6 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     StorageUtil.set("uiSettings", uiSettings);
   };
 
-  /** Handles the describe mirror creport workflow. */
   const describeMirrorCReport = (report: MirrorCValidateReport) => {
     const parts = [report.message];
     if (report.expiresAtIso) parts.push(`Expires at: ${report.expiresAtIso}`);
@@ -127,7 +123,6 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
     return parts.join("\n");
   };
 
-  /** Handles the validate mirror c workflow. */
   const validateMirrorC = async () => {
     setValidating(true);
     setCdkStatus({

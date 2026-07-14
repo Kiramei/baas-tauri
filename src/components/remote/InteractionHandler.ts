@@ -94,7 +94,6 @@ abstract class InteractionHandlerBase {
   private multiTouchShift = false;
   private dirtyPlace: Point[] = [];
 
-  /** Handles the constructor workflow. */
   protected constructor(
     public readonly player: BasePlayer,
     public readonly touchEventsNames: InteractionEvents[],
@@ -106,12 +105,10 @@ abstract class InteractionHandlerBase {
     InteractionHandlerBase.bindGlobalListeners(this);
   }
 
-  /** Returns the map type to action result. */
   public static mapTypeToAction(type: string): number {
     return this.EVENT_ACTION_MAP[type];
   }
 
-  /** Handles the bind global listeners workflow. */
   protected static bindGlobalListeners(interactionHandler: InteractionHandlerBase): void {
     interactionHandler.touchEventsNames.forEach((eventName) => {
       let set: Set<InteractionHandlerBase> | undefined =
@@ -138,7 +135,6 @@ abstract class InteractionHandlerBase {
     });
   }
 
-  /** Handles the unbind listeners workflow. */
   protected static unbindListeners(touchHandler: InteractionHandlerBase): void {
     touchHandler.touchEventsNames.forEach((eventName) => {
       const set = InteractionHandlerBase.eventListeners.get(eventName);
@@ -184,7 +180,6 @@ abstract class InteractionHandlerBase {
     });
   };
 
-  /** Returns the load images result. */
   protected static loadImages(): void {
     if (this.pointImagesLoaded) {
       return;
@@ -192,7 +187,6 @@ abstract class InteractionHandlerBase {
     const total = 2;
     let current = 0;
 
-    /** Handles the onload workflow. */
     const onload = (event: Event) => {
       if (++current === total) {
         this.pointImagesLoaded = true;
@@ -209,7 +203,6 @@ abstract class InteractionHandlerBase {
     center.onload = onload;
   }
 
-  /** Returns the get pointer id result. */
   protected static getPointerId(type: string, identifier: number): number {
     if (this.idToPointerMap.has(identifier)) {
       const pointerId = this.idToPointerMap.get(identifier) as number;
@@ -228,7 +221,6 @@ abstract class InteractionHandlerBase {
     return pointerId;
   }
 
-  /** Returns the build touch on client result. */
   protected static buildTouchOnClient(
     event: CommonTouchAndMouse,
     screenInfo: ScreenInfo
@@ -287,7 +279,6 @@ abstract class InteractionHandlerBase {
     };
   }
 
-  /** Returns the create emulated message result. */
   protected static createEmulatedMessage(
     action: number,
     event: TouchControlMessage
@@ -300,7 +291,6 @@ abstract class InteractionHandlerBase {
     return new TouchControlMessage(action, pointerId, position, pressure, buttons);
   }
 
-  /** Handles the validate message workflow. */
   private static validateMessage(
     originalEvent: MiniMouseEvent | TouchEvent,
     message: TouchControlMessage,
@@ -345,7 +335,6 @@ abstract class InteractionHandlerBase {
     return messages;
   }
 
-  /** Handles the draw line workflow. */
   public drawLine(point1: Point, point2: Point): void {
     if (!this.ctx) {
       return;
@@ -359,7 +348,6 @@ abstract class InteractionHandlerBase {
     this.ctx.restore();
   }
 
-  /** Handles the draw pointer workflow. */
   public drawPointer(point: Point): void {
     this.drawPoint(
       point,
@@ -371,7 +359,6 @@ abstract class InteractionHandlerBase {
     }
   }
 
-  /** Handles the draw center workflow. */
   public drawCenter(point: Point): void {
     this.drawPoint(
       point,
@@ -380,7 +367,6 @@ abstract class InteractionHandlerBase {
     );
   }
 
-  /** Performs the clear canvas operation. */
   public clearCanvas(): void {
     const { clientWidth, clientHeight } = this.tag;
     const ctx = this.ctx;
@@ -397,7 +383,6 @@ abstract class InteractionHandlerBase {
     }
   }
 
-  /** Returns the format touch event result. */
   public formatTouchEvent(
     e: TouchEvent,
     screenInfo: ScreenInfo,
@@ -450,7 +435,6 @@ abstract class InteractionHandlerBase {
     return messages;
   }
 
-  /** Returns the build touch event result. */
   public buildTouchEvent(
     e: MiniMouseEvent,
     screenInfo: ScreenInfo,
@@ -501,7 +485,6 @@ abstract class InteractionHandlerBase {
     return messages;
   }
 
-  /** Handles the release workflow. */
   public release(): void {
     InteractionHandlerBase.unbindListeners(this);
   }
@@ -512,7 +495,6 @@ abstract class InteractionHandlerBase {
   /** Handles the on key interaction. */
   protected abstract onKey(event: KeyboardEvent): void;
 
-  /** Returns the get touch result. */
   protected getTouch(
     e: CommonTouchAndMouse,
     screenInfo: ScreenInfo,
@@ -569,14 +551,12 @@ abstract class InteractionHandlerBase {
     return result;
   }
 
-  /** Handles the draw circle workflow. */
   protected drawCircle(ctx: CanvasRenderingContext2D, point: Point, radius: number): void {
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2, true);
     ctx.stroke();
   }
 
-  /** Handles the draw point workflow. */
   protected drawPoint(point: Point, radius: number, image?: HTMLImageElement): void {
     if (!this.ctx) {
       return;
@@ -595,7 +575,6 @@ abstract class InteractionHandlerBase {
     this.updateDirty(topLeft, bottomRight);
   }
 
-  /** Performs the update dirty operation. */
   protected updateDirty(topLeft: Point, bottomRight: Point): void {
     if (!this.dirtyPlace.length) {
       this.dirtyPlace.push(topLeft, bottomRight);
@@ -621,7 +600,7 @@ export interface InteractionHandlerListener {
 }
 
 export class InteractionHandler extends InteractionHandlerBase {
-  public static SCROLL_EVENT_THROTTLING_TIME = 30; // one event per 50ms
+  public static SCROLL_EVENT_THROTTLING_TIME = 30; // Cap wheel forwarding at one event per 30 ms.
   private static readonly touchEventsNames: InteractionEvents[] = [
     "touchstart",
     "touchend",
@@ -637,7 +616,6 @@ export class InteractionHandler extends InteractionHandlerBase {
   private readonly storedFromTouchEvent = new Map<number, TouchControlMessage>();
   private lastScrollEvent?: { time: number; hScroll: number; vScroll: number };
 
-  /** Handles the constructor workflow. */
   constructor(
     player: BasePlayer,
     public readonly listener: InteractionHandlerListener
@@ -647,7 +625,6 @@ export class InteractionHandler extends InteractionHandlerBase {
     this.tag.addEventListener("mouseenter", this.onMouseEnter);
   }
 
-  /** Returns the build scroll event result. */
   public buildScrollEvent(event: WheelEvent, screenInfo: ScreenInfo): ScrollControlMessage[] {
     const messages: ScrollControlMessage[] = [];
     const touchOnClient = InteractionHandlerBase.buildTouchOnClient(event, screenInfo);
@@ -670,7 +647,6 @@ export class InteractionHandler extends InteractionHandlerBase {
     return messages;
   }
 
-  /** Handles the release workflow. */
   public release(): void {
     super.release();
     this.tag.removeEventListener("mouseleave", this.onMouseLeave);
@@ -700,7 +676,9 @@ export class InteractionHandler extends InteractionHandlerBase {
         this.lastPosition = event;
       }
     } else if (window["TouchEvent"] && event instanceof TouchEvent) {
-      // TODO: Research drag from out of the target inside it
+      // Global listeners dispatch each touch event to every remote-view instance. Accept only
+      // events whose gesture started on this canvas; adopting a gesture that began elsewhere
+      // would create a remote pointer without a matching DOWN message and leave it stuck.
       if (event.target !== this.tag) {
         return;
       }
@@ -755,7 +733,6 @@ export class KeyInputHandler {
   private static readonly repeatCounter: Map<number, number> = new Map();
   private static readonly listeners: Set<KeyEventListener> = new Set();
 
-  /** Handles the add event listener workflow. */
   public static addEventListener(listener: KeyEventListener): void {
     if (!this.listeners.size) {
       this.attachListeners();
@@ -763,7 +740,6 @@ export class KeyInputHandler {
     this.listeners.add(listener);
   }
 
-  /** Performs the remove event listener operation. */
   public static removeEventListener(listener: KeyEventListener): void {
     this.listeners.delete(listener);
     if (!this.listeners.size) {
@@ -818,13 +794,11 @@ export class KeyInputHandler {
     event.preventDefault();
   };
 
-  /** Handles the attach listeners workflow. */
   private static attachListeners(): void {
     document.body.addEventListener("keydown", this.handler);
     document.body.addEventListener("keyup", this.handler);
   }
 
-  /** Handles the detach listeners workflow. */
   private static detachListeners(): void {
     document.body.removeEventListener("keydown", this.handler);
     document.body.removeEventListener("keyup", this.handler);

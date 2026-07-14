@@ -1,0 +1,83 @@
+name: Sync to CNB
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Select which CNB data to synchronize.
+        required: true
+        default: repository
+        type: choice
+        options:
+          - repository
+          - release
+          - all
+      tag-name:
+        description: Release tag to sync. Defaults to the package.json version tag.
+        required: false
+        type: string
+      asset-pattern:
+        description: GitHub release asset pattern passed to gh release download.
+        required: false
+        default: "*"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  sync-repository:
+    if: ${{ github.event_name == 'push' || inputs.operation == 'repository' || inputs.operation == 'all' }}
+    name: Sync repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: sync-cnb-repository
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync Git repository to CNB
+        if: github.repository == 'Kiramei/baas-tauri'
+        uses: ./.github/actions/sync-to-cnb
+        with:
+          target-url: https://cnb.cool/kiramei/baas-tauri.git
+          password: ${{ secrets.CNB_SYNC_TOKEN }}
+
+  sync-release:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.operation == 'release' || inputs.operation == 'all') }}
+    name: Sync release
+    runs-on: ubuntu-latest
+    timeout-minutes: 260
+    concurrency:
+      group: sync-cnb-release-${{ inputs.tag-name || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync GitHub release to CNB
+        uses: ./.github/actions/sync-cnb-release
+        with:
+          github-token: ${{ github.token }}
+          cnb-token: ${{ secrets.RELEASE_TO_CNB }}
+          tag-name: ${{ inputs.tag-name || '' }}
+          cnb-repo-slug: kiramei/baas-tauri
+          asset-pattern: ${{ inputs.asset-pattern || '*' }}
+          wait-timeout-minutes: "240"
+          poll-interval-seconds: "60"
+          minimum-assets: "1"
+          make-latest: legacy
+          sync-tag: "true"
+          upload-assets: "true"
+          overwrite-assets: "true"

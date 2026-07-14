@@ -133,7 +133,6 @@ const TermEmulator = forwardRef<TerminalHandle>((_, ref) => {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
 
-  /** Handles the resize workflow. */
   const resize = () => {
     const term = termRef.current;
     const fit = fitRef.current;
@@ -249,11 +248,9 @@ const statusPillClass: Record<TermTaskStatus, string> = {
   stopped: "border-yellow-400/40 bg-yellow-500/15 text-yellow-100",
 };
 
-/** Returns the is terminal task status result. */
 const isTerminalTaskStatus = (status?: TermTaskStatus) =>
   status === "success" || status === "skipped" || status === "failed" || status === "stopped";
 
-/** Returns the format duration result. */
 const formatDuration = (durationMs?: number) => {
   if (durationMs === undefined) return null;
   if (durationMs < 1000) return `${durationMs}ms`;
@@ -264,7 +261,6 @@ const formatDuration = (durationMs?: number) => {
   return `${minutes}m ${rest}s`;
 };
 
-/** Handles the fallback duration workflow. */
 const fallbackDuration = (task: TermTaskView) => {
   if (task.durationMs !== undefined) return task.durationMs;
   if (!task.startedAt || !task.finishedAt) return undefined;
@@ -275,7 +271,6 @@ const fallbackDuration = (task: TermTaskView) => {
   return finished - started;
 };
 
-/** Returns the format time result. */
 const formatTime = (value?: string) => {
   if (!value) return null;
   const timestamp = Date.parse(value);
@@ -283,7 +278,6 @@ const formatTime = (value?: string) => {
   return new Date(timestamp).toLocaleTimeString();
 };
 
-/** Handles the strip ansi workflow. */
 const stripAnsi = (value: string) =>
   value.replace(
     // eslint-disable-next-line no-control-regex
@@ -291,7 +285,6 @@ const stripAnsi = (value: string) =>
     ""
   );
 
-/** Handles the planned tasks from nodes workflow. */
 const plannedTasksFromNodes = (nodes: WorkflowNodePayload[]) => {
   const planned: Record<string, TermTaskView> = {};
   for (const node of nodes) {
@@ -407,7 +400,6 @@ const WorkflowGraph: React.FC<{
 }> = ({ tasks, edges }) => {
   const graphRef = useRef<HTMLDivElement | null>(null);
   const [graphWidth, setGraphWidth] = useState(602);
-  /** Handles the task list workflow. */
   const taskList = useMemo(
     () =>
       Object.values(tasks).sort(
@@ -419,12 +411,10 @@ const WorkflowGraph: React.FC<{
   useEffect(() => {
     const node = graphRef.current;
     if (!node) return;
-    /** Performs the update operation. */
     const update = () => setGraphWidth(Math.max(240, node.clientWidth));
     return observeResizeOnAnimationFrame(node, update);
   }, []);
 
-  /** Handles the layout workflow. */
   const layout = useMemo(() => {
     const byStage = new Map<number, TermTaskView[]>();
     for (const task of taskList) {
@@ -596,7 +586,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
     appendTerminalLogsRef.current = appendTerminalLogs;
   }, [appendTerminalLog, appendTerminalLogs, onFailure, onReady, onSessionFinished]);
 
-  /** Handles the copy logs workflow. */
   const copyLogs = () => {
     const text = terminalLogData
       .map((l) => `[${l.time}] [${l.level.toUpperCase()}] ${l.message}`)
@@ -613,7 +602,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
     const capturedStableRegions = new Set<string>();
     const pendingStableRegions = new Map<string, TermStableRegionPayload>();
 
-    /** Handles the flush chunks workflow. */
     const flushChunks = () => {
       chunkFrame = null;
       if (!chunkBuffer) return;
@@ -626,7 +614,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
       });
     };
 
-    /** Performs the write chunk operation. */
     const writeChunk = (chunk: string) => {
       chunkBuffer += chunk;
       if (chunkFrame === null) {
@@ -634,7 +621,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
       }
     };
 
-    /** Performs the append status log operation. */
     const appendStatusLog = (level: string, message: string) => {
       appendTerminalLogRef.current({
         message,
@@ -643,7 +629,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
       });
     };
 
-    /** Performs the append stable region log operation. */
     const appendStableRegionLog = (payload: TermStableRegionPayload) => {
       if (capturedStableRegions.has(payload.regionId)) return;
       capturedStableRegions.add(payload.regionId);
@@ -665,7 +650,6 @@ const TermViewer: React.FC<TermViewerProps> = ({
       );
     };
 
-    /** Handles the bind events workflow. */
     async function bindEvents() {
       const listeners = await Promise.all([
         listen<WorkflowPlannedPayload>("term:workflow-planned", (event) => {

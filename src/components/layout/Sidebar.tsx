@@ -56,7 +56,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
     { id: "wiki", label: t("title.wiki"), icon: BookOpenText },
   ];
 
-  /** Performs the stop all tasks operation. */
   const stopAllTasks = async () => {
     trigger({
       timestamp: getTimestampMs(),
@@ -82,18 +81,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
         const shownStableRegions = new Set<string>();
         let sawAndroidUpdateError = false;
 
-        /** Performs the append terminal operation. */
         const appendTerminal = (chunk: string) => {
           if (!chunk) return;
           setBackendUpdateTerminalText((prev) => prev + chunk);
         };
 
-        /** Performs the append terminal line operation. */
         const appendTerminalLine = (line: string) => {
           appendTerminal(`${line}\r\n`);
         };
 
-        /** Performs the append stable region operation. */
         const appendStableRegion = (payload: any) => {
           const regionKey = String(payload.regionId ?? payload.taskId ?? "");
           if (regionKey && shownStableRegions.has(regionKey)) return;
@@ -456,14 +452,12 @@ const FloatingUpdateButton: React.FC<{
   );
 };
 
-/** Returns the format bytes result. */
 const formatBytes = (value?: number): string => {
   if (!value) return "0 B";
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1024 / 1024).toFixed(1)} MiB`;
 };
 
-/** Returns the format backend update event result. */
 const formatBackendUpdateEvent = (data: any): string => {
   const stage = String(data.stage ?? "progress");
   if (stage === "fetch_sha")

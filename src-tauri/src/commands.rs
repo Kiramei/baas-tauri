@@ -377,7 +377,7 @@ pub fn android_scrcpy_virtual_display_status(
     )
     .map(|value| value.trim().to_string())?;
     let active =
-        !setting.is_empty() && setting != "null" && setting.to_ascii_lowercase() != "deleted";
+        !setting.is_empty() && setting != "null" && !setting.eq_ignore_ascii_case("deleted");
     let display_dump = adb_output(
         &serial,
         &["shell", "dumpsys", "window", "displays"],

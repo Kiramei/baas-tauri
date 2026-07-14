@@ -123,7 +123,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   const [keyListenStatus, setKeyListenStatus] = useState<boolean>(false);
   const [clipBoardText, setClipBoardText] = useState<string>("");
 
-  /** Performs the set value operation. */
   const setValue = (
     func: React.Dispatch<React.SetStateAction<number>>,
     e: ChangeEvent<HTMLInputElement>
@@ -132,7 +131,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     func(parseInt(value, 10));
   };
 
-  /** Handles the construct video setting workflow. */
   const constructVideoSetting: () => VideoSettings = () => {
     return new VideoSettings({
       lockedVideoOrientation: -1,
@@ -158,7 +156,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     );
   };
 
-  /** Handles the btn trigger workflow. */
   const btnTrigger = (key: keyof typeof BTN_FUNC_MAP, type: number): (() => void) => {
     return () => {
       const action = BTN_FUNC_MAP[key];
@@ -169,14 +166,12 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     };
   };
 
-  /** Performs the toggle keyboard operation. */
   const toggleKeyboard = () => {
     const newKeyListenStatus = !keyListenStatus;
     setKeyListenStatus(newKeyListenStatus);
     scrcpyClientRef.current!.setHandleKeyboardEvents(newKeyListenStatus);
   };
 
-  /** Performs the save settings operation. */
   const saveSettings = () => {
     setUiSettings((settings) => ({
       ...settings,
@@ -195,7 +190,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     scrcpyClientRef.current!.sendMessage(commandMsg);
   };
 
-  /** Performs the toggle show status operation. */
   const toggleShowStatus = (value: boolean) => {
     setShowStatus(value);
     setUiSettings((settings) => ({
@@ -208,13 +202,11 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     playerRef.current?.setShowQualityStats(value);
   };
 
-  /** Performs the set clip board operation. */
   const setClipBoard = () => {
     const commandMsg = CommandControlMessage.createSetClipboardCommand(clipBoardText);
     scrcpyClientRef.current!.sendMessage(commandMsg);
   };
 
-  /** Returns the get clip board result. */
   const getClipBoard = () => {
     const commandMsg = new CommandControlMessage(ControlMessage.TYPE_GET_CLIPBOARD);
     scrcpyClientRef.current!.sendMessage(commandMsg);
@@ -235,7 +227,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
    */
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
-  /** Returns the create view result. */
   const createView = (showType: "video" | "canvas") => {
     return {
       "canvas": () => {
@@ -319,7 +310,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
     let disposed = false;
 
-    /** Handles the cleanup workflow. */
     const cleanup = () => {
       try {
         playerRef.current?.stop?.();
@@ -350,7 +340,6 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
       viewRef.current = null;
     };
 
-    /** Performs the start operation. */
     const start = async () => {
       try {
         const ws = await connectRemote();

@@ -48,7 +48,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
-  /** Performs the set theme operation. */
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
   }, []);

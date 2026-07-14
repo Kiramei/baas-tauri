@@ -25,7 +25,6 @@ const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
   );
   const modify = useWebSocketStore((state) => state.modify);
 
-  /** Handles the ext workflow. */
   const ext = useMemo(() => {
     return {
       push_json: settings.push_json,

@@ -69,7 +69,6 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
   const [shortcutsSuspended, setShortcutsSuspended] = useState(false);
   const hydratedRef = useRef(false);
 
-  /** Performs the apply bindings operation. */
   const applyBindings = useCallback(async (nextHotkeys: HotkeyConfig[]) => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__) return { registered: [], rejected: [] };
 
@@ -149,7 +148,6 @@ export const TauriShortcutProvider: React.FC<{ children: ReactNode }> = ({ child
     };
   }, []);
 
-  /** Performs the save hotkeys operation. */
   const saveHotkeys = useCallback(
     async (nextHotkeys: HotkeyConfig[]) => {
       const report = await applyBindings(nextHotkeys);

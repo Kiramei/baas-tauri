@@ -61,11 +61,9 @@ export const DEFAULT_SERVER_SIGN_PUBLIC_KEY_B64 =
 
 const PROTOCOL_VERSION = 1;
 
-/** Handles the to uint8 array workflow. */
 const toUint8Array = (value: ArrayBuffer | Uint8Array): Uint8Array =>
   value instanceof Uint8Array ? value : new Uint8Array(value);
 
-/** Handles the concat bytes workflow. */
 const concatBytes = (...parts: Uint8Array[]): Uint8Array => {
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const merged = new Uint8Array(total);
@@ -77,7 +75,6 @@ const concatBytes = (...parts: Uint8Array[]): Uint8Array => {
   return merged;
 };
 
-/** Returns the normalize for canonical json result. */
 const normalizeForCanonicalJson = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map(normalizeForCanonicalJson);
@@ -94,11 +91,9 @@ const normalizeForCanonicalJson = (value: unknown): unknown => {
   return value;
 };
 
-/** Returns the canonical bytes result. */
 const canonicalBytes = (value: unknown): Uint8Array =>
   textEncoder.encode(JSON.stringify(normalizeForCanonicalJson(value)));
 
-/** Handles the base64 url to bytes workflow. */
 const base64UrlToBytes = (base64Url: string): Uint8Array => {
   const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
   const pad = base64.length % 4;
@@ -107,20 +102,17 @@ const base64UrlToBytes = (base64Url: string): Uint8Array => {
   return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
 };
 
-/** Handles the bytes to base64 url workflow. */
 const bytesToBase64Url = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")
     .replace(/\//g, "_");
 
-/** Handles the nonce from seq workflow. */
 const nonceFromSeq = (seq: number): Uint8Array => {
   const nonce = new Uint8Array(12);
   new DataView(nonce.buffer).setBigUint64(4, BigInt(seq), false);
   return nonce;
 };
 
-/** Handles the sha256 workflow. */
 const sha256 = async (data: Uint8Array): Promise<Uint8Array> => {
   if (globalThis.crypto?.subtle) {
     const buf = await crypto.subtle.digest("SHA-256", data);
@@ -131,7 +123,6 @@ const sha256 = async (data: Uint8Array): Promise<Uint8Array> => {
   return new Uint8Array(hash);
 };
 
-/** Handles the hkdf sha256 workflow. */
 const hkdfSha256 = async (
   keyMaterial: Uint8Array,
   info: Uint8Array,
@@ -177,7 +168,6 @@ const hkdfSha256 = async (
   return okm;
 };
 
-/** Handles the wait for json message workflow. */
 const HANDSHAKE_MESSAGE_TIMEOUT_MS = 10_000;
 
 const waitForJsonMessage = (ws: WebSocket): Promise<Record<string, any>> =>
@@ -187,7 +177,6 @@ const waitForJsonMessage = (ws: WebSocket): Promise<Record<string, any>> =>
       reject(new Error("Timed out waiting for a websocket handshake response"));
     }, HANDSHAKE_MESSAGE_TIMEOUT_MS);
 
-    /** Handles the cleanup workflow. */
     const cleanup = () => {
       globalThis.clearTimeout(timer);
       ws.removeEventListener("message", onMessage);
@@ -242,10 +231,8 @@ export const sendJsonAndWaitForMessage = async (
   return response;
 };
 
-/** Handles the wait for open workflow. */
 const waitForOpen = (ws: WebSocket): Promise<void> =>
   new Promise((resolve, reject) => {
-    /** Handles the cleanup workflow. */
     const cleanup = () => {
       ws.removeEventListener("open", onOpen);
       ws.removeEventListener("close", onClose);
@@ -275,7 +262,6 @@ const waitForOpen = (ws: WebSocket): Promise<void> =>
     ws.addEventListener("error", onError);
   });
 
-/** Handles the require server hello workflow. */
 const requireServerHello = (payload: Record<string, any>): ServerHelloMessage => {
   if (payload.type !== "server_hello") {
     throw new Error("Expected server_hello");
@@ -289,13 +275,11 @@ class JsonSecureChannel {
   private readonly txKey: Uint8Array;
   private readonly rxKey: Uint8Array;
 
-  /** Handles the constructor workflow. */
   constructor(txKey: Uint8Array, rxKey: Uint8Array) {
     this.txKey = txKey;
     this.rxKey = rxKey;
   }
 
-  /** Handles the encrypt workflow. */
   encrypt(payload: Record<string, any>): SecureEnvelope {
     const seq = this.txSeq++;
     const nonce = nonceFromSeq(seq);
@@ -314,7 +298,6 @@ class JsonSecureChannel {
     };
   }
 
-  /** Handles the decrypt workflow. */
   decrypt(envelope: Record<string, any>): Record<string, any> {
     if (envelope.type !== "secure") {
       throw new Error("Expected a secure control frame");
@@ -350,7 +333,6 @@ class SecretStreamChannel {
   private readonly pushState: any;
   private readonly pullState: any;
 
-  /** Handles the constructor workflow. */
   constructor(
     txKey: Uint8Array,
     rxKey: Uint8Array,
@@ -364,7 +346,6 @@ class SecretStreamChannel {
     this.pullState = sodium.crypto_secretstream_xchacha20poly1305_init_pull(serverHeader, rxKey);
   }
 
-  /** Handles the encrypt workflow. */
   encrypt(payload: Uint8Array): Uint8Array {
     const ciphertext = sodium.crypto_secretstream_xchacha20poly1305_push(
       this.pushState,
@@ -375,7 +356,6 @@ class SecretStreamChannel {
     return toUint8Array(ciphertext);
   }
 
-  /** Handles the decrypt workflow. */
   decrypt(ciphertext: ArrayBuffer | Uint8Array): Uint8Array {
     const result = sodium.crypto_secretstream_xchacha20poly1305_pull(
       this.pullState,
@@ -388,7 +368,6 @@ class SecretStreamChannel {
     return toUint8Array(result.message);
   }
 
-  /** Handles the aad workflow. */
   private aad(seq: number): Uint8Array {
     const trailer = new Uint8Array(8);
     new DataView(trailer.buffer).setBigUint64(0, BigInt(seq), false);
@@ -396,7 +375,6 @@ class SecretStreamChannel {
   }
 }
 
-/** Returns the derive handshake result. */
 async function deriveHandshake(
   url: string,
   kind: "control" | "resume",
@@ -471,7 +449,6 @@ async function deriveHandshake(
   };
 }
 
-/** Returns the derive password key result. */
 async function derivePasswordKey(
   password: string,
   saltB64: string,
@@ -505,7 +482,6 @@ export class ControlConnection {
   private controlChannel: JsonSecureChannel | null = null;
   private session: ControlSessionBundle | null = null;
 
-  /** Handles the constructor workflow. */
   private constructor(args: {
     ws: WebSocket;
     initialized: boolean;
@@ -526,7 +502,6 @@ export class ControlConnection {
     this.preauthChannel = args.preauthChannel;
   }
 
-  /** Performs the open operation. */
   static async open(url: string): Promise<ControlConnection> {
     const handshake = await deriveHandshake(url, "control", "control");
     return new ControlConnection({
@@ -541,7 +516,6 @@ export class ControlConnection {
     });
   }
 
-  /** Handles the resume with cookie workflow. */
   async resumeWithCookie(): Promise<ControlSessionBundle | null> {
     const response = await sendJsonAndWaitForMessage(
       this.ws,
@@ -562,7 +536,6 @@ export class ControlConnection {
     return this.establishSession(payload, masterSecret, resumeSecret, "remember");
   }
 
-  /** Handles the authenticate workflow. */
   async authenticate(password: string): Promise<ControlSessionBundle> {
     let request: Record<string, any>;
     if (!this.initialized) {
@@ -611,7 +584,6 @@ export class ControlConnection {
     return this.establishSession(authOk, masterSecret, resumeSecret, "password");
   }
 
-  /** Handles the establish session workflow. */
   private async establishSession(
     authOk: Record<string, any>,
     masterSecret: Uint8Array,
@@ -637,18 +609,11 @@ export class ControlConnection {
     return this.session;
   }
 
-  // send(payload: Record<string, any>): void {
-  //   if (!this.controlChannel) {
-  //     throw new Error("Control websocket is not authenticated");
-  //   }
-  //   this.ws.send(JSON.stringify(this.controlChannel.encrypt(payload)));
-  // }
 
   close(): void {
     this.ws.close();
   }
 
-  /** Handles the bind control handlers workflow. */
   private bindControlHandlers(): void {
     if (!this.controlChannel) return;
     this.ws.onmessage = (event) => {
@@ -670,7 +635,6 @@ export class ControlConnection {
   }
 }
 
-/** Handles the fill random workflow. */
 const fillRandom = (buf: Uint8Array): Uint8Array => {
   if (globalThis.crypto?.getRandomValues) {
     return globalThis.crypto.getRandomValues(buf);
@@ -683,7 +647,6 @@ const fillRandom = (buf: Uint8Array): Uint8Array => {
   return buf;
 };
 
-/** Handles the random uuid workflow. */
 export const randomUUID = (): string => {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
@@ -699,7 +662,6 @@ export const randomUUID = (): string => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
 
-/** Handles the remember control session workflow. */
 export const rememberControlSession = async (
   httpBase: string,
   session: ControlSessionBundle
@@ -741,7 +703,6 @@ export class SecureWebSocket {
   private socketId = randomUUID();
   private readonly channelName: string;
 
-  /** Handles the constructor workflow. */
   constructor(
     url: string,
     name: string,
@@ -755,12 +716,10 @@ export class SecureWebSocket {
     this.channelName = name.startsWith("remote-") ? "remote" : name;
   }
 
-  /** Returns the ready state result. */
   get readyState(): number | undefined {
     return this.ws?.readyState;
   }
 
-  /** Performs the connect operation. */
   async connect(onMessage?: (msg: any) => void, decodeJson = true, decrypt = true): Promise<void> {
     const handshake = await deriveHandshake(this.url, "resume", this.channelName, {
       session_id: this.session.sessionId,
@@ -886,7 +845,6 @@ export class SecureWebSocket {
     this.onOpen?.(new Event("open"));
   }
 
-  /** Performs the send json operation. */
   sendJson(payload: Record<string, any>): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.stream) {
       throw new Error("WebSocket stream is not ready");
@@ -895,7 +853,6 @@ export class SecureWebSocket {
     this.ws.send(ciphertext);
   }
 
-  /** Performs the send bytes operation. */
   sendBytes(payload: ArrayBuffer | Uint8Array): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.stream) {
       throw new Error("WebSocket stream is not ready");
@@ -904,7 +861,6 @@ export class SecureWebSocket {
     this.ws.send(ciphertext);
   }
 
-  /** Performs the close operation. */
   close(): void {
     this.ws?.close();
     this.ws = null;

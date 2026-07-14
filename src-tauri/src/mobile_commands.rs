@@ -1515,7 +1515,6 @@ fn android_adb_candidates(configured: Option<&str>) -> Vec<String> {
 struct AdbPacket {
     command: [u8; 4],
     arg0: u32,
-    arg1: u32,
     payload: Vec<u8>,
 }
 
@@ -1748,10 +1747,6 @@ fn mod_inverse_u32(value: u32) -> Result<u32, String> {
     Ok(t as u32)
 }
 
-fn adb_connect(serial: &str) -> Result<TcpStream, String> {
-    adb_connect_with_timeout(serial, ANDROID_ADBD_AUTH_TIMEOUT)
-}
-
 fn adb_connect_with_timeout(serial: &str, io_timeout: Duration) -> Result<TcpStream, String> {
     let (host, port) = parse_adbd_serial(serial)?;
     let mut addrs = (host.as_str(), port)
@@ -1828,7 +1823,6 @@ fn adb_read_packet(stream: &mut TcpStream) -> Result<AdbPacket, String> {
     let command = [header[0], header[1], header[2], header[3]];
     let command_u32 = u32::from_le_bytes(command);
     let arg0 = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
-    let arg1 = u32::from_le_bytes([header[8], header[9], header[10], header[11]]);
     let payload_len = u32::from_le_bytes([header[12], header[13], header[14], header[15]]) as usize;
     let checksum = u32::from_le_bytes([header[16], header[17], header[18], header[19]]);
     let magic = u32::from_le_bytes([header[20], header[21], header[22], header[23]]);
@@ -1856,7 +1850,6 @@ fn adb_read_packet(stream: &mut TcpStream) -> Result<AdbPacket, String> {
     Ok(AdbPacket {
         command,
         arg0,
-        arg1,
         payload,
     })
 }

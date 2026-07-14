@@ -33,7 +33,6 @@ const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
   <div className={`animate-pulse bg-slate-200 dark:bg-slate-700 rounded-md ${className}`} />
 );
 
-/** Returns the has asset data result. */
 const hasAssetData = (config: any): boolean =>
   Boolean(
     config?.ap &&

@@ -200,7 +200,6 @@ const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
 
   const staticConfig = useWebSocketStore((state) => state.staticStore);
 
-  /** Returns the get phase2 recommended priority result. */
   const getPhase2RecommendedPriority = (name: string): string[] => {
     const indexes = staticConfig.create_phase2_recommended_priority[name];
     const originPriority =

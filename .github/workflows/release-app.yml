@@ -1,6 +1,6 @@
 # This is modified from clash-verge-rev project, thanks for their efforts.
 
-name: Release Build
+name: Release App
 
 on:
   push:
@@ -17,18 +17,20 @@ env:
   RUST_BACKTRACE: short
 
 concurrency:
-  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: release-app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check_tag_version:
     name: Check Release Tag and package.json Version Consistency
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check release tag
         uses: ./.github/actions/check-release-tag
@@ -36,13 +38,9 @@ jobs:
   create_release:
     name: Create draft release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [check_tag_version]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       - name: Create or reuse draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,10 +71,13 @@ jobs:
   generate_fonts:
     name: Generate font assets
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [check_tag_version]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Generate font assets
         uses: ./.github/actions/generate-font-assets
@@ -106,14 +107,18 @@ jobs:
             rpm_arch: x86_64
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: ${{ matrix.target }}
+          save-cache: "true"
 
       - name: Install dependencies (ubuntu only)
         if: matrix.os == 'ubuntu-22.04'
@@ -291,20 +296,7 @@ jobs:
 
           find "$DST" -maxdepth 1 -type f -print | sort
 
-      - name: Attest Windows bundles
-        if: matrix.os == 'windows-latest'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: release-assets/*
-
-      - name: Attest macOS bundles
-        if: contains(matrix.target, 'apple-darwin')
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: release-assets/*
-
-      - name: Attest Linux bundles
-        if: matrix.os == 'ubuntu-22.04'
+      - name: Attest release bundles
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: release-assets/*
@@ -351,14 +343,18 @@ jobs:
             multiarch_triplet: arm-linux-gnueabihf
             pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: ${{ matrix.target }}
+          save-cache: "true"
 
       - name: Setup Linux ARM cross dependencies
         shell: bash
@@ -489,6 +485,7 @@ jobs:
   release-android:
     name: Release Build for Android APK
     runs-on: ubuntu-22.04
+    timeout-minutes: 90
     needs: [create_release, generate_fonts]
     env:
       NODE_OPTIONS: "--max_old_space_size=4096"
@@ -499,6 +496,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -510,6 +509,7 @@ jobs:
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: aarch64-linux-android
+          save-cache: "true"
 
       - name: Install Android build dependencies
         shell: bash
@@ -611,14 +611,18 @@ jobs:
             target: aarch64-pc-windows-msvc
             arch: arm64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: ${{ matrix.target }}
+          save-cache: "true"
 
       - name: Download WebView2 Runtime
         shell: pwsh
@@ -712,10 +716,13 @@ jobs:
   update_tag:
     name: Update tag
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [release, release-for-linux-arm, release-android, release-for-fixed-webview2]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Fetch UPDATE logs
         id: fetch_update_logs
@@ -815,34 +822,25 @@ jobs:
 
   release-update:
     if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
-    name: Release Update
+    name: Publish updater manifests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [update_tag]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Bun dependencies
         uses: ./.github/actions/setup-bun-deps
 
-      - name: Release updater file
+      - name: Publish standard updater manifest
         run: bun run updater
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release-update-for-fixed-webview2:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
-    name: Release Update for Fixed WebView2
-    runs-on: ubuntu-latest
-    needs: [update_tag]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup Bun dependencies
-        uses: ./.github/actions/setup-bun-deps
-
-      - name: Release updater file
+      - name: Publish fixed WebView2 updater manifest
         run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -851,9 +849,8 @@ jobs:
     if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
-    needs:
-      - release-update
-      - release-update-for-fixed-webview2
+    timeout-minutes: 260
+    needs: [release-update]
 
     steps:
       - name: Checkout repository
@@ -898,12 +895,14 @@ jobs:
     if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [sync-to-cnb-release]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get Version
         shell: bash

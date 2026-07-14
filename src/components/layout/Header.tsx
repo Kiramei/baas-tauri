@@ -30,7 +30,6 @@ const noScrollbarStyle =
 
 type Tab = Pick<ProfileDTO, "id" | "name" | "server">;
 
-/** Returns the is profile ready result. */
 const isProfileReady = (settings: any): boolean =>
   Boolean(settings?.name && settings?.ap && settings?._pass);
 
@@ -56,7 +55,6 @@ const Header: React.FC = () => {
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
-  /** Performs the update scroll buttons operation. */
   const updateScrollButtons = React.useCallback(() => {
     const el = stripRef.current;
     if (!el) return;
@@ -82,7 +80,6 @@ const Header: React.FC = () => {
     };
   }, [updateScrollButtons]);
 
-  /** Handles the scroll by workflow. */
   const scrollBy = (dx: number) => {
     stripRef.current?.scrollBy({ left: dx, behavior: lowPerformanceMode ? "auto" : "smooth" });
   };
@@ -93,7 +90,6 @@ const Header: React.FC = () => {
 
   const [confirmDelete, setConfirmDelete] = React.useState<null | Tab>(null);
 
-  /** Handles the hide ctx menu workflow. */
   const hideCtxMenu = () => setCtxMenu(null);
 
   useEffect(() => {
@@ -176,7 +172,6 @@ const Header: React.FC = () => {
     if (next) setActiveProfile(next);
   };
 
-  /** Performs the run trigger operation. */
   const runTrigger = React.useCallback(
     (command: string, payload: Record<string, any>) =>
       new Promise<any>((resolve, reject) => {
@@ -198,7 +193,6 @@ const Header: React.FC = () => {
     [trigger]
   );
 
-  /** Handles the wait for config workflow. */
   const waitForConfig = async (serialName: string) => {
     await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
     const next = tabsRef.current.find((p) => p.id === serialName);

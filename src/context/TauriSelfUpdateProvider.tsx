@@ -24,7 +24,6 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [status, setStatus] = useState("");
   const [progressOpen, setProgressOpen] = useState(false);
 
-  /** Performs the stop all tasks operation. */
   const stopAllTasks = useCallback(async () => {
     trigger({
       timestamp: getTimestampMs(),
@@ -38,7 +37,6 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
     );
   }, [trigger]);
 
-  /** Performs the run update operation. */
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
     if (__WITH_ANDROID__) {
