@@ -58,7 +58,7 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/guide/wiki", FileCog],
   ["/api/overview", Code2],
   ["/api/tauri-commands", Terminal],
-  ["/api/service-websocket", Server],
+  ["/api/service-transport", Server],
   ["/api/frontend-runtime", LayoutDashboard],
   ["/api/android-runtime", Smartphone],
   ["/api/contracts-testing", FileCog],

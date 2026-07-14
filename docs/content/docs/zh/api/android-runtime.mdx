@@ -1,56 +1,70 @@
 ---
-title: Android Runtime API
-description: Android 版 Tauri 的本地后端启动、Python 兼容层、本地化控制和更新器 command 契约。
+title: Android 运行时 API
+description: Android 后端启动、应用存储、Pipe 支持、本地控制和更新兼容。
 ---
 
-Android 版不运行桌面 uv 后端，也不依赖用户选择 ADB 控制方式。Tauri Android 层通过 Chaquopy 启动捆绑 Python 后端，并把截图、点击、滑动等能力固定到 Android 本地化实现。
+Android 通过 Chaquopy 内嵌 Python 3.9。Kotlin 前台 Service 插件启动 Python bootstrap，由后者把随 APK 分发的 BAAS Service 解包到应用私有存储，并在 `127.0.0.1:8190` 启动。
 
 ## 启动流程
 
 ```mermaid
 sequenceDiagram
   participant UI as React UI
-  participant Rust as Tauri Android commands
-  participant Boot as Python bootstrap
-  participant Svc as BAAS service
-  UI->>Rust: updater_start_workflow
-  Rust->>Boot: start bundled Python backend
-  Boot->>Boot: unpack backend and support files
-  Boot->>Boot: install Android runtime injection
-  Boot->>Svc: launch ASGI service
-  Svc-->>UI: /health and WebSocket channels
+  participant Rust as Tauri 移动端命令
+  participant Kotlin as 后端 Service 插件
+  participant Python as Android bootstrap
+  participant Service as BAAS Service
+  UI->>Rust: backend_transport_start(mode)
+  Rust->>Kotlin: ensureStarted
+  Kotlin->>Python: start(filesDir, dataRoot, 8190, nativeLibDir)
+  Python->>Service: 解包、注入 Android Runtime、启动
+  Rust->>Service: 轮询 GET /health
+  Service-->>Rust: ready
+  Rust-->>UI: 返回地址和端口，配置 Pipe 路径
 ```
 
-## Android 专用能力
+就绪等待有明确超时。缺失依赖或 bootstrap 失败必须出现在 `/health`、系统日志或 Android 日志中，不能让 SetupPage 无限等待。
 
-| 能力 | 入口 | 说明 |
-| --- | --- | --- |
-| 后端 unpack | `android_backend/bootstrap.py` | 把捆绑后端展开到 app storage。 |
-| 本地 atx-agent | `_ensure_local_atx_agent` | 在 Android 文件系统中准备本地 agent。 |
-| uiautomator2 stub | `_write_uiautomator2_stub` | 提供兼容 API，内部映射到 Android 本地方法。 |
-| cv2 兼容层 | `android_backend/cv2_compat.py` | 提供 Android 可运行的图像处理子集。 |
-| runtime 注入 | `android_runtime_injection.py` | 同步分辨率、包装 service 注入、固定运行差异。 |
+## 传输
 
-## 控制模式
+Android 同时支持 `pipe` 和 `websocket`，默认使用 `pipe`。
 
-Android build 的运行配置必须满足：
+- Pipe 使用 Android 后端 Service 插件返回的 Unix domain socket。
+- `BackendPipeManager` 与 TypeScript `TauriPipeConnection` 使用和桌面端相同的 `BPIP` 协议。
+- WebSocket 继续使用 loopback HTTP/WebSocket 端点。
+- 切换模式时只持久化 `general.transport`，不能覆盖其他 setup 字段。
+
+## 存储与更新
+
+Android setup 状态位于应用管理的存储目录。`updater_start_workflow` 安装或更新随包分发的后端内容，并返回终端会话元数据。Android 不依赖桌面 `uv`、系统 Python、桌面可写安装目录或 `pygit2`。
+
+配置中包含：
+
+```toml
+[general]
+transport = "pipe"
+
+[python]
+runtime_path = "embedded-python-3.9"
+```
+
+## Android 本地控制
+
+脚本配置必须保持：
 
 ```toml
 screenshot_method = "android_local"
 control_method = "android_local"
 ```
 
-前端、Rust command 和 Python 侧都应把这两个字段视为 Android 固定契约。不要在 Android 上回退到桌面 ADB 截图或桌面 uiautomator 调用，除非新增的是 Android 本地层内部更快实现，并且仍对外暴露为 `android_local`。
+UI、Rust 宿主和 Python 兼容层都要维护这两个外部值。可以用 Rust、Kotlin 或 Python 优化内部实现，但不能改变公开方法名。
 
-## 更快实现的放置位置
+## 平台差异
 
-如果发现比 uiautomator2 和截图兼容层更快的 Android 本地方案，可以使用 Rust、Python 或 Kotlin 实现，但必须满足：
-
-1. Python 侧业务仍然通过稳定接口调用，不直接依赖 Tauri UI 状态。
-2. 通信协议清晰，可以通过 `/health` 或 WebSocket 报告错误。
-3. 对前端配置仍然表现为 `android_local`。
-4. 失败时能够回到可诊断日志，而不是卡在启动页。
-
-## 更新限制
-
-Android 端不能假设存在桌面 `uv`、系统 Python、可写安装目录或 pygit2。后端更新相关 command 应返回 Android 兼容报告；无法执行的 Git 能力要给出明确错误，而不是让脚本静默卡住。
+| API | Android 行为 |
+| --- | --- |
+| 全局快捷键 | 已启用绑定会以 unsupported/rejected 返回。 |
+| DevTools 命令 | 空操作。 |
+| 客户端更新检查 | 读取 Android 安装包元数据。 |
+| MirrorC 验证 | 不可用时返回 Android 兼容的 unsupported 报告。 |
+| 虚拟显示器 | 支持 `configId`、可选 `adbPath` 等 Android 专用字段。 |

@@ -3,7 +3,7 @@
   "pages": [
     "overview",
     "tauri-commands",
-    "service-websocket",
+    "service-transport",
     "frontend-runtime",
     "android-runtime",
     "contracts-testing"

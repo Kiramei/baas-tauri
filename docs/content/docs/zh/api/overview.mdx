@@ -1,75 +1,73 @@
 ---
 title: API 总览
-description: 面向 BAAS Tauri 维护者的跨端 API 地图，覆盖前端、Tauri、Android、本地后端和 Service 模式。
+description: 面向 BAAS Tauri 维护者的跨平台 API 地图，涵盖 Tauri IPC、Pipe 与 WebSocket、Android 和 Python Service。
 ---
 
-BAAS Tauri 的 API 边界分为五层：React 前端、Tauri command、桌面/Android 启动器、Python 后端服务，以及模拟器或 Android 本机控制层。开发时应先确认改动落在哪一层，再决定是改调用契约、启动行为、配置 schema，还是运行时注入。
+BAAS Tauri 有四类相互关联的边界：React 与 Rust 之间的 Tauri IPC、React 与 Python Service 之间的传输适配器、与传输方式无关的 Service 通道，以及各平台的启动和运行时代码。命令名、请求字段、通道消息和 Pipe 帧都应视为带版本的 API。
 
-## 跨端调用图
+## 运行流程
 
 ```mermaid
 flowchart LR
-  UI["React UI / stores"] --> Invoke["Tauri invoke commands"]
-  UI --> WS["Secure WebSocket channels"]
-  Invoke --> Desktop["Desktop updater and process manager"]
-  Invoke --> Android["Android bundled backend bootstrap"]
-  WS --> Service["Python BAAS service"]
-  Service --> Runtime["BAAS core runtime"]
-  Runtime --> Device["Emulator, adb, or Android local control"]
+  UI["React UI 与 Store"] --> IPC["Tauri invoke 命令"]
+  UI --> Factory["BackendConnection 工厂"]
+  Factory --> WS["安全 WebSocket"]
+  Factory --> Pipe["Tauri Pipe 桥接"]
+  IPC --> Host["桌面或 Android 宿主"]
+  WS --> Channels["Service 通道处理器"]
+  Pipe --> Channels
+  Channels --> Runtime["BAAS Service Runtime"]
+  Runtime --> Device["模拟器或 Android 本地控制"]
 ```
 
 ## API 分层
 
-| 层级 | 主要入口 | 使用方 | 维护重点 |
-| --- | --- | --- | --- |
-| 前端运行时 | `src/store/WebsocketStore.ts`、页面组件、配置组件 | React UI | 连接生命周期、状态缓存、i18n、Android 写死配置 |
-| Tauri commands | `src-tauri/src/commands.rs`、`mobile_commands.rs`、`behavior.rs` | 前端 `invoke()` | 参数和返回值稳定、错误可展示、Android/桌面差异明确 |
-| 后端 Service | `service.api.*`、`service.injection.*` | Tauri 客户端和远程 Web UI | WebSocket resume、鉴权、配置同步、隔离注入 |
-| Android runtime | `src-tauri/gen/android/.../android_backend` | Android 版 Tauri 和 Python 侧 | 本地化控制、Chaquopy 启动、兼容层、无桌面路径假设 |
-| 配置和验证 | `setup.toml`、app storage、测试脚本 | 所有端 | schema 兼容、脚本可跑通、失败信息可定位 |
+| 层 | 主要入口 | 契约 |
+| --- | --- | --- |
+| 前端传输 | `src/transport/types.ts`、`src/transport/factory.ts` | `BackendConnection`、通道名、传输选择 |
+| Tauri IPC | `src-tauri/src/lib.rs`、`commands.rs`、`mobile_commands.rs` | 已注册命令名、camelCase 参数和序列化结果 |
+| Pipe 桥接 | `src-tauri/src/pipe_commands.rs` | 原生端点生命周期和 `BPIP` 帧转发 |
+| Service 传输 | `baas-dev` 的 `service/channels`、`service/transport`、`service/api` | provider、sync、trigger、remote 的共享行为 |
+| Android 运行时 | Rust 移动端命令、Kotlin Service 插件、Python bootstrap | 应用私有后端、Pipe 路径和 Android 本地控制 |
+| 配置与验证 | `setup.toml`、前端测试、CI 工作流 | 默认值、迁移和跨平台兼容 |
+
+## 传输选择
+
+| 运行环境 | 默认值 | 可用模式 |
+| --- | --- | --- |
+| 桌面 Tauri | Pipe | Pipe 或 WebSocket |
+| Android Tauri | Pipe | Pipe 或 WebSocket |
+| WebUI | WebSocket | 仅 WebSocket |
+
+原生客户端把选择存入 `general.transport`。字段缺失或无效时回退到 `pipe`；WebUI 不得调用原生 Pipe 命令。
 
 ## 稳定性规则
 
-1. Tauri command 名称是前端 API，改名必须同步迁移所有 `invoke()` 调用。
-2. WebSocket frame 的 `type`、`request_id`、`channel`、`payload` 字段是后端 API，新增字段应保持向后兼容。
-3. Android 版的截图方式和控制方式必须锁定为 `android_local`，前端不能让用户切换到桌面方法。
-4. Service 模式只允许通过 `service` 文件夹内部的注入点扩展主仓库行为，不能要求主代码 `main` 或 `core` 为 service 模式写分支。
-5. API 变更必须同时验证桌面、Android 和 Python 侧脚本，文档页 [契约与测试](/docs/zh/api/contracts-testing) 给出最低矩阵。
+1. 重命名 Tauri 命令时，必须同时迁移桌面端和 Android 端的所有 `invoke()` 调用。
+2. provider、sync、trigger、remote 处理器通过 Pipe 和 WebSocket 时必须保持相同行为。
+3. JSON 优先增加可选字段；已有消息类型和关联字段必须继续可读。
+4. Pipe 帧的 magic、版本、kind、字节序和大小限制都是协议常量。
+5. Android 的 `screenshot_method` 和 `control_method` 固定为 `android_local`。
+6. 修改两种语言的文档，并执行[契约与测试](/docs/zh/api/contracts-testing)中的验证矩阵。
 
-## Twoslash 示例
-
-下面的 TypeScript 片段使用文档站的 Twoslash 高亮。悬停类型可用于解释前端 `invoke()` contract。
+## 类型化调用示例
 
 ```ts twoslash
-type TauriCommand<TArgs, TResult> = {
-  command: string;
-  args: TArgs;
-  result: TResult;
+type BackendTransportMode = "websocket" | "pipe";
+
+type BackendReady = {
+  baseBackendAddr: string;
+  baseBackendPort: number;
 };
 
-type TerminalSnapshotRequest = {
-  sessionId?: string;
-};
+declare function invoke<TResult>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<TResult>;
 
-type TerminalSnapshot = {
-  sessionId: string | null;
-  rows: number;
-  cols: number;
-  regions: Array<{ id: string; lines: string[] }>;
-};
+const ready = await invoke<BackendReady>("backend_transport_start", {
+  mode: "pipe" satisfies BackendTransportMode,
+});
 
-const terminalSnapshot: TauriCommand<
-  { request: TerminalSnapshotRequest },
-  TerminalSnapshot
-> = {
-  command: "updater_terminal_snapshot",
-  args: { request: { sessionId: "active" } },
-  result: { sessionId: "active", rows: 24, cols: 80, regions: [] },
-};
-
-terminalSnapshot.result.regions[0]?.lines;
+ready.baseBackendPort;
 ```
-
-## 开发建议
-
-跨端 API 改动优先写文档，再改代码。这样可以先固定参数、返回值、失败模式和测试矩阵，避免桌面端和 Android 端各自实现一套互不兼容的行为。

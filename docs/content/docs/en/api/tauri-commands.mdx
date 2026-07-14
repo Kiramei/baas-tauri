@@ -1,65 +1,65 @@
 ---
 title: Tauri Commands
-description: Rust command contracts called by the BAAS Tauri frontend through invoke, including desktop and Android differences.
+description: Commands registered by the BAAS Tauri host, with desktop and Android behavior.
 ---
 
-Tauri commands are the public API between the React frontend and Rust-side capabilities. Desktop implementations live in `src-tauri/src/commands.rs`, Android implementations live in `src-tauri/src/mobile_commands.rs`, and window behavior commands live in `src-tauri/src/behavior.rs`.
+The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camelCase` serialization; `invoke()` still wraps struct parameters with their Rust parameter name, usually `request`.
 
-## Common Commands
+## Window and Host Commands
 
-| Command | Args | Result | Description |
-| --- | --- | --- | --- |
-| `splash_off` | none | `Result<(), String>` | Closes the splash window after the frontend entry is ready. |
-| `set_backend_locale` | `{ lang: string }` | `Result<(), String>` | Syncs the backend locale. Android may accept the call but must not depend on desktop backend state. |
-| `open_main_devtools` | none | `Result<Value, String>` | Opens main window DevTools. Android returns unsupported. |
-| `shortcut_apply_bindings` | shortcut config | `Result<Value, String>` | Applies global shortcuts on desktop. Android returns unsupported. |
+| Command | Arguments | Result / behavior |
+| --- | --- | --- |
+| `baas_notify` | notification payload | Shows an application notification. |
+| `splash_off` | none | Closes the startup splash after the main UI is ready. |
+| `set_backend_locale` | locale value | Synchronizes the backend locale. |
+| `shortcut_apply_bindings` | `{ bindings }` | Registers enabled shortcuts; Android returns rejected entries. |
+| `open_main_devtools` | none | Opens desktop DevTools; Android is a no-op. |
+| `android_prepare_scrcpy_virtual_display` | `{ request }` | Creates or prepares a scrcpy virtual display. |
+| `android_cleanup_scrcpy_virtual_display` | cleanup arguments | Removes the prepared virtual display. |
+| `android_scrcpy_virtual_display_status` | status arguments | Returns the current virtual-display state. |
 
-## Updater and Startup Commands
+## Setup and Updater Commands
 
-| Command | Args | Result | Desktop behavior | Android behavior |
-| --- | --- | --- | --- | --- |
-| `updater_get_storage_state` | none | storage path and portable state | Reads desktop app storage | Reads Android app private/external storage |
-| `updater_get_startup_state` | none | startup config, backend status, log status | Returns desktop install and backend readiness | Returns bundled Python backend startup status |
-| `updater_path_exists_non_empty` | `{ path }` | `boolean` | Checks a local host path | Kept for compatibility; not for user-selected Android paths |
-| `updater_update_config` | `{ request }` | updated config | Writes updater config | Writes config under Android storage |
-| `updater_validate_mirrorc_cdk` | `{ request }` | validation report | Calls MirrorC validation | Returns an Android-compatible report |
-| `tauri_client_check_update` | `{ request }` | client update report | Checks desktop packages | Checks Android APK metadata |
-| `updater_check_version` | `{ request }` | backend version report | Compares local and remote main sha | Compares Android storage main sha |
-| `updater_test_sha_method` | `{ request }` | single-source probe report | Probes one SHA source | 10 second timeout, async single-source result |
-| `updater_test_sha_methods` | `{ request }` | multi-source probe report | Probes all SHA sources concurrently | Concurrent probes, aggregated by completion |
-| `updater_start_workflow` | `{ request }` | startup report | Installs, updates, or starts the desktop backend | Starts the Android bundled backend |
-| `updater_abort_workflow` | `{ request }` | abort report | Cancels the current workflow | Cancels the Android startup terminal task |
-| `updater_reset_backend_auth_and_restart` | none or `{ request }` | reset report | Resets auth and restarts backend | Resets according to Android local storage |
+| Command | Main arguments | Result |
+| --- | --- | --- |
+| `updater_get_storage_state` | none | Storage paths and portable state. |
+| `updater_get_startup_state` | none | Current config, install path, and startup state. |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean`. |
+| `updater_update_config` | `{ request }` | Updated config. Transport accepts `"pipe"` or `"websocket"`. |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report. |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; desktop delegates to the updater plugin. |
+| `updater_check_version` | `{ request: { channel? } }` | Local/remote SHA report. |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One source probe. |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Concurrent source probes. |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Terminal session metadata. |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Abort report. |
+| `updater_terminal_snapshot` | none | Current structured terminal snapshot. |
+| `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
+| `updater_reset_backend_auth_and_restart` | none | Backend address and port after reset/restart. |
 
-## Terminal Commands
+On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime.
 
-The updater terminal consumes backend chunks through xterm. Rust exposes structured snapshots and should not flatten ANSI chunks into a single long text line.
+## Backend Transport Commands
 
-| Command | Args | Result | Description |
-| --- | --- | --- | --- |
-| `updater_terminal_snapshot` | optional session args | `{ rows, cols, regions }` | Returns the current terminal screen snapshot. |
-| `updater_resize_term` | `{ cols, rows }` | `Result<Value, String>` | Syncs xterm size so backend output wraps correctly. |
+| Command | Arguments | Result / event |
+| --- | --- | --- |
+| `backend_transport_start` | `{ mode }` | Accepts `"pipe"` or `"websocket"`, persists the mode, starts/restarts the managed backend, and returns its address and port. |
+| `backend_pipe_open` | `{ name, channel, onMessage }` | Opens one native connection and emits binary Tauri channel messages. |
+| `backend_pipe_send_json` | `{ channel, name, payload }` | Sends a JSON frame. |
+| `backend_pipe_send_bytes` | `{ channel, name, payload }` | Sends a binary frame. |
+| `backend_pipe_close` | `{ channel, name }` | Sends close and releases one connection. |
+| `backend_pipe_close_all` | none | Releases every Pipe connection. |
 
-## Frontend Call Pattern
+Valid business channels are `provider`, `sync`, `trigger`, and `remote`. Frontend code should use `BackendConnection`; direct use of Pipe commands belongs in `TauriPipeConnection`.
 
-```ts
-import { invoke } from "@tauri-apps/api/core";
+## System Log Commands
 
-type ShaMethodReport = {
-  method: string;
-  status: "ok" | "timeout" | "error";
-  elapsedMs?: number;
-  remote?: string | null;
-  error?: string | null;
-};
-
-export async function testShaMethod(method: string): Promise<ShaMethodReport> {
-  return invoke<ShaMethodReport>("updater_test_sha_method", {
-    request: { method, timeoutMs: 10000 },
-  });
-}
-```
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `system_logs_snapshot` | `{ request?: { limit? } }` | Log path, entries, and file size. Default limit: 4000. |
+| `system_logs_clear` | none | Clears rotated/current host logs and records the clear action. |
+| `system_logs_ingest_frontend` | `{ request: { entries } }` | Appends at most 250 frontend entries per call. |
 
 ## Error Contract
 
-Rust commands return `Err(String)` for recoverable errors. The string must be readable in UI or logs, not an internal Rust type name. Errors that require frontend branching should return structured `Value` data with stable fields such as `ok`, `reason`, `missing`, and `retryable`.
+Recoverable Rust failures return `Err(String)` and become rejected `invoke()` promises. Messages must identify the failed operation and useful context. Use a structured result when callers need stable branching fields rather than parsing error text.
