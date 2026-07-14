@@ -5,7 +5,7 @@ inputs:
   branch:
     description: Release source branch.
     required: false
-    default: master
+    default: main
   allow-non-tag:
     description: Skip checks when the workflow is not running on a tag.
     required: false
