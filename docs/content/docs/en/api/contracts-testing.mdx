@@ -1,53 +1,64 @@
 ---
 title: Contracts and Testing
-description: Config files, Service injection boundaries, cross-platform compatibility rules, and the minimum verification commands.
+description: Configuration compatibility, transport parity, service boundaries, and the required verification matrix.
 ---
 
-Before an API change is complete, verify config contracts, injection boundaries, and runnable scripts. A working desktop dev server alone does not prove that the Android build is usable.
+An API change is complete only when configuration remains migratable, Pipe and WebSocket behavior stays aligned, and both desktop and Android builds pass.
 
 ## Config Contracts
 
-| Config | Location | Rule |
-| --- | --- | --- |
-| app storage | Tauri app data or Android app storage | Stores startup state, install path, auth state, and updater config. |
-| `setup.toml` | Backend root or Android storage | Stores main sha, update source, and runtime config. |
-| profile config | Backend config directory | Distributed through sync snapshots and patches. |
-| `screenshot_method` | script config | Android must lock this to `android_local`. |
-| `control_method` | script config | Android must lock this to `android_local`. |
-
-New fields must define defaults and migration behavior. The frontend must not assume a new field already exists, and the backend must not assume the frontend has written it first.
-
-## Service Injection Boundary
-
-Service mode is designed around isolated injection:
-
-| Allowed | Not allowed |
+| Value | Rule |
 | --- | --- |
-| Define injection functions inside the `service` folder. | Change `core`, `module`, or `main` runtime flow for Service mode. |
-| Let Android runtime wrap `service.injection.apply_service_injections`. | Scatter Android runtime monkey patches across upstream code. |
-| Affect the frontend through stable WebSocket/HTTP APIs. | Make the frontend depend on service internals. |
-| Adapt packaging in workflow or deploy scripts. | Mix packaging adaptation into runtime APIs. |
+| `general.transport` | `"pipe"` or `"websocket"`; native default is Pipe, WebUI is WebSocket-only. |
+| `setup.toml` | New fields require defaults and must preserve unrelated existing values. |
+| Profile snapshots/patches | Incoming stale patches must recover from an authoritative snapshot, not terminate sync. |
+| `screenshot_method`, `control_method` | Fixed to `android_local` on Android. |
+| App/system logs | Errors need source, target, timestamp, and enough context to locate the caller. |
 
-If upstream behavior truly needs to change, first introduce a general upstream extension point and let Service mode use it through injection. Do not add one-off branches for Service mode.
+## Transport Parity
 
-## Minimum Verification Matrix
+Provider, sync, trigger, and remote tests should run through transport-neutral handlers. Adapter tests additionally cover:
 
-| Scope | Command or action | Passing standard |
-| --- | --- | --- |
-| Frontend | `bun run lint` | No lint errors. |
-| Tauri build | `bun run build:tauri` | Web build and Rust build pass. |
-| Rust workspace | `cargo check --workspace` | All crates type-check. |
-| Python | `python -m py_compile ...` or `python -m compileall -q ...` | Runnable files have no syntax errors. |
-| Android debug | `bun scripts/android-build-debug.mjs --skip-web-build --abi x86_64` | Debug APK builds. |
-| Android emulator | install, launch, screenshot, and run a low-risk script | UI is interactive, backend connects, control mode is fixed, logs are normal. |
-| Docs site | `bun run build` | Fumadocs static export succeeds. |
+- WebSocket authentication, resume, encryption, and reconnect.
+- Pipe open/open-ok handshake, fragmented frames, JSON/binary payloads, close/error frames, and 64 MiB enforcement.
+- Windows named-pipe and Unix-domain-socket endpoint setup.
+- Connection cleanup when switching transport or stopping the backend.
 
-On Windows, some test binaries may require elevation and fail with error 740. Record the exact binary and error instead of treating it as a compile failure.
+## Service Boundary
 
-## API Change Checklist
+Service-specific changes belong in `service`, using shared channel handlers and `ChannelEndpoint`. Android may wrap the service injection point, but should not scatter platform branches through BAAS core modules.
 
-1. Update Chinese and English documentation.
-2. Document desktop and Android behavior differences.
-3. Keep WebSocket frames backward compatible.
-4. Avoid Service mode runtime edits outside the `service` folder.
-5. Run the matching scripts and record any command that cannot run.
+## Required Local and CI Checks
+
+From the `baas-tauri` repository:
+
+```bash
+bun run lint
+bun run test:transport
+bun run build:tauri
+bun run build:tauri:android
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+```
+
+From `baas-tauri/docs`:
+
+```bash
+bun install --frozen-lockfile
+bun run build
+```
+
+CI additionally runs Rust tests on Windows, Linux, and macOS, and builds an Android arm64 debug APK with:
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## Smoke Tests
+
+1. Desktop: start with Pipe, open all four channels, change configuration, run a low-risk task, then switch to WebSocket and repeat.
+2. Android emulator: install the APK, verify first startup, Pipe connection, config sync, logs, and an Android-local control action; repeat the connection check in WebSocket mode.
+3. WebUI: verify authentication/resume and confirm no native Pipe command is invoked.
+4. Failure paths: stop the backend, feed a stale sync patch, interrupt a workflow, and confirm recovery plus locatable logs.
+
+Update both Chinese and English API pages whenever a public command, frame, config field, or platform behavior changes.

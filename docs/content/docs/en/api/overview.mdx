@@ -1,75 +1,73 @@
 ---
 title: API Overview
-description: Cross-platform API map for BAAS Tauri maintainers, covering frontend, Tauri, Android, local backend, and Service mode.
+description: Cross-platform API map for BAAS Tauri maintainers, including Tauri IPC, Pipe and WebSocket transports, Android, and the Python service.
 ---
 
-BAAS Tauri has five API boundaries: the React frontend, Tauri commands, desktop/Android launchers, the Python backend service, and the emulator or Android local control layer. Before changing behavior, decide which layer owns the contract: call parameters, startup behavior, config schema, or runtime injection.
+BAAS Tauri exposes four related boundaries: React to Rust through Tauri IPC, React to the Python service through a transport adapter, transport-independent service channels, and platform-specific startup/runtime code. Treat command names, request fields, channel messages, and Pipe frames as versioned APIs.
 
-## Cross-platform Flow
+## Runtime Flow
 
 ```mermaid
 flowchart LR
-  UI["React UI / stores"] --> Invoke["Tauri invoke commands"]
-  UI --> WS["Secure WebSocket channels"]
-  Invoke --> Desktop["Desktop updater and process manager"]
-  Invoke --> Android["Android bundled backend bootstrap"]
-  WS --> Service["Python BAAS service"]
-  Service --> Runtime["BAAS core runtime"]
-  Runtime --> Device["Emulator, adb, or Android local control"]
+  UI["React UI and stores"] --> IPC["Tauri invoke commands"]
+  UI --> Factory["BackendConnection factory"]
+  Factory --> WS["Secure WebSocket"]
+  Factory --> Pipe["Tauri Pipe bridge"]
+  IPC --> Host["Desktop or Android host"]
+  WS --> Channels["Service channel handlers"]
+  Pipe --> Channels
+  Channels --> Runtime["BAAS service runtime"]
+  Runtime --> Device["Emulator or Android-local control"]
 ```
 
 ## API Layers
 
-| Layer | Main entry | Consumer | Maintenance focus |
-| --- | --- | --- | --- |
-| Frontend runtime | `src/store/WebsocketStore.ts`, pages, config components | React UI | Connection lifecycle, state cache, i18n, Android fixed config |
-| Tauri commands | `src-tauri/src/commands.rs`, `mobile_commands.rs`, `behavior.rs` | Frontend `invoke()` | Stable args/results, displayable errors, desktop/Android differences |
-| Backend Service | `service.api.*`, `service.injection.*` | Tauri client and remote Web UI | WebSocket resume, auth, config sync, isolated injection |
-| Android runtime | `src-tauri/gen/android/.../android_backend` | Android Tauri and Python backend | Local control, Chaquopy startup, compatibility layer, no desktop path assumptions |
-| Config and verification | `setup.toml`, app storage, test scripts | All platforms | Schema compatibility, runnable scripts, diagnosable failures |
+| Layer | Main entry | Contract |
+| --- | --- | --- |
+| Frontend transport | `src/transport/types.ts`, `src/transport/factory.ts` | `BackendConnection`, channel names, transport selection |
+| Tauri IPC | `src-tauri/src/lib.rs`, `commands.rs`, `mobile_commands.rs` | Registered command names, camel-case arguments, serialized results |
+| Pipe bridge | `src-tauri/src/pipe_commands.rs` | Native endpoint lifecycle and `BPIP` frame forwarding |
+| Service transport | `service/channels`, `service/transport`, `service/api` in `baas-dev` | Shared provider, sync, trigger, and remote behavior |
+| Android runtime | Rust mobile commands, Kotlin service plugin, Python bootstrap | App-private backend startup, Pipe path, Android-local control |
+| Config and verification | `setup.toml`, frontend tests, CI workflows | Defaults, migrations, cross-platform compatibility |
+
+## Transport Selection
+
+| Runtime | Default | Available modes |
+| --- | --- | --- |
+| Desktop Tauri | Pipe | Pipe or WebSocket |
+| Android Tauri | Pipe | Pipe or WebSocket |
+| WebUI | WebSocket | WebSocket only |
+
+The native selection is stored at `general.transport`. Missing or invalid native values fall back to `pipe`; WebUI never tries to invoke native Pipe commands.
 
 ## Stability Rules
 
-1. Tauri command names are frontend APIs. Renames must migrate every `invoke()` call.
-2. WebSocket frame fields such as `type`, `request_id`, `channel`, and `payload` are backend APIs. New fields should remain backward compatible.
-3. Android screenshot and control methods must be locked to `android_local`; the UI must not allow users to switch to desktop methods.
-4. Service mode must extend upstream behavior from injection points inside the `service` folder. Do not require `main`, `core`, or `module` runtime branches for Service mode.
-5. API changes must be verified on desktop, Android, and Python scripts. See [Contracts and Testing](/docs/en/api/contracts-testing) for the minimum matrix.
+1. A Tauri command rename must migrate every `invoke()` caller on desktop and Android.
+2. Provider, sync, trigger, and remote handlers must behave the same through Pipe and WebSocket.
+3. Additive JSON fields are preferred. Existing message types and correlation fields must remain readable.
+4. Pipe frame magic, version, kinds, byte order, and size limits are protocol constants.
+5. Android keeps `screenshot_method` and `control_method` fixed to `android_local`.
+6. Update both languages and run the verification matrix in [Contracts and Testing](/docs/en/api/contracts-testing).
 
-## Twoslash Example
-
-The following TypeScript snippet uses the docs site's Twoslash highlighting. Hover types are useful when explaining frontend `invoke()` contracts.
+## Typed Invoke Example
 
 ```ts twoslash
-type TauriCommand<TArgs, TResult> = {
-  command: string;
-  args: TArgs;
-  result: TResult;
+type BackendTransportMode = "websocket" | "pipe";
+
+type BackendReady = {
+  baseBackendAddr: string;
+  baseBackendPort: number;
 };
 
-type TerminalSnapshotRequest = {
-  sessionId?: string;
-};
+declare function invoke<TResult>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<TResult>;
 
-type TerminalSnapshot = {
-  sessionId: string | null;
-  rows: number;
-  cols: number;
-  regions: Array<{ id: string; lines: string[] }>;
-};
+const ready = await invoke<BackendReady>("backend_transport_start", {
+  mode: "pipe" satisfies BackendTransportMode,
+});
 
-const terminalSnapshot: TauriCommand<
-  { request: TerminalSnapshotRequest },
-  TerminalSnapshot
-> = {
-  command: "updater_terminal_snapshot",
-  args: { request: { sessionId: "active" } },
-  result: { sessionId: "active", rows: 24, cols: 80, regions: [] },
-};
-
-terminalSnapshot.result.regions[0]?.lines;
+ready.baseBackendPort;
 ```
-
-## Development Guidance
-
-For cross-platform API changes, write the document first and then change code. This fixes parameters, return values, failure modes, and verification scope before desktop and Android implementations drift apart.

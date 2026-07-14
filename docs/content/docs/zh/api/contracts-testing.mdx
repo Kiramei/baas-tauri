@@ -1,53 +1,64 @@
 ---
 title: 契约与测试
-description: 配置文件、Service 注入边界、跨端兼容规则和最低验证命令。
+description: 配置兼容、传输一致性、Service 边界和必须执行的验证矩阵。
 ---
 
-API 改动完成前，必须确认配置契约、注入边界和脚本验证都成立。只让桌面 dev server 跑起来不足以证明 Android 版可用。
+只有当配置可迁移、Pipe 与 WebSocket 行为对齐，并且桌面端和 Android 构建都通过时，API 变更才算完成。
 
 ## 配置契约
 
-| 配置 | 位置 | 规则 |
-| --- | --- | --- |
-| app storage | Tauri app data 或 Android app storage | 保存启动状态、安装路径、认证状态和 updater 配置。 |
-| `setup.toml` | 后端根目录或 Android storage | 保存 main sha、更新源、运行时配置。 |
-| profile config | 后端配置目录 | 由 sync 通道推送快照和 patch。 |
-| `screenshot_method` | 脚本配置 | Android 必须固定为 `android_local`。 |
-| `control_method` | 脚本配置 | Android 必须固定为 `android_local`。 |
-
-新增字段必须给出默认值和迁移策略。前端不能依赖“字段一定存在”，后端不能依赖“前端一定会先写入新字段”。
-
-## Service 注入边界
-
-Service 模式的目标是隔离注入：
-
-| 允许 | 不允许 |
+| 值 | 规则 |
 | --- | --- |
-| 在 `service` 文件夹内部定义注入函数。 | 为 service 模式改 `core`、`module`、`main` 的主流程。 |
-| Android runtime 包装 `service.injection.apply_service_injections`。 | Android runtime 直接 monkey patch 分散在主仓库各处。 |
-| 通过稳定 WebSocket/HTTP API 影响前端。 | 让前端依赖 service 内部实现细节。 |
-| 在 workflow 或 deploy 脚本里做打包适配。 | 把打包适配混进运行时 API。 |
+| `general.transport` | `"pipe"` 或 `"websocket"`；原生默认 Pipe，WebUI 仅支持 WebSocket。 |
+| `setup.toml` | 新字段必须有默认值，并保留其他已有值。 |
+| Profile 快照与 patch | 收到旧 patch 时应从权威快照恢复，不能终止 sync。 |
+| `screenshot_method`、`control_method` | Android 固定为 `android_local`。 |
+| 应用与系统日志 | 错误应包含 source、target、时间和足够定位调用方的上下文。 |
 
-如果确实需要修改主仓库行为，应先把能力抽象成主仓库通用扩展点，再由 service 注入使用；不要为了 service 模式写一次性分支。
+## 传输一致性
 
-## 最低验证矩阵
+provider、sync、trigger 和 remote 测试应通过与传输无关的处理器执行。适配器测试还要覆盖：
 
-| 范围 | 命令或操作 | 通过标准 |
-| --- | --- | --- |
-| 前端 | `bun run lint` | 无 lint 错误。 |
-| Tauri 构建 | `bun run build:tauri` | Web build 和 Rust 构建通过。 |
-| Rust workspace | `cargo check --workspace` | 所有 crate 类型检查通过。 |
-| Python | `python -m py_compile ...` 或 `python -m compileall -q ...` | 可运行文件无语法错误。 |
-| Android debug | `bun scripts/android-build-debug.mjs --skip-web-build --abi x86_64` | APK debug 构建通过。 |
-| Android 模拟器 | 安装、启动、截图确认、低风险脚本运行 | UI 可操作，后端连接，控制模式固定，日志正常。 |
-| 文档站 | `bun run build` | Fumadocs 静态导出通过。 |
+- WebSocket 认证、resume、加密和重连。
+- Pipe 的 open/open-ok 握手、分段帧、JSON/二进制 payload、close/error 帧和 64 MiB 限制。
+- Windows named pipe 与 Unix domain socket 的端点创建。
+- 切换传输或停止后端时清理连接。
 
-Windows 上某些 test binary 可能因为 error 740 需要提升权限执行。遇到这种情况应记录具体二进制和错误，不要把它混同为编译失败。
+## Service 边界
 
-## API 变更检查表
+Service 专用改动放在 `service` 内，并使用共享通道处理器和 `ChannelEndpoint`。Android 可以包装 Service 注入点，但不能把平台分支散落到 BAAS core 模块。
 
-1. 是否更新了中英文文档。
-2. 是否明确桌面端和 Android 端行为差异。
-3. 是否保留 WebSocket frame 向后兼容。
-4. 是否避免 service 模式修改 `service` 文件夹外运行时代码。
-5. 是否跑过对应脚本并记录不可运行原因。
+## 必须执行的本地与 CI 检查
+
+在 `baas-tauri` 仓库执行：
+
+```bash
+bun run lint
+bun run test:transport
+bun run build:tauri
+bun run build:tauri:android
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+```
+
+在 `baas-tauri/docs` 执行：
+
+```bash
+bun install --frozen-lockfile
+bun run build
+```
+
+CI 还会在 Windows、Linux 和 macOS 运行 Rust 测试，并构建 Android arm64 debug APK：
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## 冒烟测试
+
+1. 桌面端：以 Pipe 启动，打开四个业务通道，修改配置并运行低风险任务；切到 WebSocket 后重复。
+2. Android 模拟器：安装 APK，验证首次启动、Pipe 连接、配置同步、日志和 Android 本地控制；再用 WebSocket 重复连接检查。
+3. WebUI：验证认证与 resume，并确认没有调用原生 Pipe 命令。
+4. 失败路径：停止后端、输入旧 sync patch、中止 workflow，确认能够恢复且日志可定位。
+
+公开命令、帧、配置字段或平台行为变化时，必须同时更新中英文 API 页面。

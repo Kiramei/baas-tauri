@@ -1,60 +1,75 @@
 ---
 title: 前端运行时 API
-description: React 前端 store、WebSocket 客户端、配置组件、i18n 和 Android 固定控制模式的开发契约。
+description: BackendConnection、传输选择、Store、终端恢复、配置和 Android 限制。
 ---
 
-前端运行时负责把 Tauri command、Service WebSocket 和页面组件组合成用户可操作的状态机。它不是简单 UI 层，很多跨端兼容逻辑都在这里收敛。
+前端通过 `BackendConnection` 与后端业务通道通信。页面和 Store 不应依赖 WebSocket 专用方法，也不应直接调用 Pipe 命令。
 
-## 核心模块
+## 连接接口
 
-| 模块 | API 角色 | 注意事项 |
-| --- | --- | --- |
-| `src/store/WebsocketStore.ts` | 后端连接、WebSocket resume、版本状态、远程画面入口 | 不要在页面里重复实现连接状态机。 |
-| `src/shared/StorageManager.ts` | localStorage 和 Tauri storage 兼容封装 | 桌面端优先 Tauri storage，Web 环境回落 localStorage。 |
-| `src/shared/I18nTranslator.ts` | 前端 i18n 加载和后端语言同步 | 新增语言 key 必须同步所有 locale 文件。 |
-| `src/features/ScriptConfig.tsx` | 脚本运行配置编辑 | Android 下截图和控制方式固定为 `android_local`。 |
-| `src/components/updater/TermViewer.tsx` | 更新器终端视图 | 必须使用 xterm 语义消费 chunk 和 resize。 |
+```ts
+export type BackendChannelName = "provider" | "sync" | "trigger" | "remote";
+export type BackendTransportMode = "websocket" | "pipe";
 
-## 连接状态
+export interface BackendConnection {
+  readonly readyState: number | undefined;
+  connect(
+    onMessage: (message: unknown) => void,
+    decodeJson?: boolean,
+    decrypt?: boolean,
+  ): Promise<void>;
+  sendJson(payload: Record<string, unknown>): Promise<void> | void;
+  sendBytes(payload: ArrayBuffer | Uint8Array): Promise<void> | void;
+  close(): Promise<void> | void;
+}
+```
 
-`WebsocketStore` 是后端连接的单一数据源。页面组件应读取 store 暴露的状态，而不是直接打开 `/ws/*`。
+可选的 `onOpen`、`onClose`、`onError` 和 `hookClose` 回调提供生命周期状态，同时不暴露具体传输实现。
+
+## 工厂规则
+
+`src/transport/factory.ts` 负责选择模式：
+
+1. WebUI 始终创建 `SecureWebSocket`。
+2. 原生 Tauri 读取 `startup.config.general.transport`。
+3. 字段缺失或无效时选择 Pipe。
+4. 业务通道连接前，`backend_transport_start` 先准备对应后端。
+5. Pipe 创建 `TauriPipeConnection`；WebSocket 需要后端 URL 和已认证会话。
+
+## Store 边界
+
+`src/store/WebsocketStore.ts` 保留了历史名称，但管理的是与传输无关的后端状态。页面应使用 Store，不能自行打开 `/ws/*` 或原生端点。
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Loading
-  Loading --> PasswordRequired
-  Loading --> Connected
-  PasswordRequired --> Authenticating
-  Authenticating --> Connected
+  [*] --> Starting
+  Starting --> Connecting
+  Connecting --> Connected
+  Connecting --> AuthenticationRequired: 仅 WebSocket
   Connected --> Reconnecting
   Reconnecting --> Connected
-  Reconnecting --> PasswordRequired
+  Reconnecting --> AuthenticationRequired: 仅 WebSocket
 ```
 
-## Android 固定配置
+provider、sync、trigger 和 remote 的消息处理必须共享。只有连接建立、帧封装和 WebSocket 认证属于适配器。
 
-Android 版不能向用户暴露桌面控制方式。配置 UI 应满足：
+## 配置与 Android
 
-| 字段 | Android 值 | UI 行为 |
+SetupPage 高级设置和主页面设置都写入 `general.transport`。Android 支持两种模式并默认使用 Pipe，但脚本配置仍强制：
+
+| 字段 | Android 值 | UI |
 | --- | --- | --- |
-| `screenshot_method` | `android_local` | 显示为固定值，不允许选择。 |
-| `control_method` | `android_local` | 显示为固定值，不允许选择。 |
+| `screenshot_method` | `android_local` | 固定 |
+| `control_method` | `android_local` | 固定 |
 
-组件保存配置时也要防御性处理：即使旧配置或后端快照带了桌面方法，Android build 仍然写回 `android_local`。
+## 终端契约
 
-## 终端输出
+`TermViewer` 应立即恢复结构化快照，把增量 chunk 写入 xterm，并在尺寸变化时调用 `updater_resize_term`。不能把终端替换为拼接的纯文本，也不能等到第一个实时 chunk 到达后才显示初始状态。
 
-更新日志必须走 `TermViewer` 和 xterm，避免把 chunk 当普通文本直接拼接。正确行为是：
+## 兼容性检查
 
-1. Rust command 返回结构化终端快照。
-2. 前端用 xterm 写入增量 chunk。
-3. resize 时调用 `updater_resize_term`。
-4. 首屏恢复时调用 `updater_terminal_snapshot`。
-
-## i18n 规则
-
-新增前端文案时必须同步 `public/locales` 下所有语言文件。暂时无法翻译的文本应保留英文可读值，不要留空字符串，也不要让 key 直接出现在 UI 中。
-
-## 页面开发边界
-
-页面组件只负责呈现和触发动作。涉及连接、认证、远程画面、终端、版本检查、Android 兼容的逻辑应放在 store、shared 或专用组件中，否则很容易出现桌面端可用但 Android 端启动失败的分叉行为。
+- 新增文案时更新所有 locale。
+- 把与传输无关的消息逻辑放在 Store 或共享模块。
+- 模式、后端或组件所有权变化时关闭旧连接。
+- Pipe 和 WebSocket 错误都要成为可定位的连接失败。
+- Android 不得暴露桌面端专用控制方式。
