@@ -1,0 +1,78 @@
+name: Build BAAS C++ service
+description: Build and expose the exact native BAAS_service used by Tauri packaging
+
+inputs:
+  target:
+    description: Native Rust target that must match the runner host
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout BAAS C++ service source
+      uses: actions/checkout@v6
+      with:
+        repository: Kiramei/baas-cpp-dev
+        # Pin the cross-repository application/lifecycle contract. Update this
+        # SHA explicitly when the service protocol or package changes.
+        ref: 48995d820efbc12b56be32806a7e75dd7f652d29
+        path: baas-cpp-dev
+        persist-credentials: false
+
+    - name: Install pinned Conan client
+      shell: bash
+      run: |
+        set -euo pipefail
+        HOST="$(rustc -vV | sed -n 's/^host: //p')"
+        if [ "$HOST" != "${{ inputs.target }}" ]; then
+          echo "::error::C++ service packaging requires a native runner: host=$HOST target=${{ inputs.target }}"
+          exit 1
+        fi
+        python -m pip install --disable-pip-version-check conan==2.30.0
+
+    - name: Build pinned C++ service dependencies
+      shell: bash
+      working-directory: baas-cpp-dev
+      run: |
+        set -euo pipefail
+        conan profile detect --force
+        SETTINGS=()
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          SETTINGS+=("-s:h" "compiler.runtime_type=Release")
+        fi
+        conan create deploy/conan/recipes/baas-libsodium -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
+        conan create deploy/conan/recipes/baas-cpp-httplib -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
+        conan create deploy/conan/recipes/baas-nlohmann-json -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
+        conan install --requires=baas-libsodium/1.0.22 \
+          --requires=baas-cpp-httplib/0.50.1 \
+          --requires=baas-nlohmann-json/3.11.3 \
+          -of build/conan/tauri-service -s:h build_type=Release -s:b build_type=Release \
+          "${SETTINGS[@]}" -g CMakeDeps -g CMakeToolchain --build=missing --no-remote
+
+    - name: Build and verify native service
+      shell: bash
+      working-directory: baas-cpp-dev
+      run: |
+        set -euo pipefail
+        cmake -S . -B build/tauri-service \
+          "-DCMAKE_TOOLCHAIN_FILE=$PWD/build/conan/tauri-service/conan_toolchain.cmake" \
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_SERVICE_APP=ON \
+          -DBUILD_APP_BAAS=OFF -DBUILD_APP_ISA=OFF -DBUILD_BAAS_OCR=OFF \
+          -DBUILD_BAAS_AW_CHECKER=OFF -DBUILD_BAAS_NMS_BENCHMARK=OFF \
+          -DBAAS_FETCH_RESOURCES=OFF
+        cmake --build build/tauri-service --config Release --parallel 4 --target BAAS_service
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          SERVICE="$PWD/build/tauri-service/bin/BAAS_service.exe"
+          SERVICE_ENV="$(cygpath -w "$SERVICE")"
+        else
+          SERVICE="$PWD/build/tauri-service/bin/BAAS_service"
+          SERVICE_ENV="$SERVICE"
+        fi
+        test -f "$SERVICE"
+        "$SERVICE" --version | grep -E '^BAAS_service [0-9]+\.[0-9]+\.[0-9]+'
+        echo "BAAS_CPP_SERVICE_PATH=$SERVICE_ENV" >> "$GITHUB_ENV"
+
+    - name: Run strict real service lifecycle smoke
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: bun run smoke:cpp-service

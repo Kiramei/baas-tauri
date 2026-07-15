@@ -1,8 +1,10 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 
 import AdmZip from "adm-zip";
+import { validateServiceExecutable } from "./stage-cpp-service.mjs";
 
 const target = process.argv.slice(2)[0];
 
@@ -120,6 +122,17 @@ function addFixedWebView2RuntimeIfExists(zip, releaseDir) {
   }
 }
 
+async function fileSha256(file) {
+  return crypto
+    .createHash("sha256")
+    .update(await fsp.readFile(file))
+    .digest("hex");
+}
+
+export function shouldPackageCppService(target, resolvedArch) {
+  return target === "x86_64-pc-windows-msvc" || (!target && resolvedArch === "x64");
+}
+
 /// Package fixed WebView2 portable bundle. Windows only.
 async function resolvePortable() {
   if (process.platform !== "win32") {
@@ -139,8 +152,25 @@ async function resolvePortable() {
 
   const zip = new AdmZip();
 
-  // Only include the main application executable.
+  // Include the main application and the verified service when this target
+  // has C++ packaging enabled.
   addLocalFileIfExists(zip, mainExe);
+  const cppService = path.join(process.cwd(), "src-tauri", "resources", "BAAS_service.exe");
+  const cppServiceTarget = shouldPackageCppService(target, arch);
+  if (cppServiceTarget) {
+    if (!process.env.BAAS_CPP_SERVICE_PATH) {
+      throw new Error("BAAS_CPP_SERVICE_PATH is required for the Windows x64 portable bundle");
+    }
+    const source = await validateServiceExecutable(process.env.BAAS_CPP_SERVICE_PATH, "win32");
+    const staged = await validateServiceExecutable(cppService, "win32", path.dirname(cppService));
+    if ((await fileSha256(source)) !== (await fileSha256(staged))) {
+      throw new Error("Staged C++ service does not match BAAS_CPP_SERVICE_PATH");
+    }
+    zip.addLocalFile(staged);
+    console.log(`[INFO]: added verified C++ service ${staged}`);
+  } else {
+    console.log(`[INFO]: target ${target || arch} does not package the x64 C++ service`);
+  }
   addFixedWebView2RuntimeIfExists(zip, releaseDir);
 
   const zipFileName = `BAAS.Tauri_${version}_${arch}_fixed_webview2_portable.zip`;
@@ -150,7 +180,9 @@ async function resolvePortable() {
   console.log(`[INFO]: created portable zip ${zipFilePath}`);
 }
 
-resolvePortable().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (import.meta.main) {
+  resolvePortable().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
