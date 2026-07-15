@@ -107,7 +107,7 @@ jobs:
             rpm_arch: x86_64
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -133,6 +133,12 @@ jobs:
             patchelf \
             rpm
 
+      - name: Build native C++ service for packaging
+        if: matrix.target != 'aarch64-pc-windows-msvc'
+        uses: ./.github/actions/build-cpp-service
+        with:
+          target: ${{ matrix.target }}
+
       - name: Install x86 OpenSSL (macOS only)
         if: matrix.target == 'x86_64-apple-darwin'
         run: |
@@ -143,6 +149,16 @@ jobs:
           echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Tauri build
+        if: matrix.target != 'aarch64-pc-windows-msvc'
+        shell: bash
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: bun run tauri:build:cpp-service -- --target ${{ matrix.target }}
+
+      - name: Tauri build without C++ service (unsupported target)
+        if: matrix.target == 'aarch64-pc-windows-msvc'
         shell: bash
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
@@ -199,6 +215,14 @@ jobs:
             throw "No portable application exe found in $releaseDir"
           }
           Copy-Item $portable.FullName "$dst\BAAS.Tauri_${version}_${arch}_portable.exe" -Force
+          $service = "src-tauri\resources\BAAS_service.exe"
+          if (Test-Path $service) {
+            $portableDir = Join-Path $env:RUNNER_TEMP "baas-portable-$arch"
+            New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+            Copy-Item $portable.FullName (Join-Path $portableDir $portable.Name) -Force
+            Copy-Item $service (Join-Path $portableDir "BAAS_service.exe") -Force
+            Compress-Archive -Path "$portableDir\*" -DestinationPath "$dst\BAAS.Tauri_${version}_${arch}_portable.zip" -Force
+          }
 
           $sig = Get-ChildItem $src -File -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($sig) {
@@ -611,7 +635,7 @@ jobs:
             target: aarch64-pc-windows-msvc
             arch: arm64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -623,6 +647,12 @@ jobs:
         with:
           target: ${{ matrix.target }}
           save-cache: "true"
+
+      - name: Build native C++ service for packaging
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        uses: ./.github/actions/build-cpp-service
+        with:
+          target: ${{ matrix.target }}
 
       - name: Download WebView2 Runtime
         shell: pwsh
@@ -640,7 +670,17 @@ jobs:
           Remove-Item ".\src-tauri\tauri.windows.conf.json" -Force
           Rename-Item ".\src-tauri\webview2.$arch.json" "tauri.windows.conf.json"
 
-      - name: Tauri build
+      - name: Tauri build with C++ service
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: bash
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: bun run tauri:build:cpp-service -- --target ${{ matrix.target }}
+
+      - name: Tauri build without C++ service (unsupported target)
+        if: matrix.target != 'x86_64-pc-windows-msvc'
         shell: bash
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
@@ -758,7 +798,7 @@ jobs:
 
           ### Windows
           - [Windows x64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64-setup.exe)
-          - [Windows x64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_portable.exe)
+          - [Windows x64 portable with C++ service](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_portable.zip)
           - [Windows arm64 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64-setup.exe)
           - [Windows arm64 portable](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_arm64_portable.exe)
           - [Windows x64 fixed WebView2 installer](${{ env.DOWNLOAD_URL }}/BAAS.Tauri_${{ env.VERSION }}_x64_fixed_webview2-setup.exe)

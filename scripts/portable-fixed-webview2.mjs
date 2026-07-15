@@ -139,8 +139,14 @@ async function resolvePortable() {
 
   const zip = new AdmZip();
 
-  // Only include the main application executable.
+  // Include the main application and the verified service when this target
+  // has C++ packaging enabled.
   addLocalFileIfExists(zip, mainExe);
+  const cppService = path.join(process.cwd(), "src-tauri", "resources", "BAAS_service.exe");
+  if (process.env.BAAS_CPP_SERVICE_PATH && !fs.existsSync(cppService)) {
+    throw new Error(`Verified C++ service staging output is missing: ${cppService}`);
+  }
+  addLocalFileIfExists(zip, cppService);
   addFixedWebView2RuntimeIfExists(zip, releaseDir);
 
   const zipFileName = `BAAS.Tauri_${version}_${arch}_fixed_webview2_portable.zip`;

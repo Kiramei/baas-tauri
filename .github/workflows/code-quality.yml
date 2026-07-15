@@ -52,6 +52,9 @@ jobs:
       - name: Test transport handshake
         run: bun run test:transport
 
+      - name: Test C++ service packaging contract
+        run: bun run test:cpp-service-package
+
       - name: Test Android bootstrap preservation
         run: bun run test:android-bootstrap
 

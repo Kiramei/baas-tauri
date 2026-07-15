@@ -8,8 +8,8 @@ use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
     environ::{
-        backend_pid_path, launch_backend_command, launch_backend_pipe_command,
-        launch_cpp_backend_command,
+        backend_pid_path, cpp_service_executable_name, launch_backend_command,
+        launch_backend_pipe_command, launch_cpp_backend_command,
     },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
@@ -924,7 +924,7 @@ pub fn backend_cpp_transport_start(
     thread::sleep(Duration::from_millis(300));
 
     let port = available_backend_port()?;
-    start_cpp_backend_detached(&manager.config, port)?;
+    start_cpp_backend_detached(&app, &manager.config, port)?;
     if let Err(error) = backend.remember_config(&manager.config) {
         let _ = stop_backend_pid_file(&backend_pid_path(&manager.config));
         return Err(error);
@@ -1636,9 +1636,121 @@ fn start_backend_pipe_detached(
 }
 
 /// Starts the explicit C++ backend on its HTTP/WebSocket listener.
-fn start_cpp_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
-    let command = launch_cpp_backend_command(config, port);
+fn start_cpp_backend_detached(
+    app: &AppHandle,
+    config: &UpdaterConfig,
+    port: u16,
+) -> Result<(), String> {
+    let executable = resolve_cpp_service_executable(app)?;
+    let command = launch_cpp_backend_command(config, port, executable);
     spawn_backend_detached(config, port, command)
+}
+
+/// Resolves the service only from an explicit override or an application-owned
+/// layout. The BAAS project root is data and is deliberately not executable
+/// search space.
+fn resolve_cpp_service_executable(app: &AppHandle) -> Result<PathBuf, String> {
+    let override_path = std::env::var_os("BAAS_CPP_SERVICE_PATH").filter(|value| !value.is_empty());
+    if let Some(path) = override_path {
+        return validate_cpp_service_executable(PathBuf::from(path), "BAAS_CPP_SERVICE_PATH");
+    }
+
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push((
+            resource_dir.join(cpp_service_executable_name()),
+            resource_dir,
+        ));
+    }
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(parent) = current_exe.parent() {
+            candidates.push((
+                parent.join(cpp_service_executable_name()),
+                parent.to_path_buf(),
+            ));
+        }
+    }
+    if cfg!(debug_assertions) {
+        let owner = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        candidates.push((owner.join(cpp_service_executable_name()), owner));
+    }
+    candidates.dedup();
+
+    for (candidate, owner) in &candidates {
+        if candidate.is_file() {
+            return validate_owned_cpp_service_executable(
+                candidate.clone(),
+                owner,
+                "application layout",
+            );
+        }
+    }
+    Err(format!(
+        "BAAS C++ service is not installed; checked {}. Set BAAS_CPP_SERVICE_PATH to an absolute verified {} for development",
+        candidates
+            .iter()
+            .map(|(path, _)| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        cpp_service_executable_name()
+    ))
+}
+
+/// Canonicalizes and validates a service path without invoking shell or PATH
+/// lookup semantics.
+fn validate_cpp_service_executable(path: PathBuf, source: &str) -> Result<PathBuf, String> {
+    if !path.is_absolute() {
+        return Err(format!(
+            "{source} must be an absolute path to {}: {}",
+            cpp_service_executable_name(),
+            path.display()
+        ));
+    }
+    if path.file_name().and_then(|name| name.to_str()) != Some(cpp_service_executable_name()) {
+        return Err(format!(
+            "{source} must name exactly {}: {}",
+            cpp_service_executable_name(),
+            path.display()
+        ));
+    }
+    if !path.is_file() {
+        return Err(format!(
+            "{source} is not a service file: {}",
+            path.display()
+        ));
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize {}: {error}", path.display()))?;
+    if canonical.file_name().and_then(|name| name.to_str()) != Some(cpp_service_executable_name()) {
+        return Err(format!(
+            "{source} resolves to a file not named exactly {}: {}",
+            cpp_service_executable_name(),
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
+}
+
+/// Prevents application-owned resource candidates from escaping their owning
+/// directory through a symlink or reparse point.
+fn validate_owned_cpp_service_executable(
+    path: PathBuf,
+    owner: &Path,
+    source: &str,
+) -> Result<PathBuf, String> {
+    let canonical_owner = owner
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize {}: {error}", owner.display()))?;
+    let canonical = validate_cpp_service_executable(path, source)?;
+    if canonical.parent() != Some(canonical_owner.as_path()) {
+        return Err(format!(
+            "{source} escapes its application-owned directory {}: {}",
+            canonical_owner.display(),
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
 }
 
 /// Spawns one prepared backend command and records its PID.
@@ -1735,6 +1847,10 @@ fn cpp_backend_ready(port: u16) -> bool {
         return false;
     };
     health.get("ok").and_then(serde_json::Value::as_bool) == Some(true)
+        && health
+            .pointer("/statuses/runtime/phase")
+            .and_then(serde_json::Value::as_str)
+            == Some("ready")
 }
 
 /// Reads one bounded connection-close JSON response with an exact 200 status.
@@ -2061,7 +2177,7 @@ mod tests {
     fn recognizes_ready_cpp_backend() {
         let (port, server) = serve_cpp_health(
             r#"{"ok":true,"api_version":1,"service":"BAAS Service"}"#,
-            r#"{"ok":true,"ready":true}"#,
+            r#"{"ok":true,"statuses":{"runtime":{"phase":"ready"}}}"#,
             2,
         );
         assert!(cpp_backend_ready(port));
@@ -2078,6 +2194,195 @@ mod tests {
         );
         assert!(!cpp_backend_ready(port));
         server.join().unwrap();
+    }
+
+    /// A generic healthy response is not enough until the production runtime
+    /// explicitly projects its ready phase.
+    #[test]
+    fn rejects_cpp_backend_before_runtime_ready() {
+        let (port, server) = serve_cpp_health(
+            r#"{"ok":true,"api_version":1,"service":"BAAS Service"}"#,
+            r#"{"ok":true,"statuses":{"runtime":{"phase":"starting"}}}"#,
+            2,
+        );
+        assert!(!cpp_backend_ready(port));
+        server.join().unwrap();
+    }
+
+    /// Explicit service overrides cannot degrade into PATH lookup or target a
+    /// similarly named test executable.
+    #[test]
+    fn validates_exact_absolute_cpp_service_path() {
+        let root = tempfile::tempdir().unwrap();
+        let exact = root.path().join(cpp_service_executable_name());
+        fs::write(&exact, b"service").unwrap();
+        assert_eq!(
+            validate_cpp_service_executable(exact.clone(), "test").unwrap(),
+            exact.canonicalize().unwrap()
+        );
+        assert!(validate_cpp_service_executable(
+            PathBuf::from(cpp_service_executable_name()),
+            "test"
+        )
+        .unwrap_err()
+        .contains("absolute"));
+        let owner_test = root.path().join(if cfg!(windows) {
+            "BAAS_service_owner_tests.exe"
+        } else {
+            "BAAS_service_owner_tests"
+        });
+        fs::write(&owner_test, b"test").unwrap();
+        assert!(validate_cpp_service_executable(owner_test, "test")
+            .unwrap_err()
+            .contains("exactly"));
+    }
+
+    /// A service-named symlink/reparse alias cannot redirect execution to an
+    /// unrecognized process identity or escape an application-owned directory.
+    #[test]
+    fn rejects_cpp_service_alias_to_other_executable() {
+        let owner = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let other = outside
+            .path()
+            .join(if cfg!(windows) { "other.exe" } else { "other" });
+        fs::write(&other, b"other").unwrap();
+        let alias = owner.path().join(cpp_service_executable_name());
+        #[cfg(windows)]
+        if std::os::windows::fs::symlink_file(&other, &alias).is_err() {
+            return;
+        }
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&other, &alias).unwrap();
+
+        assert!(validate_cpp_service_executable(alias.clone(), "test")
+            .unwrap_err()
+            .contains("resolves to"));
+        assert!(validate_owned_cpp_service_executable(alias, owner.path(), "test").is_err());
+    }
+
+    /// When the real service is discoverable, freeze the Tauri-side readiness
+    /// contract and orderly shutdown against an actual loopback process.
+    #[test]
+    fn real_cpp_service_lifecycle_smoke_when_configured() {
+        struct ChildGuard(std::process::Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+
+        let Some(executable) = std::env::var_os("BAAS_CPP_SERVICE_PATH") else {
+            return;
+        };
+        let executable =
+            validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
+        let project_root = tempfile::tempdir().unwrap();
+        let port = available_backend_port().unwrap();
+        let mut child = ChildGuard(
+            Command::new(executable)
+                .args([
+                    "--project-root",
+                    &project_root.path().to_string_lossy(),
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    &port.to_string(),
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(10) {
+            if cpp_backend_ready(port) {
+                let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+                stream
+                    .write_all(
+                        b"POST /shutdown HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    )
+                    .unwrap();
+                let mut response = Vec::new();
+                stream.read_to_end(&mut response).unwrap();
+                assert!(response.starts_with(b"HTTP/1.1 202"));
+                let exit_started = Instant::now();
+                while exit_started.elapsed() < Duration::from_secs(5) {
+                    if let Some(status) = child.0.try_wait().unwrap() {
+                        assert!(status.success());
+                        return;
+                    }
+                    thread::sleep(Duration::from_millis(50));
+                }
+                panic!("real C++ service did not exit after /shutdown");
+            }
+            if let Some(status) = child.0.try_wait().unwrap() {
+                panic!("real C++ service exited before readiness: {status}");
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+        panic!("real C++ service did not become ready");
+    }
+
+    /// The managed PID cleanup path recognizes and terminates the real service
+    /// command line without relying on a stale child handle.
+    #[test]
+    fn real_cpp_service_managed_cleanup_when_configured() {
+        struct ChildGuard(std::process::Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+
+        let Some(executable) = std::env::var_os("BAAS_CPP_SERVICE_PATH") else {
+            return;
+        };
+        let executable =
+            validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
+        let project_root = tempfile::tempdir().unwrap();
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = project_root.path().to_string_lossy().into_owned();
+        let port = available_backend_port().unwrap();
+        let mut child = ChildGuard(
+            Command::new(executable)
+                .args([
+                    "--project-root",
+                    &project_root.path().to_string_lossy(),
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    &port.to_string(),
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let pid_file = backend_pid_path(&config);
+        fs::create_dir_all(pid_file.parent().unwrap()).unwrap();
+        fs::write(&pid_file, child.0.id().to_string()).unwrap();
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(10) && !cpp_backend_ready(port) {
+            assert!(child.0.try_wait().unwrap().is_none());
+            thread::sleep(Duration::from_millis(100));
+        }
+        assert!(cpp_backend_ready(port));
+
+        stop_backend_pid_file(&pid_file).unwrap();
+        assert!(!pid_file.exists());
+        let stopped = Instant::now();
+        while stopped.elapsed() < Duration::from_secs(5) {
+            if child.0.try_wait().unwrap().is_some() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        panic!("managed PID cleanup did not terminate the real C++ service");
     }
 
     /// A truncated body is rejected even when its JSON prefix looks valid.

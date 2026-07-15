@@ -644,7 +644,7 @@ pub fn launch_backend_pipe_command(
 }
 
 /// Returns the platform-native C++ service executable name.
-fn cpp_service_executable_name() -> &'static str {
+pub fn cpp_service_executable_name() -> &'static str {
     if cfg!(target_os = "windows") {
         "BAAS_service.exe"
     } else {
@@ -652,39 +652,16 @@ fn cpp_service_executable_name() -> &'static str {
     }
 }
 
-/// Resolves the explicit C++ backend executable.
-///
-/// An operator override wins even when it does not exist so launch failures
-/// identify the configured path. Packaged locations fall back from `bin/` to
-/// the BAAS root according to which executable is present.
-pub fn cpp_service_executable(config: &UpdaterConfig) -> PathBuf {
-    cpp_service_executable_with_override(config, std::env::var_os("BAAS_CPP_SERVICE_PATH"))
-}
-
-/// Resolves the C++ service path with an injectable environment override.
-fn cpp_service_executable_with_override(
+/// Builds the explicitly selected C++ backend launch command from an already
+/// resolved executable. Requiring the caller to supply this path prevents PATH
+/// lookup and prevents the user-selected BAAS data root becoming executable
+/// search space.
+pub fn launch_cpp_backend_command(
     config: &UpdaterConfig,
-    override_path: Option<std::ffi::OsString>,
-) -> PathBuf {
-    if let Some(path) = override_path.filter(|path| !path.is_empty()) {
-        return PathBuf::from(path);
-    }
-
-    let root_candidate = config.baas_root().join(cpp_service_executable_name());
-    let bin_candidate = config
-        .baas_root()
-        .join("bin")
-        .join(cpp_service_executable_name());
-    if bin_candidate.exists() {
-        bin_candidate
-    } else {
-        root_candidate
-    }
-}
-
-/// Builds the explicitly selected C++ backend launch command.
-pub fn launch_cpp_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec {
-    CommandSpec::new(cpp_service_executable(config))
+    port: u16,
+    executable: impl Into<PathBuf>,
+) -> CommandSpec {
+    CommandSpec::new(executable)
         .arg("--project-root")
         .arg(config.baas_root().to_string_lossy())
         .arg("--host")
@@ -701,8 +678,9 @@ pub fn launch_cpp_backend_pipe_command(
     config: &UpdaterConfig,
     port: u16,
     pipe_name: &str,
+    executable: impl Into<PathBuf>,
 ) -> CommandSpec {
-    let mut command = launch_cpp_backend_command(config, port);
+    let mut command = launch_cpp_backend_command(config, port, executable);
     command.args.push("--pipe-name".to_string());
     command.args.push(pipe_name.to_string());
     command
@@ -1290,43 +1268,14 @@ mod tests {
         assert!(command.args.contains(&"48888".to_string()));
     }
 
-    /// Explicit overrides take priority over packaged C++ service locations.
-    #[test]
-    fn cpp_service_path_prefers_override_then_bin_then_root() {
-        let root = tempfile::tempdir().unwrap();
-        let config = config(root.path());
-        let executable_name = cpp_service_executable_name();
-        let root_executable = root.path().join(executable_name);
-        let bin_executable = root.path().join("bin").join(executable_name);
-        fs::create_dir_all(bin_executable.parent().unwrap()).unwrap();
-        fs::write(&root_executable, "root").unwrap();
-        fs::write(&bin_executable, "bin").unwrap();
-
-        assert_eq!(
-            cpp_service_executable_with_override(&config, None),
-            bin_executable
-        );
-        fs::remove_file(&bin_executable).unwrap();
-        assert_eq!(
-            cpp_service_executable_with_override(&config, None),
-            root_executable
-        );
-        assert_eq!(
-            cpp_service_executable_with_override(
-                &config,
-                Some(std::ffi::OsString::from("D:/custom/BAAS_service.exe"))
-            ),
-            PathBuf::from("D:/custom/BAAS_service.exe")
-        );
-    }
-
     /// The C++ command carries the project root and detached PID ownership.
     #[test]
     fn cpp_launch_command_has_explicit_service_arguments() {
         let root = tempfile::tempdir().unwrap();
         let config = config(root.path());
 
-        let command = launch_cpp_backend_command(&config, 48889);
+        let packaged = root.path().join(cpp_service_executable_name());
+        let command = launch_cpp_backend_command(&config, 48889, &packaged);
         let baas_root = config.baas_root();
 
         assert_eq!(command.cwd.as_deref(), Some(baas_root.as_path()));
@@ -1354,7 +1303,9 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let config = config(root.path());
 
-        let command = launch_cpp_backend_pipe_command(&config, 48890, r"\\.\pipe\baas-test");
+        let packaged = root.path().join(cpp_service_executable_name());
+        let command =
+            launch_cpp_backend_pipe_command(&config, 48890, r"\\.\pipe\baas-test", &packaged);
 
         assert!(
             command
