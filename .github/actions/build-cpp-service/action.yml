@@ -71,3 +71,8 @@ runs:
         test -f "$SERVICE"
         "$SERVICE" --version | grep -E '^BAAS_service [0-9]+\.[0-9]+\.[0-9]+'
         echo "BAAS_CPP_SERVICE_PATH=$SERVICE_ENV" >> "$GITHUB_ENV"
+
+    - name: Run strict real service lifecycle smoke
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: bun run smoke:cpp-service

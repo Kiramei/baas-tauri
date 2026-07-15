@@ -215,8 +215,21 @@ jobs:
             throw "No portable application exe found in $releaseDir"
           }
           Copy-Item $portable.FullName "$dst\BAAS.Tauri_${version}_${arch}_portable.exe" -Force
-          $service = "src-tauri\resources\BAAS_service.exe"
-          if (Test-Path $service) {
+          if ("${{ matrix.target }}" -eq "x86_64-pc-windows-msvc") {
+            $service = "src-tauri\resources\BAAS_service.exe"
+            if (-not $env:BAAS_CPP_SERVICE_PATH) {
+              throw "BAAS_CPP_SERVICE_PATH is required for the x64 portable bundle"
+            }
+            if (-not (Test-Path $service)) {
+              throw "Verified x64 C++ service is missing from $service"
+            }
+            $identity = (& $service --version | Out-String).Trim()
+            if ($identity -notmatch '^BAAS_service \d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+              throw "Unexpected staged C++ service identity: $identity"
+            }
+            if ((Get-FileHash $service -Algorithm SHA256).Hash -ne (Get-FileHash $env:BAAS_CPP_SERVICE_PATH -Algorithm SHA256).Hash) {
+              throw "Staged x64 C++ service differs from BAAS_CPP_SERVICE_PATH"
+            }
             $portableDir = Join-Path $env:RUNNER_TEMP "baas-portable-$arch"
             New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
             Copy-Item $portable.FullName (Join-Path $portableDir $portable.Name) -Force

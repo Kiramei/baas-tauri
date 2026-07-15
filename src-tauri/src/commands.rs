@@ -1788,12 +1788,7 @@ fn spawn_backend_detached(
         .detached_pid_file
         .clone()
         .unwrap_or_else(|| backend_pid_path(config));
-    let persist_pid = (|| -> Result<(), String> {
-        if let Some(parent) = pid_file.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        fs::write(&pid_file, child_id.to_string()).map_err(|error| error.to_string())
-    })();
+    let persist_pid = persist_managed_backend_pid(&pid_file, child_id, config);
     if let Err(error) = persist_pid {
         let _ = child.kill();
         let _ = child.wait();
@@ -1814,6 +1809,40 @@ fn spawn_backend_detached(
 }
 
 const CPP_BACKEND_READY_RESPONSE_LIMIT: usize = 64 * 1024;
+
+const MANAGED_BACKEND_PID_SCHEMA: u8 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ManagedBackendKind {
+    Python,
+    Cpp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct ManagedBackendPid {
+    schema: u8,
+    pid: u32,
+    executable: PathBuf,
+    project_root: PathBuf,
+    start_identity: String,
+    kind: ManagedBackendKind,
+}
+
+#[derive(Debug)]
+struct BackendProcessIdentity {
+    executable: PathBuf,
+    args: Vec<String>,
+    raw_command_line: String,
+    structured_args: bool,
+    start_identity: String,
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "proc")]
+unsafe extern "C" {
+    fn proc_pidpath(pid: i32, buffer: *mut std::ffi::c_void, buffersize: u32) -> i32;
+}
 
 /// Waits for both the C++ service identity and ready health projection.
 fn wait_for_cpp_backend_ready(port: u16) -> Result<(), String> {
@@ -1951,39 +1980,210 @@ fn backend_auth_endpoint_ready(port: u16) -> bool {
         .unwrap_or(false)
 }
 
-/// Performs the stop backend pid file operation.
-fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
-    let Some(pid) = read_backend_pid(pid_file)? else {
-        return Ok(());
+/// Captures and persists executable, project-root, and start-time identity for
+/// one freshly spawned backend. No PID-only record is ever produced.
+fn persist_managed_backend_pid(
+    pid_file: &Path,
+    pid: u32,
+    config: &UpdaterConfig,
+) -> Result<(), String> {
+    let project_root = config
+        .baas_root()
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize BAAS root: {error}"))?;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let identity = loop {
+        if let Some(identity) = backend_process_identity(pid)? {
+            break identity;
+        }
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "spawned backend PID {pid} has no observable process identity"
+            ));
+        }
+        thread::sleep(Duration::from_millis(25));
     };
-    kill_backend_pid(pid)?;
-    let _ = fs::remove_file(pid_file);
+    let kind = backend_process_kind(&identity).ok_or_else(|| {
+        format!("spawned PID {pid} does not expose a recognized BAAS backend command line")
+    })?;
+    if !identity_binds_project_root(&identity, &kind, &project_root) {
+        return Err(format!(
+            "spawned backend PID {pid} is not bound to project root {}",
+            project_root.display()
+        ));
+    }
+    let record = ManagedBackendPid {
+        schema: MANAGED_BACKEND_PID_SCHEMA,
+        pid,
+        executable: identity.executable,
+        project_root,
+        start_identity: identity.start_identity,
+        kind,
+    };
+    if let Some(parent) = pid_file.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let encoded = serde_json::to_vec(&record).map_err(|error| error.to_string())?;
+    let temporary = pid_file.with_extension(format!("pid.tmp.{pid}"));
+    let _ = fs::remove_file(&temporary);
+    fs::write(&temporary, encoded).map_err(|error| error.to_string())?;
+    if let Err(error) = fs::rename(&temporary, pid_file) {
+        let _ = fs::remove_file(&temporary);
+        return Err(error.to_string());
+    }
     Ok(())
 }
 
-/// Returns the read backend pid result.
-fn read_backend_pid(pid_file: &Path) -> Result<Option<u32>, String> {
+fn backend_process_kind(identity: &BackendProcessIdentity) -> Option<ManagedBackendKind> {
+    let executable_basename = identity
+        .executable
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if (executable_basename.eq_ignore_ascii_case("baas_service.exe")
+        || executable_basename.eq_ignore_ascii_case("baas_service"))
+        && contains_cli_flag(&identity.args, "--project-root")
+        && contains_cli_flag(&identity.args, "--host")
+        && contains_cli_flag(&identity.args, "--port")
+    {
+        return Some(ManagedBackendKind::Cpp);
+    }
+    if identity
+        .args
+        .iter()
+        .any(|arg| command_basename(arg).eq_ignore_ascii_case("main.service.py"))
+        && contains_cli_flag(&identity.args, "--host")
+        && contains_cli_flag(&identity.args, "--port")
+    {
+        return Some(ManagedBackendKind::Python);
+    }
+    None
+}
+
+fn cli_flag_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+    for (index, arg) in args.iter().enumerate() {
+        if arg == flag {
+            return args.get(index + 1).map(String::as_str);
+        }
+        if let Some(value) = arg.strip_prefix(&format!("{flag}=")) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn canonical_path_matches(value: &str, expected: &Path) -> bool {
+    Path::new(value)
+        .canonicalize()
+        .map(|path| path == expected)
+        .unwrap_or(false)
+}
+
+fn identity_binds_project_root(
+    identity: &BackendProcessIdentity,
+    kind: &ManagedBackendKind,
+    project_root: &Path,
+) -> bool {
+    match kind {
+        ManagedBackendKind::Cpp => {
+            cli_flag_value(&identity.args, "--project-root")
+                .is_some_and(|value| canonical_path_matches(value, project_root))
+                || (!identity.structured_args
+                    && (identity.raw_command_line.contains(&format!(
+                        "--project-root {}",
+                        project_root.to_string_lossy()
+                    )) || identity.raw_command_line.contains(&format!(
+                        "--project-root \"{}\"",
+                        project_root.to_string_lossy()
+                    ))))
+        }
+        ManagedBackendKind::Python => {
+            let script = project_root.join("main.service.py");
+            identity
+                .args
+                .iter()
+                .any(|arg| canonical_path_matches(arg, &script))
+                || (!identity.structured_args
+                    && identity
+                        .raw_command_line
+                        .contains(script.to_string_lossy().as_ref()))
+        }
+    }
+}
+
+fn managed_backend_identity_matches(
+    record: &ManagedBackendPid,
+    identity: &BackendProcessIdentity,
+) -> bool {
+    record.schema == MANAGED_BACKEND_PID_SCHEMA
+        && identity.executable == record.executable
+        && identity.start_identity == record.start_identity
+        && backend_process_kind(identity).as_ref() == Some(&record.kind)
+        && identity_binds_project_root(identity, &record.kind, &record.project_root)
+}
+
+/// Performs the stop backend pid file operation.
+fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
+    let Some(record) = read_managed_backend_pid(pid_file)? else {
+        return Ok(());
+    };
+    let Some(identity) = backend_process_identity(record.pid)? else {
+        fs::remove_file(pid_file).map_err(|error| error.to_string())?;
+        return Ok(());
+    };
+    if !managed_backend_identity_matches(&record, &identity) {
+        return Err(format!(
+            "managed backend PID {} identity mismatch; refusing to terminate it and preserving {}",
+            record.pid,
+            pid_file.display()
+        ));
+    }
+    terminate_managed_backend(&record)?;
+    fs::remove_file(pid_file).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Reads a strong process record. Live legacy numeric PID files are retained
+/// and rejected because they cannot prove executable/start ownership.
+fn read_managed_backend_pid(pid_file: &Path) -> Result<Option<ManagedBackendPid>, String> {
     if !pid_file.exists() {
         return Ok(None);
     }
     let text = fs::read_to_string(pid_file).map_err(|error| error.to_string())?;
-    let Some(first) = text.split_whitespace().next() else {
-        let _ = fs::remove_file(pid_file);
+    if text.trim().is_empty() {
+        fs::remove_file(pid_file).map_err(|error| error.to_string())?;
         return Ok(None);
-    };
-    match first.parse::<u32>() {
-        Ok(pid) if pid > 0 => Ok(Some(pid)),
-        _ => {
-            let _ = fs::remove_file(pid_file);
-            Ok(None)
-        }
     }
+    if let Ok(record) = serde_json::from_str::<ManagedBackendPid>(&text) {
+        if record.schema != MANAGED_BACKEND_PID_SCHEMA || record.pid == 0 {
+            return Err(format!(
+                "unsupported managed backend PID record in {}",
+                pid_file.display()
+            ));
+        }
+        return Ok(Some(record));
+    }
+    if let Ok(pid) = text.trim().parse::<u32>() {
+        if pid > 0 && backend_process_identity(pid)?.is_none() {
+            fs::remove_file(pid_file).map_err(|error| error.to_string())?;
+            return Ok(None);
+        }
+        return Err(format!(
+            "live legacy backend PID file {} has no strong identity; refusing cleanup",
+            pid_file.display()
+        ));
+    }
+    Err(format!(
+        "malformed managed backend PID record {}; preserving it",
+        pid_file.display()
+    ))
 }
 
 /// Returns whether a process command line belongs to a backend launched here.
 ///
 /// Exact executable/script basenames plus the launcher's required flags avoid
 /// matching similarly named tests, owners, or unrelated service processes.
+#[cfg(test)]
 fn is_managed_backend_command_line(command_line: &str) -> bool {
     let tokens = split_command_line(command_line);
     let python = tokens
@@ -2038,14 +2238,23 @@ fn contains_cli_flag(tokens: &[String], flag: &str) -> bool {
     })
 }
 
-/// Handles the kill backend pid workflow.
 #[cfg(target_os = "windows")]
-fn kill_backend_pid(pid: u32) -> Result<(), String> {
+fn backend_process_identity(pid: u32) -> Result<Option<BackendProcessIdentity>, String> {
     use std::os::windows::process::CommandExt;
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct CimIdentity {
+        executable_path: String,
+        command_line: String,
+        creation_date: String,
+    }
 
     let query = format!(
         "$process = Get-CimInstance Win32_Process -Filter \"ProcessId = {pid}\" -ErrorAction SilentlyContinue; \
-         if ($null -ne $process) {{ [Console]::Out.Write($process.CommandLine) }}"
+         if ($null -ne $process) {{ [pscustomobject]@{{ ExecutablePath = $process.ExecutablePath; \
+         CommandLine = $process.CommandLine; CreationDate = $process.CreationDate.ToUniversalTime().ToString('o') }} \
+         | ConvertTo-Json -Compress }}"
     );
     let output = Command::new("powershell.exe")
         .args([
@@ -2058,35 +2267,199 @@ fn kill_backend_pid(pid: u32) -> Result<(), String> {
         .creation_flags(0x08000000)
         .output()
         .map_err(|error| error.to_string())?;
-    if !is_managed_backend_command_line(&String::from_utf8_lossy(&output.stdout)) {
-        return Ok(());
+    if !output.status.success() {
+        return Err(format!("failed to query process identity for PID {pid}"));
     }
-    Command::new("taskkill.exe")
-        .args(["/PID", &pid.to_string(), "/T", "/F"])
-        .creation_flags(0x08000000)
-        .status()
-        .map_err(|error| error.to_string())?;
-    Ok(())
+    let text = String::from_utf8(output.stdout).map_err(|error| error.to_string())?;
+    if text.trim().is_empty() {
+        return Ok(None);
+    }
+    let cim: CimIdentity = serde_json::from_str(&text).map_err(|error| error.to_string())?;
+    let executable = PathBuf::from(&cim.executable_path)
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize process executable: {error}"))?;
+    Ok(Some(BackendProcessIdentity {
+        executable,
+        args: split_command_line(&cim.command_line),
+        raw_command_line: cim.command_line,
+        structured_args: true,
+        start_identity: cim.creation_date,
+    }))
 }
 
-/// Handles the kill backend pid workflow.
-#[cfg(not(target_os = "windows"))]
-fn kill_backend_pid(pid: u32) -> Result<(), String> {
-    let output = Command::new("ps")
+#[cfg(target_os = "linux")]
+fn backend_process_identity(pid: u32) -> Result<Option<BackendProcessIdentity>, String> {
+    let proc_root = PathBuf::from(format!("/proc/{pid}"));
+    let executable = match fs::read_link(proc_root.join("exe")) {
+        Ok(path) => path
+            .canonicalize()
+            .map_err(|error| format!("failed to canonicalize /proc/{pid}/exe: {error}"))?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("failed to read /proc/{pid}/exe: {error}")),
+    };
+    let command_bytes = fs::read(proc_root.join("cmdline"))
+        .map_err(|error| format!("failed to read /proc/{pid}/cmdline: {error}"))?;
+    let args = command_bytes
+        .split(|byte| *byte == 0)
+        .filter(|part| !part.is_empty())
+        .map(|part| String::from_utf8(part.to_vec()).map_err(|error| error.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let stat = fs::read_to_string(proc_root.join("stat"))
+        .map_err(|error| format!("failed to read /proc/{pid}/stat: {error}"))?;
+    let after_name = stat
+        .rsplit_once(')')
+        .map(|(_, rest)| rest.trim())
+        .ok_or_else(|| format!("malformed /proc/{pid}/stat"))?;
+    let start_identity = after_name
+        .split_whitespace()
+        .nth(19)
+        .ok_or_else(|| format!("missing start time in /proc/{pid}/stat"))?
+        .to_string();
+    Ok(Some(BackendProcessIdentity {
+        executable,
+        raw_command_line: args.join(" "),
+        args,
+        structured_args: true,
+        start_identity,
+    }))
+}
+
+#[cfg(target_os = "macos")]
+fn backend_process_identity(pid: u32) -> Result<Option<BackendProcessIdentity>, String> {
+    let mut buffer = vec![0_u8; 4096];
+    // SAFETY: the writable buffer matches the length passed to proc_pidpath.
+    let length = unsafe {
+        proc_pidpath(
+            pid as i32,
+            buffer.as_mut_ptr().cast::<std::ffi::c_void>(),
+            buffer.len() as u32,
+        )
+    };
+    if length <= 0 {
+        let status = Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "stat="])
+            .output()
+            .map_err(|error| error.to_string())?;
+        let process_status = String::from_utf8(status.stdout)
+            .map_err(|error| error.to_string())?
+            .trim()
+            .to_string();
+        if process_status.is_empty() || process_status.starts_with('Z') {
+            return Ok(None);
+        }
+        return Err(format!(
+            "cannot inspect executable identity for live PID {pid}"
+        ));
+    }
+    buffer.truncate(length as usize);
+    let executable = PathBuf::from(String::from_utf8(buffer).map_err(|error| error.to_string())?)
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let command = Command::new("ps")
         .args(["-p", &pid.to_string(), "-o", "command="])
         .output()
         .map_err(|error| error.to_string())?;
-    if !is_managed_backend_command_line(&String::from_utf8_lossy(&output.stdout)) {
+    let raw_command_line = String::from_utf8(command.stdout)
+        .map_err(|error| error.to_string())?
+        .trim()
+        .to_string();
+    let start = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "lstart="])
+        .output()
+        .map_err(|error| error.to_string())?;
+    let start_identity = String::from_utf8(start.stdout)
+        .map_err(|error| error.to_string())?
+        .trim()
+        .to_string();
+    if raw_command_line.is_empty() || start_identity.is_empty() {
+        return Err(format!("incomplete process identity for live PID {pid}"));
+    }
+    Ok(Some(BackendProcessIdentity {
+        executable,
+        args: split_command_line(&raw_command_line),
+        raw_command_line,
+        structured_args: false,
+        start_identity,
+    }))
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+fn backend_process_identity(_pid: u32) -> Result<Option<BackendProcessIdentity>, String> {
+    Err("managed backend identity is unsupported on this platform".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn terminate_managed_backend(record: &ManagedBackendPid) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    let status = Command::new("taskkill.exe")
+        .args(["/PID", &record.pid.to_string(), "/T", "/F"])
+        .creation_flags(0x08000000)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|error| error.to_string())?;
+    if !status.success() {
+        return Err(format!(
+            "taskkill failed for managed backend PID {}",
+            record.pid
+        ));
+    }
+    confirm_managed_backend_exit(record, Duration::from_secs(5))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn terminate_managed_backend(record: &ManagedBackendPid) -> Result<(), String> {
+    let term = Command::new("kill")
+        .args(["-TERM", &record.pid.to_string()])
+        .status()
+        .map_err(|error| error.to_string())?;
+    if !term.success() {
+        return Err(format!(
+            "SIGTERM failed for managed backend PID {}",
+            record.pid
+        ));
+    }
+    if confirm_managed_backend_exit(record, Duration::from_secs(1)).is_ok() {
         return Ok(());
     }
-    let _ = Command::new("kill")
-        .args(["-TERM", &pid.to_string()])
-        .status();
-    thread::sleep(Duration::from_secs(1));
-    let _ = Command::new("kill")
-        .args(["-KILL", &pid.to_string()])
-        .status();
-    Ok(())
+    let Some(identity) = backend_process_identity(record.pid)? else {
+        return Ok(());
+    };
+    if !managed_backend_identity_matches(record, &identity) {
+        return Ok(());
+    }
+    let kill = Command::new("kill")
+        .args(["-KILL", &record.pid.to_string()])
+        .status()
+        .map_err(|error| error.to_string())?;
+    if !kill.success() {
+        return Err(format!(
+            "SIGKILL failed for managed backend PID {}",
+            record.pid
+        ));
+    }
+    confirm_managed_backend_exit(record, Duration::from_secs(5))
+}
+
+fn confirm_managed_backend_exit(
+    record: &ManagedBackendPid,
+    timeout: Duration,
+) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match backend_process_identity(record.pid)? {
+            None => return Ok(()),
+            Some(identity) if !managed_backend_identity_matches(record, &identity) => return Ok(()),
+            Some(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(50)),
+            Some(_) => {
+                return Err(format!(
+                    "managed backend PID {} remained alive after termination",
+                    record.pid
+                ))
+            }
+        }
+    }
 }
 
 /// Returns the format mirrorc expiry result.
@@ -2364,8 +2737,7 @@ mod tests {
                 .unwrap(),
         );
         let pid_file = backend_pid_path(&config);
-        fs::create_dir_all(pid_file.parent().unwrap()).unwrap();
-        fs::write(&pid_file, child.0.id().to_string()).unwrap();
+        persist_managed_backend_pid(&pid_file, child.0.id(), &config).unwrap();
         let started = Instant::now();
         while started.elapsed() < Duration::from_secs(10) && !cpp_backend_ready(port) {
             assert!(child.0.try_wait().unwrap().is_none());
@@ -2383,6 +2755,85 @@ mod tests {
             thread::sleep(Duration::from_millis(50));
         }
         panic!("managed PID cleanup did not terminate the real C++ service");
+    }
+
+    /// Structured identity preserves executable and project paths containing
+    /// spaces and rejects a stale start identity for the same PID/path tuple.
+    #[test]
+    fn managed_identity_handles_spaces_and_rejects_stale_start() {
+        let root = tempfile::tempdir().unwrap();
+        let product_dir = root.path().join("BAAS Tauri Product");
+        let project_root = root.path().join("Project Root With Spaces");
+        fs::create_dir_all(&product_dir).unwrap();
+        fs::create_dir_all(&project_root).unwrap();
+        let executable = product_dir.join(cpp_service_executable_name());
+        fs::write(&executable, b"service").unwrap();
+        let executable = executable.canonicalize().unwrap();
+        let project_root = project_root.canonicalize().unwrap();
+        let args = vec![
+            executable.to_string_lossy().into_owned(),
+            "--project-root".to_string(),
+            project_root.to_string_lossy().into_owned(),
+            "--host".to_string(),
+            "127.0.0.1".to_string(),
+            "--port".to_string(),
+            "8190".to_string(),
+        ];
+        let identity = BackendProcessIdentity {
+            executable: executable.clone(),
+            raw_command_line: args.join(" "),
+            args,
+            structured_args: true,
+            start_identity: "start-1".to_string(),
+        };
+        let mut record = ManagedBackendPid {
+            schema: MANAGED_BACKEND_PID_SCHEMA,
+            pid: 42,
+            executable,
+            project_root,
+            start_identity: "start-1".to_string(),
+            kind: ManagedBackendKind::Cpp,
+        };
+        assert!(managed_backend_identity_matches(&record, &identity));
+        record.start_identity = "start-2".to_string();
+        assert!(!managed_backend_identity_matches(&record, &identity));
+    }
+
+    /// A stale PID record must fail closed and remain on disk for diagnosis;
+    /// it must never report success or target the unrelated live process.
+    #[test]
+    fn stale_pid_identity_is_preserved_without_kill() {
+        let root = tempfile::tempdir().unwrap();
+        let pid_file = root.path().join("backend.pid");
+        let current = backend_process_identity(std::process::id())
+            .unwrap()
+            .unwrap();
+        let record = ManagedBackendPid {
+            schema: MANAGED_BACKEND_PID_SCHEMA,
+            pid: std::process::id(),
+            executable: current.executable,
+            project_root: root.path().canonicalize().unwrap(),
+            start_identity: "definitely-not-this-process".to_string(),
+            kind: ManagedBackendKind::Cpp,
+        };
+        fs::write(&pid_file, serde_json::to_vec(&record).unwrap()).unwrap();
+
+        let error = stop_backend_pid_file(&pid_file).unwrap_err();
+        assert!(error.contains("identity mismatch"));
+        assert!(pid_file.exists());
+    }
+
+    /// Live legacy numeric records cannot authorize termination and remain
+    /// present until an operator resolves them.
+    #[test]
+    fn live_legacy_pid_record_is_rejected_and_preserved() {
+        let root = tempfile::tempdir().unwrap();
+        let pid_file = root.path().join("backend.pid");
+        fs::write(&pid_file, std::process::id().to_string()).unwrap();
+
+        let error = stop_backend_pid_file(&pid_file).unwrap_err();
+        assert!(error.contains("no strong identity"));
+        assert!(pid_file.exists());
     }
 
     /// A truncated body is rejected even when its JSON prefix looks valid.

@@ -29,9 +29,14 @@ export function defaultServiceCandidates(root = repositoryRoot, platform = proce
   ];
 }
 
-export async function validateServiceExecutable(candidate, platform = process.platform) {
+export async function inspectServiceExecutable(candidate, platform = process.platform) {
   if (!isAbsolute(candidate)) {
     throw new Error(`BAAS C++ service path must be absolute: ${candidate}`);
+  }
+  if (!hasExactServiceBasename(candidate, platform)) {
+    throw new Error(
+      `BAAS C++ service must be named exactly ${serviceExecutableName(platform)}: ${candidate}`
+    );
   }
   const canonical = await realpath(candidate);
   const metadata = await stat(canonical);
@@ -40,6 +45,19 @@ export async function validateServiceExecutable(candidate, platform = process.pl
     throw new Error(
       `BAAS C++ service must be named exactly ${serviceExecutableName(platform)}: ${canonical}`
     );
+  }
+  return canonical;
+}
+
+export async function validateServiceExecutable(candidate, platform = process.platform, owner) {
+  const canonical = await inspectServiceExecutable(candidate, platform);
+  if (owner) {
+    const canonicalOwner = await realpath(owner);
+    if (dirname(canonical) !== canonicalOwner) {
+      throw new Error(
+        `BAAS C++ service escapes its owned directory ${canonicalOwner}: ${canonical}`
+      );
+    }
   }
   const probe = spawnSync(canonical, ["--version"], {
     encoding: "utf8",
@@ -68,25 +86,20 @@ export async function stageCppService({
   const failures = [];
   for (const candidate of candidates) {
     try {
-      const canonical = await validateServiceExecutable(candidate);
-      if (!source) {
-        const canonicalOwner = await realpath(dirname(candidate));
-        if (dirname(canonical) !== canonicalOwner) {
-          throw new Error(
-            `discovered service escapes its build output directory ${canonicalOwner}: ${canonical}`
-          );
-        }
-      }
+      const canonical = await validateServiceExecutable(
+        candidate,
+        process.platform,
+        source ? undefined : dirname(candidate)
+      );
       const destination = join(root, "src-tauri", "resources", serviceExecutableName());
       await mkdir(dirname(destination), { recursive: true });
       await rm(destination, { force: true });
       await copyFile(canonical, destination);
-      const verifiedDestination = await validateServiceExecutable(destination);
-      if (dirname(verifiedDestination) !== (await realpath(dirname(destination)))) {
-        throw new Error(
-          `staged service escapes its Tauri resource directory: ${verifiedDestination}`
-        );
-      }
+      const verifiedDestination = await validateServiceExecutable(
+        destination,
+        process.platform,
+        dirname(destination)
+      );
       return { source: canonical, destination: verifiedDestination };
     } catch (error) {
       failures.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);

@@ -22,11 +22,25 @@ their canonical owner directory, so a symlink or Windows reparse point cannot
 redirect execution outside the package. Launch failures therefore cannot fall
 through to an unrelated same-named program.
 
+Before the first `--version` spawn, automatic discovery performs this fixed
+sequence: absolute path, exact original basename, `realpath`, regular-file
+metadata, exact canonical basename, then canonical owner containment. The
+staged destination is unlinked before copy and the complete sequence plus
+`--version` identity is repeated on the copied file.
+
 Readiness accepts only HTTP 200, bounded exact-length JSON from the expected
 `BAAS Service` API v1 identity and a `/health` projection with
 `statuses.runtime.phase == "ready"`. A rejected or timed-out child is stopped
 through its managed PID file. The production service returns HTTP 202 from
 `POST /shutdown` and exits cleanly.
+
+The PID file is a versioned JSON identity record, not a bare PID. It binds the
+canonical backend executable, canonical project root, backend kind, and process
+creation identity. Windows reads structured CIM fields, Linux reads NUL-delimited
+`/proc` argv plus the kernel start tick, and macOS combines `proc_pidpath` with
+the process start projection. Cleanup refuses an identity mismatch, preserves
+the PID file for diagnosis, and confirms that the recorded process identity has
+disappeared after termination. A live legacy numeric PID file is never trusted.
 
 ## Development and packaging
 
@@ -57,6 +71,12 @@ x64, and macOS bundles.
 Windows x64 portable output is a ZIP containing both executables. Targets that
 do not yet have a native service build keep the existing Python-only package
 and fail closed if the explicit C++ entry is selected.
+
+Both release CI and the Windows x64 code-quality job build that pinned revision
+and must pass a real loopback `/version` + ready `/health` + accepted
+`POST /shutdown` + exit-zero smoke. The step cannot silently skip when the
+binary is missing. Windows portable assembly is target-gated: only x64 accepts
+the x64 service, and it revalidates identity and byte equality after staging.
 
 ## Verification
 

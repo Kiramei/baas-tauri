@@ -22,6 +22,7 @@
     "i18n:sync": "bun scripts/i18n.mjs sync",
     "tauri": "tauri",
     "stage:cpp-service": "bun scripts/stage-cpp-service.mjs",
+    "smoke:cpp-service": "bun scripts/smoke-cpp-service.mjs",
     "test:cpp-service-package": "bun test tests/scripts/stage-cpp-service.test.ts",
     "tauri:build:cpp-service": "bun scripts/tauri-build-cpp-service.mjs",
     "tauri:android:build": "tauri android build",
