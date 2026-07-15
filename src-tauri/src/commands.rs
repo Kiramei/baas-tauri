@@ -7,7 +7,10 @@ use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
-    environ::{backend_pid_path, launch_backend_command, launch_backend_pipe_command},
+    environ::{
+        backend_pid_path, launch_backend_command, launch_backend_pipe_command,
+        launch_cpp_backend_command, launch_cpp_backend_pipe_command,
+    },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
@@ -893,6 +896,53 @@ pub fn backend_transport_start(
     })
 }
 
+/// Restarts the explicitly selected C++ backend for the requested transport.
+///
+/// This is intentionally separate from `backend_transport_start`, which keeps
+/// launching the existing Python service until the frontend migration opts in.
+#[tauri::command]
+pub fn backend_cpp_transport_start(
+    app: AppHandle,
+    backend: State<'_, BackendProcessManager>,
+    pipe: State<'_, BackendPipeManager>,
+    mode: String,
+) -> Result<BackendReadyPayload, String> {
+    let transport = match mode.as_str() {
+        "websocket" => BackendTransport::Websocket,
+        "pipe" => BackendTransport::Pipe,
+        _ => return Err(format!("unsupported C++ backend transport: {mode}")),
+    };
+    let mut manager = ensure_default_config(&app)?;
+    manager
+        .update(|config| config.general.transport = transport)
+        .map_err(|error| error.message())?;
+    backend.stop_for_config(&manager.config)?;
+    pipe.close_all()?;
+    thread::sleep(Duration::from_millis(300));
+
+    let port = available_backend_port()?;
+    match mode.as_str() {
+        "websocket" => start_cpp_backend_detached(&manager.config, port)?,
+        "pipe" => {
+            let pipe_name = backend_pipe_endpoint();
+            start_cpp_backend_pipe_detached(&manager.config, port, &pipe_name)?;
+            pipe.configure(pipe_name)?;
+        }
+        _ => unreachable!("transport mode was validated before C++ backend restart"),
+    }
+    backend.remember_config(&manager.config)?;
+    wait_for_backend_auth_endpoint(port)?;
+    system_log(
+        "INFO",
+        "backend_process",
+        format!("C++ backend transport ready mode={mode} port={port}"),
+    );
+    Ok(BackendReadyPayload {
+        base_backend_addr: "127.0.0.1".to_string(),
+        base_backend_port: port,
+    })
+}
+
 /// Performs the updater abort workflow operation.
 #[tauri::command]
 pub fn updater_abort_workflow(
@@ -1577,6 +1627,22 @@ fn start_backend_pipe_detached(
     spawn_backend_detached(config, port, command)
 }
 
+/// Starts the explicit C++ backend on its HTTP/WebSocket listener.
+fn start_cpp_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), String> {
+    let command = launch_cpp_backend_command(config, port);
+    spawn_backend_detached(config, port, command)
+}
+
+/// Starts the explicit C++ backend with its local Pipe listener enabled.
+fn start_cpp_backend_pipe_detached(
+    config: &UpdaterConfig,
+    port: u16,
+    pipe_name: &str,
+) -> Result<(), String> {
+    let command = launch_cpp_backend_pipe_command(config, port, pipe_name);
+    spawn_backend_detached(config, port, command)
+}
+
 /// Spawns one prepared backend command and records its PID.
 fn spawn_backend_detached(
     config: &UpdaterConfig,
@@ -1691,26 +1757,89 @@ fn read_backend_pid(pid_file: &Path) -> Result<Option<u32>, String> {
     }
 }
 
+/// Returns whether a process command line belongs to a backend launched here.
+///
+/// Exact executable/script basenames plus the launcher's required flags avoid
+/// matching similarly named tests, owners, or unrelated service processes.
+fn is_managed_backend_command_line(command_line: &str) -> bool {
+    let tokens = split_command_line(command_line);
+    let python = tokens
+        .get(1)
+        .is_some_and(|token| command_basename(token).eq_ignore_ascii_case("main.service.py"))
+        && contains_cli_flag(&tokens, "--host")
+        && contains_cli_flag(&tokens, "--port");
+    let cpp = tokens.first().is_some_and(|token| {
+        let basename = command_basename(token);
+        basename.eq_ignore_ascii_case("baas_service.exe")
+            || basename.eq_ignore_ascii_case("baas_service")
+    }) && contains_cli_flag(&tokens, "--project-root")
+        && contains_cli_flag(&tokens, "--host")
+        && contains_cli_flag(&tokens, "--port");
+    python || cpp
+}
+
+/// Splits the platform command-line representation used by CIM and `ps`.
+fn split_command_line(command_line: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut token = String::new();
+    let mut quoted = false;
+    for value in command_line.chars() {
+        match value {
+            '"' => quoted = !quoted,
+            value if value.is_whitespace() && !quoted => {
+                if !token.is_empty() {
+                    tokens.push(std::mem::take(&mut token));
+                }
+            }
+            value => token.push(value),
+        }
+    }
+    if !token.is_empty() {
+        tokens.push(token);
+    }
+    tokens
+}
+
+/// Returns one executable or script basename for either path separator.
+fn command_basename(token: &str) -> &str {
+    token.rsplit(['/', '\\']).next().unwrap_or(token)
+}
+
+/// Finds one exact CLI flag token or its `--flag=value` spelling.
+fn contains_cli_flag(tokens: &[String], flag: &str) -> bool {
+    tokens.iter().any(|token| {
+        token == flag
+            || token
+                .strip_prefix(flag)
+                .is_some_and(|rest| rest.starts_with('='))
+    })
+}
+
 /// Handles the kill backend pid workflow.
 #[cfg(target_os = "windows")]
 fn kill_backend_pid(pid: u32) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
 
-    let script = format!(
-        "$targetPid = {pid}; \
-         $process = Get-CimInstance Win32_Process -Filter \"ProcessId = $targetPid\" -ErrorAction SilentlyContinue; \
-         if ($null -ne $process -and $process.CommandLine -like '*main.service.py*') {{ \
-             taskkill.exe /PID $targetPid /T /F | Out-Null \
-         }}; exit 0"
+    let query = format!(
+        "$process = Get-CimInstance Win32_Process -Filter \"ProcessId = {pid}\" -ErrorAction SilentlyContinue; \
+         if ($null -ne $process) {{ [Console]::Out.Write($process.CommandLine) }}"
     );
-    Command::new("powershell.exe")
+    let output = Command::new("powershell.exe")
         .args([
             "-NoLogo",
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            &script,
+            &query,
         ])
+        .creation_flags(0x08000000)
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !is_managed_backend_command_line(&String::from_utf8_lossy(&output.stdout)) {
+        return Ok(());
+    }
+    Command::new("taskkill.exe")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
         .creation_flags(0x08000000)
         .status()
         .map_err(|error| error.to_string())?;
@@ -1720,17 +1849,20 @@ fn kill_backend_pid(pid: u32) -> Result<(), String> {
 /// Handles the kill backend pid workflow.
 #[cfg(not(target_os = "windows"))]
 fn kill_backend_pid(pid: u32) -> Result<(), String> {
-    let script = format!(
-        "if ps -p {pid} -o command= | grep -F 'main.service.py' >/dev/null 2>&1; then \
-             kill -TERM {pid} >/dev/null 2>&1 || true; \
-             sleep 1; \
-             kill -KILL {pid} >/dev/null 2>&1 || true; \
-         fi"
-    );
-    Command::new("sh")
-        .args(["-lc", &script])
-        .status()
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "command="])
+        .output()
         .map_err(|error| error.to_string())?;
+    if !is_managed_backend_command_line(&String::from_utf8_lossy(&output.stdout)) {
+        return Ok(());
+    }
+    let _ = Command::new("kill")
+        .args(["-TERM", &pid.to_string()])
+        .status();
+    thread::sleep(Duration::from_secs(1));
+    let _ = Command::new("kill")
+        .args(["-KILL", &pid.to_string()])
+        .status();
     Ok(())
 }
 
@@ -1814,6 +1946,37 @@ mod tests {
         assert_eq!(non_empty_path(""), None);
         assert_eq!(non_empty_path("   "), None);
         assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
+    }
+
+    /// Managed backend identity accepts only exact names and launcher flags.
+    #[test]
+    fn recognizes_managed_backend_command_lines() {
+        assert!(is_managed_backend_command_line(
+            r#"C:\Python\python.exe D:\BAAS\main.service.py --host 127.0.0.1 --port 8190"#
+        ));
+        assert!(is_managed_backend_command_line(
+            r#""C:\Program Files\BAAS\BAAS_service.exe" --project-root D:\BAAS --host 127.0.0.1 --port 8190"#
+        ));
+        assert!(is_managed_backend_command_line(
+            "/opt/baas/BAAS_service --project-root /srv/baas --host 127.0.0.1 --port 8190"
+        ));
+    }
+
+    /// Similar binaries and incomplete commands never pass stop identity.
+    #[test]
+    fn rejects_unmanaged_backend_command_lines() {
+        assert!(!is_managed_backend_command_line(
+            r#"D:\build\BAAS_service_owner_tests.exe --project-root D:\BAAS --host 127.0.0.1 --port 8190"#
+        ));
+        assert!(!is_managed_backend_command_line(
+            r#"D:\tools\BAAS_service.exe --serve-unrelated-work"#
+        ));
+        assert!(!is_managed_backend_command_line(
+            r#"python.exe D:\BAAS\main.service.py --run-one-test"#
+        ));
+        assert!(!is_managed_backend_command_line(
+            r#"runner.exe --input D:\BAAS\main.service.py --host 127.0.0.1 --port 8190"#
+        ));
     }
 
     /// Handles malformed setup.toml recovery for desktop startup.
