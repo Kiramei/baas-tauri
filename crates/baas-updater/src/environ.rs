@@ -643,6 +643,71 @@ pub fn launch_backend_pipe_command(
     command
 }
 
+/// Returns the platform-native C++ service executable name.
+fn cpp_service_executable_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "BAAS_service.exe"
+    } else {
+        "BAAS_service"
+    }
+}
+
+/// Resolves the explicit C++ backend executable.
+///
+/// An operator override wins even when it does not exist so launch failures
+/// identify the configured path. Packaged locations fall back from `bin/` to
+/// the BAAS root according to which executable is present.
+pub fn cpp_service_executable(config: &UpdaterConfig) -> PathBuf {
+    cpp_service_executable_with_override(config, std::env::var_os("BAAS_CPP_SERVICE_PATH"))
+}
+
+/// Resolves the C++ service path with an injectable environment override.
+fn cpp_service_executable_with_override(
+    config: &UpdaterConfig,
+    override_path: Option<std::ffi::OsString>,
+) -> PathBuf {
+    if let Some(path) = override_path.filter(|path| !path.is_empty()) {
+        return PathBuf::from(path);
+    }
+
+    let root_candidate = config.baas_root().join(cpp_service_executable_name());
+    let bin_candidate = config
+        .baas_root()
+        .join("bin")
+        .join(cpp_service_executable_name());
+    if bin_candidate.exists() {
+        bin_candidate
+    } else {
+        root_candidate
+    }
+}
+
+/// Builds the explicitly selected C++ backend launch command.
+pub fn launch_cpp_backend_command(config: &UpdaterConfig, port: u16) -> CommandSpec {
+    CommandSpec::new(cpp_service_executable(config))
+        .arg("--project-root")
+        .arg(config.baas_root().to_string_lossy())
+        .arg("--host")
+        .arg("127.0.0.1")
+        .arg("--port")
+        .arg(port.to_string())
+        .cwd(config.baas_root())
+        .detached()
+        .detached_pid_file(backend_pid_path(config))
+}
+
+/// Builds the explicit C++ backend command with local Pipe transport enabled.
+pub fn launch_cpp_backend_pipe_command(
+    config: &UpdaterConfig,
+    port: u16,
+    pipe_name: &str,
+) -> CommandSpec {
+    let mut command = launch_cpp_backend_command(config, port);
+    command.args.push("--pipe-name".to_string());
+    command.args.push(pipe_name.to_string());
+    command
+}
+
 /// Returns the pid file used for the currently launched backend process.
 pub fn backend_pid_path(config: &UpdaterConfig) -> PathBuf {
     config.baas_root().join(".baas-updater").join("backend.pid")
@@ -1223,6 +1288,79 @@ mod tests {
         assert!(command.args.contains(&"127.0.0.1".to_string()));
         assert!(command.args.contains(&"--port".to_string()));
         assert!(command.args.contains(&"48888".to_string()));
+    }
+
+    /// Explicit overrides take priority over packaged C++ service locations.
+    #[test]
+    fn cpp_service_path_prefers_override_then_bin_then_root() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let executable_name = cpp_service_executable_name();
+        let root_executable = root.path().join(executable_name);
+        let bin_executable = root.path().join("bin").join(executable_name);
+        fs::create_dir_all(bin_executable.parent().unwrap()).unwrap();
+        fs::write(&root_executable, "root").unwrap();
+        fs::write(&bin_executable, "bin").unwrap();
+
+        assert_eq!(
+            cpp_service_executable_with_override(&config, None),
+            bin_executable
+        );
+        fs::remove_file(&bin_executable).unwrap();
+        assert_eq!(
+            cpp_service_executable_with_override(&config, None),
+            root_executable
+        );
+        assert_eq!(
+            cpp_service_executable_with_override(
+                &config,
+                Some(std::ffi::OsString::from("D:/custom/BAAS_service.exe"))
+            ),
+            PathBuf::from("D:/custom/BAAS_service.exe")
+        );
+    }
+
+    /// The C++ command carries the project root and detached PID ownership.
+    #[test]
+    fn cpp_launch_command_has_explicit_service_arguments() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+
+        let command = launch_cpp_backend_command(&config, 48889);
+        let baas_root = config.baas_root();
+
+        assert_eq!(command.cwd.as_deref(), Some(baas_root.as_path()));
+        assert!(command.detached);
+        assert_eq!(
+            command.detached_pid_file.as_deref(),
+            Some(backend_pid_path(&config).as_path())
+        );
+        assert_eq!(
+            command.args,
+            vec![
+                "--project-root".to_string(),
+                baas_root.to_string_lossy().into_owned(),
+                "--host".to_string(),
+                "127.0.0.1".to_string(),
+                "--port".to_string(),
+                "48889".to_string()
+            ]
+        );
+    }
+
+    /// Pipe startup appends the endpoint after the common C++ arguments.
+    #[test]
+    fn cpp_pipe_launch_appends_pipe_name() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+
+        let command = launch_cpp_backend_pipe_command(&config, 48890, r"\\.\pipe\baas-test");
+
+        assert!(
+            command
+                .args
+                .ends_with(&["--pipe-name".to_string(), r"\\.\pipe\baas-test".to_string()])
+        );
     }
 
     /// Handles the environment source urls include uv archive and pypi config workflow.

@@ -42,14 +42,14 @@ use crate::{
     behavior::inject_tray_icon,
     commands::{
         android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
-        android_scrcpy_virtual_display_status, backend_transport_start,
-        configure_portable_working_dir, ensure_default_config, open_main_devtools,
-        shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
-        updater_check_version, updater_get_startup_state, updater_get_storage_state,
-        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-        updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
-        updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
-        BackendProcessManager,
+        android_scrcpy_virtual_display_status, backend_cpp_transport_start,
+        backend_transport_start, configure_portable_working_dir, ensure_default_config,
+        open_main_devtools, shortcut_apply_bindings, tauri_client_check_update,
+        updater_abort_workflow, updater_check_version, updater_get_startup_state,
+        updater_get_storage_state, updater_path_exists_non_empty,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
+        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
     },
 };
 
@@ -88,6 +88,8 @@ pub fn run() {
             updater_start_workflow,
             updater_reset_backend_auth_and_restart,
             backend_transport_start,
+            #[cfg(not(mobile))]
+            backend_cpp_transport_start,
             backend_pipe_open,
             backend_pipe_send_json,
             backend_pipe_send_bytes,
