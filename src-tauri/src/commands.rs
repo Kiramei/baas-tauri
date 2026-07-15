@@ -9,7 +9,7 @@ use baas_updater::{
     config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
     environ::{
         backend_pid_path, launch_backend_command, launch_backend_pipe_command,
-        launch_cpp_backend_command, launch_cpp_backend_pipe_command,
+        launch_cpp_backend_command,
     },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
@@ -909,7 +909,10 @@ pub fn backend_cpp_transport_start(
 ) -> Result<BackendReadyPayload, String> {
     let transport = match mode.as_str() {
         "websocket" => BackendTransport::Websocket,
-        "pipe" => BackendTransport::Pipe,
+        "pipe" => return Err(
+            "C++ Pipe transport is not available until its production channel factory is complete"
+                .to_string(),
+        ),
         _ => return Err(format!("unsupported C++ backend transport: {mode}")),
     };
     let mut manager = ensure_default_config(&app)?;
@@ -921,17 +924,22 @@ pub fn backend_cpp_transport_start(
     thread::sleep(Duration::from_millis(300));
 
     let port = available_backend_port()?;
-    match mode.as_str() {
-        "websocket" => start_cpp_backend_detached(&manager.config, port)?,
-        "pipe" => {
-            let pipe_name = backend_pipe_endpoint();
-            start_cpp_backend_pipe_detached(&manager.config, port, &pipe_name)?;
-            pipe.configure(pipe_name)?;
-        }
-        _ => unreachable!("transport mode was validated before C++ backend restart"),
+    start_cpp_backend_detached(&manager.config, port)?;
+    if let Err(error) = backend.remember_config(&manager.config) {
+        let _ = stop_backend_pid_file(&backend_pid_path(&manager.config));
+        return Err(error);
     }
-    backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
+    if let Err(error) = wait_for_cpp_backend_ready(port) {
+        // The PID was already remembered above. Stop directly here so a
+        // poisoned manager lock cannot leave a rejected child running.
+        let cleanup = stop_backend_pid_file(&backend_pid_path(&manager.config));
+        return match cleanup {
+            Ok(()) => Err(error),
+            Err(cleanup_error) => Err(format!(
+                "{error}; failed to stop rejected C++ backend: {cleanup_error}"
+            )),
+        };
+    }
     system_log(
         "INFO",
         "backend_process",
@@ -1633,16 +1641,6 @@ fn start_cpp_backend_detached(config: &UpdaterConfig, port: u16) -> Result<(), S
     spawn_backend_detached(config, port, command)
 }
 
-/// Starts the explicit C++ backend with its local Pipe listener enabled.
-fn start_cpp_backend_pipe_detached(
-    config: &UpdaterConfig,
-    port: u16,
-    pipe_name: &str,
-) -> Result<(), String> {
-    let command = launch_cpp_backend_pipe_command(config, port, pipe_name);
-    spawn_backend_detached(config, port, command)
-}
-
 /// Spawns one prepared backend command and records its PID.
 fn spawn_backend_detached(
     config: &UpdaterConfig,
@@ -1672,25 +1670,134 @@ fn spawn_backend_detached(
         use std::os::windows::process::CommandExt;
         process.creation_flags(0x08000000);
     }
-    let child = process.spawn().map_err(|error| error.to_string())?;
+    let mut child = process.spawn().map_err(|error| error.to_string())?;
+    let child_id = child.id();
     let pid_file = command
         .detached_pid_file
         .clone()
         .unwrap_or_else(|| backend_pid_path(config));
-    if let Some(parent) = pid_file.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let persist_pid = (|| -> Result<(), String> {
+        if let Some(parent) = pid_file.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::write(&pid_file, child_id.to_string()).map_err(|error| error.to_string())
+    })();
+    if let Err(error) = persist_pid {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(format!(
+            "failed to persist backend pid {child_id}; process was terminated: {error}"
+        ));
     }
-    fs::write(&pid_file, child.id().to_string()).map_err(|error| error.to_string())?;
     system_log(
         "INFO",
         "backend_process",
         format!(
             "Backend process spawned pid={} pid_file={}",
-            child.id(),
+            child_id,
             pid_file.display()
         ),
     );
     Ok(())
+}
+
+const CPP_BACKEND_READY_RESPONSE_LIMIT: usize = 64 * 1024;
+
+/// Waits for both the C++ service identity and ready health projection.
+fn wait_for_cpp_backend_ready(port: u16) -> Result<(), String> {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(30) {
+        if cpp_backend_ready(port) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    Err(format!(
+        "C++ backend did not publish ready BAAS service health on 127.0.0.1:{port}"
+    ))
+}
+
+/// Accepts only the expected BAAS v1 service and a ready health response.
+fn cpp_backend_ready(port: u16) -> bool {
+    let Some(version) = backend_http_json(port, "/version") else {
+        return false;
+    };
+    if version.get("ok").and_then(serde_json::Value::as_bool) != Some(true)
+        || version
+            .get("api_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
+        || version.get("service").and_then(serde_json::Value::as_str) != Some("BAAS Service")
+    {
+        return false;
+    }
+    let Some(health) = backend_http_json(port, "/health") else {
+        return false;
+    };
+    health.get("ok").and_then(serde_json::Value::as_bool) == Some(true)
+}
+
+/// Reads one bounded connection-close JSON response with an exact 200 status.
+fn backend_http_json(port: u16, path: &str) -> Option<serde_json::Value> {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).ok()?;
+    let timeout = Some(Duration::from_millis(700));
+    stream.set_read_timeout(timeout).ok()?;
+    stream.set_write_timeout(timeout).ok()?;
+    let request = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).ok()?;
+
+    let mut response = Vec::new();
+    let mut chunk = [0_u8; 4096];
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                if response.len().checked_add(read)? > CPP_BACKEND_READY_RESPONSE_LIMIT {
+                    return None;
+                }
+                response.extend_from_slice(&chunk[..read]);
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                break
+            }
+            Err(_) => return None,
+        }
+    }
+
+    let header_end = response.windows(4).position(|part| part == b"\r\n\r\n")?;
+    let headers = std::str::from_utf8(&response[..header_end]).ok()?;
+    let mut lines = headers.split("\r\n");
+    let mut status = lines.next()?.split_ascii_whitespace();
+    let version = status.next()?;
+    if !matches!(version, "HTTP/1.1" | "HTTP/1.0")
+        || status.next()? != "200"
+        || status.next().is_none()
+    {
+        return None;
+    }
+    let mut content_length = None;
+    for line in lines {
+        let (name, value) = line.split_once(':')?;
+        if name.eq_ignore_ascii_case("transfer-encoding") {
+            return None;
+        }
+        if name.eq_ignore_ascii_case("content-length") {
+            if content_length.is_some() {
+                return None;
+            }
+            content_length = Some(value.trim().parse::<usize>().ok()?);
+        }
+    }
+    let body = &response[header_end + 4..];
+    if content_length? != body.len() {
+        return None;
+    }
+    serde_json::from_slice(body).ok()
 }
 
 /// Performs the wait for backend auth endpoint operation.
@@ -1906,6 +2013,83 @@ fn mirrorc_validation_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn serve_cpp_health(
+        version: &'static str,
+        health: &'static str,
+        expected_connections: usize,
+    ) -> (u16, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            for _ in 0..expected_connections {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 1024];
+                let read = stream.read(&mut request).unwrap();
+                let request = String::from_utf8_lossy(&request[..read]);
+                let body = if request.starts_with("GET /version ") {
+                    version
+                } else if request.starts_with("GET /health ") {
+                    health
+                } else {
+                    r#"{"ok":false}"#
+                };
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(), body
+                );
+                stream.write_all(response.as_bytes()).unwrap();
+            }
+        });
+        (port, handle)
+    }
+
+    fn serve_one_response(response: Vec<u8>) -> (u16, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request);
+            stream.write_all(&response).unwrap();
+        });
+        (port, handle)
+    }
+
+    /// The explicit C++ entry accepts only the expected service identity and ready health.
+    #[test]
+    fn recognizes_ready_cpp_backend() {
+        let (port, server) = serve_cpp_health(
+            r#"{"ok":true,"api_version":1,"service":"BAAS Service"}"#,
+            r#"{"ok":true,"ready":true}"#,
+            2,
+        );
+        assert!(cpp_backend_ready(port));
+        server.join().unwrap();
+    }
+
+    /// An unrelated listener cannot satisfy the explicit C++ readiness contract.
+    #[test]
+    fn rejects_wrong_cpp_backend_identity() {
+        let (port, server) = serve_cpp_health(
+            r#"{"ok":true,"api_version":1,"service":"Other Service"}"#,
+            r#"{"ok":true}"#,
+            1,
+        );
+        assert!(!cpp_backend_ready(port));
+        server.join().unwrap();
+    }
+
+    /// A truncated body is rejected even when its JSON prefix looks valid.
+    #[test]
+    fn rejects_truncated_cpp_backend_response() {
+        let response =
+            b"HTTP/1.1 200 OK\r\nContent-Length: 20\r\nConnection: close\r\n\r\n{\"ok\":true}"
+                .to_vec();
+        let (port, server) = serve_one_response(response);
+        assert!(backend_http_json(port, "/health").is_none());
+        server.join().unwrap();
+    }
 
     /// Handles the detects existing non empty root workflow.
     #[test]
