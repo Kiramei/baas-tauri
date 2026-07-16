@@ -15,6 +15,7 @@ use baas_updater::{
     },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
+    runtime_repository_store::RuntimeRepositoryStore,
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use chrono::{DateTime, Local, Utc};
@@ -35,6 +36,7 @@ use tokio::{task::JoinSet, time};
 const STORAGE_FILE_NAME: &str = ".app_storage.json";
 const STORAGE_INSTALL_DIR_KEY: &str = "base_dir";
 const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
+const RUNTIME_REPOSITORY_GENERATION_FLAG: &str = "--runtime-repository-generation";
 
 /// Frontend storage location. Portable installs keep this next to the
 /// executable, normal installs keep Tauri's default app-data store.
@@ -858,15 +860,23 @@ pub fn updater_reset_backend_auth_and_restart(
     delete_backend_auth_files(&manager.config)?;
 
     let port = available_backend_port()?;
-    match manager.config.general.backend_runtime {
-        BackendRuntime::Python => start_backend_detached(&manager.config, port)?,
-        BackendRuntime::Cpp => start_cpp_backend_detached(&app, &manager.config, port)?,
-    }
+    let runtime_repository_generation = match manager.config.general.backend_runtime {
+        BackendRuntime::Python => {
+            start_backend_detached(&manager.config, port)?;
+            None
+        }
+        BackendRuntime::Cpp => {
+            let generation = read_runtime_repository_generation(&manager.config)?;
+            start_cpp_backend_detached(&app, &manager.config, port, &generation)?;
+            Some(generation)
+        }
+    };
     track_and_wait_backend(
         &backend,
         &manager.config,
         port,
         manager.config.general.backend_runtime,
+        runtime_repository_generation.as_deref(),
     )?;
     system_log(
         "INFO",
@@ -922,7 +932,13 @@ pub fn backend_transport_start(
             }
             _ => unreachable!("transport mode was validated before backend restart"),
         }
-        track_and_wait_backend(&backend, &manager.config, port, BackendRuntime::Python)?;
+        track_and_wait_backend(
+            &backend,
+            &manager.config,
+            port,
+            BackendRuntime::Python,
+            None,
+        )?;
         system_log(
             "INFO",
             "backend_process",
@@ -948,6 +964,43 @@ pub fn backend_transport_start(
     }
 }
 
+/// Returns the exact validated runtime-repository generation selected by the
+/// Tauri-owned publisher. Opening and validating the filesystem store is kept
+/// off the async runtime worker so a large manifest cannot stall IPC handling.
+#[tauri::command]
+pub async fn runtime_repository_get_current_generation(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let manager = ensure_default_config(&app)?;
+        read_runtime_repository_generation(&manager.config)
+    })
+    .await
+    .map_err(|error| format!("runtime repository generation task failed: {error}"))?
+}
+
+fn read_runtime_repository_generation(config: &UpdaterConfig) -> Result<String, String> {
+    let store = RuntimeRepositoryStore::open(config.baas_root())
+        .map_err(|error| format!("failed to open runtime repository store: {error}"))?;
+    let activation = store
+        .read_current()
+        .map_err(|error| format!("failed to validate current runtime repository: {error}"))?
+        .ok_or_else(|| "no published runtime repository generation is available".to_string())?;
+    let generation = activation.pointer.generation;
+    validate_runtime_repository_generation(&generation)?;
+    Ok(generation)
+}
+
+fn validate_runtime_repository_generation(generation: &str) -> Result<(), String> {
+    if generation.len() == 64
+        && generation
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        Ok(())
+    } else {
+        Err("runtime repository generation must be 64 lowercase hexadecimal characters".to_string())
+    }
+}
+
 /// Restarts and persists the explicitly selected C++ backend.
 #[tauri::command]
 pub fn backend_cpp_transport_start(
@@ -955,7 +1008,9 @@ pub fn backend_cpp_transport_start(
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
     mode: String,
+    runtime_repository_generation: String,
 ) -> Result<BackendReadyPayload, String> {
+    validate_runtime_repository_generation(&runtime_repository_generation)?;
     let transport = match mode.as_str() {
         "websocket" => BackendTransport::Websocket,
         "pipe" => return Err(
@@ -980,9 +1035,15 @@ pub fn backend_cpp_transport_start(
         thread::sleep(Duration::from_millis(300));
 
         let port = available_backend_port()?;
-        start_cpp_backend_detached(&app, &manager.config, port)?;
+        start_cpp_backend_detached(&app, &manager.config, port, &runtime_repository_generation)?;
         started = true;
-        track_and_wait_backend(&backend, &manager.config, port, BackendRuntime::Cpp)?;
+        track_and_wait_backend(
+            &backend,
+            &manager.config,
+            port,
+            BackendRuntime::Cpp,
+            Some(&runtime_repository_generation),
+        )?;
         system_log(
             "INFO",
             "backend_process",
@@ -1013,12 +1074,18 @@ fn track_and_wait_backend(
     config: &UpdaterConfig,
     port: u16,
     runtime: BackendRuntime,
+    runtime_repository_generation: Option<&str>,
 ) -> Result<(), String> {
     let ready = backend
         .remember_config(config)
         .and_then(|()| match runtime {
             BackendRuntime::Python => wait_for_backend_auth_endpoint(port),
-            BackendRuntime::Cpp => wait_for_cpp_backend_ready(port),
+            BackendRuntime::Cpp => wait_for_cpp_backend_ready(
+                port,
+                runtime_repository_generation.ok_or_else(|| {
+                    "C++ backend start is missing its runtime repository generation".to_string()
+                })?,
+            ),
         });
     if let Err(error) = ready {
         return match stop_backend_pid_file(&backend_pid_path(config)) {
@@ -1752,10 +1819,12 @@ fn start_cpp_backend_detached(
     app: &AppHandle,
     config: &UpdaterConfig,
     port: u16,
+    runtime_repository_generation: &str,
 ) -> Result<(), String> {
     materialize_cpp_remote_jar(app, config)?;
     let executable = resolve_cpp_service_executable(app)?;
-    let command = launch_cpp_backend_command(config, port, executable);
+    let command =
+        launch_cpp_backend_command(config, port, runtime_repository_generation, executable);
     spawn_backend_detached(config, port, command)
 }
 
@@ -2206,6 +2275,8 @@ struct ManagedBackendPid {
     kind: ManagedBackendKind,
     #[serde(default)]
     port: u16,
+    #[serde(default)]
+    runtime_repository_generation: Option<String>,
 }
 
 #[derive(Debug)]
@@ -2223,22 +2294,28 @@ unsafe extern "C" {
     fn proc_pidpath(pid: i32, buffer: *mut std::ffi::c_void, buffersize: u32) -> i32;
 }
 
-/// Waits for both the C++ service identity and ready health projection.
-fn wait_for_cpp_backend_ready(port: u16) -> Result<(), String> {
+/// Waits for the C++ service identity, ready phase, and exact repository pin.
+fn wait_for_cpp_backend_ready(
+    port: u16,
+    runtime_repository_generation: &str,
+) -> Result<(), String> {
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(30) {
-        if cpp_backend_ready(port) {
+        if cpp_backend_ready(port, runtime_repository_generation) {
             return Ok(());
         }
         thread::sleep(Duration::from_millis(300));
     }
     Err(format!(
-        "C++ backend did not publish ready BAAS service health on 127.0.0.1:{port}"
+        "C++ backend did not publish ready BAAS service health pinned to runtime repository generation {runtime_repository_generation} on 127.0.0.1:{port}"
     ))
 }
 
-/// Accepts only the expected BAAS v1 service and a ready health response.
-fn cpp_backend_ready(port: u16) -> bool {
+/// Accepts only the expected BAAS v1 service and exact repository generation.
+fn cpp_backend_ready(port: u16, runtime_repository_generation: &str) -> bool {
+    if validate_runtime_repository_generation(runtime_repository_generation).is_err() {
+        return false;
+    }
     let Some(version) = backend_http_json(port, "/version") else {
         return false;
     };
@@ -2259,6 +2336,14 @@ fn cpp_backend_ready(port: u16) -> bool {
             .pointer("/statuses/runtime/phase")
             .and_then(serde_json::Value::as_str)
             == Some("ready")
+        && health
+            .pointer("/statuses/runtime/repository/phase")
+            .and_then(serde_json::Value::as_str)
+            == Some("pinned")
+        && health
+            .pointer("/statuses/runtime/repository/generation")
+            .and_then(serde_json::Value::as_str)
+            == Some(runtime_repository_generation)
 }
 
 /// Reads one bounded connection-close JSON response with an exact 200 status.
@@ -2427,6 +2512,19 @@ fn persist_managed_backend_pid(
             "spawned backend PID {pid} is not bound to requested port {port}"
         ));
     }
+    let runtime_repository_generation = match &kind {
+        ManagedBackendKind::Cpp => Some(
+            cli_flag_value(&identity.args, RUNTIME_REPOSITORY_GENERATION_FLAG)
+                .filter(|value| validate_runtime_repository_generation(value).is_ok())
+                .ok_or_else(|| {
+                    format!(
+                        "spawned backend PID {pid} has no canonical runtime repository generation"
+                    )
+                })?
+                .to_string(),
+        ),
+        ManagedBackendKind::Python => None,
+    };
     let record = ManagedBackendPid {
         schema: MANAGED_BACKEND_PID_SCHEMA,
         pid,
@@ -2435,6 +2533,7 @@ fn persist_managed_backend_pid(
         start_identity: identity.start_identity,
         kind,
         port,
+        runtime_repository_generation,
     };
     if let Some(parent) = pid_file.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -2461,6 +2560,8 @@ fn backend_process_kind(identity: &BackendProcessIdentity) -> Option<ManagedBack
         && contains_cli_flag(&identity.args, "--project-root")
         && contains_cli_flag(&identity.args, "--host")
         && contains_cli_flag(&identity.args, "--port")
+        && cli_flag_value(&identity.args, RUNTIME_REPOSITORY_GENERATION_FLAG)
+            .is_some_and(|value| validate_runtime_repository_generation(value).is_ok())
     {
         return Some(ManagedBackendKind::Cpp);
     }
@@ -2539,6 +2640,18 @@ fn managed_backend_identity_matches(
         && (record.port == 0
             || cli_flag_value(&identity.args, "--port").and_then(|value| value.parse::<u16>().ok())
                 == Some(record.port))
+        && match record.kind {
+            ManagedBackendKind::Cpp => {
+                record
+                    .runtime_repository_generation
+                    .as_deref()
+                    .is_some_and(|generation| {
+                        cli_flag_value(&identity.args, RUNTIME_REPOSITORY_GENERATION_FLAG)
+                            == Some(generation)
+                    })
+            }
+            ManagedBackendKind::Python => record.runtime_repository_generation.is_none(),
+        }
 }
 
 /// Performs the stop backend pid file operation.
@@ -2641,7 +2754,9 @@ fn is_managed_backend_command_line(command_line: &str) -> bool {
             || basename.eq_ignore_ascii_case("baas_service")
     }) && contains_cli_flag(&tokens, "--project-root")
         && contains_cli_flag(&tokens, "--host")
-        && contains_cli_flag(&tokens, "--port");
+        && contains_cli_flag(&tokens, "--port")
+        && cli_flag_value(&tokens, RUNTIME_REPOSITORY_GENERATION_FLAG)
+            .is_some_and(|value| validate_runtime_repository_generation(value).is_ok());
     python || cpp
 }
 
@@ -2959,7 +3074,36 @@ fn mirrorc_validation_message(
 mod tests {
     use super::*;
 
-    fn prepare_real_cpp_service_project(project_root: &Path) {
+    const TEST_RUNTIME_REPOSITORY_GENERATION: &str =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    fn publish_empty_runtime_repository(project_root: &Path) -> String {
+        use baas_updater::runtime_repository_store::{
+            RuntimeRepositoryCandidate, RuntimeRepositoryId, RuntimeRepositoryStore,
+        };
+
+        let store = RuntimeRepositoryStore::open(project_root).unwrap();
+        let manifest = br#"{"schema":"baas.runtime-repository.tree-manifest/v1","entries":[]}"#;
+        let manifest_sha256 = "a7bcaadd13d14fba8ced2b3f6fb9552b8a6fd8ad41d9eb9452bf5b8e73fa3217";
+        let candidates = [
+            (RuntimeRepositoryId::Resources, "resources.json", '1'),
+            (RuntimeRepositoryId::Scripts, "scripts.json", '2'),
+        ]
+        .map(|(id, manifest_name, digit)| {
+            let staging_root = store.create_staging_dir(id).unwrap();
+            fs::write(staging_root.join(manifest_name), manifest).unwrap();
+            RuntimeRepositoryCandidate {
+                id,
+                commit: digit.to_string().repeat(40),
+                staging_root,
+                manifest: manifest_name.to_string(),
+                manifest_sha256: manifest_sha256.to_string(),
+            }
+        });
+        store.publish(&candidates).unwrap().pointer.generation
+    }
+
+    fn prepare_real_cpp_service_project(project_root: &Path) -> String {
         let remote_jar = std::env::var_os("BAAS_CPP_SERVICE_REMOTE_JAR")
             .map(PathBuf::from)
             .expect("BAAS_CPP_SERVICE_REMOTE_JAR must accompany BAAS_CPP_SERVICE_PATH");
@@ -2991,6 +3135,7 @@ mod tests {
         )
         .unwrap();
         fs::copy(remote_jar, remote.join("scrcpy-server.jar")).unwrap();
+        publish_empty_runtime_repository(project_root)
     }
 
     #[test]
@@ -3000,6 +3145,7 @@ mod tests {
         const MOBILE_PERMISSION: &str =
             include_str!("../permissions/autogenerated/commands/mobile-commands.toml");
         const DESKTOP_CAPABILITY: &str = include_str!("../capabilities/default.json");
+        const CPP_CAPABILITY: &str = include_str!("../capabilities/cpp-runtime.json");
         const ANDROID_CAPABILITY: &str = include_str!("../capabilities/android.json");
 
         let allowed_commands = CPP_PERMISSION
@@ -3008,9 +3154,17 @@ mod tests {
             .filter(|line| line.starts_with('"'))
             .map(|line| line.trim_matches(&['"', ','][..]))
             .collect::<Vec<_>>();
-        assert_eq!(allowed_commands, ["backend_cpp_transport_start"]);
+        assert_eq!(
+            allowed_commands,
+            [
+                "backend_cpp_transport_start",
+                "runtime_repository_get_current_generation"
+            ]
+        );
         assert!(!MOBILE_PERMISSION.contains("backend_cpp_transport_start"));
+        assert!(!MOBILE_PERMISSION.contains("runtime_repository_get_current_generation"));
         let desktop: serde_json::Value = serde_json::from_str(DESKTOP_CAPABILITY).unwrap();
+        let cpp: serde_json::Value = serde_json::from_str(CPP_CAPABILITY).unwrap();
         let android: serde_json::Value = serde_json::from_str(ANDROID_CAPABILITY).unwrap();
         let has_permission = |capability: &serde_json::Value| {
             capability["permissions"]
@@ -3019,15 +3173,21 @@ mod tests {
                 .iter()
                 .any(|permission| permission.as_str() == Some("allow-cpp-transport-command"))
         };
-        assert!(has_permission(&desktop));
+        assert!(!has_permission(&desktop));
+        assert!(has_permission(&cpp));
         assert!(!has_permission(&android));
+        assert_eq!(cpp["windows"], serde_json::json!(["main"]));
+        assert_eq!(cpp["webviews"], serde_json::json!(["main"]));
+        assert!(!CPP_CAPABILITY.contains("baas-wiki-viewer"));
     }
 
     fn serve_cpp_health(
-        version: &'static str,
-        health: &'static str,
+        version: impl Into<String>,
+        health: impl Into<String>,
         expected_connections: usize,
     ) -> (u16, thread::JoinHandle<()>) {
+        let version = version.into();
+        let health = health.into();
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         let handle = thread::spawn(move || {
@@ -3037,9 +3197,9 @@ mod tests {
                 let read = stream.read(&mut request).unwrap();
                 let request = String::from_utf8_lossy(&request[..read]);
                 let body = if request.starts_with("GET /version ") {
-                    version
+                    version.as_str()
                 } else if request.starts_with("GET /health ") {
-                    health
+                    health.as_str()
                 } else {
                     r#"{"ok":false}"#
                 };
@@ -3086,11 +3246,47 @@ mod tests {
     fn recognizes_ready_cpp_backend() {
         let (port, server) = serve_cpp_health(
             r#"{"ok":true,"api_version":1,"service":"BAAS Service"}"#,
-            r#"{"ok":true,"statuses":{"runtime":{"phase":"ready"}}}"#,
+            format!(
+                r#"{{"ok":true,"statuses":{{"runtime":{{"phase":"ready","repository":{{"phase":"pinned","generation":"{TEST_RUNTIME_REPOSITORY_GENERATION}"}}}}}}}}"#
+            ),
             2,
         );
-        assert!(cpp_backend_ready(port));
+        assert!(cpp_backend_ready(port, TEST_RUNTIME_REPOSITORY_GENERATION));
         server.join().unwrap();
+    }
+
+    #[test]
+    fn rejects_cpp_backend_pinned_to_another_generation() {
+        let published = TEST_RUNTIME_REPOSITORY_GENERATION;
+        let expected = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        let (port, server) = serve_cpp_health(
+            r#"{"ok":true,"api_version":1,"service":"BAAS Service"}"#,
+            format!(
+                r#"{{"ok":true,"statuses":{{"runtime":{{"phase":"ready","repository":{{"phase":"pinned","generation":"{published}"}}}}}}}}"#
+            ),
+            2,
+        );
+        assert!(!cpp_backend_ready(port, expected));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn generation_validation_is_exact_and_missing_current_fails_closed() {
+        assert!(validate_runtime_repository_generation(TEST_RUNTIME_REPOSITORY_GENERATION).is_ok());
+        assert!(validate_runtime_repository_generation(&"A".repeat(64)).is_err());
+        assert!(validate_runtime_repository_generation(&"a".repeat(40)).is_err());
+
+        let root = tempfile::tempdir().unwrap();
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = root.path().to_string_lossy().into_owned();
+        assert!(read_runtime_repository_generation(&config)
+            .unwrap_err()
+            .contains("no published runtime repository generation"));
+        let published = publish_empty_runtime_repository(root.path());
+        assert_eq!(
+            read_runtime_repository_generation(&config).unwrap(),
+            published
+        );
     }
 
     /// An unrelated listener cannot satisfy the explicit C++ readiness contract.
@@ -3101,7 +3297,7 @@ mod tests {
             r#"{"ok":true}"#,
             1,
         );
-        assert!(!cpp_backend_ready(port));
+        assert!(!cpp_backend_ready(port, TEST_RUNTIME_REPOSITORY_GENERATION));
         server.join().unwrap();
     }
 
@@ -3114,7 +3310,7 @@ mod tests {
             r#"{"ok":true,"statuses":{"runtime":{"phase":"starting"}}}"#,
             2,
         );
-        assert!(!cpp_backend_ready(port));
+        assert!(!cpp_backend_ready(port, TEST_RUNTIME_REPOSITORY_GENERATION));
         server.join().unwrap();
     }
 
@@ -3332,7 +3528,7 @@ mod tests {
         let executable =
             validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
         let project_root = tempfile::tempdir().unwrap();
-        prepare_real_cpp_service_project(project_root.path());
+        let runtime_repository_generation = prepare_real_cpp_service_project(project_root.path());
         let port = available_backend_port().unwrap();
         let mut child = ChildGuard(
             Command::new(executable)
@@ -3343,6 +3539,8 @@ mod tests {
                     "127.0.0.1",
                     "--port",
                     &port.to_string(),
+                    RUNTIME_REPOSITORY_GENERATION_FLAG,
+                    &runtime_repository_generation,
                 ])
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -3352,7 +3550,7 @@ mod tests {
         );
         let started = Instant::now();
         while started.elapsed() < Duration::from_secs(10) {
-            if cpp_backend_ready(port) {
+            if cpp_backend_ready(port, &runtime_repository_generation) {
                 let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
                 stream
                     .write_all(
@@ -3398,7 +3596,7 @@ mod tests {
         let executable =
             validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
         let project_root = tempfile::tempdir().unwrap();
-        prepare_real_cpp_service_project(project_root.path());
+        let runtime_repository_generation = prepare_real_cpp_service_project(project_root.path());
         let mut config = UpdaterConfig::default();
         config.paths.baas_root_path = project_root.path().to_string_lossy().into_owned();
         let port = available_backend_port().unwrap();
@@ -3411,6 +3609,8 @@ mod tests {
                     "127.0.0.1",
                     "--port",
                     &port.to_string(),
+                    RUNTIME_REPOSITORY_GENERATION_FLAG,
+                    &runtime_repository_generation,
                 ])
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -3421,11 +3621,13 @@ mod tests {
         let pid_file = backend_pid_path(&config);
         persist_managed_backend_pid(&pid_file, child.0.id(), &config, port).unwrap();
         let started = Instant::now();
-        while started.elapsed() < Duration::from_secs(10) && !cpp_backend_ready(port) {
+        while started.elapsed() < Duration::from_secs(10)
+            && !cpp_backend_ready(port, &runtime_repository_generation)
+        {
             assert!(child.0.try_wait().unwrap().is_none());
             thread::sleep(Duration::from_millis(100));
         }
-        assert!(cpp_backend_ready(port));
+        assert!(cpp_backend_ready(port, &runtime_repository_generation));
 
         stop_backend_pid_file(&pid_file).unwrap();
         assert!(!pid_file.exists());
@@ -3460,6 +3662,8 @@ mod tests {
             "127.0.0.1".to_string(),
             "--port".to_string(),
             "8190".to_string(),
+            RUNTIME_REPOSITORY_GENERATION_FLAG.to_string(),
+            TEST_RUNTIME_REPOSITORY_GENERATION.to_string(),
         ];
         let identity = BackendProcessIdentity {
             executable: executable.clone(),
@@ -3476,6 +3680,7 @@ mod tests {
             start_identity: "start-1".to_string(),
             kind: ManagedBackendKind::Cpp,
             port: 8190,
+            runtime_repository_generation: Some(TEST_RUNTIME_REPOSITORY_GENERATION.to_string()),
         };
         assert!(managed_backend_identity_matches(&record, &identity));
         record.port = 8191;
@@ -3499,6 +3704,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(record.port, 0);
+        assert!(record.runtime_repository_generation.is_none());
     }
 
     /// A stale PID record must fail closed and remain on disk for diagnosis;
@@ -3518,6 +3724,7 @@ mod tests {
             start_identity: "definitely-not-this-process".to_string(),
             kind: ManagedBackendKind::Cpp,
             port: 0,
+            runtime_repository_generation: Some(TEST_RUNTIME_REPOSITORY_GENERATION.to_string()),
         };
         fs::write(&pid_file, serde_json::to_vec(&record).unwrap()).unwrap();
 
@@ -3590,6 +3797,7 @@ mod tests {
             start_identity: identity.start_identity,
             kind: ManagedBackendKind::Cpp,
             port: 0,
+            runtime_repository_generation: Some(TEST_RUNTIME_REPOSITORY_GENERATION.to_string()),
         };
         terminate_managed_backend(&record).unwrap();
         assert!(child.0.try_wait().unwrap().is_none());
@@ -3711,16 +3919,19 @@ mod tests {
             r#"C:\Python\python.exe D:\BAAS\main.service.py --host 127.0.0.1 --port 8190"#
         ));
         assert!(is_managed_backend_command_line(
-            r#""C:\Program Files\BAAS\BAAS_service.exe" --project-root D:\BAAS --host 127.0.0.1 --port 8190"#
+            r#""C:\Program Files\BAAS\BAAS_service.exe" --project-root D:\BAAS --host 127.0.0.1 --port 8190 --runtime-repository-generation aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"#
         ));
         assert!(is_managed_backend_command_line(
-            "/opt/baas/BAAS_service --project-root /srv/baas --host 127.0.0.1 --port 8190"
+            "/opt/baas/BAAS_service --project-root /srv/baas --host 127.0.0.1 --port 8190 --runtime-repository-generation aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         ));
     }
 
     /// Similar binaries and incomplete commands never pass stop identity.
     #[test]
     fn rejects_unmanaged_backend_command_lines() {
+        assert!(!is_managed_backend_command_line(
+            r#"D:\tools\BAAS_service.exe --project-root D:\BAAS --host 127.0.0.1 --port 8190"#
+        ));
         assert!(!is_managed_backend_command_line(
             r#"D:\build\BAAS_service_owner_tests.exe --project-root D:\BAAS --host 127.0.0.1 --port 8190"#
         ));

@@ -135,6 +135,14 @@ publication point. Compare-and-swap publication, `previous.json` rollback, a
 recovery journal, and strict generation revalidation prevent readers from
 observing a mixed or partially published pair.
 
+The desktop app may read the validated current generation and bind a C++
+service start to that exact 64-hex generation. Production update IPC is not
+exposed yet: transport validation does not establish which commit BAAS has
+authorized, and there is not yet an authenticated catalog for the independent
+resource and script repositories. Until such a catalog exists, URL, reference,
+commit, manifest, staging, and raw publish inputs remain internal to the
+Tauri-owned publisher core. No HTTP or WebSocket update route is provided.
+
 ## Environment
 
 Managed UV is installed under:
