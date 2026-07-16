@@ -679,6 +679,11 @@
     "dateUpdated": "日付を更新しました",
     "timeUpdated": "時刻を更新しました"
   },
+  "backendRuntime": {
+    "cpp": "C++（ネイティブ）",
+    "label": "バックエンドランタイム",
+    "python": "Python（互換）"
+  },
   "transport": {
     "label": "データ転送方式",
     "pipe": "名前付きパイプ（デスクトップ）",

@@ -1,12 +1,12 @@
 import { DynamicConfig } from "@/types/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import { PageKey } from "@/App.tsx";
-import {
-  AuthPhase,
-  ControlConnection,
-  ControlSessionBundle,
-} from "@/shared/SecureWebSocket";
-import type { BackendConnection, BackendTransportMode } from "@/transport/types";
+import { AuthPhase, ControlConnection, ControlSessionBundle } from "@/shared/SecureWebSocket";
+import type {
+  BackendConnection,
+  BackendRuntimeKind,
+  BackendTransportMode,
+} from "@/transport/types";
 
 export interface ConfigProfile {
   id: string;
@@ -141,8 +141,11 @@ interface LogStoreSet {
 }
 
 interface WebSocketState {
+  backendRuntime: BackendRuntimeKind;
   transportMode: BackendTransportMode;
+  setBackendRuntime: (runtime: BackendRuntimeKind) => Promise<void>;
   setTransportMode: (mode: BackendTransportMode) => Promise<void>;
+  setBackendSelection: (runtime: BackendRuntimeKind, mode: BackendTransportMode) => Promise<void>;
   connections: Partial<Record<WsName, BackendConnection>>;
   logStore: LogStoreSet;
   configStore: any;
@@ -151,7 +154,7 @@ interface WebSocketState {
   updateStore: any;
   versionStore: any;
   statusStore: { [id: string]: StatusItem };
-  startAuthFlow: () => Promise<void>;
+  startAuthFlow: (backendAlreadyStarted?: boolean) => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
   checkTauriUpdater: (notify?: boolean, visible?: boolean) => Promise<void>;
   startTauriUpdaterPolling: () => void;

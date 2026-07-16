@@ -41,19 +41,21 @@ description: 后端安装器 setup.toml 的用途、常用参数、更新源、M
 
 ## 常用 General 参数
 
-| 参数                       | 类型   | 作用                   | 建议                         |
-| -------------------------- | ------ | ---------------------- | ---------------------------- |
-| `mirrorc_cdk`              | string | MirrorC 下载加速凭据   | 只在你购买或获得 CDK 后填写  |
-| `current_BAAS_version`     | string | 当前后端版本           | 通常自动维护                 |
-| `current_BAAS_Cpp_version` | string | 当前 C++ 组件版本      | 通常自动维护                 |
-| `get_remote_sha_method`    | string | 获取远程 SHA 的方式    | GitHub 不通时切换到镜像      |
-| `dev`                      | bool   | 不从远程更新代码       | 本地开发或临时冻结版本时使用 |
-| `refresh`                  | bool   | 覆盖本地后端修改       | 会丢弃本地改动，谨慎使用     |
-| `launch`                   | bool   | 跳过安装步骤直接启动   | 已确认环境完整时使用         |
-| `force_launch`             | bool   | 是否关闭已启动的旧进程 | 多实例排查时注意             |
-| `debug`                    | bool   | 更新后保留终端窗口     | 排查安装失败时有用           |
-| `source_list`              | list   | PyPI 源重试列表        | 网络不稳定时调整             |
-| `runtime_path`             | string | 自定义 Python 运行时   | 只有理解后端环境时再改       |
+| 参数                       | 类型   | 作用                        | 建议                            |
+| -------------------------- | ------ | --------------------------- | ------------------------------- |
+| `backend_runtime`          | string | 桌面后端：`python` 或 `cpp` | 未主动启用原生服务时保留 Python |
+| `transport`                | string | `pipe` 或 `websocket` 通道  | C++ 固定使用 WebSocket          |
+| `mirrorc_cdk`              | string | MirrorC 下载加速凭据        | 只在你购买或获得 CDK 后填写     |
+| `current_BAAS_version`     | string | 当前后端版本                | 通常自动维护                    |
+| `current_BAAS_Cpp_version` | string | 当前 C++ 组件版本           | 通常自动维护                    |
+| `get_remote_sha_method`    | string | 获取远程 SHA 的方式         | GitHub 不通时切换到镜像         |
+| `dev`                      | bool   | 不从远程更新代码            | 本地开发或临时冻结版本时使用    |
+| `refresh`                  | bool   | 覆盖本地后端修改            | 会丢弃本地改动，谨慎使用        |
+| `launch`                   | bool   | 跳过安装步骤直接启动        | 已确认环境完整时使用            |
+| `force_launch`             | bool   | 是否关闭已启动的旧进程      | 多实例排查时注意                |
+| `debug`                    | bool   | 更新后保留终端窗口          | 排查安装失败时有用              |
+| `source_list`              | list   | PyPI 源重试列表             | 网络不稳定时调整                |
+| `runtime_path`             | string | 自定义 Python 运行时        | 只有理解后端环境时再改          |
 
 ## URL 与路径参数
 

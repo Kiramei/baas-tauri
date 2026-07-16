@@ -679,6 +679,11 @@
     "dateUpdated": "날짜가 업데이트됨",
     "timeUpdated": "시간이 업데이트됨"
   },
+  "backendRuntime": {
+    "cpp": "C++ (네이티브)",
+    "label": "백엔드 런타임",
+    "python": "Python (호환)"
+  },
   "transport": {
     "label": "데이터 전송 방식",
     "pipe": "명명된 파이프 (데스크톱)",
