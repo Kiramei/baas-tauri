@@ -330,6 +330,7 @@ name = "baas-updater"
 version = "0.0.7"
 dependencies = [
  "baas-term",
+ "ctor",
  "flate2",
  "git2",
  "libc",
@@ -337,11 +338,13 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha1 0.10.6",
  "sha2 0.11.0",
  "tar",
  "tauri",
  "tempfile",
  "toml 1.1.2+spec-1.1.0",
+ "url",
  "uuid",
  "windows 0.62.2",
  "zip 8.6.0",
