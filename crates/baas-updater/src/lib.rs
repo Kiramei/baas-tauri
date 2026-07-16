@@ -17,6 +17,7 @@ pub mod environ;
 #[cfg(not(target_os = "android"))]
 pub mod mirrorc;
 pub mod repo;
+pub mod runtime_repository_store;
 #[cfg(not(target_os = "android"))]
 pub mod workflow;
 

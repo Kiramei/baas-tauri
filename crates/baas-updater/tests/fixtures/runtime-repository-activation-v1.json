@@ -1,0 +1,27 @@
+{
+  "current": {
+    "schema": "baas.runtime-repositories.current/v1",
+    "generation": "24f74e7ebac7bb8920e775edb8fa377384c6bf2317afa4dd9a85b42b7695e1ae",
+    "snapshot": "snapshots/24f74e7ebac7bb8920e775edb8fa377384c6bf2317afa4dd9a85b42b7695e1ae.json"
+  },
+  "snapshot": {
+    "schema": "baas.runtime-repositories.snapshot/v1",
+    "generation": "24f74e7ebac7bb8920e775edb8fa377384c6bf2317afa4dd9a85b42b7695e1ae",
+    "repositories": [
+      {
+        "id": "resources",
+        "commit": "1111111111111111111111111111111111111111",
+        "root": "objects/resources/1111111111111111111111111111111111111111",
+        "manifest": "resources.json",
+        "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "id": "scripts",
+        "commit": "2222222222222222222222222222222222222222",
+        "root": "objects/scripts/2222222222222222222222222222222222222222",
+        "manifest": "scripts.json",
+        "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ]
+  }
+}
