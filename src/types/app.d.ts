@@ -104,7 +104,7 @@ interface WrappedStatusItem {
 interface CommandPayload {
   command: string;
   config_id?: string;
-  timestamp: number;
+  timestamp?: number;
   payload: { [id: string]: any };
 }
 

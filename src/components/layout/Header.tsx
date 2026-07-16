@@ -19,7 +19,6 @@ import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
-import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { buildServerOptions } from "@/shared/serverOptions";
@@ -158,7 +157,6 @@ const Header: React.FC = () => {
     const serialName = await new Promise<string>((resolve) => {
       trigger(
         {
-          timestamp: getTimestampMs() + Math.random() * 1000,
           command: "add_config",
           payload: { name, server },
         },
@@ -177,7 +175,6 @@ const Header: React.FC = () => {
       new Promise<any>((resolve, reject) => {
         trigger(
           {
-            timestamp: getTimestampMs() + Math.random() * 1000,
             command,
             payload,
           },
@@ -231,7 +228,6 @@ const Header: React.FC = () => {
       const result = await new Promise<any>((resolve, reject) => {
         triggerBinary(
           {
-            timestamp: getTimestampMs() + Math.random() * 1000,
             command: "import_config",
             payload: {},
           },
@@ -285,7 +281,6 @@ const Header: React.FC = () => {
     }
 
     trigger({
-      timestamp: getTimestampMs() + Math.random() * 1000,
       command: "remove_config",
       payload: {
         id: tab.id,

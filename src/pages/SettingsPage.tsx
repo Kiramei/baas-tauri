@@ -515,7 +515,6 @@ const SettingsPage: React.FC = () => {
     setMcLoading(true);
     trigger(
       {
-        timestamp: getTimestampMs() + Math.random(),
         command: "valid_cdk",
         payload: {
           cdk: cdk,

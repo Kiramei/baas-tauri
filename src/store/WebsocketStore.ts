@@ -18,6 +18,7 @@ import type {
 } from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
+import { CorrelationIdAllocator } from "@/shared/CorrelationIdAllocator";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { t } from "i18next";
 import {
@@ -102,6 +103,26 @@ type PendingSyncPatch = {
 };
 
 const pendingSyncPatches = new Map<number, PendingSyncPatch>();
+const correlationIds = new CorrelationIdAllocator();
+
+type CorrelationState = Pick<
+  WebSocketState,
+  "pendingCallbacks" | "pendingStreamCallbacks" | "pendingBinaryCallbacks"
+>;
+
+const ownsCorrelation = (table: Record<string, unknown>, candidate: number) =>
+  Object.prototype.hasOwnProperty.call(table, candidate);
+
+/** Reserves one identifier across every response and sync-retry owner. */
+const allocateCorrelationId = (state: CorrelationState, minimum = 0) =>
+  correlationIds.allocate(
+    (candidate) =>
+      pendingSyncPatches.has(candidate) ||
+      ownsCorrelation(state.pendingCallbacks, candidate) ||
+      ownsCorrelation(state.pendingStreamCallbacks, candidate) ||
+      ownsCorrelation(state.pendingBinaryCallbacks, candidate),
+    minimum
+  );
 
 /** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
 const startManagedBackendTransport = async (
@@ -1297,13 +1318,10 @@ export const useWebSocketStore = create<WebSocketState>()(
             return;
           }
 
-          let retryTimestamp = Math.max(
-            getTimestampMs(),
+          const retryTimestamp = allocateCorrelationId(
+            get(),
             Math.ceil(Number(message.timestamp) || 0)
           );
-          while (pendingSyncPatches.has(retryTimestamp) || get().pendingCallbacks[retryTimestamp]) {
-            retryTimestamp += 1;
-          }
 
           pendingSyncPatches.set(retryTimestamp, {
             ...pending,
@@ -1636,8 +1654,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     modify: (path: string, patch: any, showToast = false) => {
       const [resourceId, scope] = path.split("::");
-      let timestamp = getTimestampMs();
-      while (pendingSyncPatches.has(timestamp) || get().pendingCallbacks[timestamp]) timestamp += 1;
+      const timestamp = allocateCorrelationId(get());
       const ops = isPlainObject(patch)
         ? Object.entries(patch).map(([key, value]) => ({
             op: "replace",
@@ -1676,7 +1693,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     trigger: (payload, callback) => {
-      const timestamp = payload.timestamp || Date.now();
+      const timestamp = allocateCorrelationId(get());
       if (callback) {
         get().pendingCallbacks[timestamp] = callback;
       }
@@ -1691,7 +1708,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     triggerStream: (payload, callback) => {
-      const timestamp = payload.timestamp || Date.now();
+      const timestamp = allocateCorrelationId(get());
       if (callback) {
         get().pendingStreamCallbacks[timestamp] = callback;
       }
@@ -1706,7 +1723,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     triggerBinary: (payload, binary, callback) => {
-      const timestamp = payload.timestamp || Date.now();
+      const timestamp = allocateCorrelationId(get());
       if (callback) {
         get().pendingCallbacks[timestamp] = callback;
       }
