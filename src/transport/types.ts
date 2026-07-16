@@ -2,6 +2,7 @@ import type { ControlConnection, ControlSessionBundle } from "@/shared/SecureWeb
 
 export type BackendChannelName = "provider" | "sync" | "trigger" | "remote";
 export type BackendTransportMode = "websocket" | "pipe";
+export type BackendRuntimeKind = "python" | "cpp";
 
 export interface BackendConnection {
   readonly readyState: number | undefined;

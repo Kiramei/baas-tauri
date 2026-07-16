@@ -3,6 +3,7 @@ import type {
   BackendChannelName,
   BackendConnection,
   BackendControlSessionBundle,
+  BackendRuntimeKind,
   BackendTransportMode,
 } from "@/transport/types";
 
@@ -33,13 +34,37 @@ export async function configuredTransportMode(): Promise<BackendTransportMode> {
 }
 
 export async function startBackendTransport(
-  mode: BackendTransportMode
+  mode: BackendTransportMode,
+  runtime: BackendRuntimeKind = "python"
 ): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {
   if (!__WITH_TAURI__) return {};
   const { invoke } = await import("@/shared/TauriInvoke");
-  return invoke<{ baseBackendAddr: string; baseBackendPort: number }>("backend_transport_start", {
-    mode: normalizeTransportMode(mode),
-  });
+  return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
+    backendTransportStartCommand(runtime),
+    {
+      mode: normalizeTransportMode(mode),
+    }
+  );
+}
+
+/** Explicit native-service opt-in; normal startup remains on the Python backend. */
+export function startCppBackendTransport(
+  mode: BackendTransportMode
+): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {
+  return startBackendTransport(mode, "cpp");
+}
+
+export function backendTransportStartCommand(
+  runtime: BackendRuntimeKind
+): "backend_transport_start" | "backend_cpp_transport_start" {
+  switch (runtime) {
+    case "python":
+      return "backend_transport_start";
+    case "cpp":
+      return "backend_cpp_transport_start";
+    default:
+      throw new Error(`Unsupported backend runtime: ${String(runtime)}`);
+  }
 }
 
 export async function openBackendChannel(options: {
