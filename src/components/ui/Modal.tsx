@@ -11,6 +11,7 @@ interface ModalProps {
   children: React.ReactNode;
   titleNode?: React.ReactNode;
   width?: number;
+  minimumWidth?: number;
 }
 
 /** Renders the modal component. */
@@ -21,6 +22,7 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   titleNode = undefined,
   width = 40,
+  minimumWidth = 320,
 }) => {
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
@@ -42,6 +44,14 @@ export const Modal: React.FC<ModalProps> = ({
 
   const overlayCls =
     "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
+  // Preserve each dialog's desktop percentage while allowing dense forms to request a larger
+  // narrow-screen baseline. `min()` caps that baseline at the overlay's available width, so
+  // phones narrower than the requested size still retain the outer padding.
+  const modalStyle: React.CSSProperties = {
+    width: `${width}%`,
+    minWidth: `min(${minimumWidth}px, 100%)`,
+    maxWidth: "100%",
+  };
 
   return createPortal(
     <div
@@ -58,7 +68,7 @@ export const Modal: React.FC<ModalProps> = ({
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
         className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5 px-3"
-        style={{ width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }}
+        style={modalStyle}
       >
         <div className="overflow-auto px-2" style={{ maxHeight: "calc(100vh - 80px)" }}>
           <div className="flex items-center justify-between p-0 border-b border-slate-200 dark:border-slate-700">

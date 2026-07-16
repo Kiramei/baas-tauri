@@ -253,6 +253,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           title={t(featureTranslationKey(modalContent))}
           onClose={closeModal}
           width={modalWidth ?? 0}
+          minimumWidth={420}
         >
           <FeaturePanelErrorBoundary closeLabel={t("common.cancel")} onClose={closeModal}>
             <CurrentModalContent
