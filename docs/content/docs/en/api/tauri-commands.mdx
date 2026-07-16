@@ -27,7 +27,7 @@ The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camel
 | `updater_path_exists_non_empty` | `{ path }` | `boolean`. |
 | `updater_update_config` | `{ request }` | Updated config. Desktop accepts `backendRuntime: "python" | "cpp"`; Android omits that field and stays on Python. |
 | `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report. |
-| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; desktop delegates to the updater plugin. |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; the desktop command rejects direct calls, while the desktop UI uses the updater plugin separately. |
 | `updater_check_version` | `{ request: { channel? } }` | Local/remote SHA report. |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One source probe. |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Concurrent source probes. |
@@ -35,7 +35,7 @@ The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camel
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Abort report. |
 | `updater_terminal_snapshot` | none | Current structured terminal snapshot. |
 | `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
-| `updater_reset_backend_auth_and_restart` | none | Desktop restarts the selected runtime; Android ensures its service and reports `restartDeferred: true`. |
+| `updater_reset_backend_auth_and_restart` | none | Desktop restarts the selected runtime; Android ensures its service and currently reports `restart_deferred: true`. |
 
 On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime. The runtime-repository activation store in `baas-updater` is internal; no runtime-repository downloader or activation command is registered at this revision.
 

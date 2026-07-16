@@ -7,7 +7,8 @@
     "build:fonts": "bun scripts/build-fonts.mjs",
     "build:next": "next build",
     "build": "bun run build:fonts && next build",
-    "check:links": "bun scripts/check-static-links.mjs",
+    "test:links": "bun test scripts/check-static-links.test.mjs",
+    "check:links": "bun run test:links && bun scripts/check-static-links.mjs",
     "start": "next start"
   },
   "dependencies": {

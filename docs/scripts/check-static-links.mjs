@@ -1,5 +1,5 @@
 import { readFile, readdir, stat } from "node:fs/promises";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { URL } from "node:url";
 
 const outputRoot = resolve(process.argv[2] ?? "out");
@@ -28,7 +28,31 @@ function decodeHtmlAttribute(value) {
 
 function outputTarget(route) {
   if (!route) return join(outputRoot, "index.html");
-  const path = join(outputRoot, ...route.split("/"));
+  const segments = route.split("/");
+  if (
+    segments.some(
+      (segment) =>
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\\") ||
+        [...segment].some((character) => {
+          const codePoint = character.codePointAt(0);
+          return codePoint <= 0x1f || codePoint === 0x7f;
+        }),
+    )
+  ) {
+    return null;
+  }
+
+  const path = resolve(outputRoot, ...segments);
+  const relativePath = relative(outputRoot, path);
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    return null;
+  }
   return extname(route) ? path : join(path, "index.html");
 }
 
@@ -84,6 +108,10 @@ for (const source of htmlFiles) {
 
     const route = absolutePath.slice(normalizedMount.length).replace(/^\/+/, "");
     const target = outputTarget(route);
+    if (target === null) {
+      failures.add(`invalid local path: ${sourceName} -> ${reference}`);
+      continue;
+    }
     if (!(await isFile(target))) {
       failures.add(`missing target: ${sourceName} -> ${reference}`);
       continue;

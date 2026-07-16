@@ -27,7 +27,7 @@ description: BAAS Tauri 宿主注册的命令，以及桌面端和 Android 端�
 | `updater_path_exists_non_empty` | `{ path }` | `boolean`。 |
 | `updater_update_config` | `{ request }` | 更新后的配置；桌面接受 `backendRuntime: "python" | "cpp"`，Android 不包含该字段并保持 Python。 |
 | `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | 验证报告。 |
-| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android 更新元数据；桌面端由 updater 插件处理。 |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android 更新元数据；桌面端命令拒绝直接调用，桌面 UI 则另行使用 updater 插件。 |
 | `updater_check_version` | `{ request: { channel? } }` | 本地与远端 SHA 报告。 |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 单个来源测试。 |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 并发测试全部来源。 |
@@ -35,7 +35,7 @@ description: BAAS Tauri 宿主注册的命令，以及桌面端和 Android 端�
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 中止报告。 |
 | `updater_terminal_snapshot` | 无 | 当前结构化终端快照。 |
 | `updater_resize_term` | `{ rows, cols }` | 调整终端模型尺寸。 |
-| `updater_reset_backend_auth_and_restart` | 无 | 桌面重启所选 Runtime；Android 只确保 Service 存在，并返回 `restartDeferred: true`。 |
+| `updater_reset_backend_auth_and_restart` | 无 | 桌面重启所选 Runtime；Android 只确保 Service 存在，并且当前返回 `restart_deferred: true`。 |
 
 Android 尽量保持相同的前端返回形状，但操作对象是应用存储和内嵌 Python Runtime。当前版本中 `baas-updater` 的 runtime-repository activation store 属于内部实现，尚未注册 runtime-repository 下载或活化命令。
 
