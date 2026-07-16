@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   backendTransportStartCommand,
+  backendTransportStartupKey,
+  backendTransportStartInvocation,
+  assertRuntimeRepositoryGeneration,
   resolveBackendRuntime,
   resolveBackendSelection,
   resolveTransportMode,
@@ -48,5 +51,37 @@ describe("resolveTransportMode", () => {
   test("keeps Android and WebUI on Python even if persisted input requests C++", () => {
     expect(resolveBackendRuntime("cpp", { android: true, tauri: true })).toBe("python");
     expect(resolveBackendRuntime("cpp", { android: false, tauri: false })).toBe("python");
+  });
+
+  test("requires one canonical generation for every C++ startup key", () => {
+    const first = "a".repeat(64);
+    const second = "b".repeat(64);
+    expect(backendTransportStartupKey("websocket", "cpp", first)).toBe(`cpp:websocket:${first}`);
+    expect(backendTransportStartupKey("websocket", "cpp", second)).not.toBe(
+      backendTransportStartupKey("websocket", "cpp", first)
+    );
+    expect(() => backendTransportStartupKey("websocket", "cpp")).toThrow(
+      "64 lowercase hexadecimal"
+    );
+    expect(() => assertRuntimeRepositoryGeneration("A".repeat(64))).toThrow(
+      "64 lowercase hexadecimal"
+    );
+  });
+
+  test("keeps Python startup coalescing independent of repository generations", () => {
+    expect(backendTransportStartupKey("pipe", "python")).toBe("python:pipe");
+    expect(backendTransportStartupKey("pipe", "python", "not-consulted")).toBe("python:pipe");
+  });
+
+  test("freezes the legacy Python IPC payload while binding C++ to a generation", () => {
+    expect(backendTransportStartInvocation("python", "pipe")).toEqual({
+      command: "backend_transport_start",
+      args: { mode: "pipe" },
+    });
+    const generation = "c".repeat(64);
+    expect(backendTransportStartInvocation("cpp", "websocket", generation)).toEqual({
+      command: "backend_cpp_transport_start",
+      args: { mode: "websocket", runtimeRepositoryGeneration: generation },
+    });
   });
 });

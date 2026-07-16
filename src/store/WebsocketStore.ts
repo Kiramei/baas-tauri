@@ -6,7 +6,9 @@ import {
   rememberControlSession,
 } from "@/shared/SecureWebSocket";
 import {
+  backendTransportStartupKey,
   configuredBackendSelection,
+  getCurrentRuntimeRepositoryGeneration,
   normalizeTransportMode,
   openBackendChannel,
   startBackendTransport,
@@ -78,8 +80,7 @@ let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
 let transportStartup:
   | {
-      mode: "websocket" | "pipe";
-      runtime: BackendRuntimeKind;
+      key: string;
       promise: ReturnType<typeof startBackendTransport>;
     }
   | null = null;
@@ -132,14 +133,17 @@ const startManagedBackendTransport = async (
   if (Date.now() - transportStartupFailureAt < 5_000) {
     throw new Error("Backend transport startup is cooling down after a failure");
   }
+  const runtimeRepositoryGeneration =
+    runtime === "cpp" ? await getCurrentRuntimeRepositoryGeneration() : undefined;
+  const key = backendTransportStartupKey(mode, runtime, runtimeRepositoryGeneration);
   if (transportStartup) {
-    if (transportStartup.mode === mode && transportStartup.runtime === runtime) {
+    if (transportStartup.key === key) {
       return transportStartup.promise;
     }
     await transportStartup.promise.catch(() => undefined);
   }
-  const promise = startBackendTransport(mode, runtime);
-  transportStartup = { mode, runtime, promise };
+  const promise = startBackendTransport(mode, runtime, runtimeRepositoryGeneration);
+  transportStartup = { key, promise };
   try {
     const startup = await promise;
     transportStartupFailureAt = 0;

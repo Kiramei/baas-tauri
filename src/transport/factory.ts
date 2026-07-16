@@ -75,7 +75,8 @@ export async function configuredBackendSelection(): Promise<{
 
 export async function startBackendTransport(
   mode: BackendTransportMode,
-  runtime: BackendRuntimeKind = "python"
+  runtime: BackendRuntimeKind = "python",
+  runtimeRepositoryGeneration?: string
 ): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {
   if (!__WITH_TAURI__) return {};
   if (__WITH_ANDROID__ && runtime !== "python") {
@@ -85,22 +86,91 @@ export async function startBackendTransport(
     throw new Error("C++ backend runtime supports only WebSocket transport");
   }
   const { invoke } = await import("@/shared/TauriInvoke");
+  const selectedMode = resolveBackendSelection(runtime, mode, {
+    android: __WITH_ANDROID__,
+    tauri: true,
+  }).mode;
+  if (runtime === "cpp") {
+    const generation =
+      runtimeRepositoryGeneration ?? (await getCurrentRuntimeRepositoryGeneration());
+    assertRuntimeRepositoryGeneration(generation);
+    const invocation = backendTransportStartInvocation(runtime, selectedMode, generation);
+    return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
+      invocation.command,
+      invocation.args
+    );
+  }
+  const invocation = backendTransportStartInvocation(runtime, selectedMode);
   return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
-    backendTransportStartCommand(runtime),
-    {
-      mode: resolveBackendSelection(runtime, mode, {
-        android: __WITH_ANDROID__,
-        tauri: true,
-      }).mode,
-    }
+    invocation.command,
+    invocation.args
   );
+}
+
+/** Reads the publisher-selected generation before any C++ process is started. */
+export async function getCurrentRuntimeRepositoryGeneration(): Promise<string> {
+  if (!__WITH_TAURI__ || __WITH_ANDROID__) {
+    throw new Error("Runtime repository generations are available only on desktop");
+  }
+  const { invoke } = await import("@/shared/TauriInvoke");
+  const generation = await invoke<string>("runtime_repository_get_current_generation");
+  assertRuntimeRepositoryGeneration(generation);
+  return generation;
+}
+
+export function assertRuntimeRepositoryGeneration(generation: string): void {
+  if (!/^[0-9a-f]{64}$/.test(generation)) {
+    throw new Error("Runtime repository generation must be 64 lowercase hexadecimal characters");
+  }
+}
+
+/** Stable key used to coalesce only starts bound to the same generation. */
+export function backendTransportStartupKey(
+  mode: BackendTransportMode,
+  runtime: BackendRuntimeKind,
+  runtimeRepositoryGeneration?: string
+): string {
+  if (runtime === "cpp") {
+    assertRuntimeRepositoryGeneration(runtimeRepositoryGeneration ?? "");
+    return `${runtime}:${mode}:${runtimeRepositoryGeneration}`;
+  }
+  return `${runtime}:${mode}`;
+}
+
+/** Pure IPC snapshot; the Python shape intentionally stays unchanged. */
+export function backendTransportStartInvocation(
+  runtime: BackendRuntimeKind,
+  mode: BackendTransportMode,
+  runtimeRepositoryGeneration?: string
+):
+  | { command: "backend_transport_start"; args: { mode: BackendTransportMode } }
+  | {
+      command: "backend_cpp_transport_start";
+      args: { mode: BackendTransportMode; runtimeRepositoryGeneration: string };
+    } {
+  if (runtime === "python") {
+    return { command: "backend_transport_start", args: { mode } };
+  }
+  assertRuntimeRepositoryGeneration(runtimeRepositoryGeneration ?? "");
+  return {
+    command: "backend_cpp_transport_start",
+    args: { mode, runtimeRepositoryGeneration: runtimeRepositoryGeneration! },
+  };
 }
 
 /** Starts the native service without permitting a Python fallback. */
 export function startCppBackendTransport(
   mode: BackendTransportMode
-): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {
-  return startBackendTransport(mode, "cpp");
+): Promise<{ baseBackendAddr: string; baseBackendPort: number }> {
+  return startBackendTransport(mode, "cpp").then((payload) => {
+    if (!payload.baseBackendAddr || payload.baseBackendPort === undefined) {
+      throw new Error("C++ backend did not return a managed endpoint");
+    }
+    return {
+      baseBackendAddr: payload.baseBackendAddr,
+      baseBackendPort: payload.baseBackendPort,
+    };
+  });
 }
 
 export function backendTransportStartCommand(

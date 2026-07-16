@@ -1,6 +1,7 @@
 [[permission]]
 identifier = "allow-cpp-transport-command"
-description = "Allows the desktop main webview to explicitly start the packaged C++ backend."
+description = "Allows the desktop main webview to read the published runtime generation and explicitly start the packaged C++ backend."
 commands.allow = [
   "backend_cpp_transport_start",
+  "runtime_repository_get_current_generation",
 ]

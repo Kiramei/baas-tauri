@@ -659,6 +659,7 @@ pub fn cpp_service_executable_name() -> &'static str {
 pub fn launch_cpp_backend_command(
     config: &UpdaterConfig,
     port: u16,
+    runtime_repository_generation: &str,
     executable: impl Into<PathBuf>,
 ) -> CommandSpec {
     CommandSpec::new(executable)
@@ -668,6 +669,8 @@ pub fn launch_cpp_backend_command(
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
+        .arg("--runtime-repository-generation")
+        .arg(runtime_repository_generation)
         .cwd(config.baas_root())
         .detached()
         .detached_pid_file(backend_pid_path(config))
@@ -678,9 +681,11 @@ pub fn launch_cpp_backend_pipe_command(
     config: &UpdaterConfig,
     port: u16,
     pipe_name: &str,
+    runtime_repository_generation: &str,
     executable: impl Into<PathBuf>,
 ) -> CommandSpec {
-    let mut command = launch_cpp_backend_command(config, port, executable);
+    let mut command =
+        launch_cpp_backend_command(config, port, runtime_repository_generation, executable);
     command.args.push("--pipe-name".to_string());
     command.args.push(pipe_name.to_string());
     command
@@ -1275,7 +1280,8 @@ mod tests {
         let config = config(root.path());
 
         let packaged = root.path().join(cpp_service_executable_name());
-        let command = launch_cpp_backend_command(&config, 48889, &packaged);
+        let generation = "a".repeat(64);
+        let command = launch_cpp_backend_command(&config, 48889, &generation, &packaged);
         let baas_root = config.baas_root();
 
         assert_eq!(command.cwd.as_deref(), Some(baas_root.as_path()));
@@ -1292,7 +1298,9 @@ mod tests {
                 "--host".to_string(),
                 "127.0.0.1".to_string(),
                 "--port".to_string(),
-                "48889".to_string()
+                "48889".to_string(),
+                "--runtime-repository-generation".to_string(),
+                generation,
             ]
         );
     }
@@ -1304,8 +1312,13 @@ mod tests {
         let config = config(root.path());
 
         let packaged = root.path().join(cpp_service_executable_name());
-        let command =
-            launch_cpp_backend_pipe_command(&config, 48890, r"\\.\pipe\baas-test", &packaged);
+        let command = launch_cpp_backend_pipe_command(
+            &config,
+            48890,
+            r"\\.\pipe\baas-test",
+            &"b".repeat(64),
+            &packaged,
+        );
 
         assert!(
             command

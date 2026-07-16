@@ -11,6 +11,7 @@ import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { useTheme } from "@/context/ThemeProvider";
 import { reloadWithoutPrompt } from "@/shared/reload";
+import { startCppBackendTransport } from "@/transport/factory";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal.tsx";
@@ -252,9 +253,7 @@ const SetupPage = () => {
     if (cppStartupRef.current) return;
     cppStartupRef.current = true;
     try {
-      const payload = await invoke<BackendReadyPayload>("backend_cpp_transport_start", {
-        mode: "websocket",
-      });
+      const payload = await startCppBackendTransport("websocket");
       await authenticateBackend(payload);
       reloadWithoutPrompt();
     } catch (error) {
