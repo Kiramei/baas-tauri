@@ -214,11 +214,16 @@ jobs:
           if (-not $portable) {
             throw "No portable application exe found in $releaseDir"
           }
-          Copy-Item $portable.FullName "$dst\BAAS.Tauri_${version}_${arch}_portable.exe" -Force
           if ("${{ matrix.target }}" -eq "x86_64-pc-windows-msvc") {
+            # The x64 frontend selects the C++ runtime, so only publish its
+            # resource-complete ZIP; a naked portable exe cannot start it.
             $service = "src-tauri\resources\BAAS_service.exe"
+            $remoteJar = "src-tauri\resources\ws-scrcpy-server.jar"
             if (-not $env:BAAS_CPP_SERVICE_PATH) {
               throw "BAAS_CPP_SERVICE_PATH is required for the x64 portable bundle"
+            }
+            if (-not $env:BAAS_CPP_SERVICE_REMOTE_JAR) {
+              throw "BAAS_CPP_SERVICE_REMOTE_JAR is required for the x64 portable bundle"
             }
             if (-not (Test-Path $service)) {
               throw "Verified x64 C++ service is missing from $service"
@@ -230,11 +235,33 @@ jobs:
             if ((Get-FileHash $service -Algorithm SHA256).Hash -ne (Get-FileHash $env:BAAS_CPP_SERVICE_PATH -Algorithm SHA256).Hash) {
               throw "Staged x64 C++ service differs from BAAS_CPP_SERVICE_PATH"
             }
+            if ((Split-Path $env:BAAS_CPP_SERVICE_REMOTE_JAR -Leaf) -cne "scrcpy-server.jar") {
+              throw "BAAS_CPP_SERVICE_REMOTE_JAR must be named exactly scrcpy-server.jar"
+            }
+            if (-not (Test-Path $remoteJar -PathType Leaf)) {
+              throw "Verified ws-scrcpy resource is missing from $remoteJar"
+            }
+            if ((Get-Item $remoteJar).Length -eq 0 -or (Get-Item $env:BAAS_CPP_SERVICE_REMOTE_JAR).Length -eq 0) {
+              throw "ws-scrcpy resource must be non-empty"
+            }
+            if ((Get-FileHash $remoteJar -Algorithm SHA256).Hash -ne (Get-FileHash $env:BAAS_CPP_SERVICE_REMOTE_JAR -Algorithm SHA256).Hash) {
+              throw "Staged ws-scrcpy resource differs from BAAS_CPP_SERVICE_REMOTE_JAR"
+            }
             $portableDir = Join-Path $env:RUNNER_TEMP "baas-portable-$arch"
             New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
             Copy-Item $portable.FullName (Join-Path $portableDir $portable.Name) -Force
             Copy-Item $service (Join-Path $portableDir "BAAS_service.exe") -Force
-            Compress-Archive -Path "$portableDir\*" -DestinationPath "$dst\BAAS.Tauri_${version}_${arch}_portable.zip" -Force
+            Copy-Item $remoteJar (Join-Path $portableDir "ws-scrcpy-server.jar") -Force
+            $portableZip = "$dst\BAAS.Tauri_${version}_${arch}_portable.zip"
+            Compress-Archive -Path "$portableDir\*" -DestinationPath $portableZip -Force
+            $entries = @(tar -tf $portableZip)
+            foreach ($required in @($portable.Name, "BAAS_service.exe", "ws-scrcpy-server.jar")) {
+              if ($entries -notcontains $required) {
+                throw "Portable archive is missing required entry $required"
+              }
+            }
+          } else {
+            Copy-Item $portable.FullName "$dst\BAAS.Tauri_${version}_${arch}_portable.exe" -Force
           }
 
           $sig = Get-ChildItem $src -File -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
