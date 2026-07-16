@@ -26,6 +26,8 @@ class FakePipeBridge implements TauriPipeBridge {
   readonly calls: Array<{ command: string; args: Record<string, unknown> }> = [];
   createFailures = 0;
   closeError: Error | null = null;
+  cancelRejectsOpen = false;
+  framesDuringCreate = 0;
   private onFrame: ((frame: ArrayBuffer | Uint8Array) => void) | null = null;
 
   createChannel(onMessage: (frame: ArrayBuffer | Uint8Array) => void): unknown {
@@ -34,6 +36,9 @@ class FakePipeBridge implements TauriPipeBridge {
       throw new Error("create channel failed");
     }
     this.onFrame = onMessage;
+    for (let index = 0; index < this.framesDuringCreate; index += 1) {
+      onMessage(encodeFrame(2, new Uint8Array()));
+    }
     this.channelReady.resolve();
     return { fakeChannel: true };
   }
@@ -41,6 +46,9 @@ class FakePipeBridge implements TauriPipeBridge {
   async invoke<T>(command: string, args: Record<string, unknown>): Promise<T> {
     this.calls.push({ command, args });
     if (command === "backend_pipe_open") return (await this.open.promise) as T;
+    if (command === "backend_pipe_cancel_open" && this.cancelRejectsOpen) {
+      this.open.reject(new Error("pipe channel open cancelled during open response read"));
+    }
     if (command === "backend_pipe_close" && this.closeError) throw this.closeError;
     return undefined as T;
   }
@@ -94,8 +102,9 @@ describe("TauriPipeConnection lifecycle", () => {
     ]);
   });
 
-  test("a close during connect cannot reopen and cleans only the stale server token", async () => {
+  test("a close during connect actively cancels only its pending client attempt", async () => {
     const bridge = new FakePipeBridge();
+    bridge.cancelRejectsOpen = true;
     const connection = new TauriPipeConnection("sync", "shared-name", async () => bridge);
     const events: string[] = [];
     connection.onOpen = () => events.push("open");
@@ -104,18 +113,24 @@ describe("TauriPipeConnection lifecycle", () => {
     const connecting = connection.connect(() => events.push("message"));
     await bridge.channelReady.promise;
     await connection.close();
-    bridge.open.resolve("77");
 
     await expect(connecting).rejects.toMatchObject({ name: "AbortError" });
     expect(events).toEqual(["close"]);
     expect(connection.readyState).toBe(3);
-    expect(bridge.calls).toEqual([
-      expect.objectContaining({ command: "backend_pipe_open" }),
-      {
-        command: "backend_pipe_close",
-        args: { channel: "sync", name: "shared-name", token: "77" },
-      },
+    expect(bridge.calls.map((call) => call.command)).toEqual([
+      "backend_pipe_open",
+      "backend_pipe_cancel_open",
     ]);
+    const openAttempt = bridge.calls[0].args.clientAttempt;
+    expect(typeof openAttempt).toBe("string");
+    expect(String(openAttempt)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
+    expect(bridge.calls[1].args).toEqual({
+      channel: "sync",
+      name: "shared-name",
+      clientAttempt: openAttempt,
+    });
   });
 
   test("an onOpen close drops queued inbound data and closes the exact token", async () => {
@@ -243,6 +258,25 @@ describe("TauriPipeConnection lifecycle", () => {
     expect(bridge.calls.at(-1)).toEqual({
       command: "backend_pipe_close",
       args: { channel: "provider", name: "queue-limit", token: "204" },
+    });
+  });
+
+  test("a synchronous channel callback can cancel before open is invoked", async () => {
+    const bridge = new FakePipeBridge();
+    bridge.framesDuringCreate = 257;
+    const connection = new TauriPipeConnection("sync", "cancel-before-open", async () => bridge);
+
+    await expect(connection.connect(() => undefined)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    await Promise.resolve();
+
+    expect(connection.readyState).toBe(3);
+    expect(bridge.calls.map((call) => call.command)).toEqual(["backend_pipe_cancel_open"]);
+    expect(bridge.calls[0].args).toEqual({
+      channel: "sync",
+      name: "cancel-before-open",
+      clientAttempt: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
   });
 });

@@ -41,6 +41,7 @@ export class TauriPipeConnection implements BackendConnection {
   private attempt = 0;
   private receivedFrames = 0;
   private serverToken: string | null = null;
+  private pendingAttempt: string | null = null;
   private bridge: TauriPipeBridge | null = null;
   private readonly cleanupTasks = new Map<string, Promise<void>>();
 
@@ -85,7 +86,10 @@ export class TauriPipeConnection implements BackendConnection {
       }
     };
 
+    let clientAttempt: string | null = null;
     try {
+      clientAttempt = newClientAttemptId();
+      this.pendingAttempt = clientAttempt;
       const bridge = await this.bridgeLoader();
       if (this.closed || this.attempt !== attempt) throw abortedConnectionError();
       this.bridge = bridge;
@@ -106,10 +110,12 @@ export class TauriPipeConnection implements BackendConnection {
         inboundBytes += raw.byteLength;
         drainInbound();
       });
+      if (this.closed || this.attempt !== attempt) throw abortedConnectionError();
 
       const serverToken = await bridge.invoke<string>("backend_pipe_open", {
         channel: this.channel,
         name: this.name,
+        clientAttempt,
         onMessage: subscription,
       });
       if (this.closed || this.attempt !== attempt) {
@@ -117,6 +123,7 @@ export class TauriPipeConnection implements BackendConnection {
         throw abortedConnectionError();
       }
 
+      if (this.pendingAttempt === clientAttempt) this.pendingAttempt = null;
       this.serverToken = serverToken;
       this.connecting = false;
       this.readyState = 1;
@@ -135,6 +142,7 @@ export class TauriPipeConnection implements BackendConnection {
       }
       drainInbound();
     } catch (error) {
+      if (this.pendingAttempt === clientAttempt) this.pendingAttempt = null;
       if (this.attempt === attempt) this.connecting = false;
       if (this.closed || this.attempt !== attempt) {
         if (error instanceof Error && error.name === "AbortError") throw error;
@@ -171,12 +179,22 @@ export class TauriPipeConnection implements BackendConnection {
     this.connecting = false;
     this.attempt += 1;
     const token = this.serverToken;
+    const pendingAttempt = this.pendingAttempt;
     this.serverToken = null;
+    this.pendingAttempt = null;
     try {
-      // A close issued while open is still pending is completed by connect(): only
-      // the Rust-assigned token can safely close that result without touching a
-      // newer connection that happens to reuse the same channel/name key.
-      if (token) await this.closeServerToken(token, this.bridge);
+      // Pending attempts are cancelled by their client UUID. A raced success is
+      // still cleaned below by its Rust-assigned token, so neither path can touch
+      // a newer connection that reused the same channel/name key.
+      if (token) {
+        await this.closeServerToken(token, this.bridge);
+      } else if (pendingAttempt && this.bridge) {
+        await this.bridge.invoke("backend_pipe_cancel_open", {
+          channel: this.channel,
+          name: this.name,
+          clientAttempt: pendingAttempt,
+        });
+      }
     } finally {
       this.finishClose();
     }
@@ -273,6 +291,7 @@ export class TauriPipeConnection implements BackendConnection {
     this.closed = true;
     this.connecting = false;
     this.serverToken = null;
+    this.pendingAttempt = null;
     this.attempt += 1;
     this.readyState = 3;
     try {
@@ -293,6 +312,13 @@ function abortedConnectionError(cause?: unknown): Error {
   error.name = "AbortError";
   if (cause !== undefined) Object.defineProperty(error, "cause", { value: cause });
   return error;
+}
+
+function newClientAttemptId(): string {
+  if (!globalThis.crypto?.randomUUID) {
+    throw new Error("Secure UUID generation is unavailable for named pipe connection attempts");
+  }
+  return globalThis.crypto.randomUUID();
 }
 
 function decodeFrame(raw: PipeFrame): { kind: number; payload: Uint8Array } {
