@@ -122,6 +122,7 @@ pub enum RuntimeRepositoryPublishCheckpoint {
     SnapshotWritten,
     BeforeCurrentReplace,
     CurrentReplaced,
+    BeforeJournalCleanup,
 }
 
 /// Hook used only for diagnostics and deterministic failure tests.
@@ -345,6 +346,9 @@ impl RuntimeRepositoryStore {
             }
             return Ok(activation);
         }
+        if let Some(current) = &old_current {
+            self.read_activation(current.clone())?;
+        }
 
         let resources = self.commit_candidate(candidates[&RuntimeRepositoryId::Resources])?;
         let scripts = self.commit_candidate(candidates[&RuntimeRepositoryId::Scripts])?;
@@ -432,6 +436,7 @@ impl RuntimeRepositoryStore {
                 "runtime repository current generation conflict",
             ));
         }
+        self.read_activation(displaced.clone())?;
         let journal = RuntimeRepositoryPublishJournal {
             schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
             operation: RuntimeRepositoryJournalOperation::Rollback,
@@ -517,12 +522,7 @@ impl RuntimeRepositoryStore {
         self.hooks
             .committed(RuntimeRepositoryPublishCheckpoint::CurrentReplaced);
 
-        journal.phase = RuntimeRepositoryJournalPhase::CurrentReplaced;
-        // The linearization point is already committed. Journal cleanup can be
-        // retried during the next open/write and must not turn success into a
-        // normal error that invites a duplicate publication.
-        let _ = self.write_journal_atomically(&journal);
-        let _ = self.remove_journal_file();
+        self.cleanup_committed_journal(journal);
         Ok(())
     }
 
@@ -558,7 +558,24 @@ impl RuntimeRepositoryStore {
         }
         self.write_optional_pointer(&self.previous_path(), journal.new_previous.as_ref())?;
         self.write_pointer_atomically(&self.current_path(), &journal.new_current)?;
-        self.remove_journal_file()
+        // `current` is the linearization point. Cleanup failures retain a
+        // strict, replayable journal and cannot turn this committed recovery
+        // into a normal error that invites the caller to repeat the update.
+        self.cleanup_committed_journal(journal);
+        Ok(())
+    }
+
+    fn cleanup_committed_journal(&self, mut journal: RuntimeRepositoryPublishJournal) {
+        if self
+            .hooks
+            .checkpoint(RuntimeRepositoryPublishCheckpoint::BeforeJournalCleanup)
+            .is_err()
+        {
+            return;
+        }
+        journal.phase = RuntimeRepositoryJournalPhase::CurrentReplaced;
+        let _ = self.write_journal_atomically(&journal);
+        let _ = self.remove_journal_file();
     }
 
     fn read_journal_file(&self) -> UpdaterResult<Option<RuntimeRepositoryPublishJournal>> {
@@ -1387,6 +1404,23 @@ fn read_bounded_json_from_open_file<T: for<'de> Deserialize<'de>>(
     serde_json::from_slice(&bytes).map_err(|error| config_error(error.to_string()))
 }
 
+#[cfg(test)]
+fn read_bounded_json_from_open_file_with_hook<T: for<'de> Deserialize<'de>, F: FnOnce()>(
+    path: &Path,
+    parent: &Path,
+    mut input: File,
+    after_first_handle_validation: F,
+) -> UpdaterResult<T> {
+    let metadata = validate_opened_plain_file(path, parent, &input)?;
+    if metadata.len() > MAX_ACTIVATION_JSON_BYTES {
+        return Err(config_error("activation JSON file limit exceeded"));
+    }
+    after_first_handle_validation();
+    let bytes = read_bounded_bytes(&mut input, MAX_ACTIVATION_JSON_BYTES)?;
+    validate_opened_plain_file(path, parent, &input)?;
+    serde_json::from_slice(&bytes).map_err(|error| config_error(error.to_string()))
+}
+
 fn write_new_json<T: Serialize>(path: &Path, value: &T) -> UpdaterResult<()> {
     let bytes =
         serde_json::to_vec_pretty(value).map_err(|error| config_error(error.to_string()))?;
@@ -1686,6 +1720,38 @@ mod tests {
         }
     }
 
+    struct TransitionHooks {
+        enabled: AtomicBool,
+        before_current: Arc<Barrier>,
+        resume_publish: Arc<Barrier>,
+    }
+
+    impl RuntimeRepositoryStoreHooks for TransitionHooks {
+        fn checkpoint(&self, checkpoint: RuntimeRepositoryPublishCheckpoint) -> UpdaterResult<()> {
+            if self.enabled.load(Ordering::SeqCst)
+                && checkpoint == RuntimeRepositoryPublishCheckpoint::BeforeCurrentReplace
+            {
+                self.before_current.wait();
+                self.resume_publish.wait();
+            }
+            Ok(())
+        }
+    }
+
+    fn wait_for_counter(counter: &AtomicUsize, minimum: usize) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            if counter.load(Ordering::SeqCst) >= minimum {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "timed out waiting for reader counter {minimum}"
+            );
+            thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
     #[test]
     fn faults_at_every_pre_current_boundary_preserve_old_generation() {
         for checkpoint in [
@@ -1919,23 +1985,59 @@ mod tests {
         let path = parent.join("state.json");
         fs::write(&path, b"{}").unwrap();
         let opened = open_plain_file(&path, true, false, false).unwrap();
+        let first_validation = Arc::new(Barrier::new(2));
+        let resume_read = Arc::new(Barrier::new(2));
+        let reader_path = path.clone();
+        let reader_parent = parent.clone();
+        let reader_validation = first_validation.clone();
+        let reader_resume = resume_read.clone();
+        let growing_reader = thread::spawn(move || {
+            read_bounded_json_from_open_file_with_hook::<serde_json::Value, _>(
+                &reader_path,
+                &reader_parent,
+                opened,
+                || {
+                    reader_validation.wait();
+                    reader_resume.wait();
+                },
+            )
+        });
+        first_validation.wait();
         let mut append = OpenOptions::new().append(true).open(&path).unwrap();
         append
             .write_all(&vec![b' '; MAX_ACTIVATION_JSON_BYTES as usize + 1])
             .unwrap();
         drop(append);
-        assert!(
-            read_bounded_json_from_open_file::<serde_json::Value>(&path, &parent, opened).is_err()
-        );
+        resume_read.wait();
+        assert!(growing_reader.join().unwrap().is_err());
 
         fs::write(&path, b"{}").unwrap();
         let opened = open_plain_file(&path, true, false, false).unwrap();
-        let replacement = parent.join("replacement.json");
+        let replacement = parent.join("replacement.tmp");
+        let displaced = parent.join("displaced.json");
         fs::write(&replacement, b"{\"replacement\":true}").unwrap();
-        assert!(
-            read_bounded_json_from_open_file::<serde_json::Value>(&replacement, &parent, opened)
-                .is_err()
-        );
+        let first_validation = Arc::new(Barrier::new(2));
+        let resume_read = Arc::new(Barrier::new(2));
+        let reader_path = path.clone();
+        let reader_parent = parent.clone();
+        let reader_validation = first_validation.clone();
+        let reader_resume = resume_read.clone();
+        let replaced_reader = thread::spawn(move || {
+            read_bounded_json_from_open_file_with_hook::<serde_json::Value, _>(
+                &reader_path,
+                &reader_parent,
+                opened,
+                || {
+                    reader_validation.wait();
+                    reader_resume.wait();
+                },
+            )
+        });
+        first_validation.wait();
+        fs::rename(&path, &displaced).unwrap();
+        atomic_replace_file(&replacement, &path).unwrap();
+        resume_read.wait();
+        assert!(replaced_reader.join().unwrap().is_err());
     }
 
     #[test]
@@ -1953,9 +2055,117 @@ mod tests {
     }
 
     #[test]
-    fn concurrent_readers_observe_only_complete_generations() {
+    fn committed_recovery_ignores_journal_cleanup_failure_and_retries_later() {
+        let temp = TempDir::new().unwrap();
+        let hooks = Arc::new(FailingHooks::new(
+            RuntimeRepositoryPublishCheckpoint::BeforeJournalCleanup,
+        ));
+        hooks.enabled.store(true, Ordering::SeqCst);
+        let store = RuntimeRepositoryStore::open_with_hooks(temp.path(), hooks.clone()).unwrap();
+
+        let activation = store.publish(&pair(&store, '5')).unwrap();
+        assert_eq!(store.read_current().unwrap().unwrap(), activation);
+        assert!(store.journal_path().is_file());
+        store
+            .with_writer_lock(|store| store.recover_journal())
+            .unwrap();
+        assert_eq!(store.read_current().unwrap().unwrap(), activation);
+        assert!(store.journal_path().is_file());
+
+        hooks.enabled.store(false, Ordering::SeqCst);
+        store
+            .with_writer_lock(|store| store.recover_journal())
+            .unwrap();
+        assert!(!store.journal_path().exists());
+    }
+
+    #[test]
+    fn publish_rejects_a_damaged_current_activation_before_journaling() {
         let temp = TempDir::new().unwrap();
         let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let current = store.publish(&pair(&store, '1')).unwrap();
+        let current_bytes = fs::read(store.current_path()).unwrap();
+        fs::write(store.root().join(&current.pointer.snapshot), b"{}").unwrap();
+
+        assert!(store.publish(&pair(&store, '2')).is_err());
+        assert_eq!(fs::read(store.current_path()).unwrap(), current_bytes);
+        assert!(!store.previous_path().exists());
+        assert!(!store.journal_path().exists());
+    }
+
+    #[test]
+    fn rollback_rejects_a_damaged_displaced_current_before_journaling() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let current_bytes = fs::read(store.current_path()).unwrap();
+        let previous_bytes = fs::read(store.previous_path()).unwrap();
+        let resource = &second.snapshot.repositories[0];
+        fs::write(
+            store.root().join(&resource.root).join(&resource.manifest),
+            b"damaged",
+        )
+        .unwrap();
+
+        assert!(store.rollback().is_err());
+        assert_eq!(fs::read(store.current_path()).unwrap(), current_bytes);
+        assert_eq!(fs::read(store.previous_path()).unwrap(), previous_bytes);
+        assert!(!store.journal_path().exists());
+        assert_eq!(
+            store
+                .read_pointer_file(&store.previous_path())
+                .unwrap()
+                .unwrap(),
+            first.pointer
+        );
+    }
+
+    #[test]
+    fn crash_recovery_rejects_a_damaged_new_previous_without_pointer_changes() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let resource = &second.snapshot.repositories[0];
+        fs::write(
+            store.root().join(&resource.root).join(&resource.manifest),
+            b"damaged",
+        )
+        .unwrap();
+        let journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Rollback,
+            phase: RuntimeRepositoryJournalPhase::PreviousReplaced,
+            old_previous: Some(first.pointer.clone()),
+            old_current: Some(second.pointer.clone()),
+            new_previous: Some(second.pointer.clone()),
+            new_current: first.pointer,
+        };
+        store.write_journal_atomically(&journal).unwrap();
+        let current_bytes = fs::read(store.current_path()).unwrap();
+        let previous_bytes = fs::read(store.previous_path()).unwrap();
+        drop(store);
+
+        assert!(RuntimeRepositoryStore::open(temp.path()).is_err());
+        let root = temp.path().join(".baas-updater/runtime-repositories");
+        assert_eq!(fs::read(root.join("current.json")).unwrap(), current_bytes);
+        assert_eq!(
+            fs::read(root.join("previous.json")).unwrap(),
+            previous_bytes
+        );
+        assert!(root.join(".publish-journal.json").is_file());
+    }
+
+    #[test]
+    fn concurrent_readers_observe_only_complete_generations() {
+        let temp = TempDir::new().unwrap();
+        let hooks = Arc::new(TransitionHooks {
+            enabled: AtomicBool::new(false),
+            before_current: Arc::new(Barrier::new(2)),
+            resume_publish: Arc::new(Barrier::new(2)),
+        });
+        let store = RuntimeRepositoryStore::open_with_hooks(temp.path(), hooks.clone()).unwrap();
         let first = store.publish(&pair(&store, '1')).unwrap();
         let next_candidates = pair(&store, '2');
         let expected_new_generation = compute_runtime_repository_generation(
@@ -1963,25 +2173,34 @@ mod tests {
             &candidate_entry(&next_candidates[1]),
         );
         let running = Arc::new(AtomicBool::new(true));
+        let old_reads = Arc::new(AtomicUsize::new(0));
+        let new_reads = Arc::new(AtomicUsize::new(0));
         let failures = Arc::new(Mutex::new(Vec::new()));
         let mut readers = Vec::new();
         for _ in 0..8 {
             let store = store.clone();
             let running = running.clone();
             let failures = failures.clone();
+            let old_reads = old_reads.clone();
+            let new_reads = new_reads.clone();
             let old_generation = first.pointer.generation.clone();
             let new_generation = expected_new_generation.clone();
             readers.push(thread::spawn(move || {
                 while running.load(Ordering::Relaxed) {
                     match store.read_current() {
-                        Ok(Some(activation))
-                            if activation.pointer.generation == old_generation
-                                || activation.pointer.generation == new_generation =>
-                        {
+                        Ok(Some(activation)) if activation.pointer.generation == old_generation => {
                             assert_eq!(
                                 activation.pointer.generation,
                                 activation.snapshot.generation
                             );
+                            old_reads.fetch_add(1, Ordering::SeqCst);
+                        }
+                        Ok(Some(activation)) if activation.pointer.generation == new_generation => {
+                            assert_eq!(
+                                activation.pointer.generation,
+                                activation.snapshot.generation
+                            );
+                            new_reads.fetch_add(1, Ordering::SeqCst);
                         }
                         Ok(other) => failures
                             .lock()
@@ -1992,13 +2211,24 @@ mod tests {
                 }
             }));
         }
-        let second = store.publish(&next_candidates).unwrap();
+        wait_for_counter(&old_reads, 1);
+        hooks.enabled.store(true, Ordering::SeqCst);
+        let publishing_store = store.clone();
+        let publisher = thread::spawn(move || publishing_store.publish(&next_candidates).unwrap());
+        hooks.before_current.wait();
+        let old_at_boundary = old_reads.load(Ordering::SeqCst);
+        wait_for_counter(&old_reads, old_at_boundary + 1);
+        hooks.resume_publish.wait();
+        let second = publisher.join().unwrap();
         assert_eq!(second.pointer.generation, expected_new_generation);
+        wait_for_counter(&new_reads, 1);
         running.store(false, Ordering::Relaxed);
         for reader in readers {
             reader.join().unwrap();
         }
         assert!(failures.lock().unwrap().is_empty());
+        assert!(old_reads.load(Ordering::SeqCst) > 0);
+        assert!(new_reads.load(Ordering::SeqCst) > 0);
         assert_eq!(store.read_current().unwrap().unwrap(), second);
     }
 
