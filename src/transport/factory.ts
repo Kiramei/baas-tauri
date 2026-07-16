@@ -90,20 +90,15 @@ export async function startBackendTransport(
     android: __WITH_ANDROID__,
     tauri: true,
   }).mode;
-  if (runtime === "cpp") {
-    const generation =
-      runtimeRepositoryGeneration ?? (await getCurrentRuntimeRepositoryGeneration());
-    assertRuntimeRepositoryGeneration(generation);
-    const invocation = backendTransportStartInvocation(runtime, selectedMode, generation);
-    return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
-      invocation.command,
-      invocation.args
-    );
-  }
-  const invocation = backendTransportStartInvocation(runtime, selectedMode);
-  return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
-    invocation.command,
-    invocation.args
+  return backendTransportStartupCoordinator.start(
+    selectedMode,
+    runtime,
+    {
+      getCurrentRuntimeRepositoryGeneration,
+      invoke: (command, args) =>
+        invoke<{ baseBackendAddr: string; baseBackendPort: number }>(command, args),
+    },
+    runtimeRepositoryGeneration
   );
 }
 
@@ -136,6 +131,65 @@ export function backendTransportStartupKey(
   }
   return `${runtime}:${mode}`;
 }
+
+export type BackendTransportStartupResult = {
+  baseBackendAddr?: string;
+  baseBackendPort?: number;
+};
+
+export type BackendTransportStartupDependencies = {
+  getCurrentRuntimeRepositoryGeneration: () => Promise<string>;
+  invoke: (
+    command: "backend_transport_start" | "backend_cpp_transport_start",
+    args:
+      | { mode: BackendTransportMode }
+      | { mode: BackendTransportMode; runtimeRepositoryGeneration: string }
+  ) => Promise<BackendTransportStartupResult>;
+};
+
+/**
+ * Process-wide startup serialization. Different keys wait in a loop so every
+ * waiter re-checks the active operation after the previous start settles.
+ */
+export class BackendTransportStartupCoordinator {
+  private active: {
+    key: string;
+    promise: Promise<BackendTransportStartupResult>;
+    token: object;
+  } | null = null;
+
+  async start(
+    mode: BackendTransportMode,
+    runtime: BackendRuntimeKind,
+    dependencies: BackendTransportStartupDependencies,
+    runtimeRepositoryGeneration?: string
+  ): Promise<BackendTransportStartupResult> {
+    const generation =
+      runtime === "cpp"
+        ? (runtimeRepositoryGeneration ??
+          (await dependencies.getCurrentRuntimeRepositoryGeneration()))
+        : undefined;
+    const key = backendTransportStartupKey(mode, runtime, generation);
+
+    while (this.active) {
+      if (this.active.key === key) return this.active.promise;
+      await this.active.promise.catch(() => undefined);
+    }
+
+    const invocation = backendTransportStartInvocation(runtime, mode, generation);
+    const operation = Promise.resolve().then(() =>
+      dependencies.invoke(invocation.command, invocation.args)
+    );
+    const token = {};
+    const tracked = operation.finally(() => {
+      if (this.active?.token === token) this.active = null;
+    });
+    this.active = { key, promise: tracked, token };
+    return tracked;
+  }
+}
+
+const backendTransportStartupCoordinator = new BackendTransportStartupCoordinator();
 
 /** Pure IPC snapshot; the Python shape intentionally stays unchanged. */
 export function backendTransportStartInvocation(

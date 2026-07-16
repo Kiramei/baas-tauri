@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   backendTransportStartCommand,
+  BackendTransportStartupCoordinator,
   backendTransportStartupKey,
   backendTransportStartInvocation,
   assertRuntimeRepositoryGeneration,
@@ -8,6 +9,16 @@ import {
   resolveBackendSelection,
   resolveTransportMode,
 } from "../../src/transport/factory";
+
+const deferred = <T>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+};
 
 describe("resolveTransportMode", () => {
   test("prefers Pipe on native clients unless WebSocket is explicitly selected", () => {
@@ -83,5 +94,94 @@ describe("resolveTransportMode", () => {
       command: "backend_cpp_transport_start",
       args: { mode: "websocket", runtimeRepositoryGeneration: generation },
     });
+  });
+
+  test("coalesces concurrent starts with the same generation into one IPC", async () => {
+    const coordinator = new BackendTransportStartupCoordinator();
+    const generation = "d".repeat(64);
+    const gate = deferred<{ baseBackendAddr: string; baseBackendPort: number }>();
+    const calls: Array<{ command: string; args: Record<string, unknown> }> = [];
+    const dependencies = {
+      getCurrentRuntimeRepositoryGeneration: async () => generation,
+      invoke: async (command: string, args: Record<string, unknown>) => {
+        calls.push({ command, args });
+        return gate.promise;
+      },
+    };
+
+    const first = coordinator.start("websocket", "cpp", dependencies);
+    const second = coordinator.start("websocket", "cpp", dependencies);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toHaveLength(1);
+
+    gate.resolve({ baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 });
+    expect(await Promise.all([first, second])).toEqual([
+      { baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 },
+      { baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 },
+    ]);
+  });
+
+  test("re-checks after a different key so multiple waiters start only once", async () => {
+    const coordinator = new BackendTransportStartupCoordinator();
+    const firstGeneration = "e".repeat(64);
+    const nextGeneration = "f".repeat(64);
+    const firstGate = deferred<{ baseBackendAddr: string; baseBackendPort: number }>();
+    const nextGate = deferred<{ baseBackendAddr: string; baseBackendPort: number }>();
+    const calls: Array<{ command: string; args: Record<string, unknown> }> = [];
+    const dependencies = {
+      getCurrentRuntimeRepositoryGeneration: async () => {
+        throw new Error("explicit generations must not query current");
+      },
+      invoke: async (command: string, args: Record<string, unknown>) => {
+        calls.push({ command, args });
+        return calls.length === 1 ? firstGate.promise : nextGate.promise;
+      },
+    };
+
+    const first = coordinator.start("websocket", "cpp", dependencies, firstGeneration);
+    const nextOne = coordinator.start("websocket", "cpp", dependencies, nextGeneration);
+    const nextTwo = coordinator.start("websocket", "cpp", dependencies, nextGeneration);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toHaveLength(1);
+
+    firstGate.resolve({ baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 });
+    await first;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.args).toEqual({
+      mode: "websocket",
+      runtimeRepositoryGeneration: nextGeneration,
+    });
+
+    nextGate.resolve({ baseBackendAddr: "127.0.0.1", baseBackendPort: 8191 });
+    expect(await Promise.all([nextOne, nextTwo])).toEqual([
+      { baseBackendAddr: "127.0.0.1", baseBackendPort: 8191 },
+      { baseBackendAddr: "127.0.0.1", baseBackendPort: 8191 },
+    ]);
+    expect(calls).toHaveLength(2);
+  });
+
+  test("Python starts never query current and keep the legacy payload", async () => {
+    const coordinator = new BackendTransportStartupCoordinator();
+    let generationReads = 0;
+    const calls: Array<{ command: string; args: Record<string, unknown> }> = [];
+    const result = await coordinator.start("pipe", "python", {
+      getCurrentRuntimeRepositoryGeneration: async () => {
+        generationReads += 1;
+        return "0".repeat(64);
+      },
+      invoke: async (command: string, args: Record<string, unknown>) => {
+        calls.push({ command, args });
+        return { baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 };
+      },
+    });
+
+    expect(result).toEqual({ baseBackendAddr: "127.0.0.1", baseBackendPort: 8190 });
+    expect(generationReads).toBe(0);
+    expect(calls).toEqual([{ command: "backend_transport_start", args: { mode: "pipe" } }]);
+    expect(calls[0]?.args).not.toHaveProperty("runtimeRepositoryGeneration");
   });
 });

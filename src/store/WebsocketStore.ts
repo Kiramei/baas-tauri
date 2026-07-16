@@ -6,9 +6,7 @@ import {
   rememberControlSession,
 } from "@/shared/SecureWebSocket";
 import {
-  backendTransportStartupKey,
   configuredBackendSelection,
-  getCurrentRuntimeRepositoryGeneration,
   normalizeTransportMode,
   openBackendChannel,
   startBackendTransport,
@@ -78,12 +76,6 @@ let backendUpdaterChecking = false;
 let tauriUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let tauriUpdaterChecking = false;
 let tauriUpdaterNotifiedVersion: string | null = null;
-let transportStartup:
-  | {
-      key: string;
-      promise: ReturnType<typeof startBackendTransport>;
-    }
-  | null = null;
 let transportStartupFailureAt = 0;
 let transportGeneration = 0;
 let transportRecoveryEpoch = 0;
@@ -125,7 +117,7 @@ const allocateCorrelationId = (state: CorrelationState, minimum = 0) =>
     minimum
   );
 
-/** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
+/** Starts through the process-wide coordinator while retaining local cooldown policy. */
 const startManagedBackendTransport = async (
   mode: "websocket" | "pipe",
   runtime: BackendRuntimeKind
@@ -133,26 +125,13 @@ const startManagedBackendTransport = async (
   if (Date.now() - transportStartupFailureAt < 5_000) {
     throw new Error("Backend transport startup is cooling down after a failure");
   }
-  const runtimeRepositoryGeneration =
-    runtime === "cpp" ? await getCurrentRuntimeRepositoryGeneration() : undefined;
-  const key = backendTransportStartupKey(mode, runtime, runtimeRepositoryGeneration);
-  if (transportStartup) {
-    if (transportStartup.key === key) {
-      return transportStartup.promise;
-    }
-    await transportStartup.promise.catch(() => undefined);
-  }
-  const promise = startBackendTransport(mode, runtime, runtimeRepositoryGeneration);
-  transportStartup = { key, promise };
   try {
-    const startup = await promise;
+    const startup = await startBackendTransport(mode, runtime);
     transportStartupFailureAt = 0;
     return startup;
   } catch (error) {
     transportStartupFailureAt = Date.now();
     throw error;
-  } finally {
-    if (transportStartup?.promise === promise) transportStartup = null;
   }
 };
 
