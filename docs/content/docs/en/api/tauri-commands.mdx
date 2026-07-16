@@ -1,0 +1,73 @@
+---
+title: Tauri Commands
+description: Commands registered by the BAAS Tauri host, with desktop and Android behavior.
+---
+
+The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camelCase` serialization; `invoke()` still wraps struct parameters with their Rust parameter name, usually `request`. Commands annotated with `#[cfg(not(mobile))]` are not registered in Android builds.
+
+## Window and Host Commands
+
+| Command | Arguments | Result / behavior |
+| --- | --- | --- |
+| `baas_notify` | notification payload | Shows an application notification. |
+| `splash_off` | none | Closes the startup splash after the main UI is ready. |
+| `set_backend_locale` | locale value | Synchronizes the backend locale. |
+| `shortcut_apply_bindings` | `{ bindings }` | Registers enabled shortcuts; Android returns rejected entries. |
+| `open_main_devtools` | none | Opens desktop DevTools; Android is a no-op. |
+| `android_prepare_scrcpy_virtual_display` | `{ request }` | Creates or prepares a scrcpy virtual display. |
+| `android_cleanup_scrcpy_virtual_display` | cleanup arguments | Removes the prepared virtual display. |
+| `android_scrcpy_virtual_display_status` | status arguments | Returns the current virtual-display state. |
+
+## Setup and Updater Commands
+
+| Command | Main arguments | Result |
+| --- | --- | --- |
+| `updater_get_storage_state` | none | Storage paths and portable state. |
+| `updater_get_startup_state` | none | Current config, install path, and startup state. |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean`. |
+| `updater_update_config` | `{ request }` | Updated config. Desktop accepts `backendRuntime: "python" | "cpp"`; Android omits that field and stays on Python. |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report. |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; the desktop command rejects direct calls, while the desktop UI uses the updater plugin separately. |
+| `updater_check_version` | `{ request: { channel? } }` | Local/remote SHA report. |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One source probe. |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Concurrent source probes. |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Terminal session metadata. |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Abort report. |
+| `updater_terminal_snapshot` | none | Current structured terminal snapshot. |
+| `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
+| `updater_reset_backend_auth_and_restart` | none | Desktop restarts the selected runtime; Android ensures its service and currently reports `restart_deferred: true`. |
+
+On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime. The runtime-repository activation store in `baas-updater` is internal; no runtime-repository downloader or activation command is registered at this revision.
+
+## Backend Transport Commands
+
+| Command | Arguments | Result / event |
+| --- | --- | --- |
+| `backend_transport_start` | `{ mode }` | Starts the Python backend in `"pipe"` or `"websocket"` mode. Desktop restarts the owned child; Android ensures its foreground service is ready. |
+| `backend_cpp_transport_start` | `{ mode: "websocket" }` | Desktop only. Starts the packaged C++ `BAAS_service`, verifies `/version` and ready `/health`, and never falls back to Python. Pipe is rejected. |
+| `backend_pipe_open` | `{ channel, name, clientAttempt, onMessage }` | Opens one native BPIP connection, performs `open`/`open_ok`, streams raw framed messages, and returns an opaque server token. |
+| `backend_pipe_cancel_open` | `{ channel, name, clientAttempt }` | Cancels only the matching pending open attempt. |
+| `backend_pipe_send_json` | `{ channel, name, payload, token }` | Sends a JSON frame only if the token still owns that connection. |
+| `backend_pipe_send_bytes` | `{ channel, name, payload, token }` | Sends a binary frame only if the token still owns that connection. |
+| `backend_pipe_close` | `{ channel, name, token }` | Closes only the token-matching connection; stale owners cannot close a replacement. |
+| `backend_pipe_close_all` | none | Releases every Pipe connection. |
+
+Valid business channels are `provider`, `sync`, `trigger`, and `remote`. Frontend code should use `BackendConnection`; direct use of Pipe commands belongs in `TauriPipeConnection`. `clientAttempt` protects a pending open, while the returned `token` protects an established connection from delayed sends or closes.
+
+## Managed Backend Lifecycle
+
+The desktop host owns one selected child at a time. A runtime/transport switch closes business connections and native Pipe state before starting the replacement. Python readiness follows its authentication endpoint. C++ readiness is stricter: `/version` must identify `BAAS Service` with `api_version: 1`, and `/health` must report `statuses.runtime.phase: "ready"`. Failure stops the rejected child and restores the previous selection.
+
+`updater_reset_backend_auth_and_restart` restarts the currently selected runtime; it does not force a Python downgrade. App exit and relevant window lifecycle paths stop only the child whose PID identity, executable, project root, and arguments match the managed record.
+
+## System Log Commands
+
+| Command | Arguments | Result |
+| --- | --- | --- |
+| `system_logs_snapshot` | `{ request?: { limit? } }` | Log path, entries, and file size. Default limit: 4000. |
+| `system_logs_clear` | none | Clears rotated/current host logs and records the clear action. |
+| `system_logs_ingest_frontend` | `{ request: { entries } }` | Appends at most 250 frontend entries per call. |
+
+## Error Contract
+
+Recoverable Rust failures return `Err(String)` and become rejected `invoke()` promises. Messages must identify the failed operation and useful context. Use a structured result when callers need stable branching fields rather than parsing error text.

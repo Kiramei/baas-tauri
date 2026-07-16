@@ -7,18 +7,22 @@
     "build:fonts": "bun scripts/build-fonts.mjs",
     "build:next": "next build",
     "build": "bun run build:fonts && next build",
+    "test:links": "bun test scripts/check-static-links.test.mjs",
+    "check:links": "bun run test:links && bun scripts/check-static-links.mjs",
     "start": "next start"
   },
   "dependencies": {
     "flexsearch": "^0.8.212",
     "fumadocs-core": "^16.10.5",
     "fumadocs-mdx": "^15.0.12",
+    "fumadocs-twoslash": "^3.2.1",
     "fumadocs-ui": "^16.10.5",
     "lucide-react": "^0.542.0",
     "mermaid": "^11.16.0",
     "next": "^16.2.9",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "twoslash": "^0.3.9",
     "zod": "^4.2.1"
   },
   "devDependencies": {

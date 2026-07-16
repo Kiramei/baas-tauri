@@ -1,0 +1,73 @@
+---
+title: Tauri 命令
+description: BAAS Tauri 宿主注册的命令，以及桌面端和 Android 端的行为差异。
+---
+
+`src-tauri/src/lib.rs` 是命令注册的权威来源。请求结构使用 `camelCase` 序列化；通过 `invoke()` 传入结构体时，仍需用 Rust 参数名包装，通常是 `request`。标注 `#[cfg(not(mobile))]` 的命令不会注册到 Android 构建中。
+
+## 窗口与宿主命令
+
+| 命令 | 参数 | 结果或行为 |
+| --- | --- | --- |
+| `baas_notify` | 通知参数 | 显示应用通知。 |
+| `splash_off` | 无 | 主界面就绪后关闭启动页。 |
+| `set_backend_locale` | locale 值 | 同步后端语言。 |
+| `shortcut_apply_bindings` | `{ bindings }` | 注册启用的快捷键；Android 返回被拒绝的项目。 |
+| `open_main_devtools` | 无 | 桌面端打开 DevTools；Android 为空操作。 |
+| `android_prepare_scrcpy_virtual_display` | `{ request }` | 创建或准备 scrcpy 虚拟显示器。 |
+| `android_cleanup_scrcpy_virtual_display` | 清理参数 | 清理已准备的虚拟显示器。 |
+| `android_scrcpy_virtual_display_status` | 状态参数 | 返回虚拟显示器状态。 |
+
+## 安装与更新命令
+
+| 命令 | 主要参数 | 结果 |
+| --- | --- | --- |
+| `updater_get_storage_state` | 无 | 存储路径和便携模式状态。 |
+| `updater_get_startup_state` | 无 | 当前配置、安装路径和启动状态。 |
+| `updater_path_exists_non_empty` | `{ path }` | `boolean`。 |
+| `updater_update_config` | `{ request }` | 更新后的配置；桌面接受 `backendRuntime: "python" | "cpp"`，Android 不包含该字段并保持 Python。 |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | 验证报告。 |
+| `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android 更新元数据；桌面端命令拒绝直接调用，桌面 UI 则另行使用 updater 插件。 |
+| `updater_check_version` | `{ request: { channel? } }` | 本地与远端 SHA 报告。 |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 单个来源测试。 |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 并发测试全部来源。 |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 终端会话元数据。 |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 中止报告。 |
+| `updater_terminal_snapshot` | 无 | 当前结构化终端快照。 |
+| `updater_resize_term` | `{ rows, cols }` | 调整终端模型尺寸。 |
+| `updater_reset_backend_auth_and_restart` | 无 | 桌面重启所选 Runtime；Android 只确保 Service 存在，并且当前返回 `restart_deferred: true`。 |
+
+Android 尽量保持相同的前端返回形状，但操作对象是应用存储和内嵌 Python Runtime。当前版本中 `baas-updater` 的 runtime-repository activation store 属于内部实现，尚未注册 runtime-repository 下载或活化命令。
+
+## 后端传输命令
+
+| 命令 | 参数 | 结果或事件 |
+| --- | --- | --- |
+| `backend_transport_start` | `{ mode }` | 以 `"pipe"` 或 `"websocket"` 启动 Python 后端。桌面重启所持有的子进程；Android 确保前台 Service 已就绪。 |
+| `backend_cpp_transport_start` | `{ mode: "websocket" }` | 仅桌面。启动打包的 C++ `BAAS_service`，校验 `/version` 与 ready `/health`，且绝不回退到 Python；Pipe 会被拒绝。 |
+| `backend_pipe_open` | `{ channel, name, clientAttempt, onMessage }` | 打开原生 BPIP 连接，完成 `open`/`open_ok`，转发原始帧，并返回不透明 server token。 |
+| `backend_pipe_cancel_open` | `{ channel, name, clientAttempt }` | 只取消匹配的待完成 open 尝试。 |
+| `backend_pipe_send_json` | `{ channel, name, payload, token }` | 仅当 token 仍持有连接时发送 JSON 帧。 |
+| `backend_pipe_send_bytes` | `{ channel, name, payload, token }` | 仅当 token 仍持有连接时发送二进制帧。 |
+| `backend_pipe_close` | `{ channel, name, token }` | 只关闭 token 匹配的连接；陈旧 owner 不能关闭替代连接。 |
+| `backend_pipe_close_all` | 无 | 释放全部 Pipe 连接。 |
+
+合法业务通道是 `provider`、`sync`、`trigger` 和 `remote`。前端业务代码应使用 `BackendConnection`，只有 `TauriPipeConnection` 可以直接调用 Pipe 命令。`clientAttempt` 保护尚未完成的 open，返回的 `token` 则避免延迟到达的 send/close 干扰替代连接。
+
+## 托管后端生命周期
+
+桌面宿主同一时刻只持有一个所选子进程。切换 Runtime 或 transport 时，先关闭业务连接与原生 Pipe 状态，再启动替代进程。Python 按认证端点判断就绪；C++ 更严格：`/version` 必须以 `api_version: 1` 标识 `BAAS Service`，且 `/health` 必须返回 `statuses.runtime.phase: "ready"`。失败会停止被拒绝的子进程并恢复原选择。
+
+`updater_reset_backend_auth_and_restart` 会重启当前选择的 Runtime，不会强制降级为 Python。应用退出及相关窗口生命周期只会停止 PID identity、可执行文件、project root 和参数均与托管记录匹配的子进程。
+
+## 系统日志命令
+
+| 命令 | 参数 | 结果 |
+| --- | --- | --- |
+| `system_logs_snapshot` | `{ request?: { limit? } }` | 日志路径、条目和文件大小；默认上限为 4000。 |
+| `system_logs_clear` | 无 | 清理当前及轮转日志，并记录本次清理。 |
+| `system_logs_ingest_frontend` | `{ request: { entries } }` | 每次最多追加 250 条前端日志。 |
+
+## 错误契约
+
+可恢复的 Rust 错误使用 `Err(String)`，在前端表现为被拒绝的 `invoke()` Promise。错误文本必须包含失败操作和可定位上下文；需要稳定分支判断时，应返回结构化结果，不要解析错误字符串。

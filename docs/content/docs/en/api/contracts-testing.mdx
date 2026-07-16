@@ -1,0 +1,80 @@
+---
+title: Contracts and Testing
+description: Python compatibility, C++ runtime gates, transport parity, service boundaries, and the required verification matrix.
+---
+
+An API change is complete only when the default Python path remains compatible, supported Pipe and WebSocket behavior stays aligned, explicit C++ selection fails closed, and the applicable desktop, Android, WebUI, and docs gates pass.
+
+## Config Contracts
+
+| Value | Rule |
+| --- | --- |
+| `general.transport` | `"pipe"` or `"websocket"`; native default is Pipe, WebUI is WebSocket-only. |
+| `general.backend_runtime` | Desktop accepts `"python"` or `"cpp"`; default is Python. Android and WebUI frontend normalization stay on Python. |
+| `setup.toml` | New fields require defaults and must preserve unrelated existing values. |
+| Profile snapshots/patches | Incoming stale patches must recover from an authoritative snapshot, not terminate sync. |
+| `screenshot_method`, `control_method` | Fixed to `android_local` on Android. |
+| App/system logs | Errors need source, target, timestamp, and enough context to locate the caller. |
+
+## Transport Parity
+
+Provider, sync, trigger, and remote tests should run through transport-neutral handlers. Adapter and lifecycle tests additionally cover:
+
+- WebSocket authentication, resume, encryption, and reconnect.
+- Pipe open/open-ok handshake, fragmented frames, JSON/binary payloads, close/error frames, and 64 MiB enforcement.
+- Windows named-pipe and Unix-domain-socket endpoint setup.
+- Connection cleanup when switching transport or stopping the backend.
+- Open-attempt cancellation and server-token ownership so stale Pipe clients cannot send or close replacements.
+- Desktop C++ WebSocket startup, exact `/version` and ready `/health`, authenticated business channels, config add/export/remove/import, and graceful `/shutdown`.
+- C++ missing/invalid artifacts, unsupported Pipe, and failed readiness without Python fallback.
+
+## Service Boundary
+
+Python service-specific changes belong in `service`, using shared channel handlers and `ChannelEndpoint`. C++ parity belongs in `baas-cpp-dev` and must be proved at the wire boundary. Android may wrap the service injection point, but should not scatter platform branches through BAAS core modules.
+
+## Required Local and CI Checks
+
+From the `baas-tauri` repository:
+
+```bash
+bun run lint
+bun run test:transport
+bun run test:cpp-service-package
+bun run build:tauri
+bun run build:tauri:android
+cargo test --workspace --all-targets --locked
+```
+
+The real C++ gate additionally requires verified external artifacts through `BAAS_CPP_SERVICE_PATH` and `BAAS_CPP_SERVICE_REMOTE_JAR`:
+
+```bash
+bun run e2e:cpp-service
+cargo test -p baas-tauri --lib commands::tests::real_cpp_service_ --locked
+```
+
+It is intentionally non-skippable: missing C++ inputs fail instead of substituting Python.
+
+From `baas-tauri/docs`:
+
+```bash
+bun install --frozen-lockfile
+bun run build:fonts
+bun run build:next
+bun run check:links
+```
+
+The static Next.js export compiles MDX, Twoslash examples, generated routes, and both locales. `check:links` verifies every exported internal link, anchor, script, stylesheet, and image under the configured Pages base path. CI additionally runs Rust tests on Windows, Linux, and macOS, runs the real C++ integration on those three hosts, and builds an Android arm64 debug APK with:
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## Smoke Tests
+
+1. Desktop Python: start with Pipe, open all four channels, change configuration, run a low-risk task, then switch to WebSocket and repeat.
+2. Desktop C++: explicitly select C++ + WebSocket, verify authenticated provider/sync/trigger traffic, restart authentication, and switch back to Python without orphaning either child.
+3. Android emulator: install the APK, verify first startup, Pipe connection, config sync, logs, and an Android-local control action; repeat the connection check in WebSocket mode and confirm C++ is absent.
+4. WebUI: verify authentication/resume and confirm no native backend-start or Pipe command is invoked.
+5. Failure paths: stop the backend, reject a C++ artifact/readiness check, feed a stale sync patch, interrupt a workflow, and confirm recovery plus locatable logs.
+
+Update both Chinese and English API pages whenever a public command, frame, config field, or platform behavior changes.

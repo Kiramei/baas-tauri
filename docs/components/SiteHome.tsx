@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { withDocsBasePath } from "@/lib/base-path";
 import Link from "next/link";
 import { Languages } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
@@ -135,14 +136,14 @@ export function SiteHome() {
       <section className="baas-site-hero" aria-label="BAAS documentation home">
         <img
           className="baas-site-hero-bg"
-          src={`/${assetLocale}/home-dark-logs.png`}
+          src={withDocsBasePath(`/${assetLocale}/home-dark-logs.png`)}
           alt={t.heroAlt}
         />
         <div className="baas-site-hero-scrim" />
 
         <nav className="baas-site-nav" aria-label="Home navigation">
           <Link className="baas-site-brand" href="/">
-            <img src="/baas-icon.png" alt="" />
+            <img src={withDocsBasePath("/baas-icon.png")} alt="" />
             <span>BAAS Docs</span>
           </Link>
           <div className="baas-site-nav-controls">
@@ -190,14 +191,14 @@ export function SiteHome() {
         <div>
           <p>{t.lightMode}</p>
           <img
-            src={`/${assetLocale}/home-light-logs.png`}
+            src={withDocsBasePath(`/${assetLocale}/home-light-logs.png`)}
             alt={locale === "zh" ? "BAAS Tauri 浅色主页" : "BAAS Tauri home page in light mode"}
           />
         </div>
         <div>
           <p>{t.darkMode}</p>
           <img
-            src={`/${assetLocale}/home-dark-logs.png`}
+            src={withDocsBasePath(`/${assetLocale}/home-dark-logs.png`)}
             alt={locale === "zh" ? "BAAS Tauri 深色主页" : "BAAS Tauri home page in dark mode"}
           />
         </div>
