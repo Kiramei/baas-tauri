@@ -27,11 +27,18 @@ const MAX_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 const OPEN_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(any(windows, unix))]
 const OPEN_CONNECT_RETRY_DELAY: Duration = Duration::from_millis(100);
+#[cfg(any(windows, unix))]
+const MAX_CANCELLED_ATTEMPTS_PER_KEY: usize = 32;
 
 #[cfg(any(windows, unix))]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(any(windows, unix))]
-use std::{collections::HashMap, future::Future, io, time::Duration};
+use std::{
+    collections::{HashMap, VecDeque},
+    future::Future,
+    io,
+    time::Duration,
+};
 #[cfg(windows)]
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 #[cfg(unix)]
@@ -204,6 +211,13 @@ struct TerminalNotifier {
 }
 
 #[cfg(any(windows, unix))]
+#[derive(Default)]
+struct CancelledAttemptTombstones {
+    attempts: VecDeque<uuid::Uuid>,
+    saturated: bool,
+}
+
+#[cfg(any(windows, unix))]
 impl TerminalNotifier {
     fn new(channel: Channel<InvokeResponseBody>) -> Self {
         Self {
@@ -233,7 +247,7 @@ struct PipeState {
     #[cfg(any(windows, unix))]
     opening: HashMap<String, OpenReservation>,
     #[cfg(any(windows, unix))]
-    cancelled_attempts: HashMap<String, uuid::Uuid>,
+    cancelled_attempts: HashMap<String, CancelledAttemptTombstones>,
     #[cfg(any(windows, unix))]
     connections: HashMap<String, Tokenized<PipeConnection>>,
 }
@@ -323,10 +337,28 @@ impl BackendPipeManager {
             .pipe_name
             .clone()
             .ok_or_else(|| "pipe transport has not been started".to_string())?;
-        if let Some(cancelled) = state.cancelled_attempts.remove(key) {
-            if cancelled == client_attempt {
-                return Err("pipe channel open was cancelled before it started".to_string());
+        let matched_tombstone = if let Some(cancelled) = state.cancelled_attempts.get_mut(key) {
+            if cancelled.saturated {
+                return Err("pipe channel open cancellation backlog is saturated".to_string());
             }
+            if let Some(position) = cancelled
+                .attempts
+                .iter()
+                .position(|attempt| *attempt == client_attempt)
+            {
+                cancelled.attempts.remove(position);
+                Some(cancelled.attempts.is_empty())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(remove_tombstones) = matched_tombstone {
+            if remove_tombstones {
+                state.cancelled_attempts.remove(key);
+            }
+            return Err("pipe channel open was cancelled before it started".to_string());
         }
         state.next_token = state
             .next_token
@@ -404,9 +436,16 @@ fn cancel_open_if_attempt(state: &mut PipeState, key: &str, client_attempt: uuid
         }
         return true;
     }
-    state
-        .cancelled_attempts
-        .insert(key.to_string(), client_attempt);
+    let cancelled = state.cancelled_attempts.entry(key.to_string()).or_default();
+    if cancelled.saturated || cancelled.attempts.contains(&client_attempt) {
+        return false;
+    }
+    if cancelled.attempts.len() >= MAX_CANCELLED_ATTEMPTS_PER_KEY {
+        cancelled.attempts.clear();
+        cancelled.saturated = true;
+    } else {
+        cancelled.attempts.push_back(client_attempt);
+    }
     false
 }
 
@@ -1008,7 +1047,30 @@ mod tests {
         {
             let mut state = manager.inner.lock().unwrap();
             assert!(!cancel_open_if_attempt(&mut state, key, cancelled));
-            assert_eq!(state.cancelled_attempts.get(key), Some(&cancelled));
+            let tombstones = state.cancelled_attempts.get(key).unwrap();
+            assert_eq!(
+                tombstones.attempts.iter().copied().collect::<Vec<_>>(),
+                vec![cancelled]
+            );
+            assert!(!tombstones.saturated);
+        }
+
+        // A newer open may arrive before the delayed cancelled IPC. It must
+        // neither consume the older tombstone nor be cancelled by it.
+        let different = client_attempt(7);
+        let (_, different_reservation) = manager.reserve_open(key, different).unwrap();
+        {
+            let state = manager.inner.lock().unwrap();
+            assert!(state
+                .cancelled_attempts
+                .get(key)
+                .unwrap()
+                .attempts
+                .contains(&cancelled));
+            assert_eq!(
+                state.opening.get(key).map(|entry| entry.client_attempt),
+                Some(different)
+            );
         }
 
         let error = match manager.reserve_open(key, cancelled) {
@@ -1019,11 +1081,40 @@ mod tests {
         {
             let state = manager.inner.lock().unwrap();
             assert!(!state.cancelled_attempts.contains_key(key));
-            assert!(!state.opening.contains_key(key));
+            assert_eq!(
+                state.opening.get(key).map(|entry| entry.token),
+                Some(different_reservation.token)
+            );
+        }
+    }
+
+    #[test]
+    fn cancellation_tombstones_are_bounded_and_fail_closed_on_saturation() {
+        let manager = BackendPipeManager::default();
+        manager.configure("pipe".to_string()).unwrap();
+        let key = "sync:saturated";
+        {
+            let mut state = manager.inner.lock().unwrap();
+            for value in 1..=(MAX_CANCELLED_ATTEMPTS_PER_KEY as u128 + 1) {
+                assert!(!cancel_open_if_attempt(
+                    &mut state,
+                    key,
+                    client_attempt(100 + value)
+                ));
+            }
+            let tombstones = state.cancelled_attempts.get(key).unwrap();
+            assert!(tombstones.saturated);
+            assert!(tombstones.attempts.is_empty());
         }
 
-        let different = client_attempt(7);
-        assert!(manager.reserve_open(key, different).is_ok());
+        let error = match manager.reserve_open(key, client_attempt(999)) {
+            Ok(_) => panic!("saturated cancellation key admitted an open"),
+            Err(error) => error,
+        };
+        assert!(error.contains("backlog is saturated"), "{error}");
+
+        manager.configure("replacement-pipe".to_string()).unwrap();
+        assert!(manager.reserve_open(key, client_attempt(1_000)).is_ok());
     }
 
     #[test]
