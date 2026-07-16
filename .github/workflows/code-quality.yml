@@ -156,8 +156,9 @@ jobs:
         with:
           target: ${{ steps.native-target.outputs.target }}
 
-      - name: Test packaging and managed lifecycle against real service
+      - name: Test authenticated integration, packaging, and managed lifecycle
         run: |
+          bun run e2e:cpp-service
           bun run test:cpp-service-package
           cargo test -p baas-tauri --lib commands::tests::real_cpp_service_ --locked
 
