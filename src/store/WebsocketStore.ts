@@ -6,12 +6,16 @@ import {
   rememberControlSession,
 } from "@/shared/SecureWebSocket";
 import {
-  configuredTransportMode,
+  configuredBackendSelection,
   normalizeTransportMode,
   openBackendChannel,
   startBackendTransport,
 } from "@/transport/factory";
-import type { BackendChannelName, BackendConnection } from "@/transport/types";
+import type {
+  BackendChannelName,
+  BackendConnection,
+  BackendRuntimeKind,
+} from "@/transport/types";
 import { subscribeWithSelector } from "zustand/middleware";
 import { getTimestampMs, isPlainObject } from "@/shared/GlobalUtilities.ts";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
@@ -74,6 +78,7 @@ let tauriUpdaterNotifiedVersion: string | null = null;
 let transportStartup:
   | {
       mode: "websocket" | "pipe";
+      runtime: BackendRuntimeKind;
       promise: ReturnType<typeof startBackendTransport>;
     }
   | null = null;
@@ -99,16 +104,21 @@ type PendingSyncPatch = {
 const pendingSyncPatches = new Map<number, PendingSyncPatch>();
 
 /** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
-const startManagedBackendTransport = async (mode: "websocket" | "pipe") => {
+const startManagedBackendTransport = async (
+  mode: "websocket" | "pipe",
+  runtime: BackendRuntimeKind
+) => {
   if (Date.now() - transportStartupFailureAt < 5_000) {
     throw new Error("Backend transport startup is cooling down after a failure");
   }
   if (transportStartup) {
-    if (transportStartup.mode === mode) return transportStartup.promise;
+    if (transportStartup.mode === mode && transportStartup.runtime === runtime) {
+      return transportStartup.promise;
+    }
     await transportStartup.promise.catch(() => undefined);
   }
-  const promise = startBackendTransport(mode);
-  transportStartup = { mode, promise };
+  const promise = startBackendTransport(mode, runtime);
+  transportStartup = { mode, runtime, promise };
   try {
     const startup = await promise;
     transportStartupFailureAt = 0;
@@ -323,7 +333,7 @@ const restoreTransportAuthentication = async (mode: "websocket" | "pipe") => {
     _control: null,
     _session: null,
   });
-  await useWebSocketStore.getState().startAuthFlow();
+  await useWebSocketStore.getState().startAuthFlow(true);
   if (useWebSocketStore.getState()._auth_phase === "waiting_password") {
     const password = __WITH_ANDROID__
       ? getAndroidAutoPassword()
@@ -342,6 +352,7 @@ const runTransportRecovery = async (epoch: number) => {
   let attempt = 0;
   while (desiredConnectionNames.size > 0 && epoch === transportRecoveryEpoch) {
     const mode = useWebSocketStore.getState().transportMode;
+    const runtime = useWebSocketStore.getState().backendRuntime;
     const restartBackend = transportRecoveryMustRestart;
     transportRecoveryMustRestart = false;
     transportRecoveryRestarting = restartBackend;
@@ -354,7 +365,7 @@ const runTransportRecovery = async (epoch: number) => {
           _auth_error: null,
           _server_verified: mode === "pipe",
         });
-        const startup = await startManagedBackendTransport(mode);
+        const startup = await startManagedBackendTransport(mode, runtime);
         if (epoch !== transportRecoveryEpoch) return;
         if (mode === "websocket") applyManagedBackendAddress(startup);
         const authenticated = await restoreTransportAuthentication(mode);
@@ -488,9 +499,20 @@ void waitForNormal;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get, api) => ({
+    backendRuntime: "python",
     transportMode: __WITH_TAURI__ ? "pipe" : "websocket",
-    setTransportMode: async (mode) => {
+    setTransportMode: async (mode) =>
+      get().setBackendSelection(get().backendRuntime, normalizeTransportMode(mode)),
+    setBackendRuntime: async (runtime) =>
+      get().setBackendSelection(runtime, runtime === "cpp" ? "websocket" : get().transportMode),
+    setBackendSelection: async (runtime, mode) => {
+      const previousRuntime = get().backendRuntime;
+      const previousMode = get().transportMode;
+      const nextRuntime: BackendRuntimeKind = __WITH_ANDROID__ ? "python" : runtime;
       const nextMode = normalizeTransportMode(mode);
+      if (nextRuntime === "cpp" && nextMode !== "websocket") {
+        throw new Error("C++ backend runtime supports only WebSocket transport");
+      }
       transportSwitching = true;
       transportRecoveryEpoch += 1;
       transportRecoveryMustRestart = false;
@@ -510,6 +532,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       set((state) => ({
         ...state,
         ...resetConnectionStores(),
+        backendRuntime: nextRuntime,
         transportMode: nextMode,
         _auth_phase: "idle",
         _auth_error: null,
@@ -518,8 +541,10 @@ export const useWebSocketStore = create<WebSocketState>()(
         _control: null,
         _session: null,
       }));
+      let selectionActivated = false;
       try {
-        const startup = await startManagedBackendTransport(nextMode);
+        const startup = await startManagedBackendTransport(nextMode, nextRuntime);
+        selectionActivated = true;
         if (nextMode === "pipe") {
           activeWebSocketBase = null;
           set((state) => ({
@@ -531,7 +556,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         } else {
           applyManagedBackendAddress(startup);
           transportSwitching = false;
-          await get().startAuthFlow();
+          await get().startAuthFlow(true);
           await waitForNormal(
             () => get()._auth_phase,
             (phase) =>
@@ -559,6 +584,8 @@ export const useWebSocketStore = create<WebSocketState>()(
       } catch (error) {
         set((state) => ({
           ...state,
+          backendRuntime: selectionActivated ? nextRuntime : previousRuntime,
+          transportMode: selectionActivated ? nextMode : previousMode,
           _auth_phase: "idle",
           _auth_error: error instanceof Error ? error.message : String(error),
         }));
@@ -755,16 +782,19 @@ export const useWebSocketStore = create<WebSocketState>()(
       check();
     },
 
-    startAuthFlow: async () => {
+    startAuthFlow: async (backendAlreadyStarted = false) => {
       if (transportSwitching) return;
       const authGeneration = transportGeneration;
-      const transportMode = await configuredTransportMode();
+      const selection = await configuredBackendSelection();
       if (transportSwitching || authGeneration !== transportGeneration) return;
+      const transportMode = selection.mode;
+      const backendRuntime = selection.runtime;
       if (transportMode === "pipe") {
         if (get()._auth_phase === "authenticated") return;
         set((state) => ({
           ...state,
           ...resetConnectionStores(),
+          backendRuntime,
           transportMode,
           _auth_phase: "control_connecting",
           _auth_error: null,
@@ -774,7 +804,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           _session: null,
         }));
         try {
-          await startManagedBackendTransport(transportMode);
+          await startManagedBackendTransport(transportMode, backendRuntime);
           if (transportSwitching || authGeneration !== transportGeneration) return;
           activeWebSocketBase = null;
           set((state) => ({ ...state, _auth_phase: "authenticated" }));
@@ -805,6 +835,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       set((state) => ({
         ...state,
+        backendRuntime,
         transportMode: "websocket",
         _auth_phase: "control_connecting",
         _auth_error: phase === "revoked" ? state._auth_error : null,
@@ -812,6 +843,11 @@ export const useWebSocketStore = create<WebSocketState>()(
       }));
 
       try {
+        if (backendRuntime === "cpp" && !backendAlreadyStarted) {
+          const startup = await startManagedBackendTransport("websocket", backendRuntime);
+          if (transportSwitching || authGeneration !== transportGeneration) return;
+          applyManagedBackendAddress(startup);
+        }
         const control = await ControlConnection.open(`${resolveBase()}/ws/control`);
         if (
           transportSwitching ||

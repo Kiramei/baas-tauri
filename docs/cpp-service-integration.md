@@ -1,16 +1,31 @@
 # C++ service integration
 
-The desktop C++ backend remains an explicit opt-in entry. The normal frontend
-startup and `backend_transport_start` command continue to launch Python. C++
-Pipe startup remains unavailable until the production application owns a real
-Pipe listener.
+Desktop persists the selected implementation in
+`general.backend_runtime = "python" | "cpp"`. Missing and legacy values default
+to Python. Startup reads the runtime and transport from one configuration
+snapshot; recovery and settings switches keep using that same runtime instead
+of reverting to Python.
 
-Frontend integrations opt in with
-`startCppBackendTransport("websocket" | "pipe")`. The existing
-`startBackendTransport(mode)` call deliberately defaults to Python; merely
-selecting Pipe transport never changes the backend implementation. Until the
-C++ process owner enables its production Pipe listener, the explicit C++ Pipe
-request fails closed instead of falling back to Python.
+The desktop settings page exposes Python and C++ runtime choices. Selecting C++
+atomically selects WebSocket because the production C++ process does not own a
+Pipe listener yet. Configuration migration, the frontend selection resolver,
+and the Rust command all enforce that coupling. An explicit C++ startup failure
+is reported to the user and never retries through `backend_transport_start` or
+launches Python as a fallback. Selecting Python restores both WebSocket and Pipe
+choices. A failed explicit switch stops the rejected child and restores the
+previous persisted selection, but does not launch that previous runtime during
+the failed operation. Android ignores a persisted C++ value and remains on
+Python.
+
+The updater launch stage is disabled when an existing desktop configuration
+selects C++; after synchronization the setup page starts the packaged C++
+service explicitly. This avoids transiently launching Python during normal C++
+startup. `updater_reset_backend_auth_and_restart` also dispatches to the
+persisted runtime.
+
+Frontend integrations may call `startCppBackendTransport("websocket")`
+directly. Until the C++ process owner enables its production Pipe listener, an
+explicit C++ Pipe request fails closed.
 The Tauri ACL exposes `backend_cpp_transport_start` only through the desktop
 `allow-cpp-transport-command` permission; Android and the broader legacy
 command permission do not inherit it.

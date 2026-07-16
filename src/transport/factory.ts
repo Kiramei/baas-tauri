@@ -14,6 +14,27 @@ export function normalizeTransportMode(value: unknown): BackendTransportMode {
   });
 }
 
+export function resolveBackendRuntime(
+  value: unknown,
+  environment: { android: boolean; tauri: boolean }
+): BackendRuntimeKind {
+  if (!environment.tauri || environment.android) return "python";
+  return value === "cpp" ? "cpp" : "python";
+}
+
+export function resolveBackendSelection(
+  runtimeValue: unknown,
+  transportValue: unknown,
+  environment: { android: boolean; tauri: boolean }
+): { runtime: BackendRuntimeKind; mode: BackendTransportMode } {
+  const runtime = resolveBackendRuntime(runtimeValue, environment);
+  const mode = resolveTransportMode(transportValue, environment);
+  return {
+    runtime,
+    mode: runtime === "cpp" ? "websocket" : mode,
+  };
+}
+
 export function resolveTransportMode(
   value: unknown,
   environment: { android: boolean; tauri: boolean }
@@ -23,13 +44,32 @@ export function resolveTransportMode(
 }
 
 export async function configuredTransportMode(): Promise<BackendTransportMode> {
-  if (!__WITH_TAURI__) return "websocket";
+  return (await configuredBackendSelection()).mode;
+}
+
+/** Reads one persisted runtime/transport snapshot so startup cannot mix revisions. */
+export async function configuredBackendSelection(): Promise<{
+  runtime: BackendRuntimeKind;
+  mode: BackendTransportMode;
+}> {
+  if (!__WITH_TAURI__) return { runtime: "python", mode: "websocket" };
   try {
     const { invoke } = await import("@/shared/TauriInvoke");
     const startup = await invoke<any>("updater_get_startup_state");
-    return normalizeTransportMode(startup?.config?.general?.transport);
-  } catch {
-    return "pipe";
+    const general = startup?.config?.general ?? {};
+    return resolveBackendSelection(
+      general.backend_runtime ?? general.backendRuntime,
+      general.transport,
+      { android: __WITH_ANDROID__, tauri: true }
+    );
+  } catch (error) {
+    if (__WITH_ANDROID__) {
+      return resolveBackendSelection(undefined, undefined, {
+        android: true,
+        tauri: true,
+      });
+    }
+    throw error;
   }
 }
 
@@ -38,16 +78,25 @@ export async function startBackendTransport(
   runtime: BackendRuntimeKind = "python"
 ): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {
   if (!__WITH_TAURI__) return {};
+  if (__WITH_ANDROID__ && runtime !== "python") {
+    throw new Error("Android supports only the Python backend runtime");
+  }
+  if (runtime === "cpp" && mode !== "websocket") {
+    throw new Error("C++ backend runtime supports only WebSocket transport");
+  }
   const { invoke } = await import("@/shared/TauriInvoke");
   return invoke<{ baseBackendAddr: string; baseBackendPort: number }>(
     backendTransportStartCommand(runtime),
     {
-      mode: normalizeTransportMode(mode),
+      mode: resolveBackendSelection(runtime, mode, {
+        android: __WITH_ANDROID__,
+        tauri: true,
+      }).mode,
     }
   );
 }
 
-/** Explicit native-service opt-in; normal startup remains on the Python backend. */
+/** Starts the native service without permitting a Python fallback. */
 export function startCppBackendTransport(
   mode: BackendTransportMode
 ): Promise<{ baseBackendAddr?: string; baseBackendPort?: number }> {

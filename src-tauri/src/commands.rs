@@ -6,7 +6,9 @@ use baas_shortcut::{
 use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
-    config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
+    config::{
+        exe_adjacent_config_path, BackendRuntime, BackendTransport, ConfigManager, UpdaterConfig,
+    },
     environ::{
         backend_pid_path, cpp_service_executable_name, launch_backend_command,
         launch_backend_pipe_command, launch_cpp_backend_command,
@@ -67,6 +69,7 @@ pub struct UpdaterConfigUpdateRequest {
     pub runtime_path: Option<String>,
     pub no_update: Option<bool>,
     pub git_backend: Option<String>,
+    pub backend_runtime: Option<String>,
     pub transport: Option<String>,
 }
 
@@ -539,10 +542,11 @@ pub fn updater_update_config(
         "INFO",
         "updater",
         format!(
-            "Updater config change requested channel={:?} no_update={:?} git_backend={:?} transport={:?} cdk_present={}",
+            "Updater config change requested channel={:?} no_update={:?} git_backend={:?} backend_runtime={:?} transport={:?} cdk_present={}",
             request.channel,
             request.no_update,
             request.git_backend,
+            request.backend_runtime,
             request.transport,
             request
                 .mirrorc_cdk
@@ -572,6 +576,7 @@ pub fn updater_update_config(
         Some(value) => return Err(format!("unsupported backend transport: {value}")),
         None => None,
     };
+    let parsed_backend_runtime = parse_backend_runtime(request.backend_runtime.as_deref())?;
     manager
         .update(|config| {
             if let Some(path) = request_baas_root_path {
@@ -592,12 +597,28 @@ pub fn updater_update_config(
             if let Some(git_backend) = parsed_git_backend {
                 config.general.git_backend = git_backend;
             }
+            if let Some(runtime) = parsed_backend_runtime {
+                config.general.backend_runtime = runtime;
+            }
             if let Some(transport) = parsed_transport {
                 config.general.transport = transport;
+            }
+            if config.general.backend_runtime == BackendRuntime::Cpp {
+                config.general.transport = BackendTransport::Websocket;
             }
         })
         .map_err(|error| error.message())?;
     Ok(manager.config)
+}
+
+/// Parses the persisted desktop backend implementation without aliases or fallback.
+fn parse_backend_runtime(value: Option<&str>) -> Result<Option<BackendRuntime>, String> {
+    match value {
+        Some("python") => Ok(Some(BackendRuntime::Python)),
+        Some("cpp") => Ok(Some(BackendRuntime::Cpp)),
+        Some(value) => Err(format!("unsupported backend runtime: {value}")),
+        None => Ok(None),
+    }
 }
 
 /// Performs the updater validate mirrorc cdk operation.
@@ -837,9 +858,16 @@ pub fn updater_reset_backend_auth_and_restart(
     delete_backend_auth_files(&manager.config)?;
 
     let port = available_backend_port()?;
-    start_backend_detached(&manager.config, port)?;
-    backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
+    match manager.config.general.backend_runtime {
+        BackendRuntime::Python => start_backend_detached(&manager.config, port)?,
+        BackendRuntime::Cpp => start_cpp_backend_detached(&app, &manager.config, port)?,
+    }
+    track_and_wait_backend(
+        &backend,
+        &manager.config,
+        port,
+        manager.config.general.backend_runtime,
+    )?;
     system_log(
         "INFO",
         "backend_process",
@@ -866,40 +894,61 @@ pub fn backend_transport_start(
         _ => return Err(format!("unsupported backend transport: {mode}")),
     };
     let mut manager = ensure_default_config(&app)?;
+    let previous_runtime = manager.config.general.backend_runtime;
+    let previous_transport = manager.config.general.transport;
     manager
-        .update(|config| config.general.transport = transport)
+        .update(|config| {
+            config.general.backend_runtime = BackendRuntime::Python;
+            config.general.transport = transport;
+        })
         .map_err(|error| error.message())?;
-    backend.stop_for_config(&manager.config)?;
-    pipe.close_all()?;
-    thread::sleep(Duration::from_millis(300));
+    let mut started = false;
+    let result = (|| {
+        backend.stop_for_config(&manager.config)?;
+        pipe.close_all()?;
+        thread::sleep(Duration::from_millis(300));
 
-    let port = available_backend_port()?;
-    match mode.as_str() {
-        "websocket" => start_backend_detached(&manager.config, port)?,
-        "pipe" => {
-            let pipe_name = backend_pipe_endpoint();
-            start_backend_pipe_detached(&manager.config, port, &pipe_name)?;
-            pipe.configure(pipe_name)?;
+        let port = available_backend_port()?;
+        match mode.as_str() {
+            "websocket" => {
+                start_backend_detached(&manager.config, port)?;
+                started = true;
+            }
+            "pipe" => {
+                let pipe_name = backend_pipe_endpoint();
+                start_backend_pipe_detached(&manager.config, port, &pipe_name)?;
+                started = true;
+                pipe.configure(pipe_name)?;
+            }
+            _ => unreachable!("transport mode was validated before backend restart"),
         }
-        _ => unreachable!("transport mode was validated before backend restart"),
+        track_and_wait_backend(&backend, &manager.config, port, BackendRuntime::Python)?;
+        system_log(
+            "INFO",
+            "backend_process",
+            format!("Backend transport ready mode={mode} port={port}"),
+        );
+        Ok(BackendReadyPayload {
+            base_backend_addr: "127.0.0.1".to_string(),
+            base_backend_port: port,
+        })
+    })();
+    match result {
+        Ok(payload) => Ok(payload),
+        Err(error) => {
+            let _ = pipe.close_all();
+            let error = cleanup_started_backend(&manager.config, started, error);
+            Err(rollback_backend_selection(
+                &mut manager,
+                previous_runtime,
+                previous_transport,
+                error,
+            ))
+        }
     }
-    backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
-    system_log(
-        "INFO",
-        "backend_process",
-        format!("Backend transport ready mode={mode} port={port}"),
-    );
-    Ok(BackendReadyPayload {
-        base_backend_addr: "127.0.0.1".to_string(),
-        base_backend_port: port,
-    })
 }
 
-/// Restarts the explicitly selected C++ backend for the requested transport.
-///
-/// This is intentionally separate from `backend_transport_start`, which keeps
-/// launching the existing Python service until the frontend migration opts in.
+/// Restarts and persists the explicitly selected C++ backend.
 #[tauri::command]
 pub fn backend_cpp_transport_start(
     app: AppHandle,
@@ -916,39 +965,102 @@ pub fn backend_cpp_transport_start(
         _ => return Err(format!("unsupported C++ backend transport: {mode}")),
     };
     let mut manager = ensure_default_config(&app)?;
+    let previous_runtime = manager.config.general.backend_runtime;
+    let previous_transport = manager.config.general.transport;
     manager
-        .update(|config| config.general.transport = transport)
+        .update(|config| {
+            config.general.backend_runtime = BackendRuntime::Cpp;
+            config.general.transport = transport;
+        })
         .map_err(|error| error.message())?;
-    backend.stop_for_config(&manager.config)?;
-    pipe.close_all()?;
-    thread::sleep(Duration::from_millis(300));
+    let mut started = false;
+    let result = (|| {
+        backend.stop_for_config(&manager.config)?;
+        pipe.close_all()?;
+        thread::sleep(Duration::from_millis(300));
 
-    let port = available_backend_port()?;
-    start_cpp_backend_detached(&app, &manager.config, port)?;
-    if let Err(error) = backend.remember_config(&manager.config) {
-        let _ = stop_backend_pid_file(&backend_pid_path(&manager.config));
-        return Err(error);
+        let port = available_backend_port()?;
+        start_cpp_backend_detached(&app, &manager.config, port)?;
+        started = true;
+        track_and_wait_backend(&backend, &manager.config, port, BackendRuntime::Cpp)?;
+        system_log(
+            "INFO",
+            "backend_process",
+            format!("C++ backend transport ready mode={mode} port={port}"),
+        );
+        Ok(BackendReadyPayload {
+            base_backend_addr: "127.0.0.1".to_string(),
+            base_backend_port: port,
+        })
+    })();
+    match result {
+        Ok(payload) => Ok(payload),
+        Err(error) => {
+            let error = cleanup_started_backend(&manager.config, started, error);
+            Err(rollback_backend_selection(
+                &mut manager,
+                previous_runtime,
+                previous_transport,
+                error,
+            ))
+        }
     }
-    if let Err(error) = wait_for_cpp_backend_ready(port) {
-        // The PID was already remembered above. Stop directly here so a
-        // poisoned manager lock cannot leave a rejected child running.
-        let cleanup = stop_backend_pid_file(&backend_pid_path(&manager.config));
-        return match cleanup {
+}
+
+/// Waits for the selected backend and stops a rejected child without changing runtime.
+fn track_and_wait_backend(
+    backend: &BackendProcessManager,
+    config: &UpdaterConfig,
+    port: u16,
+    runtime: BackendRuntime,
+) -> Result<(), String> {
+    let ready = backend
+        .remember_config(config)
+        .and_then(|()| match runtime {
+            BackendRuntime::Python => wait_for_backend_auth_endpoint(port),
+            BackendRuntime::Cpp => wait_for_cpp_backend_ready(port),
+        });
+    if let Err(error) = ready {
+        return match stop_backend_pid_file(&backend_pid_path(config)) {
             Ok(()) => Err(error),
             Err(cleanup_error) => Err(format!(
-                "{error}; failed to stop rejected C++ backend: {cleanup_error}"
+                "{error}; failed to stop rejected {runtime:?} backend: {cleanup_error}"
             )),
         };
     }
-    system_log(
-        "INFO",
-        "backend_process",
-        format!("C++ backend transport ready mode={mode} port={port}"),
-    );
-    Ok(BackendReadyPayload {
-        base_backend_addr: "127.0.0.1".to_string(),
-        base_backend_port: port,
-    })
+    Ok(())
+}
+
+/// Stops a child started by a switch when a later activation step rejects it.
+fn cleanup_started_backend(config: &UpdaterConfig, started: bool, error: String) -> String {
+    if !started {
+        return error;
+    }
+    match stop_backend_pid_file(&backend_pid_path(config)) {
+        Ok(()) => error,
+        Err(cleanup_error) => {
+            format!("{error}; failed to stop rejected backend: {cleanup_error}")
+        }
+    }
+}
+
+/// Restores the last working persisted selection after an explicit switch fails.
+fn rollback_backend_selection(
+    manager: &mut ConfigManager,
+    runtime: BackendRuntime,
+    transport: BackendTransport,
+    error: String,
+) -> String {
+    match manager.update(|config| {
+        config.general.backend_runtime = runtime;
+        config.general.transport = transport;
+    }) {
+        Ok(()) => error,
+        Err(rollback_error) => format!(
+            "{error}; failed to restore previous backend selection: {}",
+            rollback_error.message()
+        ),
+    }
 }
 
 /// Performs the updater abort workflow operation.
@@ -2952,6 +3064,50 @@ mod tests {
         assert_eq!(non_empty_path(""), None);
         assert_eq!(non_empty_path("   "), None);
         assert_eq!(non_empty_path("D:/BAAS"), Some(PathBuf::from("D:/BAAS")));
+    }
+
+    /// Runtime configuration accepts only the two explicit implementations.
+    #[test]
+    fn parses_backend_runtime_without_fallback_aliases() {
+        assert_eq!(
+            parse_backend_runtime(Some("python")).unwrap(),
+            Some(BackendRuntime::Python)
+        );
+        assert_eq!(
+            parse_backend_runtime(Some("cpp")).unwrap(),
+            Some(BackendRuntime::Cpp)
+        );
+        assert_eq!(parse_backend_runtime(None).unwrap(), None);
+        assert_eq!(
+            parse_backend_runtime(Some("native")).unwrap_err(),
+            "unsupported backend runtime: native"
+        );
+    }
+
+    /// A failed switch restores the previous persisted runtime and transport.
+    #[test]
+    fn rollback_restores_previous_backend_selection() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("setup.toml");
+        let mut manager = ConfigManager::load_from(&path).unwrap();
+        manager
+            .update(|config| {
+                config.general.backend_runtime = BackendRuntime::Cpp;
+                config.general.transport = BackendTransport::Websocket;
+            })
+            .unwrap();
+
+        let error = rollback_backend_selection(
+            &mut manager,
+            BackendRuntime::Python,
+            BackendTransport::Pipe,
+            "C++ startup failed".to_string(),
+        );
+
+        assert_eq!(error, "C++ startup failed");
+        let restored = ConfigManager::load_from(path).unwrap().config.general;
+        assert_eq!(restored.backend_runtime, BackendRuntime::Python);
+        assert_eq!(restored.transport, BackendTransport::Pipe);
     }
 
     /// Managed backend identity accepts only exact names and launcher flags.

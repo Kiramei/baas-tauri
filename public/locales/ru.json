@@ -679,6 +679,11 @@
     "dateUpdated": "Дата обновлена",
     "timeUpdated": "Время обновлено"
   },
+  "backendRuntime": {
+    "cpp": "C++ (нативный)",
+    "label": "Среда бэкенда",
+    "python": "Python (совместимый)"
+  },
   "transport": {
     "label": "Передача данных",
     "pipe": "Именованный канал (ПК)",

@@ -29,6 +29,17 @@ pub enum BackendTransport {
     Pipe,
 }
 
+/// Backend implementation launched by the desktop client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BackendRuntime {
+    /// Existing Python service implementation.
+    #[default]
+    Python,
+    /// Native C++ service implementation.
+    Cpp,
+}
+
 /// Default Python package indexes used by UV.
 pub fn default_pypi_sources() -> Vec<String> {
     PYPI_SOURCE_LIST
@@ -97,6 +108,13 @@ impl UpdaterConfig {
                 "schema_version must be greater than zero".to_string(),
             ));
         }
+        if self.general.backend_runtime == BackendRuntime::Cpp
+            && self.general.transport != BackendTransport::Websocket
+        {
+            return Err(UpdaterError::Config(
+                "C++ backend runtime requires WebSocket transport".to_string(),
+            ));
+        }
         Ok(())
     }
 }
@@ -105,6 +123,8 @@ impl UpdaterConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GeneralConfig {
+    /// Backend implementation selected on desktop. Android always uses Python.
+    pub backend_runtime: BackendRuntime,
     /// Frontend/backend data transport. Android always uses WebSocket.
     pub transport: BackendTransport,
     /// MirrorC CDK. Empty means Git update mode.
@@ -142,6 +162,7 @@ impl Default for GeneralConfig {
     /// Handles the default workflow.
     fn default() -> Self {
         Self {
+            backend_runtime: BackendRuntime::Python,
             transport: BackendTransport::Pipe,
             mirrorc_cdk: String::new(),
             channel: UpdateChannel::Stable,
@@ -357,6 +378,7 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
                 config.general.git_backend = GitBackend::parse(&git_backend)?;
             }
         }
+        normalize_backend_selection(&mut config);
         return Ok(config);
     }
 
@@ -412,7 +434,15 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         }
     }
 
+    normalize_backend_selection(&mut config);
     Ok(config)
+}
+
+/// Enforces runtime capabilities after loading current or legacy configuration.
+fn normalize_backend_selection(config: &mut UpdaterConfig) {
+    if config.general.backend_runtime == BackendRuntime::Cpp {
+        config.general.transport = BackendTransport::Websocket;
+    }
 }
 
 /// Handles the string value workflow.
@@ -451,6 +481,7 @@ mod tests {
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
+        assert_eq!(config.general.backend_runtime, BackendRuntime::Python);
         assert_eq!(config.general.transport, BackendTransport::Pipe);
         assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
@@ -508,6 +539,8 @@ TOOL_KIT_PATH = "tools"
 schema_version = 1
 
 [general]
+backend_runtime = "cpp"
+transport = "pipe"
 mirrorc_cdk = "abc"
 channel = "dev"
 current_baas_sha = "main-sha"
@@ -535,6 +568,8 @@ cpp_sources = []
         .unwrap();
 
         assert_eq!(config.general.mirrorc_cdk, "abc");
+        assert_eq!(config.general.backend_runtime, BackendRuntime::Cpp);
+        assert_eq!(config.general.transport, BackendTransport::Websocket);
         assert_eq!(config.general.channel, UpdateChannel::Dev);
         assert_eq!(config.general.current_baas_sha, "main-sha");
         assert_eq!(config.general.current_baas_cpp_sha, "cpp-sha");
@@ -547,6 +582,31 @@ cpp_sources = []
         assert_eq!(config.paths.toolkit_path, "tools");
         assert_eq!(config.python.runtime_path, "C:/Python/python.exe");
         assert_eq!(config.python.python_version, "3.11.0");
+    }
+
+    /// C++ persists only with its supported WebSocket transport.
+    #[test]
+    fn cpp_runtime_forces_websocket_during_config_migration() {
+        let config = migrate_toml(
+            r#"
+[general]
+backend_runtime = "cpp"
+transport = "pipe"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.general.backend_runtime, BackendRuntime::Cpp);
+        assert_eq!(config.general.transport, BackendTransport::Websocket);
+    }
+
+    /// Programmatic config changes cannot persist an unsupported C++ Pipe pair.
+    #[test]
+    fn validation_rejects_cpp_pipe_selection() {
+        let mut config = UpdaterConfig::default();
+        config.general.backend_runtime = BackendRuntime::Cpp;
+
+        assert!(config.validate().is_err());
     }
 
     /// Handles the current schema preserves legacy git backend override workflow.
@@ -605,6 +665,7 @@ gitBackend = "git_cli"
 
         let saved = fs::read_to_string(&path).unwrap();
         assert!(saved.contains("baas_root_path"));
+        assert!(saved.contains("backend_runtime = \"python\""));
         assert!(saved.contains("mirrorc_cdk"));
         assert!(saved.contains("runtime_path"));
         assert!(!saved.contains("baasRootPath"));

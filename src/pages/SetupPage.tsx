@@ -27,6 +27,8 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
+    backend_runtime?: "python" | "cpp";
+    backendRuntime?: "python" | "cpp";
     transport?: "websocket" | "pipe";
   };
   paths?: {
@@ -109,6 +111,7 @@ const SetupPage = () => {
   const abortingRef = useRef(false);
   const pendingWorkflowRef = useRef<{ path: string; config: UpdaterConfig | null } | null>(null);
   const workflowStartedRef = useRef(false);
+  const cppStartupRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -157,10 +160,14 @@ const SetupPage = () => {
     StorageUtil.set("base_dir", path);
     try {
       await persistConfig(path, requestConfig);
+      const backendRuntime =
+        requestConfig?.general?.backend_runtime ??
+        requestConfig?.general?.backendRuntime ??
+        "python";
       await invoke("updater_start_workflow", {
         request: {
           installPath: path,
-          launch: true,
+          launch: backendRuntime !== "cpp",
         },
       });
     } catch (error) {
@@ -197,7 +204,7 @@ const SetupPage = () => {
         !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
       ) {
         try {
-          await useWebSocketStore.getState().startAuthFlow();
+          await useWebSocketStore.getState().startAuthFlow(true);
           await waitForNormal(
             () => useWebSocketStore.getState()._auth_phase,
             (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",
@@ -240,6 +247,25 @@ const SetupPage = () => {
     },
     []
   );
+
+  const finishCppWorkflow = useCallback(async () => {
+    if (cppStartupRef.current) return;
+    cppStartupRef.current = true;
+    try {
+      const payload = await invoke<BackendReadyPayload>("backend_cpp_transport_start", {
+        mode: "websocket",
+      });
+      await authenticateBackend(payload);
+      reloadWithoutPrompt();
+    } catch (error) {
+      showWorkflowFailure({
+        step: "cpp-startup",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      cppStartupRef.current = false;
+    }
+  }, [authenticateBackend, showWorkflowFailure]);
 
   /** Handles the handle abort interaction. */
   const handleAbort = async () => {
@@ -390,6 +416,12 @@ const SetupPage = () => {
                         },
                         true
                       );
+                    } else if (
+                      success &&
+                      (config?.general?.backend_runtime ?? config?.general?.backendRuntime) ===
+                        "cpp"
+                    ) {
+                      void finishCppWorkflow();
                     }
                   }}
                 />

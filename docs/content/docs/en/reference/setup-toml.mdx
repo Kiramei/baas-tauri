@@ -42,19 +42,21 @@ The current Tauri installer still performs these steps, with directory selection
 
 ## Common General Keys
 
-| Key                        | Type   | Purpose                                | Recommendation                                  |
-| -------------------------- | ------ | -------------------------------------- | ----------------------------------------------- |
-| `mirrorc_cdk`              | string | MirrorC acceleration credential        | Fill only when you have a CDK                   |
-| `current_BAAS_version`     | string | Current backend version                | Usually maintained automatically                |
-| `current_BAAS_Cpp_version` | string | Current C++ component version          | Usually maintained automatically                |
-| `get_remote_sha_method`    | string | Remote SHA lookup method               | Switch when GitHub is unreachable               |
-| `dev`                      | bool   | Do not update from remote source       | Use for local development or version freeze     |
-| `refresh`                  | bool   | Overwrite local backend changes        | Destructive to local edits; use carefully       |
-| `launch`                   | bool   | Skip install steps and start directly  | Use only after environment is ready             |
-| `force_launch`             | bool   | Close an already running process       | Be careful during multi-instance debugging      |
-| `debug`                    | bool   | Keep terminal window open after update | Useful for installer failures                   |
-| `source_list`              | list   | PyPI source retry list                 | Tune for unstable networks                      |
-| `runtime_path`             | string | Custom Python runtime path             | Change only when you understand the backend env |
+| Key                        | Type   | Purpose                                | Recommendation                                    |
+| -------------------------- | ------ | -------------------------------------- | ------------------------------------------------- |
+| `backend_runtime`          | string | Desktop backend: `python` or `cpp`     | Keep Python unless opting into the native service |
+| `transport`                | string | `pipe` or `websocket` frontend channel | C++ always forces WebSocket                       |
+| `mirrorc_cdk`              | string | MirrorC acceleration credential        | Fill only when you have a CDK                     |
+| `current_BAAS_version`     | string | Current backend version                | Usually maintained automatically                  |
+| `current_BAAS_Cpp_version` | string | Current C++ component version          | Usually maintained automatically                  |
+| `get_remote_sha_method`    | string | Remote SHA lookup method               | Switch when GitHub is unreachable                 |
+| `dev`                      | bool   | Do not update from remote source       | Use for local development or version freeze       |
+| `refresh`                  | bool   | Overwrite local backend changes        | Destructive to local edits; use carefully         |
+| `launch`                   | bool   | Skip install steps and start directly  | Use only after environment is ready               |
+| `force_launch`             | bool   | Close an already running process       | Be careful during multi-instance debugging        |
+| `debug`                    | bool   | Keep terminal window open after update | Useful for installer failures                     |
+| `source_list`              | list   | PyPI source retry list                 | Tune for unstable networks                        |
+| `runtime_path`             | string | Custom Python runtime path             | Change only when you understand the backend env   |
 
 ## URL and Path Keys
 

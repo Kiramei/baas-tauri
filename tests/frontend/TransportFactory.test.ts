@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { backendTransportStartCommand, resolveTransportMode } from "../../src/transport/factory";
+import {
+  backendTransportStartCommand,
+  resolveBackendRuntime,
+  resolveBackendSelection,
+  resolveTransportMode,
+} from "../../src/transport/factory";
 
 describe("resolveTransportMode", () => {
   test("prefers Pipe on native clients unless WebSocket is explicitly selected", () => {
@@ -22,5 +27,26 @@ describe("resolveTransportMode", () => {
     expect(() => backendTransportStartCommand("other" as never)).toThrow(
       "Unsupported backend runtime: other"
     );
+  });
+
+  test("couples desktop C++ runtime to WebSocket without changing Python defaults", () => {
+    const desktop = { android: false, tauri: true };
+    expect(resolveBackendSelection(undefined, undefined, desktop)).toEqual({
+      runtime: "python",
+      mode: "pipe",
+    });
+    expect(resolveBackendSelection("cpp", "pipe", desktop)).toEqual({
+      runtime: "cpp",
+      mode: "websocket",
+    });
+    expect(resolveBackendSelection("cpp", "websocket", desktop)).toEqual({
+      runtime: "cpp",
+      mode: "websocket",
+    });
+  });
+
+  test("keeps Android and WebUI on Python even if persisted input requests C++", () => {
+    expect(resolveBackendRuntime("cpp", { android: true, tauri: true })).toBe("python");
+    expect(resolveBackendRuntime("cpp", { android: false, tauri: false })).toBe("python");
   });
 });

@@ -679,6 +679,11 @@
     "dateUpdated": "Date updated",
     "timeUpdated": "Time updated"
   },
+  "backendRuntime": {
+    "cpp": "C++ (native)",
+    "label": "Backend runtime",
+    "python": "Python (compatible)"
+  },
   "transport": {
     "label": "Data transport",
     "pipe": "Named pipe (desktop)",
