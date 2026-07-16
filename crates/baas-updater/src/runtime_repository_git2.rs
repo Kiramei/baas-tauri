@@ -10,6 +10,7 @@ use crate::{
         RuntimeRepositoryStopToken, RuntimeRepositoryStore, validate_runtime_repository_tree,
     },
 };
+use flate2::{Decompress, FlushDecompress, Status};
 use git2::{
     AutotagOption, FetchOptions, ObjectType, RemoteCallbacks, RemoteRedirect, Repository,
     transport::{Service, SmartSubtransport, SmartSubtransportStream, Transport},
@@ -22,12 +23,12 @@ use reqwest::{
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
-    fs::{self, OpenOptions},
-    io::{self, Cursor, Read, Write},
-    path::Path,
+    fs::{self, File, OpenOptions},
+    io::{self, BufRead, BufReader, Cursor, Read, Seek, Write},
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex, OnceLock,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU8, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -39,11 +40,20 @@ const RESTRICTED_HTTPS_SCHEME: &str = "baas-https";
 const MAX_UPLOAD_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_ADVERTISEMENT_BYTES_CEILING: u64 = 64 * 1024 * 1024;
 const MAX_ADVERTISED_REFS_CEILING: usize = 100_000;
+const MAX_FETCH_BYTES_CEILING: u64 = 8 * 1024 * 1024 * 1024;
+const MAX_FETCH_OBJECTS_CEILING: usize = 1_000_000;
+const MAX_TRANSPORT_SPOOL_BYTES_CEILING: u64 = 16 * 1024 * 1024 * 1024;
+const MAX_ODB_OBJECT_BYTES_CEILING: u64 = 1024 * 1024 * 1024;
+const MAX_ODB_TOTAL_BYTES_CEILING: u64 = 8 * 1024 * 1024 * 1024;
+const MAX_DELTA_INSTRUCTION_BYTES_CEILING: u64 = 64 * 1024 * 1024;
+const TRANSPORT_FAILURE_NONE: u8 = 0;
+const TRANSPORT_FAILURE_LIMIT: u8 = 1;
+const TRANSPORT_FAILURE_PACK_DEADLINE: u8 = 2;
 static RESTRICTED_HTTPS_REGISTRATION: OnceLock<Result<(), ()>> = OnceLock::new();
 static RESTRICTED_HTTPS_CONTEXTS: OnceLock<Mutex<HashMap<String, Arc<HttpsTransportContext>>>> =
     OnceLock::new();
 
-/// Bounds applied before and during tree materialization.
+/// Hard bounds applied to transport, object validation, and materialization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeRepositoryLimits {
     pub connect_timeout_ms: u32,
@@ -53,10 +63,16 @@ pub struct RuntimeRepositoryLimits {
     pub max_advertised_refs: usize,
     pub max_fetch_bytes: u64,
     pub max_fetch_objects: usize,
+    pub max_transport_spool_bytes: u64,
     /// Absolute ceiling for one fetch, distinct from the per-read stall timeout.
+    /// It is checked between blocking operations, so wall-clock return can lag
+    /// by at most the configured connect/read timeout.
     pub fetch_deadline_ms: u32,
+    pub pack_preflight_timeout_ms: u32,
     pub max_odb_object_bytes: u64,
     pub max_odb_total_bytes: u64,
+    /// Maximum uncompressed instruction stream for one delta object.
+    pub max_delta_instruction_bytes: u64,
     pub odb_validation_timeout_ms: u32,
     pub max_commit_bytes: u64,
     pub max_tree_bytes: u64,
@@ -80,9 +96,12 @@ impl Default for RuntimeRepositoryLimits {
             max_advertised_refs: 8_192,
             max_fetch_bytes: 3 * 1024 * 1024 * 1024,
             max_fetch_objects: 200_000,
+            max_transport_spool_bytes: 6 * 1024 * 1024 * 1024,
             fetch_deadline_ms: 30 * 60 * 1_000,
+            pack_preflight_timeout_ms: 30_000,
             max_odb_object_bytes: 256 * 1024 * 1024,
             max_odb_total_bytes: 3 * 1024 * 1024 * 1024,
+            max_delta_instruction_bytes: 16 * 1024 * 1024,
             odb_validation_timeout_ms: 30_000,
             max_commit_bytes: 1024 * 1024,
             max_tree_bytes: 16 * 1024 * 1024,
@@ -188,6 +207,7 @@ impl RuntimeRepositoryGit2Downloader {
                 self.limits,
                 stop,
                 fetch_deadline,
+                &transport,
             )?),
             #[cfg(test)]
             TransportPolicy::LocalTestOnly => None,
@@ -232,10 +252,24 @@ impl RuntimeRepositoryGit2Downloader {
             if fetch_result.is_err() {
                 return if stop.is_cancelled() {
                     Err(UpdaterError::Cancelled)
-                } else if fetch_limit_exceeded {
-                    Err(limit_error("runtime repository fetch limit exceeded"))
                 } else if fetch_deadline_exceeded || Instant::now() >= fetch_deadline {
                     Err(limit_error("runtime repository fetch deadline exceeded"))
+                } else if fetch_limit_exceeded {
+                    Err(limit_error("runtime repository fetch limit exceeded"))
+                } else if https_context
+                    .as_ref()
+                    .is_some_and(|guard| guard.failure() == TRANSPORT_FAILURE_LIMIT)
+                {
+                    Err(limit_error(
+                        "runtime repository pack preflight limit exceeded",
+                    ))
+                } else if https_context
+                    .as_ref()
+                    .is_some_and(|guard| guard.failure() == TRANSPORT_FAILURE_PACK_DEADLINE)
+                {
+                    Err(limit_error(
+                        "runtime repository pack preflight deadline exceeded",
+                    ))
                 } else {
                     Err(git_error("failed to fetch advertised reference"))
                 };
@@ -311,13 +345,24 @@ struct HttpsTransportContext {
     max_advertisement_bytes: u64,
     max_advertised_refs: usize,
     max_pack_response_bytes: u64,
-    pack_response_bytes: AtomicU64,
+    max_fetch_objects: usize,
+    max_odb_object_bytes: u64,
+    max_odb_total_bytes: u64,
+    max_delta_instruction_bytes: u64,
+    max_commit_bytes: u64,
+    max_tree_bytes: u64,
+    max_tag_bytes: u64,
+    max_transport_spool_bytes: u64,
+    pack_preflight_timeout: Duration,
     fetch_deadline: Instant,
+    spool_root: PathBuf,
+    failure: AtomicU8,
 }
 
 struct RestrictedHttpsContextGuard {
     key: String,
     url: String,
+    context: Arc<HttpsTransportContext>,
 }
 
 impl RestrictedHttpsContextGuard {
@@ -326,6 +371,7 @@ impl RestrictedHttpsContextGuard {
         limits: RuntimeRepositoryLimits,
         stop: &RuntimeRepositoryStopToken,
         fetch_deadline: Instant,
+        spool_root: &Path,
     ) -> UpdaterResult<Self> {
         register_restricted_https_transport()?;
         let url = Url::parse(original_url)
@@ -349,21 +395,38 @@ impl RestrictedHttpsContextGuard {
             max_advertisement_bytes: limits.max_advertisement_bytes,
             max_advertised_refs: limits.max_advertised_refs,
             max_pack_response_bytes: limits.max_fetch_bytes,
-            pack_response_bytes: AtomicU64::new(0),
+            max_fetch_objects: limits.max_fetch_objects,
+            max_odb_object_bytes: limits.max_odb_object_bytes,
+            max_odb_total_bytes: limits.max_odb_total_bytes,
+            max_delta_instruction_bytes: limits.max_delta_instruction_bytes,
+            max_commit_bytes: limits.max_commit_bytes,
+            max_tree_bytes: limits.max_tree_bytes,
+            max_tag_bytes: limits.max_tag_bytes,
+            max_transport_spool_bytes: limits.max_transport_spool_bytes,
+            pack_preflight_timeout: Duration::from_millis(u64::from(
+                limits.pack_preflight_timeout_ms,
+            )),
             fetch_deadline,
+            spool_root: spool_root.to_path_buf(),
+            failure: AtomicU8::new(TRANSPORT_FAILURE_NONE),
         });
         restricted_https_contexts()
             .lock()
             .map_err(|_| git_error("restricted HTTPS transport gate is unavailable"))?
-            .insert(key.clone(), context);
+            .insert(key.clone(), Arc::clone(&context));
         Ok(Self {
             url: format!("{RESTRICTED_HTTPS_SCHEME}://{key}"),
             key,
+            context,
         })
     }
 
     fn url(&self) -> &str {
         &self.url
+    }
+
+    fn failure(&self) -> u8 {
+        self.context.failure.load(Ordering::Relaxed)
     }
 }
 
@@ -475,7 +538,7 @@ impl SmartSubtransport for RestrictedHttpsSubtransport {
 }
 
 enum RestrictedHttpsStreamState {
-    Response(Response),
+    Replay(File),
     Buffered(Cursor<Vec<u8>>),
     Request(Vec<u8>),
 }
@@ -514,7 +577,7 @@ impl RestrictedHttpsStream {
         }
         let endpoint = git_service_url(&self.context.url, "git-upload-pack");
         let request_body = std::mem::take(body);
-        let response = self
+        let response = match self
             .context
             .client
             .post(endpoint)
@@ -522,7 +585,15 @@ impl RestrictedHttpsStream {
             .header(ACCEPT, "application/x-git-upload-pack-result")
             .body(request_body)
             .send()
-            .map_err(|_| io::Error::other("restricted HTTPS request failed"))?;
+        {
+            Ok(response) => response,
+            Err(_) if Instant::now() >= self.context.fetch_deadline => {
+                return Err(io::Error::other(
+                    "runtime repository fetch deadline exceeded",
+                ));
+            }
+            Err(_) => return Err(io::Error::other("restricted HTTPS request failed")),
+        };
         if Instant::now() >= self.context.fetch_deadline {
             return Err(io::Error::other(
                 "runtime repository fetch deadline exceeded",
@@ -534,7 +605,8 @@ impl RestrictedHttpsStream {
             self.context.max_pack_response_bytes,
         )
         .map_err(|_| io::Error::other("restricted HTTPS response is invalid"))?;
-        self.state = RestrictedHttpsStreamState::Response(response);
+        let replay = spool_and_preflight_pack_response(response, &self.context)?;
+        self.state = RestrictedHttpsStreamState::Replay(replay);
         Ok(())
     }
 }
@@ -555,40 +627,15 @@ impl Read for RestrictedHttpsStream {
         if let RestrictedHttpsStreamState::Buffered(bytes) = &mut self.state {
             return bytes.read(buffer);
         }
-        let RestrictedHttpsStreamState::Response(response) = &mut self.state else {
+        let RestrictedHttpsStreamState::Replay(response) = &mut self.state else {
             unreachable!("request stream becomes a response before reading")
         };
-        let used = self.context.pack_response_bytes.load(Ordering::Relaxed);
-        if used >= self.context.max_pack_response_bytes {
-            let mut extra = [0_u8; 1];
-            return match response.read(&mut extra) {
-                Ok(0) => Ok(0),
-                Ok(_) => Err(io::Error::other(
-                    "runtime repository HTTPS response limit exceeded",
-                )),
-                Err(_) => Err(io::Error::other("restricted HTTPS response read failed")),
-            };
-        }
-        let remaining = self.context.max_pack_response_bytes - used;
-        let allowed = usize::try_from(remaining)
-            .unwrap_or(usize::MAX)
-            .min(buffer.len());
         let read = response
-            .read(&mut buffer[..allowed])
+            .read(buffer)
             .map_err(|_| io::Error::other("restricted HTTPS response read failed"))?;
         if Instant::now() >= self.context.fetch_deadline {
             return Err(io::Error::other(
                 "runtime repository fetch deadline exceeded",
-            ));
-        }
-        let read_u64 = u64::try_from(read).unwrap_or(u64::MAX);
-        let previous = self
-            .context
-            .pack_response_bytes
-            .fetch_add(read_u64, Ordering::Relaxed);
-        if previous.saturating_add(read_u64) > self.context.max_pack_response_bytes {
-            return Err(io::Error::other(
-                "runtime repository HTTPS response limit exceeded",
             ));
         }
         Ok(read)
@@ -627,6 +674,478 @@ impl Write for RestrictedHttpsStream {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+struct SidebandPackExtractor {
+    buffered: Vec<u8>,
+    saw_pack: bool,
+    finished: bool,
+    raw_pack: bool,
+    pack_bytes: u64,
+}
+
+impl SidebandPackExtractor {
+    fn new() -> Self {
+        Self {
+            buffered: Vec::new(),
+            saw_pack: false,
+            finished: false,
+            raw_pack: false,
+            pack_bytes: 0,
+        }
+    }
+
+    fn feed(&mut self, bytes: &[u8], pack: &mut File) -> io::Result<()> {
+        if self.raw_pack {
+            pack.write_all(bytes)?;
+            self.pack_bytes = self
+                .pack_bytes
+                .checked_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX))
+                .ok_or_else(|| io::Error::other("upload-pack size overflow"))?;
+            return Ok(());
+        }
+        self.buffered.extend_from_slice(bytes);
+        loop {
+            if self.buffered.len() < 4 {
+                return Ok(());
+            }
+            if !self.saw_pack && self.buffered.starts_with(b"PACK") {
+                if self.finished {
+                    return Err(io::Error::other(
+                        "upload-pack contains data after termination",
+                    ));
+                }
+                pack.write_all(&self.buffered)?;
+                self.pack_bytes = self
+                    .pack_bytes
+                    .checked_add(u64::try_from(self.buffered.len()).unwrap_or(u64::MAX))
+                    .ok_or_else(|| io::Error::other("upload-pack size overflow"))?;
+                self.buffered.clear();
+                self.saw_pack = true;
+                self.raw_pack = true;
+                return Ok(());
+            }
+            let header = std::str::from_utf8(&self.buffered[..4])
+                .map_err(|_| io::Error::other("upload-pack packet header is invalid"))?;
+            let length = usize::from_str_radix(header, 16)
+                .map_err(|_| io::Error::other("upload-pack packet header is invalid"))?;
+            if length == 0 {
+                if self.finished {
+                    return Err(io::Error::other("upload-pack has duplicate termination"));
+                }
+                self.finished = true;
+                self.buffered.drain(..4);
+                continue;
+            }
+            if !(5..=65_520).contains(&length) {
+                return Err(io::Error::other("upload-pack packet length is invalid"));
+            }
+            if self.buffered.len() < length {
+                return Ok(());
+            }
+            if self.finished {
+                return Err(io::Error::other(
+                    "upload-pack contains data after termination",
+                ));
+            }
+            let payload = &self.buffered[4..length];
+            match payload[0] {
+                1 => {
+                    let data = &payload[1..];
+                    if data.is_empty() {
+                        return Err(io::Error::other("upload-pack has an empty pack packet"));
+                    }
+                    pack.write_all(data)?;
+                    self.pack_bytes = self
+                        .pack_bytes
+                        .checked_add(u64::try_from(data.len()).unwrap_or(u64::MAX))
+                        .ok_or_else(|| io::Error::other("upload-pack size overflow"))?;
+                    self.saw_pack = true;
+                }
+                2 => {}
+                3 => {
+                    return Err(io::Error::other(
+                        "upload-pack server reported a fatal error",
+                    ));
+                }
+                _ if !self.saw_pack && valid_upload_pack_negotiation(payload) => {}
+                _ => return Err(io::Error::other("upload-pack side-band packet is invalid")),
+            }
+            self.buffered.drain(..length);
+        }
+    }
+
+    fn finish(self) -> io::Result<u64> {
+        if !self.buffered.is_empty() || !self.saw_pack || (!self.raw_pack && !self.finished) {
+            return Err(io::Error::other("upload-pack response is incomplete"));
+        }
+        Ok(self.pack_bytes)
+    }
+}
+
+fn valid_upload_pack_negotiation(payload: &[u8]) -> bool {
+    payload.len() <= 1024
+        && !payload.contains(&0)
+        && (payload == b"NAK\n"
+            || payload == b"ready\n"
+            || payload.starts_with(b"ACK ")
+            || payload.starts_with(b"shallow ")
+            || payload.starts_with(b"unshallow "))
+}
+
+fn spool_and_preflight_pack_response(
+    mut response: Response,
+    context: &HttpsTransportContext,
+) -> io::Result<File> {
+    let token = Uuid::new_v4().simple().to_string();
+    let response_path = context.spool_root.join(format!("response-{token}.spool"));
+    let pack_path = context.spool_root.join(format!("pack-{token}.spool"));
+    let result = (|| {
+        let mut response_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&response_path)?;
+        let mut pack_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&pack_path)?;
+        let mut extractor = SidebandPackExtractor::new();
+        let mut response_bytes = 0u64;
+        let mut buffer = [0_u8; 16 * 1024];
+        loop {
+            check_transport_deadline(context)?;
+            let read = match response.read(&mut buffer) {
+                Ok(read) => read,
+                Err(_) if Instant::now() >= context.fetch_deadline => {
+                    return Err(io::Error::other(
+                        "runtime repository fetch deadline exceeded",
+                    ));
+                }
+                Err(_) => {
+                    return Err(io::Error::other("restricted HTTPS response read failed"));
+                }
+            };
+            check_transport_deadline(context)?;
+            if read == 0 {
+                break;
+            }
+            response_bytes = response_bytes
+                .checked_add(u64::try_from(read).unwrap_or(u64::MAX))
+                .ok_or_else(|| io::Error::other("runtime repository response size overflow"))?;
+            if response_bytes > context.max_pack_response_bytes {
+                return Err(transport_limit_error(
+                    context,
+                    "runtime repository HTTPS response limit exceeded",
+                ));
+            }
+            response_file.write_all(&buffer[..read])?;
+            extractor.feed(&buffer[..read], &mut pack_file)?;
+            check_transport_deadline(context)?;
+            if response_bytes.saturating_add(extractor.pack_bytes)
+                > context.max_transport_spool_bytes
+            {
+                return Err(transport_limit_error(
+                    context,
+                    "runtime repository transport spool limit exceeded",
+                ));
+            }
+        }
+        let pack_bytes = extractor.finish()?;
+        if response_bytes.saturating_add(pack_bytes) > context.max_transport_spool_bytes {
+            return Err(transport_limit_error(
+                context,
+                "runtime repository transport spool limit exceeded",
+            ));
+        }
+        response_file.rewind()?;
+        pack_file.rewind()?;
+        preflight_pack(&mut pack_file, context)?;
+        drop(pack_file);
+        fs::remove_file(&pack_path)?;
+        Ok(response_file)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&response_path);
+        let _ = fs::remove_file(&pack_path);
+    }
+    result
+}
+
+fn check_transport_deadline(context: &HttpsTransportContext) -> io::Result<()> {
+    if context.stop.is_cancelled() {
+        return Err(io::Error::other("runtime repository fetch cancelled"));
+    }
+    if Instant::now() >= context.fetch_deadline {
+        return Err(io::Error::other(
+            "runtime repository fetch deadline exceeded",
+        ));
+    }
+    Ok(())
+}
+
+fn transport_limit_error(context: &HttpsTransportContext, message: &'static str) -> io::Error {
+    let _ = context.failure.compare_exchange(
+        TRANSPORT_FAILURE_NONE,
+        TRANSPORT_FAILURE_LIMIT,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
+    io::Error::other(message)
+}
+
+fn preflight_pack(pack: &mut File, context: &HttpsTransportContext) -> io::Result<()> {
+    let local_deadline = Instant::now()
+        .checked_add(context.pack_preflight_timeout)
+        .ok_or_else(|| io::Error::other("pack preflight deadline is invalid"))?;
+    let mut input = BufReader::new(pack);
+    let mut header = [0_u8; 12];
+    input.read_exact(&mut header)?;
+    if &header[..4] != b"PACK" {
+        return Err(io::Error::other("pack signature is invalid"));
+    }
+    let version = u32::from_be_bytes(header[4..8].try_into().unwrap());
+    if !matches!(version, 2 | 3) {
+        return Err(io::Error::other("pack version is unsupported"));
+    }
+    let object_count = u32::from_be_bytes(header[8..12].try_into().unwrap()) as usize;
+    if object_count == 0 || object_count > context.max_fetch_objects {
+        return Err(transport_limit_error(
+            context,
+            "runtime repository object limit exceeded",
+        ));
+    }
+    let mut total_result_bytes = 0u64;
+    for _ in 0..object_count {
+        check_pack_preflight_deadline(context, local_deadline)?;
+        let object_offset = input.stream_position()?;
+        let (kind, declared_size) = read_pack_object_header(&mut input)?;
+        let delta = matches!(kind, 6 | 7);
+        let declared_limit = if delta {
+            context.max_delta_instruction_bytes
+        } else {
+            pack_base_object_limit(kind, context)?
+        };
+        if declared_size > declared_limit {
+            return Err(transport_limit_error(
+                context,
+                if delta {
+                    "runtime repository delta instruction limit exceeded"
+                } else {
+                    "runtime repository base object size limit exceeded"
+                },
+            ));
+        }
+        match kind {
+            1..=4 => reserve_pack_result(&mut total_result_bytes, declared_size, context)?,
+            6 => {
+                let base_distance = read_ofs_delta_base(&mut input)?;
+                if base_distance > object_offset {
+                    return Err(io::Error::other("pack OFS_DELTA base is out of range"));
+                }
+            }
+            7 => {
+                let mut base = [0_u8; 20];
+                input.read_exact(&mut base)?;
+            }
+            _ => return Err(io::Error::other("pack object type is invalid")),
+        }
+        let mut decoder = Decompress::new(true);
+        let mut output = [0_u8; 16 * 1024];
+        let mut produced = 0u64;
+        let mut delta_prefix = Vec::new();
+        let mut delta_sizes = None;
+        loop {
+            check_pack_preflight_deadline(context, local_deadline)?;
+            let (read, consumed, status) = {
+                let compressed = input.fill_buf()?;
+                if compressed.is_empty() {
+                    return Err(io::Error::other("pack object zlib stream is truncated"));
+                }
+                let before_in = decoder.total_in();
+                let before_out = decoder.total_out();
+                let status = decoder
+                    .decompress(compressed, &mut output, FlushDecompress::None)
+                    .map_err(|_| io::Error::other("pack object zlib stream is invalid"))?;
+                let consumed = usize::try_from(decoder.total_in() - before_in)
+                    .map_err(|_| io::Error::other("pack object compressed size overflows"))?;
+                let read = usize::try_from(decoder.total_out() - before_out)
+                    .map_err(|_| io::Error::other("pack object size overflows"))?;
+                (read, consumed, status)
+            };
+            input.consume(consumed);
+            produced = produced
+                .checked_add(u64::try_from(read).unwrap_or(u64::MAX))
+                .ok_or_else(|| io::Error::other("pack object size overflow"))?;
+            if produced > declared_size {
+                return Err(io::Error::other(
+                    "pack object expands beyond its declaration",
+                ));
+            }
+            if delta && delta_sizes.is_none() {
+                let remaining = 20usize.saturating_sub(delta_prefix.len());
+                delta_prefix.extend_from_slice(&output[..read.min(remaining)]);
+                delta_sizes = parse_delta_sizes(&delta_prefix)?;
+                if let Some((base_size, result_size)) = delta_sizes {
+                    if base_size > context.max_odb_object_bytes
+                        || result_size > context.max_odb_object_bytes
+                    {
+                        return Err(transport_limit_error(
+                            context,
+                            "runtime repository delta result size limit exceeded",
+                        ));
+                    }
+                    reserve_pack_result(&mut total_result_bytes, result_size, context)?;
+                }
+            }
+            if status == Status::StreamEnd {
+                break;
+            }
+            if read == 0 && consumed == 0 {
+                return Err(io::Error::other("pack object zlib stream made no progress"));
+            }
+        }
+        if produced != declared_size {
+            return Err(io::Error::other(
+                "pack object size does not match its declaration",
+            ));
+        }
+        if delta && delta_sizes.is_none() {
+            return Err(io::Error::other("pack delta header is incomplete"));
+        }
+    }
+    let mut trailer = [0_u8; 20];
+    input.read_exact(&mut trailer)?;
+    let mut extra = [0_u8; 1];
+    if input.read(&mut extra)? != 0 {
+        return Err(io::Error::other("pack contains trailing data"));
+    }
+    Ok(())
+}
+
+fn pack_base_object_limit(kind: u8, context: &HttpsTransportContext) -> io::Result<u64> {
+    match kind {
+        1 => Ok(context.max_commit_bytes),
+        2 => Ok(context.max_tree_bytes),
+        3 => Ok(context.max_odb_object_bytes),
+        4 => Ok(context.max_tag_bytes),
+        6 | 7 => Ok(context.max_delta_instruction_bytes),
+        _ => Err(io::Error::other("pack object type is invalid")),
+    }
+}
+
+fn check_pack_preflight_deadline(
+    context: &HttpsTransportContext,
+    local_deadline: Instant,
+) -> io::Result<()> {
+    check_transport_deadline(context)?;
+    if Instant::now() >= local_deadline {
+        let _ = context.failure.compare_exchange(
+            TRANSPORT_FAILURE_NONE,
+            TRANSPORT_FAILURE_PACK_DEADLINE,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        );
+        return Err(io::Error::other("pack preflight deadline exceeded"));
+    }
+    Ok(())
+}
+
+fn read_pack_object_header(input: &mut impl Read) -> io::Result<(u8, u64)> {
+    let mut byte = [0_u8; 1];
+    input.read_exact(&mut byte)?;
+    let kind = (byte[0] >> 4) & 7;
+    let mut size = u64::from(byte[0] & 0x0f);
+    let mut shift = 4u32;
+    let mut continuation = byte[0] & 0x80 != 0;
+    while continuation {
+        if shift >= 64 {
+            return Err(io::Error::other("pack object size header overflows"));
+        }
+        input.read_exact(&mut byte)?;
+        let part = checked_varint_part(byte[0] & 0x7f, shift, "pack object size header")?;
+        size = size
+            .checked_add(part)
+            .ok_or_else(|| io::Error::other("pack object size header overflows"))?;
+        shift += 7;
+        continuation = byte[0] & 0x80 != 0;
+    }
+    Ok((kind, size))
+}
+
+fn read_ofs_delta_base(input: &mut impl Read) -> io::Result<u64> {
+    let mut byte = [0_u8; 1];
+    input.read_exact(&mut byte)?;
+    let mut offset = u64::from(byte[0] & 0x7f);
+    for _ in 0..9 {
+        if byte[0] & 0x80 == 0 {
+            return (offset != 0)
+                .then_some(offset)
+                .ok_or_else(|| io::Error::other("pack OFS_DELTA base is invalid"));
+        }
+        input.read_exact(&mut byte)?;
+        offset = offset
+            .checked_add(1)
+            .and_then(|value| value.checked_mul(128))
+            .and_then(|value| value.checked_add(u64::from(byte[0] & 0x7f)))
+            .ok_or_else(|| io::Error::other("pack OFS_DELTA base overflows"))?;
+    }
+    Err(io::Error::other("pack OFS_DELTA base is invalid"))
+}
+
+fn parse_delta_sizes(bytes: &[u8]) -> io::Result<Option<(u64, u64)>> {
+    let Some((base, used)) = parse_delta_varint(bytes)? else {
+        return Ok(None);
+    };
+    let Some((result, _)) = parse_delta_varint(&bytes[used..])? else {
+        return Ok(None);
+    };
+    Ok(Some((base, result)))
+}
+
+fn parse_delta_varint(bytes: &[u8]) -> io::Result<Option<(u64, usize)>> {
+    let mut value = 0u64;
+    for (index, byte) in bytes.iter().copied().enumerate().take(10) {
+        let shift = u32::try_from(index * 7).unwrap();
+        let part = checked_varint_part(byte & 0x7f, shift, "pack delta size")?;
+        value = value
+            .checked_add(part)
+            .ok_or_else(|| io::Error::other("pack delta size overflows"))?;
+        if byte & 0x80 == 0 {
+            return Ok(Some((value, index + 1)));
+        }
+    }
+    if bytes.len() >= 10 {
+        Err(io::Error::other("pack delta size header is invalid"))
+    } else {
+        Ok(None)
+    }
+}
+
+fn checked_varint_part(byte: u8, shift: u32, label: &'static str) -> io::Result<u64> {
+    let value = u64::from(byte);
+    if shift >= 64 || value > (u64::MAX >> shift) {
+        return Err(io::Error::other(format!("{label} overflows")));
+    }
+    Ok(value << shift)
+}
+
+fn reserve_pack_result(
+    total: &mut u64,
+    size: u64,
+    context: &HttpsTransportContext,
+) -> io::Result<()> {
+    *total = total.checked_add(size).ok_or_else(|| {
+        transport_limit_error(context, "runtime repository object byte limit exceeded")
+    })?;
+    if *total > context.max_odb_total_bytes {
+        return Err(transport_limit_error(
+            context,
+            "runtime repository object byte limit exceeded",
+        ));
+    }
+    Ok(())
 }
 
 fn git_service_url(base: &Url, suffix: &str) -> Url {
@@ -936,14 +1455,16 @@ fn validate_fetched_odb(
             limits.odb_validation_timeout_ms,
         )))
         .ok_or_else(|| limit_error("runtime repository object validation deadline is invalid"))?;
-    let deadline = fetch_deadline.min(odb_deadline);
     let mut objects = 0usize;
     let mut total_bytes = 0u64;
     let mut failure = None;
     let scan = odb.foreach(|oid| {
         let result = (|| {
             check_cancelled(stop)?;
-            if Instant::now() >= deadline {
+            if Instant::now() >= fetch_deadline {
+                return Err(limit_error("runtime repository fetch deadline exceeded"));
+            }
+            if Instant::now() >= odb_deadline {
                 return Err(limit_error(
                     "runtime repository object validation deadline exceeded",
                 ));
@@ -957,6 +1478,14 @@ fn validate_fetched_odb(
             let (size, _) = odb
                 .read_header(*oid)
                 .map_err(|_| git_error("failed to inspect fetched object header"))?;
+            if Instant::now() >= fetch_deadline {
+                return Err(limit_error("runtime repository fetch deadline exceeded"));
+            }
+            if Instant::now() >= odb_deadline {
+                return Err(limit_error(
+                    "runtime repository object validation deadline exceeded",
+                ));
+            }
             let size = u64::try_from(size)
                 .map_err(|_| limit_error("runtime repository object size limit exceeded"))?;
             if size > limits.max_odb_object_bytes {
@@ -1288,10 +1817,22 @@ fn validate_limits(limits: RuntimeRepositoryLimits) -> UpdaterResult<()> {
         || limits.max_advertised_refs == 0
         || limits.max_advertised_refs > MAX_ADVERTISED_REFS_CEILING
         || limits.max_fetch_bytes == 0
+        || limits.max_fetch_bytes > MAX_FETCH_BYTES_CEILING
         || limits.max_fetch_objects == 0
+        || limits.max_fetch_objects > MAX_FETCH_OBJECTS_CEILING
+        || limits.max_transport_spool_bytes > MAX_TRANSPORT_SPOOL_BYTES_CEILING
+        || limits.max_transport_spool_bytes < limits.max_fetch_bytes.saturating_mul(2)
         || limits.fetch_deadline_ms == 0
+        || limits.connect_timeout_ms > limits.fetch_deadline_ms
+        || limits.read_timeout_ms > limits.fetch_deadline_ms
+        || limits.pack_preflight_timeout_ms == 0
         || limits.max_odb_object_bytes == 0
+        || limits.max_odb_object_bytes > MAX_ODB_OBJECT_BYTES_CEILING
         || limits.max_odb_total_bytes < limits.max_odb_object_bytes
+        || limits.max_odb_total_bytes > MAX_ODB_TOTAL_BYTES_CEILING
+        || limits.max_delta_instruction_bytes == 0
+        || limits.max_delta_instruction_bytes > limits.max_odb_object_bytes
+        || limits.max_delta_instruction_bytes > MAX_DELTA_INSTRUCTION_BYTES_CEILING
         || limits.odb_validation_timeout_ms == 0
         || limits.max_commit_bytes == 0
         || limits.max_tree_bytes == 0
@@ -1346,6 +1887,7 @@ fn limit_error(message: impl Into<String>) -> UpdaterError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flate2::{Compression, write::ZlibEncoder};
     use git2::{Oid, Signature, TreeBuilder};
     use std::collections::BTreeMap;
     use std::net::TcpListener;
@@ -1533,6 +2075,437 @@ mod tests {
         let mut result = format!("{:04x}", payload.len() + 4).into_bytes();
         result.extend_from_slice(payload);
         result
+    }
+
+    fn transport_test_context(
+        root: &Path,
+        limits: RuntimeRepositoryLimits,
+    ) -> HttpsTransportContext {
+        HttpsTransportContext {
+            url: Url::parse("https://example.invalid/repo.git").unwrap(),
+            client: Client::builder().build().unwrap(),
+            stop: RuntimeRepositoryStopToken::default(),
+            max_advertisement_bytes: limits.max_advertisement_bytes,
+            max_advertised_refs: limits.max_advertised_refs,
+            max_pack_response_bytes: limits.max_fetch_bytes,
+            max_fetch_objects: limits.max_fetch_objects,
+            max_odb_object_bytes: limits.max_odb_object_bytes,
+            max_odb_total_bytes: limits.max_odb_total_bytes,
+            max_delta_instruction_bytes: limits.max_delta_instruction_bytes,
+            max_commit_bytes: limits.max_commit_bytes,
+            max_tree_bytes: limits.max_tree_bytes,
+            max_tag_bytes: limits.max_tag_bytes,
+            max_transport_spool_bytes: limits.max_transport_spool_bytes,
+            pack_preflight_timeout: Duration::from_millis(u64::from(
+                limits.pack_preflight_timeout_ms,
+            )),
+            fetch_deadline: Instant::now()
+                + Duration::from_millis(u64::from(limits.fetch_deadline_ms)),
+            spool_root: root.to_path_buf(),
+            failure: AtomicU8::new(TRANSPORT_FAILURE_NONE),
+        }
+    }
+
+    fn pack_object_header(kind: u8, mut size: u64) -> Vec<u8> {
+        let mut first = (kind << 4) | u8::try_from(size & 0x0f).unwrap();
+        size >>= 4;
+        if size != 0 {
+            first |= 0x80;
+        }
+        let mut result = vec![first];
+        while size != 0 {
+            let mut byte = u8::try_from(size & 0x7f).unwrap();
+            size >>= 7;
+            if size != 0 {
+                byte |= 0x80;
+            }
+            result.push(byte);
+        }
+        result
+    }
+
+    fn delta_varint(mut value: u64) -> Vec<u8> {
+        let mut result = Vec::new();
+        loop {
+            let mut byte = u8::try_from(value & 0x7f).unwrap();
+            value >>= 7;
+            if value != 0 {
+                byte |= 0x80;
+            }
+            result.push(byte);
+            if value == 0 {
+                return result;
+            }
+        }
+    }
+
+    fn single_object_pack(kind: u8, base: Option<&[u8; 20]>, body: &[u8]) -> Vec<u8> {
+        let mut pack = b"PACK\0\0\0\x02\0\0\0\x01".to_vec();
+        pack.extend_from_slice(&pack_object_header(
+            kind,
+            u64::try_from(body.len()).unwrap(),
+        ));
+        if let Some(base) = base {
+            pack.extend_from_slice(base);
+        }
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(body).unwrap();
+        pack.extend_from_slice(&encoder.finish().unwrap());
+        pack.extend_from_slice(&[0_u8; 20]);
+        pack
+    }
+
+    fn write_test_file(path: &Path) -> File {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .unwrap()
+    }
+
+    #[test]
+    fn pack_extractor_accepts_fragmented_raw_and_sideband_responses() {
+        let pack = single_object_pack(3, None, b"");
+        let temp = TempDir::new().unwrap();
+
+        let mut raw_file = write_test_file(&temp.path().join("raw.pack"));
+        let mut raw = SidebandPackExtractor::new();
+        let mut raw_response = b"0008NAK\n".to_vec();
+        raw_response.extend_from_slice(&pack);
+        for fragment in raw_response.chunks(3) {
+            raw.feed(fragment, &mut raw_file).unwrap();
+        }
+        assert_eq!(raw.finish().unwrap(), u64::try_from(pack.len()).unwrap());
+        raw_file.rewind().unwrap();
+        let mut extracted = Vec::new();
+        raw_file.read_to_end(&mut extracted).unwrap();
+        assert_eq!(extracted, pack);
+        raw_file.rewind().unwrap();
+        let context = transport_test_context(temp.path(), Default::default());
+        preflight_pack(&mut raw_file, &context).unwrap();
+
+        let mut sideband_file = write_test_file(&temp.path().join("sideband.pack"));
+        let mut sideband = SidebandPackExtractor::new();
+        let mut sideband_response = b"0008NAK\n".to_vec();
+        let mut packet = vec![1];
+        packet.extend_from_slice(&pack);
+        sideband_response.extend_from_slice(&advertisement_pkt(&packet));
+        sideband_response.extend_from_slice(b"0000");
+        for fragment in sideband_response.chunks(5) {
+            sideband.feed(fragment, &mut sideband_file).unwrap();
+        }
+        assert_eq!(
+            sideband.finish().unwrap(),
+            u64::try_from(pack.len()).unwrap()
+        );
+        sideband_file.rewind().unwrap();
+        extracted.clear();
+        sideband_file.read_to_end(&mut extracted).unwrap();
+        assert_eq!(extracted, pack);
+
+        let mut malformed_file = write_test_file(&temp.path().join("malformed.pack"));
+        let mut fatal = SidebandPackExtractor::new();
+        assert!(
+            fatal
+                .feed(&advertisement_pkt(&[3, b'x']), &mut malformed_file)
+                .unwrap_err()
+                .to_string()
+                .contains("fatal error")
+        );
+        let mut after_flush = SidebandPackExtractor::new();
+        let mut terminated = b"0000".to_vec();
+        terminated.extend_from_slice(&pack);
+        assert!(
+            after_flush
+                .feed(&terminated, &mut malformed_file)
+                .unwrap_err()
+                .to_string()
+                .contains("after termination")
+        );
+    }
+
+    #[test]
+    fn failed_pack_preflight_removes_transport_spools() {
+        let temp = TempDir::new().unwrap();
+        let spool = temp.path().join("spool");
+        fs::create_dir(&spool).unwrap();
+        let limits = RuntimeRepositoryLimits {
+            max_odb_object_bytes: 1024,
+            max_odb_total_bytes: 4096,
+            max_delta_instruction_bytes: 1024,
+            max_file_bytes: 1024,
+            max_total_bytes: 4096,
+            max_manifest_bytes: 1024,
+            ..Default::default()
+        };
+        let context = transport_test_context(&spool, limits);
+        let mut delta = delta_varint(1);
+        delta.extend_from_slice(&delta_varint(1025));
+        let pack = single_object_pack(7, Some(&[0_u8; 20]), &delta);
+        let mut body = b"0008NAK\n".to_vec();
+        body.extend_from_slice(&pack);
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).unwrap();
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+            socket.write_all(&body).unwrap();
+        });
+        let response = Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/pack"))
+            .send()
+            .unwrap();
+        assert!(spool_and_preflight_pack_response(response, &context).is_err());
+        server.join().unwrap();
+        assert_eq!(fs::read_dir(&spool).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn successful_pack_preflight_replays_the_original_response() {
+        let temp = TempDir::new().unwrap();
+        let spool = temp.path().join("spool-success");
+        fs::create_dir(&spool).unwrap();
+        let context = transport_test_context(&spool, Default::default());
+        let pack = single_object_pack(3, None, b"payload");
+        let mut packet = vec![1];
+        packet.extend_from_slice(&pack);
+        let mut body = b"0008NAK\n".to_vec();
+        body.extend_from_slice(&advertisement_pkt(&packet));
+        body.extend_from_slice(b"0000");
+        let expected = body.clone();
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).unwrap();
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+            socket.write_all(&body).unwrap();
+        });
+        let response = Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/pack"))
+            .send()
+            .unwrap();
+        let mut replay = spool_and_preflight_pack_response(response, &context).unwrap();
+        let mut actual = Vec::new();
+        replay.read_to_end(&mut actual).unwrap();
+        assert_eq!(actual, expected);
+        server.join().unwrap();
+        drop(replay);
+        let response_spool = fs::read_dir(&spool)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        fs::remove_file(response_spool).unwrap();
+        assert_eq!(fs::read_dir(&spool).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn pack_preflight_rejects_delta_result_bomb_before_libgit2() {
+        let temp = TempDir::new().unwrap();
+        let limits = RuntimeRepositoryLimits {
+            max_odb_object_bytes: 1024,
+            max_odb_total_bytes: 4096,
+            max_delta_instruction_bytes: 1024,
+            max_file_bytes: 1024,
+            max_total_bytes: 4096,
+            max_manifest_bytes: 1024,
+            ..Default::default()
+        };
+        let context = transport_test_context(temp.path(), limits);
+        let mut delta = delta_varint(1);
+        delta.extend_from_slice(&delta_varint(1025));
+        let pack = single_object_pack(7, Some(&[0_u8; 20]), &delta);
+        let mut pack_file = write_test_file(&temp.path().join("bomb.pack"));
+        pack_file.write_all(&pack).unwrap();
+        pack_file.rewind().unwrap();
+
+        let error = preflight_pack(&mut pack_file, &context).unwrap_err();
+        assert!(error.to_string().contains("delta result size limit"));
+        assert_eq!(
+            context.failure.load(Ordering::Relaxed),
+            TRANSPORT_FAILURE_LIMIT
+        );
+    }
+
+    #[test]
+    fn pack_preflight_enforces_base_type_and_delta_instruction_limits() {
+        let temp = TempDir::new().unwrap();
+
+        let base_limits = RuntimeRepositoryLimits {
+            max_commit_bytes: 4,
+            ..Default::default()
+        };
+        let base_context = transport_test_context(temp.path(), base_limits);
+        let mut base_file = write_test_file(&temp.path().join("large-commit.pack"));
+        base_file
+            .write_all(&single_object_pack(1, None, b"12345"))
+            .unwrap();
+        base_file.rewind().unwrap();
+        assert!(
+            preflight_pack(&mut base_file, &base_context)
+                .unwrap_err()
+                .to_string()
+                .contains("base object size limit")
+        );
+
+        let delta_limits = RuntimeRepositoryLimits {
+            max_delta_instruction_bytes: 2,
+            ..Default::default()
+        };
+        let delta_context = transport_test_context(temp.path(), delta_limits);
+        let delta = [1, 1, 1, b'x'];
+        let mut delta_file = write_test_file(&temp.path().join("large-delta.pack"));
+        delta_file
+            .write_all(&single_object_pack(7, Some(&[0_u8; 20]), &delta))
+            .unwrap();
+        delta_file.rewind().unwrap();
+        assert!(
+            preflight_pack(&mut delta_file, &delta_context)
+                .unwrap_err()
+                .to_string()
+                .contains("delta instruction limit")
+        );
+    }
+
+    #[test]
+    fn pack_preflight_requires_a_complete_zlib_stream() {
+        let temp = TempDir::new().unwrap();
+        let context = transport_test_context(temp.path(), Default::default());
+        let mut pack = single_object_pack(3, None, b"payload");
+        pack.remove(pack.len() - 21);
+        let mut pack_file = write_test_file(&temp.path().join("truncated.pack"));
+        pack_file.write_all(&pack).unwrap();
+        pack_file.rewind().unwrap();
+        let error = preflight_pack(&mut pack_file, &context).unwrap_err();
+        assert!(error.to_string().contains("zlib stream"));
+    }
+
+    #[test]
+    fn pack_preflight_distinguishes_local_deadline_and_cancellation() {
+        let temp = TempDir::new().unwrap();
+        let pack = single_object_pack(3, None, b"");
+
+        let mut deadline_context = transport_test_context(temp.path(), Default::default());
+        deadline_context.pack_preflight_timeout = Duration::ZERO;
+        let mut deadline_file = write_test_file(&temp.path().join("deadline.pack"));
+        deadline_file.write_all(&pack).unwrap();
+        deadline_file.rewind().unwrap();
+        assert!(
+            preflight_pack(&mut deadline_file, &deadline_context)
+                .unwrap_err()
+                .to_string()
+                .contains("pack preflight deadline")
+        );
+        assert_eq!(
+            deadline_context.failure.load(Ordering::Relaxed),
+            TRANSPORT_FAILURE_PACK_DEADLINE
+        );
+
+        let cancelled_context = transport_test_context(temp.path(), Default::default());
+        cancelled_context.stop.cancel();
+        let mut cancelled_file = write_test_file(&temp.path().join("cancelled.pack"));
+        cancelled_file.write_all(&pack).unwrap();
+        cancelled_file.rewind().unwrap();
+        assert!(
+            preflight_pack(&mut cancelled_file, &cancelled_context)
+                .unwrap_err()
+                .to_string()
+                .contains("fetch cancelled")
+        );
+        assert_eq!(
+            cancelled_context.failure.load(Ordering::Relaxed),
+            TRANSPORT_FAILURE_NONE
+        );
+    }
+
+    #[test]
+    fn blocking_timeouts_must_not_exceed_the_fetch_deadline() {
+        for limits in [
+            RuntimeRepositoryLimits {
+                connect_timeout_ms: 101,
+                fetch_deadline_ms: 100,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                read_timeout_ms: 101,
+                fetch_deadline_ms: 100,
+                ..Default::default()
+            },
+        ] {
+            assert_eq!(
+                RuntimeRepositoryGit2Downloader::new(limits).unwrap_err(),
+                config_error("runtime repository limits are invalid")
+            );
+        }
+    }
+
+    #[test]
+    fn transport_and_object_limits_have_implementation_ceilings() {
+        for limits in [
+            RuntimeRepositoryLimits {
+                max_fetch_bytes: u64::MAX,
+                max_transport_spool_bytes: u64::MAX,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_fetch_objects: usize::MAX,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_transport_spool_bytes: u64::MAX,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_odb_object_bytes: u64::MAX,
+                max_odb_total_bytes: u64::MAX,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_odb_total_bytes: u64::MAX,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_delta_instruction_bytes: u64::MAX,
+                max_odb_object_bytes: u64::MAX,
+                max_odb_total_bytes: u64::MAX,
+                ..Default::default()
+            },
+        ] {
+            assert_eq!(
+                RuntimeRepositoryGit2Downloader::new(limits).unwrap_err(),
+                config_error("runtime repository limits are invalid")
+            );
+        }
     }
 
     #[test]
@@ -2055,6 +3028,7 @@ mod tests {
         let limits = RuntimeRepositoryLimits {
             max_odb_object_bytes: 64 * 1024,
             max_odb_total_bytes: 1024 * 1024,
+            max_delta_instruction_bytes: 64 * 1024,
             max_commit_bytes: 64 * 1024,
             max_tree_bytes: 64 * 1024,
             max_tag_bytes: 64 * 1024,
