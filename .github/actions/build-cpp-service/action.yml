@@ -15,7 +15,7 @@ runs:
         repository: Kiramei/baas-cpp-dev
         # Pin the cross-repository application/lifecycle contract. Update this
         # SHA explicitly when the service protocol or package changes.
-        ref: 48995d820efbc12b56be32806a7e75dd7f652d29
+        ref: dd7662f97c761579298ca944b3522cfac69f2e71
         path: baas-cpp-dev
         persist-credentials: false
 
@@ -71,6 +71,20 @@ runs:
         test -f "$SERVICE"
         "$SERVICE" --version | grep -E '^BAAS_service [0-9]+\.[0-9]+\.[0-9]+'
         echo "BAAS_CPP_SERVICE_PATH=$SERVICE_ENV" >> "$GITHUB_ENV"
+
+        python scripts/fetch_resources.py \
+          --lock resources.lock.json \
+          --output-root build/tauri-service-resources \
+          --download-root build/tauri-service-downloads \
+          --resource ws_scrcpy_server
+        REMOTE_JAR="$PWD/build/tauri-service-resources/bin/ws-scrcpy/scrcpy-server.jar"
+        test -f "$REMOTE_JAR"
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          REMOTE_JAR_ENV="$(cygpath -w "$REMOTE_JAR")"
+        else
+          REMOTE_JAR_ENV="$REMOTE_JAR"
+        fi
+        echo "BAAS_CPP_SERVICE_REMOTE_JAR=$REMOTE_JAR_ENV" >> "$GITHUB_ENV"
 
     - name: Run strict real service lifecycle smoke
       shell: bash
