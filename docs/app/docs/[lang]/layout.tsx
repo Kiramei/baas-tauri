@@ -3,6 +3,7 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 import { normalizeLocale, type Locale } from "@/lib/i18n";
 import { LanguageMenu } from "@/components/LanguageMenu";
+import { withDocsBasePath } from "@/lib/base-path";
 
 type LayoutProps = {
   children: ReactNode;
@@ -22,7 +23,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       nav={{
         title: (
           <span className="baas-doc-nav-brand">
-            <img src="/baas-icon.png" alt="" />
+            <img src={withDocsBasePath("/baas-icon.png")} alt="" />
             <span>{locale === "zh" ? "BAAS 文档" : "BAAS Docs"}</span>
           </span>
         ),

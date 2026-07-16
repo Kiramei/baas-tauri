@@ -1,19 +1,24 @@
 ---
 title: API Overview
-description: Cross-platform API map for BAAS Tauri maintainers, including Tauri IPC, Pipe and WebSocket transports, Android, and the Python service.
+description: Cross-platform API map for Tauri IPC, Python and C++ runtimes, Pipe and WebSocket transports, Android, and WebUI.
 ---
 
-BAAS Tauri exposes four related boundaries: React to Rust through Tauri IPC, React to the Python service through a transport adapter, transport-independent service channels, and platform-specific startup/runtime code. Treat command names, request fields, channel messages, and Pipe frames as versioned APIs.
+BAAS Tauri exposes four related boundaries: React to Rust through Tauri IPC, React to a selected backend service through a transport adapter, transport-independent business channels, and platform-specific startup/runtime ownership. Treat command names, request fields, channel messages, and Pipe frames as versioned APIs.
+
+The Python runtime remains the default compatibility path. Desktop Tauri can explicitly select the C++ runtime, but that runtime is currently WebSocket-only. Android remains Python-only. WebUI does not launch or own a backend process; it connects to an already running, protocol-compatible WebSocket service.
 
 ## Runtime Flow
 
 ```mermaid
 flowchart LR
-  UI["React UI and stores"] --> IPC["Tauri invoke commands"]
-  UI --> Factory["BackendConnection factory"]
+  UI["React UI and stores"] --> Selection["Runtime and transport selection"]
+  Selection --> IPC["Tauri invoke commands"]
+  Selection --> Factory["BackendConnection factory"]
   Factory --> WS["Secure WebSocket"]
   Factory --> Pipe["Tauri Pipe bridge"]
   IPC --> Host["Desktop or Android host"]
+  Host --> Python["Managed Python service"]
+  Host --> Cpp["Managed C++ BAAS_service (desktop only)"]
   WS --> Channels["Service channel handlers"]
   Pipe --> Channels
   Channels --> Runtime["BAAS service runtime"]
@@ -27,32 +32,38 @@ flowchart LR
 | Frontend transport | `src/transport/types.ts`, `src/transport/factory.ts` | `BackendConnection`, channel names, transport selection |
 | Tauri IPC | `src-tauri/src/lib.rs`, `commands.rs`, `mobile_commands.rs` | Registered command names, camel-case arguments, serialized results |
 | Pipe bridge | `src-tauri/src/pipe_commands.rs` | Native endpoint lifecycle and `BPIP` frame forwarding |
-| Service transport | `service/channels`, `service/transport`, `service/api` in `baas-dev` | Shared provider, sync, trigger, and remote behavior |
+| Python service | `service/channels`, `service/transport`, `service/api` in `baas-dev` | Default compatibility behavior over Pipe and WebSocket |
+| C++ service | `baas-cpp-dev` service application and `backend_cpp_transport_start` | Desktop managed lifecycle and WebSocket protocol parity |
 | Android runtime | Rust mobile commands, Kotlin service plugin, Python bootstrap | App-private backend startup, Pipe path, Android-local control |
-| Config and verification | `setup.toml`, frontend tests, CI workflows | Defaults, migrations, cross-platform compatibility |
+| Packaging and verification | `scripts/stage-cpp-service.mjs`, frontend tests, CI workflows | Runtime resources, lifecycle gates, and cross-platform compatibility |
 
 ## Transport Selection
 
-| Runtime | Default | Available modes |
+| Environment and runtime | Default | Available modes |
 | --- | --- | --- |
-| Desktop Tauri | Pipe | Pipe or WebSocket |
-| Android Tauri | Pipe | Pipe or WebSocket |
-| WebUI | WebSocket | WebSocket only |
+| Desktop Tauri, Python | Python + Pipe | Pipe or WebSocket |
+| Desktop Tauri, C++ | Not selected by default | WebSocket only |
+| Android Tauri | Python + Pipe | Pipe or WebSocket |
+| WebUI | Externally owned service + WebSocket | WebSocket only; no native process-start command |
 
-The native selection is stored at `general.transport`. Missing or invalid native values fall back to `pipe`; WebUI never tries to invoke native Pipe commands.
+`resolveBackendSelection()` is the frontend authority. It forces Python on Android and uses Python as a non-owning sentinel in WebUI, forces WebSocket when desktop C++ is selected, and otherwise falls back to Pipe for native clients. The WebUI sentinel does not constrain the implementation of its external service. `backend_transport_start` always activates Python; `backend_cpp_transport_start` is the explicit desktop-only C++ entry.
+
+The Rust runtime-repository activation store is an internal updater building block at this revision. No runtime-repository git2 downloader, Tauri activation command, or frontend route is registered yet.
 
 ## Stability Rules
 
 1. A Tauri command rename must migrate every `invoke()` caller on desktop and Android.
-2. Provider, sync, trigger, and remote handlers must behave the same through Pipe and WebSocket.
+2. Provider, sync, trigger, and remote contracts must stay compatible across Python and C++, with transport-specific gaps documented explicitly.
 3. Additive JSON fields are preferred. Existing message types and correlation fields must remain readable.
 4. Pipe frame magic, version, kinds, byte order, and size limits are protocol constants.
 5. Android keeps `screenshot_method` and `control_method` fixed to `android_local`.
-6. Update both languages and run the verification matrix in [Contracts and Testing](/docs/en/api/contracts-testing).
+6. A failed native activation must stop the rejected child, close stale Pipe connections, and restore the previous selection.
+7. Update both languages and run the verification matrix in [Contracts and Testing](/docs/en/api/contracts-testing).
 
 ## Typed Invoke Example
 
 ```ts twoslash
+type BackendRuntimeKind = "python" | "cpp";
 type BackendTransportMode = "websocket" | "pipe";
 
 type BackendReady = {
@@ -65,8 +76,11 @@ declare function invoke<TResult>(
   args?: Record<string, unknown>,
 ): Promise<TResult>;
 
-const ready = await invoke<BackendReady>("backend_transport_start", {
-  mode: "pipe" satisfies BackendTransportMode,
+const runtime: BackendRuntimeKind = "cpp";
+const command =
+  runtime === "cpp" ? "backend_cpp_transport_start" : "backend_transport_start";
+const ready = await invoke<BackendReady>(command, {
+  mode: "websocket" satisfies BackendTransportMode,
 });
 
 ready.baseBackendPort;

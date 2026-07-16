@@ -3,7 +3,7 @@ title: Tauri Commands
 description: Commands registered by the BAAS Tauri host, with desktop and Android behavior.
 ---
 
-The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camelCase` serialization; `invoke()` still wraps struct parameters with their Rust parameter name, usually `request`.
+The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camelCase` serialization; `invoke()` still wraps struct parameters with their Rust parameter name, usually `request`. Commands annotated with `#[cfg(not(mobile))]` are not registered in Android builds.
 
 ## Window and Host Commands
 
@@ -25,7 +25,7 @@ The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camel
 | `updater_get_storage_state` | none | Storage paths and portable state. |
 | `updater_get_startup_state` | none | Current config, install path, and startup state. |
 | `updater_path_exists_non_empty` | `{ path }` | `boolean`. |
-| `updater_update_config` | `{ request }` | Updated config. Transport accepts `"pipe"` or `"websocket"`. |
+| `updater_update_config` | `{ request }` | Updated config. Desktop accepts `backendRuntime: "python" | "cpp"`; Android omits that field and stays on Python. |
 | `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report. |
 | `tauri_client_check_update` | `{ request: { currentVersion? } }` | Android update metadata; desktop delegates to the updater plugin. |
 | `updater_check_version` | `{ request: { channel? } }` | Local/remote SHA report. |
@@ -35,22 +35,30 @@ The authoritative registry is `src-tauri/src/lib.rs`. Request structs use `camel
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Abort report. |
 | `updater_terminal_snapshot` | none | Current structured terminal snapshot. |
 | `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
-| `updater_reset_backend_auth_and_restart` | none | Backend address and port after reset/restart. |
+| `updater_reset_backend_auth_and_restart` | none | Desktop restarts the selected runtime; Android ensures its service and reports `restartDeferred: true`. |
 
-On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime.
+On Android, setup and updater commands preserve the same frontend-facing shape where possible, but operate on app storage and the embedded Python runtime. The runtime-repository activation store in `baas-updater` is internal; no runtime-repository downloader or activation command is registered at this revision.
 
 ## Backend Transport Commands
 
 | Command | Arguments | Result / event |
 | --- | --- | --- |
-| `backend_transport_start` | `{ mode }` | Accepts `"pipe"` or `"websocket"`, persists the mode, starts/restarts the managed backend, and returns its address and port. |
-| `backend_pipe_open` | `{ name, channel, onMessage }` | Opens one native connection and emits binary Tauri channel messages. |
-| `backend_pipe_send_json` | `{ channel, name, payload }` | Sends a JSON frame. |
-| `backend_pipe_send_bytes` | `{ channel, name, payload }` | Sends a binary frame. |
-| `backend_pipe_close` | `{ channel, name }` | Sends close and releases one connection. |
+| `backend_transport_start` | `{ mode }` | Starts the Python backend in `"pipe"` or `"websocket"` mode. Desktop restarts the owned child; Android ensures its foreground service is ready. |
+| `backend_cpp_transport_start` | `{ mode: "websocket" }` | Desktop only. Starts the packaged C++ `BAAS_service`, verifies `/version` and ready `/health`, and never falls back to Python. Pipe is rejected. |
+| `backend_pipe_open` | `{ channel, name, clientAttempt, onMessage }` | Opens one native BPIP connection, performs `open`/`open_ok`, streams raw framed messages, and returns an opaque server token. |
+| `backend_pipe_cancel_open` | `{ channel, name, clientAttempt }` | Cancels only the matching pending open attempt. |
+| `backend_pipe_send_json` | `{ channel, name, payload, token }` | Sends a JSON frame only if the token still owns that connection. |
+| `backend_pipe_send_bytes` | `{ channel, name, payload, token }` | Sends a binary frame only if the token still owns that connection. |
+| `backend_pipe_close` | `{ channel, name, token }` | Closes only the token-matching connection; stale owners cannot close a replacement. |
 | `backend_pipe_close_all` | none | Releases every Pipe connection. |
 
-Valid business channels are `provider`, `sync`, `trigger`, and `remote`. Frontend code should use `BackendConnection`; direct use of Pipe commands belongs in `TauriPipeConnection`.
+Valid business channels are `provider`, `sync`, `trigger`, and `remote`. Frontend code should use `BackendConnection`; direct use of Pipe commands belongs in `TauriPipeConnection`. `clientAttempt` protects a pending open, while the returned `token` protects an established connection from delayed sends or closes.
+
+## Managed Backend Lifecycle
+
+The desktop host owns one selected child at a time. A runtime/transport switch closes business connections and native Pipe state before starting the replacement. Python readiness follows its authentication endpoint. C++ readiness is stricter: `/version` must identify `BAAS Service` with `api_version: 1`, and `/health` must report `statuses.runtime.phase: "ready"`. Failure stops the rejected child and restores the previous selection.
+
+`updater_reset_backend_auth_and_restart` restarts the currently selected runtime; it does not force a Python downgrade. App exit and relevant window lifecycle paths stop only the child whose PID identity, executable, project root, and arguments match the managed record.
 
 ## System Log Commands
 

@@ -1,9 +1,11 @@
 ---
 title: Android Runtime API
-description: Android backend startup, app storage, Pipe support, local control, and updater compatibility.
+description: Android Python-backend startup, app storage, Pipe/WebSocket support, local control, and updater compatibility.
 ---
 
 Android embeds Python 3.9 through Chaquopy. A Kotlin foreground-service plugin starts the Python bootstrap, which unpacks the bundled BAAS service into app-private storage and launches it on `127.0.0.1:8190`.
+
+Android does not register `backend_cpp_transport_start`, and frontend normalization rejects runtime `cpp`. This is an explicit platform boundary, not an automatic fallback after attempting C++.
 
 ## Startup Flow
 
@@ -36,7 +38,9 @@ Android supports both `pipe` and `websocket`; the default is `pipe`.
 
 ## Storage and Updates
 
-Android setup state lives under application-managed storage. `updater_start_workflow` installs or updates the bundled backend content and returns terminal session metadata. Android does not depend on desktop `uv`, system Python, writable desktop install paths, or `pygit2`.
+Android setup state lives under application-managed storage. `updater_start_workflow` uses Rust git2 to synchronize the legacy BAAS Python repository and Android Cpp/OCR prebuild repository, persists their revisions, and returns terminal session metadata. The Kotlin bootstrap separately preserves and unpacks the packaged Android service payload. Android does not depend on desktop `uv`, system Python, writable desktop install paths, or `pygit2`.
+
+The new two-repository runtime activation store is not wired to an Android command or frontend flow at this revision; do not describe it as part of Android startup yet.
 
 The config reports:
 
@@ -68,3 +72,4 @@ The UI, Rust host, and Python compatibility layer all enforce these external val
 | Client update check | Reads Android package metadata. |
 | MirrorC validation | Returns an Android-compatible unsupported report when unavailable. |
 | Virtual display | Uses Android-specific request fields such as `configId` and optional `adbPath`. |
+| C++ runtime selection | Unsupported; command is not registered and UI/runtime normalization stays on Python. |
