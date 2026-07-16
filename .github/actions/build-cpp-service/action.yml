@@ -15,7 +15,7 @@ runs:
         repository: Kiramei/baas-cpp-dev
         # Pin the cross-repository application/lifecycle contract. Update this
         # SHA explicitly when the service protocol or package changes.
-        ref: cd50c8085d943cfdb801417e5c33f5c46f7470fd
+        ref: 5610a8d374d7a78cadb0f8e886be24ec585b0c2c
         path: baas-cpp-dev
         persist-credentials: false
 
@@ -43,9 +43,11 @@ runs:
         conan create deploy/conan/recipes/baas-libsodium -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-cpp-httplib -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-nlohmann-json -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
+        conan create deploy/conan/recipes/baas-miniz -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan install --requires=baas-libsodium/1.0.22 \
           --requires=baas-cpp-httplib/0.50.1 \
           --requires=baas-nlohmann-json/3.11.3 \
+          --requires=baas-miniz/3.1.2 \
           -of build/conan/tauri-service -s:h build_type=Release -s:b build_type=Release \
           "${SETTINGS[@]}" -g CMakeDeps -g CMakeToolchain --build=missing --no-remote
 

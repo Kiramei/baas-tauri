@@ -3,7 +3,6 @@ import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 
 type DropState = "zip" | "invalid" | null;
@@ -54,7 +53,6 @@ const ConfigArchiveDropOverlay: React.FC = () => {
       const result = await new Promise<any>((resolve, reject) => {
         state.triggerBinary(
           {
-            timestamp: getTimestampMs() + Math.random() * 1000,
             command: "import_config",
             payload: { filename: name },
           },

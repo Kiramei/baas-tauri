@@ -146,6 +146,26 @@ and must pass a real loopback `/version` + ready `/health` + accepted
 binary is missing. Windows portable assembly is target-gated: only x64 accepts
 the x64 service, and it revalidates identity and byte equality after staging.
 
+The stricter authenticated WebSocket gate is run separately after a service
+build:
+
+```powershell
+$env:BAAS_CPP_SERVICE_PATH = 'D:\path\to\BAAS_service.exe'
+$env:BAAS_CPP_SERVICE_REMOTE_JAR = 'D:\path\to\scrcpy-server.jar'
+bun run e2e:cpp-service
+```
+
+This command never skips or falls back when either artifact is absent. It uses
+the standard Bun WebSocket client so the gate retains the browser/WebView
+`permessage-deflate` offer and detects native upgrade incompatibilities. It
+starts the real service with an isolated project root, pins the signing key
+published by that exact process, initializes and authenticates `/ws/control`,
+and resumes authenticated `provider`, `sync`, and `trigger` channels. The gate
+uses a high JSON-safe integer trigger timestamp and requires the callback to
+echo it exactly. It then proves the production configuration path end to end:
+add, sync list/pull, ZIP export with an adjacent exact-length binary frame,
+remove, binary import, sync pull, cleanup, and graceful HTTP shutdown.
+
 ## Verification
 
 Rust tests freeze path ownership, wrong-service rejection, bounded HTTP parsing,
@@ -153,3 +173,6 @@ runtime readiness, and a real loopback lifecycle smoke whenever
 `BAAS_CPP_SERVICE_PATH` is set. Script tests freeze exact filenames, candidate
 ordering, and real binary identity. The C++ service data root used by the smoke
 test is a temporary directory and is removed after shutdown.
+`bun run test:cpp-service-e2e-contract` freezes the fail-closed artifact
+requirements without launching a service; `bun run e2e:cpp-service` is the
+mandatory real-process WebSocket and trigger correlation gate.
