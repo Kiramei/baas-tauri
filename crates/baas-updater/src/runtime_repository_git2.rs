@@ -1150,10 +1150,15 @@ fn reserve_pack_result(
 
 fn git_service_url(base: &Url, suffix: &str) -> Url {
     let mut url = base.clone();
-    let mut path = url.path().trim_end_matches('/').to_string();
-    path.push('/');
-    path.push_str(suffix);
-    url.set_path(&path);
+    {
+        let mut segments = url
+            .path_segments_mut()
+            .expect("restricted HTTPS URLs always support path segments");
+        segments.pop_if_empty();
+        for segment in suffix.split('/') {
+            segments.push(segment);
+        }
+    }
     url.set_query(None);
     url.set_fragment(None);
     url
@@ -1889,6 +1894,7 @@ mod tests {
     use super::*;
     use flate2::{Compression, write::ZlibEncoder};
     use git2::{Oid, Signature, TreeBuilder};
+    use sha1::{Digest as Sha1Digest, Sha1};
     use std::collections::BTreeMap;
     use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -2056,6 +2062,8 @@ mod tests {
             "file:///tmp/repo.git",
             "C:/repo.git",
             "https://user:secret@example.invalid/repo.git",
+            "https://example.invalid/repo.git?ref=main",
+            "https://example.invalid/repo.git#fragment",
         ] {
             let request = RuntimeRepositoryFetchRequest {
                 id: RuntimeRepositoryId::Resources,
@@ -2069,6 +2077,25 @@ mod tests {
             assert!(!debug.contains(url));
             assert!(!debug.contains("secret"));
         }
+    }
+
+    #[test]
+    fn git_service_urls_preserve_encoded_repository_paths() {
+        let base = Url::parse("https://example.invalid/team/project%2Frepo/%E4%B8%AD%20repo.git/")
+            .unwrap();
+        assert_eq!(
+            git_service_url(&base, "info/refs").as_str(),
+            "https://example.invalid/team/project%2Frepo/%E4%B8%AD%20repo.git/info/refs"
+        );
+        assert_eq!(
+            git_service_url(&base, "git-upload-pack").as_str(),
+            "https://example.invalid/team/project%2Frepo/%E4%B8%AD%20repo.git/git-upload-pack"
+        );
+        assert!(
+            !git_service_url(&base, "info/refs")
+                .as_str()
+                .contains("%252F")
+        );
     }
 
     fn advertisement_pkt(payload: &[u8]) -> Vec<u8> {
@@ -2139,8 +2166,14 @@ mod tests {
         }
     }
 
-    fn single_object_pack(kind: u8, base: Option<&[u8; 20]>, body: &[u8]) -> Vec<u8> {
-        let mut pack = b"PACK\0\0\0\x02\0\0\0\x01".to_vec();
+    fn pack_header(object_count: u32) -> Vec<u8> {
+        let mut pack = b"PACK".to_vec();
+        pack.extend_from_slice(&2_u32.to_be_bytes());
+        pack.extend_from_slice(&object_count.to_be_bytes());
+        pack
+    }
+
+    fn append_pack_object(pack: &mut Vec<u8>, kind: u8, base: Option<&[u8]>, body: &[u8]) {
         pack.extend_from_slice(&pack_object_header(
             kind,
             u64::try_from(body.len()).unwrap(),
@@ -2151,8 +2184,34 @@ mod tests {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
         encoder.write_all(body).unwrap();
         pack.extend_from_slice(&encoder.finish().unwrap());
-        pack.extend_from_slice(&[0_u8; 20]);
+    }
+
+    fn finish_pack(mut pack: Vec<u8>) -> Vec<u8> {
+        let checksum = Sha1::digest(&pack);
+        pack.extend_from_slice(&checksum);
         pack
+    }
+
+    fn single_object_pack(kind: u8, base: Option<&[u8; 20]>, body: &[u8]) -> Vec<u8> {
+        let mut pack = pack_header(1);
+        append_pack_object(&mut pack, kind, base.map(|value| value.as_slice()), body);
+        finish_pack(pack)
+    }
+
+    fn executable_copy_insert_delta_pack() -> (Vec<u8>, Vec<u8>) {
+        let base = vec![b'a'; 1024];
+        let mut result = base.clone();
+        result.push(b'b');
+        let base_oid = Oid::hash_object(ObjectType::Blob, &base).unwrap();
+        let mut delta = delta_varint(u64::try_from(base.len()).unwrap());
+        delta.extend_from_slice(&delta_varint(u64::try_from(result.len()).unwrap()));
+        // Copy all 1024 base bytes, then insert the final byte.
+        delta.extend_from_slice(&[0xb0, 0x00, 0x04, 0x01, b'b']);
+
+        let mut pack = pack_header(2);
+        append_pack_object(&mut pack, 3, None, &base);
+        append_pack_object(&mut pack, 7, Some(base_oid.as_bytes()), &delta);
+        (finish_pack(pack), result)
     }
 
     fn write_test_file(path: &Path) -> File {
@@ -2342,9 +2401,7 @@ mod tests {
             ..Default::default()
         };
         let context = transport_test_context(temp.path(), limits);
-        let mut delta = delta_varint(1);
-        delta.extend_from_slice(&delta_varint(1025));
-        let pack = single_object_pack(7, Some(&[0_u8; 20]), &delta);
+        let (pack, expected_result) = executable_copy_insert_delta_pack();
         let mut pack_file = write_test_file(&temp.path().join("bomb.pack"));
         pack_file.write_all(&pack).unwrap();
         pack_file.rewind().unwrap();
@@ -2355,6 +2412,20 @@ mod tests {
             context.failure.load(Ordering::Relaxed),
             TRANSPORT_FAILURE_LIMIT
         );
+
+        // The rejected fixture is a real pack: libgit2 can index its base and
+        // execute the copy/insert delta when the preflight policy is absent.
+        let repository = Repository::init_bare(temp.path().join("libgit2.git")).unwrap();
+        let odb = repository.odb().unwrap();
+        let pack_dir = repository.path().join("objects").join("pack");
+        let mut indexer = git2::Indexer::new(Some(&odb), &pack_dir, 0o644, true).unwrap();
+        indexer.write_all(&pack).unwrap();
+        indexer.commit().unwrap();
+        let result_oid = Oid::hash_object(ObjectType::Blob, &expected_result).unwrap();
+        let result_odb = repository.odb().unwrap();
+        let object = result_odb.read(result_oid).unwrap();
+        assert_eq!(object.kind(), ObjectType::Blob);
+        assert_eq!(object.data(), expected_result);
     }
 
     #[test]

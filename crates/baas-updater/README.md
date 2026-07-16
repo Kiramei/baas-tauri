@@ -96,6 +96,45 @@ All Git clone and update operations are shallow. CLI updates use
 CLI commands run with interactive credential prompts disabled so the installer
 fails or falls back instead of waiting on an external credential window.
 
+## Runtime Resource and Script Repositories
+
+`runtime_repository_store` and `runtime_repository_git2` provide a separate,
+fail-closed path for runtime resources and scripts. These repositories are
+external data: their files are not embedded, linked, or compiled into the
+Tauri/Rust executable. This path is also deliberately independent of the
+legacy main and Cpp/OCR repository synchronization described above.
+
+The git2 provider accepts only HTTPS URLs without credentials, query strings,
+or fragments; disables redirects, proxy discovery, and credential callbacks;
+and performs a shallow fetch of one validated advertised reference. The caller
+must also supply the exact 40-hex SHA-1 commit. Materialization proceeds only
+when the fetched reference peels to that commit, and only regular files named
+by a strict tree manifest are published.
+
+Before any upload-pack response is replayed into libgit2, the provider spools
+the bounded response, extracts either a raw PACK stream or side-band-64k channel
+1, and preflights the pack. The preflight enforces implementation ceilings and
+request budgets for transport bytes, object counts, base-object types, delta
+instruction streams, delta result sizes, and aggregate object bytes. It also
+requires valid pack headers, delta base headers and varints, complete zlib
+streams, and an exact trailer. Malformed packets, side-band fatal responses,
+oversized delta results, and incomplete streams therefore fail before libgit2
+can expand them.
+
+Cancellation is cooperative and checked throughout transport, pack preflight,
+ODB validation, and materialization. Connect and per-read stall timeouts are
+bounded by the absolute fetch deadline; because the deadline is observed
+between blocking operations, return may lag it by at most one configured
+connect/read timeout. Pack preflight and post-fetch ODB validation also have
+separate deadlines and distinct failure reporting.
+
+`RuntimeRepositoryStore` validates downloaded candidates again, moves the
+resources/scripts pair into immutable commit-addressed objects, writes one
+immutable generation snapshot, and atomically replaces `current.json` as the
+publication point. Compare-and-swap publication, `previous.json` rollback, a
+recovery journal, and strict generation revalidation prevent readers from
+observing a mixed or partially published pair.
+
 ## Environment
 
 Managed UV is installed under:
@@ -130,6 +169,15 @@ traits:
 - `environ::ProcessRunner`
 - `environ::AssetDownloader`
 - `workflow::WorkflowServices`
+- `runtime_repository_store::RuntimeRepositoryDownloader`
+
+Runtime-repository tests cover manifest and filesystem validation, publication
+and rollback fault boundaries, cancellation, deadlines, resource ceilings,
+raw and side-band pack framing, spool cleanup/replay, and delta preflight. The
+delta regression uses a checksum-valid pack with a real base plus executable
+copy/insert instructions and asks local libgit2 to index and resolve it. Tests
+use local files and loopback HTTP fixtures; they do not contact a production
+HTTPS Git service or exercise an external certificate chain.
 
 Useful verification commands:
 
