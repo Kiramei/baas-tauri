@@ -1753,9 +1753,274 @@ fn start_cpp_backend_detached(
     config: &UpdaterConfig,
     port: u16,
 ) -> Result<(), String> {
+    materialize_cpp_remote_jar(app, config)?;
     let executable = resolve_cpp_service_executable(app)?;
     let command = launch_cpp_backend_command(config, port, executable);
     spawn_backend_detached(config, port, command)
+}
+
+const CPP_REMOTE_JAR_RESOURCE: &str = "ws-scrcpy-server.jar";
+
+/// Materializes the app-owned ws-scrcpy artifact into the C++ project layout.
+/// Development overrides may reuse an already-provisioned project artifact,
+/// but packaged resources always replace it before launch.
+fn materialize_cpp_remote_jar(app: &AppHandle, config: &UpdaterConfig) -> Result<PathBuf, String> {
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push((resource_dir.join(CPP_REMOTE_JAR_RESOURCE), resource_dir));
+    }
+    if cfg!(debug_assertions) {
+        let owner = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources");
+        candidates.push((owner.join(CPP_REMOTE_JAR_RESOURCE), owner));
+    }
+    candidates.dedup();
+
+    for (candidate, owner) in candidates {
+        if !candidate.is_file() {
+            continue;
+        }
+        let source = validate_owned_resource_file(candidate, &owner, "ws-scrcpy resource")?;
+        let source_size = fs::metadata(&source)
+            .map_err(|error| error.to_string())?
+            .len();
+        if source_size == 0 {
+            return Err(format!(
+                "packaged ws-scrcpy resource is empty: {}",
+                source.display()
+            ));
+        }
+        let target_dir = prepare_cpp_remote_target_dir(config)?;
+        return replace_cpp_remote_jar(&source, source_size, &target_dir);
+    }
+
+    let configured_target = config
+        .baas_root()
+        .join("service")
+        .join("remote")
+        .join("scrcpy-server.jar");
+    if cfg!(debug_assertions) {
+        let target_dir = prepare_cpp_remote_target_dir(config)?;
+        let target = target_dir.join("scrcpy-server.jar");
+        if fs::symlink_metadata(&target).is_err() {
+            return Err(format!(
+                "BAAS C++ remote resource is not installed; expected packaged {} or {}",
+                CPP_REMOTE_JAR_RESOURCE,
+                configured_target.display()
+            ));
+        }
+        if metadata_is_link_or_reparse(
+            &fs::symlink_metadata(&target).map_err(|error| error.to_string())?,
+        ) {
+            return Err(format!(
+                "refusing linked development C++ remote jar: {}",
+                target.display()
+            ));
+        }
+        let target =
+            validate_owned_resource_file(target, &target_dir, "development C++ remote jar")?;
+        if fs::metadata(&target)
+            .map_err(|error| error.to_string())?
+            .len()
+            == 0
+        {
+            return Err(format!(
+                "development C++ remote jar is empty: {}",
+                target.display()
+            ));
+        }
+        return Ok(target);
+    }
+    Err(format!(
+        "BAAS C++ remote resource is not installed; expected packaged {} or {}",
+        CPP_REMOTE_JAR_RESOURCE,
+        configured_target.display()
+    ))
+}
+
+fn prepare_cpp_remote_target_dir(config: &UpdaterConfig) -> Result<PathBuf, String> {
+    let canonical_root = config
+        .baas_root()
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize BAAS root: {error}"))?;
+    if !canonical_root.is_dir() {
+        return Err(format!(
+            "BAAS root is not a directory: {}",
+            canonical_root.display()
+        ));
+    }
+    let service_dir = validate_or_create_owned_directory(&canonical_root, "service")?;
+    validate_or_create_owned_directory(&service_dir, "remote")
+}
+
+fn validate_or_create_owned_directory(parent: &Path, name: &str) -> Result<PathBuf, String> {
+    let candidate = parent.join(name);
+    match fs::symlink_metadata(&candidate) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(&candidate).map_err(|error| error.to_string())?;
+        }
+        Err(error) => return Err(error.to_string()),
+    }
+    let metadata = fs::symlink_metadata(&candidate).map_err(|error| error.to_string())?;
+    if metadata_is_link_or_reparse(&metadata) || !metadata.is_dir() {
+        return Err(format!(
+            "refusing linked or non-directory C++ resource path: {}",
+            candidate.display()
+        ));
+    }
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize {}: {error}", candidate.display()))?;
+    if canonical != candidate || canonical.parent() != Some(parent) {
+        return Err(format!(
+            "C++ resource directory escapes owner {}: {}",
+            parent.display(),
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
+}
+
+fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
+        metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    }
+    #[cfg(not(target_os = "windows"))]
+    false
+}
+
+fn replace_cpp_remote_jar(
+    source: &Path,
+    source_size: u64,
+    target_dir: &Path,
+) -> Result<PathBuf, String> {
+    let source_metadata = fs::metadata(source).map_err(|error| error.to_string())?;
+    if !source_metadata.is_file() || source_size == 0 || source_metadata.len() != source_size {
+        return Err(format!(
+            "invalid C++ remote jar source: {}",
+            source.display()
+        ));
+    }
+    let target = target_dir.join("scrcpy-server.jar");
+    if let Ok(metadata) = fs::symlink_metadata(&target) {
+        if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
+            return Err(format!(
+                "refusing linked or non-file C++ remote jar: {}",
+                target.display()
+            ));
+        }
+    }
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_nanos();
+    let temporary = (0_u8..16)
+        .find_map(|attempt| {
+            let path = target_dir.join(format!(
+                ".scrcpy-server.jar.tmp.{}.{}.{}",
+                std::process::id(),
+                nonce,
+                attempt
+            ));
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(file) => Some(Ok((path, file))),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                Err(error) => Some(Err(error.to_string())),
+            }
+        })
+        .transpose()?
+        .ok_or_else(|| "failed to reserve a C++ remote jar staging file".to_string())?;
+    let (temporary_path, mut output) = temporary;
+    let result = (|| {
+        let mut input = fs::File::open(source).map_err(|error| error.to_string())?;
+        let copied = std::io::copy(&mut input, &mut output).map_err(|error| error.to_string())?;
+        output.sync_all().map_err(|error| error.to_string())?;
+        drop(output);
+        if copied != source_size {
+            return Err("staged ws-scrcpy resource size mismatch".to_string());
+        }
+        atomic_replace_file(&temporary_path, &target)?;
+        let verified = validate_owned_resource_file(
+            target.clone(),
+            target_dir,
+            "materialized C++ remote jar",
+        )?;
+        if fs::metadata(&verified)
+            .map_err(|error| error.to_string())?
+            .len()
+            != source_size
+        {
+            return Err("materialized ws-scrcpy resource size mismatch".to_string());
+        }
+        Ok(verified)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
+}
+
+#[cfg(not(target_os = "windows"))]
+fn atomic_replace_file(source: &Path, target: &Path) -> Result<(), String> {
+    fs::rename(source, target).map_err(|error| error.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn atomic_replace_file(source: &Path, target: &Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::{
+        core::PCWSTR,
+        Win32::Storage::FileSystem::{
+            MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MOVE_FILE_FLAGS,
+        },
+    };
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let target = target
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let flags = MOVE_FILE_FLAGS(MOVEFILE_REPLACE_EXISTING.0 | MOVEFILE_WRITE_THROUGH.0);
+    unsafe { MoveFileExW(PCWSTR(source.as_ptr()), PCWSTR(target.as_ptr()), flags) }
+        .map_err(|error| error.to_string())
+}
+
+fn validate_owned_resource_file(
+    path: PathBuf,
+    owner: &Path,
+    source: &str,
+) -> Result<PathBuf, String> {
+    if !path.is_file() {
+        return Err(format!("{source} is not a file: {}", path.display()));
+    }
+    let canonical_owner = owner
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize {}: {error}", owner.display()))?;
+    let canonical = path
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize {}: {error}", path.display()))?;
+    if canonical.parent() != Some(canonical_owner.as_path()) {
+        return Err(format!(
+            "{source} escapes its application-owned directory {}: {}",
+            canonical_owner.display(),
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
 }
 
 /// Resolves the service only from an explicit override or an application-owned
@@ -1900,7 +2165,7 @@ fn spawn_backend_detached(
         .detached_pid_file
         .clone()
         .unwrap_or_else(|| backend_pid_path(config));
-    let persist_pid = persist_managed_backend_pid(&pid_file, child_id, config);
+    let persist_pid = persist_managed_backend_pid(&pid_file, child_id, config, port);
     if let Err(error) = persist_pid {
         let _ = child.kill();
         let _ = child.wait();
@@ -1939,6 +2204,8 @@ struct ManagedBackendPid {
     project_root: PathBuf,
     start_identity: String,
     kind: ManagedBackendKind,
+    #[serde(default)]
+    port: u16,
 }
 
 #[derive(Debug)]
@@ -1996,11 +2263,24 @@ fn cpp_backend_ready(port: u16) -> bool {
 
 /// Reads one bounded connection-close JSON response with an exact 200 status.
 fn backend_http_json(port: u16, path: &str) -> Option<serde_json::Value> {
+    backend_http_json_response(port, "GET", path, 200)
+}
+
+/// Sends one bounded loopback HTTP request and accepts only the exact status
+/// and body framing required by the managed service contract.
+fn backend_http_json_response(
+    port: u16,
+    method: &str,
+    path: &str,
+    expected_status: u16,
+) -> Option<serde_json::Value> {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).ok()?;
     let timeout = Some(Duration::from_millis(700));
     stream.set_read_timeout(timeout).ok()?;
     stream.set_write_timeout(timeout).ok()?;
-    let request = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    let request = format!(
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    );
     stream.write_all(request.as_bytes()).ok()?;
 
     let mut response = Vec::new();
@@ -2032,7 +2312,7 @@ fn backend_http_json(port: u16, path: &str) -> Option<serde_json::Value> {
     let mut status = lines.next()?.split_ascii_whitespace();
     let version = status.next()?;
     if !matches!(version, "HTTP/1.1" | "HTTP/1.0")
-        || status.next()? != "200"
+        || status.next()?.parse::<u16>().ok()? != expected_status
         || status.next().is_none()
     {
         return None;
@@ -2055,6 +2335,21 @@ fn backend_http_json(port: u16, path: &str) -> Option<serde_json::Value> {
         return None;
     }
     serde_json::from_slice(body).ok()
+}
+
+fn cpp_backend_shutdown_accepted(port: u16) -> bool {
+    let Some(response) = backend_http_json_response(port, "POST", "/shutdown", 202) else {
+        return false;
+    };
+    response.get("ok").and_then(serde_json::Value::as_bool) == Some(true)
+        && response
+            .get("api_version")
+            .and_then(serde_json::Value::as_u64)
+            == Some(1)
+        && response
+            .get("accepted")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
 }
 
 /// Performs the wait for backend auth endpoint operation.
@@ -2098,6 +2393,7 @@ fn persist_managed_backend_pid(
     pid_file: &Path,
     pid: u32,
     config: &UpdaterConfig,
+    port: u16,
 ) -> Result<(), String> {
     let project_root = config
         .baas_root()
@@ -2124,6 +2420,13 @@ fn persist_managed_backend_pid(
             project_root.display()
         ));
     }
+    if cli_flag_value(&identity.args, "--port").and_then(|value| value.parse::<u16>().ok())
+        != Some(port)
+    {
+        return Err(format!(
+            "spawned backend PID {pid} is not bound to requested port {port}"
+        ));
+    }
     let record = ManagedBackendPid {
         schema: MANAGED_BACKEND_PID_SCHEMA,
         pid,
@@ -2131,6 +2434,7 @@ fn persist_managed_backend_pid(
         project_root,
         start_identity: identity.start_identity,
         kind,
+        port,
     };
     if let Some(parent) = pid_file.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -2232,6 +2536,9 @@ fn managed_backend_identity_matches(
         && identity.start_identity == record.start_identity
         && backend_process_kind(identity).as_ref() == Some(&record.kind)
         && identity_binds_project_root(identity, &record.kind, &record.project_root)
+        && (record.port == 0
+            || cli_flag_value(&identity.args, "--port").and_then(|value| value.parse::<u16>().ok())
+                == Some(record.port))
 }
 
 /// Performs the stop backend pid file operation.
@@ -2249,6 +2556,31 @@ fn stop_backend_pid_file(pid_file: &Path) -> Result<(), String> {
             record.pid,
             pid_file.display()
         ));
+    }
+    if record.kind == ManagedBackendKind::Cpp
+        && record.port != 0
+        && cpp_backend_shutdown_accepted(record.port)
+    {
+        system_log(
+            "INFO",
+            "backend_process",
+            format!(
+                "C++ backend accepted graceful shutdown pid={} port={}",
+                record.pid, record.port
+            ),
+        );
+        if confirm_managed_backend_exit(&record, Duration::from_secs(5)).is_ok() {
+            fs::remove_file(pid_file).map_err(|error| error.to_string())?;
+            return Ok(());
+        }
+        system_log(
+            "WARN",
+            "backend_process",
+            format!(
+                "C++ backend remained alive after graceful shutdown; forcing managed termination pid={} port={}",
+                record.pid, record.port
+            ),
+        );
     }
     terminate_managed_backend(&record)?;
     fs::remove_file(pid_file).map_err(|error| error.to_string())?;
@@ -2504,6 +2836,12 @@ fn backend_process_identity(_pid: u32) -> Result<Option<BackendProcessIdentity>,
 fn terminate_managed_backend(record: &ManagedBackendPid) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
 
+    let Some(identity) = backend_process_identity(record.pid)? else {
+        return Ok(());
+    };
+    if !managed_backend_identity_matches(record, &identity) {
+        return Ok(());
+    }
     let status = Command::new("taskkill.exe")
         .args(["/PID", &record.pid.to_string(), "/T", "/F"])
         .creation_flags(0x08000000)
@@ -2522,6 +2860,12 @@ fn terminate_managed_backend(record: &ManagedBackendPid) -> Result<(), String> {
 
 #[cfg(not(target_os = "windows"))]
 fn terminate_managed_backend(record: &ManagedBackendPid) -> Result<(), String> {
+    let Some(identity) = backend_process_identity(record.pid)? else {
+        return Ok(());
+    };
+    if !managed_backend_identity_matches(record, &identity) {
+        return Ok(());
+    }
     let term = Command::new("kill")
         .args(["-TERM", &record.pid.to_string()])
         .status()
@@ -2721,6 +3065,22 @@ mod tests {
         (port, handle)
     }
 
+    fn serve_expected_request(
+        response: Vec<u8>,
+        expected_prefix: &'static [u8],
+    ) -> (u16, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let read = stream.read(&mut request).unwrap();
+            assert!(request[..read].starts_with(expected_prefix));
+            stream.write_all(&response).unwrap();
+        });
+        (port, handle)
+    }
+
     /// The explicit C++ entry accepts only the expected service identity and ready health.
     #[test]
     fn recognizes_ready_cpp_backend() {
@@ -2758,6 +3118,32 @@ mod tests {
         server.join().unwrap();
     }
 
+    /// Managed C++ cleanup requires an exact POST, 202 status, and v1
+    /// acceptance projection before it trusts graceful shutdown.
+    #[test]
+    fn recognizes_exact_cpp_shutdown_acceptance() {
+        let body = r#"{"ok":true,"api_version":1,"accepted":true}"#;
+        let response = format!(
+            "HTTP/1.1 202 Accepted\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        )
+        .into_bytes();
+        let (port, server) = serve_expected_request(response, b"POST /shutdown HTTP/1.1\r\n");
+        assert!(cpp_backend_shutdown_accepted(port));
+        server.join().unwrap();
+
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        )
+        .into_bytes();
+        let (port, server) = serve_one_response(response);
+        assert!(!cpp_backend_shutdown_accepted(port));
+        server.join().unwrap();
+    }
+
     /// Explicit service overrides cannot degrade into PATH lookup or target a
     /// similarly named test executable.
     #[test]
@@ -2784,6 +3170,124 @@ mod tests {
         assert!(validate_cpp_service_executable(owner_test, "test")
             .unwrap_err()
             .contains("exactly"));
+    }
+
+    /// Packaged resources must resolve as direct children of the application
+    /// resource directory rather than through a nested or redirected path.
+    #[test]
+    fn validates_exact_owned_cpp_remote_resource() {
+        let root = tempfile::tempdir().unwrap();
+        let exact = root.path().join(CPP_REMOTE_JAR_RESOURCE);
+        fs::write(&exact, b"jar").unwrap();
+        assert_eq!(
+            validate_owned_resource_file(exact.clone(), root.path(), "test").unwrap(),
+            exact.canonicalize().unwrap()
+        );
+
+        let nested = root.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+        let escaped = nested.join(CPP_REMOTE_JAR_RESOURCE);
+        fs::write(&escaped, b"jar").unwrap();
+        assert!(validate_owned_resource_file(escaped, root.path(), "test").is_err());
+    }
+
+    /// Resource directory validation must reject links before creating any
+    /// child through them, including Windows directory junctions.
+    #[test]
+    fn cpp_remote_directory_link_fails_before_external_mutation() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        let outside = root.path().join("outside");
+        fs::create_dir(&project).unwrap();
+        fs::create_dir(&outside).unwrap();
+        let service = project.join("service");
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, &service).unwrap();
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            let status = Command::new("cmd.exe")
+                .args(["/D", "/C", "mklink", "/J"])
+                .arg(&service)
+                .arg(&outside)
+                .creation_flags(0x08000000)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .unwrap();
+            assert!(
+                status.success(),
+                "failed to create Windows junction fixture"
+            );
+        }
+
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = project.to_string_lossy().into_owned();
+        assert!(prepare_cpp_remote_target_dir(&config).is_err());
+        assert!(!outside.join("remote").exists());
+        fs::remove_dir(&service).unwrap();
+        assert_eq!(
+            prepare_cpp_remote_target_dir(&config).unwrap(),
+            project
+                .canonicalize()
+                .unwrap()
+                .join("service")
+                .join("remote")
+        );
+    }
+
+    /// Materialization replaces a complete regular file and leaves no staging
+    /// artifact; linked targets and empty sources fail closed.
+    #[test]
+    fn cpp_remote_jar_replacement_is_complete_and_rejects_unsafe_inputs() {
+        let root = tempfile::tempdir().unwrap();
+        let target_dir = root.path().join("target");
+        fs::create_dir(&target_dir).unwrap();
+        let source = root.path().join("scrcpy-server.jar");
+        fs::write(&source, b"new-pinned-jar").unwrap();
+        let target = target_dir.join("scrcpy-server.jar");
+        fs::write(&target, b"old-jar").unwrap();
+
+        let replaced = replace_cpp_remote_jar(&source, 14, &target_dir).unwrap();
+        assert_eq!(replaced, target.canonicalize().unwrap());
+        assert_eq!(fs::read(&target).unwrap(), b"new-pinned-jar");
+        assert!(fs::read_dir(&target_dir).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".scrcpy-server.jar.tmp.")
+        }));
+
+        let empty = root.path().join("empty.jar");
+        fs::write(&empty, b"").unwrap();
+        assert!(replace_cpp_remote_jar(&empty, 0, &target_dir).is_err());
+
+        fs::remove_file(&target).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&source, &target).unwrap();
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            let outside_dir = root.path().join("outside-target");
+            fs::create_dir(&outside_dir).unwrap();
+            let status = Command::new("cmd.exe")
+                .args(["/D", "/C", "mklink", "/J"])
+                .arg(&target)
+                .arg(&outside_dir)
+                .creation_flags(0x08000000)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .unwrap();
+            assert!(status.success(), "failed to create target junction fixture");
+        }
+        assert!(replace_cpp_remote_jar(&source, 14, &target_dir).is_err());
+        #[cfg(target_os = "windows")]
+        fs::remove_dir(&target).unwrap();
+        #[cfg(unix)]
+        fs::remove_file(&target).unwrap();
     }
 
     /// A service-named symlink/reparse alias cannot redirect execution to an
@@ -2915,7 +3419,7 @@ mod tests {
                 .unwrap(),
         );
         let pid_file = backend_pid_path(&config);
-        persist_managed_backend_pid(&pid_file, child.0.id(), &config).unwrap();
+        persist_managed_backend_pid(&pid_file, child.0.id(), &config, port).unwrap();
         let started = Instant::now();
         while started.elapsed() < Duration::from_secs(10) && !cpp_backend_ready(port) {
             assert!(child.0.try_wait().unwrap().is_none());
@@ -2971,10 +3475,30 @@ mod tests {
             project_root,
             start_identity: "start-1".to_string(),
             kind: ManagedBackendKind::Cpp,
+            port: 8190,
         };
         assert!(managed_backend_identity_matches(&record, &identity));
+        record.port = 8191;
+        assert!(!managed_backend_identity_matches(&record, &identity));
+        record.port = 8190;
         record.start_identity = "start-2".to_string();
         assert!(!managed_backend_identity_matches(&record, &identity));
+    }
+
+    /// Existing schema-v1 JSON records predate the port field. They remain
+    /// readable but cannot authorize an HTTP shutdown request.
+    #[test]
+    fn legacy_json_pid_record_defaults_to_force_only_cleanup() {
+        let record: ManagedBackendPid = serde_json::from_value(serde_json::json!({
+            "schema": MANAGED_BACKEND_PID_SCHEMA,
+            "pid": 42,
+            "executable": "BAAS_service.exe",
+            "project_root": "D:/BAAS",
+            "start_identity": "start-1",
+            "kind": "cpp"
+        }))
+        .unwrap();
+        assert_eq!(record.port, 0);
     }
 
     /// A stale PID record must fail closed and remain on disk for diagnosis;
@@ -2993,12 +3517,82 @@ mod tests {
             project_root: root.path().canonicalize().unwrap(),
             start_identity: "definitely-not-this-process".to_string(),
             kind: ManagedBackendKind::Cpp,
+            port: 0,
         };
         fs::write(&pid_file, serde_json::to_vec(&record).unwrap()).unwrap();
 
         let error = stop_backend_pid_file(&pid_file).unwrap_err();
         assert!(error.contains("identity mismatch"));
         assert!(pid_file.exists());
+    }
+
+    /// A rejected or malformed shutdown response may race process exit. The
+    /// force fallback therefore rechecks strong identity immediately before
+    /// signaling and must leave an unrelated replacement process alive.
+    #[test]
+    fn force_shutdown_fallback_rechecks_identity_before_signal() {
+        struct ChildGuard(std::process::Child);
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        let mut child = {
+            use std::os::windows::process::CommandExt;
+            ChildGuard(
+                Command::new("powershell.exe")
+                    .args([
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        "Start-Sleep -Seconds 30",
+                    ])
+                    .creation_flags(0x08000000)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn()
+                    .unwrap(),
+            )
+        };
+        #[cfg(not(target_os = "windows"))]
+        let mut child = ChildGuard(
+            Command::new("sleep")
+                .arg("30")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let identity = loop {
+            if let Some(identity) = backend_process_identity(child.0.id()).unwrap() {
+                break identity;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "sleep fixture identity was not observable"
+            );
+            thread::sleep(Duration::from_millis(20));
+        };
+        let root = tempfile::tempdir().unwrap();
+        let record = ManagedBackendPid {
+            schema: MANAGED_BACKEND_PID_SCHEMA,
+            pid: child.0.id(),
+            executable: identity.executable,
+            project_root: root.path().canonicalize().unwrap(),
+            start_identity: identity.start_identity,
+            kind: ManagedBackendKind::Cpp,
+            port: 0,
+        };
+        terminate_managed_backend(&record).unwrap();
+        assert!(child.0.try_wait().unwrap().is_none());
     }
 
     /// Live legacy numeric records cannot authorize termination and remain

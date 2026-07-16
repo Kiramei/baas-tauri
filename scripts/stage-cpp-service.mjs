@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 export const serviceExecutableName = (platform = process.platform) =>
   platform === "win32" ? "BAAS_service.exe" : "BAAS_service";
 
+export const remoteJarName = "scrcpy-server.jar";
+
 export const hasExactServiceBasename = (path, platform = process.platform) =>
   basename(path) === serviceExecutableName(platform);
 
@@ -108,9 +110,53 @@ export async function stageCppService({
   throw new Error(`No verified BAAS C++ service executable was found.\n${failures.join("\n")}`);
 }
 
+export async function stageCppRemoteJar({
+  source = process.env.BAAS_CPP_SERVICE_REMOTE_JAR,
+  root = repositoryRoot,
+} = {}) {
+  if (!source) throw new Error("BAAS_CPP_SERVICE_REMOTE_JAR is required for C++ packaging");
+  if (!isAbsolute(source)) {
+    throw new Error(`BAAS C++ remote jar path must be absolute: ${source}`);
+  }
+  if (basename(source) !== remoteJarName) {
+    throw new Error(`BAAS C++ remote jar must be named exactly ${remoteJarName}: ${source}`);
+  }
+  const canonical = await realpath(source);
+  const metadata = await stat(canonical);
+  if (!metadata.isFile()) throw new Error(`BAAS C++ remote jar is not a file: ${canonical}`);
+  if (basename(canonical) !== remoteJarName) {
+    throw new Error(`BAAS C++ remote jar resolves to the wrong filename: ${canonical}`);
+  }
+
+  const owner = join(root, "src-tauri", "resources");
+  const destination = join(owner, "ws-scrcpy-server.jar");
+  await mkdir(owner, { recursive: true });
+  await rm(destination, { force: true });
+  await copyFile(canonical, destination);
+  const verified = await realpath(destination);
+  const verifiedOwner = await realpath(owner);
+  const copied = await stat(verified);
+  if (!copied.isFile() || dirname(verified) !== verifiedOwner) {
+    throw new Error(`Staged C++ remote jar escapes its owned directory: ${verified}`);
+  }
+  if (copied.size !== metadata.size || copied.size === 0) {
+    throw new Error(`Staged C++ remote jar size mismatch: ${verified}`);
+  }
+  return { source: canonical, destination: verified };
+}
+
+export async function stageCppServiceResources({ service = {}, remoteJar = {} } = {}) {
+  const executable = await stageCppService(service);
+  const jar = await stageCppRemoteJar(remoteJar);
+  return { executable, remoteJar: jar };
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  stageCppService()
-    .then(({ source, destination }) => console.log(`Staged ${source} -> ${destination}`))
+  stageCppServiceResources()
+    .then(({ executable, remoteJar }) => {
+      console.log(`Staged ${executable.source} -> ${executable.destination}`);
+      console.log(`Staged ${remoteJar.source} -> ${remoteJar.destination}`);
+    })
     .catch((error) => {
       console.error(error instanceof Error ? error.message : error);
       process.exitCode = 1;

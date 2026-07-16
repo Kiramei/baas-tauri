@@ -92,12 +92,17 @@ through its managed PID file. The production service returns HTTP 202 from
 `POST /shutdown` and exits cleanly.
 
 The PID file is a versioned JSON identity record, not a bare PID. It binds the
-canonical backend executable, canonical project root, backend kind, and process
-creation identity. Windows reads structured CIM fields, Linux reads NUL-delimited
+canonical backend executable, canonical project root, backend kind, loopback
+port, and process creation identity. Windows reads structured CIM fields, Linux reads NUL-delimited
 `/proc` argv plus the kernel start tick, and macOS combines `proc_pidpath` with
 the process start projection. Cleanup refuses an identity mismatch, preserves
 the PID file for diagnosis, and confirms that the recorded process identity has
-disappeared after termination. A live legacy numeric PID file is never trusted.
+disappeared after termination. C++ cleanup first sends the exact
+`POST /shutdown` request to the recorded port and accepts only the API v1 HTTP
+202 response. It waits for the same process identity to disappear, then falls
+back to managed force termination if graceful shutdown is rejected or times
+out. Older JSON records without a port remain readable but use force
+termination; a live legacy numeric PID file is never trusted.
 
 ## Development and packaging
 
@@ -106,13 +111,18 @@ sibling build:
 
 ```powershell
 $env:BAAS_CPP_SERVICE_PATH = 'D:\path\to\BAAS_service.exe'
+$env:BAAS_CPP_SERVICE_REMOTE_JAR = 'D:\path\to\scrcpy-server.jar'
 bun run stage:cpp-service
 bun run test:cpp-service-package
 ```
 
 The staging command executes `--version`, requires an exact `BAAS_service`
-semantic-version identity, copies it to `src-tauri/resources`, and verifies the
-copy again. Generated service binaries are ignored by Git.
+semantic-version identity, and verifies its application-owned copy again. The
+packaging entry also requires an absolute, non-empty `scrcpy-server.jar`, stages
+it as a separate application resource, and verifies owner containment and byte
+size. Before C++ launch, Tauri materializes that resource at
+`<BAAS_ROOT>/service/remote/scrcpy-server.jar`; symlinked destinations fail
+closed. Generated service resources are ignored by Git.
 
 Production desktop packaging uses:
 
@@ -123,9 +133,10 @@ bun run tauri:build:cpp-service -- --target <rust-target>
 This adds the verified service through an explicit, platform-specific Tauri
 resource config. Release CI builds the pinned C++ dependencies and the explicit
 `Kiramei/baas-cpp-dev` revision
-`48995d820efbc12b56be32806a7e75dd7f652d29` before native Windows x64, Linux
+`cd50c8085d943cfdb801417e5c33f5c46f7470fd` before native Windows x64, Linux
 x64, and macOS bundles.
-Windows x64 portable output is a ZIP containing both executables. Targets that
+Windows x64 portable output is a ZIP containing both executables and the
+ws-scrcpy server resource. Targets that
 do not yet have a native service build keep the existing Python-only package
 and fail closed if the explicit C++ entry is selected.
 

@@ -6,6 +6,8 @@ import crypto from "crypto";
 import AdmZip from "adm-zip";
 import { validateServiceExecutable } from "./stage-cpp-service.mjs";
 
+export const cppPortableResourceNames = ["BAAS_service.exe", "ws-scrcpy-server.jar"];
+
 const target = process.argv.slice(2)[0];
 
 const ARCH_MAP = {
@@ -129,6 +131,35 @@ async function fileSha256(file) {
     .digest("hex");
 }
 
+export async function validatePortableRemoteJar(source, staged) {
+  if (!source || !path.isAbsolute(source)) {
+    throw new Error("BAAS_CPP_SERVICE_REMOTE_JAR must be an absolute path");
+  }
+  if (path.basename(source) !== "scrcpy-server.jar") {
+    throw new Error(`BAAS_CPP_SERVICE_REMOTE_JAR must be named scrcpy-server.jar: ${source}`);
+  }
+  const canonicalSource = await fsp.realpath(source);
+  const canonicalStaged = await fsp.realpath(staged);
+  const stagedOwner = await fsp.realpath(path.dirname(staged));
+  const [sourceMetadata, stagedMetadata] = await Promise.all([
+    fsp.stat(canonicalSource),
+    fsp.stat(canonicalStaged),
+  ]);
+  if (
+    !sourceMetadata.isFile() ||
+    !stagedMetadata.isFile() ||
+    sourceMetadata.size === 0 ||
+    stagedMetadata.size !== sourceMetadata.size ||
+    path.basename(canonicalSource) !== "scrcpy-server.jar" ||
+    path.basename(canonicalStaged) !== "ws-scrcpy-server.jar" ||
+    path.dirname(canonicalStaged) !== stagedOwner ||
+    (await fileSha256(canonicalSource)) !== (await fileSha256(canonicalStaged))
+  ) {
+    throw new Error("Staged ws-scrcpy resource does not match BAAS_CPP_SERVICE_REMOTE_JAR");
+  }
+  return canonicalStaged;
+}
+
 export function shouldPackageCppService(target, resolvedArch) {
   return target === "x86_64-pc-windows-msvc" || (!target && resolvedArch === "x64");
 }
@@ -156,10 +187,16 @@ async function resolvePortable() {
   // has C++ packaging enabled.
   addLocalFileIfExists(zip, mainExe);
   const cppService = path.join(process.cwd(), "src-tauri", "resources", "BAAS_service.exe");
+  const cppRemoteJar = path.join(process.cwd(), "src-tauri", "resources", "ws-scrcpy-server.jar");
   const cppServiceTarget = shouldPackageCppService(target, arch);
   if (cppServiceTarget) {
     if (!process.env.BAAS_CPP_SERVICE_PATH) {
       throw new Error("BAAS_CPP_SERVICE_PATH is required for the Windows x64 portable bundle");
+    }
+    if (!process.env.BAAS_CPP_SERVICE_REMOTE_JAR) {
+      throw new Error(
+        "BAAS_CPP_SERVICE_REMOTE_JAR is required for the Windows x64 portable bundle"
+      );
     }
     const source = await validateServiceExecutable(process.env.BAAS_CPP_SERVICE_PATH, "win32");
     const staged = await validateServiceExecutable(cppService, "win32", path.dirname(cppService));
@@ -167,7 +204,13 @@ async function resolvePortable() {
       throw new Error("Staged C++ service does not match BAAS_CPP_SERVICE_PATH");
     }
     zip.addLocalFile(staged);
+    const stagedRemoteJar = await validatePortableRemoteJar(
+      process.env.BAAS_CPP_SERVICE_REMOTE_JAR,
+      cppRemoteJar
+    );
+    zip.addLocalFile(stagedRemoteJar);
     console.log(`[INFO]: added verified C++ service ${staged}`);
+    console.log(`[INFO]: added verified ws-scrcpy resource ${stagedRemoteJar}`);
   } else {
     console.log(`[INFO]: target ${target || arch} does not package the x64 C++ service`);
   }
@@ -177,6 +220,16 @@ async function resolvePortable() {
   const zipFilePath = path.join(process.cwd(), zipFileName);
 
   zip.writeZip(zipFilePath);
+  const entries = new Set(new AdmZip(zipFilePath).getEntries().map((entry) => entry.entryName));
+  const requiredEntries = [
+    path.basename(mainExe),
+    ...(cppServiceTarget ? cppPortableResourceNames : []),
+  ];
+  for (const entry of requiredEntries) {
+    if (!entries.has(entry)) {
+      throw new Error(`Portable archive is missing required entry ${entry}`);
+    }
+  }
   console.log(`[INFO]: created portable zip ${zipFilePath}`);
 }
 

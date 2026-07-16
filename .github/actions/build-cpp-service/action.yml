@@ -15,7 +15,7 @@ runs:
         repository: Kiramei/baas-cpp-dev
         # Pin the cross-repository application/lifecycle contract. Update this
         # SHA explicitly when the service protocol or package changes.
-        ref: dd7662f97c761579298ca944b3522cfac69f2e71
+        ref: cd50c8085d943cfdb801417e5c33f5c46f7470fd
         path: baas-cpp-dev
         persist-credentials: false
 

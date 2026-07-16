@@ -109,8 +109,18 @@ jobs:
         run: cargo test --workspace --all-targets --locked
 
   cpp-service-integration:
-    name: Windows x64 real C++ service integration
-    runs-on: windows-latest
+    name: ${{ matrix.name }} real C++ service integration
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+          - name: Linux x64
+            os: ubuntu-22.04
+          - name: macOS native
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
       - name: Checkout repository
@@ -118,20 +128,35 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve native Rust target
+        id: native-target
+        shell: bash
+        run: |
+          echo "target=$(rustc -vV | sed -n 's/^host: //p')" >> "$GITHUB_OUTPUT"
+
       - name: Setup native test environment
         uses: ./.github/actions/setup-tauri-build-env
         with:
-          target: x86_64-pc-windows-msvc
+          target: ${{ steps.native-target.outputs.target }}
           download-fonts: "false"
           save-cache: ${{ github.event_name == 'push' }}
+
+      - name: Install Linux Tauri dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Build and smoke pinned C++ service
         uses: ./.github/actions/build-cpp-service
         with:
-          target: x86_64-pc-windows-msvc
+          target: ${{ steps.native-target.outputs.target }}
 
       - name: Test packaging and managed lifecycle against real service
-        shell: pwsh
         run: |
           bun run test:cpp-service-package
           cargo test -p baas-tauri --lib commands::tests::real_cpp_service_ --locked

@@ -2,7 +2,8 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "bundle": {
     "resources": {
-      "resources/BAAS_service.exe": "BAAS_service.exe"
+      "resources/BAAS_service.exe": "BAAS_service.exe",
+      "resources/ws-scrcpy-server.jar": "ws-scrcpy-server.jar"
     }
   }
 }
