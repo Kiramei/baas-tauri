@@ -5,26 +5,54 @@
 use crate::{
     UpdaterError, UpdaterResult,
     runtime_repository_store::{
-        RuntimeRepositoryActivation, RuntimeRepositoryDownloader, RuntimeRepositoryFetchMetadata,
-        RuntimeRepositoryFetchRequest, RuntimeRepositoryId, RuntimeRepositoryStopToken,
-        RuntimeRepositoryStore,
+        RuntimeRepositoryActivation, RuntimeRepositoryCandidate, RuntimeRepositoryDownloader,
+        RuntimeRepositoryFetchMetadata, RuntimeRepositoryFetchRequest, RuntimeRepositoryId,
+        RuntimeRepositoryStopToken, RuntimeRepositoryStore, validate_runtime_repository_tree,
     },
 };
-use git2::{AutotagOption, FetchOptions, ObjectType, RemoteCallbacks, Repository};
+use git2::{
+    AutotagOption, FetchOptions, ObjectType, RemoteCallbacks, RemoteRedirect, Repository,
+    transport::{Service, SmartSubtransport, SmartSubtransportStream, Transport},
+};
+use reqwest::{
+    blocking::{Client, Response},
+    header::{ACCEPT, CONTENT_TYPE, HeaderValue},
+    redirect::Policy,
+};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, OpenOptions},
-    io::Write,
+    io::{self, Read, Write},
     path::Path,
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
 };
 use url::Url;
+use uuid::Uuid;
 
 const FETCHED_REFERENCE: &str = "refs/baas/runtime";
+const RESTRICTED_HTTPS_SCHEME: &str = "baas-https";
+const MAX_UPLOAD_REQUEST_BYTES: usize = 1024 * 1024;
+static RESTRICTED_HTTPS_REGISTRATION: OnceLock<Result<(), ()>> = OnceLock::new();
+static RESTRICTED_HTTPS_CONTEXTS: OnceLock<Mutex<HashMap<String, Arc<HttpsTransportContext>>>> =
+    OnceLock::new();
 
 /// Bounds applied before and during tree materialization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeRepositoryLimits {
+    pub connect_timeout_ms: u32,
+    pub server_timeout_ms: u32,
+    pub max_fetch_bytes: u64,
+    pub max_fetch_objects: usize,
+    pub max_commit_bytes: u64,
+    pub max_tree_bytes: u64,
+    pub max_tag_bytes: u64,
+    pub max_tag_depth: usize,
+    pub max_path_bytes: usize,
     pub max_depth: usize,
     pub max_entries: usize,
     pub max_files: usize,
@@ -36,12 +64,21 @@ pub struct RuntimeRepositoryLimits {
 impl Default for RuntimeRepositoryLimits {
     fn default() -> Self {
         Self {
+            connect_timeout_ms: 15_000,
+            server_timeout_ms: 15_000,
+            max_fetch_bytes: 3 * 1024 * 1024 * 1024,
+            max_fetch_objects: 200_000,
+            max_commit_bytes: 1024 * 1024,
+            max_tree_bytes: 16 * 1024 * 1024,
+            max_tag_bytes: 1024 * 1024,
+            max_tag_depth: 8,
+            max_path_bytes: 1024,
             max_depth: 32,
-            max_entries: 100_000,
-            max_files: 80_000,
+            max_entries: 32_768,
+            max_files: 16_384,
             max_file_bytes: 256 * 1024 * 1024,
             max_total_bytes: 2 * 1024 * 1024 * 1024,
-            max_manifest_bytes: 4 * 1024 * 1024,
+            max_manifest_bytes: 16 * 1024 * 1024,
         }
     }
 }
@@ -71,6 +108,17 @@ impl RuntimeRepositoryGit2Downloader {
             #[cfg(test)]
             cancel_before_materialization: false,
         })
+    }
+
+    /// Upper bound for one blocked connect, TLS, read, or write wait before
+    /// cancellation can be observed. This is not a total-fetch duration;
+    /// active pack transfer observes cancellation on each progress callback.
+    pub fn network_stop_response_bound(&self) -> Duration {
+        Duration::from_millis(u64::from(
+            self.limits
+                .connect_timeout_ms
+                .max(self.limits.server_timeout_ms),
+        ))
     }
 
     #[cfg(test)]
@@ -113,23 +161,52 @@ impl RuntimeRepositoryGit2Downloader {
         fs::create_dir(&transport).map_err(|_| io_error("failed to create transport workspace"))?;
         let repository = Repository::init_bare(&transport)
             .map_err(|_| git_error("failed to initialize transport repository"))?;
+        let https_context = match self.policy {
+            TransportPolicy::HttpsOnly => Some(RestrictedHttpsContextGuard::install(
+                &request.url,
+                self.limits,
+                stop,
+            )?),
+            #[cfg(test)]
+            TransportPolicy::LocalTestOnly => None,
+        };
+        let remote_url = https_context
+            .as_ref()
+            .map_or(request.url.as_str(), RestrictedHttpsContextGuard::url);
 
         {
+            let mut fetch_limit_exceeded = false;
             let mut callbacks = RemoteCallbacks::new();
-            callbacks.transfer_progress(|_| !stop.is_cancelled());
+            callbacks.transfer_progress(|progress| {
+                let received_bytes = u64::try_from(progress.received_bytes()).unwrap_or(u64::MAX);
+                let observed_objects = progress.total_objects().max(progress.received_objects());
+                if received_bytes > self.limits.max_fetch_bytes
+                    || observed_objects > self.limits.max_fetch_objects
+                {
+                    fetch_limit_exceeded = true;
+                    return false;
+                }
+                !stop.is_cancelled()
+            });
             let mut options = FetchOptions::new();
             options.remote_callbacks(callbacks);
             if self.policy == TransportPolicy::HttpsOnly {
                 options.depth(1);
             }
             options.download_tags(AutotagOption::None);
+            options.follow_redirects(RemoteRedirect::None);
             let refspec = format!("+{}:{}", request.advertised_reference, FETCHED_REFERENCE);
             let mut remote = repository
-                .remote_anonymous(&request.url)
+                .remote_anonymous(remote_url)
                 .map_err(|_| git_error("failed to create restricted remote"))?;
-            if remote.fetch(&[&refspec], Some(&mut options), None).is_err() {
+            let fetch_result = remote.fetch(&[&refspec], Some(&mut options), None);
+            drop(remote);
+            drop(options);
+            if fetch_result.is_err() {
                 return if stop.is_cancelled() {
                     Err(UpdaterError::Cancelled)
+                } else if fetch_limit_exceeded {
+                    Err(limit_error("runtime repository fetch limit exceeded"))
                 } else {
                     Err(git_error("failed to fetch advertised reference"))
                 };
@@ -140,9 +217,10 @@ impl RuntimeRepositoryGit2Downloader {
         let reference = repository
             .find_reference(FETCHED_REFERENCE)
             .map_err(|_| git_error("advertised reference was not fetched"))?;
-        let commit = reference
-            .peel_to_commit()
-            .map_err(|_| git_error("advertised reference does not peel to a commit"))?;
+        let advertised_oid = reference
+            .target()
+            .ok_or_else(|| git_error("advertised reference has no direct object"))?;
+        let commit = peel_bounded_commit(&repository, advertised_oid, self.limits)?;
         let actual_commit = commit.id().to_string();
         if actual_commit.as_bytes() != request.exact_commit.as_bytes() {
             return Err(git_error("fetched commit does not match exact commit"));
@@ -154,9 +232,7 @@ impl RuntimeRepositoryGit2Downloader {
         }
         check_cancelled(stop)?;
 
-        let tree = commit
-            .tree()
-            .map_err(|_| git_error("failed to read exact commit tree"))?;
+        let tree = find_bounded_tree(&repository, commit.tree_id(), self.limits.max_tree_bytes)?;
         let mut state = MaterializationState::new(self.limits, &request.manifest);
         materialize_tree(
             &repository,
@@ -175,6 +251,7 @@ impl RuntimeRepositoryGit2Downloader {
         drop(reference);
         drop(repository);
         remove_transport(&transport)?;
+        validate_runtime_repository_tree(staging_root, &request.manifest, &manifest_sha256)?;
 
         Ok(RuntimeRepositoryFetchMetadata {
             commit: actual_commit,
@@ -192,6 +269,313 @@ impl RuntimeRepositoryDownloader for RuntimeRepositoryGit2Downloader {
     ) -> UpdaterResult<RuntimeRepositoryFetchMetadata> {
         self.fetch_and_materialize(request, staging_root, stop)
     }
+}
+
+struct HttpsTransportContext {
+    url: Url,
+    client: Client,
+    stop: RuntimeRepositoryStopToken,
+    max_response_bytes: u64,
+    response_bytes: AtomicU64,
+}
+
+struct RestrictedHttpsContextGuard {
+    key: String,
+    url: String,
+}
+
+impl RestrictedHttpsContextGuard {
+    fn install(
+        original_url: &str,
+        limits: RuntimeRepositoryLimits,
+        stop: &RuntimeRepositoryStopToken,
+    ) -> UpdaterResult<Self> {
+        register_restricted_https_transport()?;
+        let url = Url::parse(original_url)
+            .map_err(|_| config_error("runtime repository URL is invalid"))?;
+        let client = Client::builder()
+            .https_only(true)
+            .redirect(Policy::none())
+            .no_proxy()
+            .connect_timeout(Duration::from_millis(u64::from(limits.connect_timeout_ms)))
+            .timeout(Duration::from_millis(u64::from(limits.server_timeout_ms)))
+            .build()
+            .map_err(|_| git_error("failed to initialize restricted HTTPS transport"))?;
+        let key = Uuid::new_v4().simple().to_string();
+        let context = Arc::new(HttpsTransportContext {
+            url,
+            client,
+            stop: stop.clone(),
+            max_response_bytes: limits.max_fetch_bytes,
+            response_bytes: AtomicU64::new(0),
+        });
+        restricted_https_contexts()
+            .lock()
+            .map_err(|_| git_error("restricted HTTPS transport gate is unavailable"))?
+            .insert(key.clone(), context);
+        Ok(Self {
+            url: format!("{RESTRICTED_HTTPS_SCHEME}://{key}"),
+            key,
+        })
+    }
+
+    fn url(&self) -> &str {
+        &self.url
+    }
+}
+
+impl Drop for RestrictedHttpsContextGuard {
+    fn drop(&mut self) {
+        if let Ok(mut contexts) = restricted_https_contexts().lock() {
+            contexts.remove(&self.key);
+        }
+    }
+}
+
+fn restricted_https_contexts() -> &'static Mutex<HashMap<String, Arc<HttpsTransportContext>>> {
+    RESTRICTED_HTTPS_CONTEXTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[ctor::ctor]
+fn initialize_restricted_https_transport() {
+    let _ = register_restricted_https_transport();
+}
+
+fn register_restricted_https_transport() -> UpdaterResult<()> {
+    let registration = RESTRICTED_HTTPS_REGISTRATION.get_or_init(|| {
+        // SAFETY: the constructor above registers this unique scheme before
+        // main can create concurrent transports. OnceLock makes the fallback
+        // call idempotent, and the scheme is never replaced or unregistered.
+        // Built-in transports used by legacy updater paths are untouched.
+        unsafe {
+            git2::transport::register(RESTRICTED_HTTPS_SCHEME, |remote| {
+                let custom_url = Url::parse(remote.url()?)
+                    .map_err(|_| git2::Error::from_str("restricted HTTPS context is invalid"))?;
+                let key = custom_url
+                    .host_str()
+                    .ok_or_else(|| git2::Error::from_str("restricted HTTPS context is missing"))?;
+                let context = restricted_https_contexts()
+                    .lock()
+                    .map_err(|_| git2::Error::from_str("restricted HTTPS context is unavailable"))?
+                    .get(key)
+                    .cloned()
+                    .ok_or_else(|| git2::Error::from_str("restricted HTTPS context expired"))?;
+                Transport::smart(remote, true, RestrictedHttpsSubtransport { context })
+            })
+        }
+        .map_err(|_| ())
+    });
+    registration
+        .as_ref()
+        .map_err(|_| git_error("failed to register restricted HTTPS transport"))
+        .copied()
+}
+
+struct RestrictedHttpsSubtransport {
+    context: Arc<HttpsTransportContext>,
+}
+
+impl SmartSubtransport for RestrictedHttpsSubtransport {
+    fn action(
+        &self,
+        _url: &str,
+        service: Service,
+    ) -> Result<Box<dyn SmartSubtransportStream>, git2::Error> {
+        if self.context.stop.is_cancelled() {
+            return Err(git2::Error::from_str("runtime repository fetch cancelled"));
+        }
+        match service {
+            Service::UploadPackLs => {
+                let mut endpoint = git_service_url(&self.context.url, "info/refs");
+                endpoint.set_query(Some("service=git-upload-pack"));
+                let response = self
+                    .context
+                    .client
+                    .get(endpoint)
+                    .header(ACCEPT, "application/x-git-upload-pack-advertisement")
+                    .send()
+                    .map_err(|_| git2::Error::from_str("restricted HTTPS request failed"))?;
+                validate_git_response(
+                    &response,
+                    "application/x-git-upload-pack-advertisement",
+                    self.context.max_response_bytes,
+                )?;
+                Ok(Box::new(RestrictedHttpsStream::response(
+                    Arc::clone(&self.context),
+                    response,
+                )))
+            }
+            Service::UploadPack => Ok(Box::new(RestrictedHttpsStream::request(Arc::clone(
+                &self.context,
+            )))),
+            Service::ReceivePackLs | Service::ReceivePack => Err(git2::Error::from_str(
+                "restricted HTTPS transport is fetch-only",
+            )),
+        }
+    }
+
+    fn close(&self) -> Result<(), git2::Error> {
+        Ok(())
+    }
+}
+
+enum RestrictedHttpsStreamState {
+    Response(Response),
+    Request(Vec<u8>),
+}
+
+struct RestrictedHttpsStream {
+    context: Arc<HttpsTransportContext>,
+    state: RestrictedHttpsStreamState,
+}
+
+impl RestrictedHttpsStream {
+    fn response(context: Arc<HttpsTransportContext>, response: Response) -> Self {
+        Self {
+            context,
+            state: RestrictedHttpsStreamState::Response(response),
+        }
+    }
+
+    fn request(context: Arc<HttpsTransportContext>) -> Self {
+        Self {
+            context,
+            state: RestrictedHttpsStreamState::Request(Vec::new()),
+        }
+    }
+
+    fn send_request(&mut self) -> io::Result<()> {
+        let RestrictedHttpsStreamState::Request(body) = &mut self.state else {
+            return Ok(());
+        };
+        if self.context.stop.is_cancelled() {
+            return Err(io::Error::other("runtime repository fetch cancelled"));
+        }
+        let endpoint = git_service_url(&self.context.url, "git-upload-pack");
+        let request_body = std::mem::take(body);
+        let response = self
+            .context
+            .client
+            .post(endpoint)
+            .header(CONTENT_TYPE, "application/x-git-upload-pack-request")
+            .header(ACCEPT, "application/x-git-upload-pack-result")
+            .body(request_body)
+            .send()
+            .map_err(|_| io::Error::other("restricted HTTPS request failed"))?;
+        validate_git_response(
+            &response,
+            "application/x-git-upload-pack-result",
+            self.context.max_response_bytes,
+        )
+        .map_err(|_| io::Error::other("restricted HTTPS response is invalid"))?;
+        self.state = RestrictedHttpsStreamState::Response(response);
+        Ok(())
+    }
+}
+
+impl Read for RestrictedHttpsStream {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        if self.context.stop.is_cancelled() {
+            return Err(io::Error::other("runtime repository fetch cancelled"));
+        }
+        if matches!(self.state, RestrictedHttpsStreamState::Request(_)) {
+            self.send_request()?;
+        }
+        let RestrictedHttpsStreamState::Response(response) = &mut self.state else {
+            unreachable!("request stream becomes a response before reading")
+        };
+        let used = self.context.response_bytes.load(Ordering::Relaxed);
+        if used >= self.context.max_response_bytes {
+            let mut extra = [0_u8; 1];
+            return match response.read(&mut extra) {
+                Ok(0) => Ok(0),
+                Ok(_) => Err(io::Error::other(
+                    "runtime repository HTTPS response limit exceeded",
+                )),
+                Err(_) => Err(io::Error::other("restricted HTTPS response read failed")),
+            };
+        }
+        let remaining = self.context.max_response_bytes - used;
+        let allowed = usize::try_from(remaining)
+            .unwrap_or(usize::MAX)
+            .min(buffer.len());
+        let read = response
+            .read(&mut buffer[..allowed])
+            .map_err(|_| io::Error::other("restricted HTTPS response read failed"))?;
+        let read_u64 = u64::try_from(read).unwrap_or(u64::MAX);
+        let previous = self
+            .context
+            .response_bytes
+            .fetch_add(read_u64, Ordering::Relaxed);
+        if previous.saturating_add(read_u64) > self.context.max_response_bytes {
+            return Err(io::Error::other(
+                "runtime repository HTTPS response limit exceeded",
+            ));
+        }
+        Ok(read)
+    }
+}
+
+impl Write for RestrictedHttpsStream {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let RestrictedHttpsStreamState::Request(body) = &mut self.state else {
+            return Err(io::Error::other("restricted HTTPS response is read-only"));
+        };
+        if self.context.stop.is_cancelled() {
+            return Err(io::Error::other("runtime repository fetch cancelled"));
+        }
+        let next_len = body
+            .len()
+            .checked_add(buffer.len())
+            .ok_or_else(|| io::Error::other("Git upload request limit exceeded"))?;
+        if next_len > MAX_UPLOAD_REQUEST_BYTES {
+            return Err(io::Error::other("Git upload request limit exceeded"));
+        }
+        body.extend_from_slice(buffer);
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn git_service_url(base: &Url, suffix: &str) -> Url {
+    let mut url = base.clone();
+    let mut path = url.path().trim_end_matches('/').to_string();
+    path.push('/');
+    path.push_str(suffix);
+    url.set_path(&path);
+    url.set_query(None);
+    url.set_fragment(None);
+    url
+}
+
+fn validate_git_response(
+    response: &Response,
+    expected_content_type: &'static str,
+    max_response_bytes: u64,
+) -> Result<(), git2::Error> {
+    if !response.status().is_success() {
+        return Err(git2::Error::from_str(
+            "restricted HTTPS server returned an unsuccessful status",
+        ));
+    }
+    let expected = HeaderValue::from_static(expected_content_type);
+    if response.headers().get(CONTENT_TYPE) != Some(&expected) {
+        return Err(git2::Error::from_str(
+            "restricted HTTPS server returned an invalid content type",
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > max_response_bytes)
+    {
+        return Err(git2::Error::from_str(
+            "runtime repository HTTPS response limit exceeded",
+        ));
+    }
+    Ok(())
 }
 
 /// Coordinates resources then scripts and publishes only a complete pair.
@@ -233,27 +617,39 @@ where
             {
                 Ok(candidate) => candidate,
                 Err(error) => {
-                    let _ = self.store.discard_candidate(&resources_candidate);
-                    return Err(error);
+                    return Err(
+                        self.error_after_discard(error, std::iter::once(&resources_candidate))
+                    );
                 }
             };
         let candidates = [resources_candidate, scripts_candidate];
         if let Err(error) = check_cancelled(stop) {
-            for candidate in &candidates {
-                let _ = self.store.discard_candidate(candidate);
-            }
-            return Err(error);
+            return Err(self.error_after_discard(error, &candidates));
         }
         // Publication is the non-cancellable commit gate: after this call
         // begins, the store either preserves or atomically replaces current.
         match self.store.publish_if_current(&candidates, expected_current) {
             Ok(activation) => Ok(activation),
-            Err(error) => {
-                for candidate in &candidates {
-                    let _ = self.store.discard_candidate(candidate);
-                }
-                Err(error)
-            }
+            Err(error) => Err(self.error_after_discard(error, &candidates)),
+        }
+    }
+
+    fn error_after_discard<'a>(
+        &self,
+        original: UpdaterError,
+        candidates: impl IntoIterator<Item = &'a RuntimeRepositoryCandidate>,
+    ) -> UpdaterError {
+        let mut cleanup_failed = false;
+        for candidate in candidates {
+            cleanup_failed |= self.store.discard_candidate(candidate).is_err();
+        }
+        if cleanup_failed {
+            UpdaterError::Io(format!(
+                "runtime repository staging cleanup failed after {} failure",
+                original.code()
+            ))
+        } else {
+            original
         }
     }
 }
@@ -290,16 +686,29 @@ impl<'a> MaterializationState<'a> {
             return Err(limit_error("runtime repository entry limit exceeded"));
         }
         let rendered = relative
-            .to_str()
-            .ok_or_else(|| git_error("repository path is not valid UTF-8"))?;
-        let folded = rendered.chars().flat_map(char::to_lowercase).collect();
+            .components()
+            .map(|component| {
+                component
+                    .as_os_str()
+                    .to_str()
+                    .ok_or_else(|| git_error("repository path is not valid UTF-8"))
+            })
+            .collect::<UpdaterResult<Vec<_>>>()?
+            .join("/");
+        if rendered.len() > self.limits.max_path_bytes {
+            return Err(limit_error("runtime repository path length limit exceeded"));
+        }
+        if rendered.split('/').count() > self.limits.max_depth {
+            return Err(limit_error("runtime repository depth limit exceeded"));
+        }
+        let folded = portable_path_key(&rendered);
         if !self.folded_paths.insert(folded) {
             return Err(git_error("repository contains case-folded path collision"));
         }
         Ok(())
     }
 
-    fn record_file(&mut self, relative: &Path, bytes: &[u8]) -> UpdaterResult<()> {
+    fn reserve_file(&mut self, relative: &Path, raw_size: usize) -> UpdaterResult<u64> {
         self.files = self
             .files
             .checked_add(1)
@@ -307,7 +716,7 @@ impl<'a> MaterializationState<'a> {
         if self.files > self.limits.max_files {
             return Err(limit_error("runtime repository file limit exceeded"));
         }
-        let size = u64::try_from(bytes.len())
+        let size = u64::try_from(raw_size)
             .map_err(|_| limit_error("runtime repository file size limit exceeded"))?;
         if size > self.limits.max_file_bytes {
             return Err(limit_error("runtime repository file size limit exceeded"));
@@ -319,16 +728,84 @@ impl<'a> MaterializationState<'a> {
         if self.total_bytes > self.limits.max_total_bytes {
             return Err(limit_error("runtime repository total size limit exceeded"));
         }
+        if relative == Path::new(self.manifest) && size > self.limits.max_manifest_bytes {
+            return Err(limit_error(
+                "runtime repository manifest size limit exceeded",
+            ));
+        }
+        Ok(size)
+    }
+
+    fn record_manifest_content(&mut self, relative: &Path, bytes: &[u8]) {
         if relative == Path::new(self.manifest) {
-            if size > self.limits.max_manifest_bytes {
-                return Err(limit_error(
-                    "runtime repository manifest size limit exceeded",
-                ));
-            }
             self.manifest_sha256 = Some(sha256_hex(bytes));
         }
-        Ok(())
     }
+}
+
+fn peel_bounded_commit(
+    repository: &Repository,
+    mut oid: git2::Oid,
+    limits: RuntimeRepositoryLimits,
+) -> UpdaterResult<git2::Commit<'_>> {
+    let odb = repository
+        .odb()
+        .map_err(|_| git_error("failed to inspect repository object database"))?;
+    for tag_depth in 0..=limits.max_tag_depth {
+        let (raw_size, kind) = odb
+            .read_header(oid)
+            .map_err(|_| git_error("failed to inspect advertised object header"))?;
+        let raw_size = u64::try_from(raw_size)
+            .map_err(|_| limit_error("runtime repository metadata size limit exceeded"))?;
+        match kind {
+            ObjectType::Commit => {
+                if raw_size > limits.max_commit_bytes {
+                    return Err(limit_error("runtime repository commit size limit exceeded"));
+                }
+                return repository
+                    .find_commit(oid)
+                    .map_err(|_| git_error("failed to read exact commit"));
+            }
+            ObjectType::Tag if tag_depth < limits.max_tag_depth => {
+                if raw_size > limits.max_tag_bytes {
+                    return Err(limit_error("runtime repository tag size limit exceeded"));
+                }
+                oid = repository
+                    .find_tag(oid)
+                    .map_err(|_| git_error("failed to read advertised tag"))?
+                    .target_id();
+            }
+            ObjectType::Tag => {
+                return Err(limit_error("runtime repository tag depth limit exceeded"));
+            }
+            _ => return Err(git_error("advertised reference does not peel to a commit")),
+        }
+    }
+    Err(limit_error("runtime repository tag depth limit exceeded"))
+}
+
+fn find_bounded_tree(
+    repository: &Repository,
+    oid: git2::Oid,
+    max_tree_bytes: u64,
+) -> UpdaterResult<git2::Tree<'_>> {
+    let odb = repository
+        .odb()
+        .map_err(|_| git_error("failed to inspect repository object database"))?;
+    let (raw_size, kind) = odb
+        .read_header(oid)
+        .map_err(|_| git_error("failed to inspect repository tree header"))?;
+    let raw_size = u64::try_from(raw_size)
+        .map_err(|_| limit_error("runtime repository tree size limit exceeded"))?;
+    if kind != ObjectType::Tree {
+        return Err(git_error("tree entry has invalid object type"));
+    }
+    if raw_size > max_tree_bytes {
+        return Err(limit_error("runtime repository tree size limit exceeded"));
+    }
+    repository
+        .find_tree(oid)
+        .map_err(|_| git_error("failed to read repository tree"))
 }
 
 fn materialize_tree(
@@ -358,15 +835,10 @@ fn materialize_tree(
                 }
                 fs::create_dir(&output)
                     .map_err(|_| io_error("failed to create repository directory"))?;
-                let object = entry
-                    .to_object(repository)
-                    .map_err(|_| git_error("failed to read repository tree"))?;
-                let child = object
-                    .as_tree()
-                    .ok_or_else(|| git_error("tree entry has invalid object type"))?;
+                let child = find_bounded_tree(repository, entry.id(), state.limits.max_tree_bytes)?;
                 materialize_tree(
                     repository,
-                    child,
+                    &child,
                     destination,
                     &relative,
                     child_depth,
@@ -374,7 +846,17 @@ fn materialize_tree(
                     state,
                 )?;
             }
-            0o100644 | 0o100755 => {
+            0o100644 => {
+                let odb = repository
+                    .odb()
+                    .map_err(|_| git_error("failed to inspect repository object database"))?;
+                let (raw_size, raw_kind) = odb
+                    .read_header(entry.id())
+                    .map_err(|_| git_error("failed to inspect repository blob header"))?;
+                if raw_kind != ObjectType::Blob {
+                    return Err(git_error("regular entry is not a blob"));
+                }
+                let reserved_size = state.reserve_file(&relative, raw_size)?;
                 let object = entry
                     .to_object(repository)
                     .map_err(|_| git_error("failed to read repository blob"))?;
@@ -384,10 +866,14 @@ fn materialize_tree(
                 let blob = object
                     .as_blob()
                     .ok_or_else(|| git_error("regular entry is not a blob"))?;
-                state.record_file(&relative, blob.content())?;
-                write_blob(&output, blob.content(), stop)?;
-                set_executable_if_needed(&output, entry.filemode_raw())?;
+                if u64::try_from(blob.size()).ok() != Some(reserved_size) {
+                    return Err(git_error("repository blob size changed while reading"));
+                }
+                let content = blob.content();
+                state.record_manifest_content(&relative, content);
+                write_blob(&output, content, stop)?;
             }
+            0o100755 => return Err(git_error("executable files are not allowed")),
             0o120000 => return Err(git_error("symbolic links are not allowed")),
             0o160000 => return Err(git_error("submodules are not allowed")),
             _ => return Err(git_error("special or unknown file mode is not allowed")),
@@ -412,33 +898,12 @@ fn write_blob(output: &Path, bytes: &[u8], stop: &RuntimeRepositoryStopToken) ->
     Ok(())
 }
 
-#[cfg(unix)]
-fn set_executable_if_needed(path: &Path, mode: i32) -> UpdaterResult<()> {
-    use std::os::unix::fs::PermissionsExt;
-    if mode == 0o100755 {
-        let mut permissions = fs::metadata(path)
-            .map_err(|_| io_error("failed to inspect repository file"))?
-            .permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(path, permissions)
-            .map_err(|_| io_error("failed to apply repository file mode"))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn set_executable_if_needed(_path: &Path, _mode: i32) -> UpdaterResult<()> {
-    Ok(())
-}
-
 fn validate_path_segment(segment: &str) -> UpdaterResult<()> {
     if segment.is_empty()
         || matches!(segment, "." | "..")
         || segment.contains(['/', '\\', '\0'])
-        || segment.chars().any(char::is_control)
-        || segment
-            .chars()
-            .any(|character| "<>:\"|?*".contains(character))
+        || segment.starts_with(' ')
+        || segment.chars().any(is_nonportable_character)
         || segment.ends_with(['.', ' '])
     {
         return Err(git_error("repository contains an unsafe path"));
@@ -448,14 +913,63 @@ fn validate_path_segment(segment: &str) -> UpdaterResult<()> {
         .next()
         .unwrap_or_default()
         .trim_end_matches(['.', ' ']);
-    let upper = stem.to_ascii_uppercase();
-    let reserved = matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || is_reserved_numbered_name(&upper, "COM")
-        || is_reserved_numbered_name(&upper, "LPT");
+    let alias = portable_alias_key(stem);
+    let reserved = matches!(alias.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || is_reserved_numbered_name(&alias, "COM")
+        || is_reserved_numbered_name(&alias, "LPT");
     if reserved {
         return Err(git_error("repository contains a reserved platform path"));
     }
     Ok(())
+}
+
+fn portable_alias_key(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| match character {
+            '\u{00b9}' => '1',
+            '\u{00b2}' => '2',
+            '\u{00b3}' => '3',
+            other if other.is_ascii_lowercase() => other.to_ascii_uppercase(),
+            other => other,
+        })
+        .collect()
+}
+
+fn portable_path_key(path: &str) -> String {
+    path.chars()
+        .map(|character| {
+            if character.is_ascii_uppercase() {
+                character.to_ascii_lowercase()
+            } else {
+                character
+            }
+        })
+        .collect()
+}
+
+fn is_nonportable_character(character: char) -> bool {
+    let codepoint = character as u32;
+    character.is_control()
+        || matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*')
+        || matches!(codepoint, 0x85 | 0x2028 | 0x2029)
+        || (0x7f..=0x9f).contains(&codepoint)
+        || (0xfdd0..=0xfdef).contains(&codepoint)
+        || codepoint & 0xffff == 0xfffe
+        || codepoint & 0xffff == 0xffff
+        || is_combining_or_jamo(codepoint)
+}
+
+fn is_combining_or_jamo(codepoint: u32) -> bool {
+    (0x0300..=0x036f).contains(&codepoint)
+        || (0x1ab0..=0x1aff).contains(&codepoint)
+        || (0x1dc0..=0x1dff).contains(&codepoint)
+        || (0x20d0..=0x20ff).contains(&codepoint)
+        || (0xfe20..=0xfe2f).contains(&codepoint)
+        || matches!(codepoint, 0x3099 | 0x309a)
+        || (0x1100..=0x11ff).contains(&codepoint)
+        || (0xa960..=0xa97f).contains(&codepoint)
+        || (0xd7b0..=0xd7ff).contains(&codepoint)
 }
 
 fn is_reserved_numbered_name(value: &str, prefix: &str) -> bool {
@@ -490,7 +1004,7 @@ fn validate_exact_commit(commit: &str) -> UpdaterResult<()> {
     }
     if commit.len() != 40 || !commit.bytes().all(is_lower_hex) {
         return Err(config_error(
-            "exact commit must be 40 or 64 lowercase hexadecimal characters",
+            "exact commit must be 40 lowercase hexadecimal characters",
         ));
     }
     Ok(())
@@ -524,7 +1038,18 @@ fn validate_https_url(value: &str) -> UpdaterResult<()> {
 }
 
 fn validate_limits(limits: RuntimeRepositoryLimits) -> UpdaterResult<()> {
-    if limits.max_depth == 0
+    if limits.connect_timeout_ms == 0
+        || limits.server_timeout_ms == 0
+        || limits.connect_timeout_ms > i32::MAX as u32
+        || limits.server_timeout_ms > i32::MAX as u32
+        || limits.max_fetch_bytes == 0
+        || limits.max_fetch_objects == 0
+        || limits.max_commit_bytes == 0
+        || limits.max_tree_bytes == 0
+        || limits.max_tag_bytes == 0
+        || limits.max_tag_depth == 0
+        || limits.max_path_bytes == 0
+        || limits.max_depth == 0
         || limits.max_entries == 0
         || limits.max_files == 0
         || limits.max_file_bytes == 0
@@ -570,7 +1095,10 @@ mod tests {
     use super::*;
     use git2::{Oid, Signature, TreeBuilder};
     use std::collections::BTreeMap;
+    use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::thread;
+    use std::time::Instant;
     use tempfile::TempDir;
 
     #[derive(Clone)]
@@ -591,6 +1119,29 @@ mod tests {
 
     fn blob(bytes: impl AsRef<[u8]>) -> Node {
         Node::Blob(bytes.as_ref().to_vec(), 0o100644)
+    }
+
+    fn tree_manifest(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let entries = entries
+            .iter()
+            .map(|(path, bytes)| {
+                serde_json::json!({
+                    "path": path,
+                    "size": bytes.len().to_string(),
+                    "sha256": sha256_hex(bytes),
+                    "mode": "file",
+                })
+            })
+            .collect::<Vec<_>>();
+        serde_json::to_vec(&serde_json::json!({
+            "schema": "baas.runtime-repository.tree-manifest/v1",
+            "entries": entries,
+        }))
+        .unwrap()
+    }
+
+    fn empty_manifest() -> Vec<u8> {
+        tree_manifest(&[])
     }
 
     fn write_node(repository: &Repository, node: &Node) -> Oid {
@@ -654,6 +1205,17 @@ mod tests {
             .to_string()
     }
 
+    fn annotated_tag(root: &Path, name: &str, commit: &str) {
+        let repository = Repository::open_bare(root).unwrap();
+        let target = repository
+            .find_object(Oid::from_str(commit).unwrap(), Some(ObjectType::Commit))
+            .unwrap();
+        let signature = Signature::now("BAAS test", "baas@example.invalid").unwrap();
+        repository
+            .tag(name, &target, &signature, "annotated fixture", false)
+            .unwrap();
+    }
+
     fn request(
         id: RuntimeRepositoryId,
         repo: &Path,
@@ -715,6 +1277,81 @@ mod tests {
     }
 
     #[test]
+    fn restricted_https_transport_has_bounded_stalls_and_cleans_its_context() {
+        fn stalled_fetch(
+            cancel: bool,
+        ) -> (
+            UpdaterResult<RuntimeRepositoryFetchMetadata>,
+            Duration,
+            bool,
+        ) {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = thread::spawn(move || {
+                listener.set_nonblocking(true).unwrap();
+                let deadline = Instant::now() + Duration::from_secs(2);
+                while Instant::now() < deadline {
+                    match listener.accept() {
+                        Ok((_socket, _)) => {
+                            thread::sleep(Duration::from_millis(700));
+                            return true;
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("stalled fixture failed: {error}"),
+                    }
+                }
+                false
+            });
+            let temp = TempDir::new().unwrap();
+            let staging = temp.path().join("staging");
+            fs::create_dir(&staging).unwrap();
+            let limits = RuntimeRepositoryLimits {
+                connect_timeout_ms: 150,
+                server_timeout_ms: 150,
+                ..Default::default()
+            };
+            let downloader = RuntimeRepositoryGit2Downloader::new(limits).unwrap();
+            assert_eq!(
+                downloader.network_stop_response_bound(),
+                Duration::from_millis(150)
+            );
+            let stop = RuntimeRepositoryStopToken::default();
+            let cancellation = cancel.then(|| {
+                let stop = stop.clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(40));
+                    stop.cancel();
+                })
+            });
+            let request = RuntimeRepositoryFetchRequest {
+                id: RuntimeRepositoryId::Resources,
+                url: format!("https://{address}/repo.git"),
+                advertised_reference: "refs/heads/main".into(),
+                exact_commit: "a".repeat(40),
+                manifest: "manifest.json".into(),
+            };
+            let started = Instant::now();
+            let result = downloader.download(&request, &staging, &stop);
+            let elapsed = started.elapsed();
+            if let Some(cancellation) = cancellation {
+                cancellation.join().unwrap();
+            }
+            (result, elapsed, server.join().unwrap())
+        }
+
+        let (timed_out, elapsed, connected) = stalled_fetch(false);
+        assert!(timed_out.is_err());
+        assert!(connected, "timeout case never connected to fixture");
+        assert!(elapsed < Duration::from_secs(1));
+        let (cancelled, elapsed, _) = stalled_fetch(true);
+        assert_eq!(cancelled, Err(UpdaterError::Cancelled));
+        assert!(elapsed < Duration::from_secs(1));
+        assert!(restricted_https_contexts().lock().unwrap().is_empty());
+    }
+
+    #[test]
     fn sha256_object_id_is_explicitly_unsupported() {
         let downloader = RuntimeRepositoryGit2Downloader::new(Default::default()).unwrap();
         let request = RuntimeRepositoryFetchRequest {
@@ -734,45 +1371,121 @@ mod tests {
 
     #[test]
     fn materializes_exact_commit_hashes_manifest_and_removes_transport() {
-        let manifest = br#"{"schema":"test"}"#;
+        let payload = b"payload";
+        let manifest = tree_manifest(&[("nested/payload.bin", payload)]);
         let (temp, metadata) = download_fixture(
             tree([
-                ("manifest.json", blob(manifest)),
-                ("nested", tree([("payload.bin", blob(b"payload"))])),
+                ("manifest.json", blob(&manifest)),
+                ("nested", tree([("payload.bin", blob(payload))])),
             ]),
             "manifest.json",
         );
         let staging = temp.path().join("staging");
-        assert_eq!(metadata.manifest_sha256, sha256_hex(manifest));
+        assert_eq!(metadata.manifest_sha256, sha256_hex(&manifest));
         assert!(staging.join("nested/payload.bin").is_file());
         assert!(!staging.join(".git").exists());
         assert!(!staging.join(".t").exists());
     }
 
     #[test]
+    fn annotated_tag_peels_to_the_pinned_commit_with_bounded_metadata() {
+        let temp = TempDir::new().unwrap();
+        let remote = temp.path().join("remote.git");
+        let commit = commit_repo(
+            &remote,
+            "refs/heads/main",
+            &tree([("manifest.json", blob(empty_manifest()))]),
+        );
+        annotated_tag(&remote, "runtime-v1", &commit);
+        let mut tagged = request(
+            RuntimeRepositoryId::Resources,
+            &remote,
+            &commit,
+            "manifest.json",
+        );
+        tagged.advertised_reference = "refs/tags/runtime-v1".into();
+        let staging = temp.path().join("staging");
+        fs::create_dir(&staging).unwrap();
+        RuntimeRepositoryGit2Downloader::for_local_tests(Default::default())
+            .download(&tagged, &staging, &Default::default())
+            .unwrap();
+
+        let repository = Repository::open_bare(&remote).unwrap();
+        let tag_oid = repository.refname_to_id("refs/tags/runtime-v1").unwrap();
+        let tiny_tag = RuntimeRepositoryLimits {
+            max_tag_bytes: 1,
+            ..Default::default()
+        };
+        assert_eq!(
+            peel_bounded_commit(&repository, tag_oid, tiny_tag).err(),
+            Some(limit_error("runtime repository tag size limit exceeded"))
+        );
+        let commit_oid = Oid::from_str(&commit).unwrap();
+        let tiny_commit = RuntimeRepositoryLimits {
+            max_commit_bytes: 1,
+            ..Default::default()
+        };
+        assert_eq!(
+            peel_bounded_commit(&repository, commit_oid, tiny_commit).err(),
+            Some(limit_error("runtime repository commit size limit exceeded"))
+        );
+        let tree_oid = repository.find_commit(commit_oid).unwrap().tree_id();
+        assert_eq!(
+            find_bounded_tree(&repository, tree_oid, 1).err(),
+            Some(limit_error("runtime repository tree size limit exceeded"))
+        );
+    }
+
+    #[test]
     fn rejects_mismatch_symlink_submodule_and_unsafe_paths() {
-        for unsafe_segment in ["", ".", "..", "dir\\file", "C:drive", "CON.txt", "tail. "] {
+        for unsafe_segment in [
+            "",
+            ".",
+            "..",
+            "dir\\file",
+            "C:drive",
+            "CON.txt",
+            "COM¹.txt",
+            "LPT³",
+            "tail. ",
+        ] {
             assert!(validate_path_segment(unsafe_segment).is_err());
         }
         let fixtures = [
             tree([
-                ("manifest.json", blob(b"ok")),
+                ("manifest.json", blob(empty_manifest())),
                 ("link", Node::Blob(b"target".to_vec(), 0o120000)),
             ]),
             tree([
-                ("manifest.json", blob(b"ok")),
+                ("manifest.json", blob(empty_manifest())),
+                ("run.exe", Node::Blob(b"binary".to_vec(), 0o100755)),
+            ]),
+            tree([
+                ("manifest.json", blob(empty_manifest())),
                 (
                     "module",
                     Node::Gitlink(Oid::from_str(&"b".repeat(40)).unwrap()),
                 ),
             ]),
-            tree([("manifest.json", blob(b"ok")), ("CON.txt", blob(b"bad"))]),
-            tree([("manifest.json", blob(b"ok")), ("dir\\file", blob(b"bad"))]),
-            tree([("manifest.json", blob(b"ok")), ("C:drive", blob(b"bad"))]),
-            tree([("manifest.json", tree([("nested", blob(b"bad"))]))]),
-            tree([("manifest.json", blob(b"ok")), ("trailing.", blob(b"bad"))]),
             tree([
-                ("manifest.json", blob(b"ok")),
+                ("manifest.json", blob(empty_manifest())),
+                ("CON.txt", blob(b"bad")),
+            ]),
+            tree([
+                ("manifest.json", blob(empty_manifest())),
+                ("dir\\file", blob(b"bad")),
+            ]),
+            tree([
+                ("manifest.json", blob(empty_manifest())),
+                ("C:drive", blob(b"bad")),
+            ]),
+            tree([("manifest.json", tree([("nested", blob(b"bad"))]))]),
+            tree([
+                ("manifest.json", blob(empty_manifest())),
+                ("trailing.", blob(b"bad")),
+            ]),
+            tree([
+                ("manifest.json", blob(empty_manifest())),
                 ("Name", blob(b"one")),
                 ("name", blob(b"two")),
             ]),
@@ -802,7 +1515,7 @@ mod tests {
         let commit = commit_repo(
             &remote,
             "refs/heads/main",
-            &tree([("manifest.json", blob(b"ok"))]),
+            &tree([("manifest.json", blob(empty_manifest()))]),
         );
         let moved = request(
             RuntimeRepositoryId::Resources,
@@ -813,7 +1526,7 @@ mod tests {
         let newer_commit = move_reference(
             &remote,
             "refs/heads/main",
-            &tree([("manifest.json", blob(b"new"))]),
+            &tree([("manifest.json", blob(empty_manifest()))]),
         );
         assert_ne!(moved.exact_commit, newer_commit);
         let staging = temp.path().join("staging");
@@ -832,7 +1545,7 @@ mod tests {
         let commit = commit_repo(
             &remote,
             "refs/heads/main",
-            &tree([("manifest.json", blob(b"0123456789"))]),
+            &tree([("manifest.json", blob(empty_manifest()))]),
         );
         let store = RuntimeRepositoryStore::open(temp.path().join("install")).unwrap();
         let request = request(
@@ -887,11 +1600,60 @@ mod tests {
     }
 
     #[test]
+    fn fetch_byte_and_object_budgets_fail_closed() {
+        let temp = TempDir::new().unwrap();
+        let remote = temp.path().join("remote.git");
+        let payload = vec![b'x'; 128 * 1024];
+        let manifest = tree_manifest(&[("payload.bin", payload.as_slice())]);
+        let commit = commit_repo(
+            &remote,
+            "refs/heads/main",
+            &tree([
+                ("manifest.json", blob(&manifest)),
+                ("payload.bin", blob(&payload)),
+            ]),
+        );
+        let request = request(
+            RuntimeRepositoryId::Resources,
+            &remote,
+            &commit,
+            "manifest.json",
+        );
+        for limits in [
+            RuntimeRepositoryLimits {
+                max_fetch_bytes: 1,
+                ..Default::default()
+            },
+            RuntimeRepositoryLimits {
+                max_fetch_objects: 1,
+                ..Default::default()
+            },
+        ] {
+            let store = RuntimeRepositoryStore::open(
+                temp.path()
+                    .join(format!("install-{}", limits.max_fetch_objects)),
+            )
+            .unwrap();
+            assert_eq!(
+                store.download_candidate(
+                    &RuntimeRepositoryGit2Downloader::for_local_tests(limits),
+                    &request,
+                ),
+                Err(limit_error("runtime repository fetch limit exceeded"))
+            );
+            assert_eq!(
+                fs::read_dir(store.root().join("staging")).unwrap().count(),
+                0
+            );
+        }
+    }
+
+    #[test]
     fn enforces_depth_entry_file_and_total_limits() {
         let cases = [
             (
                 tree([
-                    ("manifest.json", blob(b"ok")),
+                    ("manifest.json", blob(empty_manifest())),
                     ("one", tree([("two", tree([("value", blob(b"x"))]))])),
                 ]),
                 RuntimeRepositoryLimits {
@@ -900,21 +1662,30 @@ mod tests {
                 },
             ),
             (
-                tree([("manifest.json", blob(b"ok")), ("extra", blob(b"x"))]),
+                tree([
+                    ("manifest.json", blob(empty_manifest())),
+                    ("extra", blob(b"x")),
+                ]),
                 RuntimeRepositoryLimits {
                     max_entries: 1,
                     ..Default::default()
                 },
             ),
             (
-                tree([("manifest.json", blob(b"ok")), ("extra", blob(b"x"))]),
+                tree([
+                    ("manifest.json", blob(empty_manifest())),
+                    ("extra", blob(b"x")),
+                ]),
                 RuntimeRepositoryLimits {
                     max_files: 1,
                     ..Default::default()
                 },
             ),
             (
-                tree([("manifest.json", blob(b"123")), ("extra", blob(b"456"))]),
+                tree([
+                    ("manifest.json", blob(empty_manifest())),
+                    ("extra", blob(b"456")),
+                ]),
                 RuntimeRepositoryLimits {
                     max_file_bytes: 4,
                     max_manifest_bytes: 4,
@@ -957,12 +1728,12 @@ mod tests {
         let resources_commit = commit_repo(
             &resources_repo,
             "refs/heads/main",
-            &tree([("resources.json", blob(b"resources"))]),
+            &tree([("resources.json", blob(empty_manifest()))]),
         );
         let scripts_commit = commit_repo(
             &scripts_repo,
             "refs/heads/main",
-            &tree([("scripts.json", blob(b"scripts"))]),
+            &tree([("scripts.json", blob(empty_manifest()))]),
         );
         let resources = request(
             RuntimeRepositoryId::Resources,
@@ -1028,15 +1799,45 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let resources_repo = temp.path().join("r.git");
         let scripts_repo = temp.path().join("s.git");
-        let resources_commit = commit_repo(
+        let old_resources_commit = commit_repo(
             &resources_repo,
             "refs/heads/main",
-            &tree([("resources.json", blob(b"resources"))]),
+            &tree([("resources.json", blob(empty_manifest()))]),
         );
-        let scripts_commit = commit_repo(
+        let old_scripts_commit = commit_repo(
             &scripts_repo,
             "refs/heads/main",
-            &tree([("scripts.json", blob(b"scripts"))]),
+            &tree([("scripts.json", blob(empty_manifest()))]),
+        );
+        let old_resources = request(
+            RuntimeRepositoryId::Resources,
+            &resources_repo,
+            &old_resources_commit,
+            "resources.json",
+        );
+        let old_scripts = request(
+            RuntimeRepositoryId::Scripts,
+            &scripts_repo,
+            &old_scripts_commit,
+            "scripts.json",
+        );
+        let store = RuntimeRepositoryStore::open(temp.path().join("i")).unwrap();
+        let seed = RuntimeRepositoryUpdater::new(
+            store.clone(),
+            RuntimeRepositoryGit2Downloader::for_local_tests(Default::default()),
+        );
+        let existing = seed
+            .update_from_requests(&old_resources, &old_scripts, None, &Default::default())
+            .unwrap();
+        let resources_commit = move_reference(
+            &resources_repo,
+            "refs/heads/main",
+            &tree([("resources.json", blob(empty_manifest()))]),
+        );
+        let scripts_commit = move_reference(
+            &scripts_repo,
+            "refs/heads/main",
+            &tree([("scripts.json", blob(empty_manifest()))]),
         );
         let resources = request(
             RuntimeRepositoryId::Resources,
@@ -1050,7 +1851,6 @@ mod tests {
             &scripts_commit,
             "scripts.json",
         );
-        let store = RuntimeRepositoryStore::open(temp.path().join("i")).unwrap();
         let updater = RuntimeRepositoryUpdater::new(
             store.clone(),
             CancelAfterSecondDownload {
@@ -1060,10 +1860,15 @@ mod tests {
         );
         let stop = RuntimeRepositoryStopToken::default();
         assert_eq!(
-            updater.update_from_requests(&resources, &scripts, None, &stop),
+            updater.update_from_requests(
+                &resources,
+                &scripts,
+                Some(&existing.pointer.generation),
+                &stop,
+            ),
             Err(UpdaterError::Cancelled)
         );
-        assert!(!store.root().join("current.json").exists());
+        assert_eq!(store.read_current().unwrap(), Some(existing));
         assert_eq!(
             fs::read_dir(store.root().join("staging")).unwrap().count(),
             0

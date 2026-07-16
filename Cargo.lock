@@ -330,6 +330,7 @@ name = "baas-updater"
 version = "0.0.7"
 dependencies = [
  "baas-term",
+ "ctor",
  "flate2",
  "git2",
  "libc",

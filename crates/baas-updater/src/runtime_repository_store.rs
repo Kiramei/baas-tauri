@@ -9,7 +9,7 @@ use crate::{UpdaterError, UpdaterResult};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     fmt,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
@@ -26,6 +26,52 @@ pub const RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA: &str = "baas.runtime-repositories.
 pub const RUNTIME_REPOSITORY_GENERATION_DOMAIN: &str = RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA;
 const RUNTIME_REPOSITORY_JOURNAL_SCHEMA: &str = "baas.runtime-repositories.publish-journal/v1";
 const MAX_ACTIVATION_JSON_BYTES: u64 = 64 * 1024;
+const MAX_TREE_MANIFEST_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_TREE_FILES: usize = 16_384;
+const MAX_TREE_ENTRIES: usize = 32_768;
+const MAX_TREE_DEPTH: usize = 32;
+const MAX_TREE_FILE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_TREE_TOTAL_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const MAX_TREE_PATH_BYTES: usize = 1024;
+const RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA: &str = "baas.runtime-repository.tree-manifest/v1";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuntimeRepositoryTreeManifest {
+    schema: String,
+    entries: Vec<RuntimeRepositoryTreeManifestEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuntimeRepositoryTreeManifestEntry {
+    path: String,
+    size: String,
+    sha256: String,
+    mode: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RuntimeRepositoryTreeFile {
+    size: u64,
+    sha256: String,
+}
+
+#[derive(Default)]
+struct RuntimeRepositoryTreeBudget {
+    entries: usize,
+    files: usize,
+    total_bytes: u64,
+}
+
+struct RuntimeRepositoryTreeScan<'a> {
+    root: &'a Path,
+    manifest: &'a str,
+    expected_manifest_sha256: &'a str,
+    output: &'a mut BTreeMap<String, RuntimeRepositoryTreeFile>,
+    folded: &'a mut HashSet<String>,
+    budget: &'a mut RuntimeRepositoryTreeBudget,
+}
 
 /// The two repository identities that form one runtime activation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -330,8 +376,7 @@ impl RuntimeRepositoryStore {
         let metadata = match result {
             Ok(metadata) => metadata,
             Err(error) => {
-                let _ = remove_plain_tree(&staging_root);
-                return Err(error);
+                return Err(error_after_staging_cleanup(&staging_root, error));
             }
         };
         let candidate = RuntimeRepositoryCandidate {
@@ -342,8 +387,7 @@ impl RuntimeRepositoryStore {
             manifest_sha256: metadata.manifest_sha256,
         };
         if let Err(error) = self.validate_candidate(&candidate) {
-            let _ = remove_plain_tree(&candidate.staging_root);
-            return Err(error);
+            return Err(error_after_staging_cleanup(&candidate.staging_root, error));
         }
         Ok(candidate)
     }
@@ -753,7 +797,11 @@ impl RuntimeRepositoryStore {
             ));
         }
         validate_plain_tree(&canonical, &canonical)?;
-        validate_manifest_file(&canonical, &candidate.manifest, &candidate.manifest_sha256)
+        validate_runtime_repository_tree(
+            &canonical,
+            &candidate.manifest,
+            &candidate.manifest_sha256,
+        )
     }
 
     fn commit_candidate(
@@ -769,7 +817,11 @@ impl RuntimeRepositoryStore {
         if symlink_metadata_if_exists(&object)?.is_some() {
             reject_link_or_reparse(&object)?;
             validate_plain_tree(&object, &object)?;
-            validate_manifest_file(&object, &candidate.manifest, &candidate.manifest_sha256)?;
+            validate_runtime_repository_tree(
+                &object,
+                &candidate.manifest,
+                &candidate.manifest_sha256,
+            )?;
             remove_plain_tree(&candidate.staging_root)?;
         } else {
             let staging = candidate
@@ -786,6 +838,11 @@ impl RuntimeRepositoryStore {
             sync_directory(&id_dir)?;
             sync_directory(&staging)?;
             validate_plain_tree(&object, &object)?;
+            validate_runtime_repository_tree(
+                &object,
+                &candidate.manifest,
+                &candidate.manifest_sha256,
+            )?;
         }
         Ok(RuntimeRepositorySnapshotEntry {
             id: candidate.id.as_str().to_string(),
@@ -831,7 +888,7 @@ impl RuntimeRepositoryStore {
         let id_dir = objects.join(id.as_str()).canonicalize()?;
         ensure_direct_child_of(&object, &id_dir)?;
         validate_plain_tree(&object, &object)?;
-        validate_manifest_file(&object, &entry.manifest, &entry.manifest_sha256)
+        validate_runtime_repository_tree(&object, &entry.manifest, &entry.manifest_sha256)
     }
 
     fn read_pointer_file(&self, path: &Path) -> UpdaterResult<Option<RuntimeRepositoryPointer>> {
@@ -1131,35 +1188,348 @@ fn validate_manifest_name(value: &str) -> UpdaterResult<()> {
     Ok(())
 }
 
-fn validate_manifest_file(root: &Path, manifest: &str, expected_sha256: &str) -> UpdaterResult<()> {
+pub(crate) fn validate_runtime_repository_tree(
+    root: &Path,
+    manifest: &str,
+    expected_sha256: &str,
+) -> UpdaterResult<()> {
     validate_manifest_name(manifest)?;
+    let root = root.canonicalize()?;
+    let root = root.as_path();
     let path = root.join(manifest);
     ensure_direct_child_of(&path, root)?;
-    let metadata = fs::symlink_metadata(&path)?;
-    if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
-        return Err(config_error("manifest is not a plain regular file"));
-    }
-    let actual = sha256_file(&path)?;
+    let mut input = open_plain_file(&path, true, false, false)?;
+    validate_opened_plain_file(&path, root, &input)?;
+    let bytes = read_bounded_bytes(&mut input, MAX_TREE_MANIFEST_BYTES)?;
+    validate_opened_plain_file(&path, root, &input)?;
+    let actual = lowercase_hex(&Sha256::digest(&bytes));
     if actual != expected_sha256 {
         return Err(config_error(
             "manifest_sha256 does not match manifest bytes",
         ));
     }
+    let declared: RuntimeRepositoryTreeManifest = serde_json::from_slice(&bytes)
+        .map_err(|_| config_error("runtime repository tree manifest is invalid"))?;
+    if declared.schema != RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA {
+        return Err(config_error(
+            "unsupported runtime repository tree manifest schema",
+        ));
+    }
+    let mut declared_files = BTreeMap::new();
+    let mut declared_folded = HashSet::new();
+    let mut declared_total = u64::try_from(bytes.len())
+        .map_err(|_| config_error("runtime repository total size limit exceeded"))?;
+    if declared.entries.len().saturating_add(1) > MAX_TREE_FILES {
+        return Err(config_error("runtime repository file limit exceeded"));
+    }
+    if declared_total > MAX_TREE_TOTAL_BYTES {
+        return Err(config_error("runtime repository total size limit exceeded"));
+    }
+    for entry in declared.entries {
+        if entry.mode != "file" {
+            return Err(config_error("tree manifest entry mode is invalid"));
+        }
+        validate_tree_relative_path(&entry.path, &mut declared_folded)?;
+        if entry.path == manifest {
+            return Err(config_error("tree manifest must not list itself"));
+        }
+        validate_sha256(&entry.sha256, "tree manifest entry sha256")?;
+        let size = parse_canonical_decimal(&entry.size)?;
+        if size > MAX_TREE_FILE_BYTES {
+            return Err(config_error("runtime repository file size limit exceeded"));
+        }
+        declared_total = declared_total
+            .checked_add(size)
+            .ok_or_else(|| config_error("runtime repository total size limit exceeded"))?;
+        if declared_total > MAX_TREE_TOTAL_BYTES {
+            return Err(config_error("runtime repository total size limit exceeded"));
+        }
+        if declared_files
+            .insert(
+                entry.path,
+                RuntimeRepositoryTreeFile {
+                    size,
+                    sha256: entry.sha256,
+                },
+            )
+            .is_some()
+        {
+            return Err(config_error("duplicate tree manifest entry"));
+        }
+    }
+    let mut actual_files = BTreeMap::new();
+    let mut actual_folded = HashSet::new();
+    let mut budget = RuntimeRepositoryTreeBudget::default();
+    let mut scan = RuntimeRepositoryTreeScan {
+        root,
+        manifest,
+        expected_manifest_sha256: expected_sha256,
+        output: &mut actual_files,
+        folded: &mut actual_folded,
+        budget: &mut budget,
+    };
+    collect_runtime_tree_files(root, 0, &mut scan)?;
+    if actual_files != declared_files {
+        return Err(config_error(
+            "runtime repository tree does not match its manifest",
+        ));
+    }
     Ok(())
 }
 
-fn sha256_file(path: &Path) -> UpdaterResult<String> {
-    let mut input = File::open(path)?;
+fn collect_runtime_tree_files(
+    directory: &Path,
+    depth: usize,
+    scan: &mut RuntimeRepositoryTreeScan<'_>,
+) -> UpdaterResult<()> {
+    let mut saw_entry = false;
+    for entry in fs::read_dir(directory)? {
+        saw_entry = true;
+        let path = entry?.path();
+        scan.budget.entries = scan
+            .budget
+            .entries
+            .checked_add(1)
+            .ok_or_else(|| config_error("runtime repository entry limit exceeded"))?;
+        if scan.budget.entries > MAX_TREE_ENTRIES {
+            return Err(config_error("runtime repository entry limit exceeded"));
+        }
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata_is_link_or_reparse(&metadata) {
+            return Err(config_error(
+                "runtime repository contains a symlink or reparse point",
+            ));
+        }
+        if metadata.is_dir() {
+            let child_depth = depth
+                .checked_add(1)
+                .ok_or_else(|| config_error("runtime repository depth limit exceeded"))?;
+            if child_depth > MAX_TREE_DEPTH {
+                return Err(config_error("runtime repository depth limit exceeded"));
+            }
+            collect_runtime_tree_files(&path, child_depth, scan)?;
+            continue;
+        }
+        if !metadata.is_file() {
+            return Err(config_error("runtime repository contains a special file"));
+        }
+        let relative = path
+            .strip_prefix(scan.root)
+            .map_err(|_| config_error("runtime repository path escapes its root"))?;
+        let rendered = relative_path_string(relative)?;
+        validate_tree_relative_path(&rendered, scan.folded)?;
+        scan.budget.files = scan
+            .budget
+            .files
+            .checked_add(1)
+            .ok_or_else(|| config_error("runtime repository file limit exceeded"))?;
+        if scan.budget.files > MAX_TREE_FILES {
+            return Err(config_error("runtime repository file limit exceeded"));
+        }
+        let mut input = open_plain_file(&path, true, false, false)?;
+        let opened_metadata = validate_opened_plain_file(&path, directory, &input)?;
+        let expected_size = opened_metadata.len();
+        if expected_size > MAX_TREE_FILE_BYTES {
+            return Err(config_error("runtime repository file size limit exceeded"));
+        }
+        let remaining_total = MAX_TREE_TOTAL_BYTES
+            .checked_sub(scan.budget.total_bytes)
+            .ok_or_else(|| config_error("runtime repository total size limit exceeded"))?;
+        if expected_size > remaining_total {
+            return Err(config_error("runtime repository total size limit exceeded"));
+        }
+        let sha256 = sha256_exact_open_file(&mut input, expected_size)?;
+        let final_metadata = validate_opened_plain_file(&path, directory, &input)?;
+        if final_metadata.len() != expected_size {
+            return Err(config_error(
+                "runtime repository file size changed while reading",
+            ));
+        }
+        scan.budget.total_bytes = scan
+            .budget
+            .total_bytes
+            .checked_add(expected_size)
+            .ok_or_else(|| config_error("runtime repository total size limit exceeded"))?;
+        if scan.budget.total_bytes > MAX_TREE_TOTAL_BYTES {
+            return Err(config_error("runtime repository total size limit exceeded"));
+        }
+        if rendered == scan.manifest {
+            if sha256 != scan.expected_manifest_sha256 {
+                return Err(config_error(
+                    "manifest_sha256 does not match manifest bytes",
+                ));
+            }
+            continue;
+        }
+        if scan
+            .output
+            .insert(
+                rendered,
+                RuntimeRepositoryTreeFile {
+                    size: expected_size,
+                    sha256,
+                },
+            )
+            .is_some()
+        {
+            return Err(config_error("duplicate runtime repository path"));
+        }
+    }
+    if !saw_entry && directory != scan.root {
+        return Err(config_error(
+            "runtime repository contains an empty directory",
+        ));
+    }
+    Ok(())
+}
+
+fn sha256_exact_open_file<R: Read>(input: &mut R, expected_size: u64) -> UpdaterResult<String> {
     let mut digest = Sha256::new();
     let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let count = input.read(&mut buffer)?;
+    let mut remaining = expected_size;
+    while remaining != 0 {
+        let allowed = usize::try_from(remaining)
+            .unwrap_or(usize::MAX)
+            .min(buffer.len());
+        let count = input.read(&mut buffer[..allowed])?;
         if count == 0 {
-            break;
+            return Err(config_error("runtime repository file shrank while reading"));
         }
+        remaining -= count as u64;
         digest.update(&buffer[..count]);
     }
+    let mut extra = [0_u8; 1];
+    if input.read(&mut extra)? != 0 {
+        return Err(config_error("runtime repository file grew while reading"));
+    }
     Ok(lowercase_hex(&digest.finalize()))
+}
+
+fn parse_canonical_decimal(value: &str) -> UpdaterResult<u64> {
+    if value.is_empty()
+        || (value.len() > 1 && value.starts_with('0'))
+        || !value.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(config_error("tree manifest size is not canonical decimal"));
+    }
+    value
+        .parse()
+        .map_err(|_| config_error("tree manifest size is out of range"))
+}
+
+fn relative_path_string(path: &Path) -> UpdaterResult<String> {
+    let mut segments = Vec::new();
+    for component in path.components() {
+        let Component::Normal(segment) = component else {
+            return Err(config_error("runtime repository path is not canonical"));
+        };
+        segments.push(
+            segment
+                .to_str()
+                .ok_or_else(|| config_error("runtime repository path is not valid UTF-8"))?,
+        );
+    }
+    Ok(segments.join("/"))
+}
+
+fn validate_tree_relative_path(path: &str, folded: &mut HashSet<String>) -> UpdaterResult<()> {
+    if path.is_empty()
+        || path.len() > MAX_TREE_PATH_BYTES
+        || path.starts_with('/')
+        || path.ends_with('/')
+        || path.contains('\\')
+        || path.split('/').count() > MAX_TREE_DEPTH
+    {
+        return Err(config_error("runtime repository path is not canonical"));
+    }
+    for segment in path.split('/') {
+        validate_portable_segment(segment)?;
+    }
+    let folded_path = portable_path_key(path);
+    if !folded.insert(folded_path) {
+        return Err(config_error(
+            "runtime repository contains a portable path collision",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_portable_segment(segment: &str) -> UpdaterResult<()> {
+    if segment.is_empty()
+        || matches!(segment, "." | "..")
+        || segment.starts_with(' ')
+        || segment.chars().any(is_nonportable_character)
+        || segment.ends_with(['.', ' '])
+    {
+        return Err(config_error("runtime repository contains an unsafe path"));
+    }
+    let stem = segment
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(['.', ' ']);
+    let alias: String = stem
+        .chars()
+        .map(|character| match character {
+            '\u{00b9}' => '1',
+            '\u{00b2}' => '2',
+            '\u{00b3}' => '3',
+            other if other.is_ascii_lowercase() => other.to_ascii_uppercase(),
+            other => other,
+        })
+        .collect();
+    let reserved = matches!(alias.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || is_reserved_numbered_alias(&alias, "COM")
+        || is_reserved_numbered_alias(&alias, "LPT");
+    if reserved {
+        return Err(config_error(
+            "runtime repository contains a reserved platform path",
+        ));
+    }
+    Ok(())
+}
+
+fn portable_path_key(path: &str) -> String {
+    path.chars()
+        .map(|character| {
+            if character.is_ascii_uppercase() {
+                character.to_ascii_lowercase()
+            } else {
+                character
+            }
+        })
+        .collect()
+}
+
+fn is_nonportable_character(character: char) -> bool {
+    let codepoint = character as u32;
+    character.is_control()
+        || matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*')
+        || matches!(codepoint, 0x85 | 0x2028 | 0x2029)
+        || (0x7f..=0x9f).contains(&codepoint)
+        || (0xfdd0..=0xfdef).contains(&codepoint)
+        || codepoint & 0xffff == 0xfffe
+        || codepoint & 0xffff == 0xffff
+        || is_combining_or_jamo(codepoint)
+}
+
+fn is_combining_or_jamo(codepoint: u32) -> bool {
+    (0x0300..=0x036f).contains(&codepoint)
+        || (0x1ab0..=0x1aff).contains(&codepoint)
+        || (0x1dc0..=0x1dff).contains(&codepoint)
+        || (0x20d0..=0x20ff).contains(&codepoint)
+        || (0xfe20..=0xfe2f).contains(&codepoint)
+        || matches!(codepoint, 0x3099 | 0x309a)
+        || (0x1100..=0x11ff).contains(&codepoint)
+        || (0xa960..=0xa97f).contains(&codepoint)
+        || (0xd7b0..=0xd7ff).contains(&codepoint)
+}
+
+fn is_reserved_numbered_alias(value: &str, prefix: &str) -> bool {
+    matches!(
+        value.strip_prefix(prefix),
+        Some("1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+    )
 }
 
 fn lowercase_hex(bytes: &[u8]) -> String {
@@ -1305,6 +1675,17 @@ fn remove_plain_tree(path: &Path) -> UpdaterResult<()> {
     validate_plain_tree(path, path)?;
     fs::remove_dir_all(path)?;
     Ok(())
+}
+
+fn error_after_staging_cleanup(path: &Path, original: UpdaterError) -> UpdaterError {
+    if remove_plain_tree(path).is_err() {
+        UpdaterError::Io(format!(
+            "runtime repository staging cleanup failed after {} failure",
+            original.code()
+        ))
+    } else {
+        original
+    }
 }
 
 fn open_writer_lock(root: &Path) -> UpdaterResult<File> {
@@ -1651,6 +2032,14 @@ mod tests {
         lowercase_hex(&Sha256::digest(bytes))
     }
 
+    fn tree_manifest(entries: serde_json::Value) -> Vec<u8> {
+        serde_json::to_vec(&json!({
+            "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+            "entries": entries,
+        }))
+        .unwrap()
+    }
+
     fn candidate(
         store: &RuntimeRepositoryStore,
         id: RuntimeRepositoryId,
@@ -1658,15 +2047,21 @@ mod tests {
     ) -> RuntimeRepositoryCandidate {
         let staging_root = store.create_staging_dir(id).unwrap();
         let manifest = format!("{}.json", id.as_str());
-        let bytes = format!("{{\"id\":\"{}\",\"version\":\"{}\"}}", id.as_str(), digit);
-        fs::write(staging_root.join(&manifest), bytes.as_bytes()).unwrap();
-        fs::write(staging_root.join("payload.txt"), format!("payload-{digit}")).unwrap();
+        let payload = format!("payload-{digit}");
+        let bytes = tree_manifest(json!([{
+            "path": "payload.txt",
+            "size": payload.len().to_string(),
+            "sha256": manifest_sha(payload.as_bytes()),
+            "mode": "file",
+        }]));
+        fs::write(staging_root.join(&manifest), &bytes).unwrap();
+        fs::write(staging_root.join("payload.txt"), payload).unwrap();
         RuntimeRepositoryCandidate {
             id,
             commit: digit.to_string().repeat(40),
             staging_root,
             manifest,
-            manifest_sha256: manifest_sha(bytes.as_bytes()),
+            manifest_sha256: manifest_sha(&bytes),
         }
     }
 
@@ -1748,6 +2143,189 @@ mod tests {
         );
         assert_eq!(store.read_current().unwrap().unwrap(), activation);
         assert!(!store.previous_path().exists());
+    }
+
+    #[test]
+    fn strict_tree_manifest_rejects_noncanonical_or_incomplete_trees() {
+        fn validate_fixture(manifest_value: serde_json::Value, files: &[(&str, &[u8])]) {
+            let temp = TempDir::new().unwrap();
+            for (path, bytes) in files {
+                let path = temp.path().join(path);
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).unwrap();
+                }
+                fs::write(path, bytes).unwrap();
+            }
+            let manifest = serde_json::to_vec(&manifest_value).unwrap();
+            fs::write(temp.path().join("manifest.json"), &manifest).unwrap();
+            assert!(
+                validate_runtime_repository_tree(
+                    temp.path(),
+                    "manifest.json",
+                    &manifest_sha(&manifest),
+                )
+                .is_err()
+            );
+        }
+
+        let payload_hash = manifest_sha(b"payload");
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [],
+                "extra": true,
+            }),
+            &[],
+        );
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [{
+                    "path": "payload.txt", "size": "07",
+                    "sha256": payload_hash, "mode": "file"
+                }],
+            }),
+            &[("payload.txt", b"payload")],
+        );
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [{
+                    "path": "payload.txt", "size": "7",
+                    "sha256": payload_hash, "mode": "executable"
+                }],
+            }),
+            &[("payload.txt", b"payload")],
+        );
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": []
+            }),
+            &[("extra.txt", b"extra")],
+        );
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [{
+                    "path": "missing.txt", "size": "7",
+                    "sha256": payload_hash, "mode": "file"
+                }]
+            }),
+            &[],
+        );
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [
+                    {"path": "payload.txt", "size": "7", "sha256": payload_hash, "mode": "file"},
+                    {"path": "payload.txt", "size": "7", "sha256": payload_hash, "mode": "file"}
+                ]
+            }),
+            &[("payload.txt", b"payload")],
+        );
+
+        let empty_dir = TempDir::new().unwrap();
+        fs::create_dir(empty_dir.path().join("empty")).unwrap();
+        let manifest = tree_manifest(json!([]));
+        fs::write(empty_dir.path().join("manifest.json"), &manifest).unwrap();
+        assert!(
+            validate_runtime_repository_tree(
+                empty_dir.path(),
+                "manifest.json",
+                &manifest_sha(&manifest),
+            )
+            .is_err()
+        );
+        for reserved in ["COM¹.txt", "COM²", "LPT³.bin"] {
+            assert!(validate_portable_segment(reserved).is_err());
+        }
+        for normalized_alias in ["e\u{0301}.txt", "\u{1100}.txt", "name\u{2028}.txt"] {
+            assert!(validate_portable_segment(normalized_alias).is_err());
+        }
+        let mut folded = HashSet::new();
+        validate_tree_relative_path("描述/日本語/한글 file.txt", &mut folded).unwrap();
+        validate_tree_relative_path("Ä.txt", &mut folded).unwrap();
+        validate_tree_relative_path("ä.txt", &mut folded).unwrap();
+
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": [{
+                    "path": "payload.bin",
+                    "size": MAX_TREE_TOTAL_BYTES.to_string(),
+                    "sha256": "0".repeat(64),
+                    "mode": "file"
+                }]
+            }),
+            &[],
+        );
+        let entries = (0..MAX_TREE_FILES)
+            .map(|index| {
+                json!({
+                    "path": format!("{index}.bin"),
+                    "size": "0",
+                    "sha256": "0".repeat(64),
+                    "mode": "file",
+                })
+            })
+            .collect::<Vec<_>>();
+        validate_fixture(
+            json!({
+                "schema": RUNTIME_REPOSITORY_TREE_MANIFEST_SCHEMA,
+                "entries": entries,
+            }),
+            &[],
+        );
+    }
+
+    #[test]
+    fn exact_file_hashing_rejects_same_handle_growth_shrink_and_read_faults() {
+        let temp = TempDir::new().unwrap();
+        let path = temp.path().join("payload.bin");
+        fs::write(&path, b"abc").unwrap();
+        let mut grown = File::open(&path).unwrap();
+        OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(b"d")
+            .unwrap();
+        assert!(sha256_exact_open_file(&mut grown, 3).is_err());
+
+        fs::write(&path, b"abc").unwrap();
+        let mut shrunk = File::open(&path).unwrap();
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(2)
+            .unwrap();
+        assert!(sha256_exact_open_file(&mut shrunk, 3).is_err());
+
+        struct FaultReader;
+        impl Read for FaultReader {
+            fn read(&mut self, _buffer: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("injected read fault"))
+            }
+        }
+        assert!(sha256_exact_open_file(&mut FaultReader, 1).is_err());
+    }
+
+    #[test]
+    fn activation_read_detects_payload_tampering_and_blocks_publication() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let activation = store.publish(&pair(&store, '1')).unwrap();
+        let resource = &activation.snapshot.repositories[0];
+        fs::write(
+            store.root().join(&resource.root).join("payload.txt"),
+            "payload-X",
+        )
+        .unwrap();
+        assert!(store.read_current().is_err());
+        assert!(store.publish(&pair(&store, '2')).is_err());
+        assert!(!store.journal_path().exists());
     }
 
     struct FailingHooks {
@@ -2342,11 +2920,11 @@ mod tests {
             staging_root: &Path,
             _stop: &RuntimeRepositoryStopToken,
         ) -> UpdaterResult<RuntimeRepositoryFetchMetadata> {
-            let bytes = format!("{{\"source\":\"{}\"}}", request.url);
-            fs::write(staging_root.join(&request.manifest), bytes.as_bytes())?;
+            let bytes = tree_manifest(json!([]));
+            fs::write(staging_root.join(&request.manifest), &bytes)?;
             Ok(RuntimeRepositoryFetchMetadata {
                 commit: "a".repeat(40),
-                manifest_sha256: manifest_sha(bytes.as_bytes()),
+                manifest_sha256: manifest_sha(&bytes),
             })
         }
     }
