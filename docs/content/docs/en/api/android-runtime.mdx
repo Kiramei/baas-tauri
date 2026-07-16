@@ -1,0 +1,75 @@
+---
+title: Android Runtime API
+description: Android Python-backend startup, app storage, Pipe/WebSocket support, local control, and updater compatibility.
+---
+
+Android embeds Python 3.9 through Chaquopy. A Kotlin foreground-service plugin starts the Python bootstrap, which unpacks the bundled BAAS service into app-private storage and launches it on `127.0.0.1:8190`.
+
+Android does not register `backend_cpp_transport_start`, and frontend normalization rejects runtime `cpp`. This is an explicit platform boundary, not an automatic fallback after attempting C++.
+
+## Startup Flow
+
+```mermaid
+sequenceDiagram
+  participant UI as React UI
+  participant Rust as Tauri mobile commands
+  participant Kotlin as Backend service plugin
+  participant Python as Android bootstrap
+  participant Service as BAAS service
+  UI->>Rust: backend_transport_start(mode)
+  Rust->>Kotlin: ensureStarted
+  Kotlin->>Python: start(filesDir, dataRoot, 8190, nativeLibDir)
+  Python->>Service: unpack, inject Android runtime, launch
+  Rust->>Service: poll GET /health
+  Service-->>Rust: ready
+  Rust-->>UI: address, port, Pipe path configured
+```
+
+The readiness wait is bounded. Missing dependencies or bootstrap failures must appear in `/health`, system logs, or Android logs rather than leaving the setup screen pending indefinitely.
+
+## Transport
+
+Android supports both `pipe` and `websocket`; the default is `pipe`.
+
+- Pipe uses a Unix domain socket returned by the Android backend service plugin.
+- `BackendPipeManager` and the TypeScript `TauriPipeConnection` use the same `BPIP` protocol as desktop.
+- WebSocket continues to use loopback HTTP/WebSocket service endpoints.
+- Changing mode persists `general.transport` without replacing unrelated setup values.
+
+## Storage and Updates
+
+Android setup state lives under application-managed storage. `updater_start_workflow` uses Rust git2 to synchronize the legacy BAAS Python repository and Android Cpp/OCR prebuild repository, persists their revisions, and returns terminal session metadata. The Kotlin bootstrap separately preserves and unpacks the packaged Android service payload. Android does not depend on desktop `uv`, system Python, writable desktop install paths, or `pygit2`.
+
+The new two-repository runtime activation store is not wired to an Android command or frontend flow at this revision; do not describe it as part of Android startup yet.
+
+The config reports:
+
+```toml
+[general]
+transport = "pipe"
+
+[python]
+runtime_path = "embedded-python-3.9"
+```
+
+## Android-local Control
+
+Script configuration must keep:
+
+```toml
+screenshot_method = "android_local"
+control_method = "android_local"
+```
+
+The UI, Rust host, and Python compatibility layer all enforce these external values. Native Rust/Kotlin/Python optimizations may change the implementation but not the public method names.
+
+## Platform Differences
+
+| API | Android behavior |
+| --- | --- |
+| Global shortcuts | Enabled bindings are returned as unsupported/rejected. |
+| DevTools command | No-op. |
+| Client update check | Reads Android package metadata. |
+| MirrorC validation | Returns an Android-compatible unsupported report when unavailable. |
+| Virtual display | Uses Android-specific request fields such as `configId` and optional `adbPath`. |
+| C++ runtime selection | Unsupported; command is not registered and UI/runtime normalization stays on Python. |

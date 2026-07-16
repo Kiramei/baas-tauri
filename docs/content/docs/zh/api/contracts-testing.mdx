@@ -1,0 +1,80 @@
+---
+title: 契约与测试
+description: Python 兼容、C++ Runtime 门禁、传输一致性、Service 边界和必须执行的验证矩阵。
+---
+
+只有默认 Python 路径仍兼容、受支持的 Pipe/WebSocket 行为一致、显式 C++ 选择 fail closed，并且适用的桌面、Android、WebUI 与文档门禁都通过，API 变更才算完成。
+
+## 配置契约
+
+| 值 | 规则 |
+| --- | --- |
+| `general.transport` | `"pipe"` 或 `"websocket"`；原生默认 Pipe，WebUI 仅支持 WebSocket。 |
+| `general.backend_runtime` | 桌面接受 `"python"` 或 `"cpp"`，默认 Python；Android 与 WebUI 的前端归一化保持 Python。 |
+| `setup.toml` | 新字段必须有默认值，并保留其他已有值。 |
+| Profile 快照与 patch | 收到旧 patch 时应从权威快照恢复，不能终止 sync。 |
+| `screenshot_method`、`control_method` | Android 固定为 `android_local`。 |
+| 应用与系统日志 | 错误应包含 source、target、时间和足够定位调用方的上下文。 |
+
+## 传输一致性
+
+provider、sync、trigger 和 remote 测试应通过与传输无关的处理器执行。适配器与生命周期测试还要覆盖：
+
+- WebSocket 认证、resume、加密和重连。
+- Pipe 的 open/open-ok 握手、分段帧、JSON/二进制 payload、close/error 帧和 64 MiB 限制。
+- Windows named pipe 与 Unix domain socket 的端点创建。
+- 切换传输或停止后端时清理连接。
+- open 尝试取消与 server-token 所有权，确保陈旧 Pipe client 无法 send/close 替代连接。
+- 桌面 C++ WebSocket 启动、精确 `/version` 与 ready `/health`、认证业务通道、配置 add/export/remove/import 和优雅 `/shutdown`。
+- C++ artifact 缺失/无效、不支持 Pipe、就绪失败且不回退 Python。
+
+## Service 边界
+
+Python Service 专用改动放在 `service` 内，并使用共享通道处理器和 `ChannelEndpoint`。C++ 对齐放在 `baas-cpp-dev`，并且必须在 wire boundary 上证明。Android 可以包装 Service 注入点，但不能把平台分支散落到 BAAS core 模块。
+
+## 必须执行的本地与 CI 检查
+
+在 `baas-tauri` 仓库执行：
+
+```bash
+bun run lint
+bun run test:transport
+bun run test:cpp-service-package
+bun run build:tauri
+bun run build:tauri:android
+cargo test --workspace --all-targets --locked
+```
+
+真实 C++ 门禁还需要通过 `BAAS_CPP_SERVICE_PATH` 与 `BAAS_CPP_SERVICE_REMOTE_JAR` 提供经验证的外部 artifact：
+
+```bash
+bun run e2e:cpp-service
+cargo test -p baas-tauri --lib commands::tests::real_cpp_service_ --locked
+```
+
+该门禁有意禁止跳过：缺少 C++ 输入时必须失败，不能用 Python 替代。
+
+在 `baas-tauri/docs` 执行：
+
+```bash
+bun install --frozen-lockfile
+bun run build:fonts
+bun run build:next
+bun run check:links
+```
+
+Next.js 静态导出会编译 MDX、Twoslash 示例、生成路由和两种语言。`check:links` 会在配置的 Pages base path 下检查全部内部链接、锚点、脚本、样式表和图片。CI 还会在 Windows、Linux、macOS 运行 Rust 测试与真实 C++ 集成，并构建 Android arm64 debug APK：
+
+```bash
+bun run tauri:android:build:debug -- --abi arm64
+```
+
+## 冒烟测试
+
+1. 桌面 Python：以 Pipe 启动，打开四个业务通道，修改配置并运行低风险任务；切到 WebSocket 后重复。
+2. 桌面 C++：显式选择 C++ + WebSocket，验证认证后的 provider/sync/trigger 流量、重置认证，并切回 Python 且不遗留任一子进程。
+3. Android 模拟器：安装 APK，验证首次启动、Pipe、配置同步、日志和一次 Android 本地控制；再用 WebSocket 检查连接，并确认不存在 C++ 选项。
+4. WebUI：验证认证与 resume，并确认未调用原生后端启动或 Pipe 命令。
+5. 失败路径：停止后端、拒绝 C++ artifact/就绪检查、输入旧 sync patch、中止 workflow，确认能够恢复且日志可定位。
+
+公开命令、帧、配置字段或平台行为变化时，必须同时更新中英文 API 页面。
