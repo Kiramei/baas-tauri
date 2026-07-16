@@ -20,6 +20,7 @@ use uuid::Uuid;
 pub const RUNTIME_REPOSITORY_CURRENT_SCHEMA: &str = "baas.runtime-repositories.current/v1";
 pub const RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA: &str = "baas.runtime-repositories.snapshot/v1";
 pub const RUNTIME_REPOSITORY_GENERATION_DOMAIN: &str = RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA;
+const RUNTIME_REPOSITORY_JOURNAL_SCHEMA: &str = "baas.runtime-repositories.publish-journal/v1";
 const MAX_ACTIVATION_JSON_BYTES: u64 = 64 * 1024;
 
 /// The two repository identities that form one runtime activation.
@@ -126,6 +127,10 @@ pub enum RuntimeRepositoryPublishCheckpoint {
 /// Hook used only for diagnostics and deterministic failure tests.
 pub trait RuntimeRepositoryStoreHooks: Send + Sync {
     fn checkpoint(&self, checkpoint: RuntimeRepositoryPublishCheckpoint) -> UpdaterResult<()>;
+
+    /// Observes a completed commit boundary. This notification cannot turn an
+    /// already committed pointer replacement into a reported failure.
+    fn committed(&self, _checkpoint: RuntimeRepositoryPublishCheckpoint) {}
 }
 
 #[derive(Debug, Default)]
@@ -142,7 +147,48 @@ impl RuntimeRepositoryStoreHooks for NoopRuntimeRepositoryStoreHooks {
 pub struct RuntimeRepositoryStore {
     root: PathBuf,
     writer: Arc<Mutex<()>>,
+    writer_file: Arc<File>,
     hooks: Arc<dyn RuntimeRepositoryStoreHooks>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RuntimeRepositoryJournalOperation {
+    Publish,
+    Rollback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RuntimeRepositoryJournalPhase {
+    Prepared,
+    PreviousReplaced,
+    CurrentReplaced,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuntimeRepositoryPublishJournal {
+    schema: String,
+    operation: RuntimeRepositoryJournalOperation,
+    phase: RuntimeRepositoryJournalPhase,
+    old_previous: Option<RuntimeRepositoryPointer>,
+    old_current: Option<RuntimeRepositoryPointer>,
+    new_previous: Option<RuntimeRepositoryPointer>,
+    new_current: RuntimeRepositoryPointer,
+}
+
+enum CurrentExpectation<'a> {
+    Any,
+    Exact(Option<&'a str>),
+}
+
+struct RuntimeRepositoryFileLock<'a>(&'a File);
+
+impl Drop for RuntimeRepositoryFileLock<'_> {
+    fn drop(&mut self) {
+        let _ = File::unlock(self.0);
+    }
 }
 
 impl std::fmt::Debug for RuntimeRepositoryStore {
@@ -180,11 +226,15 @@ impl RuntimeRepositoryStore {
         if !root.starts_with(&canonical_baas_root) {
             return Err(config_error("runtime repository root escapes BAAS root"));
         }
-        Ok(Self {
+        let writer_file = open_writer_lock(&root)?;
+        let store = Self {
             root,
             writer: Arc::new(Mutex::new(())),
+            writer_file: Arc::new(writer_file),
             hooks,
-        })
+        };
+        store.with_writer_lock(|store| store.recover_journal())?;
+        Ok(store)
     }
 
     pub fn root(&self) -> &Path {
@@ -242,12 +292,59 @@ impl RuntimeRepositoryStore {
         &self,
         candidates: &[RuntimeRepositoryCandidate],
     ) -> UpdaterResult<RuntimeRepositoryActivation> {
-        let _writer = self.writer.lock().map_err(|_| {
-            UpdaterError::Workflow("runtime repository writer lock poisoned".into())
-        })?;
+        self.publish_with_expectation(candidates, CurrentExpectation::Any)
+    }
+
+    /// Publishes only if current still equals `expected_current`. `None`
+    /// explicitly expects an installation with no current generation.
+    pub fn publish_if_current(
+        &self,
+        candidates: &[RuntimeRepositoryCandidate],
+        expected_current: Option<&str>,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        if let Some(generation) = expected_current {
+            validate_sha256(generation, "expected_current")?;
+        }
+        self.publish_with_expectation(candidates, CurrentExpectation::Exact(expected_current))
+    }
+
+    fn publish_with_expectation(
+        &self,
+        candidates: &[RuntimeRepositoryCandidate],
+        expectation: CurrentExpectation<'_>,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.with_writer_lock(|store| store.publish_locked(candidates, expectation))
+    }
+
+    fn publish_locked(
+        &self,
+        candidates: &[RuntimeRepositoryCandidate],
+        expectation: CurrentExpectation<'_>,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.recover_journal()?;
         let candidates = self.index_and_validate_candidates(candidates)?;
         self.hooks
             .checkpoint(RuntimeRepositoryPublishCheckpoint::CandidatesValidated)?;
+
+        let planned_resources =
+            snapshot_entry_for_candidate(candidates[&RuntimeRepositoryId::Resources]);
+        let planned_scripts =
+            snapshot_entry_for_candidate(candidates[&RuntimeRepositoryId::Scripts]);
+        let planned_generation =
+            compute_runtime_repository_generation(&planned_resources, &planned_scripts);
+        let old_current = self.read_pointer_file(&self.current_path())?;
+        self.check_current_expectation(old_current.as_ref(), expectation)?;
+        if old_current
+            .as_ref()
+            .map(|pointer| pointer.generation.as_str())
+            == Some(planned_generation.as_str())
+        {
+            let activation = self.read_activation(old_current.expect("generation was present"))?;
+            for candidate in candidates.values() {
+                let _ = remove_plain_tree(&candidate.staging_root);
+            }
+            return Ok(activation);
+        }
 
         let resources = self.commit_candidate(candidates[&RuntimeRepositoryId::Resources])?;
         let scripts = self.commit_candidate(candidates[&RuntimeRepositoryId::Scripts])?;
@@ -267,19 +364,21 @@ impl RuntimeRepositoryStore {
             snapshot: format!("snapshots/{generation}.json"),
         };
         let snapshot_path = self.root.join(&pointer.snapshot);
-        write_immutable_json(&snapshot_path, &snapshot)?;
+        self.write_immutable_snapshot(&snapshot_path, &snapshot)?;
         self.hooks
             .checkpoint(RuntimeRepositoryPublishCheckpoint::SnapshotWritten)?;
 
-        let old_current = self.read_pointer_file(&self.current_path())?;
-        if let Some(old_current) = &old_current {
-            self.write_pointer_atomically(&self.previous_path(), old_current)?;
-        }
-        self.hooks
-            .checkpoint(RuntimeRepositoryPublishCheckpoint::BeforeCurrentReplace)?;
-        self.write_pointer_atomically(&self.current_path(), &pointer)?;
-        self.hooks
-            .checkpoint(RuntimeRepositoryPublishCheckpoint::CurrentReplaced)?;
+        let old_previous = self.read_pointer_file(&self.previous_path())?;
+        let journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Publish,
+            phase: RuntimeRepositoryJournalPhase::Prepared,
+            old_previous,
+            old_current: old_current.clone(),
+            new_previous: old_current,
+            new_current: pointer.clone(),
+        };
+        self.execute_pointer_transaction(journal)?;
         Ok(RuntimeRepositoryActivation { pointer, snapshot })
     }
 
@@ -292,22 +391,206 @@ impl RuntimeRepositoryStore {
         self.read_activation(pointer).map(Some)
     }
 
-    /// Atomically switches current back to previous, retaining the displaced
-    /// pointer as a best-effort redo target.
+    /// Atomically switches current back to previous and retains the displaced
+    /// pointer as the redo target through the same crash-recoverable journal.
     pub fn rollback(&self) -> UpdaterResult<RuntimeRepositoryActivation> {
-        let _writer = self.writer.lock().map_err(|_| {
-            UpdaterError::Workflow("runtime repository writer lock poisoned".into())
-        })?;
+        self.rollback_with_expectation(None)
+    }
+
+    /// Rolls back only if current equals the supplied generation.
+    pub fn rollback_if_current(
+        &self,
+        expected_current: &str,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        validate_sha256(expected_current, "expected_current")?;
+        self.rollback_with_expectation(Some(expected_current))
+    }
+
+    fn rollback_with_expectation(
+        &self,
+        expected_current: Option<&str>,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.with_writer_lock(|store| store.rollback_locked(expected_current))
+    }
+
+    fn rollback_locked(
+        &self,
+        expected_current: Option<&str>,
+    ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.recover_journal()?;
         let previous = self
             .read_pointer_file(&self.previous_path())?
             .ok_or_else(|| config_error("runtime repository previous.json is unavailable"))?;
         let activation = self.read_activation(previous.clone())?;
-        let displaced = self.read_pointer_file(&self.current_path())?;
-        self.write_pointer_atomically(&self.current_path(), &previous)?;
-        if let Some(displaced) = displaced {
-            let _ = self.write_pointer_atomically(&self.previous_path(), &displaced);
+        let displaced = self
+            .read_pointer_file(&self.current_path())?
+            .ok_or_else(|| config_error("runtime repository current.json is unavailable"))?;
+        if let Some(expected) = expected_current
+            && displaced.generation != expected
+        {
+            return Err(config_error(
+                "runtime repository current generation conflict",
+            ));
         }
+        let journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Rollback,
+            phase: RuntimeRepositoryJournalPhase::Prepared,
+            old_previous: Some(previous.clone()),
+            old_current: Some(displaced.clone()),
+            new_previous: Some(displaced),
+            new_current: previous,
+        };
+        self.execute_pointer_transaction(journal)?;
         Ok(activation)
+    }
+
+    fn with_writer_lock<T>(
+        &self,
+        action: impl FnOnce(&Self) -> UpdaterResult<T>,
+    ) -> UpdaterResult<T> {
+        let _writer = self.writer.lock().map_err(|_| {
+            UpdaterError::Workflow("runtime repository writer lock poisoned".into())
+        })?;
+        self.writer_file.lock().map_err(|error| {
+            UpdaterError::Io(format!("runtime repository writer lock failed: {error}"))
+        })?;
+        let _file_lock = RuntimeRepositoryFileLock(&self.writer_file);
+        validate_opened_plain_file(
+            &self.root.join(".writer.lock"),
+            &self.root,
+            &self.writer_file,
+        )?;
+        action(self)
+    }
+
+    fn check_current_expectation(
+        &self,
+        current: Option<&RuntimeRepositoryPointer>,
+        expectation: CurrentExpectation<'_>,
+    ) -> UpdaterResult<()> {
+        let CurrentExpectation::Exact(expected) = expectation else {
+            return Ok(());
+        };
+        if current.map(|pointer| pointer.generation.as_str()) != expected {
+            return Err(config_error(
+                "runtime repository current generation conflict",
+            ));
+        }
+        Ok(())
+    }
+
+    fn execute_pointer_transaction(
+        &self,
+        mut journal: RuntimeRepositoryPublishJournal,
+    ) -> UpdaterResult<()> {
+        validate_journal(&journal)?;
+        self.write_journal_atomically(&journal)?;
+
+        if let Err(error) =
+            self.write_optional_pointer(&self.previous_path(), journal.new_previous.as_ref())
+        {
+            return self.recover_after_transaction_error(error);
+        }
+        journal.phase = RuntimeRepositoryJournalPhase::PreviousReplaced;
+        if let Err(error) = self.write_journal_atomically(&journal) {
+            return self.recover_after_transaction_error(error);
+        }
+
+        if let Err(error) = self
+            .hooks
+            .checkpoint(RuntimeRepositoryPublishCheckpoint::BeforeCurrentReplace)
+        {
+            return match self.restore_old_journal_state(&journal) {
+                Ok(()) => Err(error),
+                Err(restore_error) => Err(UpdaterError::Workflow(format!(
+                    "publication hook failed and old pointer state could not be restored: {error}; {restore_error}"
+                ))),
+            };
+        }
+
+        if let Err(error) =
+            self.write_pointer_atomically(&self.current_path(), &journal.new_current)
+        {
+            return self.recover_after_transaction_error(error);
+        }
+        self.hooks
+            .committed(RuntimeRepositoryPublishCheckpoint::CurrentReplaced);
+
+        journal.phase = RuntimeRepositoryJournalPhase::CurrentReplaced;
+        // The linearization point is already committed. Journal cleanup can be
+        // retried during the next open/write and must not turn success into a
+        // normal error that invites a duplicate publication.
+        let _ = self.write_journal_atomically(&journal);
+        let _ = self.remove_journal_file();
+        Ok(())
+    }
+
+    fn recover_after_transaction_error(&self, error: UpdaterError) -> UpdaterResult<()> {
+        // A valid durable journal makes the operation deterministic: successful
+        // recovery means the journal's new current/previous pair was rolled
+        // forward and is committed, so the caller receives success.
+        match self.recover_journal() {
+            Ok(()) => Ok(()),
+            Err(recovery_error) => Err(UpdaterError::Workflow(format!(
+                "runtime repository transaction outcome is uncertain: {error}; recovery failed: {recovery_error}"
+            ))),
+        }
+    }
+
+    fn restore_old_journal_state(
+        &self,
+        journal: &RuntimeRepositoryPublishJournal,
+    ) -> UpdaterResult<()> {
+        self.write_optional_pointer(&self.previous_path(), journal.old_previous.as_ref())?;
+        self.write_optional_pointer(&self.current_path(), journal.old_current.as_ref())?;
+        self.remove_journal_file()
+    }
+
+    fn recover_journal(&self) -> UpdaterResult<()> {
+        let Some(journal) = self.read_journal_file()? else {
+            return Ok(());
+        };
+        validate_journal(&journal)?;
+        self.read_activation(journal.new_current.clone())?;
+        if let Some(previous) = &journal.new_previous {
+            self.read_activation(previous.clone())?;
+        }
+        self.write_optional_pointer(&self.previous_path(), journal.new_previous.as_ref())?;
+        self.write_pointer_atomically(&self.current_path(), &journal.new_current)?;
+        self.remove_journal_file()
+    }
+
+    fn read_journal_file(&self) -> UpdaterResult<Option<RuntimeRepositoryPublishJournal>> {
+        let path = self.journal_path();
+        if symlink_metadata_if_exists(&path)?.is_none() {
+            return Ok(None);
+        }
+        ensure_direct_child_of(&path, &self.root)?;
+        read_bounded_json(&path, &self.root).map(Some)
+    }
+
+    fn write_journal_atomically(
+        &self,
+        journal: &RuntimeRepositoryPublishJournal,
+    ) -> UpdaterResult<()> {
+        validate_journal(journal)?;
+        self.write_json_atomically(&self.journal_path(), journal)
+    }
+
+    fn write_optional_pointer(
+        &self,
+        path: &Path,
+        pointer: Option<&RuntimeRepositoryPointer>,
+    ) -> UpdaterResult<()> {
+        match pointer {
+            Some(pointer) => self.write_pointer_atomically(path, pointer),
+            None => remove_plain_file(path, &self.root),
+        }
+    }
+
+    fn remove_journal_file(&self) -> UpdaterResult<()> {
+        remove_plain_file(&self.journal_path(), &self.root)
     }
 
     fn current_path(&self) -> PathBuf {
@@ -316,6 +599,10 @@ impl RuntimeRepositoryStore {
 
     fn previous_path(&self) -> PathBuf {
         self.root.join("previous.json")
+    }
+
+    fn journal_path(&self) -> PathBuf {
+        self.root.join(".publish-journal.json")
     }
 
     fn managed_dir(&self, name: &str) -> UpdaterResult<PathBuf> {
@@ -428,8 +715,9 @@ impl RuntimeRepositoryStore {
     ) -> UpdaterResult<RuntimeRepositoryActivation> {
         validate_pointer(&pointer)?;
         let snapshot_path = self.root.join(&pointer.snapshot);
-        ensure_direct_child_of(&snapshot_path, &self.managed_dir("snapshots")?)?;
-        let snapshot: RuntimeRepositorySnapshot = read_bounded_json(&snapshot_path)?;
+        let snapshots = self.managed_dir("snapshots")?;
+        ensure_direct_child_of(&snapshot_path, &snapshots)?;
+        let snapshot: RuntimeRepositorySnapshot = read_bounded_json(&snapshot_path, &snapshots)?;
         validate_snapshot(&snapshot)?;
         if snapshot.generation != pointer.generation {
             return Err(config_error("pointer and snapshot generations differ"));
@@ -460,20 +748,18 @@ impl RuntimeRepositoryStore {
     }
 
     fn read_pointer_file(&self, path: &Path) -> UpdaterResult<Option<RuntimeRepositoryPointer>> {
-        #[cfg(target_os = "windows")]
-        {
-            for attempt in 0..32 {
-                match self.read_pointer_file_once(path) {
-                    Err(UpdaterError::Io(_)) if attempt < 31 => {
-                        std::thread::sleep(std::time::Duration::from_millis(1));
-                    }
-                    result => return result,
+        for attempt in 0..64 {
+            match self.read_pointer_file_once(path) {
+                Err(UpdaterError::Io(_)) if attempt < 63 => {
+                    #[cfg(target_os = "windows")]
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                    #[cfg(not(target_os = "windows"))]
+                    std::thread::yield_now();
                 }
+                result => return result,
             }
-            unreachable!("bounded pointer read loop always returns")
         }
-        #[cfg(not(target_os = "windows"))]
-        self.read_pointer_file_once(path)
+        unreachable!("bounded pointer read loop always returns")
     }
 
     fn read_pointer_file_once(
@@ -484,7 +770,7 @@ impl RuntimeRepositoryStore {
             return Ok(None);
         }
         ensure_direct_child_of(path, &self.root)?;
-        let pointer: RuntimeRepositoryPointer = read_bounded_json(path)?;
+        let pointer: RuntimeRepositoryPointer = read_bounded_json(path, &self.root)?;
         validate_pointer(&pointer)?;
         Ok(Some(pointer))
     }
@@ -495,9 +781,13 @@ impl RuntimeRepositoryStore {
         pointer: &RuntimeRepositoryPointer,
     ) -> UpdaterResult<()> {
         validate_pointer(pointer)?;
+        self.write_json_atomically(target, pointer)
+    }
+
+    fn write_json_atomically<T: Serialize>(&self, target: &Path, value: &T) -> UpdaterResult<()> {
         ensure_direct_child_of(target, &self.root)?;
         if let Some(metadata) = symlink_metadata_if_exists(target)?
-            && !metadata.is_file()
+            && (metadata_is_link_or_reparse(&metadata) || !metadata.is_file())
         {
             return Err(config_error("atomic pointer target is not a regular file"));
         }
@@ -507,13 +797,89 @@ impl RuntimeRepositoryStore {
             Uuid::new_v4()
         ));
         let result = (|| {
-            write_new_json(&temporary, pointer)?;
+            write_new_json(&temporary, value)?;
             atomic_replace_file(&temporary, target)
         })();
         if result.is_err() {
             let _ = fs::remove_file(&temporary);
         }
         result
+    }
+
+    fn write_immutable_snapshot(
+        &self,
+        path: &Path,
+        value: &RuntimeRepositorySnapshot,
+    ) -> UpdaterResult<()> {
+        let snapshots = self.managed_dir("snapshots")?;
+        ensure_direct_child_of(path, &snapshots)?;
+        for _ in 0..3 {
+            if symlink_metadata_if_exists(path)?.is_some() {
+                reject_link_or_reparse(path)?;
+                match read_bounded_json::<RuntimeRepositorySnapshot>(path, &snapshots) {
+                    Ok(existing) if existing == *value => return Ok(()),
+                    Ok(_) => {
+                        return Err(config_error(
+                            "immutable snapshot already exists with different content",
+                        ));
+                    }
+                    Err(error) => {
+                        if self.snapshot_is_referenced(path)? {
+                            return Err(UpdaterError::Config(format!(
+                                "referenced immutable snapshot is invalid: {error}"
+                            )));
+                        }
+                        quarantine_plain_file(path, &snapshots)?;
+                        continue;
+                    }
+                }
+            }
+
+            let temporary = snapshots.join(format!(
+                ".{}.{}.tmp",
+                path.file_name().unwrap().to_string_lossy(),
+                Uuid::new_v4()
+            ));
+            let result = (|| {
+                write_new_json(&temporary, value)?;
+                match install_file_no_replace(&temporary, path)? {
+                    InstallNoReplace::Installed => {
+                        if symlink_metadata_if_exists(&temporary)?.is_some() {
+                            fs::remove_file(&temporary)?;
+                        }
+                        sync_directory(&snapshots)
+                    }
+                    InstallNoReplace::Existing => Ok(()),
+                }
+            })();
+            if symlink_metadata_if_exists(&temporary)
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                let _ = fs::remove_file(&temporary);
+            }
+            result?;
+        }
+        Err(config_error(
+            "immutable snapshot could not be installed after recovery",
+        ))
+    }
+
+    fn snapshot_is_referenced(&self, path: &Path) -> UpdaterResult<bool> {
+        let relative = path
+            .strip_prefix(&self.root)
+            .map_err(|_| config_error("snapshot path escapes runtime repository root"))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        for pointer_path in [self.current_path(), self.previous_path()] {
+            if let Some(pointer) = self.read_pointer_file(&pointer_path)?
+                && pointer.snapshot == relative
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
@@ -539,6 +905,18 @@ pub fn compute_runtime_repository_generation(
     lowercase_hex(&digest.finalize())
 }
 
+fn snapshot_entry_for_candidate(
+    candidate: &RuntimeRepositoryCandidate,
+) -> RuntimeRepositorySnapshotEntry {
+    RuntimeRepositorySnapshotEntry {
+        id: candidate.id.as_str().to_string(),
+        commit: candidate.commit.clone(),
+        root: format!("objects/{}/{}", candidate.id.as_str(), candidate.commit),
+        manifest: candidate.manifest.clone(),
+        manifest_sha256: candidate.manifest_sha256.clone(),
+    }
+}
+
 fn hash_length_prefixed(digest: &mut Sha256, value: &str) {
     digest.update((value.len() as u64).to_be_bytes());
     digest.update(value.as_bytes());
@@ -555,6 +933,40 @@ fn validate_pointer(pointer: &RuntimeRepositoryPointer) -> UpdaterResult<()> {
         return Err(config_error(
             "runtime repository snapshot path is not canonical",
         ));
+    }
+    Ok(())
+}
+
+fn validate_optional_pointer(pointer: Option<&RuntimeRepositoryPointer>) -> UpdaterResult<()> {
+    if let Some(pointer) = pointer {
+        validate_pointer(pointer)?;
+    }
+    Ok(())
+}
+
+fn validate_journal(journal: &RuntimeRepositoryPublishJournal) -> UpdaterResult<()> {
+    if journal.schema != RUNTIME_REPOSITORY_JOURNAL_SCHEMA {
+        return Err(config_error(
+            "unsupported runtime repository publish journal schema",
+        ));
+    }
+    validate_optional_pointer(journal.old_previous.as_ref())?;
+    validate_optional_pointer(journal.old_current.as_ref())?;
+    validate_optional_pointer(journal.new_previous.as_ref())?;
+    validate_pointer(&journal.new_current)?;
+    match journal.operation {
+        RuntimeRepositoryJournalOperation::Publish => {
+            if journal.new_previous != journal.old_current {
+                return Err(config_error("publish journal previous pointer mismatch"));
+            }
+        }
+        RuntimeRepositoryJournalOperation::Rollback => {
+            if journal.old_previous.as_ref() != Some(&journal.new_current)
+                || journal.new_previous != journal.old_current
+            {
+                return Err(config_error("rollback journal pointer mismatch"));
+            }
+        }
     }
     Ok(())
 }
@@ -816,44 +1228,263 @@ fn remove_plain_tree(path: &Path) -> UpdaterResult<()> {
     Ok(())
 }
 
-fn read_bounded_json<T: for<'de> Deserialize<'de>>(path: &Path) -> UpdaterResult<T> {
-    let metadata = fs::symlink_metadata(path)?;
-    if metadata_is_link_or_reparse(&metadata)
-        || !metadata.is_file()
-        || metadata.len() > MAX_ACTIVATION_JSON_BYTES
-    {
-        return Err(config_error("activation JSON is not a bounded plain file"));
+fn open_writer_lock(root: &Path) -> UpdaterResult<File> {
+    let path = root.join(".writer.lock");
+    ensure_direct_child_of(&path, root)?;
+    let mut created = false;
+    let file = match open_plain_file(&path, true, true, true) {
+        Ok(file) => {
+            created = true;
+            file
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            open_plain_file(&path, true, true, false)?
+        }
+        Err(error) => return Err(error.into()),
+    };
+    validate_opened_plain_file(&path, root, &file)?;
+    if created {
+        file.sync_all()?;
+        sync_directory(root)?;
     }
-    let bytes = fs::read(path)?;
-    serde_json::from_slice(&bytes).map_err(|error| config_error(error.to_string()))
+    Ok(file)
 }
 
-fn write_immutable_json(path: &Path, value: &RuntimeRepositorySnapshot) -> UpdaterResult<()> {
-    if symlink_metadata_if_exists(path)?.is_some() {
-        reject_link_or_reparse(path)?;
-        let existing: RuntimeRepositorySnapshot = read_bounded_json(path)?;
-        if existing != *value {
-            return Err(config_error(
-                "immutable snapshot already exists with different content",
-            ));
-        }
-        return Ok(());
+fn open_plain_file(
+    path: &Path,
+    read: bool,
+    write: bool,
+    create_new: bool,
+) -> std::io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.read(read).write(write).create_new(create_new);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW);
     }
-    write_new_json(path, value)?;
-    sync_directory(
-        path.parent()
-            .ok_or_else(|| config_error("snapshot path has no parent"))?,
-    )
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        const FILE_SHARE_READ_WRITE_DELETE: u32 = 0x0000_0001 | 0x0000_0002 | 0x0000_0004;
+        options
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .share_mode(FILE_SHARE_READ_WRITE_DELETE);
+    }
+    options.open(path)
+}
+
+fn validate_opened_plain_file(
+    path: &Path,
+    parent: &Path,
+    file: &File,
+) -> UpdaterResult<fs::Metadata> {
+    ensure_direct_child_of(path, parent)?;
+    reject_link_or_reparse(parent)?;
+    let canonical_parent = parent.canonicalize()?;
+    if canonical_parent != parent {
+        return Err(config_error("managed file parent is not canonical"));
+    }
+    let metadata = file.metadata()?;
+    if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
+        return Err(config_error(
+            "managed file handle is not a plain regular file",
+        ));
+    }
+    let path_metadata = fs::symlink_metadata(path)?;
+    if metadata_is_link_or_reparse(&path_metadata) || !path_metadata.is_file() {
+        return Err(config_error(
+            "managed file path changed while its handle was open",
+        ));
+    }
+    #[cfg(target_os = "windows")]
+    let identity_matches = {
+        let reopened = open_plain_file(path, true, false, false)?;
+        let reopened_metadata = reopened.metadata()?;
+        !metadata_is_link_or_reparse(&reopened_metadata)
+            && reopened_metadata.is_file()
+            && same_file_identity(&metadata, &path_metadata, file, &reopened)?
+    };
+    #[cfg(not(target_os = "windows"))]
+    let identity_matches = same_file_identity(&metadata, &path_metadata);
+    if !identity_matches {
+        return Err(UpdaterError::Io(
+            "managed file path changed while its handle was open".to_string(),
+        ));
+    }
+    let canonical_path = path.canonicalize()?;
+    if canonical_path.parent() != Some(canonical_parent.as_path()) {
+        return Err(config_error("managed file handle escapes its parent"));
+    }
+    Ok(metadata)
+}
+
+#[cfg(unix)]
+fn same_file_identity(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    left.dev() == right.dev() && left.ino() == right.ino()
+}
+
+#[cfg(target_os = "windows")]
+fn same_file_identity(
+    _left: &fs::Metadata,
+    _right: &fs::Metadata,
+    left_file: &File,
+    right_file: &File,
+) -> UpdaterResult<bool> {
+    fn identity(file: &File) -> UpdaterResult<(u32, u64)> {
+        use std::{mem::MaybeUninit, os::windows::io::AsRawHandle};
+        use windows::Win32::{
+            Foundation::HANDLE,
+            Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle},
+        };
+        let mut information = MaybeUninit::<BY_HANDLE_FILE_INFORMATION>::zeroed();
+        unsafe {
+            GetFileInformationByHandle(HANDLE(file.as_raw_handle()), information.as_mut_ptr())
+        }
+        .map_err(|error| UpdaterError::Io(error.to_string()))?;
+        let information = unsafe { information.assume_init() };
+        Ok((
+            information.dwVolumeSerialNumber,
+            (u64::from(information.nFileIndexHigh) << 32) | u64::from(information.nFileIndexLow),
+        ))
+    }
+
+    Ok(identity(left_file)? == identity(right_file)?)
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
+fn same_file_identity(_left: &fs::Metadata, _right: &fs::Metadata) -> bool {
+    true
+}
+
+fn read_bounded_bytes(input: &mut File, limit: u64) -> UpdaterResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    input.take(limit + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Err(config_error("activation JSON file limit exceeded"));
+    }
+    Ok(bytes)
+}
+
+fn read_bounded_json<T: for<'de> Deserialize<'de>>(path: &Path, parent: &Path) -> UpdaterResult<T> {
+    let input = open_plain_file(path, true, false, false)?;
+    read_bounded_json_from_open_file(path, parent, input)
+}
+
+fn read_bounded_json_from_open_file<T: for<'de> Deserialize<'de>>(
+    path: &Path,
+    parent: &Path,
+    mut input: File,
+) -> UpdaterResult<T> {
+    let metadata = validate_opened_plain_file(path, parent, &input)?;
+    if metadata.len() > MAX_ACTIVATION_JSON_BYTES {
+        return Err(config_error("activation JSON file limit exceeded"));
+    }
+    let bytes = read_bounded_bytes(&mut input, MAX_ACTIVATION_JSON_BYTES)?;
+    validate_opened_plain_file(path, parent, &input)?;
+    serde_json::from_slice(&bytes).map_err(|error| config_error(error.to_string()))
 }
 
 fn write_new_json<T: Serialize>(path: &Path, value: &T) -> UpdaterResult<()> {
     let bytes =
         serde_json::to_vec_pretty(value).map_err(|error| config_error(error.to_string()))?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(path)?;
+    if bytes.len() as u64 + 1 > MAX_ACTIVATION_JSON_BYTES {
+        return Err(config_error("activation JSON file limit exceeded"));
+    }
+    let mut output = open_plain_file(path, false, true, true)?;
     output.write_all(&bytes)?;
     output.write_all(b"\n")?;
     output.sync_all()?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallNoReplace {
+    Installed,
+    Existing,
+}
+
+#[cfg(not(target_os = "windows"))]
+fn install_file_no_replace(source: &Path, target: &Path) -> UpdaterResult<InstallNoReplace> {
+    match fs::hard_link(source, target) {
+        Ok(()) => Ok(InstallNoReplace::Installed),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            Ok(InstallNoReplace::Existing)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn install_file_no_replace(source: &Path, target: &Path) -> UpdaterResult<InstallNoReplace> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::{
+        Win32::Storage::FileSystem::{MOVEFILE_WRITE_THROUGH, MoveFileExW},
+        core::PCWSTR,
+    };
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let target = target
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    match unsafe {
+        MoveFileExW(
+            PCWSTR(source.as_ptr()),
+            PCWSTR(target.as_ptr()),
+            MOVEFILE_WRITE_THROUGH,
+        )
+    } {
+        Ok(()) => Ok(InstallNoReplace::Installed),
+        Err(error) if matches!(error.code().0 as u32, 0x8007_0050 | 0x8007_00b7) => {
+            Ok(InstallNoReplace::Existing)
+        }
+        Err(error) => Err(UpdaterError::Io(error.to_string())),
+    }
+}
+
+fn quarantine_plain_file(path: &Path, parent: &Path) -> UpdaterResult<PathBuf> {
+    let input = open_plain_file(path, true, false, false)?;
+    validate_opened_plain_file(path, parent, &input)?;
+    drop(input);
+    for _ in 0..16 {
+        let quarantine = parent.join(format!(
+            ".{}.{}.corrupt",
+            path.file_name().unwrap().to_string_lossy(),
+            Uuid::new_v4()
+        ));
+        match fs::hard_link(path, &quarantine) {
+            Ok(()) => {
+                sync_directory(parent)?;
+                fs::remove_file(path)?;
+                sync_directory(parent)?;
+                return Ok(quarantine);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(UpdaterError::Io(
+        "failed to quarantine invalid immutable snapshot".to_string(),
+    ))
+}
+
+fn remove_plain_file(path: &Path, parent: &Path) -> UpdaterResult<()> {
+    ensure_direct_child_of(path, parent)?;
+    let Some(metadata) = symlink_metadata_if_exists(path)? else {
+        return Ok(());
+    };
+    if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
+        return Err(config_error("managed pointer path is not a plain file"));
+    }
+    fs::remove_file(path)?;
+    sync_directory(parent)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -912,7 +1543,10 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::{
-        sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+        sync::{
+            Barrier,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
         thread,
     };
     use tempfile::TempDir;
@@ -1046,6 +1680,10 @@ mod tests {
             }
             Ok(())
         }
+
+        fn committed(&self, _checkpoint: RuntimeRepositoryPublishCheckpoint) {
+            self.hits.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     #[test]
@@ -1073,6 +1711,29 @@ mod tests {
     }
 
     #[test]
+    fn pre_current_failure_restores_an_existing_previous_pointer() {
+        let temp = TempDir::new().unwrap();
+        let hooks = Arc::new(FailingHooks::new(
+            RuntimeRepositoryPublishCheckpoint::BeforeCurrentReplace,
+        ));
+        let store = RuntimeRepositoryStore::open_with_hooks(temp.path(), hooks.clone()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        hooks.enabled.store(true, Ordering::SeqCst);
+
+        assert!(store.publish(&pair(&store, '3')).is_err());
+        assert_eq!(store.read_current().unwrap().unwrap(), second);
+        assert_eq!(
+            store
+                .read_pointer_file(&store.previous_path())
+                .unwrap()
+                .unwrap(),
+            first.pointer
+        );
+        assert!(!store.journal_path().exists());
+    }
+
+    #[test]
     fn rollback_atomically_switches_to_previous_and_retains_redo_pointer() {
         let temp = TempDir::new().unwrap();
         let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
@@ -1086,6 +1747,209 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(previous.generation, second.pointer.generation);
+    }
+
+    #[test]
+    fn idempotent_publish_preserves_real_previous_generation() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let retry = store.publish(&pair(&store, '2')).unwrap();
+
+        assert_eq!(retry, second);
+        assert_eq!(
+            store
+                .read_pointer_file(&store.previous_path())
+                .unwrap()
+                .unwrap()
+                .generation,
+            first.pointer.generation
+        );
+    }
+
+    #[test]
+    fn exact_current_cas_precedes_same_generation_idempotence() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let wrong_expected = "f".repeat(64);
+
+        assert!(
+            store
+                .publish_if_current(&pair(&store, '1'), Some(&wrong_expected))
+                .is_err()
+        );
+        assert_eq!(store.read_current().unwrap().unwrap(), first);
+    }
+
+    #[test]
+    fn independent_store_instances_serialize_and_enforce_absent_cas() {
+        let temp = TempDir::new().unwrap();
+        let first_store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let second_store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first_candidates = pair(&first_store, '1');
+        let second_candidates = pair(&second_store, '2');
+        let barrier = Arc::new(Barrier::new(3));
+
+        let first_barrier = barrier.clone();
+        let first = thread::spawn(move || {
+            first_barrier.wait();
+            first_store.publish_if_current(&first_candidates, None)
+        });
+        let second_barrier = barrier.clone();
+        let second = thread::spawn(move || {
+            second_barrier.wait();
+            second_store.publish_if_current(&second_candidates, None)
+        });
+        barrier.wait();
+        let results = [first.join().unwrap(), second.join().unwrap()];
+
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
+        assert!(
+            RuntimeRepositoryStore::open(temp.path())
+                .unwrap()
+                .read_current()
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn invalid_unreferenced_final_snapshot_is_quarantined_and_rebuilt() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let candidates = pair(&store, '3');
+        let generation = compute_runtime_repository_generation(
+            &candidate_entry(&candidates[0]),
+            &candidate_entry(&candidates[1]),
+        );
+        let snapshot_path = store
+            .root()
+            .join("snapshots")
+            .join(format!("{generation}.json"));
+        fs::write(&snapshot_path, b"{").unwrap();
+
+        let activation = store.publish(&candidates).unwrap();
+        assert_eq!(activation.pointer.generation, generation);
+        let quarantined = fs::read_dir(store.root().join("snapshots"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name().to_string_lossy().ends_with(".corrupt"));
+        assert!(quarantined);
+        assert_eq!(store.read_current().unwrap().unwrap(), activation);
+    }
+
+    #[test]
+    fn startup_rolls_forward_journal_between_previous_and_current() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let third = store.publish(&pair(&store, '3')).unwrap();
+        let mut journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Rollback,
+            phase: RuntimeRepositoryJournalPhase::PreviousReplaced,
+            old_previous: Some(second.pointer.clone()),
+            old_current: Some(third.pointer.clone()),
+            new_previous: Some(third.pointer.clone()),
+            new_current: second.pointer.clone(),
+        };
+        validate_journal(&journal).unwrap();
+        store.write_journal_atomically(&journal).unwrap();
+        store
+            .write_pointer_atomically(&store.previous_path(), &third.pointer)
+            .unwrap();
+        journal.phase = RuntimeRepositoryJournalPhase::PreviousReplaced;
+        store.write_journal_atomically(&journal).unwrap();
+        drop(store);
+
+        let recovered = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        assert_eq!(recovered.read_current().unwrap().unwrap(), second);
+        assert_eq!(
+            recovered
+                .read_pointer_file(&recovered.previous_path())
+                .unwrap()
+                .unwrap(),
+            third.pointer
+        );
+        assert!(!recovered.journal_path().exists());
+        assert_ne!(first.pointer.generation, second.pointer.generation);
+    }
+
+    #[test]
+    fn successful_error_recovery_means_the_journal_was_committed() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Rollback,
+            phase: RuntimeRepositoryJournalPhase::PreviousReplaced,
+            old_previous: Some(first.pointer.clone()),
+            old_current: Some(second.pointer.clone()),
+            new_previous: Some(second.pointer.clone()),
+            new_current: first.pointer.clone(),
+        };
+        store.write_journal_atomically(&journal).unwrap();
+        store
+            .write_pointer_atomically(&store.previous_path(), &second.pointer)
+            .unwrap();
+
+        store
+            .recover_after_transaction_error(UpdaterError::Io("injected".into()))
+            .unwrap();
+        assert_eq!(store.read_current().unwrap().unwrap(), first);
+        assert_eq!(
+            store
+                .read_pointer_file(&store.previous_path())
+                .unwrap()
+                .unwrap(),
+            second.pointer
+        );
+    }
+
+    #[test]
+    fn bounded_reader_rejects_growth_and_path_replacement_on_open_handle() {
+        let temp = TempDir::new().unwrap();
+        let parent = temp.path().canonicalize().unwrap();
+        let path = parent.join("state.json");
+        fs::write(&path, b"{}").unwrap();
+        let opened = open_plain_file(&path, true, false, false).unwrap();
+        let mut append = OpenOptions::new().append(true).open(&path).unwrap();
+        append
+            .write_all(&vec![b' '; MAX_ACTIVATION_JSON_BYTES as usize + 1])
+            .unwrap();
+        drop(append);
+        assert!(
+            read_bounded_json_from_open_file::<serde_json::Value>(&path, &parent, opened).is_err()
+        );
+
+        fs::write(&path, b"{}").unwrap();
+        let opened = open_plain_file(&path, true, false, false).unwrap();
+        let replacement = parent.join("replacement.json");
+        fs::write(&replacement, b"{\"replacement\":true}").unwrap();
+        assert!(
+            read_bounded_json_from_open_file::<serde_json::Value>(&replacement, &parent, opened)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn committed_notification_cannot_report_post_commit_failure() {
+        let temp = TempDir::new().unwrap();
+        let hooks = Arc::new(FailingHooks::new(
+            RuntimeRepositoryPublishCheckpoint::CurrentReplaced,
+        ));
+        hooks.enabled.store(true, Ordering::SeqCst);
+        let store = RuntimeRepositoryStore::open_with_hooks(temp.path(), hooks.clone()).unwrap();
+
+        let activation = store.publish(&pair(&store, '4')).unwrap();
+        assert_eq!(store.read_current().unwrap().unwrap(), activation);
+        assert!(hooks.hits.load(Ordering::SeqCst) >= 5);
     }
 
     #[test]
