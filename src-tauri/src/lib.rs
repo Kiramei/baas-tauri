@@ -30,8 +30,8 @@ use crate::mobile_commands::{
 };
 use crate::notifier_commands::baas_notify;
 use crate::pipe_commands::{
-    backend_pipe_close, backend_pipe_close_all, backend_pipe_open, backend_pipe_send_bytes,
-    backend_pipe_send_json, BackendPipeManager,
+    backend_pipe_cancel_open, backend_pipe_close, backend_pipe_close_all, backend_pipe_open,
+    backend_pipe_send_bytes, backend_pipe_send_json, BackendPipeManager,
 };
 use crate::system_logs::{
     initialize_system_logs, install_panic_logging, system_log, system_logs_clear,
@@ -91,6 +91,7 @@ pub fn run() {
             #[cfg(not(mobile))]
             backend_cpp_transport_start,
             backend_pipe_open,
+            backend_pipe_cancel_open,
             backend_pipe_send_json,
             backend_pipe_send_bytes,
             backend_pipe_close,

@@ -1,0 +1,6 @@
+[[permission]]
+identifier = "allow-cpp-transport-command"
+description = "Allows the desktop main webview to explicitly start the packaged C++ backend."
+commands.allow = [
+  "backend_cpp_transport_start",
+]

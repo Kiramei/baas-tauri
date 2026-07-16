@@ -5,6 +5,48 @@ startup and `backend_transport_start` command continue to launch Python. C++
 Pipe startup remains unavailable until the production application owns a real
 Pipe listener.
 
+Frontend integrations opt in with
+`startCppBackendTransport("websocket" | "pipe")`. The existing
+`startBackendTransport(mode)` call deliberately defaults to Python; merely
+selecting Pipe transport never changes the backend implementation. Until the
+C++ process owner enables its production Pipe listener, the explicit C++ Pipe
+request fails closed instead of falling back to Python.
+The Tauri ACL exposes `backend_cpp_transport_start` only through the desktop
+`allow-cpp-transport-command` permission; Android and the broader legacy
+command permission do not inherit it.
+
+## Pipe connection ownership
+
+`backend_pipe_open` returns an opaque decimal-string connection token. The
+frontend passes that token to every send and close command. Reconfiguring or
+closing the Pipe manager advances its generation, so an older asynchronous
+open cannot publish itself after the endpoint changed. Reader completion and
+stale frontend cleanup remove a connection only when both its channel key and
+token still match; they cannot remove a newer connection that reused the same
+key. Close, reconfigure, reader termination, and replacement all flip a shared
+closing gate before removing the entry. A sender checks that gate again after
+acquiring the serialized writer, so no business frame can follow the close
+frame and a queued stale send cannot escape after the close boundary.
+
+Every open also carries a client-generated canonical UUID. Closing while the
+handshake is pending immediately calls `backend_pipe_cancel_open` with that
+UUID. Cancellation covers connection retry, request write, and `open_ok` read,
+drops the socket promptly, and is backed by a ten-second total handshake
+deadline. A one-entry-per-key cancellation tombstone handles IPC reordering
+where cancel arrives before open; a different attempt UUID is never cancelled.
+
+The Tauri connection queues frames that arrive before the open invocation
+settles, publishes `onOpen`, and then drains that queue in order. Closing while
+the invocation is pending invalidates the frontend attempt; if the invocation
+later succeeds, its exact returned token is closed without reviving the client.
+The pre-open queue is bounded to 256 frames and 64 MiB plus one frame header;
+overflow emits one error and fails closed.
+
+Same-key replacement, reconfiguration, and close-all send exactly one terminal
+frame to the retired frontend channel through the shared terminal gate before
+aborting its reader. A reader failure racing retirement cannot duplicate the
+terminal or remove the replacement token.
+
 ## Executable resolution
 
 `backend_cpp_transport_start("websocket")` does not search `PATH` and does not

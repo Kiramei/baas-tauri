@@ -18,6 +18,7 @@ commands.allow = [
   "updater_reset_backend_auth_and_restart",
   "backend_transport_start",
   "backend_pipe_open",
+  "backend_pipe_cancel_open",
   "backend_pipe_send_json",
   "backend_pipe_send_bytes",
   "backend_pipe_close",
