@@ -1,8 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { validateServiceExecutable } from "./stage-cpp-service.mjs";
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -32,10 +32,50 @@ async function strictJson(port, path, method = "GET") {
   return { status: response.status, value: JSON.parse(new TextDecoder().decode(bytes)) };
 }
 
-export async function smokeCppService(executable = process.env.BAAS_CPP_SERVICE_PATH) {
+export async function prepareCppServiceProjectRoot(
+  projectRoot,
+  remoteJar = process.env.BAAS_CPP_SERVICE_REMOTE_JAR
+) {
+  if (!remoteJar) {
+    throw new Error("BAAS_CPP_SERVICE_REMOTE_JAR is required for real service smoke");
+  }
+  if (!isAbsolute(remoteJar)) {
+    throw new Error(`BAAS C++ remote jar path must be absolute: ${remoteJar}`);
+  }
+  if (basename(remoteJar) !== "scrcpy-server.jar") {
+    throw new Error(`BAAS C++ remote jar must be named exactly scrcpy-server.jar: ${remoteJar}`);
+  }
+  const canonicalJar = await realpath(remoteJar);
+  const metadata = await stat(canonicalJar);
+  if (!metadata.isFile()) throw new Error(`BAAS C++ remote jar is not a file: ${canonicalJar}`);
+
+  const source = join(projectRoot, "config", "source");
+  const remote = join(projectRoot, "service", "remote");
+  await mkdir(source, { recursive: true });
+  await mkdir(remote, { recursive: true });
+  await Promise.all([
+    writeFile(join(source, "config.json"), '{"name":"Smoke","server":"JP"}'),
+    writeFile(join(source, "event.json"), "[]"),
+    writeFile(join(projectRoot, "config", "static.json"), '{"version":1,"source":"tauri-smoke"}'),
+    writeFile(join(projectRoot, "setup.toml"), "[general]\nchannel = 'stable'\n"),
+    copyFile(canonicalJar, join(remote, "scrcpy-server.jar")),
+  ]);
+  return canonicalJar;
+}
+
+export async function smokeCppService(
+  executable = process.env.BAAS_CPP_SERVICE_PATH,
+  remoteJar = process.env.BAAS_CPP_SERVICE_REMOTE_JAR
+) {
   if (!executable) throw new Error("BAAS_CPP_SERVICE_PATH is required for real service smoke");
   const canonical = await validateServiceExecutable(executable);
   const projectRoot = await mkdtemp(join(tmpdir(), "baas-cpp-service-smoke-"));
+  try {
+    await prepareCppServiceProjectRoot(projectRoot, remoteJar);
+  } catch (error) {
+    await rm(projectRoot, { recursive: true, force: true });
+    throw error;
+  }
   const port = await availablePort();
   const child = spawn(
     canonical,

@@ -2503,6 +2503,40 @@ fn mirrorc_validation_message(
 mod tests {
     use super::*;
 
+    fn prepare_real_cpp_service_project(project_root: &Path) {
+        let remote_jar = std::env::var_os("BAAS_CPP_SERVICE_REMOTE_JAR")
+            .map(PathBuf::from)
+            .expect("BAAS_CPP_SERVICE_REMOTE_JAR must accompany BAAS_CPP_SERVICE_PATH");
+        assert!(remote_jar.is_absolute());
+        assert_eq!(
+            remote_jar.file_name().and_then(|name| name.to_str()),
+            Some("scrcpy-server.jar")
+        );
+        assert!(remote_jar.is_file());
+
+        let source = project_root.join("config").join("source");
+        let remote = project_root.join("service").join("remote");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&remote).unwrap();
+        fs::write(
+            source.join("config.json"),
+            br#"{"name":"Smoke","server":"JP"}"#,
+        )
+        .unwrap();
+        fs::write(source.join("event.json"), b"[]").unwrap();
+        fs::write(
+            project_root.join("config").join("static.json"),
+            br#"{"version":1,"source":"tauri-rust-smoke"}"#,
+        )
+        .unwrap();
+        fs::write(
+            project_root.join("setup.toml"),
+            b"[general]\nchannel = 'stable'\n",
+        )
+        .unwrap();
+        fs::copy(remote_jar, remote.join("scrcpy-server.jar")).unwrap();
+    }
+
     #[test]
     fn cpp_transport_command_has_a_desktop_only_acl_chain() {
         const CPP_PERMISSION: &str =
@@ -2682,6 +2716,7 @@ mod tests {
         let executable =
             validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
         let project_root = tempfile::tempdir().unwrap();
+        prepare_real_cpp_service_project(project_root.path());
         let port = available_backend_port().unwrap();
         let mut child = ChildGuard(
             Command::new(executable)
@@ -2747,6 +2782,7 @@ mod tests {
         let executable =
             validate_cpp_service_executable(PathBuf::from(executable), "test").unwrap();
         let project_root = tempfile::tempdir().unwrap();
+        prepare_real_cpp_service_project(project_root.path());
         let mut config = UpdaterConfig::default();
         config.paths.baas_root_path = project_root.path().to_string_lossy().into_owned();
         let port = available_backend_port().unwrap();
