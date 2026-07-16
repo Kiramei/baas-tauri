@@ -23,13 +23,13 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, OpenOptions},
-    io::{self, Read, Write},
+    io::{self, Cursor, Read, Write},
     path::Path,
     sync::{
         Arc, Mutex, OnceLock,
         atomic::{AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use url::Url;
 use uuid::Uuid;
@@ -37,6 +37,8 @@ use uuid::Uuid;
 const FETCHED_REFERENCE: &str = "refs/baas/runtime";
 const RESTRICTED_HTTPS_SCHEME: &str = "baas-https";
 const MAX_UPLOAD_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_ADVERTISEMENT_BYTES_CEILING: u64 = 64 * 1024 * 1024;
+const MAX_ADVERTISED_REFS_CEILING: usize = 100_000;
 static RESTRICTED_HTTPS_REGISTRATION: OnceLock<Result<(), ()>> = OnceLock::new();
 static RESTRICTED_HTTPS_CONTEXTS: OnceLock<Mutex<HashMap<String, Arc<HttpsTransportContext>>>> =
     OnceLock::new();
@@ -45,9 +47,17 @@ static RESTRICTED_HTTPS_CONTEXTS: OnceLock<Mutex<HashMap<String, Arc<HttpsTransp
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeRepositoryLimits {
     pub connect_timeout_ms: u32,
-    pub server_timeout_ms: u32,
+    /// Maximum wait for response headers or for one body read to make progress.
+    pub read_timeout_ms: u32,
+    pub max_advertisement_bytes: u64,
+    pub max_advertised_refs: usize,
     pub max_fetch_bytes: u64,
     pub max_fetch_objects: usize,
+    /// Absolute ceiling for one fetch, distinct from the per-read stall timeout.
+    pub fetch_deadline_ms: u32,
+    pub max_odb_object_bytes: u64,
+    pub max_odb_total_bytes: u64,
+    pub odb_validation_timeout_ms: u32,
     pub max_commit_bytes: u64,
     pub max_tree_bytes: u64,
     pub max_tag_bytes: u64,
@@ -65,9 +75,15 @@ impl Default for RuntimeRepositoryLimits {
     fn default() -> Self {
         Self {
             connect_timeout_ms: 15_000,
-            server_timeout_ms: 15_000,
+            read_timeout_ms: 15_000,
+            max_advertisement_bytes: 4 * 1024 * 1024,
+            max_advertised_refs: 8_192,
             max_fetch_bytes: 3 * 1024 * 1024 * 1024,
             max_fetch_objects: 200_000,
+            fetch_deadline_ms: 30 * 60 * 1_000,
+            max_odb_object_bytes: 256 * 1024 * 1024,
+            max_odb_total_bytes: 3 * 1024 * 1024 * 1024,
+            odb_validation_timeout_ms: 30_000,
             max_commit_bytes: 1024 * 1024,
             max_tree_bytes: 16 * 1024 * 1024,
             max_tag_bytes: 1024 * 1024,
@@ -117,7 +133,7 @@ impl RuntimeRepositoryGit2Downloader {
         Duration::from_millis(u64::from(
             self.limits
                 .connect_timeout_ms
-                .max(self.limits.server_timeout_ms),
+                .max(self.limits.read_timeout_ms),
         ))
     }
 
@@ -156,6 +172,11 @@ impl RuntimeRepositoryGit2Downloader {
     ) -> UpdaterResult<RuntimeRepositoryFetchMetadata> {
         self.validate_request(request)?;
         check_cancelled(stop)?;
+        let fetch_deadline = Instant::now()
+            .checked_add(Duration::from_millis(u64::from(
+                self.limits.fetch_deadline_ms,
+            )))
+            .ok_or_else(|| limit_error("runtime repository fetch deadline is invalid"))?;
 
         let transport = staging_root.join(".t");
         fs::create_dir(&transport).map_err(|_| io_error("failed to create transport workspace"))?;
@@ -166,6 +187,7 @@ impl RuntimeRepositoryGit2Downloader {
                 &request.url,
                 self.limits,
                 stop,
+                fetch_deadline,
             )?),
             #[cfg(test)]
             TransportPolicy::LocalTestOnly => None,
@@ -176,6 +198,7 @@ impl RuntimeRepositoryGit2Downloader {
 
         {
             let mut fetch_limit_exceeded = false;
+            let mut fetch_deadline_exceeded = false;
             let mut callbacks = RemoteCallbacks::new();
             callbacks.transfer_progress(|progress| {
                 let received_bytes = u64::try_from(progress.received_bytes()).unwrap_or(u64::MAX);
@@ -184,6 +207,10 @@ impl RuntimeRepositoryGit2Downloader {
                     || observed_objects > self.limits.max_fetch_objects
                 {
                     fetch_limit_exceeded = true;
+                    return false;
+                }
+                if Instant::now() >= fetch_deadline {
+                    fetch_deadline_exceeded = true;
                     return false;
                 }
                 !stop.is_cancelled()
@@ -207,12 +234,18 @@ impl RuntimeRepositoryGit2Downloader {
                     Err(UpdaterError::Cancelled)
                 } else if fetch_limit_exceeded {
                     Err(limit_error("runtime repository fetch limit exceeded"))
+                } else if fetch_deadline_exceeded || Instant::now() >= fetch_deadline {
+                    Err(limit_error("runtime repository fetch deadline exceeded"))
                 } else {
                     Err(git_error("failed to fetch advertised reference"))
                 };
             }
         }
+        if Instant::now() >= fetch_deadline {
+            return Err(limit_error("runtime repository fetch deadline exceeded"));
+        }
         check_cancelled(stop)?;
+        validate_fetched_odb(&repository, self.limits, stop, fetch_deadline)?;
 
         let reference = repository
             .find_reference(FETCHED_REFERENCE)
@@ -275,8 +308,11 @@ struct HttpsTransportContext {
     url: Url,
     client: Client,
     stop: RuntimeRepositoryStopToken,
-    max_response_bytes: u64,
-    response_bytes: AtomicU64,
+    max_advertisement_bytes: u64,
+    max_advertised_refs: usize,
+    max_pack_response_bytes: u64,
+    pack_response_bytes: AtomicU64,
+    fetch_deadline: Instant,
 }
 
 struct RestrictedHttpsContextGuard {
@@ -289,6 +325,7 @@ impl RestrictedHttpsContextGuard {
         original_url: &str,
         limits: RuntimeRepositoryLimits,
         stop: &RuntimeRepositoryStopToken,
+        fetch_deadline: Instant,
     ) -> UpdaterResult<Self> {
         register_restricted_https_transport()?;
         let url = Url::parse(original_url)
@@ -298,7 +335,10 @@ impl RestrictedHttpsContextGuard {
             .redirect(Policy::none())
             .no_proxy()
             .connect_timeout(Duration::from_millis(u64::from(limits.connect_timeout_ms)))
-            .timeout(Duration::from_millis(u64::from(limits.server_timeout_ms)))
+            // reqwest's blocking client reapplies this duration while waiting
+            // for response headers and on every Response::read call. It is a
+            // no-progress I/O timeout, not one deadline for the whole body.
+            .timeout(Duration::from_millis(u64::from(limits.read_timeout_ms)))
             .build()
             .map_err(|_| git_error("failed to initialize restricted HTTPS transport"))?;
         let key = Uuid::new_v4().simple().to_string();
@@ -306,8 +346,11 @@ impl RestrictedHttpsContextGuard {
             url,
             client,
             stop: stop.clone(),
-            max_response_bytes: limits.max_fetch_bytes,
-            response_bytes: AtomicU64::new(0),
+            max_advertisement_bytes: limits.max_advertisement_bytes,
+            max_advertised_refs: limits.max_advertised_refs,
+            max_pack_response_bytes: limits.max_fetch_bytes,
+            pack_response_bytes: AtomicU64::new(0),
+            fetch_deadline,
         });
         restricted_https_contexts()
             .lock()
@@ -384,6 +427,11 @@ impl SmartSubtransport for RestrictedHttpsSubtransport {
         if self.context.stop.is_cancelled() {
             return Err(git2::Error::from_str("runtime repository fetch cancelled"));
         }
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(git2::Error::from_str(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         match service {
             Service::UploadPackLs => {
                 let mut endpoint = git_service_url(&self.context.url, "info/refs");
@@ -398,11 +446,18 @@ impl SmartSubtransport for RestrictedHttpsSubtransport {
                 validate_git_response(
                     &response,
                     "application/x-git-upload-pack-advertisement",
-                    self.context.max_response_bytes,
+                    self.context.max_advertisement_bytes,
                 )?;
-                Ok(Box::new(RestrictedHttpsStream::response(
-                    Arc::clone(&self.context),
+                let advertisement = read_and_validate_advertisement(
                     response,
+                    self.context.max_advertisement_bytes,
+                    self.context.max_advertised_refs,
+                    &self.context.stop,
+                    self.context.fetch_deadline,
+                )?;
+                Ok(Box::new(RestrictedHttpsStream::buffered(
+                    Arc::clone(&self.context),
+                    advertisement,
                 )))
             }
             Service::UploadPack => Ok(Box::new(RestrictedHttpsStream::request(Arc::clone(
@@ -421,6 +476,7 @@ impl SmartSubtransport for RestrictedHttpsSubtransport {
 
 enum RestrictedHttpsStreamState {
     Response(Response),
+    Buffered(Cursor<Vec<u8>>),
     Request(Vec<u8>),
 }
 
@@ -430,10 +486,10 @@ struct RestrictedHttpsStream {
 }
 
 impl RestrictedHttpsStream {
-    fn response(context: Arc<HttpsTransportContext>, response: Response) -> Self {
+    fn buffered(context: Arc<HttpsTransportContext>, bytes: Vec<u8>) -> Self {
         Self {
             context,
-            state: RestrictedHttpsStreamState::Response(response),
+            state: RestrictedHttpsStreamState::Buffered(Cursor::new(bytes)),
         }
     }
 
@@ -451,6 +507,11 @@ impl RestrictedHttpsStream {
         if self.context.stop.is_cancelled() {
             return Err(io::Error::other("runtime repository fetch cancelled"));
         }
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         let endpoint = git_service_url(&self.context.url, "git-upload-pack");
         let request_body = std::mem::take(body);
         let response = self
@@ -462,10 +523,15 @@ impl RestrictedHttpsStream {
             .body(request_body)
             .send()
             .map_err(|_| io::Error::other("restricted HTTPS request failed"))?;
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         validate_git_response(
             &response,
             "application/x-git-upload-pack-result",
-            self.context.max_response_bytes,
+            self.context.max_pack_response_bytes,
         )
         .map_err(|_| io::Error::other("restricted HTTPS response is invalid"))?;
         self.state = RestrictedHttpsStreamState::Response(response);
@@ -478,14 +544,22 @@ impl Read for RestrictedHttpsStream {
         if self.context.stop.is_cancelled() {
             return Err(io::Error::other("runtime repository fetch cancelled"));
         }
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         if matches!(self.state, RestrictedHttpsStreamState::Request(_)) {
             self.send_request()?;
+        }
+        if let RestrictedHttpsStreamState::Buffered(bytes) = &mut self.state {
+            return bytes.read(buffer);
         }
         let RestrictedHttpsStreamState::Response(response) = &mut self.state else {
             unreachable!("request stream becomes a response before reading")
         };
-        let used = self.context.response_bytes.load(Ordering::Relaxed);
-        if used >= self.context.max_response_bytes {
+        let used = self.context.pack_response_bytes.load(Ordering::Relaxed);
+        if used >= self.context.max_pack_response_bytes {
             let mut extra = [0_u8; 1];
             return match response.read(&mut extra) {
                 Ok(0) => Ok(0),
@@ -495,19 +569,24 @@ impl Read for RestrictedHttpsStream {
                 Err(_) => Err(io::Error::other("restricted HTTPS response read failed")),
             };
         }
-        let remaining = self.context.max_response_bytes - used;
+        let remaining = self.context.max_pack_response_bytes - used;
         let allowed = usize::try_from(remaining)
             .unwrap_or(usize::MAX)
             .min(buffer.len());
         let read = response
             .read(&mut buffer[..allowed])
             .map_err(|_| io::Error::other("restricted HTTPS response read failed"))?;
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         let read_u64 = u64::try_from(read).unwrap_or(u64::MAX);
         let previous = self
             .context
-            .response_bytes
+            .pack_response_bytes
             .fetch_add(read_u64, Ordering::Relaxed);
-        if previous.saturating_add(read_u64) > self.context.max_response_bytes {
+        if previous.saturating_add(read_u64) > self.context.max_pack_response_bytes {
             return Err(io::Error::other(
                 "runtime repository HTTPS response limit exceeded",
             ));
@@ -524,6 +603,11 @@ impl Write for RestrictedHttpsStream {
         if self.context.stop.is_cancelled() {
             return Err(io::Error::other("runtime repository fetch cancelled"));
         }
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         let next_len = body
             .len()
             .checked_add(buffer.len())
@@ -532,6 +616,11 @@ impl Write for RestrictedHttpsStream {
             return Err(io::Error::other("Git upload request limit exceeded"));
         }
         body.extend_from_slice(buffer);
+        if Instant::now() >= self.context.fetch_deadline {
+            return Err(io::Error::other(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
         Ok(buffer.len())
     }
 
@@ -573,6 +662,96 @@ fn validate_git_response(
     {
         return Err(git2::Error::from_str(
             "runtime repository HTTPS response limit exceeded",
+        ));
+    }
+    Ok(())
+}
+
+fn read_and_validate_advertisement(
+    mut response: Response,
+    max_bytes: u64,
+    max_refs: usize,
+    stop: &RuntimeRepositoryStopToken,
+    deadline: Instant,
+) -> Result<Vec<u8>, git2::Error> {
+    let mut bytes = Vec::new();
+    let mut buffer = [0_u8; 16 * 1024];
+    loop {
+        if stop.is_cancelled() {
+            return Err(git2::Error::from_str("runtime repository fetch cancelled"));
+        }
+        if Instant::now() >= deadline {
+            return Err(git2::Error::from_str(
+                "runtime repository fetch deadline exceeded",
+            ));
+        }
+        let read = response
+            .read(&mut buffer)
+            .map_err(|_| git2::Error::from_str("restricted HTTPS advertisement read failed"))?;
+        if read == 0 {
+            break;
+        }
+        let next = u64::try_from(bytes.len())
+            .unwrap_or(u64::MAX)
+            .saturating_add(u64::try_from(read).unwrap_or(u64::MAX));
+        if next > max_bytes {
+            return Err(git2::Error::from_str(
+                "runtime repository advertisement byte limit exceeded",
+            ));
+        }
+        bytes.extend_from_slice(&buffer[..read]);
+    }
+    validate_advertisement_pkt_lines(&bytes, max_refs)?;
+    Ok(bytes)
+}
+
+fn validate_advertisement_pkt_lines(bytes: &[u8], max_refs: usize) -> Result<(), git2::Error> {
+    let mut offset = 0usize;
+    let mut saw_service = false;
+    let mut refs = 0usize;
+    while offset < bytes.len() {
+        let header = bytes
+            .get(offset..offset.saturating_add(4))
+            .ok_or_else(|| git2::Error::from_str("runtime repository advertisement is invalid"))?;
+        let header = std::str::from_utf8(header)
+            .map_err(|_| git2::Error::from_str("runtime repository advertisement is invalid"))?;
+        let length = usize::from_str_radix(header, 16)
+            .map_err(|_| git2::Error::from_str("runtime repository advertisement is invalid"))?;
+        offset += 4;
+        if length <= 2 {
+            continue;
+        }
+        if length < 4 {
+            return Err(git2::Error::from_str(
+                "runtime repository advertisement is invalid",
+            ));
+        }
+        let payload_length = length - 4;
+        let payload = bytes
+            .get(offset..offset.saturating_add(payload_length))
+            .ok_or_else(|| git2::Error::from_str("runtime repository advertisement is invalid"))?;
+        offset += payload_length;
+        if !saw_service {
+            if !payload.starts_with(b"# service=git-upload-pack\n") {
+                return Err(git2::Error::from_str(
+                    "runtime repository advertisement service is invalid",
+                ));
+            }
+            saw_service = true;
+            continue;
+        }
+        refs = refs
+            .checked_add(1)
+            .ok_or_else(|| git2::Error::from_str("runtime repository ref limit exceeded"))?;
+        if refs > max_refs {
+            return Err(git2::Error::from_str(
+                "runtime repository ref limit exceeded",
+            ));
+        }
+    }
+    if !saw_service {
+        return Err(git2::Error::from_str(
+            "runtime repository advertisement service is missing",
         ));
     }
     Ok(())
@@ -741,6 +920,68 @@ impl<'a> MaterializationState<'a> {
             self.manifest_sha256 = Some(sha256_hex(bytes));
         }
     }
+}
+
+fn validate_fetched_odb(
+    repository: &Repository,
+    limits: RuntimeRepositoryLimits,
+    stop: &RuntimeRepositoryStopToken,
+    fetch_deadline: Instant,
+) -> UpdaterResult<()> {
+    let odb = repository
+        .odb()
+        .map_err(|_| git_error("failed to inspect fetched object database"))?;
+    let odb_deadline = Instant::now()
+        .checked_add(Duration::from_millis(u64::from(
+            limits.odb_validation_timeout_ms,
+        )))
+        .ok_or_else(|| limit_error("runtime repository object validation deadline is invalid"))?;
+    let deadline = fetch_deadline.min(odb_deadline);
+    let mut objects = 0usize;
+    let mut total_bytes = 0u64;
+    let mut failure = None;
+    let scan = odb.foreach(|oid| {
+        let result = (|| {
+            check_cancelled(stop)?;
+            if Instant::now() >= deadline {
+                return Err(limit_error(
+                    "runtime repository object validation deadline exceeded",
+                ));
+            }
+            objects = objects
+                .checked_add(1)
+                .ok_or_else(|| limit_error("runtime repository object limit exceeded"))?;
+            if objects > limits.max_fetch_objects {
+                return Err(limit_error("runtime repository object limit exceeded"));
+            }
+            let (size, _) = odb
+                .read_header(*oid)
+                .map_err(|_| git_error("failed to inspect fetched object header"))?;
+            let size = u64::try_from(size)
+                .map_err(|_| limit_error("runtime repository object size limit exceeded"))?;
+            if size > limits.max_odb_object_bytes {
+                return Err(limit_error("runtime repository object size limit exceeded"));
+            }
+            total_bytes = total_bytes
+                .checked_add(size)
+                .ok_or_else(|| limit_error("runtime repository object byte limit exceeded"))?;
+            if total_bytes > limits.max_odb_total_bytes {
+                return Err(limit_error("runtime repository object byte limit exceeded"));
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            failure = Some(error);
+            false
+        } else {
+            true
+        }
+    });
+    if let Some(error) = failure {
+        return Err(error);
+    }
+    scan.map_err(|_| git_error("failed to enumerate fetched object database"))?;
+    Ok(())
 }
 
 fn peel_bounded_commit(
@@ -1039,11 +1280,19 @@ fn validate_https_url(value: &str) -> UpdaterResult<()> {
 
 fn validate_limits(limits: RuntimeRepositoryLimits) -> UpdaterResult<()> {
     if limits.connect_timeout_ms == 0
-        || limits.server_timeout_ms == 0
+        || limits.read_timeout_ms == 0
         || limits.connect_timeout_ms > i32::MAX as u32
-        || limits.server_timeout_ms > i32::MAX as u32
+        || limits.read_timeout_ms > i32::MAX as u32
+        || limits.max_advertisement_bytes == 0
+        || limits.max_advertisement_bytes > MAX_ADVERTISEMENT_BYTES_CEILING
+        || limits.max_advertised_refs == 0
+        || limits.max_advertised_refs > MAX_ADVERTISED_REFS_CEILING
         || limits.max_fetch_bytes == 0
         || limits.max_fetch_objects == 0
+        || limits.fetch_deadline_ms == 0
+        || limits.max_odb_object_bytes == 0
+        || limits.max_odb_total_bytes < limits.max_odb_object_bytes
+        || limits.odb_validation_timeout_ms == 0
         || limits.max_commit_bytes == 0
         || limits.max_tree_bytes == 0
         || limits.max_tag_bytes == 0
@@ -1056,6 +1305,10 @@ fn validate_limits(limits: RuntimeRepositoryLimits) -> UpdaterResult<()> {
         || limits.max_total_bytes == 0
         || limits.max_manifest_bytes == 0
         || limits.max_manifest_bytes > limits.max_file_bytes
+        || limits.max_odb_object_bytes < limits.max_file_bytes
+        || limits.max_odb_object_bytes < limits.max_tree_bytes
+        || limits.max_odb_object_bytes < limits.max_commit_bytes
+        || limits.max_odb_object_bytes < limits.max_tag_bytes
     {
         return Err(config_error("runtime repository limits are invalid"));
     }
@@ -1276,6 +1529,143 @@ mod tests {
         }
     }
 
+    fn advertisement_pkt(payload: &[u8]) -> Vec<u8> {
+        let mut result = format!("{:04x}", payload.len() + 4).into_bytes();
+        result.extend_from_slice(payload);
+        result
+    }
+
+    #[test]
+    fn advertisement_has_independent_byte_and_ref_limits() {
+        let mut advertisement = advertisement_pkt(b"# service=git-upload-pack\n");
+        advertisement.extend_from_slice(b"0000");
+        advertisement.extend_from_slice(&advertisement_pkt(
+            format!("{} refs/heads/main\0capability\n", "a".repeat(40)).as_bytes(),
+        ));
+        advertisement.extend_from_slice(&advertisement_pkt(
+            format!("{} refs/heads/other\n", "b".repeat(40)).as_bytes(),
+        ));
+        advertisement.extend_from_slice(b"0000");
+        assert!(validate_advertisement_pkt_lines(&advertisement, 2).is_ok());
+        assert!(validate_advertisement_pkt_lines(&advertisement, 1).is_err());
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = advertisement.clone();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).unwrap();
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/x-git-upload-pack-advertisement\r\nConnection: close\r\n\r\n",
+                )
+                .unwrap();
+            socket.write_all(&body).unwrap();
+        });
+        let response = Client::builder()
+            .no_proxy()
+            .connect_timeout(Duration::from_secs(1))
+            .timeout(Duration::from_secs(1))
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/info/refs"))
+            .send()
+            .unwrap();
+        assert!(
+            read_and_validate_advertisement(
+                response,
+                u64::try_from(advertisement.len() - 1).unwrap(),
+                2,
+                &RuntimeRepositoryStopToken::default(),
+                Instant::now() + Duration::from_secs(1),
+            )
+            .is_err()
+        );
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn slow_advertisement_obeys_the_absolute_fetch_deadline() {
+        let advertisement = advertisement_pkt(b"# service=git-upload-pack\n");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = advertisement.clone();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).unwrap();
+            socket
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
+            for byte in body {
+                thread::sleep(Duration::from_millis(20));
+                if socket.write_all(&[byte]).is_err() {
+                    break;
+                }
+                let _ = socket.flush();
+            }
+        });
+        let response = Client::builder()
+            .no_proxy()
+            .connect_timeout(Duration::from_millis(100))
+            .timeout(Duration::from_millis(100))
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/info/refs"))
+            .send()
+            .unwrap();
+        let error = read_and_validate_advertisement(
+            response,
+            u64::try_from(advertisement.len()).unwrap(),
+            1,
+            &RuntimeRepositoryStopToken::default(),
+            Instant::now() + Duration::from_millis(55),
+        )
+        .unwrap_err();
+        assert!(error.message().contains("fetch deadline exceeded"));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn blocking_read_timeout_resets_when_a_slow_response_keeps_progressing() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).unwrap();
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n")
+                .unwrap();
+            for byte in b"slow" {
+                thread::sleep(Duration::from_millis(70));
+                socket.write_all(std::slice::from_ref(byte)).unwrap();
+                socket.flush().unwrap();
+            }
+        });
+        let client = Client::builder()
+            .no_proxy()
+            .connect_timeout(Duration::from_millis(120))
+            .timeout(Duration::from_millis(120))
+            .build()
+            .unwrap();
+        let started = Instant::now();
+        let mut response = client.get(format!("http://{address}/slow")).send().unwrap();
+        let mut body = Vec::new();
+        response.read_to_end(&mut body).unwrap();
+        let elapsed = started.elapsed();
+        server.join().unwrap();
+        assert_eq!(body, b"slow");
+        assert!(elapsed >= Duration::from_millis(250));
+    }
+
     #[test]
     fn restricted_https_transport_has_bounded_stalls_and_cleans_its_context() {
         fn stalled_fetch(
@@ -1309,7 +1699,7 @@ mod tests {
             fs::create_dir(&staging).unwrap();
             let limits = RuntimeRepositoryLimits {
                 connect_timeout_ms: 150,
-                server_timeout_ms: 150,
+                read_timeout_ms: 150,
                 ..Default::default()
             };
             let downloader = RuntimeRepositoryGit2Downloader::new(limits).unwrap();
@@ -1646,6 +2036,50 @@ mod tests {
                 0
             );
         }
+    }
+
+    #[test]
+    fn fetched_odb_rejects_large_uncompressed_objects_before_materialization() {
+        let temp = TempDir::new().unwrap();
+        let remote = temp.path().join("remote.git");
+        let payload = vec![0_u8; 256 * 1024];
+        let manifest = tree_manifest(&[("payload.bin", payload.as_slice())]);
+        let commit = commit_repo(
+            &remote,
+            "refs/heads/main",
+            &tree([
+                ("manifest.json", blob(&manifest)),
+                ("payload.bin", blob(&payload)),
+            ]),
+        );
+        let limits = RuntimeRepositoryLimits {
+            max_odb_object_bytes: 64 * 1024,
+            max_odb_total_bytes: 1024 * 1024,
+            max_commit_bytes: 64 * 1024,
+            max_tree_bytes: 64 * 1024,
+            max_tag_bytes: 64 * 1024,
+            max_file_bytes: 64 * 1024,
+            max_manifest_bytes: 64 * 1024,
+            ..Default::default()
+        };
+        let store = RuntimeRepositoryStore::open(temp.path().join("install")).unwrap();
+        let result = store.download_candidate(
+            &RuntimeRepositoryGit2Downloader::for_local_tests(limits),
+            &request(
+                RuntimeRepositoryId::Resources,
+                &remote,
+                &commit,
+                "manifest.json",
+            ),
+        );
+        assert_eq!(
+            result,
+            Err(limit_error("runtime repository object size limit exceeded"))
+        );
+        assert_eq!(
+            fs::read_dir(store.root().join("staging")).unwrap().count(),
+            0
+        );
     }
 
     #[test]

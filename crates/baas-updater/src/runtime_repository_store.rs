@@ -456,8 +456,19 @@ impl RuntimeRepositoryStore {
             == Some(planned_generation.as_str())
         {
             let activation = self.read_activation(old_current.expect("generation was present"))?;
+            let mut cleanup_error = None;
             for candidate in candidates.values() {
-                let _ = remove_plain_tree(&candidate.staging_root);
+                if let Err(error) = remove_plain_tree(&candidate.staging_root)
+                    && cleanup_error.is_none()
+                {
+                    cleanup_error = Some(error);
+                }
+            }
+            if cleanup_error.is_some() {
+                return Err(UpdaterError::Io(
+                    "runtime repository staging cleanup failed after idempotent publish"
+                        .to_string(),
+                ));
             }
             return Ok(activation);
         }
@@ -1200,8 +1211,10 @@ pub(crate) fn validate_runtime_repository_tree(
     ensure_direct_child_of(&path, root)?;
     let mut input = open_plain_file(&path, true, false, false)?;
     validate_opened_plain_file(&path, root, &input)?;
+    validate_runtime_payload_link_count(&input)?;
     let bytes = read_bounded_bytes(&mut input, MAX_TREE_MANIFEST_BYTES)?;
     validate_opened_plain_file(&path, root, &input)?;
+    validate_runtime_payload_link_count(&input)?;
     let actual = lowercase_hex(&Sha256::digest(&bytes));
     if actual != expected_sha256 {
         return Err(config_error(
@@ -1328,6 +1341,7 @@ fn collect_runtime_tree_files(
         }
         let mut input = open_plain_file(&path, true, false, false)?;
         let opened_metadata = validate_opened_plain_file(&path, directory, &input)?;
+        validate_runtime_payload_link_count(&input)?;
         let expected_size = opened_metadata.len();
         if expected_size > MAX_TREE_FILE_BYTES {
             return Err(config_error("runtime repository file size limit exceeded"));
@@ -1340,6 +1354,7 @@ fn collect_runtime_tree_files(
         }
         let sha256 = sha256_exact_open_file(&mut input, expected_size)?;
         let final_metadata = validate_opened_plain_file(&path, directory, &input)?;
+        validate_runtime_payload_link_count(&input)?;
         if final_metadata.len() != expected_size {
             return Err(config_error(
                 "runtime repository file size changed while reading",
@@ -1778,6 +1793,51 @@ fn validate_opened_plain_file(
         return Err(config_error("managed file handle escapes its parent"));
     }
     Ok(metadata)
+}
+
+#[cfg(unix)]
+fn validate_runtime_payload_link_count(file: &File) -> UpdaterResult<()> {
+    use std::os::unix::fs::MetadataExt;
+
+    if file.metadata()?.nlink() != 1 {
+        return Err(config_error(
+            "runtime repository regular files must not have hard links",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn validate_runtime_payload_link_count(file: &File) -> UpdaterResult<()> {
+    use std::{mem::MaybeUninit, os::windows::io::AsRawHandle};
+    use windows::Win32::{
+        Foundation::HANDLE,
+        Storage::FileSystem::{FILE_STANDARD_INFO, FileStandardInfo, GetFileInformationByHandleEx},
+    };
+
+    let mut information = MaybeUninit::<FILE_STANDARD_INFO>::zeroed();
+    unsafe {
+        GetFileInformationByHandleEx(
+            HANDLE(file.as_raw_handle()),
+            FileStandardInfo,
+            information.as_mut_ptr().cast(),
+            std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
+        )
+    }
+    .map_err(|error| UpdaterError::Io(error.to_string()))?;
+    if unsafe { information.assume_init() }.NumberOfLinks != 1 {
+        return Err(config_error(
+            "runtime repository regular files must not have hard links",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
+fn validate_runtime_payload_link_count(_file: &File) -> UpdaterResult<()> {
+    Err(config_error(
+        "runtime repository hard-link validation is unsupported on this platform",
+    ))
 }
 
 #[cfg(unix)]
@@ -2334,6 +2394,24 @@ mod tests {
         fail_at: RuntimeRepositoryPublishCheckpoint,
     }
 
+    struct BreakIdempotentCleanupHook {
+        enabled: AtomicBool,
+        staging: Mutex<Option<PathBuf>>,
+    }
+
+    impl RuntimeRepositoryStoreHooks for BreakIdempotentCleanupHook {
+        fn checkpoint(&self, checkpoint: RuntimeRepositoryPublishCheckpoint) -> UpdaterResult<()> {
+            if self.enabled.load(Ordering::SeqCst)
+                && checkpoint == RuntimeRepositoryPublishCheckpoint::CandidatesValidated
+                && let Some(path) = self.staging.lock().unwrap().take()
+            {
+                fs::remove_dir_all(&path).unwrap();
+                fs::write(path, b"not-a-directory").unwrap();
+            }
+            Ok(())
+        }
+    }
+
     impl FailingHooks {
         fn new(fail_at: RuntimeRepositoryPublishCheckpoint) -> Self {
             Self {
@@ -2437,6 +2515,28 @@ mod tests {
             first.pointer
         );
         assert!(!store.journal_path().exists());
+    }
+
+    #[test]
+    fn idempotent_publish_reports_staging_cleanup_failure() {
+        let temp = TempDir::new().unwrap();
+        let hooks = Arc::new(BreakIdempotentCleanupHook {
+            enabled: AtomicBool::new(false),
+            staging: Mutex::new(None),
+        });
+        let store = RuntimeRepositoryStore::open_with_hooks(temp.path(), hooks.clone()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let candidates = pair(&store, '1');
+        let broken = candidates[0].staging_root.clone();
+        *hooks.staging.lock().unwrap() = Some(broken.clone());
+        hooks.enabled.store(true, Ordering::SeqCst);
+
+        let error = store.publish(&candidates).unwrap_err();
+        assert!(matches!(error, UpdaterError::Io(_)));
+        assert!(broken.is_file());
+        assert_eq!(store.read_current().unwrap().unwrap(), first);
+        fs::remove_file(broken).unwrap();
+        store.discard_candidate(&candidates[1]).unwrap();
     }
 
     #[test]
@@ -2909,6 +3009,109 @@ mod tests {
             return;
         }
         assert!(store.validate_candidate(&candidate).is_err());
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn downloader_staging_rejects_external_hard_link_alias() {
+        struct HardLinkDownloader {
+            outside: PathBuf,
+        }
+
+        impl RuntimeRepositoryDownloader for HardLinkDownloader {
+            fn download(
+                &self,
+                request: &RuntimeRepositoryFetchRequest,
+                staging_root: &Path,
+                _stop: &RuntimeRepositoryStopToken,
+            ) -> UpdaterResult<RuntimeRepositoryFetchMetadata> {
+                let payload = b"payload";
+                let manifest = tree_manifest(json!([{
+                    "path": "payload.txt",
+                    "size": payload.len().to_string(),
+                    "sha256": manifest_sha(payload),
+                    "mode": "file",
+                }]));
+                fs::write(staging_root.join("payload.txt"), payload)?;
+                fs::write(staging_root.join(&request.manifest), &manifest)?;
+                fs::hard_link(staging_root.join("payload.txt"), &self.outside)?;
+                Ok(RuntimeRepositoryFetchMetadata {
+                    commit: request.exact_commit.clone(),
+                    manifest_sha256: manifest_sha(&manifest),
+                })
+            }
+        }
+
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path().join("install")).unwrap();
+        let outside = temp.path().join("outside-payload.txt");
+        let request = RuntimeRepositoryFetchRequest {
+            id: RuntimeRepositoryId::Resources,
+            url: "https://example.invalid/resources.git".into(),
+            advertised_reference: "refs/heads/main".into(),
+            exact_commit: "a".repeat(40),
+            manifest: "resources.json".into(),
+        };
+        assert!(
+            store
+                .download_candidate(
+                    &HardLinkDownloader {
+                        outside: outside.clone(),
+                    },
+                    &request,
+                )
+                .is_err()
+        );
+        assert_eq!(fs::read(&outside).unwrap(), b"payload");
+        assert_eq!(
+            fs::read_dir(store.root().join("staging")).unwrap().count(),
+            0
+        );
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn installed_hard_link_alias_blocks_reads_rollback_and_recovery() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        let second = store.publish(&pair(&store, '2')).unwrap();
+        let first_payload = store
+            .root()
+            .join(&first.snapshot.repositories[0].root)
+            .join("payload.txt");
+        let previous_alias = temp.path().join("previous-alias.txt");
+        fs::hard_link(&first_payload, &previous_alias).unwrap();
+        assert!(store.rollback().is_err());
+        assert_eq!(store.read_current().unwrap().unwrap(), second);
+
+        fs::remove_file(&previous_alias).unwrap();
+        let current_payload = store
+            .root()
+            .join(&second.snapshot.repositories[0].root)
+            .join("payload.txt");
+        let current_alias = temp.path().join("current-alias.txt");
+        fs::hard_link(&current_payload, &current_alias).unwrap();
+        assert!(store.read_current().is_err());
+        fs::remove_file(&current_alias).unwrap();
+
+        let journal = RuntimeRepositoryPublishJournal {
+            schema: RUNTIME_REPOSITORY_JOURNAL_SCHEMA.to_string(),
+            operation: RuntimeRepositoryJournalOperation::Rollback,
+            phase: RuntimeRepositoryJournalPhase::PreviousReplaced,
+            old_previous: Some(first.pointer.clone()),
+            old_current: Some(second.pointer.clone()),
+            new_previous: Some(second.pointer.clone()),
+            new_current: first.pointer.clone(),
+        };
+        store.write_journal_atomically(&journal).unwrap();
+        store
+            .write_pointer_atomically(&store.previous_path(), &second.pointer)
+            .unwrap();
+        let recovery_alias = temp.path().join("recovery-alias.txt");
+        fs::hard_link(&first_payload, &recovery_alias).unwrap();
+        drop(store);
+        assert!(RuntimeRepositoryStore::open(temp.path()).is_err());
     }
 
     struct MockDownloader;
