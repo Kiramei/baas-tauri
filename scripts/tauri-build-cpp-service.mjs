@@ -19,7 +19,6 @@ const result = spawnSync(
     cwd: repositoryRoot,
     stdio: "inherit",
     shell: false,
-    env: { ...process.env, VITE_BAAS_BACKEND_RUNTIME: "cpp" },
   }
 );
 if (result.error) throw result.error;
