@@ -10,10 +10,14 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
+    fmt,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 use uuid::Uuid;
 
@@ -42,7 +46,7 @@ impl RuntimeRepositoryId {
     }
 }
 
-/// Metadata returned by a future Rust-git2 downloader.
+/// Metadata returned by a runtime repository downloader.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeRepositoryFetchMetadata {
     pub commit: String,
@@ -50,32 +54,74 @@ pub struct RuntimeRepositoryFetchMetadata {
 }
 
 /// Input passed to an injected downloader.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RuntimeRepositoryFetchRequest {
     pub id: RuntimeRepositoryId,
     pub url: String,
-    pub reference: String,
+    pub advertised_reference: String,
+    pub exact_commit: String,
     pub manifest: String,
 }
 
-/// Download boundary. Production git2 transport will implement this later;
-/// tests can provide a network-free mock without weakening activation checks.
+impl fmt::Debug for RuntimeRepositoryFetchRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RuntimeRepositoryFetchRequest")
+            .field("id", &self.id)
+            .field("url", &"<redacted>")
+            .field("advertised_reference", &self.advertised_reference)
+            .field("exact_commit", &self.exact_commit)
+            .field("manifest", &self.manifest)
+            .finish()
+    }
+}
+
+/// Cooperative cancellation shared by transport and materialization work.
+#[derive(Debug, Clone, Default)]
+pub struct RuntimeRepositoryStopToken(Arc<AtomicBool>);
+
+impl RuntimeRepositoryStopToken {
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
+
+/// Download boundary. Tests can provide a network-free mock without weakening
+/// activation checks.
 pub trait RuntimeRepositoryDownloader: Send + Sync {
     fn download(
         &self,
         request: &RuntimeRepositoryFetchRequest,
         staging_root: &Path,
+        stop: &RuntimeRepositoryStopToken,
     ) -> UpdaterResult<RuntimeRepositoryFetchMetadata>;
 }
 
 /// One fully downloaded candidate below this store's staging directory.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RuntimeRepositoryCandidate {
     pub id: RuntimeRepositoryId,
     pub commit: String,
     pub staging_root: PathBuf,
     pub manifest: String,
     pub manifest_sha256: String,
+}
+
+impl fmt::Debug for RuntimeRepositoryCandidate {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RuntimeRepositoryCandidate")
+            .field("id", &self.id)
+            .field("commit", &self.commit)
+            .field("staging_root", &"<redacted>")
+            .field("manifest", &self.manifest)
+            .field("manifest_sha256", &self.manifest_sha256)
+            .finish()
+    }
 }
 
 /// Repository entry embedded in the immutable snapshot protocol.
@@ -196,7 +242,7 @@ impl std::fmt::Debug for RuntimeRepositoryStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("RuntimeRepositoryStore")
-            .field("root", &self.root)
+            .field("root", &"<redacted>")
             .finish_non_exhaustive()
     }
 }
@@ -264,9 +310,23 @@ impl RuntimeRepositoryStore {
         downloader: &dyn RuntimeRepositoryDownloader,
         request: &RuntimeRepositoryFetchRequest,
     ) -> UpdaterResult<RuntimeRepositoryCandidate> {
+        self.download_candidate_with_stop(
+            downloader,
+            request,
+            &RuntimeRepositoryStopToken::default(),
+        )
+    }
+
+    /// Invokes a downloader with cooperative cancellation.
+    pub fn download_candidate_with_stop(
+        &self,
+        downloader: &dyn RuntimeRepositoryDownloader,
+        request: &RuntimeRepositoryFetchRequest,
+        stop: &RuntimeRepositoryStopToken,
+    ) -> UpdaterResult<RuntimeRepositoryCandidate> {
         validate_manifest_name(&request.manifest)?;
         let staging_root = self.create_staging_dir(request.id)?;
-        let result = downloader.download(request, &staging_root);
+        let result = downloader.download(request, &staging_root, stop);
         let metadata = match result {
             Ok(metadata) => metadata,
             Err(error) => {
@@ -286,6 +346,17 @@ impl RuntimeRepositoryStore {
             return Err(error);
         }
         Ok(candidate)
+    }
+
+    /// Discards an unpublished candidate after revalidating store ownership.
+    pub fn discard_candidate(&self, candidate: &RuntimeRepositoryCandidate) -> UpdaterResult<()> {
+        let staging = self.managed_dir("staging")?;
+        if candidate.staging_root.parent() != Some(staging.as_path()) {
+            return Err(config_error(
+                "candidate staging root is not an immediate store child",
+            ));
+        }
+        remove_plain_tree(&candidate.staging_root)
     }
 
     /// Publishes only after both resources and scripts candidates validate.
@@ -707,11 +778,10 @@ impl RuntimeRepositoryStore {
                 .ok_or_else(|| config_error("candidate staging root has no parent"))?
                 .to_path_buf();
             sync_plain_tree(&candidate.staging_root)?;
-            fs::rename(&candidate.staging_root, &object).map_err(|error| {
-                UpdaterError::Io(format!(
-                    "failed to move staging repository into immutable object {}: {error}",
-                    object.display()
-                ))
+            fs::rename(&candidate.staging_root, &object).map_err(|_| {
+                UpdaterError::Io(
+                    "failed to move staging repository into immutable object".to_string(),
+                )
             })?;
             sync_directory(&id_dir)?;
             sync_directory(&staging)?;
@@ -1113,10 +1183,7 @@ fn ensure_plain_directory(path: &Path) -> UpdaterResult<()> {
     }
     let metadata = fs::symlink_metadata(path)?;
     if metadata_is_link_or_reparse(&metadata) || !metadata.is_dir() {
-        return Err(config_error(format!(
-            "managed path is not a plain directory: {}",
-            path.display()
-        )));
+        return Err(config_error("managed path is not a plain directory"));
     }
     if created && let Some(parent) = path.parent() {
         sync_directory(parent)?;
@@ -1149,10 +1216,7 @@ fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
 fn reject_link_or_reparse(path: &Path) -> UpdaterResult<()> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata_is_link_or_reparse(&metadata) {
-        return Err(config_error(format!(
-            "managed path is a symlink or reparse point: {}",
-            path.display()
-        )));
+        return Err(config_error("managed path is a symlink or reparse point"));
     }
     Ok(())
 }
@@ -1161,10 +1225,9 @@ fn validate_plain_tree(path: &Path, root: &Path) -> UpdaterResult<()> {
     let canonical_root = root.canonicalize()?;
     let metadata = fs::symlink_metadata(path)?;
     if metadata_is_link_or_reparse(&metadata) {
-        return Err(config_error(format!(
-            "runtime repository contains a symlink or reparse point: {}",
-            path.display()
-        )));
+        return Err(config_error(
+            "runtime repository contains a symlink or reparse point",
+        ));
     }
     let canonical = path.canonicalize()?;
     if !canonical.starts_with(&canonical_root) {
@@ -1219,10 +1282,9 @@ fn sync_directory(_path: &Path) -> UpdaterResult<()> {
 
 fn ensure_direct_child_of(path: &Path, parent: &Path) -> UpdaterResult<()> {
     if path.parent() != Some(parent) {
-        return Err(config_error(format!(
-            "managed path is not an immediate child of {}",
-            parent.display()
-        )));
+        return Err(config_error(
+            "managed path is not an immediate managed child",
+        ));
     }
     if path
         .components()
@@ -2278,6 +2340,7 @@ mod tests {
             &self,
             request: &RuntimeRepositoryFetchRequest,
             staging_root: &Path,
+            _stop: &RuntimeRepositoryStopToken,
         ) -> UpdaterResult<RuntimeRepositoryFetchMetadata> {
             let bytes = format!("{{\"source\":\"{}\"}}", request.url);
             fs::write(staging_root.join(&request.manifest), bytes.as_bytes())?;
@@ -2295,7 +2358,8 @@ mod tests {
         let request = RuntimeRepositoryFetchRequest {
             id: RuntimeRepositoryId::Scripts,
             url: "https://example.invalid/scripts.git".into(),
-            reference: "main".into(),
+            advertised_reference: "refs/heads/main".into(),
+            exact_commit: "a".repeat(40),
             manifest: "scripts.json".into(),
         };
         let candidate = store.download_candidate(&MockDownloader, &request).unwrap();

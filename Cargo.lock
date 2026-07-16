@@ -342,6 +342,7 @@ dependencies = [
  "tauri",
  "tempfile",
  "toml 1.1.2+spec-1.1.0",
+ "url",
  "uuid",
  "windows 0.62.2",
  "zip 8.6.0",
