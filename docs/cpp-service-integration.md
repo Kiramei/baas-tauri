@@ -11,6 +11,9 @@ Frontend integrations opt in with
 selecting Pipe transport never changes the backend implementation. Until the
 C++ process owner enables its production Pipe listener, the explicit C++ Pipe
 request fails closed instead of falling back to Python.
+The Tauri ACL exposes `backend_cpp_transport_start` only through the desktop
+`allow-cpp-transport-command` permission; Android and the broader legacy
+command permission do not inherit it.
 
 ## Pipe connection ownership
 
@@ -25,12 +28,24 @@ closing gate before removing the entry. A sender checks that gate again after
 acquiring the serialized writer, so no business frame can follow the close
 frame and a queued stale send cannot escape after the close boundary.
 
+Every open also carries a client-generated canonical UUID. Closing while the
+handshake is pending immediately calls `backend_pipe_cancel_open` with that
+UUID. Cancellation covers connection retry, request write, and `open_ok` read,
+drops the socket promptly, and is backed by a ten-second total handshake
+deadline. A one-entry-per-key cancellation tombstone handles IPC reordering
+where cancel arrives before open; a different attempt UUID is never cancelled.
+
 The Tauri connection queues frames that arrive before the open invocation
 settles, publishes `onOpen`, and then drains that queue in order. Closing while
 the invocation is pending invalidates the frontend attempt; if the invocation
 later succeeds, its exact returned token is closed without reviving the client.
 The pre-open queue is bounded to 256 frames and 64 MiB plus one frame header;
 overflow emits one error and fails closed.
+
+Same-key replacement, reconfiguration, and close-all send exactly one terminal
+frame to the retired frontend channel through the shared terminal gate before
+aborting its reader. A reader failure racing retirement cannot duplicate the
+terminal or remove the replacement token.
 
 ## Executable resolution
 

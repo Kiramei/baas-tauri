@@ -9,6 +9,7 @@
     "core:default",
     "default",
     "allow-mobile-commands",
+    "allow-cpp-transport-command",
     "core:webview:allow-create-webview-window",
     "core:window:allow-center",
     "core:window:allow-destroy",
