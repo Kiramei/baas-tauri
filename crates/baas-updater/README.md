@@ -135,6 +135,13 @@ publication point. Compare-and-swap publication, `previous.json` rollback, a
 recovery journal, and strict generation revalidation prevent readers from
 observing a mixed or partially published pair.
 
+When C++ standalone/WebUI owner recovery claims a store, it creates the
+`.trusted-plan-owner` marker before recovering the updater. That explicit
+handoff is irreversible: Rust-side publish and rollback operations then fail
+closed so the two publishers cannot interleave pointer transactions;
+exact-generation reads remain available. This ownership handoff does not
+change the desktop application's existing Python-default launch path.
+
 The desktop app may read the validated current generation and bind a C++
 service start to that exact 64-hex generation. Production update IPC is not
 exposed yet: transport validation does not establish which commit BAAS has
