@@ -138,6 +138,8 @@ jobs:
         uses: ./.github/actions/build-cpp-service
         with:
           target: ${{ matrix.target }}
+          source-ref: ${{ vars.BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF }}
+          runtime-repository-trusted-public-key-hex: ${{ vars.BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX }}
 
       - name: Install x86 OpenSSL (macOS only)
         if: matrix.target == 'x86_64-apple-darwin'
@@ -218,12 +220,16 @@ jobs:
             # The x64 frontend selects the C++ runtime, so only publish its
             # resource-complete ZIP; a naked portable exe cannot start it.
             $service = "src-tauri\resources\BAAS_service.exe"
+            $repositoryUpdater = "src-tauri\resources\BAAS_runtime_repository_update.exe"
             $remoteJar = "src-tauri\resources\ws-scrcpy-server.jar"
             if (-not $env:BAAS_CPP_SERVICE_PATH) {
               throw "BAAS_CPP_SERVICE_PATH is required for the x64 portable bundle"
             }
             if (-not $env:BAAS_CPP_SERVICE_REMOTE_JAR) {
               throw "BAAS_CPP_SERVICE_REMOTE_JAR is required for the x64 portable bundle"
+            }
+            if (-not $env:BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH) {
+              throw "BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH is required for the x64 portable bundle"
             }
             if (-not (Test-Path $service)) {
               throw "Verified x64 C++ service is missing from $service"
@@ -234,6 +240,16 @@ jobs:
             }
             if ((Get-FileHash $service -Algorithm SHA256).Hash -ne (Get-FileHash $env:BAAS_CPP_SERVICE_PATH -Algorithm SHA256).Hash) {
               throw "Staged x64 C++ service differs from BAAS_CPP_SERVICE_PATH"
+            }
+            if (-not (Test-Path $repositoryUpdater -PathType Leaf)) {
+              throw "Verified runtime repository updater is missing from $repositoryUpdater"
+            }
+            $updaterIdentity = (& $repositoryUpdater --version | Out-String).Trim()
+            if ($updaterIdentity -notmatch '^BAAS_runtime_repository_update \d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+              throw "Unexpected staged runtime repository updater identity: $updaterIdentity"
+            }
+            if ((Get-FileHash $repositoryUpdater -Algorithm SHA256).Hash -ne (Get-FileHash $env:BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH -Algorithm SHA256).Hash) {
+              throw "Staged runtime repository updater differs from BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH"
             }
             if ((Split-Path $env:BAAS_CPP_SERVICE_REMOTE_JAR -Leaf) -cne "scrcpy-server.jar") {
               throw "BAAS_CPP_SERVICE_REMOTE_JAR must be named exactly scrcpy-server.jar"
@@ -251,11 +267,12 @@ jobs:
             New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
             Copy-Item $portable.FullName (Join-Path $portableDir $portable.Name) -Force
             Copy-Item $service (Join-Path $portableDir "BAAS_service.exe") -Force
+            Copy-Item $repositoryUpdater (Join-Path $portableDir "BAAS_runtime_repository_update.exe") -Force
             Copy-Item $remoteJar (Join-Path $portableDir "ws-scrcpy-server.jar") -Force
             $portableZip = "$dst\BAAS.Tauri_${version}_${arch}_portable.zip"
             Compress-Archive -Path "$portableDir\*" -DestinationPath $portableZip -Force
             $entries = @(tar -tf $portableZip)
-            foreach ($required in @($portable.Name, "BAAS_service.exe", "ws-scrcpy-server.jar")) {
+            foreach ($required in @($portable.Name, "BAAS_service.exe", "BAAS_runtime_repository_update.exe", "ws-scrcpy-server.jar")) {
               if ($entries -notcontains $required) {
                 throw "Portable archive is missing required entry $required"
               }
@@ -693,6 +710,8 @@ jobs:
         uses: ./.github/actions/build-cpp-service
         with:
           target: ${{ matrix.target }}
+          source-ref: ${{ vars.BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF }}
+          runtime-repository-trusted-public-key-hex: ${{ vars.BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX }}
 
       - name: Download WebView2 Runtime
         shell: pwsh

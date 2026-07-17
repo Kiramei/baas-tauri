@@ -1,21 +1,43 @@
-name: Build BAAS C++ service
-description: Build and expose the exact native BAAS_service used by Tauri packaging
+name: Build BAAS C++ desktop runtime
+description: Build and expose the exact native service and signed-plan publisher used by Tauri packaging
 
 inputs:
   target:
     description: Native Rust target that must match the runner host
     required: true
+  source-ref:
+    description: Exact 40-character BAAS C++ integration commit containing both packaged executables
+    required: true
+  runtime-repository-trusted-public-key-hex:
+    description: Fixed 64-character lowercase Ed25519 product trust public key
+    required: true
 
 runs:
   using: composite
   steps:
+    - name: Validate explicit C++ integration gate
+      shell: bash
+      env:
+        BAAS_CPP_SOURCE_REF: ${{ inputs.source-ref }}
+        BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX: ${{ inputs.runtime-repository-trusted-public-key-hex }}
+      run: |
+        set -euo pipefail
+        if ! printf '%s' "$BAAS_CPP_SOURCE_REF" | grep -Eq '^[0-9a-f]{40}$'; then
+          echo "::error::BAAS C++ packaging requires an explicit 40-character integration commit in repository variable BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF"
+          exit 1
+        fi
+        if ! printf '%s' "$BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX" | grep -Eq '^[0-9a-f]{64}$'; then
+          echo "::error::Runtime repository packaging requires a fixed 64-character product key in repository variable BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX"
+          exit 1
+        fi
+
     - name: Checkout BAAS C++ service source
       uses: actions/checkout@v6
       with:
         repository: Kiramei/baas-cpp-dev
-        # Pin the cross-repository application/lifecycle contract. Update this
-        # SHA explicitly when the service protocol or package changes.
-        ref: 71137daf09469df2c1ef45f48425b29471a848a7
+        # Never fall back to a branch: the caller must supply the reviewed,
+        # pushed integration commit that builds both packaged executables.
+        ref: ${{ inputs.source-ref }}
         path: baas-cpp-dev
         persist-credentials: false
 
@@ -44,14 +66,16 @@ runs:
         conan create deploy/conan/recipes/baas-cpp-httplib -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-nlohmann-json -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-miniz -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
+        conan create deploy/conan/recipes/baas-libgit2 -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan install --requires=baas-libsodium/1.0.22 \
           --requires=baas-cpp-httplib/0.50.1 \
           --requires=baas-nlohmann-json/3.11.3 \
           --requires=baas-miniz/3.1.2 \
+          --requires=baas-libgit2/1.9.3 \
           -of build/conan/tauri-service -s:h build_type=Release -s:b build_type=Release \
           "${SETTINGS[@]}" -g CMakeDeps -g CMakeToolchain --build=missing --no-remote
 
-    - name: Build and verify native service
+    - name: Build and verify native desktop runtime
       shell: bash
       working-directory: baas-cpp-dev
       run: |
@@ -59,22 +83,30 @@ runs:
         cmake -S . -B build/tauri-service \
           "-DCMAKE_TOOLCHAIN_FILE=$PWD/build/conan/tauri-service/conan_toolchain.cmake" \
           -DCMAKE_BUILD_TYPE=Release -DBUILD_SERVICE_APP=ON \
-          -DBUILD_SERVICE_RUNTIME_REPOSITORY_PLAN=OFF \
-          -DBUILD_RUNTIME_REPOSITORY_GIT2=OFF \
+          -DBUILD_SERVICE_RUNTIME_REPOSITORY_UPDATE_APP=ON \
+          -DBUILD_SERVICE_RUNTIME_REPOSITORY_UPDATE_APP_TESTS=OFF \
+          "-DBAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX=${{ inputs.runtime-repository-trusted-public-key-hex }}" \
           -DBUILD_APP_BAAS=OFF -DBUILD_APP_ISA=OFF -DBUILD_BAAS_OCR=OFF \
           -DBUILD_BAAS_AW_CHECKER=OFF -DBUILD_BAAS_NMS_BENCHMARK=OFF \
           -DBAAS_FETCH_RESOURCES=OFF
-        cmake --build build/tauri-service --config Release --parallel 4 --target BAAS_service
+        cmake --build build/tauri-service --config Release --parallel 4 --target BAAS_service BAAS_runtime_repository_update
         if [ "${{ runner.os }}" = "Windows" ]; then
           SERVICE="$PWD/build/tauri-service/bin/BAAS_service.exe"
+          REPOSITORY_UPDATER="$PWD/build/tauri-service/bin/BAAS_runtime_repository_update.exe"
           SERVICE_ENV="$(cygpath -w "$SERVICE")"
+          REPOSITORY_UPDATER_ENV="$(cygpath -w "$REPOSITORY_UPDATER")"
         else
           SERVICE="$PWD/build/tauri-service/bin/BAAS_service"
+          REPOSITORY_UPDATER="$PWD/build/tauri-service/bin/BAAS_runtime_repository_update"
           SERVICE_ENV="$SERVICE"
+          REPOSITORY_UPDATER_ENV="$REPOSITORY_UPDATER"
         fi
         test -f "$SERVICE"
+        test -f "$REPOSITORY_UPDATER"
         "$SERVICE" --version | grep -E '^BAAS_service [0-9]+\.[0-9]+\.[0-9]+'
+        "$REPOSITORY_UPDATER" --version | grep -E '^BAAS_runtime_repository_update [0-9]+\.[0-9]+\.[0-9]+'
         echo "BAAS_CPP_SERVICE_PATH=$SERVICE_ENV" >> "$GITHUB_ENV"
+        echo "BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH=$REPOSITORY_UPDATER_ENV" >> "$GITHUB_ENV"
 
         python scripts/fetch_resources.py \
           --lock resources.lock.json \

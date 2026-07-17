@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { repositoryRoot, stageCppServiceResources } from "./stage-cpp-service.mjs";
 
-const { executable, remoteJar } = await stageCppServiceResources();
+const { executable, repositoryUpdater, remoteJar } = await stageCppServiceResources();
 const config = join(
   "src-tauri",
   process.platform === "win32"
@@ -10,7 +10,7 @@ const config = join(
     : "tauri.cpp-service.unix.conf.json"
 );
 console.log(
-  `Packaging verified C++ service resources ${executable.destination} and ${remoteJar.destination}`
+  `Packaging verified C++ resources ${executable.destination}, ${repositoryUpdater.destination}, and ${remoteJar.destination}`
 );
 const result = spawnSync(
   process.execPath,

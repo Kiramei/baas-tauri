@@ -3,6 +3,7 @@
   "bundle": {
     "resources": {
       "resources/BAAS_service.exe": "BAAS_service.exe",
+      "resources/BAAS_runtime_repository_update.exe": "BAAS_runtime_repository_update.exe",
       "resources/ws-scrcpy-server.jar": "ws-scrcpy-server.jar"
     }
   }

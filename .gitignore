@@ -17,6 +17,8 @@ target
 public/fonts/*.woff2
 src-tauri/resources/BAAS_service
 src-tauri/resources/BAAS_service.exe
+src-tauri/resources/BAAS_runtime_repository_update
+src-tauri/resources/BAAS_runtime_repository_update.exe
 src-tauri/resources/ws-scrcpy-server.jar
 
 # Editor directories and files

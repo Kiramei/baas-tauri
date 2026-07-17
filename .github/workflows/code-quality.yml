@@ -155,6 +155,8 @@ jobs:
         uses: ./.github/actions/build-cpp-service
         with:
           target: ${{ steps.native-target.outputs.target }}
+          source-ref: ${{ vars.BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF }}
+          runtime-repository-trusted-public-key-hex: ${{ vars.BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX }}
 
       - name: Test authenticated integration, packaging, and managed lifecycle
         run: |

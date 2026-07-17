@@ -72,7 +72,7 @@ payload 上限为 64 MiB。Windows 使用 named pipe；包括 Android 在内的 
 | Python Android | `backend_transport_start` | Kotlin/Chaquopy Service 与有界 `/health` 轮询 | Android 前台 Service owner |
 | WebUI | 无 | 浏览器连接外部 WebSocket endpoint | 外部 owner |
 
-打包的 C++ 可执行文件必须精确命名为 `BAAS_service`（Windows 为 `BAAS_service.exe`），通过 `--version`，并以所选 project root 在 loopback 上运行。独立持有的 remote jar 会被暂存为 `ws-scrcpy-server.jar`。这些是打包资源；当前版本的动态 BAAS runtime repository 还不是前端命令。
+打包的 C++ 可执行文件必须精确命名为 `BAAS_service`（Windows 为 `BAAS_service.exe`），通过 `--version`，并以所选 project root 在 loopback 上运行。独立持有的 remote jar 会被暂存为 `ws-scrcpy-server.jar`。桌面构建还会打包原生 runtime repository updater，并且只向前端暴露不透明签名计划的交接入口；仓库 URL、ref、commit、密钥、路径和 generation 都不是前端可控参数。
 
 ## 失败契约
 

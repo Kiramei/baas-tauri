@@ -15,7 +15,7 @@ use baas_updater::{
     },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls},
-    runtime_repository_store::RuntimeRepositoryStore,
+    runtime_repository_store::read_runtime_repository_current_read_only,
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use chrono::{DateTime, Local, Utc};
@@ -442,7 +442,7 @@ pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, 
 
 /// Tracks backend processes started by updater workflows so the Tauri process
 /// owns their lifetime.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct BackendProcessManager {
     pid_files: Arc<Mutex<Vec<PathBuf>>>,
 }
@@ -977,11 +977,8 @@ pub async fn runtime_repository_get_current_generation(app: AppHandle) -> Result
     .map_err(|error| format!("runtime repository generation task failed: {error}"))?
 }
 
-fn read_runtime_repository_generation(config: &UpdaterConfig) -> Result<String, String> {
-    let store = RuntimeRepositoryStore::open(config.baas_root())
-        .map_err(|error| format!("failed to open runtime repository store: {error}"))?;
-    let activation = store
-        .read_current()
+pub(crate) fn read_runtime_repository_generation(config: &UpdaterConfig) -> Result<String, String> {
+    let activation = read_runtime_repository_current_read_only(config.baas_root())
         .map_err(|error| format!("failed to validate current runtime repository: {error}"))?
         .ok_or_else(|| "no published runtime repository generation is available".to_string())?;
     let generation = activation.pointer.generation;
@@ -989,7 +986,7 @@ fn read_runtime_repository_generation(config: &UpdaterConfig) -> Result<String, 
     Ok(generation)
 }
 
-fn validate_runtime_repository_generation(generation: &str) -> Result<(), String> {
+pub(crate) fn validate_runtime_repository_generation(generation: &str) -> Result<(), String> {
     if generation.len() == 64
         && generation
             .bytes()
@@ -1069,7 +1066,7 @@ pub fn backend_cpp_transport_start(
 }
 
 /// Waits for the selected backend and stops a rejected child without changing runtime.
-fn track_and_wait_backend(
+pub(crate) fn track_and_wait_backend(
     backend: &BackendProcessManager,
     config: &UpdaterConfig,
     port: u16,
@@ -1099,7 +1096,11 @@ fn track_and_wait_backend(
 }
 
 /// Stops a child started by a switch when a later activation step rejects it.
-fn cleanup_started_backend(config: &UpdaterConfig, started: bool, error: String) -> String {
+pub(crate) fn cleanup_started_backend(
+    config: &UpdaterConfig,
+    started: bool,
+    error: String,
+) -> String {
     if !started {
         return error;
     }
@@ -1109,6 +1110,31 @@ fn cleanup_started_backend(config: &UpdaterConfig, started: bool, error: String)
             format!("{error}; failed to stop rejected backend: {cleanup_error}")
         }
     }
+}
+
+/// Returns the strongly identified managed backend that is currently alive.
+/// A mismatched live PID is never guessed or replaced.
+pub(crate) fn running_managed_backend_runtime(
+    config: &UpdaterConfig,
+) -> Result<Option<BackendRuntime>, String> {
+    let pid_file = backend_pid_path(config);
+    let Some(record) = read_managed_backend_pid(&pid_file)? else {
+        return Ok(None);
+    };
+    let Some(identity) = backend_process_identity(record.pid)? else {
+        fs::remove_file(&pid_file).map_err(|error| error.to_string())?;
+        return Ok(None);
+    };
+    if !managed_backend_identity_matches(&record, &identity) {
+        return Err(format!(
+            "managed backend PID {} identity mismatch; refusing runtime handoff",
+            record.pid
+        ));
+    }
+    Ok(Some(match record.kind {
+        ManagedBackendKind::Python => BackendRuntime::Python,
+        ManagedBackendKind::Cpp => BackendRuntime::Cpp,
+    }))
 }
 
 /// Restores the last working persisted selection after an explicit switch fails.
@@ -1782,7 +1808,7 @@ fn delete_backend_auth_files(config: &UpdaterConfig) -> Result<(), String> {
 }
 
 /// Handles the available backend port workflow.
-fn available_backend_port() -> Result<u16, String> {
+pub(crate) fn available_backend_port() -> Result<u16, String> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|error| error.to_string())?;
     listener
         .local_addr()
@@ -1815,7 +1841,7 @@ fn start_backend_pipe_detached(
 }
 
 /// Starts the explicit C++ backend on its HTTP/WebSocket listener.
-fn start_cpp_backend_detached(
+pub(crate) fn start_cpp_backend_detached(
     app: &AppHandle,
     config: &UpdaterConfig,
     port: u16,
@@ -3281,7 +3307,8 @@ mod tests {
         config.paths.baas_root_path = root.path().to_string_lossy().into_owned();
         assert!(read_runtime_repository_generation(&config)
             .unwrap_err()
-            .contains("no published runtime repository generation"));
+            .contains("failed to validate current runtime repository"));
+        assert!(!root.path().join(".baas-updater").exists());
         let published = publish_empty_runtime_repository(root.path());
         assert_eq!(
             read_runtime_repository_generation(&config).unwrap(),

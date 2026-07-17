@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-runtime-repository-apply"
+description = "Allows the desktop main webview to pass one opaque signed plan envelope to the packaged native repository publisher."
+commands.allow = ["runtime_repository_apply_signed_plan"]

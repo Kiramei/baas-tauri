@@ -72,7 +72,7 @@ Payloads are limited to 64 MiB. Windows uses a named pipe; Unix platforms, inclu
 | Python Android | `backend_transport_start` | Kotlin/Chaquopy service plus bounded `/health` poll | Android foreground-service owner |
 | WebUI | none | The browser connects to an external WebSocket endpoint | External owner |
 
-The packaged C++ executable must be named exactly `BAAS_service` (`BAAS_service.exe` on Windows), pass `--version`, and run with the selected project root on loopback. The separately owned remote jar is staged as `ws-scrcpy-server.jar`. These are packaging resources; dynamic BAAS runtime repositories are not a frontend command at this revision.
+The packaged C++ executable must be named exactly `BAAS_service` (`BAAS_service.exe` on Windows), pass `--version`, and run with the selected project root on loopback. The separately owned remote jar is staged as `ws-scrcpy-server.jar`. Desktop builds also package the native runtime-repository updater and expose only an opaque signed-plan handoff; repository URLs, refs, commits, keys, paths, and generations are not frontend-controlled inputs.
 
 ## Failure Contract
 

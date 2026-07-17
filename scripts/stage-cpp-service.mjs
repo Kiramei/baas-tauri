@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 export const serviceExecutableName = (platform = process.platform) =>
   platform === "win32" ? "BAAS_service.exe" : "BAAS_service";
 
+export const repositoryUpdaterExecutableName = (platform = process.platform) =>
+  platform === "win32" ? "BAAS_runtime_repository_update.exe" : "BAAS_runtime_repository_update";
+
 export const remoteJarName = "scrcpy-server.jar";
 
 export const hasExactServiceBasename = (path, platform = process.platform) =>
@@ -23,6 +26,27 @@ export function defaultServiceCandidates(root = repositoryRoot, platform = proce
   const buildLayouts = [
     ["build", "service-app-main-release", "bin", name],
     ["build", "service-app-main-debug", "bin", name],
+    ["build", "service-application", "bin", name],
+    ["build", "service-application", "Release", name],
+  ];
+  return [
+    ...new Set(cppRoots.flatMap((cppRoot) => buildLayouts.map((parts) => join(cppRoot, ...parts)))),
+  ];
+}
+
+export function defaultRepositoryUpdaterCandidates(
+  root = repositoryRoot,
+  platform = process.platform
+) {
+  const name = repositoryUpdaterExecutableName(platform);
+  const cppRoots = [
+    resolve(root, "..", "baas-cpp-dev"),
+    resolve(root, "..", "..", "baas-cpp-dev"),
+    resolve(root, "baas-cpp-dev"),
+  ];
+  const buildLayouts = [
+    ["build", "service-app-main-release", "bin", name],
+    ["build", "tauri-service", "bin", name],
     ["build", "service-application", "bin", name],
     ["build", "service-application", "Release", name],
   ];
@@ -80,6 +104,56 @@ export async function validateServiceExecutable(candidate, platform = process.pl
   return canonical;
 }
 
+export async function validateRepositoryUpdaterExecutable(
+  candidate,
+  platform = process.platform,
+  owner
+) {
+  const expectedName = repositoryUpdaterExecutableName(platform);
+  if (!isAbsolute(candidate)) {
+    throw new Error(`BAAS runtime repository updater path must be absolute: ${candidate}`);
+  }
+  if (basename(candidate) !== expectedName) {
+    throw new Error(
+      `BAAS runtime repository updater must be named exactly ${expectedName}: ${candidate}`
+    );
+  }
+  const metadata = await stat(candidate);
+  if (!metadata.isFile()) {
+    throw new Error(`BAAS runtime repository updater is not a file: ${candidate}`);
+  }
+  const canonical = await realpath(candidate);
+  if (basename(canonical) !== expectedName) {
+    throw new Error(`BAAS runtime repository updater resolves to the wrong filename: ${canonical}`);
+  }
+  if (owner) {
+    const canonicalOwner = await realpath(owner);
+    if (dirname(canonical) !== canonicalOwner) {
+      throw new Error(
+        `BAAS runtime repository updater escapes its owned directory ${canonicalOwner}: ${canonical}`
+      );
+    }
+  }
+  const probe = spawnSync(canonical, ["--version"], {
+    encoding: "utf8",
+    timeout: 10_000,
+    windowsHide: true,
+    maxBuffer: 64 * 1024,
+  });
+  if (probe.error) {
+    throw new Error(`failed to execute ${canonical} --version: ${probe.error.message}`);
+  }
+  if (
+    probe.status !== 0 ||
+    !/^BAAS_runtime_repository_update \d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\s*$/u.test(probe.stdout)
+  ) {
+    throw new Error(
+      `unexpected BAAS runtime repository updater identity from ${canonical}: status=${probe.status} stdout=${JSON.stringify(probe.stdout)}`
+    );
+  }
+  return canonical;
+}
+
 export async function stageCppService({
   source = process.env.BAAS_CPP_SERVICE_PATH,
   root = repositoryRoot,
@@ -108,6 +182,38 @@ export async function stageCppService({
     }
   }
   throw new Error(`No verified BAAS C++ service executable was found.\n${failures.join("\n")}`);
+}
+
+export async function stageRuntimeRepositoryUpdater({
+  source = process.env.BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH,
+  root = repositoryRoot,
+} = {}) {
+  const candidates = source ? [source] : defaultRepositoryUpdaterCandidates(root);
+  const failures = [];
+  for (const candidate of candidates) {
+    try {
+      const canonical = await validateRepositoryUpdaterExecutable(
+        candidate,
+        process.platform,
+        source ? undefined : dirname(candidate)
+      );
+      const destination = join(root, "src-tauri", "resources", repositoryUpdaterExecutableName());
+      await mkdir(dirname(destination), { recursive: true });
+      await rm(destination, { force: true });
+      await copyFile(canonical, destination);
+      const verifiedDestination = await validateRepositoryUpdaterExecutable(
+        destination,
+        process.platform,
+        dirname(destination)
+      );
+      return { source: canonical, destination: verifiedDestination };
+    } catch (error) {
+      failures.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(
+    `No verified BAAS runtime repository updater executable was found.\n${failures.join("\n")}`
+  );
 }
 
 export async function stageCppRemoteJar({
@@ -145,16 +251,22 @@ export async function stageCppRemoteJar({
   return { source: canonical, destination: verified };
 }
 
-export async function stageCppServiceResources({ service = {}, remoteJar = {} } = {}) {
+export async function stageCppServiceResources({
+  service = {},
+  repositoryUpdater = {},
+  remoteJar = {},
+} = {}) {
   const executable = await stageCppService(service);
+  const updater = await stageRuntimeRepositoryUpdater(repositoryUpdater);
   const jar = await stageCppRemoteJar(remoteJar);
-  return { executable, remoteJar: jar };
+  return { executable, repositoryUpdater: updater, remoteJar: jar };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   stageCppServiceResources()
-    .then(({ executable, remoteJar }) => {
+    .then(({ executable, repositoryUpdater, remoteJar }) => {
       console.log(`Staged ${executable.source} -> ${executable.destination}`);
+      console.log(`Staged ${repositoryUpdater.source} -> ${repositoryUpdater.destination}`);
       console.log(`Staged ${remoteJar.source} -> ${remoteJar.destination}`);
     })
     .catch((error) => {

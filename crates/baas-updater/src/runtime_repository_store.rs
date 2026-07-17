@@ -207,6 +207,69 @@ pub struct RuntimeRepositoryActivation {
     pub snapshot: RuntimeRepositorySnapshot,
 }
 
+/// Opens and validates the native publisher's current activation without
+/// creating directories, recovering journals, replacing pointers, or taking an
+/// exclusive writer lock. A shared native lock prevents a publisher from
+/// changing the pointer while the immutable snapshot and repository trees are
+/// validated.
+pub fn read_runtime_repository_current_read_only(
+    baas_root: impl AsRef<Path>,
+) -> UpdaterResult<Option<RuntimeRepositoryActivation>> {
+    let baas_root = baas_root.as_ref();
+    validate_existing_plain_directory(baas_root, None)?;
+    let canonical_baas_root = baas_root.canonicalize()?;
+    let updater = validate_existing_plain_directory(
+        &canonical_baas_root.join(".baas-updater"),
+        Some(&canonical_baas_root),
+    )?;
+    let root =
+        validate_existing_plain_directory(&updater.join("runtime-repositories"), Some(&updater))?;
+    let lock_path = root.join(".writer.lock");
+    ensure_direct_child_of(&lock_path, &root)?;
+    let lock_file = open_plain_file(&lock_path, true, false, false)?;
+    validate_opened_plain_file(&lock_path, &root, &lock_file)?;
+    File::try_lock_shared(&lock_file).map_err(|error| {
+        UpdaterError::Io(format!(
+            "runtime repository read-only lock unavailable: {error}"
+        ))
+    })?;
+    let _lock = RuntimeRepositoryFileLock(&lock_file);
+    validate_opened_plain_file(&lock_path, &root, &lock_file)?;
+
+    if symlink_metadata_if_exists(&root.join(".publish-journal.json"))?.is_some() {
+        return Err(config_error(
+            "runtime repository has pending native recovery",
+        ));
+    }
+    let Some(pointer) = read_pointer_file_read_only(&root, &root.join("current.json"))? else {
+        return Ok(None);
+    };
+    let snapshots = validate_existing_plain_directory(&root.join("snapshots"), Some(&root))?;
+    let snapshot_path = root.join(&pointer.snapshot);
+    if snapshot_path != snapshots.join(format!("{}.json", pointer.generation)) {
+        return Err(config_error(
+            "runtime repository snapshot path is not canonical",
+        ));
+    }
+    ensure_direct_child_of(&snapshot_path, &snapshots)?;
+    let snapshot: RuntimeRepositorySnapshot = read_bounded_json(&snapshot_path, &snapshots)?;
+    validate_snapshot(&snapshot)?;
+    if snapshot.generation != pointer.generation {
+        return Err(config_error("pointer and snapshot generations differ"));
+    }
+    validate_snapshot_object_read_only(
+        &root,
+        &snapshot.repositories[0],
+        RuntimeRepositoryId::Resources,
+    )?;
+    validate_snapshot_object_read_only(
+        &root,
+        &snapshot.repositories[1],
+        RuntimeRepositoryId::Scripts,
+    )?;
+    Ok(Some(RuntimeRepositoryActivation { pointer, snapshot }))
+}
+
 /// Deterministic fault-injection boundaries around publication.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeRepositoryPublishCheckpoint {
@@ -1052,6 +1115,74 @@ impl RuntimeRepositoryStore {
         }
         Ok(false)
     }
+}
+
+fn validate_existing_plain_directory(
+    path: &Path,
+    expected_parent: Option<&Path>,
+) -> UpdaterResult<PathBuf> {
+    if let Some(parent) = expected_parent {
+        ensure_direct_child_of(path, parent)?;
+    }
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata_is_link_or_reparse(&metadata) || !metadata.is_dir() {
+        return Err(config_error("managed path is not a plain directory"));
+    }
+    let canonical = path.canonicalize()?;
+    if expected_parent.is_some() && canonical != path {
+        return Err(config_error("managed directory is not canonical"));
+    }
+    if let Some(parent) = expected_parent
+        && canonical.parent() != Some(parent)
+    {
+        return Err(config_error("managed directory escapes its parent"));
+    }
+    Ok(canonical)
+}
+
+fn read_pointer_file_read_only(
+    root: &Path,
+    path: &Path,
+) -> UpdaterResult<Option<RuntimeRepositoryPointer>> {
+    for attempt in 0..64 {
+        let result = (|| {
+            if symlink_metadata_if_exists(path)?.is_none() {
+                return Ok(None);
+            }
+            ensure_direct_child_of(path, root)?;
+            let pointer: RuntimeRepositoryPointer = read_bounded_json(path, root)?;
+            validate_pointer(&pointer)?;
+            Ok(Some(pointer))
+        })();
+        match result {
+            Err(UpdaterError::Io(_)) if attempt < 63 => {
+                #[cfg(target_os = "windows")]
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                #[cfg(not(target_os = "windows"))]
+                std::thread::yield_now();
+            }
+            result => return result,
+        }
+    }
+    unreachable!("bounded pointer read loop always returns")
+}
+
+fn validate_snapshot_object_read_only(
+    root: &Path,
+    entry: &RuntimeRepositorySnapshotEntry,
+    id: RuntimeRepositoryId,
+) -> UpdaterResult<()> {
+    if entry.id != id.as_str() {
+        return Err(config_error("snapshot repository id mismatch"));
+    }
+    let expected_root = format!("objects/{}/{}", id.as_str(), entry.commit);
+    if entry.root != expected_root {
+        return Err(config_error("snapshot repository root mismatch"));
+    }
+    let objects = validate_existing_plain_directory(&root.join("objects"), Some(root))?;
+    let id_dir = validate_existing_plain_directory(&objects.join(id.as_str()), Some(&objects))?;
+    let object = validate_existing_plain_directory(&id_dir.join(&entry.commit), Some(&id_dir))?;
+    validate_runtime_repository_tree(&object, &entry.manifest, &entry.manifest_sha256)
 }
 
 /// Computes the cross-language generation using 8-byte big-endian length
@@ -2249,6 +2380,60 @@ mod tests {
         drop(store);
         let reopened = RuntimeRepositoryStore::open(temp.path()).unwrap();
         assert_eq!(reopened.read_current().unwrap().unwrap(), first);
+    }
+
+    #[test]
+    fn read_only_handoff_validates_current_without_recovery_or_creation() {
+        let missing = TempDir::new().unwrap();
+        assert!(read_runtime_repository_current_read_only(missing.path()).is_err());
+        assert!(!missing.path().join(".baas-updater").exists());
+
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let activation = store.publish(&pair(&store, '7')).unwrap();
+        let current_before = fs::read(store.current_path()).unwrap();
+        let previous_before = symlink_metadata_if_exists(&store.previous_path()).unwrap();
+        let read = read_runtime_repository_current_read_only(temp.path())
+            .unwrap()
+            .unwrap();
+        assert_eq!(read, activation);
+        assert_eq!(fs::read(store.current_path()).unwrap(), current_before);
+        assert_eq!(
+            symlink_metadata_if_exists(&store.previous_path())
+                .unwrap()
+                .is_some(),
+            previous_before.is_some()
+        );
+        assert!(!store.journal_path().exists());
+    }
+
+    #[test]
+    fn read_only_handoff_rejects_and_preserves_pending_native_recovery() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        store.publish(&pair(&store, '8')).unwrap();
+        let journal = store.journal_path();
+        let sentinel = b"native recovery must remain untouched";
+        fs::write(&journal, sentinel).unwrap();
+        let current_before = fs::read(store.current_path()).unwrap();
+
+        let error = read_runtime_repository_current_read_only(temp.path()).unwrap_err();
+        assert!(error.to_string().contains("pending native recovery"));
+        assert_eq!(fs::read(&journal).unwrap(), sentinel);
+        assert_eq!(fs::read(store.current_path()).unwrap(), current_before);
+    }
+
+    #[test]
+    fn read_only_handoff_fails_immediately_while_native_writer_lock_is_held() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        store.publish(&pair(&store, '9')).unwrap();
+        File::try_lock(&store.writer_file).unwrap();
+        let started = std::time::Instant::now();
+        let error = read_runtime_repository_current_read_only(temp.path()).unwrap_err();
+        File::unlock(&store.writer_file).unwrap();
+        assert!(error.to_string().contains("read-only lock unavailable"));
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
     }
 
     #[test]

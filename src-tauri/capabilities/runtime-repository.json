@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "runtime-repository",
+  "description": "Desktop main-window access to the opaque signed runtime repository update entry.",
+  "windows": ["main"],
+  "webviews": ["main"],
+  "platforms": ["windows", "macOS", "linux"],
+  "permissions": ["allow-runtime-repository-apply"]
+}

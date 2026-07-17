@@ -4,9 +4,17 @@ import path from "path";
 import crypto from "crypto";
 
 import AdmZip from "adm-zip";
-import { validateServiceExecutable } from "./stage-cpp-service.mjs";
+import {
+  repositoryUpdaterExecutableName,
+  validateRepositoryUpdaterExecutable,
+  validateServiceExecutable,
+} from "./stage-cpp-service.mjs";
 
-export const cppPortableResourceNames = ["BAAS_service.exe", "ws-scrcpy-server.jar"];
+export const cppPortableResourceNames = [
+  "BAAS_service.exe",
+  "BAAS_runtime_repository_update.exe",
+  "ws-scrcpy-server.jar",
+];
 
 const target = process.argv.slice(2)[0];
 
@@ -187,6 +195,12 @@ async function resolvePortable() {
   // has C++ packaging enabled.
   addLocalFileIfExists(zip, mainExe);
   const cppService = path.join(process.cwd(), "src-tauri", "resources", "BAAS_service.exe");
+  const repositoryUpdater = path.join(
+    process.cwd(),
+    "src-tauri",
+    "resources",
+    repositoryUpdaterExecutableName("win32")
+  );
   const cppRemoteJar = path.join(process.cwd(), "src-tauri", "resources", "ws-scrcpy-server.jar");
   const cppServiceTarget = shouldPackageCppService(target, arch);
   if (cppServiceTarget) {
@@ -198,18 +212,39 @@ async function resolvePortable() {
         "BAAS_CPP_SERVICE_REMOTE_JAR is required for the Windows x64 portable bundle"
       );
     }
+    if (!process.env.BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH) {
+      throw new Error(
+        "BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH is required for the Windows x64 portable bundle"
+      );
+    }
     const source = await validateServiceExecutable(process.env.BAAS_CPP_SERVICE_PATH, "win32");
     const staged = await validateServiceExecutable(cppService, "win32", path.dirname(cppService));
     if ((await fileSha256(source)) !== (await fileSha256(staged))) {
       throw new Error("Staged C++ service does not match BAAS_CPP_SERVICE_PATH");
     }
     zip.addLocalFile(staged);
+    const updaterSource = await validateRepositoryUpdaterExecutable(
+      process.env.BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH,
+      "win32"
+    );
+    const updaterStaged = await validateRepositoryUpdaterExecutable(
+      repositoryUpdater,
+      "win32",
+      path.dirname(repositoryUpdater)
+    );
+    if ((await fileSha256(updaterSource)) !== (await fileSha256(updaterStaged))) {
+      throw new Error(
+        "Staged runtime repository updater does not match BAAS_CPP_RUNTIME_REPOSITORY_UPDATER_PATH"
+      );
+    }
+    zip.addLocalFile(updaterStaged);
     const stagedRemoteJar = await validatePortableRemoteJar(
       process.env.BAAS_CPP_SERVICE_REMOTE_JAR,
       cppRemoteJar
     );
     zip.addLocalFile(stagedRemoteJar);
     console.log(`[INFO]: added verified C++ service ${staged}`);
+    console.log(`[INFO]: added verified runtime repository updater ${updaterStaged}`);
     console.log(`[INFO]: added verified ws-scrcpy resource ${stagedRemoteJar}`);
   } else {
     console.log(`[INFO]: target ${target || arch} does not package the x64 C++ service`);
