@@ -521,14 +521,56 @@ impl Drop for BackendProcessOwner {
 /// runtime-repository publication against one another.
 #[derive(Clone, Default)]
 pub struct BackendOperationManager {
-    operation: Arc<Mutex<()>>,
+    operation: Arc<Mutex<BackendOperationState>>,
+}
+
+#[derive(Default)]
+pub(crate) struct BackendOperationState {
+    active_updater_workflow: Option<u64>,
+    last_updater_workflow: u64,
+}
+
+pub(crate) struct BackendUpdaterWorkflowPermit {
+    operation: Arc<Mutex<BackendOperationState>>,
+    workflow_id: u64,
 }
 
 impl BackendOperationManager {
-    pub(crate) fn lock(&self) -> Result<std::sync::MutexGuard<'_, ()>, String> {
-        self.operation
+    pub(crate) fn lock(&self) -> Result<std::sync::MutexGuard<'_, BackendOperationState>, String> {
+        let operation = self
+            .operation
             .lock()
-            .map_err(|_| "backend operation lock poisoned".to_string())
+            .map_err(|_| "backend operation lock poisoned".to_string())?;
+        if operation.active_updater_workflow.is_some() {
+            return Err("backend mutation rejected while updater workflow is active".to_string());
+        }
+        Ok(operation)
+    }
+
+    pub(crate) fn begin_updater_workflow(
+        &self,
+        operation: &mut std::sync::MutexGuard<'_, BackendOperationState>,
+    ) -> Result<BackendUpdaterWorkflowPermit, String> {
+        let workflow_id = operation
+            .last_updater_workflow
+            .checked_add(1)
+            .ok_or_else(|| "backend updater workflow id exhausted".to_string())?;
+        operation.last_updater_workflow = workflow_id;
+        operation.active_updater_workflow = Some(workflow_id);
+        Ok(BackendUpdaterWorkflowPermit {
+            operation: Arc::clone(&self.operation),
+            workflow_id,
+        })
+    }
+}
+
+impl Drop for BackendUpdaterWorkflowPermit {
+    fn drop(&mut self) {
+        if let Ok(mut operation) = self.operation.lock() {
+            if operation.active_updater_workflow == Some(self.workflow_id) {
+                operation.active_updater_workflow = None;
+            }
+        }
     }
 }
 
@@ -830,7 +872,7 @@ pub fn updater_start_workflow(
     backend: State<'_, BackendProcessManager>,
     operations: State<'_, BackendOperationManager>,
 ) -> Result<SessionMetadata, String> {
-    let _operation = operations.lock()?;
+    let mut operation = operations.lock()?;
     system_log(
         "INFO",
         "updater",
@@ -866,13 +908,16 @@ pub fn updater_start_workflow(
         })
         .map_err(|error| error.message())?;
 
-    manager.start(
+    let workflow_permit = operations.begin_updater_workflow(&mut operation)?;
+    drop(operation);
+    manager.start_with_lifetime_guard(
         app,
         WorkflowOptions {
             config_path: Some(config_manager.config_path),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(true),
         },
+        workflow_permit,
     )
 }
 
@@ -3180,7 +3225,6 @@ mod tests {
         assert!(RUNTIME_REPOSITORY.contains("let _operation = operations.lock().map_err"));
         for (command, next_boundary) in [
             ("updater_update_config", "/// Parses the persisted desktop"),
-            ("updater_start_workflow", "/// Performs the updater reset"),
             (
                 "updater_reset_backend_auth_and_restart",
                 "/// Restarts the managed backend",
@@ -3198,6 +3242,38 @@ mod tests {
             let end = COMMANDS[start..].find(next_boundary).unwrap() + start;
             assert!(COMMANDS[start..end].contains("let _operation = operations.lock()?;"));
         }
+        let workflow_start = COMMANDS.find("pub fn updater_start_workflow(").unwrap();
+        let workflow_end = COMMANDS[workflow_start..]
+            .find("/// Performs the updater reset")
+            .unwrap()
+            + workflow_start;
+        assert!(COMMANDS[workflow_start..workflow_end]
+            .contains("operations.begin_updater_workflow(&mut operation)?"));
+        assert!(COMMANDS[workflow_start..workflow_end].contains("start_with_lifetime_guard"));
+    }
+
+    #[test]
+    fn updater_workflow_permit_blocks_mutations_until_background_completion() {
+        let operations = BackendOperationManager::default();
+        let mut start_guard = operations.lock().unwrap();
+        let permit = operations.begin_updater_workflow(&mut start_guard).unwrap();
+        drop(start_guard);
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            drop(permit);
+        });
+
+        started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(
+            operations.lock().err().unwrap(),
+            "backend mutation rejected while updater workflow is active"
+        );
+        release_tx.send(()).unwrap();
+        worker.join().unwrap();
+        assert!(operations.lock().is_ok());
     }
 
     fn publish_empty_runtime_repository(project_root: &Path) -> String {

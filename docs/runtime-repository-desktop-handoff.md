@@ -37,7 +37,10 @@ cleanup cannot confirm termination, the failure reports the published
 generation as potentially active instead of claiming an empty active state.
 Publisher rejection, crash, timeout, invalid output, or failed store validation
 does not restart either backend. Concurrent apply requests and backend/config
-mutations share one serialization gate across publication and handoff.
+mutations share one serialization gate across publication and handoff. A
+background updater workflow retains an owned permit until its flow thread
+actually returns; apply, config, and backend mutations fail closed while that
+workflow is active.
 
 The post-publication read is strictly read-only. It acquires a shared handle on
 the native `.writer.lock`, validates the existing pointer, immutable snapshot,

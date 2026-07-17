@@ -95,6 +95,26 @@ impl UpdaterTermManager {
         app: AppHandle,
         options: WorkflowOptions,
     ) -> Result<SessionMetadata, String> {
+        self.start_inner(app, options, None)
+    }
+
+    /// Starts a workflow while retaining an application-owned lifetime guard
+    /// until the background flow has actually returned.
+    pub fn start_with_lifetime_guard(
+        &self,
+        app: AppHandle,
+        options: WorkflowOptions,
+        lifetime_guard: impl Send + 'static,
+    ) -> Result<SessionMetadata, String> {
+        self.start_inner(app, options, Some(Box::new(lifetime_guard)))
+    }
+
+    fn start_inner(
+        &self,
+        app: AppHandle,
+        options: WorkflowOptions,
+        lifetime_guard: Option<Box<dyn Send>>,
+    ) -> Result<SessionMetadata, String> {
         self.abort(WorkflowAbortRequest {
             cleanup: true,
             emit_events: false,
@@ -153,13 +173,15 @@ impl UpdaterTermManager {
         let flow_session_id = session_id.clone();
         let flow_cleanup = Arc::clone(&self.cleanup_state);
         thread::spawn(move || {
-            run_terminal_workflow_flow(
-                flow_inner,
-                flow_session_id,
-                renderer_tx,
-                options,
-                flow_cleanup,
-            )
+            run_with_lifetime_guard(lifetime_guard, || {
+                run_terminal_workflow_flow(
+                    flow_inner,
+                    flow_session_id,
+                    renderer_tx,
+                    options,
+                    flow_cleanup,
+                )
+            })
         });
 
         Ok(SessionMetadata {
@@ -279,9 +301,15 @@ impl UpdaterTermManager {
     }
 }
 
+fn run_with_lifetime_guard(lifetime_guard: Option<Box<dyn Send>>, workflow: impl FnOnce()) {
+    let _lifetime_guard = lifetime_guard;
+    workflow();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     /// Handles the abort idle workflow is idempotent workflow.
     #[test]
@@ -290,5 +318,31 @@ mod tests {
         let report = manager.abort(WorkflowAbortRequest::default()).unwrap();
         assert_eq!(report.stopped_tasks, 0);
         assert!(report.cleaned_paths.is_empty());
+    }
+
+    #[test]
+    fn lifetime_guard_is_held_until_background_workflow_returns() {
+        struct DropSignal(mpsc::Sender<()>);
+        impl Drop for DropSignal {
+            fn drop(&mut self) {
+                let _ = self.0.send(());
+            }
+        }
+
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (dropped_tx, dropped_rx) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            run_with_lifetime_guard(Some(Box::new(DropSignal(dropped_tx))), || {
+                started_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+            });
+        });
+
+        started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(dropped_rx.recv_timeout(Duration::from_millis(30)).is_err());
+        release_tx.send(()).unwrap();
+        dropped_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        worker.join().unwrap();
     }
 }
