@@ -208,7 +208,7 @@ class TriggerClient {
   }
 }
 
-async function waitForReady(port, hasExited) {
+async function waitForReady(port, runtimeRepositoryGeneration, hasExited) {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline && !hasExited()) {
     try {
@@ -222,6 +222,8 @@ async function waitForReady(port, hasExited) {
         health.status === 200 &&
         health.value?.ok === true &&
         health.value?.statuses?.runtime?.phase === "ready" &&
+        health.value?.statuses?.runtime?.repository?.phase === "pinned" &&
+        health.value?.statuses?.runtime?.repository?.generation === runtimeRepositoryGeneration &&
         typeof health.value?.auth?.server_sign_public_key === "string"
       ) {
         return health.value;
@@ -265,11 +267,23 @@ export async function e2eCppService(
   let control = null;
 
   try {
-    await prepareCppServiceProjectRoot(projectRoot, remoteJar);
+    const { runtimeRepositoryGeneration } = await prepareCppServiceProjectRoot(
+      projectRoot,
+      remoteJar
+    );
     const port = await availablePort();
     child = spawn(
       canonical,
-      ["--project-root", projectRoot, "--host", "127.0.0.1", "--port", String(port)],
+      [
+        "--project-root",
+        projectRoot,
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(port),
+        "--runtime-repository-generation",
+        runtimeRepositoryGeneration,
+      ],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true }
     );
     const capture = (chunk) => {
@@ -287,7 +301,7 @@ export async function e2eCppService(
       })
     );
 
-    const health = await waitForReady(port, () => exited);
+    const health = await waitForReady(port, runtimeRepositoryGeneration, () => exited);
     process.env.VITE_BAAS_SERVER_SIGN_PUBLIC_KEY_B64 = health.auth.server_sign_public_key;
     const { ControlConnection, SecureWebSocket } = await import("../src/shared/SecureWebSocket.ts");
     const websocketBase = `ws://127.0.0.1:${port}`;

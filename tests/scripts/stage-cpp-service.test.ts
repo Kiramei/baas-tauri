@@ -19,6 +19,13 @@ import {
 import { prepareCppServiceProjectRoot, smokeCppService } from "../../scripts/smoke-cpp-service.mjs";
 
 describe("C++ service packaging contract", () => {
+  test("pins the exact-generation reader without standalone publisher dependencies", async () => {
+    const action = await readFile(resolve(".github/actions/build-cpp-service/action.yml"), "utf8");
+    expect(action).toContain("ref: 081fb8eca21f1612b7c5b642004c5ff2adabb5c4");
+    expect(action).toContain("-DBUILD_SERVICE_RUNTIME_REPOSITORY_PLAN=OFF");
+    expect(action).toContain("-DBUILD_RUNTIME_REPOSITORY_GIT2=OFF");
+  });
+
   test("uses the exact platform-native service filename", () => {
     expect(serviceExecutableName("win32")).toBe("BAAS_service.exe");
     expect(serviceExecutableName("linux")).toBe("BAAS_service");
@@ -99,7 +106,7 @@ describe("C++ service packaging contract", () => {
     await mkdir(projectRoot, { recursive: true });
     await writeFile(fixture, "pinned-remote-jar");
     try {
-      await prepareCppServiceProjectRoot(projectRoot, fixture);
+      const prepared = await prepareCppServiceProjectRoot(projectRoot, fixture);
       expect(
         await readFile(join(projectRoot, "service", "remote", "scrcpy-server.jar"), "utf8")
       ).toBe("pinned-remote-jar");
@@ -112,6 +119,26 @@ describe("C++ service packaging contract", () => {
       expect(await readFile(join(projectRoot, "setup.toml"), "utf8")).toContain(
         "channel = 'stable'"
       );
+      expect(prepared.runtimeRepositoryGeneration).toMatch(/^[0-9a-f]{64}$/u);
+      const repositoryRoot = join(projectRoot, ".baas-updater", "runtime-repositories");
+      const current = JSON.parse(await readFile(join(repositoryRoot, "current.json"), "utf8"));
+      const snapshot = JSON.parse(
+        await readFile(join(repositoryRoot, ...current.snapshot.split("/")), "utf8")
+      );
+      expect(current.generation).toBe(prepared.runtimeRepositoryGeneration);
+      expect(snapshot.generation).toBe(prepared.runtimeRepositoryGeneration);
+      expect(snapshot.repositories.map((repository) => repository.id)).toEqual([
+        "resources",
+        "scripts",
+      ]);
+      for (const repository of snapshot.repositories) {
+        expect(
+          await readFile(
+            join(repositoryRoot, ...repository.root.split("/"), repository.manifest),
+            "utf8"
+          )
+        ).toBe('{"schema":"baas.runtime-repository.tree-manifest/v1","entries":[]}');
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }
