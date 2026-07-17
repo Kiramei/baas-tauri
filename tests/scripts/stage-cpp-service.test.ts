@@ -22,7 +22,7 @@ import { prepareCppServiceProjectRoot, smokeCppService } from "../../scripts/smo
 describe("C++ service packaging contract", () => {
   test("pins the exact-generation reader without standalone publisher dependencies", async () => {
     const action = await readFile(resolve(".github/actions/build-cpp-service/action.yml"), "utf8");
-    expect(action).toContain("ref: 081fb8eca21f1612b7c5b642004c5ff2adabb5c4");
+    expect(action).toContain("ref: 71137daf09469df2c1ef45f48425b29471a848a7");
     expect(action).toContain("-DBUILD_SERVICE_RUNTIME_REPOSITORY_PLAN=OFF");
     expect(action).toContain("-DBUILD_RUNTIME_REPOSITORY_GIT2=OFF");
   });
