@@ -36,9 +36,7 @@ use crate::pipe_commands::{
     backend_pipe_send_bytes, backend_pipe_send_json, BackendPipeManager,
 };
 #[cfg(not(mobile))]
-use crate::runtime_repository_commands::{
-    runtime_repository_apply_signed_plan, RuntimeRepositoryApplyManager,
-};
+use crate::runtime_repository_commands::runtime_repository_apply_signed_plan;
 use crate::system_logs::{
     initialize_system_logs, install_panic_logging, system_log, system_logs_clear,
     system_logs_ingest_frontend, system_logs_snapshot,
@@ -55,7 +53,8 @@ use crate::{
         updater_get_startup_state, updater_get_storage_state, updater_path_exists_non_empty,
         updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
         updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
-        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
+        updater_update_config, updater_validate_mirrorc_cdk, BackendOperationManager,
+        BackendProcessManager,
     },
 };
 #[cfg(not(mobile))]
@@ -154,7 +153,7 @@ pub fn run() {
             let config_manager =
                 ensure_default_config(app.handle()).map_err(std::io::Error::other)?;
             app.manage(BackendPipeManager::default());
-            app.manage(RuntimeRepositoryApplyManager::default());
+            app.manage(BackendOperationManager::default());
             app.manage(UpdaterTermManager::default());
             let backend = BackendProcessManager::default();
             let _ = backend.stop_for_config(&config_manager.config);

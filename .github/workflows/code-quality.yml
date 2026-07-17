@@ -110,6 +110,7 @@ jobs:
 
   cpp-service-integration:
     name: ${{ matrix.name }} real C++ service integration
+    if: ${{ vars.BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF != '' && vars.BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX != '' }}
     strategy:
       fail-fast: false
       matrix:

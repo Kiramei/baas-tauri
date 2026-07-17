@@ -444,7 +444,12 @@ pub fn updater_get_storage_state(app: AppHandle) -> Result<StorageStartupState, 
 /// owns their lifetime.
 #[derive(Clone, Default)]
 pub struct BackendProcessManager {
-    pid_files: Arc<Mutex<Vec<PathBuf>>>,
+    owner: Arc<BackendProcessOwner>,
+}
+
+#[derive(Default)]
+struct BackendProcessOwner {
+    pid_files: Mutex<Vec<PathBuf>>,
 }
 
 impl BackendProcessManager {
@@ -467,6 +472,25 @@ impl BackendProcessManager {
 
     /// Performs the stop all operation.
     pub fn stop_all(&self) -> Result<(), String> {
+        self.owner.stop_all()
+    }
+
+    /// Handles the remember pid file workflow.
+    fn remember_pid_file(&self, pid_file: PathBuf) -> Result<(), String> {
+        let mut pid_files = self
+            .owner
+            .pid_files
+            .lock()
+            .map_err(|_| "backend pid-file lock poisoned")?;
+        if !pid_files.iter().any(|known| known == &pid_file) {
+            pid_files.push(pid_file);
+        }
+        Ok(())
+    }
+}
+
+impl BackendProcessOwner {
+    fn stop_all(&self) -> Result<(), String> {
         let pid_files = self
             .pid_files
             .lock()
@@ -482,24 +506,29 @@ impl BackendProcessManager {
         }
         Ok(())
     }
+}
 
-    /// Handles the remember pid file workflow.
-    fn remember_pid_file(&self, pid_file: PathBuf) -> Result<(), String> {
-        let mut pid_files = self
-            .pid_files
-            .lock()
-            .map_err(|_| "backend pid-file lock poisoned")?;
-        if !pid_files.iter().any(|known| known == &pid_file) {
-            pid_files.push(pid_file);
-        }
-        Ok(())
+impl Drop for BackendProcessOwner {
+    fn drop(&mut self) {
+        // Arc drops this owner only after the last application/background
+        // handle is gone. Temporary BackendProcessManager clones cannot reach
+        // this boundary and therefore cannot stop the shared backend.
+        let _ = self.stop_all();
     }
 }
 
-impl Drop for BackendProcessManager {
-    /// Handles the drop workflow.
-    fn drop(&mut self) {
-        let _ = self.stop_all();
+/// Serializes persisted backend selection, backend process transitions, and
+/// runtime-repository publication against one another.
+#[derive(Clone, Default)]
+pub struct BackendOperationManager {
+    operation: Arc<Mutex<()>>,
+}
+
+impl BackendOperationManager {
+    pub(crate) fn lock(&self) -> Result<std::sync::MutexGuard<'_, ()>, String> {
+        self.operation
+            .lock()
+            .map_err(|_| "backend operation lock poisoned".to_string())
     }
 }
 
@@ -539,7 +568,9 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<UpdaterStartupState, 
 pub fn updater_update_config(
     app: AppHandle,
     request: UpdaterConfigUpdateRequest,
+    operations: State<'_, BackendOperationManager>,
 ) -> Result<UpdaterConfig, String> {
+    let _operation = operations.lock()?;
     system_log(
         "INFO",
         "updater",
@@ -797,7 +828,9 @@ pub fn updater_start_workflow(
     request: UpdaterWorkflowRequest,
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
+    operations: State<'_, BackendOperationManager>,
 ) -> Result<SessionMetadata, String> {
+    let _operation = operations.lock()?;
     system_log(
         "INFO",
         "updater",
@@ -848,7 +881,9 @@ pub fn updater_start_workflow(
 pub fn updater_reset_backend_auth_and_restart(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
+    operations: State<'_, BackendOperationManager>,
 ) -> Result<BackendReadyPayload, String> {
+    let _operation = operations.lock()?;
     system_log(
         "WARNING",
         "backend_auth",
@@ -896,8 +931,10 @@ pub fn backend_transport_start(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
+    operations: State<'_, BackendOperationManager>,
     mode: String,
 ) -> Result<BackendReadyPayload, String> {
+    let _operation = operations.lock()?;
     let transport = match mode.as_str() {
         "websocket" => BackendTransport::Websocket,
         "pipe" => BackendTransport::Pipe,
@@ -1004,9 +1041,11 @@ pub fn backend_cpp_transport_start(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
+    operations: State<'_, BackendOperationManager>,
     mode: String,
     runtime_repository_generation: String,
 ) -> Result<BackendReadyPayload, String> {
+    let _operation = operations.lock()?;
     validate_runtime_repository_generation(&runtime_repository_generation)?;
     let transport = match mode.as_str() {
         "websocket" => BackendTransport::Websocket,
@@ -1101,15 +1140,23 @@ pub(crate) fn cleanup_started_backend(
     started: bool,
     error: String,
 ) -> String {
-    if !started {
-        return error;
-    }
-    match stop_backend_pid_file(&backend_pid_path(config)) {
+    match cleanup_started_backend_checked(config, started) {
         Ok(()) => error,
         Err(cleanup_error) => {
             format!("{error}; failed to stop rejected backend: {cleanup_error}")
         }
     }
+}
+
+/// Stops a rejected child and preserves whether its process state is known.
+pub(crate) fn cleanup_started_backend_checked(
+    config: &UpdaterConfig,
+    started: bool,
+) -> Result<(), String> {
+    if !started {
+        return Ok(());
+    }
+    stop_backend_pid_file(&backend_pid_path(config))
 }
 
 /// Returns the strongly identified managed backend that is currently alive.
@@ -3102,6 +3149,56 @@ mod tests {
 
     const TEST_RUNTIME_REPOSITORY_GENERATION: &str =
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[test]
+    fn dropping_temporary_backend_manager_clone_never_stops_owned_processes() {
+        let root = tempfile::tempdir().unwrap();
+        let pid_file = root.path().join("backend.pid");
+        let record = ManagedBackendPid {
+            schema: MANAGED_BACKEND_PID_SCHEMA,
+            pid: u32::MAX,
+            executable: root.path().join(cpp_service_executable_name()),
+            project_root: root.path().canonicalize().unwrap(),
+            start_identity: "not-running".to_string(),
+            kind: ManagedBackendKind::Cpp,
+            port: 0,
+            runtime_repository_generation: Some(TEST_RUNTIME_REPOSITORY_GENERATION.to_string()),
+        };
+        fs::write(&pid_file, serde_json::to_vec(&record).unwrap()).unwrap();
+        let manager = BackendProcessManager::default();
+        manager.remember_pid_file(pid_file.clone()).unwrap();
+
+        drop(manager.clone());
+
+        assert!(pid_file.exists());
+    }
+
+    #[test]
+    fn every_desktop_backend_mutation_uses_the_shared_operation_gate() {
+        const COMMANDS: &str = include_str!("commands.rs");
+        const RUNTIME_REPOSITORY: &str = include_str!("runtime_repository_commands.rs");
+        assert!(RUNTIME_REPOSITORY.contains("let _operation = operations.lock().map_err"));
+        for (command, next_boundary) in [
+            ("updater_update_config", "/// Parses the persisted desktop"),
+            ("updater_start_workflow", "/// Performs the updater reset"),
+            (
+                "updater_reset_backend_auth_and_restart",
+                "/// Restarts the managed backend",
+            ),
+            (
+                "backend_transport_start",
+                "/// Returns the exact validated runtime-repository",
+            ),
+            (
+                "backend_cpp_transport_start",
+                "/// Waits for the selected backend",
+            ),
+        ] {
+            let start = COMMANDS.find(&format!("pub fn {command}(")).unwrap();
+            let end = COMMANDS[start..].find(next_boundary).unwrap() + start;
+            assert!(COMMANDS[start..end].contains("let _operation = operations.lock()?;"));
+        }
+    }
 
     fn publish_empty_runtime_repository(project_root: &Path) -> String {
         use baas_updater::runtime_repository_store::{

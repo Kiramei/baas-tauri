@@ -32,9 +32,12 @@ generation after a restart failure: `current.json` already selects the new
 generation, and a correct rollback must atomically update both the native
 pointer and trusted-plan policy state. Until the native publisher exposes that
 trusted rollback entry, the failure report marks rollback unavailable and the
-backend remains stopped. Publisher rejection, crash, timeout, invalid output,
-or failed store validation does not restart either backend. Concurrent apply
-requests are serialized across publication and handoff.
+backend remains stopped only after rejected-child cleanup is confirmed. If
+cleanup cannot confirm termination, the failure reports the published
+generation as potentially active instead of claiming an empty active state.
+Publisher rejection, crash, timeout, invalid output, or failed store validation
+does not restart either backend. Concurrent apply requests and backend/config
+mutations share one serialization gate across publication and handoff.
 
 The post-publication read is strictly read-only. It acquires a shared handle on
 the native `.writer.lock`, validates the existing pointer, immutable snapshot,
@@ -46,7 +49,8 @@ recovery pass.
 ## Production integration gate
 
 The C++ publisher and its signer/feed are not yet published as a stable release
-pin. CI and release builds therefore require both repository variables below:
+pin. Release and explicit C++ integration builds therefore require both
+repository variables below:
 
 - `BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF`: the reviewed and pushed 40-character
   `baas-cpp-dev` commit containing `BAAS_service` and
@@ -55,7 +59,9 @@ pin. CI and release builds therefore require both repository variables below:
   fixed 64-character lowercase Ed25519 public key.
 
 The build action validates both values before checkout/configuration and never
-falls back to a branch or a previous C++ SHA. Production enablement remains
-gated until the corresponding private signing pipeline and authenticated signed
-plan feed publish envelopes for that exact product key. Tauri does not create,
-rewrite, or accept unsigned repository plans.
+falls back to a branch or a previous C++ SHA. Ordinary code-quality CI marks
+the real C++ integration matrix skipped when the variables are not configured;
+release and explicitly enabled C++ integration remain strict failures. Production
+enablement remains gated until the corresponding private signing pipeline and
+authenticated signed plan feed publish envelopes for that exact product key.
+Tauri does not create, rewrite, or accept unsigned repository plans.

@@ -1,8 +1,9 @@
 use crate::{
     commands::{
-        available_backend_port, cleanup_started_backend, ensure_default_config,
+        available_backend_port, cleanup_started_backend_checked, ensure_default_config,
         read_runtime_repository_generation, running_managed_backend_runtime,
-        start_cpp_backend_detached, track_and_wait_backend, BackendProcessManager,
+        start_cpp_backend_detached, track_and_wait_backend, BackendOperationManager,
+        BackendProcessManager,
     },
     pipe_commands::BackendPipeManager,
     system_logs::system_log,
@@ -14,7 +15,6 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Stdio},
-    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -139,11 +139,6 @@ impl RuntimeRepositoryApplyFailure {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct RuntimeRepositoryApplyManager {
-    operation: Arc<Mutex<()>>,
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RuntimeRepositoryUpdaterOutput {
@@ -177,16 +172,16 @@ struct RuntimeRepositoryUpdaterProcessResult {
 pub async fn runtime_repository_apply_signed_plan(
     app: AppHandle,
     request: RuntimeRepositoryApplySignedPlanRequest,
-    manager: State<'_, RuntimeRepositoryApplyManager>,
+    operations: State<'_, BackendOperationManager>,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
 ) -> Result<RuntimeRepositoryApplyReport, RuntimeRepositoryApplyFailure> {
     let envelope = request.envelope.into_bytes()?;
-    let manager = manager.inner().clone();
+    let operations = operations.inner().clone();
     let backend = backend.inner().clone();
     let pipe = pipe.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        apply_signed_plan_blocking(&app, &manager, &backend, &pipe, envelope)
+        apply_signed_plan_blocking(&app, &operations, &backend, &pipe, envelope)
     })
     .await
     .map_err(|_| {
@@ -199,12 +194,12 @@ pub async fn runtime_repository_apply_signed_plan(
 
 fn apply_signed_plan_blocking(
     app: &AppHandle,
-    manager: &RuntimeRepositoryApplyManager,
+    operations: &BackendOperationManager,
     backend: &BackendProcessManager,
     pipe: &BackendPipeManager,
     envelope: Vec<u8>,
 ) -> Result<RuntimeRepositoryApplyReport, RuntimeRepositoryApplyFailure> {
-    let _operation = manager.operation.lock().map_err(|_| {
+    let _operation = operations.lock().map_err(|_| {
         RuntimeRepositoryApplyFailure::publication(
             "update_lock_failed",
             "The runtime repository update coordinator is unavailable.",
@@ -409,8 +404,10 @@ fn restart_cpp_after_publication(
         .and_then(|()| {
             track_and_wait_backend(backend, config, port, BackendRuntime::Cpp, Some(generation))
         });
-    if let Err(error) = restart {
-        let _ = cleanup_started_backend(config, started, error);
+    if restart.is_err() {
+        if cleanup_started_backend_checked(config, started).is_err() {
+            return Err(report_cpp_cleanup_failed(generation, previous_generation));
+        }
         return Err(report_cpp_rollback_unavailable(
             generation,
             previous_generation,
@@ -475,6 +472,28 @@ fn report_cpp_rollback_unavailable(
         published_generation,
         None,
         "unavailable_requires_native_trusted_rollback",
+    )
+}
+
+fn report_cpp_cleanup_failed(
+    published_generation: &str,
+    previous_generation: Option<&str>,
+) -> RuntimeRepositoryApplyFailure {
+    system_log(
+        "ERROR",
+        "runtime_repository",
+        format!(
+            "Published generation {published_generation} failed readiness and its rejected C++ process could not be confirmed stopped; previous generation {} was not started",
+            previous_generation.unwrap_or("unavailable")
+        ),
+    );
+    RuntimeRepositoryApplyFailure::restart(
+        "cpp_restart_cleanup_failed",
+        "The new C++ generation did not become ready and its process could not be confirmed stopped. The published generation may still be active; trusted rollback was not attempted."
+            .to_string(),
+        published_generation,
+        Some(published_generation.to_string()),
+        "unavailable_cleanup_failed_process_may_be_running",
     )
 }
 
@@ -626,30 +645,69 @@ fn wait_child_bounded(
 ) -> Result<ExitStatus, RuntimeRepositoryApplyFailure> {
     let deadline = Instant::now() + timeout;
     loop {
-        if let Some(status) = child.try_wait().map_err(|_| {
-            RuntimeRepositoryApplyFailure::publication(
-                "publisher_wait_failed",
-                "The native publisher process state could not be read.",
-            )
-        })? {
-            return Ok(status);
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) => {}
+            Err(_) => {
+                return Err(terminate_and_report_child(
+                    child,
+                    "publisher_wait_failed",
+                    "The native publisher process state could not be read.",
+                ));
+            }
         }
         if Instant::now() >= deadline {
-            let _ = child.kill();
-            let kill_deadline = Instant::now() + Duration::from_secs(2);
-            while Instant::now() < kill_deadline {
-                match child.try_wait() {
-                    Ok(Some(_)) | Err(_) => break,
-                    Ok(None) => thread::sleep(Duration::from_millis(10)),
-                }
-            }
-            return Err(RuntimeRepositoryApplyFailure::publication(
+            return Err(terminate_and_report_child(
+                child,
                 "publisher_timeout",
                 "The native publisher exceeded its bounded execution time.",
             ));
         }
         thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn terminate_and_report_child(
+    child: &mut Child,
+    code: &str,
+    message: &str,
+) -> RuntimeRepositoryApplyFailure {
+    terminate_and_report_child_with_timeout(child, code, message, Duration::from_secs(2))
+}
+
+trait PublisherChildControl {
+    fn kill_child(&mut self) -> std::io::Result<()>;
+    fn try_reap_child(&mut self) -> std::io::Result<bool>;
+}
+
+impl PublisherChildControl for Child {
+    fn kill_child(&mut self) -> std::io::Result<()> {
+        self.kill()
+    }
+
+    fn try_reap_child(&mut self) -> std::io::Result<bool> {
+        self.try_wait().map(|status| status.is_some())
+    }
+}
+
+fn terminate_and_report_child_with_timeout(
+    child: &mut impl PublisherChildControl,
+    code: &str,
+    message: &str,
+    reap_timeout: Duration,
+) -> RuntimeRepositoryApplyFailure {
+    let _kill_result = child.kill_child();
+    let reap_deadline = Instant::now() + reap_timeout;
+    while Instant::now() < reap_deadline {
+        match child.try_reap_child() {
+            Ok(true) => return RuntimeRepositoryApplyFailure::publication(code, message),
+            Ok(false) | Err(_) => thread::sleep(Duration::from_millis(10)),
+        }
+    }
+    RuntimeRepositoryApplyFailure::publication(
+        "publisher_termination_failed",
+        "The native publisher could not be reliably terminated and reaped; its process state is unknown.",
+    )
 }
 
 fn read_bounded_stream(
@@ -829,6 +887,19 @@ mod tests {
     }
 
     #[test]
+    fn cleanup_failure_reports_published_generation_as_potentially_active() {
+        let failure = report_cpp_cleanup_failed(GENERATION, Some(&"f".repeat(64)));
+        let value = serde_json::to_value(failure).unwrap();
+        assert_eq!(value["code"], "cpp_restart_cleanup_failed");
+        assert_eq!(value["publishedGeneration"], GENERATION);
+        assert_eq!(value["activeGeneration"], GENERATION);
+        assert_eq!(
+            value["rollback"],
+            "unavailable_cleanup_failed_process_may_be_running"
+        );
+    }
+
+    #[test]
     fn output_reader_enforces_bound_without_allocating_unbounded_data() {
         assert_eq!(read_bounded_stream(&b"okay"[..], 4).unwrap(), b"okay");
         assert_eq!(
@@ -839,12 +910,12 @@ mod tests {
 
     #[test]
     fn update_manager_serializes_concurrent_operations() {
-        let manager = RuntimeRepositoryApplyManager::default();
-        let first = manager.operation.lock().unwrap();
+        let manager = BackendOperationManager::default();
+        let first = manager.lock().unwrap();
         let other = manager.clone();
         let (sent, received) = std::sync::mpsc::channel();
         let waiter = thread::spawn(move || {
-            let _guard = other.operation.lock().unwrap();
+            let _guard = other.lock().unwrap();
             sent.send(()).unwrap();
         });
         assert!(received.recv_timeout(Duration::from_millis(30)).is_err());
@@ -1026,6 +1097,59 @@ fn main() {
             .code,
             "publisher_output_too_large"
         );
+    }
+
+    #[test]
+    fn timeout_terminates_and_reaps_the_publisher_before_reporting_stopped() {
+        let root = tempdir().unwrap();
+        let executable = compile_fake_publisher(root.path());
+        let mut child = Command::new(executable)
+            .arg("--project-root")
+            .arg(root.path())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(b"timeout").unwrap();
+        drop(stdin);
+
+        let failure = wait_child_bounded(&mut child, Duration::from_millis(50)).unwrap_err();
+
+        assert_eq!(failure.code, "publisher_timeout");
+        assert!(child.try_wait().unwrap().is_some());
+    }
+
+    #[test]
+    fn failed_kill_without_reap_reports_unknown_process_state() {
+        struct UnkillableChild {
+            kill_attempted: bool,
+        }
+        impl PublisherChildControl for UnkillableChild {
+            fn kill_child(&mut self) -> std::io::Result<()> {
+                self.kill_attempted = true;
+                Err(std::io::Error::other("injected kill failure"))
+            }
+
+            fn try_reap_child(&mut self) -> std::io::Result<bool> {
+                Ok(false)
+            }
+        }
+
+        let mut child = UnkillableChild {
+            kill_attempted: false,
+        };
+        let failure = terminate_and_report_child_with_timeout(
+            &mut child,
+            "publisher_timeout",
+            "timed out",
+            Duration::ZERO,
+        );
+
+        assert!(child.kill_attempted);
+        assert_eq!(failure.code, "publisher_termination_failed");
+        assert!(failure.message.contains("process state is unknown"));
     }
 
     #[test]

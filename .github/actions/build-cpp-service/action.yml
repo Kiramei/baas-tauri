@@ -52,7 +52,7 @@ runs:
         fi
         python -m pip install --disable-pip-version-check conan==2.30.0
 
-    - name: Build pinned C++ service dependencies
+    - name: Build pinned cpp-httplib and static OpenSSL closure
       shell: bash
       working-directory: baas-cpp-dev
       run: |
@@ -62,8 +62,20 @@ runs:
         if [ "${{ runner.os }}" = "Windows" ]; then
           SETTINGS+=("-s:h" "compiler.runtime_type=Release")
         fi
+        # This one reviewed public-recipe resolution seeds the exact pinned
+        # OpenSSL closure. Every private BAAS recipe below is then offline.
+        conan create deploy/conan/recipes/baas-cpp-httplib -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing
+
+    - name: Build private C++ service dependencies offline
+      shell: bash
+      working-directory: baas-cpp-dev
+      run: |
+        set -euo pipefail
+        SETTINGS=()
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          SETTINGS+=("-s:h" "compiler.runtime_type=Release")
+        fi
         conan create deploy/conan/recipes/baas-libsodium -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
-        conan create deploy/conan/recipes/baas-cpp-httplib -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-nlohmann-json -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-miniz -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote
         conan create deploy/conan/recipes/baas-libgit2 -s:h build_type=Release -s:b build_type=Release "${SETTINGS[@]}" --build=missing --no-remote

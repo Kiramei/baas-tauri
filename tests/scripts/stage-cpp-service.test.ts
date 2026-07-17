@@ -34,6 +34,15 @@ describe("C++ service packaging contract", () => {
     expect(action).toContain("^[0-9a-f]{64}$");
     expect(action).toContain("-DBUILD_SERVICE_RUNTIME_REPOSITORY_UPDATE_APP=ON");
     expect(action).toContain("--target BAAS_service BAAS_runtime_repository_update");
+    const httplibCreate = action
+      .split(/\r?\n/u)
+      .find((line) => line.includes("conan create deploy/conan/recipes/baas-cpp-httplib"));
+    const libgit2Create = action
+      .split(/\r?\n/u)
+      .find((line) => line.includes("conan create deploy/conan/recipes/baas-libgit2"));
+    expect(httplibCreate).toBeDefined();
+    expect(httplibCreate).not.toContain("--no-remote");
+    expect(libgit2Create).toContain("--no-remote");
     expect(action).not.toContain("ref: 71137daf09469df2c1ef45f48425b29471a848a7");
     for (const workflowPath of [
       ".github/workflows/code-quality.yml",
@@ -50,6 +59,12 @@ describe("C++ service packaging contract", () => {
       expect(refs).toHaveLength(uses.length);
       expect(keys).toHaveLength(uses.length);
     }
+    const codeQuality = await readFile(resolve(".github/workflows/code-quality.yml"), "utf8");
+    expect(codeQuality).toContain(
+      "if: ${{ vars.BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF != '' && vars.BAAS_RUNTIME_REPOSITORY_TRUSTED_PUBLIC_KEY_HEX != '' }}"
+    );
+    const release = await readFile(resolve(".github/workflows/release-app.yml"), "utf8");
+    expect(release).not.toContain("BAAS_CPP_DEV_RUNTIME_REPOSITORY_REF != ''");
   });
 
   test("uses the exact platform-native service filename", () => {
