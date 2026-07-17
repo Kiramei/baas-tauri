@@ -5,7 +5,10 @@ use baas_shortcut::{
 };
 use baas_term::types::SessionMetadata;
 use baas_updater::{
-    app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
+    app::{
+        TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest,
+        WorkflowLifetimeGuard,
+    },
     config::{
         exe_adjacent_config_path, BackendRuntime, BackendTransport, ConfigManager, UpdaterConfig,
     },
@@ -564,13 +567,23 @@ impl BackendOperationManager {
     }
 }
 
-impl Drop for BackendUpdaterWorkflowPermit {
-    fn drop(&mut self) {
+impl BackendUpdaterWorkflowPermit {
+    fn clear_active(&self) {
         if let Ok(mut operation) = self.operation.lock() {
             if operation.active_updater_workflow == Some(self.workflow_id) {
                 operation.active_updater_workflow = None;
             }
         }
+    }
+}
+
+impl WorkflowLifetimeGuard for BackendUpdaterWorkflowPermit {
+    fn complete(self: Box<Self>) {
+        self.clear_active();
+    }
+
+    fn cancel(self: Box<Self>) {
+        self.clear_active();
     }
 }
 
@@ -3263,7 +3276,7 @@ mod tests {
         let worker = thread::spawn(move || {
             started_tx.send(()).unwrap();
             release_rx.recv().unwrap();
-            drop(permit);
+            WorkflowLifetimeGuard::complete(Box::new(permit));
         });
 
         started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
@@ -3274,6 +3287,24 @@ mod tests {
         release_tx.send(()).unwrap();
         worker.join().unwrap();
         assert!(operations.lock().is_ok());
+    }
+
+    #[test]
+    fn updater_workflow_panic_keeps_mutations_fail_closed() {
+        let operations = BackendOperationManager::default();
+        let mut start_guard = operations.lock().unwrap();
+        let permit = operations.begin_updater_workflow(&mut start_guard).unwrap();
+        drop(start_guard);
+        let worker = thread::spawn(move || {
+            let _permit = permit;
+            panic!("injected updater owner panic");
+        });
+
+        assert!(worker.join().is_err());
+        assert_eq!(
+            operations.lock().err().unwrap(),
+            "backend mutation rejected while updater workflow is active"
+        );
     }
 
     fn publish_empty_runtime_repository(project_root: &Path) -> String {

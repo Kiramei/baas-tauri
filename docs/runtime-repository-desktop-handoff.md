@@ -40,7 +40,9 @@ does not restart either backend. Concurrent apply requests and backend/config
 mutations share one serialization gate across publication and handoff. A
 background updater workflow retains an owned permit until its flow thread
 actually returns; apply, config, and backend mutations fail closed while that
-workflow is active.
+workflow is active. Normal return explicitly releases the permit. A flow panic
+does not release it because updater tasks may still be alive; mutations remain
+fail-closed until process restart or an independently verified cleanup path.
 
 The post-publication read is strictly read-only. It acquires a shared handle on
 the native `.writer.lock`, validates the existing pointer, immutable snapshot,

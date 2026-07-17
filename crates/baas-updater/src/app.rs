@@ -78,6 +78,14 @@ pub struct UpdaterTermManager {
     cleanup_state: Arc<Mutex<WorkflowCleanupState>>,
 }
 
+/// Application-owned guard retained for the complete updater flow lifetime.
+/// Normal completion and confirmed start cancellation are explicit; dropping
+/// the guard during panic unwinding must remain fail-closed.
+pub trait WorkflowLifetimeGuard: Send {
+    fn complete(self: Box<Self>);
+    fn cancel(self: Box<Self>);
+}
+
 impl Default for UpdaterTermManager {
     /// Handles the default workflow.
     fn default() -> Self {
@@ -95,7 +103,8 @@ impl UpdaterTermManager {
         app: AppHandle,
         options: WorkflowOptions,
     ) -> Result<SessionMetadata, String> {
-        self.start_inner(app, options, None)
+        let mut lifetime_guard = None;
+        self.start_inner(app, options, &mut lifetime_guard)
     }
 
     /// Starts a workflow while retaining an application-owned lifetime guard
@@ -104,16 +113,19 @@ impl UpdaterTermManager {
         &self,
         app: AppHandle,
         options: WorkflowOptions,
-        lifetime_guard: impl Send + 'static,
+        lifetime_guard: impl WorkflowLifetimeGuard + 'static,
     ) -> Result<SessionMetadata, String> {
-        self.start_inner(app, options, Some(Box::new(lifetime_guard)))
+        let mut lifetime_guard: Option<Box<dyn WorkflowLifetimeGuard>> =
+            Some(Box::new(lifetime_guard));
+        let result = self.start_inner(app, options, &mut lifetime_guard);
+        finish_guarded_start(result, &mut lifetime_guard)
     }
 
     fn start_inner(
         &self,
         app: AppHandle,
         options: WorkflowOptions,
-        lifetime_guard: Option<Box<dyn Send>>,
+        lifetime_guard: &mut Option<Box<dyn WorkflowLifetimeGuard>>,
     ) -> Result<SessionMetadata, String> {
         self.abort(WorkflowAbortRequest {
             cleanup: true,
@@ -148,14 +160,18 @@ impl UpdaterTermManager {
             (state.rows, state.cols)
         };
 
-        app.emit(
-            "build:session-started",
-            SessionStartedPayload {
-                session_id: session_id.clone(),
-                status: "running".to_string(),
-            },
-        )
-        .map_err(|error| error.to_string())?;
+        finish_session_start_emit(
+            &self.inner,
+            &session_id,
+            app.emit(
+                "build:session-started",
+                SessionStartedPayload {
+                    session_id: session_id.clone(),
+                    status: "running".to_string(),
+                },
+            )
+            .map_err(|error| error.to_string()),
+        )?;
 
         let renderer_app = app.clone();
         let renderer_session_id = session_id.clone();
@@ -172,8 +188,9 @@ impl UpdaterTermManager {
         let flow_inner = Arc::clone(&self.inner);
         let flow_session_id = session_id.clone();
         let flow_cleanup = Arc::clone(&self.cleanup_state);
+        let flow_lifetime_guard = lifetime_guard.take();
         thread::spawn(move || {
-            run_with_lifetime_guard(lifetime_guard, || {
+            run_with_lifetime_guard(flow_lifetime_guard, || {
                 run_terminal_workflow_flow(
                     flow_inner,
                     flow_session_id,
@@ -301,15 +318,108 @@ impl UpdaterTermManager {
     }
 }
 
-fn run_with_lifetime_guard(lifetime_guard: Option<Box<dyn Send>>, workflow: impl FnOnce()) {
-    let _lifetime_guard = lifetime_guard;
+fn run_with_lifetime_guard(
+    lifetime_guard: Option<Box<dyn WorkflowLifetimeGuard>>,
+    workflow: impl FnOnce(),
+) {
     workflow();
+    if let Some(lifetime_guard) = lifetime_guard {
+        lifetime_guard.complete();
+    }
+}
+
+fn finish_guarded_start(
+    result: Result<SessionMetadata, String>,
+    lifetime_guard: &mut Option<Box<dyn WorkflowLifetimeGuard>>,
+) -> Result<SessionMetadata, String> {
+    if result.is_err()
+        && let Some(lifetime_guard) = lifetime_guard.take()
+    {
+        lifetime_guard.cancel();
+    }
+    result
+}
+
+fn finish_session_start_emit(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    emit_result: Result<(), String>,
+) -> Result<(), String> {
+    let Err(error) = emit_result else {
+        return Ok(());
+    };
+    let rollback_result = rollback_failed_session_start(inner, session_id);
+    match rollback_result {
+        Ok(()) => Err(error),
+        Err(rollback_error) => Err(format!(
+            "{error}; failed to roll back updater session start: {rollback_error}"
+        )),
+    }
+}
+
+fn rollback_failed_session_start(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+) -> Result<(), String> {
+    let mut state = inner
+        .lock()
+        .map_err(|_| "updater manager lock poisoned".to_string())?;
+    if state.current_session_id.as_deref() == Some(session_id) {
+        state.current_session_id = None;
+        state.renderer_tx = None;
+        state.workflow_plan = None;
+        state.tasks.clear();
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    struct GuardSignals {
+        completed: mpsc::Sender<()>,
+        cancelled: mpsc::Sender<()>,
+        dropped: mpsc::Sender<()>,
+    }
+
+    impl WorkflowLifetimeGuard for GuardSignals {
+        fn complete(self: Box<Self>) {
+            let _ = self.completed.send(());
+        }
+
+        fn cancel(self: Box<Self>) {
+            let _ = self.cancelled.send(());
+        }
+    }
+
+    impl Drop for GuardSignals {
+        fn drop(&mut self) {
+            let _ = self.dropped.send(());
+        }
+    }
+
+    fn guard_signals() -> (
+        GuardSignals,
+        mpsc::Receiver<()>,
+        mpsc::Receiver<()>,
+        mpsc::Receiver<()>,
+    ) {
+        let (completed_tx, completed_rx) = mpsc::channel();
+        let (cancelled_tx, cancelled_rx) = mpsc::channel();
+        let (dropped_tx, dropped_rx) = mpsc::channel();
+        (
+            GuardSignals {
+                completed: completed_tx,
+                cancelled: cancelled_tx,
+                dropped: dropped_tx,
+            },
+            completed_rx,
+            cancelled_rx,
+            dropped_rx,
+        )
+    }
 
     /// Handles the abort idle workflow is idempotent workflow.
     #[test]
@@ -322,27 +432,86 @@ mod tests {
 
     #[test]
     fn lifetime_guard_is_held_until_background_workflow_returns() {
-        struct DropSignal(mpsc::Sender<()>);
-        impl Drop for DropSignal {
-            fn drop(&mut self) {
-                let _ = self.0.send(());
-            }
-        }
-
         let (started_tx, started_rx) = mpsc::channel();
         let (release_tx, release_rx) = mpsc::channel();
-        let (dropped_tx, dropped_rx) = mpsc::channel();
+        let (guard, completed_rx, cancelled_rx, dropped_rx) = guard_signals();
         let worker = thread::spawn(move || {
-            run_with_lifetime_guard(Some(Box::new(DropSignal(dropped_tx))), || {
+            run_with_lifetime_guard(Some(Box::new(guard)), || {
                 started_tx.send(()).unwrap();
                 release_rx.recv().unwrap();
             });
         });
 
         started_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(
+            completed_rx
+                .recv_timeout(Duration::from_millis(30))
+                .is_err()
+        );
         assert!(dropped_rx.recv_timeout(Duration::from_millis(30)).is_err());
         release_tx.send(()).unwrap();
+        completed_rx.recv_timeout(Duration::from_secs(1)).unwrap();
         dropped_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(cancelled_rx.try_recv().is_err());
         worker.join().unwrap();
+    }
+
+    #[test]
+    fn panic_drops_guard_without_marking_workflow_complete() {
+        let (guard, completed_rx, cancelled_rx, dropped_rx) = guard_signals();
+        let worker = thread::spawn(move || {
+            run_with_lifetime_guard(Some(Box::new(guard)), || {
+                panic!("injected updater flow panic");
+            });
+        });
+
+        assert!(worker.join().is_err());
+        assert!(completed_rx.try_recv().is_err());
+        assert!(cancelled_rx.try_recv().is_err());
+        dropped_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    }
+
+    #[test]
+    fn returned_start_failure_explicitly_cancels_lifetime_guard() {
+        let (guard, completed_rx, cancelled_rx, dropped_rx) = guard_signals();
+        let mut guard: Option<Box<dyn WorkflowLifetimeGuard>> = Some(Box::new(guard));
+
+        let error = finish_guarded_start(Err("injected start failure".to_string()), &mut guard)
+            .err()
+            .unwrap();
+
+        assert_eq!(error, "injected start failure");
+        assert!(guard.is_none());
+        assert!(completed_rx.try_recv().is_err());
+        cancelled_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        dropped_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    }
+
+    #[test]
+    fn emit_failure_rolls_back_terminal_snapshot_state() {
+        let manager = UpdaterTermManager::default();
+        let session_id = "failed-session";
+        let (renderer_tx, _renderer_rx) = mpsc::channel();
+        {
+            let mut state = manager.inner.lock().unwrap();
+            state.current_session_id = Some(session_id.to_string());
+            state.renderer_tx = Some(renderer_tx);
+            state.workflow_plan = Some(terminal_workflow_plan());
+        }
+
+        let error = finish_session_start_emit(
+            &manager.inner,
+            session_id,
+            Err("injected app.emit failure".to_string()),
+        )
+        .unwrap_err();
+
+        assert_eq!(error, "injected app.emit failure");
+        let snapshot = manager.snapshot().unwrap();
+        assert!(snapshot.session_id.is_none());
+        assert!(snapshot.workflow_plan.is_none());
+        let state = manager.inner.lock().unwrap();
+        assert!(state.renderer_tx.is_none());
+        assert!(state.tasks.is_empty());
     }
 }
