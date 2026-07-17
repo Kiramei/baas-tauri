@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { validateServiceExecutable } from "./stage-cpp-service.mjs";
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -34,28 +34,58 @@ export function runtimeRepositoryGeneration(repositories) {
   return hash.digest("hex");
 }
 
-async function publishEmptyRuntimeRepository(projectRoot) {
+async function publishRuntimeRepository(projectRoot) {
   const repositoryRoot = join(projectRoot, ".baas-updater", "runtime-repositories");
-  const manifestBytes = Buffer.from(
-    JSON.stringify({ schema: TREE_MANIFEST_SCHEMA, entries: [] }),
-    "utf8"
+  const resourcePayloads = new Map(
+    Object.entries({
+      "service/configuration/defaults/event.json": "[]",
+      "service/configuration/defaults/static.json":
+        '{"create_item_order":{"CN":{"basic":{}},"Global":{"basic":{}},"JP":{"basic":{}}}}',
+      "service/configuration/defaults/switch.json": "[]",
+      "service/configuration/defaults/user.json":
+        '{"name":"Default","server":"CN","create_item_holding_quantity":{}}',
+    }).map(([path, bytes]) => [path, Buffer.from(bytes, "utf8")])
   );
-  const manifestSha256 = sha256Hex(manifestBytes);
+  const repositoryPayloads = new Map([
+    ["resources", resourcePayloads],
+    ["scripts", new Map()],
+  ]);
   const repositories = [
     { id: "resources", commit: "1".repeat(40), manifest: "resources.json" },
     { id: "scripts", commit: "2".repeat(40), manifest: "scripts.json" },
-  ].map(({ id, commit, manifest }) => ({
-    id,
-    commit,
-    root: `objects/${id}/${commit}`,
-    manifest,
-    manifest_sha256: manifestSha256,
-  }));
+  ].map(({ id, commit, manifest }) => {
+    const payloads = repositoryPayloads.get(id);
+    const entries = [...payloads.entries()].map(([path, bytes]) => ({
+      path,
+      size: String(bytes.byteLength),
+      sha256: sha256Hex(bytes),
+      mode: "file",
+    }));
+    const manifestBytes = Buffer.from(
+      JSON.stringify({ schema: TREE_MANIFEST_SCHEMA, entries }),
+      "utf8"
+    );
+    return {
+      id,
+      commit,
+      root: `objects/${id}/${commit}`,
+      manifest,
+      manifest_sha256: sha256Hex(manifestBytes),
+      manifestBytes,
+      payloads,
+    };
+  });
   const generation = runtimeRepositoryGeneration(repositories);
   const snapshot = {
     schema: SNAPSHOT_SCHEMA,
     generation,
-    repositories,
+    repositories: repositories.map(({ id, commit, root, manifest, manifest_sha256 }) => ({
+      id,
+      commit,
+      root,
+      manifest,
+      manifest_sha256,
+    })),
   };
   const current = {
     schema: CURRENT_SCHEMA,
@@ -71,12 +101,17 @@ async function publishEmptyRuntimeRepository(projectRoot) {
     ),
   ]);
   await Promise.all([
-    ...repositories.map((repository) =>
+    ...repositories.flatMap((repository) => [
       writeFile(
         join(repositoryRoot, ...repository.root.split("/"), repository.manifest),
-        manifestBytes
-      )
-    ),
+        repository.manifestBytes
+      ),
+      ...[...repository.payloads.entries()].map(async ([path, bytes]) => {
+        const destination = join(repositoryRoot, ...repository.root.split("/"), ...path.split("/"));
+        await mkdir(dirname(destination), { recursive: true });
+        await writeFile(destination, bytes);
+      }),
+    ]),
     writeFile(join(repositoryRoot, "snapshots", `${generation}.json`), JSON.stringify(snapshot)),
   ]);
   await writeFile(join(repositoryRoot, "current.json"), JSON.stringify(current));
@@ -136,7 +171,7 @@ export async function prepareCppServiceProjectRoot(
     writeFile(join(projectRoot, "setup.toml"), "[general]\nchannel = 'stable'\n"),
     copyFile(canonicalJar, join(remote, "scrcpy-server.jar")),
   ]);
-  const runtimeRepositoryGeneration = await publishEmptyRuntimeRepository(projectRoot);
+  const runtimeRepositoryGeneration = await publishRuntimeRepository(projectRoot);
   return { remoteJar: canonicalJar, runtimeRepositoryGeneration };
 }
 

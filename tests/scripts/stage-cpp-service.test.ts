@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -132,12 +133,31 @@ describe("C++ service packaging contract", () => {
         "scripts",
       ]);
       for (const repository of snapshot.repositories) {
-        expect(
-          await readFile(
-            join(repositoryRoot, ...repository.root.split("/"), repository.manifest),
-            "utf8"
-          )
-        ).toBe('{"schema":"baas.runtime-repository.tree-manifest/v1","entries":[]}');
+        const manifestBytes = await readFile(
+          join(repositoryRoot, ...repository.root.split("/"), repository.manifest)
+        );
+        const manifest = JSON.parse(manifestBytes.toString("utf8"));
+        expect(createHash("sha256").update(manifestBytes).digest("hex")).toBe(
+          repository.manifest_sha256
+        );
+        expect(manifest.schema).toBe("baas.runtime-repository.tree-manifest/v1");
+        if (repository.id === "scripts") {
+          expect(manifest.entries).toEqual([]);
+        } else {
+          expect(manifest.entries.map((entry) => entry.path)).toEqual([
+            "service/configuration/defaults/event.json",
+            "service/configuration/defaults/static.json",
+            "service/configuration/defaults/switch.json",
+            "service/configuration/defaults/user.json",
+          ]);
+          for (const entry of manifest.entries) {
+            const bytes = await readFile(
+              join(repositoryRoot, ...repository.root.split("/"), ...entry.path.split("/"))
+            );
+            expect(String(bytes.byteLength)).toBe(entry.size);
+            expect(createHash("sha256").update(bytes).digest("hex")).toBe(entry.sha256);
+          }
+        }
       }
     } finally {
       await rm(root, { recursive: true, force: true });
