@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -19,6 +20,13 @@ import {
 import { prepareCppServiceProjectRoot, smokeCppService } from "../../scripts/smoke-cpp-service.mjs";
 
 describe("C++ service packaging contract", () => {
+  test("pins the exact-generation reader without standalone publisher dependencies", async () => {
+    const action = await readFile(resolve(".github/actions/build-cpp-service/action.yml"), "utf8");
+    expect(action).toContain("ref: 71137daf09469df2c1ef45f48425b29471a848a7");
+    expect(action).toContain("-DBUILD_SERVICE_RUNTIME_REPOSITORY_PLAN=OFF");
+    expect(action).toContain("-DBUILD_RUNTIME_REPOSITORY_GIT2=OFF");
+  });
+
   test("uses the exact platform-native service filename", () => {
     expect(serviceExecutableName("win32")).toBe("BAAS_service.exe");
     expect(serviceExecutableName("linux")).toBe("BAAS_service");
@@ -99,7 +107,7 @@ describe("C++ service packaging contract", () => {
     await mkdir(projectRoot, { recursive: true });
     await writeFile(fixture, "pinned-remote-jar");
     try {
-      await prepareCppServiceProjectRoot(projectRoot, fixture);
+      const prepared = await prepareCppServiceProjectRoot(projectRoot, fixture);
       expect(
         await readFile(join(projectRoot, "service", "remote", "scrcpy-server.jar"), "utf8")
       ).toBe("pinned-remote-jar");
@@ -112,6 +120,45 @@ describe("C++ service packaging contract", () => {
       expect(await readFile(join(projectRoot, "setup.toml"), "utf8")).toContain(
         "channel = 'stable'"
       );
+      expect(prepared.runtimeRepositoryGeneration).toMatch(/^[0-9a-f]{64}$/u);
+      const repositoryRoot = join(projectRoot, ".baas-updater", "runtime-repositories");
+      const current = JSON.parse(await readFile(join(repositoryRoot, "current.json"), "utf8"));
+      const snapshot = JSON.parse(
+        await readFile(join(repositoryRoot, ...current.snapshot.split("/")), "utf8")
+      );
+      expect(current.generation).toBe(prepared.runtimeRepositoryGeneration);
+      expect(snapshot.generation).toBe(prepared.runtimeRepositoryGeneration);
+      expect(snapshot.repositories.map((repository) => repository.id)).toEqual([
+        "resources",
+        "scripts",
+      ]);
+      for (const repository of snapshot.repositories) {
+        const manifestBytes = await readFile(
+          join(repositoryRoot, ...repository.root.split("/"), repository.manifest)
+        );
+        const manifest = JSON.parse(manifestBytes.toString("utf8"));
+        expect(createHash("sha256").update(manifestBytes).digest("hex")).toBe(
+          repository.manifest_sha256
+        );
+        expect(manifest.schema).toBe("baas.runtime-repository.tree-manifest/v1");
+        if (repository.id === "scripts") {
+          expect(manifest.entries).toEqual([]);
+        } else {
+          expect(manifest.entries.map((entry) => entry.path)).toEqual([
+            "service/configuration/defaults/event.json",
+            "service/configuration/defaults/static.json",
+            "service/configuration/defaults/switch.json",
+            "service/configuration/defaults/user.json",
+          ]);
+          for (const entry of manifest.entries) {
+            const bytes = await readFile(
+              join(repositoryRoot, ...repository.root.split("/"), ...entry.path.split("/"))
+            );
+            expect(String(bytes.byteLength)).toBe(entry.size);
+            expect(createHash("sha256").update(bytes).digest("hex")).toBe(entry.sha256);
+          }
+        }
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }

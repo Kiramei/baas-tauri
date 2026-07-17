@@ -15,7 +15,7 @@ runs:
         repository: Kiramei/baas-cpp-dev
         # Pin the cross-repository application/lifecycle contract. Update this
         # SHA explicitly when the service protocol or package changes.
-        ref: 5610a8d374d7a78cadb0f8e886be24ec585b0c2c
+        ref: 71137daf09469df2c1ef45f48425b29471a848a7
         path: baas-cpp-dev
         persist-credentials: false
 
@@ -59,6 +59,8 @@ runs:
         cmake -S . -B build/tauri-service \
           "-DCMAKE_TOOLCHAIN_FILE=$PWD/build/conan/tauri-service/conan_toolchain.cmake" \
           -DCMAKE_BUILD_TYPE=Release -DBUILD_SERVICE_APP=ON \
+          -DBUILD_SERVICE_RUNTIME_REPOSITORY_PLAN=OFF \
+          -DBUILD_RUNTIME_REPOSITORY_GIT2=OFF \
           -DBUILD_APP_BAAS=OFF -DBUILD_APP_ISA=OFF -DBUILD_BAAS_OCR=OFF \
           -DBUILD_BAAS_AW_CHECKER=OFF -DBUILD_BAAS_NMS_BENCHMARK=OFF \
           -DBAAS_FETCH_RESOURCES=OFF
