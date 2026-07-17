@@ -25,6 +25,7 @@ pub const RUNTIME_REPOSITORY_CURRENT_SCHEMA: &str = "baas.runtime-repositories.c
 pub const RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA: &str = "baas.runtime-repositories.snapshot/v1";
 pub const RUNTIME_REPOSITORY_GENERATION_DOMAIN: &str = RUNTIME_REPOSITORY_SNAPSHOT_SCHEMA;
 const RUNTIME_REPOSITORY_JOURNAL_SCHEMA: &str = "baas.runtime-repositories.publish-journal/v1";
+const TRUSTED_PLAN_OWNER_FILE: &str = ".trusted-plan-owner";
 const MAX_ACTIVATION_JSON_BYTES: u64 = 64 * 1024;
 const MAX_TREE_MANIFEST_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_TREE_FILES: usize = 16_384;
@@ -437,6 +438,7 @@ impl RuntimeRepositoryStore {
         candidates: &[RuntimeRepositoryCandidate],
         expectation: CurrentExpectation<'_>,
     ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.reject_trusted_plan_owner()?;
         self.recover_journal()?;
         let candidates = self.index_and_validate_candidates(candidates)?;
         self.hooks
@@ -547,6 +549,7 @@ impl RuntimeRepositoryStore {
         &self,
         expected_current: Option<&str>,
     ) -> UpdaterResult<RuntimeRepositoryActivation> {
+        self.reject_trusted_plan_owner()?;
         self.recover_journal()?;
         let previous = self
             .read_pointer_file(&self.previous_path())?
@@ -593,6 +596,19 @@ impl RuntimeRepositoryStore {
             &self.writer_file,
         )?;
         action(self)
+    }
+
+    fn reject_trusted_plan_owner(&self) -> UpdaterResult<()> {
+        let marker = self.root.join(TRUSTED_PLAN_OWNER_FILE);
+        match fs::symlink_metadata(&marker) {
+            Ok(_) => Err(UpdaterError::Workflow(
+                "runtime repository store is owned by the C++ trusted-plan publisher".to_string(),
+            )),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(UpdaterError::Io(format!(
+                "runtime repository ownership marker check failed: {error}"
+            ))),
+        }
     }
 
     fn check_current_expectation(
@@ -2203,6 +2219,36 @@ mod tests {
         );
         assert_eq!(store.read_current().unwrap().unwrap(), activation);
         assert!(!store.previous_path().exists());
+    }
+
+    #[test]
+    fn trusted_plan_owner_blocks_rust_pointer_mutations_but_not_reads() {
+        let temp = TempDir::new().unwrap();
+        let store = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        let first = store.publish(&pair(&store, '1')).unwrap();
+        fs::write(
+            store.root().join(TRUSTED_PLAN_OWNER_FILE),
+            b"baas.runtime-repositories.trusted-plan-owner/v1\ninitialized\n",
+        )
+        .unwrap();
+
+        let publish_error = store.publish(&pair(&store, '2')).unwrap_err();
+        assert!(
+            publish_error
+                .to_string()
+                .contains("owned by the C++ trusted-plan publisher")
+        );
+        let rollback_error = store.rollback().unwrap_err();
+        assert!(
+            rollback_error
+                .to_string()
+                .contains("owned by the C++ trusted-plan publisher")
+        );
+        assert_eq!(store.read_current().unwrap().unwrap(), first);
+
+        drop(store);
+        let reopened = RuntimeRepositoryStore::open(temp.path()).unwrap();
+        assert_eq!(reopened.read_current().unwrap().unwrap(), first);
     }
 
     #[test]
