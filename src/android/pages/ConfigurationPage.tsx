@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Sword,
   Swords,
+  Trophy,
   Users2Icon,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -37,6 +38,7 @@ type Feature =
   | "arena"
   | "dailySweep"
   | "tactical"
+  | "finalRestrictionRls"
   | "drill"
   | "whitelist"
   | "server"
@@ -55,6 +57,7 @@ const FeatureWidthDict: Record<Feature, number> = {
   arena: 30,
   dailySweep: 70,
   tactical: 60,
+  finalRestrictionRls: 45,
   drill: 50,
   whitelist: 70,
   server: 30,
@@ -82,6 +85,7 @@ const ShopConfig = React.lazy(() => import("@/features/ShopConfig"));
 const ArenaConfig = React.lazy(() => import("@/features/ArenaConfig"));
 const DailySweep = React.lazy(() => import("@/features/DailySweep"));
 const TacticalConfig = React.lazy(() => import("@/features/TacticalConfig.tsx"));
+const FinalRestrictionRlsConfig = React.lazy(() => import("@/features/FinalRestrictionRlsConfig"));
 const DrillConfig = React.lazy(() => import("@/features/DrillConfig.tsx"));
 const EmulatorConfig = React.lazy(() => import("@/features/EmulatorConfig"));
 const PushConfig = React.lazy(() => import("@/features/PushConfig"));
@@ -109,6 +113,11 @@ const featureMap: Record<
   arena: { icon: Swords, descKey: "description.arena", component: ArenaConfig },
   dailySweep: { icon: BrushCleaning, descKey: "description.dailySweep", component: DailySweep },
   tactical: { icon: Shield, descKey: "description.tactical", component: TacticalConfig },
+  finalRestrictionRls: {
+    icon: Trophy,
+    descKey: "description.finalRestrictionRls",
+    component: FinalRestrictionRlsConfig,
+  },
   drill: { icon: Sword, descKey: "description.drill", component: DrillConfig },
   whitelist: { icon: ScrollText, descKey: "description.whitelist", component: WhiteListConfig },
   artifact: { icon: Amphora, descKey: "description.artifact", component: ArtifactConfig },
@@ -177,6 +186,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       "arena",
       "dailySweep",
       "tactical",
+      "finalRestrictionRls",
       "drill",
       "whitelist",
     ],

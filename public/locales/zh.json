@@ -191,6 +191,7 @@
     "dailySweep": "日常推图与扫荡",
     "drill": "战术测试设置",
     "emulator": "模拟器路径与启动项",
+    "finalRestrictionRls": "配置编队方式与通关队伍复制",
     "getEmulator": "选择模拟器路径",
     "other": {
       "$self": "杂项功能与设置",
@@ -633,6 +634,15 @@
     "log": {
       "folderSelect": "选择日志导出位置"
     }
+  },
+  "finalRestrictionRls": {
+    "$self": "无限制决战",
+    "copyClearFormation": "复制通关队伍",
+    "copyClearUnavailableHint": "选择“复制通关队伍”后可配置这两个选项。",
+    "formationMethod": "编队方式",
+    "maxRefreshCount": "通关队伍最大刷新次数",
+    "maxUnavailableStudentCount": "最多允许不可用学生数",
+    "useCurrentFormation": "使用当前编队"
   },
   "friend": {
     "add": "添加",

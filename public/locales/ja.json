@@ -191,6 +191,7 @@
     "dailySweep": "日課ステージと掃討",
     "drill": "合同火力演習設定",
     "emulator": "エミュレーターのパスと起動",
+    "finalRestrictionRls": "編成方法とクリア編成のコピーを設定",
     "getEmulator": "エミュレーターを選択",
     "other": {
       "$self": "その他設定",
@@ -633,6 +634,15 @@
     "log": {
       "folderSelect": "ログ出力先を選択"
     }
+  },
+  "finalRestrictionRls": {
+    "$self": "制限解除決戦",
+    "copyClearFormation": "クリア編成をコピー",
+    "copyClearUnavailableHint": "「クリア編成をコピー」を選ぶと設定できます。",
+    "formationMethod": "編成方法",
+    "maxRefreshCount": "クリア編成の最大更新回数",
+    "maxUnavailableStudentCount": "使用不可生徒の最大数",
+    "useCurrentFormation": "現在の編成を使用"
   },
   "friend": {
     "add": "追加",

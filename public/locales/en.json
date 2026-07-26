@@ -191,6 +191,7 @@
     "dailySweep": "Daily stages and sweeps",
     "drill": "Joint drill settings",
     "emulator": "Emulator path and startup",
+    "finalRestrictionRls": "Configure formation and clear-team copying",
     "getEmulator": "Select emulator path",
     "other": {
       "$self": "Misc settings",
@@ -633,6 +634,15 @@
     "log": {
       "folderSelect": "Choose log export path"
     }
+  },
+  "finalRestrictionRls": {
+    "$self": "Unrestricted Decisive Battle",
+    "copyClearFormation": "Copy a clear formation",
+    "copyClearUnavailableHint": "Select “Copy a clear formation” to configure these options.",
+    "formationMethod": "Formation method",
+    "maxRefreshCount": "Maximum clear-team refreshes",
+    "maxUnavailableStudentCount": "Maximum unavailable students",
+    "useCurrentFormation": "Use current formation"
   },
   "friend": {
     "add": "Add",

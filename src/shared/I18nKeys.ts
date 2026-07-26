@@ -132,6 +132,8 @@ const featureMap: Record<string, TranslationKey> = {
   drillDesc: "description.drill",
   emulator: "emulator",
   emulatorDesc: "description.emulator",
+  finalRestrictionRls: "finalRestrictionRls",
+  finalRestrictionRlsDesc: "description.finalRestrictionRls",
   other: "other",
   otherDesc: "description.other",
   push: "push",

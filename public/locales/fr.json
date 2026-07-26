@@ -191,6 +191,7 @@
     "dailySweep": "Stages et balayages quotidiens",
     "drill": "Paramètres du drill",
     "emulator": "Chemin et lancement émulateur",
+    "finalRestrictionRls": "Configurer la formation et la copie des équipes victorieuses",
     "getEmulator": "Choisir l’émulateur",
     "other": {
       "$self": "Réglages divers",
@@ -633,6 +634,15 @@
     "log": {
       "folderSelect": "Choisir export logs"
     }
+  },
+  "finalRestrictionRls": {
+    "$self": "Combat décisif sans restriction",
+    "copyClearFormation": "Copier une équipe victorieuse",
+    "copyClearUnavailableHint": "Sélectionnez « Copier une équipe victorieuse » pour configurer ces options.",
+    "formationMethod": "Méthode de formation",
+    "maxRefreshCount": "Actualisations maximales des équipes victorieuses",
+    "maxUnavailableStudentCount": "Nombre maximal d'élèves indisponibles",
+    "useCurrentFormation": "Utiliser la formation actuelle"
   },
   "friend": {
     "add": "Ajouter",

@@ -191,6 +191,7 @@
     "dailySweep": "일일 스테이지와 소탕",
     "drill": "종합전술시험 설정",
     "emulator": "에뮬레이터 경로와 실행",
+    "finalRestrictionRls": "편성 방식과 클리어 편성 복사를 설정",
     "getEmulator": "에뮬레이터 선택",
     "other": {
       "$self": "기타 설정",
@@ -633,6 +634,15 @@
     "log": {
       "folderSelect": "로그 내보내기 위치 선택"
     }
+  },
+  "finalRestrictionRls": {
+    "$self": "제한 해제 결전",
+    "copyClearFormation": "클리어 편성 복사",
+    "copyClearUnavailableHint": "“클리어 편성 복사”를 선택하면 설정할 수 있습니다.",
+    "formationMethod": "편성 방식",
+    "maxRefreshCount": "클리어 편성 최대 새로고침 횟수",
+    "maxUnavailableStudentCount": "사용 불가 학생 최대 수",
+    "useCurrentFormation": "현재 편성 사용"
   },
   "friend": {
     "add": "추가",
