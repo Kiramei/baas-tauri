@@ -191,6 +191,7 @@
     "dailySweep": "Tägliche Stages und Sweeps",
     "drill": "Test-Einstellungen",
     "emulator": "Emulatorpfad und Start",
+    "finalRestrictionRls": "Formation und Kopieren erfolgreicher Teams konfigurieren",
     "getEmulator": "Emulator wählen",
     "other": {
       "$self": "Sonstige Einstellungen",
@@ -211,7 +212,7 @@
     },
     "tactical": "Total Assault",
     "team": "Formation",
-    "whitelist": "Freundes-Whitelist"
+    "whitelist": "Filter und Freundes-Whitelist konfigurieren"
   },
   "installer": {
     "advanced": "Erweiterte Einstellungen",
@@ -430,7 +431,7 @@
     "white": "Weiß",
     "whiteBlue": "Weiß & Blau"
   },
-  "whitelist": "Freundesliste",
+  "whitelist": "Freunde bereinigen",
   "script": {
     "$self": "Skripte",
     "autostart": "Automatischer Start bei Skriptstart",
@@ -634,15 +635,30 @@
       "folderSelect": "Log-Export wählen"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "Entscheidungskampf ohne Beschränkung",
+    "copyClearFormation": "Erfolgreiches Team kopieren",
+    "copyClearUnavailableHint": "Wähle „Erfolgreiches Team kopieren“, um diese Optionen zu konfigurieren.",
+    "formationMethod": "Formationsmethode",
+    "maxRefreshCount": "Maximale Aktualisierungen erfolgreicher Teams",
+    "maxUnavailableStudentCount": "Maximal nicht verfügbare Schüler",
+    "useCurrentFormation": "Aktuelle Formation verwenden"
+  },
   "friend": {
     "add": "Hinzufügen",
     "addFailed": "Hinzufügen fehlgeschlagen",
     "alreadyExists": "Freund existiert bereits",
+    "disabledThresholdHint": "Mit -1 wird der jeweilige Filter deaktiviert.",
     "empty": "Freunde-Whitelist ist leer",
+    "filters": "Bereinigungsfilter",
     "invalidFormatCN": "CN-Code: Zahlen und Kleinbuchstaben",
     "invalidFormatGlobal": "Global-Code: Großbuchstaben",
     "invalidLength": "Ungültige Freundescode-Länge",
-    "placeholder": "Freundescode eingeben"
+    "lastLoginDays": "Schwellenwert seit letzter Anmeldung",
+    "lastTotalAssaultRankLimit": "Schwellenwert des letzten Gesamtangriffsrangs",
+    "levelLimit": "Schwellenwert für Freundeslevel",
+    "placeholder": "Freundescode eingeben",
+    "whitelist": "Freundes-Whitelist"
   },
   "heartbeat": {
     "connected": "Dienst verbunden",

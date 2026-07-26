@@ -191,6 +191,7 @@
     "dailySweep": "日常推图与扫荡",
     "drill": "战术测试设置",
     "emulator": "模拟器路径与启动项",
+    "finalRestrictionRls": "配置编队方式与通关队伍复制",
     "getEmulator": "选择模拟器路径",
     "other": {
       "$self": "杂项功能与设置",
@@ -211,7 +212,7 @@
     },
     "tactical": "总力战设置",
     "team": "设置编队",
-    "whitelist": "自动删好友白名单"
+    "whitelist": "配置清理条件与好友白名单"
   },
   "installer": {
     "advanced": "高级设置",
@@ -430,7 +431,7 @@
     "white": "白色",
     "whiteBlue": "白蓝组合"
   },
-  "whitelist": "好友白名单",
+  "whitelist": "好友清理",
   "script": {
     "$self": "脚本设置",
     "autostart": "脚本开启时自动启动",
@@ -634,15 +635,30 @@
       "folderSelect": "选择日志导出位置"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "无限制决战",
+    "copyClearFormation": "复制通关队伍",
+    "copyClearUnavailableHint": "选择“复制通关队伍”后可配置这两个选项。",
+    "formationMethod": "编队方式",
+    "maxRefreshCount": "通关队伍最大刷新次数",
+    "maxUnavailableStudentCount": "最多允许不可用学生数",
+    "useCurrentFormation": "使用当前编队"
+  },
   "friend": {
     "add": "添加",
     "addFailed": "添加失败",
     "alreadyExists": "该好友已存在",
+    "disabledThresholdHint": "输入 -1 可禁用对应清理条件。",
     "empty": "好友白名单列表为空",
+    "filters": "清理条件",
     "invalidFormatCN": "国服好友码只能包含数字和小写字母",
     "invalidFormatGlobal": "国际服好友码只能包含大写字母",
     "invalidLength": "好友码长度无效",
-    "placeholder": "输入好友码"
+    "lastLoginDays": "最后登录天数阈值",
+    "lastTotalAssaultRankLimit": "上次总力战排名阈值",
+    "levelLimit": "好友等级清理阈值",
+    "placeholder": "输入好友码",
+    "whitelist": "好友白名单"
   },
   "heartbeat": {
     "connected": "服务已连接",

@@ -9,6 +9,7 @@ import ShopConfig from "@/features/ShopConfig";
 import ArenaConfig from "@/features/ArenaConfig";
 import DailySweep from "@/features/DailySweep";
 import TacticalConfig from "@/features/TacticalConfig.tsx";
+import FinalRestrictionRlsConfig from "@/features/FinalRestrictionRlsConfig";
 import DrillConfig from "@/features/DrillConfig.tsx";
 import EmulatorConfig from "@/features/EmulatorConfig";
 import PushConfig from "@/features/PushConfig";
@@ -30,6 +31,7 @@ import {
   ShoppingCart,
   Sword,
   Swords,
+  Trophy,
   Users2Icon,
 } from "lucide-react";
 import { motion, Variants } from "framer-motion";
@@ -54,6 +56,7 @@ type Feature =
   | "arena"
   | "dailySweep"
   | "tactical"
+  | "finalRestrictionRls"
   | "drill"
   | "whitelist"
   | "server"
@@ -72,6 +75,7 @@ const FeatureWidthDict: Record<Feature, number> = {
   arena: 30,
   dailySweep: 70,
   tactical: 60,
+  finalRestrictionRls: 45,
   drill: 50,
   whitelist: 70,
   server: 30,
@@ -109,6 +113,11 @@ const featureMap: Record<
   arena: { icon: Swords, descKey: "description.arena", component: ArenaConfig },
   dailySweep: { icon: BrushCleaning, descKey: "description.dailySweep", component: DailySweep },
   tactical: { icon: Shield, descKey: "description.tactical", component: TacticalConfig },
+  finalRestrictionRls: {
+    icon: Trophy,
+    descKey: "description.finalRestrictionRls",
+    component: FinalRestrictionRlsConfig,
+  },
   drill: { icon: Sword, descKey: "description.drill", component: DrillConfig },
   whitelist: { icon: ScrollText, descKey: "description.whitelist", component: WhiteListConfig },
   artifact: { icon: Amphora, descKey: "description.artifact", component: ArtifactConfig },
@@ -185,6 +194,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       "arena",
       "dailySweep",
       "tactical",
+      "finalRestrictionRls",
       "drill",
       "whitelist",
     ],
