@@ -20,12 +20,14 @@
 ### Task 1: Restore spinner animation in low-performance mode
 
 **Files:**
+
 - Modify: `src/styles/index.css:155-174`
 - Temporarily create and then delete: `spinner-repro.html`
 - Temporarily create and then delete: `src/spinner-repro.tsx`
 - Verify: existing `tests/frontend`
 
 **Interfaces:**
+
 - Consumes: the existing `html.low-performance-mode` root class and Tailwind `animate-spin`/`animate-pulse` utilities.
 - Produces: CSS rule `html.low-performance-mode .animate-spin` with animation name `low-performance-spin`.
 
