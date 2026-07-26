@@ -672,7 +672,7 @@ bun run build:tauri
 bun run build:tauri:android
 ```
 
-Expected: all commands exit `0`; the new test suite has seven passing Issue #528 tests.
+Expected: all commands exit `0`; the new test suite has six passing Issue #528 tests.
 
 - [ ] **Step 5: Format, inspect, and commit**
 

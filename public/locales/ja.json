@@ -212,7 +212,7 @@
     },
     "tactical": "総力戦設定",
     "team": "編成設定",
-    "whitelist": "フレンド白リスト"
+    "whitelist": "整理条件とフレンド白リストを設定"
   },
   "installer": {
     "advanced": "詳細設定",
@@ -431,7 +431,7 @@
     "white": "白",
     "whiteBlue": "白青"
   },
-  "whitelist": "白リスト",
+  "whitelist": "フレンド整理",
   "script": {
     "$self": "スクリプト",
     "autostart": "スクリプト起動時に自動開始",
@@ -648,11 +648,17 @@
     "add": "追加",
     "addFailed": "追加に失敗しました",
     "alreadyExists": "このフレンドは既に存在します",
+    "disabledThresholdHint": "-1 を入力すると条件を無効にできます。",
     "empty": "フレンドホワイトリストは空です",
+    "filters": "整理条件",
     "invalidFormatCN": "CNコードは数字と小文字",
     "invalidFormatGlobal": "Globalコードは大文字",
     "invalidLength": "フレンドコードの長さが無効です",
-    "placeholder": "フレンドコードを入力"
+    "lastLoginDays": "最終ログイン日数しきい値",
+    "lastTotalAssaultRankLimit": "前回総力戦順位しきい値",
+    "levelLimit": "フレンドレベルしきい値",
+    "placeholder": "フレンドコードを入力",
+    "whitelist": "フレンド白リスト"
   },
   "heartbeat": {
     "connected": "サービスに接続しました",

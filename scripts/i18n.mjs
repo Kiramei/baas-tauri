@@ -196,6 +196,12 @@ const manualTranslations = {
     "export.log.folderSelect": "选择日志导出位置",
     "export.log.success": "日志已导出",
     "export.log.successDesc": "日志文件已保存。",
+    "friend.filters": "清理条件",
+    "friend.levelLimit": "好友等级清理阈值",
+    "friend.lastLoginDays": "最后登录天数阈值",
+    "friend.lastTotalAssaultRankLimit": "上次总力战排名阈值",
+    "friend.disabledThresholdHint": "输入 -1 可禁用对应清理条件。",
+    "friend.whitelist": "好友白名单",
     "friend.invalidFormatCN": "国服好友码只能包含数字和小写字母",
     "friend.invalidFormatGlobal": "国际服好友码只能包含大写字母",
     "hotkey.duplicate": "快捷键重复",
@@ -276,8 +282,8 @@ const manualTranslations = {
     "uisettings.enableBAComet": "启用 BAComet",
     "uisettings.enableSafeStream": "启用安全串流",
     "uisettings.player": "播放器",
-    "whitelist": "好友白名单",
-    "whitelistDesc": "自动删好友白名单",
+    "whitelist": "好友清理",
+    "whitelistDesc": "配置清理条件与好友白名单",
   },
   en: {
     "adb.noData": "No results",
@@ -331,6 +337,12 @@ const manualTranslations = {
     "export.log.folderSelect": "Choose log export path",
     "export.log.success": "Logs exported",
     "export.log.successDesc": "Log file saved.",
+    "friend.filters": "Cleanup filters",
+    "friend.levelLimit": "Friend level threshold",
+    "friend.lastLoginDays": "Last-login days threshold",
+    "friend.lastTotalAssaultRankLimit": "Previous total-assault rank threshold",
+    "friend.disabledThresholdHint": "Enter -1 to disable a cleanup condition.",
+    "friend.whitelist": "Friend whitelist",
     "friend.invalidFormatCN": "CN code needs numbers and lowercase letters",
     "friend.invalidFormatGlobal": "Global code needs uppercase letters",
     "hotkey.duplicate": "Duplicate hotkey",
@@ -412,8 +424,8 @@ const manualTranslations = {
     "uisettings.enableBAComet": "Enable BAComet",
     "uisettings.enableSafeStream": "Enable safe stream",
     "uisettings.player": "Player",
-    "whitelist": "Whitelist",
-    "whitelistDesc": "Friend deletion whitelist",
+    "whitelist": "Friend cleanup",
+    "whitelistDesc": "Configure cleanup filters and friend whitelist",
   },
 };
 
@@ -428,6 +440,12 @@ Object.assign(manualTranslations.de, {
   "contextMenu.paste": "Einfuegen",
   "contextMenu.pasteFailed": "Zwischenablage ist nicht verfuegbar.",
   "contextMenu.reload": "Neu laden",
+  "friend.filters": "Bereinigungsfilter",
+  "friend.levelLimit": "Schwellenwert für Freundeslevel",
+  "friend.lastLoginDays": "Schwellenwert seit letzter Anmeldung",
+  "friend.lastTotalAssaultRankLimit": "Schwellenwert des letzten Gesamtangriffsrangs",
+  "friend.disabledThresholdHint": "Mit -1 wird der jeweilige Filter deaktiviert.",
+  "friend.whitelist": "Freundes-Whitelist",
   "finalRestrictionRls": "Entscheidungskampf ohne Beschränkung",
   "description.finalRestrictionRls": "Formation und Kopieren erfolgreicher Teams konfigurieren",
   "finalRestrictionRls.formationMethod": "Formationsmethode",
@@ -472,6 +490,8 @@ Object.assign(manualTranslations.de, {
   "wiki.web.pin": "Schweben",
   "wiki.web.return": "Zurueck",
   "wiki.web.title": "Web-Wiki",
+  "whitelist": "Freunde bereinigen",
+  "whitelistDesc": "Filter und Freundes-Whitelist konfigurieren",
 });
 
 Object.assign(manualTranslations.fr, {
@@ -481,6 +501,12 @@ Object.assign(manualTranslations.fr, {
   "contextMenu.paste": "Coller",
   "contextMenu.pasteFailed": "Le presse-papiers n'est pas disponible.",
   "contextMenu.reload": "Recharger",
+  "friend.filters": "Filtres de nettoyage",
+  "friend.levelLimit": "Seuil de niveau des amis",
+  "friend.lastLoginDays": "Seuil de jours depuis la dernière connexion",
+  "friend.lastTotalAssaultRankLimit": "Seuil du classement du dernier assaut total",
+  "friend.disabledThresholdHint": "Saisissez -1 pour désactiver un filtre.",
+  "friend.whitelist": "Liste blanche des amis",
   "finalRestrictionRls": "Combat décisif sans restriction",
   "description.finalRestrictionRls": "Configurer la formation et la copie des équipes victorieuses",
   "finalRestrictionRls.formationMethod": "Méthode de formation",
@@ -526,6 +552,8 @@ Object.assign(manualTranslations.fr, {
   "wiki.web.pin": "Flottant",
   "wiki.web.return": "Retour",
   "wiki.web.title": "Wiki web",
+  "whitelist": "Nettoyage des amis",
+  "whitelistDesc": "Configurer les filtres et la liste blanche",
 });
 
 Object.assign(manualTranslations.ja, {
@@ -535,6 +563,12 @@ Object.assign(manualTranslations.ja, {
   "contextMenu.paste": "貼り付け",
   "contextMenu.pasteFailed": "クリップボードを使用できません。",
   "contextMenu.reload": "再読み込み",
+  "friend.filters": "整理条件",
+  "friend.levelLimit": "フレンドレベルしきい値",
+  "friend.lastLoginDays": "最終ログイン日数しきい値",
+  "friend.lastTotalAssaultRankLimit": "前回総力戦順位しきい値",
+  "friend.disabledThresholdHint": "-1 を入力すると条件を無効にできます。",
+  "friend.whitelist": "フレンド白リスト",
   "finalRestrictionRls": "制限解除決戦",
   "description.finalRestrictionRls": "編成方法とクリア編成のコピーを設定",
   "finalRestrictionRls.formationMethod": "編成方法",
@@ -577,6 +611,8 @@ Object.assign(manualTranslations.ja, {
   "wiki.web.pin": "フロート",
   "wiki.web.return": "戻る",
   "wiki.web.title": "Web Wiki",
+  "whitelist": "フレンド整理",
+  "whitelistDesc": "整理条件とフレンド白リストを設定",
 });
 
 Object.assign(manualTranslations.ko, {
@@ -586,6 +622,12 @@ Object.assign(manualTranslations.ko, {
   "contextMenu.paste": "붙여넣기",
   "contextMenu.pasteFailed": "클립보드를 사용할 수 없습니다.",
   "contextMenu.reload": "새로고침",
+  "friend.filters": "정리 조건",
+  "friend.levelLimit": "친구 레벨 임계값",
+  "friend.lastLoginDays": "마지막 로그인 일수 임계값",
+  "friend.lastTotalAssaultRankLimit": "이전 총력전 순위 임계값",
+  "friend.disabledThresholdHint": "-1을 입력하면 해당 조건이 비활성화됩니다.",
+  "friend.whitelist": "친구 화이트리스트",
   "finalRestrictionRls": "제한 해제 결전",
   "description.finalRestrictionRls": "편성 방식과 클리어 편성 복사를 설정",
   "finalRestrictionRls.formationMethod": "편성 방식",
@@ -630,6 +672,8 @@ Object.assign(manualTranslations.ko, {
   "wiki.web.pin": "플로팅",
   "wiki.web.return": "돌아가기",
   "wiki.web.title": "웹 Wiki",
+  "whitelist": "친구 정리",
+  "whitelistDesc": "정리 조건과 친구 화이트리스트 설정",
 });
 
 Object.assign(manualTranslations.ru, {
@@ -639,6 +683,12 @@ Object.assign(manualTranslations.ru, {
   "contextMenu.paste": "Вставить",
   "contextMenu.pasteFailed": "Буфер обмена недоступен.",
   "contextMenu.reload": "Обновить",
+  "friend.filters": "Фильтры очистки",
+  "friend.levelLimit": "Порог уровня друга",
+  "friend.lastLoginDays": "Порог дней с последнего входа",
+  "friend.lastTotalAssaultRankLimit": "Порог места в прошлом тотальном штурме",
+  "friend.disabledThresholdHint": "Введите -1, чтобы отключить соответствующее условие.",
+  "friend.whitelist": "Белый список друзей",
   "finalRestrictionRls": "Решающий бой без ограничений",
   "description.finalRestrictionRls": "Настройка построения и копирования прошедших команд",
   "finalRestrictionRls.formationMethod": "Способ построения",
@@ -683,6 +733,8 @@ Object.assign(manualTranslations.ru, {
   "wiki.web.pin": "Плавающая",
   "wiki.web.return": "Назад",
   "wiki.web.title": "Web Wiki",
+  "whitelist": "Очистка друзей",
+  "whitelistDesc": "Настройка фильтров и белого списка друзей",
 });
 
 function flatten(value, prefix = "", output = {}) {

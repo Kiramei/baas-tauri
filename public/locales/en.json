@@ -212,7 +212,7 @@
     },
     "tactical": "Total Assault settings",
     "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "whitelist": "Configure cleanup filters and friend whitelist"
   },
   "installer": {
     "advanced": "Advanced Settings",
@@ -431,7 +431,7 @@
     "white": "White",
     "whiteBlue": "White & Blue"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "Friend cleanup",
   "script": {
     "$self": "Scripts",
     "autostart": "Auto-start when script launches",
@@ -648,11 +648,17 @@
     "add": "Add",
     "addFailed": "Failed to add",
     "alreadyExists": "Friend already exists",
+    "disabledThresholdHint": "Enter -1 to disable a cleanup condition.",
     "empty": "Friend whitelist is empty",
+    "filters": "Cleanup filters",
     "invalidFormatCN": "CN code needs numbers and lowercase letters",
     "invalidFormatGlobal": "Global code needs uppercase letters",
     "invalidLength": "Invalid friend code length",
-    "placeholder": "Enter Friend Code"
+    "lastLoginDays": "Last-login days threshold",
+    "lastTotalAssaultRankLimit": "Previous total-assault rank threshold",
+    "levelLimit": "Friend level threshold",
+    "placeholder": "Enter Friend Code",
+    "whitelist": "Friend whitelist"
   },
   "heartbeat": {
     "connected": "Service connected",
