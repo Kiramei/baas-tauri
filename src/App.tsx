@@ -134,6 +134,7 @@ const Main: React.FC = () => {
         {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
+          const pageContent = renderPage(page, pid ?? activePid);
           return (
             <motion.div
               key={instKey}
@@ -144,9 +145,14 @@ const Main: React.FC = () => {
               style={{ pointerEvents: isActive ? "auto" : "none" }}
               aria-hidden={!isActive}
             >
-              <PageActivity active={isActive} suspendDelayMs={lowPerformanceMode ? 0 : 200}>
-                {renderPage(page, pid ?? activePid)}
-              </PageActivity>
+              {/* react-window must keep its layout and scroll effects mounted while hidden. */}
+              {page === "home" ? (
+                pageContent
+              ) : (
+                <PageActivity active={isActive} suspendDelayMs={lowPerformanceMode ? 0 : 200}>
+                  {pageContent}
+                </PageActivity>
+              )}
             </motion.div>
           );
         })}
