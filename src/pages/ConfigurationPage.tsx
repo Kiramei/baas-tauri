@@ -143,20 +143,30 @@ const cardVariants: Variants = {
 /** Renders the motion card component. */
 const MotionCard: React.FC<
   React.PropsWithChildren<{ lowPerformanceMode: boolean; onClick?: () => void }>
-> = ({ children, lowPerformanceMode, onClick }) => (
-  <motion.div
-    variants={lowPerformanceMode ? undefined : cardVariants}
-    initial={lowPerformanceMode ? false : "hidden"}
-    animate={lowPerformanceMode ? undefined : "show"}
-    whileHover={lowPerformanceMode ? undefined : { y: -2 }}
-    whileTap={lowPerformanceMode ? undefined : { scale: 0.99 }}
-    transition={{ duration: 0 }}
-    className="cursor-pointer"
-    onClick={onClick}
-  >
-    <Card>{children}</Card>
-  </motion.div>
-);
+> = ({ children, lowPerformanceMode, onClick }) => {
+  if (lowPerformanceMode) {
+    return (
+      <div className="cursor-pointer" onClick={onClick}>
+        <Card>{children}</Card>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      variants={cardVariants}
+      initial="hidden"
+      animate="show"
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ duration: 0 }}
+      className="cursor-pointer"
+      onClick={onClick}
+    >
+      <Card>{children}</Card>
+    </motion.div>
+  );
+};
 
 /**
  * Presents the full catalog of configurable features for the selected profile.
