@@ -191,6 +191,7 @@
     "dailySweep": "Daily stages and sweeps",
     "drill": "Joint drill settings",
     "emulator": "Emulator path and startup",
+    "finalRestrictionRls": "Configure formation and clear-team copying",
     "getEmulator": "Select emulator path",
     "other": {
       "$self": "Misc settings",
@@ -211,7 +212,7 @@
     },
     "tactical": "Total Assault settings",
     "team": "Formation settings",
-    "whitelist": "Friend deletion whitelist"
+    "whitelist": "Configure cleanup filters and friend whitelist"
   },
   "installer": {
     "advanced": "Advanced Settings",
@@ -430,7 +431,7 @@
     "white": "White",
     "whiteBlue": "White & Blue"
   },
-  "whitelist": "Whitelist",
+  "whitelist": "Friend cleanup",
   "script": {
     "$self": "Scripts",
     "autostart": "Auto-start when script launches",
@@ -634,15 +635,30 @@
       "folderSelect": "Choose log export path"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "Unrestricted Decisive Battle",
+    "copyClearFormation": "Copy a clear formation",
+    "copyClearUnavailableHint": "Select “Copy a clear formation” to configure these options.",
+    "formationMethod": "Formation method",
+    "maxRefreshCount": "Maximum clear-team refreshes",
+    "maxUnavailableStudentCount": "Maximum unavailable students",
+    "useCurrentFormation": "Use current formation"
+  },
   "friend": {
     "add": "Add",
     "addFailed": "Failed to add",
     "alreadyExists": "Friend already exists",
+    "disabledThresholdHint": "Enter -1 to disable a cleanup condition.",
     "empty": "Friend whitelist is empty",
+    "filters": "Cleanup filters",
     "invalidFormatCN": "CN code needs numbers and lowercase letters",
     "invalidFormatGlobal": "Global code needs uppercase letters",
     "invalidLength": "Invalid friend code length",
-    "placeholder": "Enter Friend Code"
+    "lastLoginDays": "Last-login days threshold",
+    "lastTotalAssaultRankLimit": "Previous total-assault rank threshold",
+    "levelLimit": "Friend level threshold",
+    "placeholder": "Enter Friend Code",
+    "whitelist": "Friend whitelist"
   },
   "heartbeat": {
     "connected": "Service connected",
