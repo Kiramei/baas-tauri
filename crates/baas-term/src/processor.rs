@@ -675,28 +675,37 @@ mod tests {
         let mut saw_start = false;
         let mut saw_detached_output = false;
         let mut saw_process_output = false;
+        let mut output = String::new();
         let started = std::time::Instant::now();
-        while started.elapsed() < Duration::from_secs(2) {
+        // Cold PowerShell startup on shared Windows runners can exceed 15 seconds.
+        while started.elapsed() < Duration::from_secs(30) {
             match renderer_rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(RendererEvent::TaskStarted(_)) => saw_start = true,
                 Ok(RendererEvent::Output {
                     region_id, chunk, ..
                 }) => {
                     assert_eq!(region_id, "detached-region");
-                    let text = String::from_utf8_lossy(&chunk);
-                    saw_detached_output |= text.contains("Detached process started with pid");
-                    saw_process_output |= text.contains("ok");
+                    output.push_str(&String::from_utf8_lossy(&chunk));
+                    saw_detached_output = output.contains("Detached process started with pid");
+                    saw_process_output = output.contains("ok");
                 }
                 Ok(_) => {}
-                Err(_) => {}
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
             if saw_start && saw_detached_output && saw_process_output {
                 break;
             }
         }
-        assert!(saw_start);
-        assert!(saw_detached_output);
-        assert!(saw_process_output);
+        assert!(saw_start, "missing task start; output: {output:?}");
+        assert!(
+            saw_detached_output,
+            "missing PID message; output: {output:?}"
+        );
+        assert!(
+            saw_process_output,
+            "missing child output; output: {output:?}"
+        );
         assert!(inner.lock().unwrap().tasks.is_empty());
     }
 
