@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "Auto layout",
+    "asPost": "Run after",
+    "asPre": "Run before",
+    "defaultState": "Backend default",
+    "disabled": "Disabled",
+    "disconnect": "Disconnect",
+    "empty": "No tasks yet. Connect to a backend to load the scheduler.",
+    "enabled": "Enabled",
+    "errors": {
+      "cycle": "This connection would create a circular dependency.",
+      "duplicate": "This connection already exists.",
+      "portMismatch": "Connect ports of the same color and relationship type.",
+      "selfLink": "A task cannot connect to itself.",
+      "unknown": "The task no longer exists. Reload the scheduler."
+    },
+    "existingCycle": "Existing circular dependencies are preserved. Remove a connection to resolve them.",
+    "fitView": "Fit workflow",
+    "hint": "Drag nodes to arrange · Connect matching colored ports · Select a connection to disconnect",
+    "layoutSaved": "Layout saved per account on this device",
+    "loadFailed": "The workflow could not load. Your configuration is unchanged; use the list view to continue.",
+    "loading": "Loading workflow…",
+    "minimizeToTray": "Minimize to system tray",
+    "newEvents": "New task default state",
+    "queued": "Queued",
+    "showGraph": "Switch to workflow view",
+    "showList": "Switch to list view",
+    "summary": "{{tasks}} tasks · {{relations}} connections",
+    "title": "Task workflow",
+    "unknownRefs": "Unknown task references (preserved): {{refs}}",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   }
 }

@@ -1080,6 +1080,15 @@ const SettingsPage: React.FC = () => {
                 }}
               />
             )}
+            {__WITH_TAURI__ && !__WITH_ANDROID__ && (
+              <SwitchButton
+                label={t("workflow.minimizeToTray")}
+                checked={uiSettings.minimizeToTray ?? false}
+                onChange={(value) =>
+                  setUiSettings((state) => ({ ...state, minimizeToTray: value }))
+                }
+              />
+            )}
             {!__WITH_ANDROID__ && (
               <SwitchButton
                 label={t("settings.ui.enableSafeStream")}

@@ -17,16 +17,19 @@ mod system_logs;
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
 
-use crate::behavior::{disable_f5_press_event, set_backend_locale, splash_off, BehaviorState};
+use crate::behavior::{
+    disable_f5_press_event, set_backend_locale, set_minimize_to_tray, splash_off, BehaviorState,
+};
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
     android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
     android_scrcpy_virtual_display_status, backend_transport_start, open_main_devtools,
-    shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
-    updater_check_version, updater_get_startup_state, updater_get_storage_state,
-    updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-    updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
-    updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
+    shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
+    updater_abort_workflow, updater_check_version, updater_get_startup_state,
+    updater_get_storage_state, updater_path_exists_non_empty,
+    updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+    updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
+    updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::notifier_commands::baas_notify;
 use crate::pipe_commands::{
@@ -44,12 +47,12 @@ use crate::{
         android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
         android_scrcpy_virtual_display_status, backend_transport_start,
         configure_portable_working_dir, ensure_default_config, open_main_devtools,
-        shortcut_apply_bindings, tauri_client_check_update, updater_abort_workflow,
-        updater_check_version, updater_get_startup_state, updater_get_storage_state,
-        updater_path_exists_non_empty, updater_reset_backend_auth_and_restart, updater_resize_term,
-        updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
-        updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
-        BackendProcessManager,
+        shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
+        updater_abort_workflow, updater_check_version, updater_get_startup_state,
+        updater_get_storage_state, updater_path_exists_non_empty,
+        updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
+        updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
+        updater_update_config, updater_validate_mirrorc_cdk, BackendProcessManager,
     },
 };
 
@@ -62,7 +65,7 @@ use baas_updater::app::UpdaterTermManager;
 #[cfg(mobile)]
 use tauri::Manager;
 #[cfg(not(mobile))]
-use tauri::{Manager, RunEvent, WindowEvent};
+use tauri::{Manager, RunEvent};
 
 /// Performs the run operation.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -76,12 +79,14 @@ pub fn run() {
             baas_notify,
             splash_off,
             set_backend_locale,
+            set_minimize_to_tray,
             updater_get_storage_state,
             updater_get_startup_state,
             updater_path_exists_non_empty,
             updater_update_config,
             updater_validate_mirrorc_cdk,
             tauri_client_check_update,
+            tauri_client_download_and_install,
             updater_check_version,
             updater_test_sha_method,
             updater_test_sha_methods,
@@ -151,24 +156,7 @@ pub fn run() {
             system_log("INFO", "lifecycle", "Desktop setup completed");
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if window.label() != "main" {
-                return;
-            }
-            let state = window.state::<BehaviorState>();
-            if !state.tray_enabled {
-                return;
-            }
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                system_log(
-                    "INFO",
-                    "window",
-                    "Main window close requested; hiding to tray",
-                );
-                api.prevent_close();
-                let _ = window.hide();
-            }
-        })
+        .on_window_event(behavior::handle_main_window_event)
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

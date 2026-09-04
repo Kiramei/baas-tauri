@@ -135,12 +135,14 @@ async fn read_frame(reader: &mut ReadHalf<NativePipeStream>) -> Result<(u8, Vec<
 #[cfg(windows)]
 async fn connect_pipe(pipe_name: &str) -> Result<NativePipeStream, String> {
     let started = tokio::time::Instant::now();
+    let mut attempt = 0;
     loop {
         match ClientOptions::new().open(pipe_name) {
             Ok(client) => return Ok(client),
             Err(error) if started.elapsed() < Duration::from_secs(10) => {
                 let _ = error;
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                tokio::time::sleep(pipe_connect_retry_delay(attempt)).await;
+                attempt += 1;
             }
             Err(error) => return Err(format!("failed to connect named pipe {pipe_name}: {error}")),
         }
@@ -150,16 +152,25 @@ async fn connect_pipe(pipe_name: &str) -> Result<NativePipeStream, String> {
 #[cfg(unix)]
 async fn connect_pipe(pipe_name: &str) -> Result<NativePipeStream, String> {
     let started = tokio::time::Instant::now();
+    let mut attempt = 0;
     loop {
         match UnixStream::connect(pipe_name).await {
             Ok(client) => return Ok(client),
             Err(error) if started.elapsed() < Duration::from_secs(10) => {
                 let _ = error;
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                tokio::time::sleep(pipe_connect_retry_delay(attempt)).await;
+                attempt += 1;
             }
             Err(error) => return Err(format!("failed to connect Unix pipe {pipe_name}: {error}")),
         }
     }
+}
+
+#[cfg(any(windows, unix))]
+fn pipe_connect_retry_delay(attempt: u32) -> Duration {
+    // Concurrent channels can briefly exhaust the server's pending accept.
+    // Retry quickly at startup, but back off if the backend really is absent.
+    Duration::from_millis((2_u64 << attempt.min(6)).min(100))
 }
 
 #[tauri::command]
@@ -378,4 +389,17 @@ pub async fn backend_pipe_close(
 #[tauri::command]
 pub fn backend_pipe_close_all(manager: State<'_, BackendPipeManager>) -> Result<(), String> {
     manager.close_all()
+}
+
+#[cfg(all(test, any(windows, unix)))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pipe_connect_retries_quickly_then_backs_off() {
+        assert_eq!(pipe_connect_retry_delay(0), Duration::from_millis(2));
+        assert_eq!(pipe_connect_retry_delay(1), Duration::from_millis(4));
+        assert_eq!(pipe_connect_retry_delay(6), Duration::from_millis(100));
+        assert_eq!(pipe_connect_retry_delay(u32::MAX), Duration::from_millis(100));
+    }
 }

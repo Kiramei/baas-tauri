@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 interface FeaturePanelErrorBoundaryProps {
   children: React.ReactNode;
   closeLabel: string;
+  errorMessage?: string;
   onClose: () => void;
 }
 
@@ -32,7 +33,7 @@ class FeaturePanelErrorBoundary extends React.Component<
       <div className="flex min-h-40 flex-col items-center justify-center gap-3 p-4 text-center">
         <AlertTriangle className="h-8 w-8 text-red-500" />
         <p className="max-w-full break-words text-sm text-red-600 dark:text-red-400">
-          {this.state.error.message}
+          {this.props.errorMessage ?? this.state.error.message}
         </p>
         <button
           type="button"

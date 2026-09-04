@@ -49,6 +49,7 @@ directories = "6.0.0"
 chrono = { workspace = true }
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-single-instance = "2"
+url = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }

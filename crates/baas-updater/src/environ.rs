@@ -5,7 +5,7 @@ use crate::{
     config::UpdaterConfig,
     constants::{CPYTHON_HEAD, PYPI_SOURCE_LIST, UV_SRC_HEAD},
     repo::{
-        SourceProbe, SourceRanking, benchmark_source_probes_with_output,
+        SourceProbe, SourceRanking, SourceSelector, benchmark_source_probes_with_output,
         benchmark_sources_with_output, save_ranking,
     },
 };
@@ -369,14 +369,14 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         }
 
         if !uv_executable(config).exists() {
-            let uv_url = ranked_environment_source_with_output(
+            let _ = with_environment_source_failover(
                 EnvironmentSourceKind::Uv,
                 config,
                 ranking_dir,
                 &HttpSourceProbe,
                 output,
+                |url| ensure_uv_installed_from(config, url, &self.downloader, output),
             )?;
-            ensure_uv_installed_from(config, &uv_url, &self.downloader, output)?;
         } else {
             output.line(OutputStyle::Success, "uv is already installed");
         }
@@ -384,16 +384,16 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         if managed_python_configured(config) {
             output.line(OutputStyle::Success, "Python virtual environment exists");
         } else {
-            let cpython_mirror = ranked_environment_source_with_output(
+            let _ = with_environment_source_failover(
                 EnvironmentSourceKind::Cpython,
                 config,
                 ranking_dir,
                 &HttpSourceProbe,
                 output,
-            )?;
-            self.runner.run(
-                &uv_python_install_command_with_mirror(config, &cpython_mirror),
-                output,
+                |url| {
+                    self.runner
+                        .run(&uv_python_install_command_with_mirror(config, url), output)
+                },
             )?;
             self.runner.run(&uv_venv_command(config), output)?;
         }
@@ -426,27 +426,32 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
 
         let requirements = requirements_path(config)
             .ok_or_else(|| UpdaterError::Environment("requirements file not found".to_string()))?;
-        let pypi_index = ranked_environment_source_with_output(
+        let (pypi_index, dependencies_changed) = with_environment_source_failover(
             EnvironmentSourceKind::Pypi,
             config,
             ranking_dir,
             &HttpSourceProbe,
             output,
+            |url| {
+                if requirements_compile_cached(config, &requirements, url)? {
+                    output.line(
+                        OutputStyle::Success,
+                        "requirements unchanged; skipping uv compile, sync, and cache clean",
+                    );
+                    return Ok(false);
+                }
+                self.runner.run(
+                    &uv_compile_command_with_index(config, &requirements, url),
+                    output,
+                )?;
+                self.runner
+                    .run(&uv_sync_command_with_index(config, url), output)?;
+                Ok(true)
+            },
         )?;
-        if requirements_compile_cached(config, &requirements, &pypi_index)? {
-            output.line(
-                OutputStyle::Success,
-                "requirements unchanged; skipping uv compile, sync, and cache clean",
-            );
+        if !dependencies_changed {
             return Ok(());
-        } else {
-            self.runner.run(
-                &uv_compile_command_with_index(config, &requirements, &pypi_index),
-                output,
-            )?;
         }
-        self.runner
-            .run(&uv_sync_command_with_index(config, &pypi_index), output)?;
         self.runner.run(&uv_cache_clean_command(config), output)?;
         save_requirements_cache(config, &requirements, &pypi_index)?;
         Ok(())
@@ -866,6 +871,55 @@ fn default_pypi_index(config: &UpdaterConfig) -> String {
         .unwrap_or_else(|| "https://pypi.org/simple".to_string())
 }
 
+/// Runs a real environment operation with persistent source failover.
+pub(crate) fn with_environment_source_failover<P, T, F>(
+    kind: EnvironmentSourceKind,
+    config: &UpdaterConfig,
+    ranking_dir: Option<&Path>,
+    probe: &P,
+    output: &(impl OutputSink + ?Sized),
+    mut operation: F,
+) -> UpdaterResult<(String, T)>
+where
+    P: SourceProbe + Clone + 'static,
+    F: FnMut(&str) -> UpdaterResult<T>,
+{
+    let expected_urls = environment_source_urls(kind, config)?;
+    let probe_urls = environment_source_probe_urls(kind, &expected_urls);
+    let ranking_path = ranking_dir.map(|dir| dir.join(format!("{}.json", kind.as_str())));
+    let mut selector = SourceSelector::load(ranking_path.as_deref(), &expected_urls)?;
+    let mut last_error = None;
+
+    loop {
+        let url = match selector.next_source(&probe_urls, probe, output, kind.as_str()) {
+            Ok(url) => url,
+            Err(error) => {
+                let detail = last_error
+                    .map(|last: UpdaterError| format!("; last error: {}", last.message()))
+                    .unwrap_or_default();
+                return Err(UpdaterError::Environment(format!(
+                    "{}{detail}",
+                    error.message()
+                )));
+            }
+        };
+        match operation(&url) {
+            Ok(value) => {
+                selector.mark_succeeded(&url)?;
+                return Ok((url, value));
+            }
+            Err(error) => {
+                output.line(
+                    OutputStyle::Warning,
+                    &format!("{} source {url} failed: {}", kind.as_str(), error.message()),
+                );
+                selector.mark_failed(&url)?;
+                last_error = Some(error);
+            }
+        }
+    }
+}
+
 /// Returns the selected ranked URL for an environment source kind.
 pub fn ranked_environment_source(
     kind: EnvironmentSourceKind,
@@ -1062,6 +1116,7 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
     struct Probe {
         ok: Vec<String>,
     }
@@ -1117,6 +1172,19 @@ mod tests {
             .unwrap();
 
         assert!(commands.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn pipe_launch_keeps_the_same_backend_command_and_adds_one_endpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let websocket = launch_backend_command(&config, 8190);
+        let pipe = launch_backend_pipe_command(&config, 8190, "test-pipe-endpoint");
+        assert_eq!(pipe.program, websocket.program);
+        assert_eq!(pipe.cwd, websocket.cwd);
+        let mut expected = websocket.args;
+        expected.extend(["--pipe-name".to_string(), "test-pipe-endpoint".to_string()]);
+        assert_eq!(pipe.args, expected);
     }
 
     /// Handles the existing uv and python skip prepare ranking and downloads workflow.
@@ -1276,6 +1344,65 @@ mod tests {
 
         assert_eq!(selected, "https://fast.example/simple");
         assert!(ranking.path().join("pypi.json").exists());
+    }
+
+    /// A source is persisted only after its real operation succeeds; a failed
+    /// operation disables it and races the remaining sources immediately.
+    #[test]
+    fn environment_operation_failure_switches_and_persists_source() {
+        #[derive(Clone)]
+        struct TimedProbe;
+
+        impl SourceProbe for TimedProbe {
+            fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+                let delay = if url.contains("bad") { 1 } else { 30 };
+                std::thread::sleep(Duration::from_millis(delay));
+                Ok(Duration::from_millis(delay))
+            }
+        }
+
+        let root = tempfile::tempdir().unwrap();
+        let ranking = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec![
+            "https://bad.example/simple".to_string(),
+            "https://good.example/simple".to_string(),
+        ];
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let operation_calls = Arc::clone(&calls);
+
+        let (selected, ()) = with_environment_source_failover(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(ranking.path()),
+            &TimedProbe,
+            &crate::NoopOutput,
+            move |url| {
+                operation_calls.lock().unwrap().push(url.to_string());
+                if url.contains("bad") {
+                    Err(UpdaterError::Network("download failed".to_string()))
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap();
+
+        assert_eq!(selected, "https://good.example/simple");
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![
+                "https://bad.example/simple".to_string(),
+                "https://good.example/simple".to_string(),
+            ]
+        );
+        let persisted = load_environment_ranking(
+            Some(&ranking.path().join("pypi.json")),
+            &config.general.source_list,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(persisted.active_sources()[0].url, selected);
     }
 
     /// Handles the ranked environment source errors after three all failed cycles workflow.

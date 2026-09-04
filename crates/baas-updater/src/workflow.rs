@@ -5,12 +5,13 @@ use crate::{
     WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
-        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
-        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        managed_python_configured, ranked_environment_source_with_output,
-        requirements_compile_cached, requirements_path, save_requirements_cache,
-        uses_managed_runtime, uv_cache_clean_command, uv_compile_command_with_index, uv_executable,
-        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
+        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
+        RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
+        launch_backend_pipe_command, managed_python_configured, requirements_compile_cached,
+        requirements_path,
+        save_requirements_cache, uses_managed_runtime, uv_cache_clean_command,
+        uv_compile_command_with_index, uv_executable, uv_python_install_command_with_mirror,
+        uv_sync_command_with_index, uv_venv_command, with_environment_source_failover,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
@@ -465,6 +466,7 @@ struct TerminalWorkflowState {
     cpp_outcome: Option<RepositoryOutcome>,
     cpython_mirror: Option<String>,
     pypi_index: Option<String>,
+    dependencies_changed: Option<bool>,
 }
 
 struct TerminalStageContext<'a> {
@@ -551,7 +553,12 @@ pub fn run_terminal_workflow_flow(
         return;
     }
 
-    if !run_terminal_dependency_stage(&context, Arc::clone(&state), options.launch) {
+    if !run_terminal_dependency_stage(
+        &context,
+        Arc::clone(&state),
+        options.launch,
+        options.pipe_name.as_deref(),
+    ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
@@ -873,16 +880,19 @@ fn run_terminal_repo_stage(
         }
     };
 
-    if config.general.no_update {
-        return run_terminal_thread_repo_stage(context, state, None);
-    }
-
-    if !config.general.mirrorc_cdk.is_empty()
-        || config.general.git_backend == GitBackend::Git2
+    // Repository operations must stay inside RepoManager so a real clone/fetch
+    // failure can disable the selected source and immediately re-run the race.
+    if config.general.no_update
+        || !config.general.mirrorc_cdk.is_empty()
+        || matches!(
+            config.general.git_backend,
+            GitBackend::Auto | GitBackend::GitCli | GitBackend::Git2
+        )
         || !RealGitExecutor.has_cli()
     {
         let git_backend_override = if config.general.git_backend == GitBackend::Auto
             && config.general.mirrorc_cdk.is_empty()
+            && !RealGitExecutor.has_cli()
         {
             Some(GitBackend::Git2)
         } else {
@@ -1657,17 +1667,10 @@ fn run_terminal_environment_prepare_stage(
         }
     };
 
-    if !run_process_and_wait(
-        context.inner,
-        context.session_id,
-        planned_direct_process_task(
-            context.workflow_plan,
-            "uv-python-install",
-            &uv_python_install_command_with_mirror(&config, &cpython_mirror),
-        ),
-        context.renderer_tx,
-        context.completion_tx,
-        context.completion_rx,
+    if !run_terminal_skip_task(
+        context,
+        "uv-python-install",
+        &format!("Python installed from {cpython_mirror}"),
     ) {
         return false;
     }
@@ -1697,6 +1700,7 @@ fn run_terminal_dependency_stage(
     context: &TerminalStageContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
+    pipe_name: Option<&str>,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1734,7 +1738,7 @@ fn run_terminal_dependency_stage(
                 return false;
             }
         }
-        return run_terminal_launch_stage(context, config, launch);
+        return run_terminal_launch_stage(context, config, launch, pipe_name);
     }
 
     let requirements = match requirements_path(&config) {
@@ -1794,56 +1798,49 @@ fn run_terminal_dependency_stage(
             return false;
         }
     };
-    if requirements_compile_cached(&config, &requirements, &pypi_index).unwrap_or(false) {
-        for (task_id, message) in [
-            ("uv-compile", "requirements unchanged; skipping uv compile"),
-            ("uv-sync", "requirements unchanged; skipping uv sync"),
-            (
-                "uv-cache-clean",
-                "requirements unchanged; skipping uv cache clean",
-            ),
-        ] {
-            if !run_terminal_skip_task(context, task_id, message) {
-                return false;
-            }
-        }
-    } else if !run_process_and_wait(
-        context.inner,
-        context.session_id,
-        planned_direct_process_task(
-            context.workflow_plan,
+    let dependencies_changed = state
+        .lock()
+        .ok()
+        .and_then(|state| state.dependencies_changed)
+        .unwrap_or(false);
+    for (task_id, message) in [
+        (
             "uv-compile",
-            &uv_compile_command_with_index(&config, &requirements, &pypi_index),
+            "uv compile completed during PyPI source failover",
         ),
-        context.renderer_tx,
-        context.completion_tx,
-        context.completion_rx,
-    ) {
-        return false;
-    } else {
-        for (task_id, command) in [
-            ("uv-sync", uv_sync_command_with_index(&config, &pypi_index)),
-            ("uv-cache-clean", uv_cache_clean_command(&config)),
-        ] {
-            let task = planned_direct_process_task(context.workflow_plan, task_id, &command)
-                .with_running_region_max_lines(4);
-            if !run_process_and_wait(
-                context.inner,
-                context.session_id,
-                task,
-                context.renderer_tx,
-                context.completion_tx,
-                context.completion_rx,
-            ) {
-                return false;
-            }
-        }
-        if save_requirements_cache(&config, &requirements, &pypi_index).is_err() {
+        ("uv-sync", "uv sync completed during PyPI source failover"),
+    ] {
+        if !run_terminal_skip_task(context, task_id, message) {
             return false;
         }
     }
+    if dependencies_changed {
+        let task = planned_direct_process_task(
+            context.workflow_plan,
+            "uv-cache-clean",
+            &uv_cache_clean_command(&config),
+        )
+        .with_running_region_max_lines(4);
+        if !run_process_and_wait(
+            context.inner,
+            context.session_id,
+            task,
+            context.renderer_tx,
+            context.completion_tx,
+            context.completion_rx,
+        ) || save_requirements_cache(&config, &requirements, &pypi_index).is_err()
+        {
+            return false;
+        }
+    } else if !run_terminal_skip_task(
+        context,
+        "uv-cache-clean",
+        "requirements unchanged; skipping uv cache clean",
+    ) {
+        return false;
+    }
 
-    run_terminal_launch_stage(context, config, launch)
+    run_terminal_launch_stage(context, config, launch, pipe_name)
 }
 
 /// Performs the run terminal skip task operation.
@@ -1889,6 +1886,7 @@ fn run_terminal_launch_stage(
     context: &TerminalStageContext<'_>,
     config: UpdaterConfig,
     launch: bool,
+    pipe_name: Option<&str>,
 ) -> bool {
     if !launch || !config.general.launch {
         return run_terminal_skip_task(
@@ -1901,7 +1899,10 @@ fn run_terminal_launch_stage(
         Ok(port) => port,
         Err(_) => return false,
     };
-    let command = launch_backend_command(&config, port);
+    let command = match pipe_name {
+        Some(name) => launch_backend_pipe_command(&config, port, name),
+        None => launch_backend_command(&config, port),
+    };
     let success = run_process_and_wait(
         context.inner,
         context.session_id,
@@ -1939,17 +1940,16 @@ fn terminal_uv_install_task(
         );
         return Ok(ThreadTaskOutcome::Skipped);
     }
-    let uv_url = ranked_environment_source_with_output(
+    with_environment_source_failover(
         EnvironmentSourceKind::Uv,
         &config,
         Some(&ranking_dir),
         &HttpSourceProbe,
         &output,
+        |url| ensure_uv_installed_from(&config, url, &ReqwestDownloader, &output),
     )
-    .map_err(|error| error.message())?;
-    ensure_uv_installed_from(&config, &uv_url, &ReqwestDownloader, &output)
-        .map(|()| ThreadTaskOutcome::Success)
-        .map_err(|error| error.message())
+    .map(|_| ThreadTaskOutcome::Success)
+    .map_err(|error| error.message())
 }
 
 struct TerminalCpythonRankArgs {
@@ -1967,12 +1967,18 @@ fn terminal_cpython_rank_task(
     if cancelled.load(Ordering::Relaxed) {
         return Err("cpython source ranking task cancelled".to_string());
     }
-    let cpython_mirror = ranked_environment_source_with_output(
+    let (cpython_mirror, ()) = with_environment_source_failover(
         EnvironmentSourceKind::Cpython,
         &args.config,
         Some(&args.ranking_dir),
         &HttpSourceProbe,
         &output,
+        |url| {
+            RealProcessRunner.run(
+                &uv_python_install_command_with_mirror(&args.config, url),
+                &output,
+            )
+        },
     )
     .map_err(|error| error.message())?;
     let mut state = args
@@ -1980,7 +1986,10 @@ fn terminal_cpython_rank_task(
         .lock()
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
     state.cpython_mirror = Some(cpython_mirror);
-    output.line(OutputStyle::Success, "CPython source ranked");
+    output.line(
+        OutputStyle::Success,
+        "CPython installed from selected source",
+    );
     Ok(())
 }
 
@@ -1999,12 +2008,25 @@ fn terminal_pypi_rank_task(
     if cancelled.load(Ordering::Relaxed) {
         return Err("pypi source ranking task cancelled".to_string());
     }
-    let pypi_index = ranked_environment_source_with_output(
+    let requirements =
+        requirements_path(&args.config).ok_or_else(|| "requirements file not found".to_string())?;
+    let (pypi_index, dependencies_changed) = with_environment_source_failover(
         EnvironmentSourceKind::Pypi,
         &args.config,
         Some(&args.ranking_dir),
         &HttpSourceProbe,
         &output,
+        |url| {
+            if requirements_compile_cached(&args.config, &requirements, url)? {
+                return Ok(false);
+            }
+            RealProcessRunner.run(
+                &uv_compile_command_with_index(&args.config, &requirements, url),
+                &output,
+            )?;
+            RealProcessRunner.run(&uv_sync_command_with_index(&args.config, url), &output)?;
+            Ok(true)
+        },
     )
     .map_err(|error| error.message())?;
     let mut state = args
@@ -2012,7 +2034,15 @@ fn terminal_pypi_rank_task(
         .lock()
         .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
     state.pypi_index = Some(pypi_index);
-    output.line(OutputStyle::Success, "PyPI source ranked");
+    state.dependencies_changed = Some(dependencies_changed);
+    output.line(
+        OutputStyle::Success,
+        if dependencies_changed {
+            "Dependencies synchronized from selected PyPI source"
+        } else {
+            "Requirements unchanged for persisted PyPI source"
+        },
+    );
     Ok(())
 }
 
@@ -2031,7 +2061,7 @@ fn wait_for_backend_port_for_session(
         if backend_auth_endpoint_ready(port) {
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(20));
     }
     Err(UpdaterError::Workflow(format!(
         "backend auth endpoint did not become ready on 127.0.0.1:{port}"
@@ -2040,7 +2070,9 @@ fn wait_for_backend_port_for_session(
 
 /// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
-    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+    // A refused loopback connect can otherwise stall for ~1 second on Windows.
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(20)) else {
         return false;
     };
     let timeout = Some(Duration::from_millis(700));
@@ -2379,5 +2411,29 @@ mod tests {
 
         assert!(backend_auth_endpoint_ready(port));
         handle.join().unwrap();
+    }
+
+    #[test]
+    fn backend_ready_probe_rejects_non_http_listener() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 128];
+            let _ = stream.read(&mut request);
+            stream.write_all(b"not an HTTP server").unwrap();
+        });
+        assert!(!backend_auth_endpoint_ready(port));
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn refused_backend_probe_has_bounded_connect_time() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let started = Instant::now();
+        assert!(!backend_auth_endpoint_ready(port));
+        assert!(started.elapsed() < Duration::from_millis(500));
     }
 }

@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "자동 정렬",
+    "asPost": "후속 작업으로",
+    "asPre": "선행 작업으로",
+    "defaultState": "백엔드 기본값",
+    "disabled": "비활성화",
+    "disconnect": "연결 해제",
+    "empty": "작업이 없습니다. 백엔드에 연결하세요.",
+    "enabled": "활성화",
+    "errors": {
+      "cycle": "이 연결은 순환 의존성을 만듭니다.",
+      "duplicate": "이미 존재하는 연결입니다.",
+      "portMismatch": "색상과 관계 유형이 같은 포트를 연결하세요.",
+      "selfLink": "작업은 자기 자신에 연결할 수 없습니다.",
+      "unknown": "작업이 없습니다. 스케줄러를 다시 불러오세요."
+    },
+    "existingCycle": "기존 순환 의존성은 유지됩니다. 연결을 해제하여 수정하세요.",
+    "fitView": "전체 보기",
+    "hint": "노드를 끌어 배치 · 같은 색 포트 연결 · 연결을 선택하여 해제",
+    "layoutSaved": "이 기기에 계정별 레이아웃 저장",
+    "loadFailed": "워크플로를 불러오지 못했습니다. 설정은 변경되지 않았습니다. 목록에서 계속 편집하세요.",
+    "loading": "워크플로 불러오는 중…",
+    "minimizeToTray": "시스템 트레이로 최소화",
+    "newEvents": "새 작업의 활성화 상태",
+    "queued": "대기 중",
+    "showGraph": "워크플로 보기로 전환",
+    "showList": "목록 보기로 전환",
+    "summary": "작업 {{tasks}}개 · 연결 {{relations}}개",
+    "title": "작업 워크플로",
+    "unknownRefs": "알 수 없는 작업 참조(유지됨): {{refs}}",
+    "zoomIn": "확대",
+    "zoomOut": "축소"
   }
 }

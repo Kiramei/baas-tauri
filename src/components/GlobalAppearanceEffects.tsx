@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { invoke } from "@/shared/TauriInvoke";
 
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
@@ -122,6 +123,12 @@ const contrastText = (hex: string) => {
 
 /** Renders the global appearance effects component. */
 const GlobalAppearanceEffects: React.FC = () => {
+  const minimizeToTray = useUISetting((settings) => settings.minimizeToTray ?? false);
+  useEffect(() => {
+    if (__WITH_TAURI__ && !__WITH_ANDROID__) {
+      void invoke("set_minimize_to_tray", { enabled: minimizeToTray }).catch(console.error);
+    }
+  }, [minimizeToTray]);
   const selectedThemeColor = useUISetting((settings) => settings.themeColor);
   const backgroundImageBase64 = useUISetting((settings) => settings.backgroundImageBase64);
   const selectedBackgroundOpacity = useUISetting((settings) => settings.backgroundImageOpacity);

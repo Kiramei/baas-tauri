@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { applyResourcePatch } from "@/shared/ResourcePatch";
 import { create } from "zustand";
 import {
   ControlConnection,
@@ -246,6 +247,7 @@ const checkAndroidClientUpdate = async (currentVersion?: string) => {
 };
 
 const resetConnectionStores = (): Partial<WebSocketState> => ({
+  _receivedSnapshots: {},
   connections: {},
   pendingCallbacks: {},
   pendingStreamCallbacks: {},
@@ -568,6 +570,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       }
     },
     connections: {},
+    _receivedSnapshots: {},
     logStore: {},
     configStore: {},
     staticStore: {},
@@ -677,13 +680,15 @@ export const useWebSocketStore = create<WebSocketState>()(
       tauriUpdaterChecking = true;
 
       try {
-        const [{ check }, { getVersion }] = await Promise.all([
-          import("@tauri-apps/plugin-updater"),
+        const [{ invoke }, { getVersion }] = await Promise.all([
+          import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
         const currentVersion = await getVersion().catch(() => __APP_VERSION__);
-        const update = await check();
-        const nextTauriVersion = update
+        const update = await invoke<any>("tauri_client_check_update", {
+          request: { currentVersion },
+        });
+        const nextTauriVersion = update.updateAvailable
           ? {
               updateAvailable: true,
               checking: false,
@@ -755,7 +760,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       check();
     },
 
-    startAuthFlow: async () => {
+    startAuthFlow: async (backendReady = false) => {
       if (transportSwitching) return;
       const authGeneration = transportGeneration;
       const transportMode = await configuredTransportMode();
@@ -774,7 +779,9 @@ export const useWebSocketStore = create<WebSocketState>()(
           _session: null,
         }));
         try {
-          await startManagedBackendTransport(transportMode);
+          // Setup already waited for the managed process (including its pipe
+          // listener). Recovery paths still explicitly start a new backend.
+          if (!backendReady) await startManagedBackendTransport(transportMode);
           if (transportSwitching || authGeneration !== transportGeneration) return;
           activeWebSocketBase = null;
           set((state) => ({ ...state, _auth_phase: "authenticated" }));
@@ -1089,7 +1096,14 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
 
         "snapshot": (message: WsMessageItem) => {
+          if (connectionGeneration !== transportGeneration) return;
           resourceCallBack[message.resource!]?.(message);
+          set((state) => ({
+            _receivedSnapshots: {
+              ...state._receivedSnapshots,
+              [`${message.resource}:${message.resource_id ?? ""}`]: true,
+            },
+          }));
         },
 
         "logs_full": (message: WsMessageItem) => {
@@ -1138,7 +1152,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           const data = message.status;
           if (typeof data === "string" || !data) return;
           if ("is_all_data_initialized" in data) {
-            set({ _all_data_initialized: true });
+            set({ _all_data_initialized: data.is_all_data_initialized === true });
           } else if ("version" in data) {
             const version = (data as any).version;
             set((state) => ({
@@ -1409,15 +1423,23 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get()._auth_phase !== "authenticated") return;
 
       set((state) => ({ ...state, _initiating: true }));
+      const initializationStarted = performance.now();
       console.info(`[transport] initializing data over ${get().transportMode}`);
 
       await StorageUtil.init();
 
       try {
-        await connectWithRetry("provider");
-        await connectWithRetry("sync");
+        await Promise.all([
+          connectWithRetry("provider"),
+          connectWithRetry("sync"),
+          connectWithRetry("trigger"),
+        ]);
 
+        // These snapshots are independent. Queue them together instead of
+        // paying an extra IPC/network round trip for every resource.
         get().send("sync", { type: "pull", resource: "static" });
+        get().send("sync", { type: "pull", resource: "setup_toml", resource_id: "global" });
+        get().send("sync", { type: "list" });
         await waitFor(
           get,
           api.subscribe,
@@ -1425,7 +1447,6 @@ export const useWebSocketStore = create<WebSocketState>()(
           (length) => length > 0
         );
 
-        get().send("sync", { type: "pull", resource: "setup_toml", resource_id: "global" });
         await waitFor(
           get,
           api.subscribe,
@@ -1433,7 +1454,6 @@ export const useWebSocketStore = create<WebSocketState>()(
           (length) => length > 0
         );
 
-        get().send("sync", { type: "list" });
         await waitFor(
           get,
           api.subscribe,
@@ -1452,12 +1472,14 @@ export const useWebSocketStore = create<WebSocketState>()(
         await waitFor(
           get,
           api.subscribe,
-          (state: WebSocketState) => Object.keys(state.eventStore).length,
-          (length) => length > 0
+          (state: WebSocketState) =>
+            Object.keys(state.configStore).every(
+              (id) =>
+                state._receivedSnapshots[`config:${id}`] === true &&
+                state._receivedSnapshots[`event:${id}`] === true
+            ),
+          (ready) => ready
         );
-
-        await connectWithRetry("trigger");
-
         const skipBackendUpdater = await isTauriNoUpdateEnabled();
         if (skipBackendUpdater && __WITH_ANDROID__) {
           set((state) => ({
@@ -1517,14 +1539,9 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           }));
         } else {
+          // An external version check must not gate an already usable local
+          // service. The version store is populated by the poller on arrival.
           startBackendUpdaterPolling();
-
-          await waitFor(
-            get,
-            api.subscribe,
-            (state: WebSocketState) => state.versionStore,
-            (versionStore) => Object.keys(versionStore).length > 0
-          );
         }
 
         await waitFor(
@@ -1532,6 +1549,9 @@ export const useWebSocketStore = create<WebSocketState>()(
           api.subscribe,
           (state: WebSocketState) => state._all_data_initialized,
           (status) => status
+        );
+        console.info(
+          `[transport] data ready mode=${get().transportMode} duration_ms=${(performance.now() - initializationStarted).toFixed(1)}`
         );
       } finally {
         set({ _initiating: false });
@@ -1565,20 +1585,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           return state;
         }
 
-        let base = { ...prev };
-        if (keys.length === 0 || (keys.length === 1 && keys[0] === "")) {
-          base = patch;
-        } else {
-          let current = base;
-          for (let index = 0; index < keys.length - 1; index += 1) {
-            const key = keys[index];
-            if (!current[key]) {
-              current[key] = {};
-            }
-            current = current[key];
-          }
-          current[keys[keys.length - 1]] = patch;
-        }
+        const base = applyResourcePatch(prev, keys, patch);
 
         if (resourceId === "global") {
           return {

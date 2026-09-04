@@ -35,6 +35,8 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   enableBAComet: false,
   lowPerformanceMode: false,
   enableSystemNotifications: true,
+  minimizeToTray: false,
+  schedulerSortMode: "default",
   remoteSettings: {
     streamPlayer: "mse",
     enableSafeStream: true,

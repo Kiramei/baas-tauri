@@ -60,10 +60,13 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
     setProgress(0);
     setStatus(t("update.tauriChecking"));
     try {
-      const { check } = await import("@tauri-apps/plugin-updater");
+      const [{ invoke }, { Channel }] = await Promise.all([
+        import("@/shared/TauriInvoke"),
+        import("@tauri-apps/api/core"),
+      ]);
       const { relaunch } = await import("@tauri-apps/plugin-process");
-      const update = await check();
-      if (!update) {
+      const version = useWebSocketStore.getState().versionStore?.tauri?.version;
+      if (!version) {
         setStatus(t("update.tauriUpToDate"));
         toast.success(t("update.tauriUpToDate"));
         return;
@@ -71,8 +74,9 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
       await stopAllTasks();
       let downloaded = 0;
       let contentLength = 0;
-      setStatus(t("update.tauriDownloading", { version: update.version }));
-      await update.downloadAndInstall((event) => {
+      setStatus(t("update.tauriDownloading", { version }));
+      const onEvent = new Channel<any>();
+      onEvent.onmessage = (event) => {
         if (event.event === "Started") {
           contentLength = event.data.contentLength ?? 0;
           downloaded = 0;
@@ -86,7 +90,13 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
           setProgress(100);
           setStatus(t("update.tauriInstalling"));
         }
-      });
+      };
+      const installed = await invoke<boolean>("tauri_client_download_and_install", { onEvent });
+      if (!installed) {
+        setStatus(t("update.tauriUpToDate"));
+        toast.success(t("update.tauriUpToDate"));
+        return;
+      }
       await relaunch();
     } catch (error) {
       setStatus(t("update.tauriFailed"));

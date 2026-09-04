@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "Automatisch anordnen",
+    "asPost": "Als Folgeaufgabe",
+    "asPre": "Als Voraussetzung",
+    "defaultState": "Backend-Vorgabe",
+    "disabled": "Deaktiviert",
+    "disconnect": "Verbindung trennen",
+    "empty": "Noch keine Aufgaben. Verbinden Sie das Backend.",
+    "enabled": "Aktiviert",
+    "errors": {
+      "cycle": "Diese Verbindung würde eine zyklische Abhängigkeit erzeugen.",
+      "duplicate": "Diese Verbindung existiert bereits.",
+      "portMismatch": "Verbinden Sie Anschlüsse derselben Farbe und Beziehungsart.",
+      "selfLink": "Eine Aufgabe kann nicht mit sich selbst verbunden werden.",
+      "unknown": "Die Aufgabe existiert nicht mehr. Laden Sie die Planung neu."
+    },
+    "existingCycle": "Vorhandene zyklische Abhängigkeiten bleiben erhalten. Trennen Sie eine Verbindung zur Korrektur.",
+    "fitView": "Alles einpassen",
+    "hint": "Knoten verschieben · Gleichfarbige Anschlüsse verbinden · Verbindung zum Trennen auswählen",
+    "layoutSaved": "Layout pro Konto auf diesem Gerät gespeichert",
+    "loadFailed": "Der Ablauf konnte nicht geladen werden. Die Konfiguration bleibt unverändert. Verwenden Sie die Liste.",
+    "loading": "Ablauf wird geladen…",
+    "minimizeToTray": "In den Infobereich minimieren",
+    "newEvents": "Aktivierungsstatus neuer Aufgaben",
+    "queued": "In Warteschlange",
+    "showGraph": "Zur Ablaufansicht wechseln",
+    "showList": "Zur Listenansicht wechseln",
+    "summary": "{{tasks}} Aufgaben · {{relations}} Verbindungen",
+    "title": "Aufgabenablauf",
+    "unknownRefs": "Unbekannte Aufgabenverweise (beibehalten): {{refs}}",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern"
   }
 }
