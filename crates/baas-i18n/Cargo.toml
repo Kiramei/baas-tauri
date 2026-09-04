@@ -1,6 +1,6 @@
 [package]
 name = "baas-i18n"
-version = "0.0.7"
+version = "0.0.8-rc"
 edition = "2024"
 description = "Package used for baas-tauri backend translation"
 authors = ["Kiramei"]
