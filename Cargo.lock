@@ -257,11 +257,11 @@ dependencies = [
 
 [[package]]
 name = "baas-i18n"
-version = "0.0.7"
+version = "0.0.8-rc"
 
 [[package]]
 name = "baas-notifier"
-version = "0.0.7"
+version = "0.0.8-rc"
 dependencies = [
  "notify-rust",
  "serde",
@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "baas-shortcut"
-version = "0.0.7"
+version = "0.0.8-rc"
 dependencies = [
  "serde",
  "tauri",
@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "baas-tauri"
-version = "0.0.7"
+version = "0.0.8-rc"
 dependencies = [
  "baas-i18n",
  "baas-notifier",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "0.0.7"
+version = "0.0.8-rc"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -328,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "0.0.7"
+version = "0.0.8-rc"
 dependencies = [
  "baas-term",
  "flate2",
