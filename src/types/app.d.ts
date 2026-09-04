@@ -151,7 +151,8 @@ interface WebSocketState {
   updateStore: any;
   versionStore: any;
   statusStore: { [id: string]: StatusItem };
-  startAuthFlow: () => Promise<void>;
+  _receivedSnapshots: Record<string, boolean>;
+  startAuthFlow: (backendReady?: boolean) => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
   checkTauriUpdater: (notify?: boolean, visible?: boolean) => Promise<void>;
   startTauriUpdaterPolling: () => void;

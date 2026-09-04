@@ -7,7 +7,8 @@ use crate::{
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
         RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        managed_python_configured, requirements_compile_cached, requirements_path,
+        launch_backend_pipe_command, managed_python_configured, requirements_compile_cached,
+        requirements_path,
         save_requirements_cache, uses_managed_runtime, uv_cache_clean_command,
         uv_compile_command_with_index, uv_executable, uv_python_install_command_with_mirror,
         uv_sync_command_with_index, uv_venv_command, with_environment_source_failover,
@@ -552,7 +553,12 @@ pub fn run_terminal_workflow_flow(
         return;
     }
 
-    if !run_terminal_dependency_stage(&context, Arc::clone(&state), options.launch) {
+    if !run_terminal_dependency_stage(
+        &context,
+        Arc::clone(&state),
+        options.launch,
+        options.pipe_name.as_deref(),
+    ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
     }
@@ -1694,6 +1700,7 @@ fn run_terminal_dependency_stage(
     context: &TerminalStageContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
+    pipe_name: Option<&str>,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1731,7 +1738,7 @@ fn run_terminal_dependency_stage(
                 return false;
             }
         }
-        return run_terminal_launch_stage(context, config, launch);
+        return run_terminal_launch_stage(context, config, launch, pipe_name);
     }
 
     let requirements = match requirements_path(&config) {
@@ -1833,7 +1840,7 @@ fn run_terminal_dependency_stage(
         return false;
     }
 
-    run_terminal_launch_stage(context, config, launch)
+    run_terminal_launch_stage(context, config, launch, pipe_name)
 }
 
 /// Performs the run terminal skip task operation.
@@ -1879,6 +1886,7 @@ fn run_terminal_launch_stage(
     context: &TerminalStageContext<'_>,
     config: UpdaterConfig,
     launch: bool,
+    pipe_name: Option<&str>,
 ) -> bool {
     if !launch || !config.general.launch {
         return run_terminal_skip_task(
@@ -1891,7 +1899,10 @@ fn run_terminal_launch_stage(
         Ok(port) => port,
         Err(_) => return false,
     };
-    let command = launch_backend_command(&config, port);
+    let command = match pipe_name {
+        Some(name) => launch_backend_pipe_command(&config, port, name),
+        None => launch_backend_command(&config, port),
+    };
     let success = run_process_and_wait(
         context.inner,
         context.session_id,
@@ -2050,7 +2061,7 @@ fn wait_for_backend_port_for_session(
         if backend_auth_endpoint_ready(port) {
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(20));
     }
     Err(UpdaterError::Workflow(format!(
         "backend auth endpoint did not become ready on 127.0.0.1:{port}"
@@ -2059,7 +2070,9 @@ fn wait_for_backend_port_for_session(
 
 /// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
-    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+    // A refused loopback connect can otherwise stall for ~1 second on Windows.
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(20)) else {
         return false;
     };
     let timeout = Some(Duration::from_millis(700));
@@ -2398,5 +2411,29 @@ mod tests {
 
         assert!(backend_auth_endpoint_ready(port));
         handle.join().unwrap();
+    }
+
+    #[test]
+    fn backend_ready_probe_rejects_non_http_listener() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 128];
+            let _ = stream.read(&mut request);
+            stream.write_all(b"not an HTTP server").unwrap();
+        });
+        assert!(!backend_auth_endpoint_ready(port));
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn refused_backend_probe_has_bounded_connect_time() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let started = Instant::now();
+        assert!(!backend_auth_endpoint_ready(port));
+        assert!(started.elapsed() < Duration::from_millis(500));
     }
 }

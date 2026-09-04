@@ -1,4 +1,5 @@
 import type { BackendChannelName, BackendConnection } from "@/transport/types";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 const HEADER_BYTES = 10;
 const MAGIC = [0x42, 0x50, 0x49, 0x50] as const;
@@ -28,7 +29,6 @@ export class TauriPipeConnection implements BackendConnection {
     decodeJson = true,
     _decrypt = true
   ): Promise<void> {
-    const { Channel, invoke } = await import("@tauri-apps/api/core");
     const subscription = new Channel<ArrayBuffer>((raw) => {
       try {
         const { kind, payload } = decodeFrame(raw);
@@ -45,7 +45,9 @@ export class TauriPipeConnection implements BackendConnection {
           }
           onMessage(decodeJson ? value : payload.buffer.slice(0));
         } else if (kind === KIND_BYTES) {
-          onMessage(payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength));
+          onMessage(
+            payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength)
+          );
         } else if (kind === KIND_CLOSE) {
           this.finishClose();
         } else if (kind === KIND_ERROR) {
@@ -68,7 +70,6 @@ export class TauriPipeConnection implements BackendConnection {
   }
 
   async sendJson(payload: Record<string, unknown>): Promise<void> {
-    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("backend_pipe_send_json", {
       channel: this.channel,
       name: this.name,
@@ -78,7 +79,6 @@ export class TauriPipeConnection implements BackendConnection {
 
   async sendBytes(payload: ArrayBuffer | Uint8Array): Promise<void> {
     const bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
-    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("backend_pipe_send_bytes", {
       channel: this.channel,
       name: this.name,
@@ -90,7 +90,6 @@ export class TauriPipeConnection implements BackendConnection {
     if (this.closed) return;
     this.closed = true;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       await invoke("backend_pipe_close", { channel: this.channel, name: this.name });
     } finally {
       this.finishClose();
@@ -113,6 +112,7 @@ function decodeFrame(raw: ArrayBuffer | Uint8Array): { kind: number; payload: Ui
     throw new Error("Invalid named pipe frame header");
   }
   const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(6, true);
-  if (length !== bytes.byteLength - HEADER_BYTES) throw new Error("Invalid named pipe frame length");
+  if (length !== bytes.byteLength - HEADER_BYTES)
+    throw new Error("Invalid named pipe frame length");
   return { kind: bytes[5], payload: bytes.subarray(HEADER_BYTES) };
 }

@@ -197,7 +197,9 @@ const SetupPage = () => {
         !authReadyPhases.has(useWebSocketStore.getState()._auth_phase)
       ) {
         try {
-          await useWebSocketStore.getState().startAuthFlow();
+          // Desktop workflows launch the configured native endpoint directly.
+          // Android still uses its own embedded-runtime transport bootstrap.
+          await useWebSocketStore.getState().startAuthFlow(!__WITH_ANDROID__);
           await waitForNormal(
             () => useWebSocketStore.getState()._auth_phase,
             (phase) => authReadyPhases.has(phase) || phase === "idle" || phase === "revoked",

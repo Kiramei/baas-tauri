@@ -964,6 +964,7 @@ pub fn updater_start_workflow(
     request: UpdaterWorkflowRequest,
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
+    pipe: State<'_, BackendPipeManager>,
 ) -> Result<SessionMetadata, String> {
     system_log(
         "INFO",
@@ -1000,12 +1001,23 @@ pub fn updater_start_workflow(
         })
         .map_err(|error| error.message())?;
 
+    // Allocate the native endpoint for the first launch. Authentication must
+    // attach to this process, not start a second backend after BackendReady.
+    pipe.close_all()?;
+    let pipe_name = if config_manager.config.general.transport == BackendTransport::Pipe {
+        let name = backend_pipe_endpoint();
+        pipe.configure(name.clone())?;
+        Some(name)
+    } else {
+        None
+    };
     manager.start(
         app,
         WorkflowOptions {
             config_path: Some(config_manager.config_path),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(true),
+            pipe_name,
         },
     )
 }
@@ -1015,6 +1027,7 @@ pub fn updater_start_workflow(
 pub fn updater_reset_backend_auth_and_restart(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
+    pipe: State<'_, BackendPipeManager>,
 ) -> Result<BackendReadyPayload, String> {
     system_log(
         "WARNING",
@@ -1023,11 +1036,17 @@ pub fn updater_reset_backend_auth_and_restart(
     );
     let manager = ensure_default_config(&app)?;
     backend.stop_for_config(&manager.config)?;
-    thread::sleep(Duration::from_millis(300));
+    pipe.close_all()?;
     delete_backend_auth_files(&manager.config)?;
 
     let port = available_backend_port()?;
-    start_backend_detached(&manager.config, port)?;
+    if manager.config.general.transport == BackendTransport::Pipe {
+        let name = backend_pipe_endpoint();
+        start_backend_pipe_detached(&manager.config, port, &name)?;
+        pipe.configure(name)?;
+    } else {
+        start_backend_detached(&manager.config, port)?;
+    }
     backend.remember_config(&manager.config)?;
     wait_for_backend_auth_endpoint(port)?;
     system_log(
@@ -1061,7 +1080,6 @@ pub fn backend_transport_start(
         .map_err(|error| error.message())?;
     backend.stop_for_config(&manager.config)?;
     pipe.close_all()?;
-    thread::sleep(Duration::from_millis(300));
 
     let port = available_backend_port()?;
     match mode.as_str() {
@@ -1827,7 +1845,7 @@ fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
         if backend_auth_endpoint_ready(port) {
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(20));
     }
     Err(format!(
         "backend auth endpoint did not become ready on 127.0.0.1:{port}"
@@ -1836,7 +1854,10 @@ fn wait_for_backend_auth_endpoint(port: u16) -> Result<(), String> {
 
 /// Handles the backend auth endpoint ready workflow.
 fn backend_auth_endpoint_ready(port: u16) -> bool {
-    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else {
+    // Windows may spend ~1 second in a blocking refused loopback connect.
+    // Bound the connect itself, not just reads after a successful connection.
+    let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(20)) else {
         return false;
     };
     let timeout = Some(Duration::from_millis(700));

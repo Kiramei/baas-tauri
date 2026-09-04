@@ -94,6 +94,17 @@ const normalizeForCanonicalJson = (value: unknown): unknown => {
 const canonicalBytes = (value: unknown): Uint8Array =>
   textEncoder.encode(JSON.stringify(normalizeForCanonicalJson(value)));
 
+export const canReusePasswordKey = (
+  initialSalt: string | null,
+  initialParams: unknown,
+  authenticatedSalt: unknown,
+  authenticatedParams: unknown
+): boolean =>
+  initialSalt !== null &&
+  initialSalt === authenticatedSalt &&
+  JSON.stringify(normalizeForCanonicalJson(initialParams)) ===
+    JSON.stringify(normalizeForCanonicalJson(authenticatedParams));
+
 const base64UrlToBytes = (base64Url: string): Uint8Array => {
   const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
   const pad = base64.length % 4;
@@ -538,6 +549,7 @@ export class ControlConnection {
 
   async authenticate(password: string): Promise<ControlSessionBundle> {
     let request: Record<string, any>;
+    let authenticatedPasswordKey: Uint8Array | null = null;
     if (!this.initialized) {
       request = this.preauthChannel.encrypt({ type: "initialize", password });
     } else {
@@ -545,6 +557,7 @@ export class ControlConnection {
         throw new Error("Server did not provide a password salt");
       }
       const pwKey = await derivePasswordKey(password, this.pwdSalt, this.argon2);
+      authenticatedPasswordKey = pwKey;
       const authContext = await hkdfSha256(
         this.sharedKey,
         textEncoder.encode(`auth-proof:${this.pwdEpoch}`),
@@ -558,17 +571,18 @@ export class ControlConnection {
       });
     }
 
-    const authOk = this.preauthChannel.decrypt(
-      await sendJsonAndWaitForMessage(this.ws, request)
-    );
+    const authOk = this.preauthChannel.decrypt(await sendJsonAndWaitForMessage(this.ws, request));
     if (authOk.type !== "auth_ok") {
       throw new Error("Expected auth_ok from control server");
     }
-    const sessionPwdKey = await derivePasswordKey(
-      password,
-      String(authOk.pwd_salt),
-      authOk.argon2 as Argon2Params
-    );
+    // The proof and session use the same password KDF in the usual login
+    // path. Reuse it only when the authenticated response confirms identical
+    // salt and parameters; never cache password material across logins.
+    const sessionPwdKey =
+      authenticatedPasswordKey &&
+      canReusePasswordKey(this.pwdSalt, this.argon2, authOk.pwd_salt, authOk.argon2)
+        ? authenticatedPasswordKey
+        : await derivePasswordKey(password, String(authOk.pwd_salt), authOk.argon2 as Argon2Params);
     const masterSecret = await hkdfSha256(
       concatBytes(this.sharedKey, sessionPwdKey),
       textEncoder.encode("master-secret"),
@@ -608,7 +622,6 @@ export class ControlConnection {
     this.bindControlHandlers();
     return this.session;
   }
-
 
   close(): void {
     this.ws.close();

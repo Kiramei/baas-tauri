@@ -2177,6 +2177,7 @@ pub fn updater_start_workflow(
             config_path: Some(setup_path),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(false),
+            pipe_name: None,
         },
     )?;
     serde_json::to_value(session).map_err(|error| error.to_string())

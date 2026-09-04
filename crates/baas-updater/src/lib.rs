@@ -248,6 +248,9 @@ pub struct WorkflowOptions {
     pub install_path: Option<PathBuf>,
     /// Whether the workflow should launch the backend after syncing.
     pub launch: bool,
+    /// Native endpoint allocated by the desktop host before launching.
+    #[serde(default)]
+    pub pipe_name: Option<String>,
 }
 
 impl Default for WorkflowOptions {
@@ -257,6 +260,7 @@ impl Default for WorkflowOptions {
             config_path: None,
             install_path: None,
             launch: true,
+            pipe_name: None,
         }
     }
 }

@@ -1174,6 +1174,19 @@ mod tests {
         assert!(commands.lock().unwrap().is_empty());
     }
 
+    #[test]
+    fn pipe_launch_keeps_the_same_backend_command_and_adds_one_endpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let websocket = launch_backend_command(&config, 8190);
+        let pipe = launch_backend_pipe_command(&config, 8190, "test-pipe-endpoint");
+        assert_eq!(pipe.program, websocket.program);
+        assert_eq!(pipe.cwd, websocket.cwd);
+        let mut expected = websocket.args;
+        expected.extend(["--pipe-name".to_string(), "test-pipe-endpoint".to_string()]);
+        assert_eq!(pipe.args, expected);
+    }
+
     /// Handles the existing uv and python skip prepare ranking and downloads workflow.
     #[test]
     fn existing_uv_and_python_skip_prepare_ranking_and_downloads() {

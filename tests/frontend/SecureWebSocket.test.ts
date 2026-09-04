@@ -1,5 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { sendJsonAndWaitForMessage } from "../../src/shared/SecureWebSocket";
+import { canReusePasswordKey, sendJsonAndWaitForMessage } from "../../src/shared/SecureWebSocket";
+
+describe("password KDF reuse", () => {
+  test("reuses identical authenticated parameters regardless of JSON key order", () => {
+    expect(canReusePasswordKey("salt", { opslimit: 3, memlimit: 64 }, "salt", { memlimit: 64, opslimit: 3 })).toBe(true);
+  });
+
+  test("does not reuse a key when salt or any parameter changes", () => {
+    const params = { algorithm: "argon2id", opslimit: 3, memlimit: 64 };
+    expect(canReusePasswordKey("salt", params, "new-salt", params)).toBe(false);
+    expect(canReusePasswordKey(null, params, "salt", params)).toBe(false);
+    for (const changed of [
+      { ...params, opslimit: 4 },
+      { ...params, memlimit: 128 },
+      { ...params, algorithm: "other" },
+      { ...params, extra: true },
+    ]) expect(canReusePasswordKey("salt", params, "salt", changed)).toBe(false);
+  });
+});
 
 class ImmediateResponseSocket extends EventTarget {
   sent: string[] = [];
