@@ -677,13 +677,15 @@ export const useWebSocketStore = create<WebSocketState>()(
       tauriUpdaterChecking = true;
 
       try {
-        const [{ check }, { getVersion }] = await Promise.all([
-          import("@tauri-apps/plugin-updater"),
+        const [{ invoke }, { getVersion }] = await Promise.all([
+          import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
         const currentVersion = await getVersion().catch(() => __APP_VERSION__);
-        const update = await check();
-        const nextTauriVersion = update
+        const update = await invoke<any>("tauri_client_check_update", {
+          request: { currentVersion },
+        });
+        const nextTauriVersion = update.updateAvailable
           ? {
               updateAvailable: true,
               checking: false,

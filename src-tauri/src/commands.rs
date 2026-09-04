@@ -7,9 +7,11 @@ use baas_term::types::SessionMetadata;
 use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
-    environ::{backend_pid_path, launch_backend_command, launch_backend_pipe_command},
+    environ::{
+        backend_pid_path, launch_backend_command, launch_backend_pipe_command, HttpSourceProbe,
+    },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
-    repo::{repository_branch, repository_urls},
+    repo::{repository_branch, repository_urls, SourceSelector},
     GitBackend, RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use chrono::{DateTime, Local, Utc};
@@ -22,14 +24,35 @@ use std::{
     process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Manager, State, Webview};
+use tauri::{ipc::Channel, AppHandle, Manager, State, Webview};
+use tauri_plugin_updater::UpdaterExt;
 use tokio::{task::JoinSet, time};
 
 const STORAGE_FILE_NAME: &str = ".app_storage.json";
 const STORAGE_INSTALL_DIR_KEY: &str = "base_dir";
 const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
+const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
+    "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
+    "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+    "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
+    "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
+];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "event", content = "data")]
+pub enum ClientUpdateEvent {
+    #[serde(rename_all = "camelCase")]
+    Started {
+        content_length: Option<u64>,
+    },
+    #[serde(rename_all = "camelCase")]
+    Progress {
+        chunk_length: usize,
+    },
+    Finished,
+}
 
 /// Frontend storage location. Portable installs keep this next to the
 /// executable, normal installs keep Tauri's default app-data store.
@@ -665,7 +688,8 @@ pub fn updater_validate_mirrorc_cdk(
 
 /// Handles the tauri client check update workflow.
 #[tauri::command]
-pub fn tauri_client_check_update(
+pub async fn tauri_client_check_update(
+    app: AppHandle,
     request: TauriClientUpdateRequest,
 ) -> Result<serde_json::Value, String> {
     system_log(
@@ -673,8 +697,177 @@ pub fn tauri_client_check_update(
         "client_update",
         "Tauri client update check requested",
     );
-    let _ = request.current_version;
-    Err("Desktop client updates are handled by tauri-plugin-updater.".to_string())
+    let current_version = request
+        .current_version
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| app.package_info().version.to_string());
+    let endpoints = TAURI_UPDATE_ENDPOINTS
+        .iter()
+        .map(|endpoint| endpoint.to_string())
+        .collect::<Vec<_>>();
+    let probe_urls = endpoints
+        .iter()
+        .map(|endpoint| (endpoint.clone(), endpoint.clone()))
+        .collect::<Vec<_>>();
+    let ranking_path = client_update_ranking_path(&app)?;
+    let mut selector =
+        SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
+
+    loop {
+        let endpoint = selector
+            .next_source(
+                &probe_urls,
+                &HttpSourceProbe,
+                &baas_updater::NoopOutput,
+                "client update",
+            )
+            .map_err(|error| error.message())?;
+        let parsed = endpoint
+            .parse::<url::Url>()
+            .map_err(|error| error.to_string())?;
+        let updater = app
+            .updater_builder()
+            .endpoints(vec![parsed])
+            .map_err(|error| error.to_string())?
+            .build()
+            .map_err(|error| error.to_string())?;
+        match updater.check().await {
+            Ok(update) => {
+                selector
+                    .mark_succeeded(&endpoint)
+                    .map_err(|error| error.message())?;
+                return Ok(match update {
+                    Some(update) => serde_json::json!({
+                        "updateAvailable": true,
+                        "checking": false,
+                        "currentVersion": current_version,
+                        "version": update.version,
+                        "body": update.body.unwrap_or_default(),
+                        "date": update.date.map(|date| date.to_string()).unwrap_or_default(),
+                        "endpoint": endpoint,
+                        "lastChecked": current_time_millis(),
+                        "error": null,
+                    }),
+                    None => serde_json::json!({
+                        "updateAvailable": false,
+                        "checking": false,
+                        "currentVersion": current_version,
+                        "version": null,
+                        "body": "",
+                        "date": "",
+                        "endpoint": endpoint,
+                        "lastChecked": current_time_millis(),
+                        "error": null,
+                    }),
+                });
+            }
+            Err(error) => {
+                system_log(
+                    "WARNING",
+                    "client_update",
+                    format!("Client update endpoint {endpoint} failed: {error}"),
+                );
+                selector
+                    .mark_failed(&endpoint)
+                    .map_err(|error| error.message())?;
+            }
+        }
+    }
+}
+
+/// Downloads and installs a desktop client update with source failover.
+#[tauri::command]
+pub async fn tauri_client_download_and_install(
+    app: AppHandle,
+    on_event: Channel<ClientUpdateEvent>,
+) -> Result<bool, String> {
+    let endpoints = TAURI_UPDATE_ENDPOINTS
+        .iter()
+        .map(|endpoint| endpoint.to_string())
+        .collect::<Vec<_>>();
+    let probe_urls = endpoints
+        .iter()
+        .map(|endpoint| (endpoint.clone(), endpoint.clone()))
+        .collect::<Vec<_>>();
+    let ranking_path = client_update_ranking_path(&app)?;
+    let mut selector =
+        SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
+
+    loop {
+        let endpoint = selector
+            .next_source(
+                &probe_urls,
+                &HttpSourceProbe,
+                &baas_updater::NoopOutput,
+                "client update",
+            )
+            .map_err(|error| error.message())?;
+        let parsed = endpoint
+            .parse::<url::Url>()
+            .map_err(|error| error.to_string())?;
+        let updater = app
+            .updater_builder()
+            .endpoints(vec![parsed])
+            .map_err(|error| error.to_string())?
+            .build()
+            .map_err(|error| error.to_string())?;
+        let attempt = match updater.check().await {
+            Ok(Some(update)) => {
+                let mut first_chunk = true;
+                update
+                    .download_and_install(
+                        |chunk_length, content_length| {
+                            if first_chunk {
+                                first_chunk = false;
+                                let _ =
+                                    on_event.send(ClientUpdateEvent::Started { content_length });
+                            }
+                            let _ = on_event.send(ClientUpdateEvent::Progress { chunk_length });
+                        },
+                        || {
+                            let _ = on_event.send(ClientUpdateEvent::Finished);
+                        },
+                    )
+                    .await
+                    .map(|_| true)
+                    .map_err(|error| error.to_string())
+            }
+            Ok(None) => Ok(false),
+            Err(error) => Err(error.to_string()),
+        };
+        match attempt {
+            Ok(installed) => {
+                selector
+                    .mark_succeeded(&endpoint)
+                    .map_err(|error| error.message())?;
+                return Ok(installed);
+            }
+            Err(error) => {
+                system_log(
+                    "WARNING",
+                    "client_update",
+                    format!("Client update download from {endpoint} failed: {error}"),
+                );
+                selector
+                    .mark_failed(&endpoint)
+                    .map_err(|error| error.message())?;
+            }
+        }
+    }
+}
+
+fn client_update_ranking_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("source-ranking").join("tauri-client.json"))
+        .map_err(|error| error.to_string())
+}
+
+fn current_time_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
 }
 
 /// Performs the updater check version operation.

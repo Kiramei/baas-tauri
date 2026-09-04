@@ -5,7 +5,7 @@ use baas_updater::{
         android_repository_local_sha, android_repository_remote_sha, AndroidTerminalSnapshot,
         AndroidUpdaterTermManager, AndroidWorkflowAbortReport, AndroidWorkflowAbortRequest,
     },
-    repo::repository_urls,
+    repo::{repository_urls, SourceProbe, SourceSelector},
     RepositoryKind, UpdateChannel, WorkflowOptions,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -46,6 +46,17 @@ const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
 ];
+
+#[derive(Clone, Copy)]
+struct AndroidUpdateEndpointProbe;
+
+impl SourceProbe for AndroidUpdateEndpointProbe {
+    fn measure(&self, url: &str) -> baas_updater::UpdaterResult<Duration> {
+        let started = Instant::now();
+        fetch_android_update_metadata(url).map_err(baas_updater::UpdaterError::Network)?;
+        Ok(started.elapsed())
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1946,14 +1957,38 @@ pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
 
 /// Handles the tauri client check update workflow.
 #[tauri::command]
-pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Value, String> {
+pub fn tauri_client_check_update(
+    app: AppHandle,
+    request: TauriClientUpdateRequest,
+) -> Result<Value, String> {
     let current_version = request
         .current_version
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
-    let mut last_error = None;
-    for endpoint in TAURI_UPDATE_ENDPOINTS {
-        match fetch_android_update_metadata(endpoint) {
+    let endpoints = TAURI_UPDATE_ENDPOINTS
+        .iter()
+        .map(|endpoint| endpoint.to_string())
+        .collect::<Vec<_>>();
+    let probes = endpoints
+        .iter()
+        .map(|endpoint| (endpoint.clone(), endpoint.clone()))
+        .collect::<Vec<_>>();
+    let ranking_path = android_storage_root(&app)?
+        .join(".baas-updater")
+        .join("source-ranking")
+        .join("tauri-client.json");
+    let mut selector =
+        SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
+    loop {
+        let endpoint = selector
+            .next_source(
+                &probes,
+                &AndroidUpdateEndpointProbe,
+                &baas_updater::NoopOutput,
+                "Android client update",
+            )
+            .map_err(|error| error.message())?;
+        match fetch_android_update_metadata(&endpoint) {
             Ok(update) => {
                 let remote_version = normalize_version(
                     update
@@ -1970,6 +2005,9 @@ pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Va
                     .map(ToOwned::to_owned);
                 let update_available = update_url.is_some()
                     && compare_versions(&remote_version, &current_version).is_gt();
+                selector
+                    .mark_succeeded(&endpoint)
+                    .map_err(|error| error.message())?;
                 return Ok(json!({
                     "updateAvailable": update_available,
                     "checking": false,
@@ -1984,10 +2022,17 @@ pub fn tauri_client_check_update(request: TauriClientUpdateRequest) -> Result<Va
                     "error": null
                 }));
             }
-            Err(error) => last_error = Some(error.to_string()),
+            Err(_) => selector
+                .mark_failed(&endpoint)
+                .map_err(|error| error.message())?,
         }
     }
-    Err(last_error.unwrap_or_else(|| "failed to fetch updater metadata".to_string()))
+}
+
+/// Android exposes package URLs to the system browser instead of installing in-process.
+#[tauri::command]
+pub fn tauri_client_download_and_install() -> Result<bool, String> {
+    Err("Android client updates are opened in the system browser.".to_string())
 }
 
 /// Handles the fetch android update metadata workflow.
