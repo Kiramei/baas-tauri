@@ -5,6 +5,7 @@ commands.allow = [
   "baas_notify",
   "splash_off",
   "set_backend_locale",
+  "set_minimize_to_tray",
   "updater_get_storage_state",
   "updater_get_startup_state",
   "updater_path_exists_non_empty",

@@ -44,9 +44,12 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
         <label className="block text-sm font-medium">{t("scheduler.nextTick")}</label>
 
         <DateTimePicker
-          value={task.next_tick * 1000}
-          onChange={(ts) => handleChange("next_tick", Math.floor(ts! / 1000))}
-          className="w-full justify-center flex xl:hidden"
+          value={form.next_tick * 1000}
+          onChange={(ts) => {
+            if (ts !== null && Number.isFinite(ts))
+              handleChange("next_tick", Math.floor(ts / 1000));
+          }}
+          className="w-full justify-center flex"
         />
 
         <div className="grid grid-cols-1 gap-y-2 lg:grid-cols-2 gap-2">

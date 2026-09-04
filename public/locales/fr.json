@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "Disposition automatique",
+    "asPost": "Comme tâche suivante",
+    "asPre": "Comme prérequis",
+    "defaultState": "Valeur par défaut du backend",
+    "disabled": "Désactivé",
+    "disconnect": "Déconnecter",
+    "empty": "Aucune tâche. Connectez le backend pour charger la planification.",
+    "enabled": "Activé",
+    "errors": {
+      "cycle": "Cette connexion créerait une dépendance circulaire.",
+      "duplicate": "Cette connexion existe déjà.",
+      "portMismatch": "Reliez des ports de même couleur et de même type.",
+      "selfLink": "Une tâche ne peut pas se connecter à elle-même.",
+      "unknown": "Cette tâche n'existe plus. Rechargez la planification."
+    },
+    "existingCycle": "Les dépendances circulaires existantes sont conservées. Supprimez une connexion pour les corriger.",
+    "fitView": "Ajuster à la vue",
+    "hint": "Déplacer les nœuds · Relier les ports de même couleur · Sélectionner un lien pour le supprimer",
+    "layoutSaved": "Disposition enregistrée par compte sur cet appareil",
+    "loadFailed": "Impossible de charger le flux. La configuration est inchangée. Continuez dans la liste.",
+    "loading": "Chargement du flux…",
+    "minimizeToTray": "Réduire dans la zone de notification",
+    "newEvents": "État initial des nouvelles tâches",
+    "queued": "En attente",
+    "showGraph": "Passer au flux",
+    "showList": "Passer à la liste",
+    "summary": "{{tasks}} tâches · {{relations}} connexions",
+    "title": "Flux des tâches",
+    "unknownRefs": "Références inconnues (conservées) : {{refs}}",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire"
   }
 }
