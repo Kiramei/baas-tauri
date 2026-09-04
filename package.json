@@ -1,6 +1,6 @@
 {
   "name": "baas-tauri",
-  "version": "0.0.7",
+  "version": "0.0.8-rc",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -49,6 +49,7 @@
     "@vitejs/plugin-react": "^5.0.2",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "@xyflow/react": "^12.11.6",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

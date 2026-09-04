@@ -191,6 +191,7 @@
     "dailySweep": "Stages et balayages quotidiens",
     "drill": "Paramètres du drill",
     "emulator": "Chemin et lancement émulateur",
+    "finalRestrictionRls": "Configurer la formation et la copie des équipes victorieuses",
     "getEmulator": "Choisir l’émulateur",
     "other": {
       "$self": "Réglages divers",
@@ -211,7 +212,7 @@
     },
     "tactical": "Total Assault",
     "team": "Formation",
-    "whitelist": "Liste blanche amis"
+    "whitelist": "Configurer les filtres et la liste blanche"
   },
   "installer": {
     "advanced": "Paramètres avancés",
@@ -430,7 +431,7 @@
     "white": "Blanc",
     "whiteBlue": "Blanc et Bleu"
   },
-  "whitelist": "Liste blanche",
+  "whitelist": "Nettoyage des amis",
   "script": {
     "$self": "Scripts",
     "autostart": "Démarrage automatique au lancement du script",
@@ -634,15 +635,30 @@
       "folderSelect": "Choisir export logs"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "Combat décisif sans restriction",
+    "copyClearFormation": "Copier une équipe victorieuse",
+    "copyClearUnavailableHint": "Sélectionnez « Copier une équipe victorieuse » pour configurer ces options.",
+    "formationMethod": "Méthode de formation",
+    "maxRefreshCount": "Actualisations maximales des équipes victorieuses",
+    "maxUnavailableStudentCount": "Nombre maximal d'élèves indisponibles",
+    "useCurrentFormation": "Utiliser la formation actuelle"
+  },
   "friend": {
     "add": "Ajouter",
     "addFailed": "Échec de l'ajout",
     "alreadyExists": "L'ami existe déjà",
+    "disabledThresholdHint": "Saisissez -1 pour désactiver un filtre.",
     "empty": "La liste blanche d'amis est vide",
+    "filters": "Filtres de nettoyage",
     "invalidFormatCN": "Code CN : chiffres et minuscules",
     "invalidFormatGlobal": "Code global : majuscules",
     "invalidLength": "Longueur du code ami invalide",
-    "placeholder": "Entrez le code ami"
+    "lastLoginDays": "Seuil de jours depuis la dernière connexion",
+    "lastTotalAssaultRankLimit": "Seuil du classement du dernier assaut total",
+    "levelLimit": "Seuil de niveau des amis",
+    "placeholder": "Entrez le code ami",
+    "whitelist": "Liste blanche des amis"
   },
   "heartbeat": {
     "connected": "Service connecté",
@@ -703,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "Disposition automatique",
+    "asPost": "Comme tâche suivante",
+    "asPre": "Comme prérequis",
+    "defaultState": "Valeur par défaut du backend",
+    "disabled": "Désactivé",
+    "disconnect": "Déconnecter",
+    "empty": "Aucune tâche. Connectez le backend pour charger la planification.",
+    "enabled": "Activé",
+    "errors": {
+      "cycle": "Cette connexion créerait une dépendance circulaire.",
+      "duplicate": "Cette connexion existe déjà.",
+      "portMismatch": "Reliez des ports de même couleur et de même type.",
+      "selfLink": "Une tâche ne peut pas se connecter à elle-même.",
+      "unknown": "Cette tâche n'existe plus. Rechargez la planification."
+    },
+    "existingCycle": "Les dépendances circulaires existantes sont conservées. Supprimez une connexion pour les corriger.",
+    "fitView": "Ajuster à la vue",
+    "hint": "Déplacer les nœuds · Relier les ports de même couleur · Sélectionner un lien pour le supprimer",
+    "layoutSaved": "Disposition enregistrée par compte sur cet appareil",
+    "loadFailed": "Impossible de charger le flux. La configuration est inchangée. Continuez dans la liste.",
+    "loading": "Chargement du flux…",
+    "minimizeToTray": "Réduire dans la zone de notification",
+    "newEvents": "État initial des nouvelles tâches",
+    "queued": "En attente",
+    "showGraph": "Passer au flux",
+    "showList": "Passer à la liste",
+    "summary": "{{tasks}} tâches · {{relations}} connexions",
+    "title": "Flux des tâches",
+    "unknownRefs": "Références inconnues (conservées) : {{refs}}",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire"
   }
 }

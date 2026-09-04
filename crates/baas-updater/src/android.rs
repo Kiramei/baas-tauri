@@ -9,7 +9,7 @@ use crate::{
     GitBackend, OutputSink, OutputStyle, RepositoryKind, UpdateChannel, UpdateStatus, UpdaterError,
     UpdaterResult, WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
-    repo::{SourceRanking, load_or_default_ranking, repository_urls, save_ranking},
+    repo::{SourceProbe, SourceSelector, repository_urls},
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
@@ -38,11 +38,27 @@ use std::{
         mpsc::Sender,
     },
     thread,
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 const ANDROID_STEP_TOTAL: u8 = 4;
+
+#[derive(Clone)]
+struct AndroidGitSourceProbe {
+    root: PathBuf,
+    kind: RepositoryKind,
+    channel: UpdateChannel,
+}
+
+impl SourceProbe for AndroidGitSourceProbe {
+    fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+        let started = Instant::now();
+        android_repository_remote_sha(&self.root, self.kind, self.channel, url)?;
+        Ok(started.elapsed())
+    }
+}
 
 /// Request payload for aborting an Android updater workflow.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -604,22 +620,39 @@ fn sync_android_repository(
     fs::create_dir_all(&ranking_dir)?;
     let ranking_path = ranking_dir.join(format!("android-{}.json", kind.as_str()));
     let urls = repository_urls(kind, config.general.channel);
-    let ranking = load_or_default_ranking(Some(&ranking_path), &urls)?;
-    let mut ranking = if ranking.all_disabled() {
-        output.line(
-            OutputStyle::Warning,
-            "Every Android git2 source is disabled in ranking; trying configured order",
-        );
-        SourceRanking::from_urls(&urls)
-    } else {
-        ranking
-    };
     let branch = android_repository_branch(kind, config.general.channel)?;
     let mut last_error = None;
+    let probe_urls = urls
+        .iter()
+        .map(|url| (url.clone(), url.clone()))
+        .collect::<Vec<_>>();
+    let probe = AndroidGitSourceProbe {
+        root: root.clone(),
+        kind,
+        channel: config.general.channel,
+    };
+    let mut selector = SourceSelector::load(Some(&ranking_path), &urls)?;
 
-    for source in ranking.active_sources() {
+    loop {
+        let source_url = match selector.next_source(
+            &probe_urls,
+            &probe,
+            output,
+            &format!("Android {} repository", kind.as_str()),
+        ) {
+            Ok(url) => url,
+            Err(error) => {
+                return Err(UpdaterError::Git(format!(
+                    "{}{}",
+                    error.message(),
+                    last_error
+                        .map(|last: UpdaterError| format!("; last error: {}", last.message()))
+                        .unwrap_or_default()
+                )));
+            }
+        };
         if should_probe_android_remote_for_skip(target_is_repo, recorded_sha) {
-            match android_repository_remote_sha(&root, kind, config.general.channel, &source.url) {
+            match android_repository_remote_sha(&root, kind, config.general.channel, &source_url) {
                 Ok(remote_sha) => {
                     if should_skip_android_fetch(
                         target_is_repo,
@@ -633,14 +666,14 @@ fn sync_android_repository(
                                 "git2 {} already latest at {} from {}; skip fetch",
                                 kind.as_str(),
                                 short_sha(&remote_sha),
-                                source.url
+                                source_url
                             ),
                         );
-                        save_ranking(&ranking_path, &ranking)?;
+                        selector.mark_succeeded(&source_url)?;
                         return Ok(AndroidRepositoryOutcome {
                             status: UpdateStatus::Skipped,
                             sha: remote_sha,
-                            source_url: source.url,
+                            source_url,
                         });
                     }
                 }
@@ -650,7 +683,7 @@ fn sync_android_repository(
                         &format!(
                             "git2 {} remote SHA probe failed for {}; falling back to fetch: {}",
                             kind.as_str(),
-                            source.url,
+                            source_url,
                             error.message()
                         ),
                     );
@@ -667,34 +700,25 @@ fn sync_android_repository(
                     "clone"
                 },
                 branch,
-                source.url
+                source_url
             ),
         );
-        match sync_git2_worktree(&source.url, &branch, &target_dir, output) {
+        match sync_git2_worktree(&source_url, &branch, &target_dir, output) {
             Ok((status, sha)) => {
-                save_ranking(&ranking_path, &ranking)?;
+                selector.mark_succeeded(&source_url)?;
                 return Ok(AndroidRepositoryOutcome {
                     status,
                     sha,
-                    source_url: source.url,
+                    source_url,
                 });
             }
             Err(error) => {
                 output.line(OutputStyle::Warning, &format!("{error}"));
-                ranking.demote_failed(&source.url);
-                save_ranking(&ranking_path, &ranking)?;
+                selector.mark_failed(&source_url)?;
                 last_error = Some(error);
             }
         }
     }
-
-    Err(UpdaterError::Git(format!(
-        "all Android git2 sources failed for {}{}",
-        kind.as_str(),
-        last_error
-            .map(|error| format!("; last error: {}", error.message()))
-            .unwrap_or_default()
-    )))
 }
 
 /// Returns the persisted repository SHA from setup.toml for Android skip checks.

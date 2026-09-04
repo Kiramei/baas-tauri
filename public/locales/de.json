@@ -191,6 +191,7 @@
     "dailySweep": "Tägliche Stages und Sweeps",
     "drill": "Test-Einstellungen",
     "emulator": "Emulatorpfad und Start",
+    "finalRestrictionRls": "Formation und Kopieren erfolgreicher Teams konfigurieren",
     "getEmulator": "Emulator wählen",
     "other": {
       "$self": "Sonstige Einstellungen",
@@ -211,7 +212,7 @@
     },
     "tactical": "Total Assault",
     "team": "Formation",
-    "whitelist": "Freundes-Whitelist"
+    "whitelist": "Filter und Freundes-Whitelist konfigurieren"
   },
   "installer": {
     "advanced": "Erweiterte Einstellungen",
@@ -430,7 +431,7 @@
     "white": "Weiß",
     "whiteBlue": "Weiß & Blau"
   },
-  "whitelist": "Freundesliste",
+  "whitelist": "Freunde bereinigen",
   "script": {
     "$self": "Skripte",
     "autostart": "Automatischer Start bei Skriptstart",
@@ -634,15 +635,30 @@
       "folderSelect": "Log-Export wählen"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "Entscheidungskampf ohne Beschränkung",
+    "copyClearFormation": "Erfolgreiches Team kopieren",
+    "copyClearUnavailableHint": "Wähle „Erfolgreiches Team kopieren“, um diese Optionen zu konfigurieren.",
+    "formationMethod": "Formationsmethode",
+    "maxRefreshCount": "Maximale Aktualisierungen erfolgreicher Teams",
+    "maxUnavailableStudentCount": "Maximal nicht verfügbare Schüler",
+    "useCurrentFormation": "Aktuelle Formation verwenden"
+  },
   "friend": {
     "add": "Hinzufügen",
     "addFailed": "Hinzufügen fehlgeschlagen",
     "alreadyExists": "Freund existiert bereits",
+    "disabledThresholdHint": "Mit -1 wird der jeweilige Filter deaktiviert.",
     "empty": "Freunde-Whitelist ist leer",
+    "filters": "Bereinigungsfilter",
     "invalidFormatCN": "CN-Code: Zahlen und Kleinbuchstaben",
     "invalidFormatGlobal": "Global-Code: Großbuchstaben",
     "invalidLength": "Ungültige Freundescode-Länge",
-    "placeholder": "Freundescode eingeben"
+    "lastLoginDays": "Schwellenwert seit letzter Anmeldung",
+    "lastTotalAssaultRankLimit": "Schwellenwert des letzten Gesamtangriffsrangs",
+    "levelLimit": "Schwellenwert für Freundeslevel",
+    "placeholder": "Freundescode eingeben",
+    "whitelist": "Freundes-Whitelist"
   },
   "heartbeat": {
     "connected": "Dienst verbunden",
@@ -703,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "Automatisch anordnen",
+    "asPost": "Als Folgeaufgabe",
+    "asPre": "Als Voraussetzung",
+    "defaultState": "Backend-Vorgabe",
+    "disabled": "Deaktiviert",
+    "disconnect": "Verbindung trennen",
+    "empty": "Noch keine Aufgaben. Verbinden Sie das Backend.",
+    "enabled": "Aktiviert",
+    "errors": {
+      "cycle": "Diese Verbindung würde eine zyklische Abhängigkeit erzeugen.",
+      "duplicate": "Diese Verbindung existiert bereits.",
+      "portMismatch": "Verbinden Sie Anschlüsse derselben Farbe und Beziehungsart.",
+      "selfLink": "Eine Aufgabe kann nicht mit sich selbst verbunden werden.",
+      "unknown": "Die Aufgabe existiert nicht mehr. Laden Sie die Planung neu."
+    },
+    "existingCycle": "Vorhandene zyklische Abhängigkeiten bleiben erhalten. Trennen Sie eine Verbindung zur Korrektur.",
+    "fitView": "Alles einpassen",
+    "hint": "Knoten verschieben · Gleichfarbige Anschlüsse verbinden · Verbindung zum Trennen auswählen",
+    "layoutSaved": "Layout pro Konto auf diesem Gerät gespeichert",
+    "loadFailed": "Der Ablauf konnte nicht geladen werden. Die Konfiguration bleibt unverändert. Verwenden Sie die Liste.",
+    "loading": "Ablauf wird geladen…",
+    "minimizeToTray": "In den Infobereich minimieren",
+    "newEvents": "Aktivierungsstatus neuer Aufgaben",
+    "queued": "In Warteschlange",
+    "showGraph": "Zur Ablaufansicht wechseln",
+    "showList": "Zur Listenansicht wechseln",
+    "summary": "{{tasks}} Aufgaben · {{relations}} Verbindungen",
+    "title": "Aufgabenablauf",
+    "unknownRefs": "Unbekannte Aufgabenverweise (beibehalten): {{refs}}",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern"
   }
 }

@@ -191,6 +191,7 @@
     "dailySweep": "日常推图与扫荡",
     "drill": "战术测试设置",
     "emulator": "模拟器路径与启动项",
+    "finalRestrictionRls": "配置编队方式与通关队伍复制",
     "getEmulator": "选择模拟器路径",
     "other": {
       "$self": "杂项功能与设置",
@@ -211,7 +212,7 @@
     },
     "tactical": "总力战设置",
     "team": "设置编队",
-    "whitelist": "自动删好友白名单"
+    "whitelist": "配置清理条件与好友白名单"
   },
   "installer": {
     "advanced": "高级设置",
@@ -430,7 +431,7 @@
     "white": "白色",
     "whiteBlue": "白蓝组合"
   },
-  "whitelist": "好友白名单",
+  "whitelist": "好友清理",
   "script": {
     "$self": "脚本设置",
     "autostart": "脚本开启时自动启动",
@@ -634,15 +635,30 @@
       "folderSelect": "选择日志导出位置"
     }
   },
+  "finalRestrictionRls": {
+    "$self": "无限制决战",
+    "copyClearFormation": "复制通关队伍",
+    "copyClearUnavailableHint": "选择“复制通关队伍”后可配置这两个选项。",
+    "formationMethod": "编队方式",
+    "maxRefreshCount": "通关队伍最大刷新次数",
+    "maxUnavailableStudentCount": "最多允许不可用学生数",
+    "useCurrentFormation": "使用当前编队"
+  },
   "friend": {
     "add": "添加",
     "addFailed": "添加失败",
     "alreadyExists": "该好友已存在",
+    "disabledThresholdHint": "输入 -1 可禁用对应清理条件。",
     "empty": "好友白名单列表为空",
+    "filters": "清理条件",
     "invalidFormatCN": "国服好友码只能包含数字和小写字母",
     "invalidFormatGlobal": "国际服好友码只能包含大写字母",
     "invalidLength": "好友码长度无效",
-    "placeholder": "输入好友码"
+    "lastLoginDays": "最后登录天数阈值",
+    "lastTotalAssaultRankLimit": "上次总力战排名阈值",
+    "levelLimit": "好友等级清理阈值",
+    "placeholder": "输入好友码",
+    "whitelist": "好友白名单"
   },
   "heartbeat": {
     "connected": "服务已连接",
@@ -703,5 +719,38 @@
     "githubProxyV6": "GitHub v6 加速",
     "mirrorc": "Mirror酱",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "自动排列",
+    "asPost": "作为后置",
+    "asPre": "作为前置",
+    "defaultState": "后端默认",
+    "disabled": "禁用",
+    "disconnect": "断开连线",
+    "empty": "暂无任务，连接后端后加载调度配置。",
+    "enabled": "启用",
+    "errors": {
+      "cycle": "该连线将产生循环依赖。",
+      "duplicate": "这条关系已经存在。",
+      "portMismatch": "请连接颜色和关系类型相同的端口。",
+      "selfLink": "任务不能连接到自身。",
+      "unknown": "任务已不存在，请重新加载调度配置。"
+    },
+    "existingCycle": "已有循环依赖已保留，可断开连线修复。",
+    "fitView": "适应画布",
+    "hint": "拖动排列节点 · 连接同色端口 · 选中连线后可断开",
+    "layoutSaved": "布局按账号保存在此设备",
+    "loadFailed": "工作流加载失败，配置未被修改。可以返回列表继续编辑。",
+    "loading": "正在加载工作流…",
+    "minimizeToTray": "最小化到系统托盘",
+    "newEvents": "新增任务的启用状态",
+    "queued": "等待执行",
+    "showGraph": "切换到工作流视图",
+    "showList": "切换到列表视图",
+    "summary": "{{tasks}} 个任务 · {{relations}} 条关系",
+    "title": "任务工作流",
+    "unknownRefs": "未知任务引用（已保留）：{{refs}}",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
   }
 }

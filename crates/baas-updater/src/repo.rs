@@ -34,8 +34,11 @@ pub struct RankedSource {
 pub struct SourceRanking {
     /// Ranked sources.
     pub sources: Vec<RankedSource>,
-    /// Consecutive benchmark cycles where every URL failed.
+    /// Completed failover cycles where every URL failed.
     pub all_failed_cycles: u8,
+    /// Source whose real update/install operation last succeeded.
+    #[serde(default)]
+    pub preferred_url: Option<String>,
 }
 
 impl SourceRanking {
@@ -51,6 +54,7 @@ impl SourceRanking {
                 })
                 .collect(),
             all_failed_cycles: 0,
+            preferred_url: None,
         }
     }
 
@@ -81,6 +85,9 @@ impl SourceRanking {
 
     /// Marks one source as failed and compacts successful source order.
     pub fn demote_failed(&mut self, url: &str) {
+        if self.preferred_url.as_deref() == Some(url) {
+            self.preferred_url = None;
+        }
         for source in &mut self.sources {
             if source.url == url {
                 source.order = -1;
@@ -106,6 +113,162 @@ impl SourceRanking {
     pub fn all_disabled(&self) -> bool {
         self.sources.iter().all(|source| source.order < 0)
     }
+
+    /// Promotes a successful source so it is tried first on the next run.
+    pub fn promote_success(&mut self, url: &str) {
+        let previous_order = self
+            .sources
+            .iter()
+            .find(|source| source.url == url)
+            .map(|source| source.order)
+            .unwrap_or(-1);
+        for source in &mut self.sources {
+            if source.url == url {
+                source.order = 0;
+            } else if source.order >= 0 && source.order < previous_order {
+                source.order += 1;
+            }
+        }
+        self.compact_orders();
+        self.all_failed_cycles = 0;
+        self.preferred_url = Some(url.to_string());
+    }
+
+    /// Re-enables every source in stable configured order for a new cycle.
+    pub fn reenable_all(&mut self) {
+        self.preferred_url = None;
+        for (index, source) in self.sources.iter_mut().enumerate() {
+            source.order = index as i32;
+        }
+    }
+}
+
+const MAX_SOURCE_FAILURE_CYCLES: u8 = 3;
+
+/// Persistent state machine for selecting and failing over download sources.
+pub struct SourceSelector {
+    ranking: SourceRanking,
+    ranking_path: Option<PathBuf>,
+    try_persisted_first: bool,
+}
+
+impl SourceSelector {
+    /// Loads a persisted preferred source, or starts with an unranked source set.
+    pub fn load(path: Option<&Path>, expected_urls: &[String]) -> UpdaterResult<Self> {
+        let persisted = load_ranking(path, expected_urls)?;
+        Ok(Self {
+            ranking: persisted
+                .clone()
+                .unwrap_or_else(|| SourceRanking::from_urls(expected_urls)),
+            ranking_path: path.map(Path::to_path_buf),
+            try_persisted_first: persisted.is_some_and(|ranking| {
+                ranking.preferred_url.as_ref().is_some_and(|preferred| {
+                    ranking
+                        .sources
+                        .iter()
+                        .any(|source| &source.url == preferred && source.order >= 0)
+                })
+            }),
+        })
+    }
+
+    /// Selects the persisted winner or races all currently enabled sources.
+    pub fn next_source<P: SourceProbe + Clone + 'static>(
+        &mut self,
+        probe_urls: &[(String, String)],
+        probe: &P,
+        output: &(impl OutputSink + ?Sized),
+        label: &str,
+    ) -> UpdaterResult<String> {
+        loop {
+            if self.ranking.all_disabled() {
+                self.ranking.all_failed_cycles = self.ranking.all_failed_cycles.saturating_add(1);
+                self.persist()?;
+                if self.ranking.all_failed_cycles >= MAX_SOURCE_FAILURE_CYCLES {
+                    return Err(UpdaterError::Network(format!(
+                        "all {label} sources failed after {MAX_SOURCE_FAILURE_CYCLES} complete cycles"
+                    )));
+                }
+                output.line(
+                    OutputStyle::Warning,
+                    &format!(
+                        "All {label} sources failed; re-enabling every source for cycle {} of {MAX_SOURCE_FAILURE_CYCLES}",
+                        self.ranking.all_failed_cycles + 1
+                    ),
+                );
+                self.ranking.reenable_all();
+                self.try_persisted_first = false;
+                self.persist()?;
+            }
+
+            if self.try_persisted_first {
+                self.try_persisted_first = false;
+                if let Some(source) = self.ranking.sources.iter().find(|source| {
+                    source.order >= 0
+                        && self.ranking.preferred_url.as_deref() == Some(source.url.as_str())
+                }) {
+                    output.line(
+                        OutputStyle::Info,
+                        &format!("Trying persisted {label} source {}", source.url),
+                    );
+                    return Ok(source.url.clone());
+                }
+            }
+
+            let active = self
+                .ranking
+                .active_sources()
+                .into_iter()
+                .filter_map(|source| {
+                    probe_urls
+                        .iter()
+                        .find(|(url, _)| url == &source.url)
+                        .cloned()
+                })
+                .collect::<Vec<_>>();
+            if active.is_empty() {
+                for source in self.ranking.active_sources() {
+                    self.ranking.demote_failed(&source.url);
+                }
+                self.persist()?;
+                continue;
+            }
+            let race = race_first_source_with_output(&active, probe, output);
+            for url in race.failed {
+                self.ranking.demote_failed(&url);
+            }
+            self.persist()?;
+            if let Some(url) = race.winner {
+                return Ok(url);
+            }
+        }
+    }
+
+    /// Disables a source whose real update/install operation failed.
+    pub fn mark_failed(&mut self, url: &str) -> UpdaterResult<()> {
+        self.ranking.demote_failed(url);
+        self.try_persisted_first = false;
+        self.persist()
+    }
+
+    /// Persists the successful source as the next run's preferred source.
+    pub fn mark_succeeded(&mut self, url: &str) -> UpdaterResult<()> {
+        self.ranking.promote_success(url);
+        self.try_persisted_first = true;
+        self.persist()
+    }
+
+    fn persist(&self) -> UpdaterResult<()> {
+        if let Some(path) = &self.ranking_path {
+            save_ranking(path, &self.ranking)?;
+        }
+        Ok(())
+    }
+}
+
+struct SourceRace {
+    winner: Option<String>,
+    failed: Vec<String>,
 }
 
 /// Result of a repository synchronization.
@@ -137,7 +300,7 @@ pub struct RepoSyncOptions {
 }
 
 /// Measures whether source URLs are reachable and how long they take.
-pub trait SourceProbe: Sync {
+pub trait SourceProbe: Send + Sync {
     /// Returns a duration for a reachable URL.
     fn measure(&self, url: &str) -> UpdaterResult<Duration>;
 }
@@ -392,7 +555,7 @@ impl<E: GitExecutor> RepoManager<E> {
     pub fn sync(
         &self,
         options: &RepoSyncOptions,
-        probe: &impl SourceProbe,
+        probe: &(impl SourceProbe + Clone + 'static),
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<RepoSyncResult> {
         let expected_urls = repository_urls(options.kind, options.channel);
@@ -401,35 +564,39 @@ impl<E: GitExecutor> RepoManager<E> {
                 "Git CLI backend selected, but system git is unavailable".to_string(),
             ));
         }
-        let mut ranking = load_or_benchmark_ranking_with_output(
-            options.ranking_path.as_deref(),
-            &expected_urls,
-            probe,
-            output,
-        )?;
-        if ranking.all_disabled() {
-            output.line(
-                OutputStyle::Warning,
-                "Git source probing failed for every source; trying sources in configured order",
-            );
-            ranking = SourceRanking::from_urls(&expected_urls);
-        }
         let branch = repository_branch(options.kind)?;
-        let uses_git2_only = options.git_backend == GitBackend::Git2 || !self.executor.has_cli();
-        let attempted_ranking = ranking.clone();
         let mut last_error: Option<UpdaterError> = None;
+        let probe_urls = expected_urls
+            .iter()
+            .map(|url| (url.clone(), url.clone()))
+            .collect::<Vec<_>>();
+        let mut selector = SourceSelector::load(options.ranking_path.as_deref(), &expected_urls)?;
 
-        for source in ranking.active_sources() {
+        loop {
+            let source_url = match selector.next_source(
+                &probe_urls,
+                probe,
+                output,
+                &format!("{} repository", options.kind.as_str()),
+            ) {
+                Ok(url) => url,
+                Err(error) => {
+                    let detail = last_error
+                        .map(|last| format!("; last error: {}", last.message()))
+                        .unwrap_or_default();
+                    return Err(UpdaterError::Git(format!("{}{detail}", error.message())));
+                }
+            };
             output.line(
                 OutputStyle::Info,
                 &format!(
                     "Synchronizing {} repository from {}",
                     options.kind.as_str(),
-                    source.url
+                    source_url
                 ),
             );
             match self.try_source(
-                &source.url,
+                &source_url,
                 &branch,
                 &options.target_dir,
                 options.git_backend,
@@ -437,62 +604,22 @@ impl<E: GitExecutor> RepoManager<E> {
             ) {
                 Ok(status) => {
                     let sha = self.local_sha(&options.target_dir, options.git_backend)?;
-                    if let Some(path) = &options.ranking_path {
-                        save_ranking(path, &ranking)?;
-                    }
+                    selector.mark_succeeded(&source_url)?;
                     return Ok(RepoSyncResult {
                         kind: options.kind,
                         status,
-                        source_url: source.url,
+                        source_url,
                         sha,
                     });
                 }
                 Err(error) => {
                     output.line(OutputStyle::Warning, &format!("{error}"));
-                    ranking.demote_failed(&source.url);
+                    selector.mark_failed(&source_url)?;
                     last_error = Some(error);
-                    if let Some(path) = &options.ranking_path {
-                        save_ranking(path, &ranking)?;
-                    }
                     cleanup_failed_clone(&options.target_dir)?;
                 }
             }
         }
-
-        if uses_git2_only {
-            if let Some(path) = &options.ranking_path {
-                save_ranking(path, &attempted_ranking)?;
-            }
-            let backend = if options.git_backend == GitBackend::Auto {
-                GitBackend::Git2.as_str()
-            } else {
-                options.git_backend.as_str()
-            };
-            let detail = last_error
-                .map(|error| format!("; last error: {}", error.message()))
-                .unwrap_or_default();
-            return Err(UpdaterError::Git(format!(
-                "all repository sources failed using {backend}{detail}"
-            )));
-        }
-
-        ranking.all_failed_cycles = ranking.all_failed_cycles.saturating_add(1);
-        if ranking.all_failed_cycles >= 3 {
-            if let Some(path) = &options.ranking_path {
-                save_ranking(path, &ranking)?;
-            }
-            return Err(UpdaterError::Git(
-                "all repository sources failed three consecutive ranking cycles".to_string(),
-            ));
-        }
-
-        ranking = benchmark_sources_with_output(&expected_urls, probe, output);
-        if let Some(path) = &options.ranking_path {
-            save_ranking(path, &ranking)?;
-        }
-        Err(UpdaterError::Git(
-            "all repository sources failed; ranking was rebuilt".to_string(),
-        ))
     }
 
     /// Handles the try source workflow.
@@ -659,6 +786,23 @@ pub fn load_or_benchmark_ranking_with_output(
     Ok(benchmark_sources_with_output(expected_urls, probe, output))
 }
 
+/// Loads a valid persisted ranking without performing a new benchmark.
+fn load_ranking(
+    path: Option<&Path>,
+    expected_urls: &[String],
+) -> UpdaterResult<Option<SourceRanking>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path)?;
+    let ranking: SourceRanking =
+        serde_json::from_str(&content).map_err(|error| UpdaterError::Config(error.to_string()))?;
+    Ok(ranking.matches_urls(expected_urls).then_some(ranking))
+}
+
 /// Loads a ranking file or returns the expected URLs in their configured order.
 pub fn load_or_default_ranking(
     path: Option<&Path>,
@@ -765,6 +909,66 @@ pub fn benchmark_source_probes_with_output(
     SourceRanking {
         sources,
         all_failed_cycles: 0,
+        preferred_url: None,
+    }
+}
+
+/// Races enabled sources and returns as soon as the first probe succeeds.
+///
+/// Probe workers own their inputs and are intentionally detached after a
+/// winner is found, so a slow source cannot delay the real download/update.
+fn race_first_source_with_output<P: SourceProbe + Clone + 'static>(
+    source_probes: &[(String, String)],
+    probe: &P,
+    output: &(impl OutputSink + ?Sized),
+) -> SourceRace {
+    let mut statuses = source_probes
+        .iter()
+        .map(|(url, _)| format!("testing  {url}"))
+        .collect::<Vec<_>>();
+    let mut repaint = output
+        .thread_output()
+        .map(|term| term.log().block_repaint());
+    render_probe_status(&mut repaint, &statuses);
+
+    let (tx, rx) = mpsc::channel();
+    for (index, (source_url, probe_url)) in source_probes.iter().cloned().enumerate() {
+        let tx = tx.clone();
+        let probe = probe.clone();
+        thread::spawn(move || {
+            let result = probe.measure(&probe_url);
+            let _ = tx.send((index, source_url, result));
+        });
+    }
+    drop(tx);
+
+    let mut failed = Vec::new();
+    for (index, url, result) in rx {
+        match result {
+            Ok(duration) => {
+                statuses[index] = format!("selected {:>5} ms  {url}", duration.as_millis());
+                render_probe_status(&mut repaint, &statuses);
+                if let Some(repaint) = &mut repaint {
+                    repaint.finish();
+                }
+                return SourceRace {
+                    winner: Some(url),
+                    failed,
+                };
+            }
+            Err(_) => {
+                statuses[index] = format!("failed          {url}");
+                failed.push(url);
+                render_probe_status(&mut repaint, &statuses);
+            }
+        }
+    }
+    if let Some(repaint) = &mut repaint {
+        repaint.finish();
+    }
+    SourceRace {
+        winner: None,
+        failed,
     }
 }
 
@@ -1365,6 +1569,7 @@ mod tests {
     /// Performs the sync with git2 uses ranked sources operation.
     #[test]
     fn sync_with_git2_uses_ranked_sources() {
+        #[derive(Clone)]
         struct FastSourceProbe {
             fast_url: String,
         }
@@ -1373,8 +1578,10 @@ mod tests {
             /// Handles the measure workflow.
             fn measure(&self, url: &str) -> UpdaterResult<Duration> {
                 if url == self.fast_url {
+                    std::thread::sleep(Duration::from_millis(1));
                     Ok(Duration::from_millis(1))
                 } else {
+                    std::thread::sleep(Duration::from_millis(50));
                     Ok(Duration::from_millis(50))
                 }
             }
@@ -1454,7 +1661,7 @@ mod tests {
 
     /// Handles the git2 only failure preserves git2 error without rebenchmarking workflow.
     #[test]
-    fn git2_only_failure_preserves_git2_error_without_rebenchmarking() {
+    fn git2_failure_exhausts_three_cycles_and_preserves_last_error() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("repo");
         let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Stable);
@@ -1477,9 +1684,92 @@ mod tests {
             .unwrap_err();
 
         let message = error.message();
-        assert!(message.contains("all repository sources failed using git2"));
+        assert!(message.contains("failed after 3 complete cycles"));
         assert!(message.contains(tls_error));
-        assert!(!message.contains("ranking was rebuilt"));
+    }
+
+    /// Source selection returns on the first successful response without
+    /// waiting for slower probe workers to finish.
+    #[test]
+    fn source_selector_stops_waiting_after_first_success() {
+        #[derive(Clone)]
+        struct TimedProbe;
+
+        impl SourceProbe for TimedProbe {
+            fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+                let delay = if url == "fast" { 10 } else { 300 };
+                std::thread::sleep(Duration::from_millis(delay));
+                Ok(Duration::from_millis(delay))
+            }
+        }
+
+        let urls = vec!["slow".to_string(), "fast".to_string()];
+        let probes = urls
+            .iter()
+            .map(|url| (url.clone(), url.clone()))
+            .collect::<Vec<_>>();
+        let mut selector = SourceSelector::load(None, &urls).unwrap();
+        let started = Instant::now();
+
+        let selected = selector
+            .next_source(&probes, &TimedProbe, &crate::NoopOutput, "test")
+            .unwrap();
+
+        assert_eq!(selected, "fast");
+        assert!(started.elapsed() < Duration::from_millis(150));
+    }
+
+    /// A successful real operation persists its source and the next run uses
+    /// it directly without launching another benchmark.
+    #[test]
+    fn source_selector_persists_successful_source() {
+        #[derive(Clone)]
+        struct CountingProbe(Arc<AtomicUsize>);
+
+        impl SourceProbe for CountingProbe {
+            fn measure(&self, url: &str) -> UpdaterResult<Duration> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                if url == "winner" {
+                    Ok(Duration::from_millis(1))
+                } else {
+                    std::thread::sleep(Duration::from_millis(50));
+                    Ok(Duration::from_millis(50))
+                }
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sources.json");
+        let urls = vec!["other".to_string(), "winner".to_string()];
+        let probes = urls
+            .iter()
+            .map(|url| (url.clone(), url.clone()))
+            .collect::<Vec<_>>();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut selector = SourceSelector::load(Some(&path), &urls).unwrap();
+        let selected = selector
+            .next_source(
+                &probes,
+                &CountingProbe(Arc::clone(&calls)),
+                &crate::NoopOutput,
+                "test",
+            )
+            .unwrap();
+        selector.mark_succeeded(&selected).unwrap();
+
+        let later_calls = Arc::new(AtomicUsize::new(0));
+        let mut reloaded = SourceSelector::load(Some(&path), &urls).unwrap();
+        let reused = reloaded
+            .next_source(
+                &probes,
+                &CountingProbe(Arc::clone(&later_calls)),
+                &crate::NoopOutput,
+                "test",
+            )
+            .unwrap();
+
+        assert_eq!(reused, "winner");
+        assert_eq!(later_calls.load(Ordering::SeqCst), 0);
     }
 
     /// Handles the all disabled ranking errors after three cycles workflow.
@@ -1495,6 +1785,7 @@ mod tests {
                     order: -1,
                 }],
                 all_failed_cycles: 2,
+                preferred_url: None,
             },
         )
         .unwrap();

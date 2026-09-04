@@ -1,4 +1,5 @@
 import { SecureWebSocket } from "@/shared/SecureWebSocket";
+import { TauriPipeConnection } from "@/transport/pipe/TauriPipeConnection";
 import type {
   BackendChannelName,
   BackendConnection,
@@ -50,7 +51,6 @@ export async function openBackendChannel(options: {
   session?: BackendControlSessionBundle | null;
 }): Promise<BackendConnection> {
   if (options.mode === "pipe") {
-    const { TauriPipeConnection } = await import("@/transport/pipe/TauriPipeConnection");
     return new TauriPipeConnection(options.channel, options.name);
   }
   if (!options.baseUrl || !options.session) {

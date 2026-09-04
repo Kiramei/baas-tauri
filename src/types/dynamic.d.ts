@@ -85,7 +85,13 @@ export interface DynamicConfig {
   TacticalChallengeShopList: number[];
   CommonShopRefreshTime: string;
   CommonShopList: number[];
-  clear_friend_white_list: any[];
+  final_restriction_rls_employ_formation_method: "default" | "copy_clear_unit";
+  final_restriction_rls_employ_formation_copy_clear_unit_max_unavailable_student_count: number;
+  final_restriction_rls_employ_formation_copy_clear_unit_max_refresh_count: number;
+  clear_friend_white_list: string[];
+  clear_friend_level_limit: number;
+  clear_friend_last_login_time_days: number;
+  clear_friend_last_total_assault_rank_limit: number;
   drill_difficulty_list: number[];
   drill_fight_formation_list: number[];
   drill_enable_sweep: boolean;
