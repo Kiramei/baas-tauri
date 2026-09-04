@@ -36,6 +36,7 @@ impl Language {
 pub enum I18nKey {
     /// Tray menu item that restores the main app window.
     TrayShowMainWindow,
+    TrayHideMainWindow,
     /// Tray menu item that exits the app.
     TrayExit,
 }
@@ -44,6 +45,7 @@ pub enum I18nKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TrayMenuLabels {
     pub show_main_window: &'static str,
+    pub hide_main_window: &'static str,
     pub exit: &'static str,
 }
 
@@ -74,6 +76,13 @@ pub fn normalize_language(value: &str) -> Language {
 /// Returns a localized backend string.
 pub fn translate(language: Language, key: I18nKey) -> &'static str {
     match (language, key) {
+        (Language::En, I18nKey::TrayHideMainWindow) => "Hide Window",
+        (Language::Zh, I18nKey::TrayHideMainWindow) => "隐藏窗口",
+        (Language::Ja, I18nKey::TrayHideMainWindow) => "ウィンドウを隠す",
+        (Language::Ko, I18nKey::TrayHideMainWindow) => "창 숨기기",
+        (Language::De, I18nKey::TrayHideMainWindow) => "Fenster ausblenden",
+        (Language::Ru, I18nKey::TrayHideMainWindow) => "Скрыть окно",
+        (Language::Fr, I18nKey::TrayHideMainWindow) => "Masquer la fenêtre",
         (Language::En, I18nKey::TrayShowMainWindow) => "Show Window",
         (Language::En, I18nKey::TrayExit) => "Exit App",
         (Language::Zh, I18nKey::TrayShowMainWindow) => "显示窗口",
@@ -95,6 +104,7 @@ pub fn translate(language: Language, key: I18nKey) -> &'static str {
 pub fn tray_menu_labels(language: Language) -> TrayMenuLabels {
     TrayMenuLabels {
         show_main_window: translate(language, I18nKey::TrayShowMainWindow),
+        hide_main_window: translate(language, I18nKey::TrayHideMainWindow),
         exit: translate(language, I18nKey::TrayExit),
     }
 }
@@ -113,7 +123,11 @@ mod tests {
         Language::Fr,
     ];
 
-    const ALL_KEYS: [I18nKey; 2] = [I18nKey::TrayShowMainWindow, I18nKey::TrayExit];
+    const ALL_KEYS: [I18nKey; 3] = [
+        I18nKey::TrayShowMainWindow,
+        I18nKey::TrayHideMainWindow,
+        I18nKey::TrayExit,
+    ];
 
     /// Returns the normalizes frontend language codes result.
     #[test]

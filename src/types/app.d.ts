@@ -39,6 +39,8 @@ export interface UISettings {
   enableBAComet: boolean;
   lowPerformanceMode: boolean;
   enableSystemNotifications: boolean;
+  minimizeToTray?: boolean;
+  schedulerSortMode?: "default" | "time";
   remoteSettings: RemoteSettings;
 }
 

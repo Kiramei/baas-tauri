@@ -66,6 +66,12 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
 
   // Shared timeout handle for debounced time updates.
   const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  React.useEffect(
+    () => () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    },
+    []
+  );
 
   /** Handles the handle date select interaction. */
   const handleDateSelect = React.useCallback(
@@ -95,6 +101,8 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
       setLocalTime(val);
 
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      // Clearing or partially entering a time must not silently schedule midnight.
+      if (!/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(val)) return;
       timeoutRef.current = setTimeout(() => {
         const [h, m, s] = val.split(":").map((piece) => parseInt(piece, 10));
         const newDate = dateObj ?? new Date();

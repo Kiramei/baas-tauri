@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "自動配置",
+    "asPost": "後続として実行",
+    "asPre": "前提として実行",
+    "defaultState": "バックエンドの既定値",
+    "disabled": "無効",
+    "disconnect": "接続を解除",
+    "empty": "タスクがありません。バックエンドに接続してください。",
+    "enabled": "有効",
+    "errors": {
+      "cycle": "この接続は循環依存を発生させます。",
+      "duplicate": "この接続は既に存在します。",
+      "portMismatch": "色と関係の種類が同じポートを接続してください。",
+      "selfLink": "タスク自身には接続できません。",
+      "unknown": "タスクが存在しません。再読み込みしてください。"
+    },
+    "existingCycle": "既存の循環依存は保持されています。接続を解除して修正できます。",
+    "fitView": "全体を表示",
+    "hint": "ノードをドラッグして配置 · 同色のポートを接続 · 接続を選択して解除",
+    "layoutSaved": "レイアウトはこの端末にアカウントごとに保存",
+    "loadFailed": "ワークフローを読み込めません。設定は変更されていません。リストに戻って編集できます。",
+    "loading": "ワークフローを読み込み中…",
+    "minimizeToTray": "システムトレイに最小化",
+    "newEvents": "新規タスクの有効状態",
+    "queued": "実行待ち",
+    "showGraph": "ワークフロー表示に切り替え",
+    "showList": "リスト表示に切り替え",
+    "summary": "{{tasks}} タスク · {{relations}} 接続",
+    "title": "タスクワークフロー",
+    "unknownRefs": "不明なタスク参照（保持）：{{refs}}",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
   }
 }

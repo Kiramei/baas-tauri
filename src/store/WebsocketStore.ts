@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { applyResourcePatch } from "@/shared/ResourcePatch";
 import { create } from "zustand";
 import {
   ControlConnection,
@@ -1567,20 +1568,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           return state;
         }
 
-        let base = { ...prev };
-        if (keys.length === 0 || (keys.length === 1 && keys[0] === "")) {
-          base = patch;
-        } else {
-          let current = base;
-          for (let index = 0; index < keys.length - 1; index += 1) {
-            const key = keys[index];
-            if (!current[key]) {
-              current[key] = {};
-            }
-            current = current[key];
-          }
-          current[keys[keys.length - 1]] = patch;
-        }
+        const base = applyResourcePatch(prev, keys, patch);
 
         if (resourceId === "global") {
           return {

@@ -719,5 +719,38 @@
     "githubProxyV6": "GitHub v6 加速",
     "mirrorc": "Mirror酱",
     "sevencdn": "SevenCDN"
+  },
+  "workflow": {
+    "arrange": "自动排列",
+    "asPost": "作为后置",
+    "asPre": "作为前置",
+    "defaultState": "后端默认",
+    "disabled": "禁用",
+    "disconnect": "断开连线",
+    "empty": "暂无任务，连接后端后加载调度配置。",
+    "enabled": "启用",
+    "errors": {
+      "cycle": "该连线将产生循环依赖。",
+      "duplicate": "这条关系已经存在。",
+      "portMismatch": "请连接颜色和关系类型相同的端口。",
+      "selfLink": "任务不能连接到自身。",
+      "unknown": "任务已不存在，请重新加载调度配置。"
+    },
+    "existingCycle": "已有循环依赖已保留，可断开连线修复。",
+    "fitView": "适应画布",
+    "hint": "拖动排列节点 · 连接同色端口 · 选中连线后可断开",
+    "layoutSaved": "布局按账号保存在此设备",
+    "loadFailed": "工作流加载失败，配置未被修改。可以返回列表继续编辑。",
+    "loading": "正在加载工作流…",
+    "minimizeToTray": "最小化到系统托盘",
+    "newEvents": "新增任务的启用状态",
+    "queued": "等待执行",
+    "showGraph": "切换到工作流视图",
+    "showList": "切换到列表视图",
+    "summary": "{{tasks}} 个任务 · {{relations}} 条关系",
+    "title": "任务工作流",
+    "unknownRefs": "未知任务引用（已保留）：{{refs}}",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
   }
 }
