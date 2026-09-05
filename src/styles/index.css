@@ -16,6 +16,20 @@ body,
   height: 100%;
 }
 
+@media (min-width: 64rem) {
+  html {
+    font-size: 14px;
+  }
+
+  .desktop-main-panel {
+    border-left-color: rgba(100, 116, 139, 0.28);
+  }
+
+  .dark .desktop-main-panel {
+    border-left-color: rgba(148, 163, 184, 0.35);
+  }
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

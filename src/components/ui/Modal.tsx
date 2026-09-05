@@ -11,6 +11,7 @@ interface ModalProps {
   children: React.ReactNode;
   titleNode?: React.ReactNode;
   width?: number;
+  fullscreen?: boolean;
 }
 
 /** Renders the modal component. */
@@ -21,6 +22,7 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   titleNode = undefined,
   width = 40,
+  fullscreen = false,
 }) => {
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
@@ -40,8 +42,9 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
-  const overlayCls =
-    "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
+  const overlayCls = `fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm ${
+    fullscreen ? "p-0" : "p-4"
+  }`;
 
   return createPortal(
     <div
@@ -57,11 +60,26 @@ export const Modal: React.FC<ModalProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
-        className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5 px-3"
-        style={{ width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }}
+        className={
+          fullscreen
+            ? "flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900"
+            : "rounded-xl border border-slate-200 bg-white p-5 px-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        }
+        style={
+          fullscreen
+            ? undefined
+            : { width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }
+        }
       >
-        <div className="overflow-auto px-2" style={{ maxHeight: "calc(100vh - 80px)" }}>
-          <div className="flex items-center justify-between p-0 border-b border-slate-200 dark:border-slate-700">
+        <div
+          className={fullscreen ? "flex h-full min-h-0 flex-col" : "overflow-auto px-2"}
+          style={fullscreen ? undefined : { maxHeight: "calc(100vh - 80px)" }}
+        >
+          <div
+            className={`flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-700 ${
+              fullscreen ? "h-[52px] px-4" : "p-0"
+            }`}
+          >
             {titleNode ? (
               titleNode
             ) : (
@@ -74,7 +92,11 @@ export const Modal: React.FC<ModalProps> = ({
               <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
-          <div className="py-2 overflow-y-auto px-1">{children}</div>
+          <div
+            className={fullscreen ? "min-h-0 flex-1 overflow-hidden" : "overflow-y-auto px-1 py-2"}
+          >
+            {children}
+          </div>
         </div>
       </motion.div>
     </div>,

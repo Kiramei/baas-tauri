@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpenText,
@@ -7,6 +7,8 @@ import {
   ListChecks,
   Loader2,
   PackageOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   SlidersHorizontal,
 } from "lucide-react";
@@ -29,10 +31,50 @@ const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 interface SidebarProps {
   activePage: string;
   setActivePage: (page: PageKey) => void;
+  desktopExpanded: boolean;
+  onDesktopExpandedChange: (expanded: boolean) => void;
 }
 
+const AutoFitSidebarTitle: React.FC<{ children: string }> = ({ children }) => {
+  const titleRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const title = titleRef.current;
+    if (!title) return;
+
+    const fit = () => {
+      let fontSize = 15;
+      title.style.fontSize = `${fontSize}px`;
+      while (title.scrollWidth > title.clientWidth && fontSize > 10) {
+        fontSize -= 0.25;
+        title.style.fontSize = `${fontSize}px`;
+      }
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(title.parentElement ?? title);
+    return () => observer.disconnect();
+  }, [children]);
+
+  return (
+    <div
+      ref={titleRef}
+      className="ml-[8px] min-w-0 flex-1 overflow-hidden whitespace-nowrap font-semibold text-slate-900 dark:text-white"
+      title={children}
+    >
+      {children}
+    </div>
+  );
+};
+
 /** Renders the sidebar component. */
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  activePage,
+  setActivePage,
+  desktopExpanded,
+  onDesktopExpandedChange,
+}) => {
   const { t } = useTranslation();
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
@@ -232,43 +274,79 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   };
 
   return (
-    <div className="relative">
+    <div
+      className={`relative h-full w-0 shrink-0 transition-[width] duration-300 ease-in-out ${
+        desktopExpanded ? "lg:w-64" : "lg:w-[52px]"
+      }`}
+    >
       {/* Desktop sidebar */}
-      <aside className="w-64 h-full shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex-col lg:block hidden">
-        <div className="h-16 flex items-center border-b border-slate-200 dark:border-slate-700 px-4">
-          <img src={`${baseUrl}images/logo.png`} alt="Logo" className="h-8 w-8" />
-          <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400 flex-1 text-start ml-2">
-            {t("app.title")}
-          </h1>
+      <aside className="hidden h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900 lg:flex">
+        <div className="flex h-[52px] w-full shrink-0 items-center">
+          {desktopExpanded ? (
+            <div className="flex w-full items-center px-[8px]">
+              <AutoFitSidebarTitle>{t("app.title")}</AutoFitSidebarTitle>
+              <button
+                type="button"
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+                aria-expanded="true"
+                onClick={() => onDesktopExpandedChange(false)}
+                className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <PanelLeftClose className="h-[20px] w-[20px]" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+              aria-expanded="false"
+              onClick={() => onDesktopExpandedChange(true)}
+              className="group/logo relative m-[8px] flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <img
+                src={`${baseUrl}images/logo.png`}
+                alt="BAAS"
+                className="h-[20px] w-[20px] shrink-0 transition-opacity duration-150 group-hover/logo:opacity-0"
+              />
+              <PanelLeftOpen className="absolute h-[20px] w-[20px] opacity-0 transition-opacity duration-150 group-hover/logo:opacity-100" />
+            </button>
+          )}
         </div>
 
-        <nav className="flex-1 px-4 py-6 h-[calc(100%-64px)] flex flex-col">
+        <nav className="flex h-[calc(100%-52px)] flex-1 flex-col px-[8px] py-4">
           <ul>
             {navItems.map((item) => (
               <li key={item.id}>
                 {item.id === "settings" && (
-                  <hr
-                    key={item.id + "hr"}
-                    className="border border-slate-300 dark:border-slate-500"
-                  />
+                  <hr key={item.id + "hr"} className="border-slate-300 dark:border-slate-500" />
                 )}
                 <button
+                  type="button"
+                  title={item.label}
                   onClick={() => setActivePage(item.id)}
-                  className={`flex items-center w-full px-4 py-3 my-1 text-sm font-bold rounded-lg transition-colors duration-200 ${
+                  className={`my-1 flex h-[36px] w-full items-center overflow-hidden rounded-lg px-[8px] text-sm font-bold transition-colors duration-200 ${
                     activePage === item.id
                       ? "bg-primary-500 text-white"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   }`}
                 >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  <span>{item.label}</span>
+                  <item.icon className="h-[20px] w-[20px] shrink-0" />
+                  <span
+                    className={`ml-3 whitespace-nowrap transition-opacity duration-150 ${
+                      desktopExpanded ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
           <div className="grow" />
           {hasAnyUpdate && (
-            <div className="flex gap-2 mb-2">
+            <div className={`mb-2 flex gap-2 ${desktopExpanded ? "flex-row" : "flex-col"}`}>
               {hasBackendUpdate && (
                 <UpdateActionButton
                   label="BAAS"
@@ -277,6 +355,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
                   busy={backendUpdating}
                   onClick={handleBackendUpdate}
                   tone="red"
+                  expanded={desktopExpanded}
                 />
               )}
               {hasTauriUpdate && (
@@ -287,16 +366,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
                   busy={tauriUpdate.updating}
                   onClick={tauriUpdate.runUpdate}
                   tone="blue"
+                  expanded={desktopExpanded}
                 />
               )}
             </div>
           )}
-          <HeartbeatChart />
+          <HeartbeatChart expanded={desktopExpanded} />
         </nav>
       </aside>
 
       {/* Mobile bottom navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center py-2 px-4 z-40">
+      <nav className="fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
         {navItems.map((item) => (
           <button
             key={item.id}
@@ -406,17 +486,24 @@ const UpdateActionButton: React.FC<{
   busy: boolean;
   onClick: () => void | Promise<void>;
   tone: UpdateTone;
-}> = ({ label, title, icon: Icon, busy, onClick, tone }) => (
+  expanded: boolean;
+}> = ({ label, title, icon: Icon, busy, onClick, tone, expanded }) => (
   <button
     type="button"
     title={title}
     aria-label={title}
     onClick={onClick}
     disabled={busy}
-    className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:opacity-60 ${toneClasses[tone].desktop}`}
+    className={`flex min-w-0 flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition disabled:opacity-60 ${toneClasses[tone].desktop}`}
   >
     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-    <span className="truncate">{label}</span>
+    <span
+      className={`overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-150 ${
+        expanded ? "ml-2 w-auto opacity-100" : "ml-0 w-0 opacity-0"
+      }`}
+    >
+      {label}
+    </span>
   </button>
 );
 

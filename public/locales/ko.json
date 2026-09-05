@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "BAAS"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "구성",
@@ -41,8 +41,8 @@
     "$self": "로그",
     "export": "로그 내보내기",
     "scroll": {
-      "$self": "맨 아래로 스크롤",
-      "detail": "로그 텍스트 상자를 맨 아래로 스크롤합니다"
+      "$self": "자동 스크롤",
+      "detail": "로그 텍스트 상자를 자동으로 스크롤합니다"
     }
   },
   "task": {
@@ -743,7 +743,7 @@
     "loadFailed": "워크플로를 불러오지 못했습니다. 설정은 변경되지 않았습니다. 목록에서 계속 편집하세요.",
     "loading": "워크플로 불러오는 중…",
     "minimizeToTray": "시스템 트레이로 최소화",
-    "newEvents": "새 작업의 활성화 상태",
+    "newEvents": "새 작업 자동 활성화: {{state}}",
     "queued": "대기 중",
     "showGraph": "워크플로 보기로 전환",
     "showList": "목록 보기로 전환",

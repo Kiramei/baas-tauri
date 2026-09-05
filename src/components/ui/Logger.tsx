@@ -4,18 +4,15 @@ import React, { useLayoutEffect, useRef } from "react";
 import type { LogItem } from "@/types/app";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { List } from "react-window";
-import {
-  type ListImperativeAPI,
-  type RowComponentProps,
-  useDynamicRowHeight,
-} from "react-window";
+import { type ListImperativeAPI, type RowComponentProps, useDynamicRowHeight } from "react-window";
 
 interface LoggerProps {
   logs: LogItem[];
   scrollToEnd: boolean; // Controls whether the logger scrolls to the bottom.
 }
 
-const LOG_ROW_LINE_HEIGHT = 20;
+// Desktop text-sm resolves to 12.25px / 17.5px after the 14px root-font adjustment.
+const LOG_ROW_LINE_HEIGHT = 17.5;
 
 const getLevelColor = (level: string) => {
   switch (level) {

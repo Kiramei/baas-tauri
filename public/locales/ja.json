@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "BAAS"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "設定",
@@ -41,8 +41,8 @@
     "$self": "ログ",
     "export": "ログをエクスポート",
     "scroll": {
-      "$self": "一番下までスクロール",
-      "detail": "ログテキストボックスを一番下までスクロールします"
+      "$self": "自動スクロール",
+      "detail": "ログテキストボックスを自動的にスクロールします"
     }
   },
   "task": {
@@ -743,7 +743,7 @@
     "loadFailed": "ワークフローを読み込めません。設定は変更されていません。リストに戻って編集できます。",
     "loading": "ワークフローを読み込み中…",
     "minimizeToTray": "システムトレイに最小化",
-    "newEvents": "新規タスクの有効状態",
+    "newEvents": "新規タスクの自動有効化：{{state}}",
     "queued": "実行待ち",
     "showGraph": "ワークフロー表示に切り替え",
     "showList": "リスト表示に切り替え",

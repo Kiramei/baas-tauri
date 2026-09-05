@@ -17,6 +17,15 @@
   --wf-border: #344155;
   --wf-ink: #e2e8f0;
 }
+.workflow-shell.is-frameless {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+.workflow-shell.is-frameless .workflow-canvas {
+  min-height: 0;
+}
 .workflow-toolbar {
   display: flex;
   align-items: center;
