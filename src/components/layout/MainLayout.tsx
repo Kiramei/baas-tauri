@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { PageKey } from "@/types/app";
@@ -31,15 +31,27 @@ export function useZoom(scale: number) {
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
   const zoomScale = useUISetting((settings) => settings.zoomScale);
   const zoomRef = useZoom(zoomScale / 100);
+  const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(false);
   return (
     <div
-      className="flex h-full w-full overflow-hidden text-slate-800 dark:text-slate-200"
+      className="flex h-full w-full overflow-hidden bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-200"
       ref={zoomRef}
     >
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        desktopExpanded={desktopSidebarExpanded}
+        onDesktopExpandedChange={setDesktopSidebarExpanded}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 pr-0 sm:pr-6 bg-slate-100 dark:bg-slate-800">
+        <main
+          className={
+            __WITH_ANDROID__
+              ? "desktop-main-panel flex-1 overflow-y-auto bg-slate-100 bg-clip-padding p-3 dark:bg-slate-800 lg:rounded-tl-[16px] lg:border-l"
+              : "desktop-main-panel flex-1 overflow-y-auto bg-slate-100 bg-clip-padding p-6 pr-0 dark:bg-slate-800 lg:rounded-tl-[16px] lg:border-l"
+          }
+        >
           {children}
         </main>
       </div>

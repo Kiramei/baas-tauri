@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "蔚蓝档案自动脚本"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "配置",
@@ -41,8 +41,8 @@
     "$self": "日志",
     "export": "导出日志",
     "scroll": {
-      "$self": "滑动到底部",
-      "detail": "日志文本框滑动到底部"
+      "$self": "自动滚动",
+      "detail": "自动滚动日志文本框"
     }
   },
   "task": {
@@ -724,7 +724,7 @@
     "arrange": "自动排列",
     "asPost": "作为后置",
     "asPre": "作为前置",
-    "defaultState": "后端默认",
+    "defaultState": "默认",
     "disabled": "禁用",
     "disconnect": "断开连线",
     "empty": "暂无任务，连接后端后加载调度配置。",
@@ -743,7 +743,7 @@
     "loadFailed": "工作流加载失败，配置未被修改。可以返回列表继续编辑。",
     "loading": "正在加载工作流…",
     "minimizeToTray": "最小化到系统托盘",
-    "newEvents": "新增任务的启用状态",
+    "newEvents": "自动启用新任务：{{state}}",
     "queued": "等待执行",
     "showGraph": "切换到工作流视图",
     "showList": "切换到列表视图",

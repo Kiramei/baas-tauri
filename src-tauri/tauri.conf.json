@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Blue Archive Auto Script",
+        "title": "BlueArchiveAutoScript",
         "label": "main",
         "width": 1280,
         "height": 800,

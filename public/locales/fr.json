@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "BAAS"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "Config",
@@ -41,8 +41,8 @@
     "$self": "Journaux",
     "export": "Exporter les journaux",
     "scroll": {
-      "$self": "Faire défiler vers le bas",
-      "detail": "Faire défiler la zone de texte du journal vers le bas"
+      "$self": "Défilement automatique",
+      "detail": "Faire défiler automatiquement la zone de texte du journal"
     }
   },
   "task": {
@@ -743,7 +743,7 @@
     "loadFailed": "Impossible de charger le flux. La configuration est inchangée. Continuez dans la liste.",
     "loading": "Chargement du flux…",
     "minimizeToTray": "Réduire dans la zone de notification",
-    "newEvents": "État initial des nouvelles tâches",
+    "newEvents": "Activer automatiquement les nouvelles tâches : {{state}}",
     "queued": "En attente",
     "showGraph": "Passer au flux",
     "showList": "Passer à la liste",

@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "BAAS"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "Configuration",
@@ -41,8 +41,8 @@
     "$self": "Logs",
     "export": "Export Logs",
     "scroll": {
-      "$self": "Scroll to Bottom",
-      "detail": "Scroll the log text box to the bottom"
+      "$self": "Auto Scroll",
+      "detail": "Automatically scroll the log text box"
     }
   },
   "task": {
@@ -743,7 +743,7 @@
     "loadFailed": "The workflow could not load. Your configuration is unchanged; use the list view to continue.",
     "loading": "Loading workflow…",
     "minimizeToTray": "Minimize to system tray",
-    "newEvents": "New task default state",
+    "newEvents": "Automatically enable new tasks: {{state}}",
     "queued": "Queued",
     "showGraph": "Switch to workflow view",
     "showList": "Switch to list view",

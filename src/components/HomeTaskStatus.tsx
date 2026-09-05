@@ -13,46 +13,50 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
   const taskQueue = useWebSocketStore((e) => e.statusStore[profileId]?.waiting_tasks);
 
   return (
-    <div className={"grid grid-cols-1 lg:grid-cols-2 gap-1"}>
+    <div className="grid min-w-0 grid-cols-1 gap-1 lg:grid-cols-2">
       <div
         className={
-          "bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center"
+          "min-w-0 bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center"
         }
       >
-        <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
-        <div className="grow">{t("task.running")}:</div>
-        <div className={"flex flex-col items-center justify-center float-end"}>
+        <Hourglass className="mr-2 h-[20px] w-[20px] shrink-0 text-primary-500" />
+        <div className="shrink-0">{t("task.running")}:</div>
+        <div className="ml-2 flex min-w-0 flex-1 flex-col items-end justify-center text-right">
           {runningTask ? (
-            <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
+            <span className="max-w-full truncate font-semibold text-primary-600 dark:text-primary-400 sm:text-lg">
               {t(eventNameKey(runningTask))}
             </span>
           ) : (
-            <span className="text-slate-500 dark:text-slate-400">{t("task.noneRunning")}</span>
+            <span className="max-w-full truncate text-slate-500 dark:text-slate-400">
+              {t("task.noneRunning")}
+            </span>
           )}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center">
-        <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
-        <div className="flex-grow">{t("task.next")}:</div>
+      <div className="flex min-w-0 items-center rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/50">
+        <Hourglass className="mr-2 h-[20px] w-[20px] shrink-0 text-primary-500" />
+        <div className="shrink-0">{t("task.next")}:</div>
 
-        <div className="flex flex-col items-center justify-center float-end mr-2">
+        <div className="mx-2 flex min-w-0 flex-1 flex-col items-end justify-center text-right">
           {taskQueue && taskQueue.length > 0 ? (
-            <span className="text-lg font-semibold text-primary-600 dark:text-primary-400">
+            <span className="max-w-full truncate font-semibold text-primary-600 dark:text-primary-400 sm:text-lg">
               {t(eventNameKey(taskQueue[0]))}
             </span>
           ) : (
-            <span className="text-slate-500 dark:text-slate-400">{t("task.noneQueued")}</span>
+            <span className="max-w-full truncate text-slate-500 dark:text-slate-400">
+              {t("task.noneQueued")}
+            </span>
           )}
         </div>
 
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
-              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg outline-none"
+              className="shrink-0 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg outline-none"
               onClick={() => setOpen(!open)}
             >
-              <List className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              <List className="h-[20px] w-[20px] text-slate-600 dark:text-slate-300" />
             </button>
           </PopoverTrigger>
 

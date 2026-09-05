@@ -8,19 +8,17 @@ import {
   Position,
   MarkerType,
   Panel,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
+  type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
-import {
-  GitBranch,
-  GripHorizontal,
-  Settings2,
-  LayoutGrid,
-  Unplug,
-  AlertTriangle,
-} from "lucide-react";
+import { GitBranch, GripHorizontal, LayoutGrid, Unplug, AlertTriangle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { EventConfig } from "@/types/event";
 import { useUISetting } from "@/context/UISettingsProvider";
@@ -35,7 +33,6 @@ import {
   validPositions,
   type Positions,
 } from "@/features/schedulerGraph";
-import { DateTimePicker } from "@/components/DateTimePicker";
 import "@xyflow/react/dist/style.css";
 import "./SchedulerGraph.css";
 
@@ -56,7 +53,7 @@ const WorkflowNode = memo(function WorkflowNode({ data, selected }: NodeProps<Ta
   const { task } = data;
   return (
     <section
-      className={`workflow-node ${selected ? "is-selected" : ""} ${data.running ? "is-running" : ""} ${data.dimmed ? "is-dimmed" : ""}`}
+      className={`workflow-node ${selected ? "is-selected" : ""} ${data.running ? "is-running" : ""} ${data.queued ? "is-queued" : ""} ${data.dimmed ? "is-dimmed" : ""}`}
     >
       <div className="workflow-node-header">
         <span className="workflow-node-icon">
@@ -64,49 +61,12 @@ const WorkflowNode = memo(function WorkflowNode({ data, selected }: NodeProps<Ta
         </span>
         <div className="min-w-0 flex-1">
           <h3 title={t(eventNameKey(task.func_name))}>{t(eventNameKey(task.func_name))}</h3>
-          <span className="workflow-node-id">{task.func_name}</span>
+          <span className="workflow-node-id">
+            {task.func_name}
+            {data.queued ? ` · ${t("workflow.queued")}` : ""}
+          </span>
         </div>
         <GripHorizontal size={16} className="text-slate-400" />
-      </div>
-      <div className="workflow-node-body nodrag">
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={`workflow-status ${data.running ? "running" : task.enabled ? "enabled" : "disabled"}`}
-          >
-            <i />
-            {data.running
-              ? t("task.running")
-              : data.queued
-                ? t("workflow.queued")
-                : task.enabled
-                  ? t("workflow.enabled")
-                  : t("workflow.disabled")}
-          </span>
-          <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <span>{t("workflow.enabled")}</span>
-            <input
-              type="checkbox"
-              checked={task.enabled}
-              onChange={(e) => data.onPatch(task.func_name, { enabled: e.target.checked })}
-              aria-label={`${t("workflow.enabled")} ${t(eventNameKey(task.func_name))}`}
-            />
-          </label>
-        </div>
-        <div className="mt-3 mb-1 text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          {t("scheduler.nextTick")}
-        </div>
-        <DateTimePicker
-          value={task.next_tick * 1000}
-          onChange={(ts) => {
-            if (ts !== null && Number.isFinite(ts))
-              data.onPatch(task.func_name, { next_tick: Math.floor(ts / 1000) });
-          }}
-          className="workflow-time w-full flex"
-        />
-        <button className="workflow-edit" onClick={() => data.onEdit(task)}>
-          <Settings2 size={12} />
-          {t("scheduler.detailConfig")}
-        </button>
       </div>
       <div className="workflow-ports">
         <div className="workflow-port-row pre">
@@ -132,6 +92,45 @@ const WorkflowNode = memo(function WorkflowNode({ data, selected }: NodeProps<Ta
 });
 const nodeTypes = { task: WorkflowNode };
 
+type RelationEdge = Edge<{ onDelete: () => void }>;
+
+const WorkflowEdge = memo(function WorkflowEdge(props: EdgeProps<RelationEdge>) {
+  const { t } = useTranslation();
+  const [path, x, y] = getSmoothStepPath(props);
+  return (
+    <>
+      <BaseEdge
+        id={props.id}
+        path={path}
+        style={props.style}
+        markerEnd={props.markerEnd}
+        interactionWidth={20}
+      />
+      {props.selected && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            className="nodrag nopan absolute flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 shadow-md hover:bg-red-50 dark:border-red-800 dark:bg-slate-800 dark:text-red-400 focus-visible:outline-2 focus-visible:outline-red-500"
+            style={{
+              pointerEvents: "all",
+              transform: `translate(-50%, -50%) translate(${x}px, ${y - 22}px)`,
+            }}
+            title={t("workflow.disconnect")}
+            aria-label={t("workflow.disconnect")}
+            onClick={(event) => {
+              event.stopPropagation();
+              props.data?.onDelete();
+            }}
+          >
+            <Trash2 size={15} />
+          </button>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+});
+const edgeTypes = { workflow: WorkflowEdge };
+
 export default function SchedulerGraph({
   tasks,
   profileId,
@@ -139,6 +138,7 @@ export default function SchedulerGraph({
   search,
   runningTask,
   queue,
+  frameless = false,
   onPatch,
   onRelations,
   onEdit,
@@ -149,6 +149,7 @@ export default function SchedulerGraph({
   search: string;
   runningTask?: string | null;
   queue: string[];
+  frameless?: boolean;
   onPatch: (id: string, fields: Partial<EventConfig>) => void;
   onRelations: (patch: Record<string, unknown>) => void;
   onEdit: (task: EventConfig) => void;
@@ -194,7 +195,13 @@ export default function SchedulerGraph({
     target: relation.target,
     sourceHandle: relation.kind,
     targetHandle: relation.kind,
-    type: "smoothstep",
+    type: "workflow",
+    data: {
+      onDelete: () => {
+        onRelations(relationPatch(tasks, relation, true));
+        setSelectedEdge(null);
+      },
+    },
     selected: selectedEdge === relation.id,
     style: {
       stroke: relation.kind === "pre" ? "#0891b2" : "#8b5cf6",
@@ -222,7 +229,10 @@ export default function SchedulerGraph({
     StorageUtil.set(storageKey, next);
   };
   return (
-    <div className="workflow-shell" data-testid="scheduler-workflow">
+    <div
+      className={`workflow-shell ${frameless ? "is-frameless" : ""}`}
+      data-testid="scheduler-workflow"
+    >
       <div className="workflow-toolbar">
         <div className="flex items-center gap-3">
           <span className="workflow-brand">
@@ -267,6 +277,7 @@ export default function SchedulerGraph({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onInit={setFlow}
           colorMode={theme === "dark" ? "dark" : theme === "light" ? "light" : "system"}
           fitView

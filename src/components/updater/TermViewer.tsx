@@ -398,8 +398,6 @@ const WorkflowGraph: React.FC<{
   tasks: Record<string, TermTaskView>;
   edges: WorkflowEdgePayload[];
 }> = ({ tasks, edges }) => {
-  const graphRef = useRef<HTMLDivElement | null>(null);
-  const [graphWidth, setGraphWidth] = useState(602);
   const taskList = useMemo(
     () =>
       Object.values(tasks).sort(
@@ -407,13 +405,6 @@ const WorkflowGraph: React.FC<{
       ),
     [tasks]
   );
-
-  useEffect(() => {
-    const node = graphRef.current;
-    if (!node) return;
-    const update = () => setGraphWidth(Math.max(240, node.clientWidth));
-    return observeResizeOnAnimationFrame(node, update);
-  }, []);
 
   const layout = useMemo(() => {
     const byStage = new Map<number, TermTaskView[]>();
@@ -423,12 +414,13 @@ const WorkflowGraph: React.FC<{
       byStage.set(task.stage, stageTasks);
     }
     const nodeSize = 18;
+    const canvasWidth = 1000;
     const maxStage = Math.max(...taskList.map((task) => task.stage), 0);
-    const paddingX = 14;
+    const startX = 40;
+    const endX = 900;
     const graphHeight = 80;
     const graphCenterY = (graphHeight - nodeSize) / 2;
-    const usableWidth = Math.max(nodeSize, graphWidth - paddingX * 2 - 28);
-    const colGap = maxStage > 0 ? usableWidth / maxStage : 0;
+    const colGap = maxStage > 0 ? (endX - startX) / maxStage : 0;
     const positions = new Map<string, { x: number; y: number }>();
     for (const task of taskList) {
       const stageTasks = byStage.get(task.stage) ?? [task];
@@ -436,30 +428,27 @@ const WorkflowGraph: React.FC<{
       const rowGap = stageTasks.length > 1 ? Math.min(24, 48 / (stageTasks.length - 1)) : 0;
       const stageTop = graphCenterY - ((stageTasks.length - 1) * rowGap) / 2;
       positions.set(task.taskId, {
-        x: paddingX + task.stage * colGap,
+        x: startX + task.stage * colGap,
         y: Math.max(16, Math.min(56, stageTop + stageIndex * rowGap)),
       });
     }
     return {
       nodeSize,
       positions,
-      width: graphWidth,
+      width: canvasWidth,
       height: graphHeight,
     };
-  }, [graphWidth, taskList]);
+  }, [taskList]);
 
   if (!taskList.length) return null;
 
   return (
-    <div
-      ref={graphRef}
-      className="h-20 overflow-hidden border-b border-border bg-black/90 dark:bg-black/50"
-    >
-      <div className="relative" style={{ width: layout.width, height: layout.height }}>
+    <div className="h-[80px] w-full min-w-0 shrink-0 overflow-hidden border-b border-border bg-black/90 dark:bg-black/50">
+      <div className="relative h-full w-full">
         <svg
-          className="pointer-events-none absolute inset-0"
-          width={layout.width}
-          height={layout.height}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          preserveAspectRatio="none"
         >
           {edges.map((edge) => {
             const from = layout.positions.get(edge.from);
@@ -528,6 +517,7 @@ const WorkflowGraph: React.FC<{
                 d={path}
                 stroke={color}
                 strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
                 fill="none"
                 opacity={target?.status === "pending" ? 0.55 : 0.9}
               />
@@ -541,7 +531,7 @@ const WorkflowGraph: React.FC<{
             <div
               key={task.taskId}
               className="absolute"
-              style={{ left: position.x, top: position.y }}
+              style={{ left: `${(position.x / layout.width) * 100}%`, top: position.y }}
             >
               <WorkflowNodeDot task={task} />
             </div>

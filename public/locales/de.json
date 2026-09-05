@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "BAAS"
+    "title": "BlueArchiveAutoScript"
   },
   "nav": {
     "configuration": "Konfiguration",
@@ -41,8 +41,8 @@
     "$self": "Protokolle",
     "export": "Protokolle exportieren",
     "scroll": {
-      "$self": "Nach unten scrollen",
-      "detail": "Das Protokolltextfeld nach unten scrollen"
+      "$self": "Automatisch scrollen",
+      "detail": "Das Protokolltextfeld automatisch scrollen"
     }
   },
   "task": {
@@ -743,7 +743,7 @@
     "loadFailed": "Der Ablauf konnte nicht geladen werden. Die Konfiguration bleibt unverändert. Verwenden Sie die Liste.",
     "loading": "Ablauf wird geladen…",
     "minimizeToTray": "In den Infobereich minimieren",
-    "newEvents": "Aktivierungsstatus neuer Aufgaben",
+    "newEvents": "Neue Aufgaben automatisch aktivieren: {{state}}",
     "queued": "In Warteschlange",
     "showGraph": "Zur Ablaufansicht wechseln",
     "showList": "Zur Listenansicht wechseln",

@@ -306,28 +306,28 @@ const Header: React.FC = () => {
   const runningByProfile = useWebSocketStore(
     useShallow((state) =>
       Object.fromEntries(
-          Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status?.running)])
+        Object.entries(state.statusStore).map(([id, status]) => [id, Boolean(status?.running)])
       )
     )
   );
 
   return (
-    <header className="h-16 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-3">
+    <header className="flex h-[52px] shrink-0 items-center border-b border-slate-200 bg-white px-[8px] text-sm dark:border-slate-700 dark:bg-slate-900 lg:border-b-0">
       {/* Left side: scroll controls */}
-      <div className="flex items-center gap-1 mr-2">
+      <div className="mr-2 flex items-center gap-1">
         <button
-          className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "opacity-40 pointer-events-none" : ""}`}
+          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(-200)}
           aria-label="scroll-left"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="h-[20px] w-[20px]" />
         </button>
         <button
-          className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.right ? "opacity-40 pointer-events-none" : ""}`}
+          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(200)}
           aria-label="scroll-right"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="h-[20px] w-[20px]" />
         </button>
       </div>
 
@@ -336,7 +336,7 @@ const Header: React.FC = () => {
           axis="x"
           values={tabs}
           onReorder={onReorder}
-          className="flex items-stretch h-10 gap-1"
+          className="flex h-[36px] items-stretch gap-1"
         >
           {tabs.map((tab) => {
             const active = activeProfile?.id === tab.id;
@@ -347,7 +347,7 @@ const Header: React.FC = () => {
                 value={tab}
                 layout={lowPerformanceMode ? undefined : true}
                 transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
-                className={`group relative flex items-center max-w-xs shrink-0 rounded-lg px-3 h-10 select-none
+                className={`group relative flex h-[36px] max-w-xs shrink-0 select-none items-center rounded-lg px-3
                     border cursor-pointer transition-colors
                     ${
                       active
@@ -400,17 +400,11 @@ const Header: React.FC = () => {
       <div className="ml-3">
         <button
           onClick={() => setEditor({ mode: "create" })}
-          className="hidden sm:flex items-center px-3 h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
-        >
-          <FilePlus2 className="w-4 h-4 mr-2" />
-          {t("profile.add")}
-        </button>
-        <button
-          onClick={() => setEditor({ mode: "create" })}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700 sm:hidden"
+          title={t("profile.add")}
           aria-label={t("profile.add")}
+          className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700"
         >
-          <FilePlus2 className="block h-5 w-5 shrink-0" />
+          <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
         </button>
       </div>
 

@@ -56,7 +56,7 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
 
   return (
     <div
-      className="w-4 h-4 rounded-full mx-auto"
+      className="h-[12px] w-[12px] shrink-0 rounded-full"
       style={{
         backgroundColor: color,
         boxShadow: connected ? "0 0 10px var(--color-primary-400)" : "none",
@@ -66,22 +66,33 @@ export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
 };
 
 /** Renders the heartbeat indicator component. */
-const HeartbeatIndicator = () => {
+const HeartbeatIndicator: React.FC<{ expanded?: boolean }> = ({ expanded = true }) => {
   const { t } = useTranslation();
   const [connected, setConnected] = useState(false);
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const textColor = connected ? "var(--color-primary-400)" : "var(--color-slate-400)";
 
   return (
-    <div className="flex flex-row items-center justify-center p-4 bg-slate-100/50 dark:bg-slate-700/50 w-full rounded-xl self-start">
+    <div
+      className={`flex w-full flex-row items-center self-start overflow-hidden rounded-xl bg-slate-100/50 dark:bg-slate-700/50 ${
+        expanded ? "h-[36px] justify-start px-[12px]" : "h-[36px] justify-center p-0"
+      }`}
+    >
       <IndicatorBase onStateChanged={setConnected} />
       {lowPerformanceMode ? (
-        <div className="ml-4 text-sm font-bold rounded-lg" style={{ color: textColor }}>
+        <div
+          className={`overflow-hidden whitespace-nowrap rounded-lg text-sm font-bold transition-[width,opacity,margin] duration-150 ${
+            expanded ? "ml-4 w-auto opacity-100" : "ml-0 w-0 opacity-0"
+          }`}
+          style={{ color: textColor }}
+        >
           {connected ? t("heartbeat.connected") : t("heartbeat.connecting")}
         </div>
       ) : (
         <motion.div
-          className="ml-4 text-sm font-bold rounded-lg"
+          className={`overflow-hidden whitespace-nowrap rounded-lg text-sm font-bold transition-[width,opacity,margin] duration-150 ${
+            expanded ? "ml-4 w-auto opacity-100" : "ml-0 w-0 opacity-0"
+          }`}
           animate={{
             color: textColor,
           }}
@@ -90,7 +101,7 @@ const HeartbeatIndicator = () => {
           {connected ? t("heartbeat.connected") : t("heartbeat.connecting")}
         </motion.div>
       )}
-      <div className="grow" />
+      {expanded && <div className="grow" />}
     </div>
   );
 };
