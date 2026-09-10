@@ -28,3 +28,6 @@ public/fonts/*.woff2
 *.sw?
 *.br
 .secrets
+
+# Local-only internal documentation
+docs/superpowers/
