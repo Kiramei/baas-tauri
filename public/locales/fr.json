@@ -569,6 +569,7 @@
   },
   "shaMethod": {
     "baasCdn": "BAAS CDN",
+    "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "Dépôt GitCode",
     "gitee": "Dépôt Gitee",
@@ -709,6 +710,7 @@
   },
   "updateMethod": {
     "baasCdn": "BAAS CDN",
+    "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
     "gitee": "Gitee",

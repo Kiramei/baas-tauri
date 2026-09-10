@@ -80,6 +80,7 @@ const teamMethodMap: Record<string, TranslationKey> = {
 };
 
 const shaMethodMap: Record<string, TranslationKey> = {
+  cnb: "shaMethod.cnb",
   gitee: "shaMethod.gitee",
   gitcode: "shaMethod.gitcode",
   github: "shaMethod.github",
@@ -94,6 +95,7 @@ const shaMethodMap: Record<string, TranslationKey> = {
 };
 
 const updateMethodMap: Record<string, TranslationKey> = {
+  cnb: "updateMethod.cnb",
   gitee: "updateMethod.gitee",
   gitcode: "updateMethod.gitcode",
   github: "updateMethod.github",

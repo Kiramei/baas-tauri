@@ -95,6 +95,10 @@ const reposInit: RepoConfig[] = [
     method: "github",
   },
   {
+    label: "updateMethod.cnb",
+    method: "cnb",
+  },
+  {
     label: "updateMethod.gitee",
     method: "gitee",
   },
@@ -180,6 +184,7 @@ const isSupportedBackgroundMime = (mime: string) =>
 const shaMethodsInit = [
   { label: "shaMethod.github", value: "github" },
   { label: "shaMethod.mirrorc", value: "mirrorc" },
+  { label: "shaMethod.cnb", value: "cnb" },
   { label: "shaMethod.gitee", value: "gitee" },
   { label: "shaMethod.gitcode", value: "gitcode" },
   { label: "shaMethod.githubProxyV4", value: "github_proxy_v4" },

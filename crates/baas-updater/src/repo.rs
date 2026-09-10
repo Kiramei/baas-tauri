@@ -1472,6 +1472,16 @@ mod tests {
         assert!(cpp_branch_for("windows", "aarch64").is_err());
     }
 
+    #[test]
+    fn main_repository_channels_include_cnb_mirrors() {
+        assert!(repository_urls(RepositoryKind::Main, UpdateChannel::Stable).iter().any(
+            |url| url == "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git"
+        ));
+        assert!(repository_urls(RepositoryKind::Main, UpdateChannel::Dev)
+            .iter()
+            .any(|url| url == "https://cnb.cool/kiramei/baas-dev.git"));
+    }
+
     /// Handles the remove git index before hard reset workflow.
     #[test]
     fn remove_git_index_ignores_missing_index() {

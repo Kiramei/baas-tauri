@@ -7,6 +7,7 @@ pub struct Source {
 pub const MAIN_REPO_SRC: Source = Source {
     main: "https://github.com/pur1fying/blue_archive_auto_script.git",
     proxy: &[
+        "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git",
         "https://gitee.com/pur1fy/blue_archive_auto_script.git",
         "https://gitcode.com/m0_74686738/blue_archive_auto_script.git",
         "https://v4.gh-proxy.org/https://github.com/pur1fying/blue_archive_auto_script.git",
@@ -22,6 +23,7 @@ pub const MAIN_REPO_SRC: Source = Source {
 pub const MAIN_REPO_SRC_DEV: Source = Source {
     main: "https://github.com/Kiramei/baas-dev.git",
     proxy: &[
+        "https://cnb.cool/kiramei/baas-dev.git",
         "https://gitee.com/kiramei/baas-dev.git",
         "https://gitcode.com/Kiramei/baas-dev",
         "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-dev.git",

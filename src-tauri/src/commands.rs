@@ -1287,6 +1287,7 @@ fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     vec![
         ("github".to_string(), urls.first().cloned()),
         ("mirrorc".to_string(), None),
+        ("cnb".to_string(), find_url(&urls, "cnb.cool")),
         ("gitee".to_string(), find_url(&urls, "gitee.com")),
         ("gitcode".to_string(), find_url(&urls, "gitcode.com")),
         (
