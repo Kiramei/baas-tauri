@@ -22,7 +22,7 @@ use crate::{
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
-    processor::{ScriptCommand, run_process_and_wait, spawn_process_task},
+    processor::{ScriptCommand, run_process_and_wait, run_process_commands, spawn_process_task},
     threader::{
         ThreadOutput, ThreadTaskOutcome, spawn_thread_task, spawn_thread_task_with_outcome,
     },
@@ -1061,6 +1061,10 @@ fn run_terminal_thread_repo_stage(
             kind: RepositoryKind::Main,
             state: Arc::clone(&state),
             git_backend_override,
+            inner: Arc::clone(context.inner),
+            session_id: context.session_id.to_string(),
+            renderer_tx: context.renderer_tx.clone(),
+            workflow_plan: context.workflow_plan.clone(),
         },
         terminal_repo_thread_task,
     );
@@ -1074,6 +1078,10 @@ fn run_terminal_thread_repo_stage(
             kind: RepositoryKind::Cpp,
             state,
             git_backend_override,
+            inner: Arc::clone(context.inner),
+            session_id: context.session_id.to_string(),
+            renderer_tx: context.renderer_tx.clone(),
+            workflow_plan: context.workflow_plan.clone(),
         },
         terminal_repo_thread_task,
     );
@@ -1092,6 +1100,68 @@ struct TerminalRepoArgs {
     kind: RepositoryKind,
     state: Arc<Mutex<TerminalWorkflowState>>,
     git_backend_override: Option<GitBackend>,
+    inner: Arc<Mutex<TermState>>,
+    session_id: String,
+    renderer_tx: mpsc::Sender<RendererEvent>,
+    workflow_plan: WorkflowPlan,
+}
+
+struct TerminalGitExecutor<'a> {
+    args: &'a TerminalRepoArgs,
+    output: &'a ThreadOutput,
+}
+
+impl TerminalGitExecutor<'_> {
+    fn run(&self, command: &CommandSpec) -> UpdaterResult<()> {
+        let spec =
+            planned_direct_process_task(&self.args.workflow_plan, &self.output.task_id, command);
+        run_process_commands(
+            &self.args.inner,
+            &self.args.session_id,
+            spec,
+            &self.args.renderer_tx,
+        )
+        .map_err(UpdaterError::Git)
+    }
+}
+
+impl GitExecutor for TerminalGitExecutor<'_> {
+    fn has_cli(&self) -> bool {
+        RealGitExecutor.has_cli()
+    }
+    fn clone_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        self.run(&git_clone_command(url, branch, target))
+    }
+    fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        self.run(&git_update_command(url, branch, target))
+    }
+    fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
+        RealGitExecutor.local_sha_cli(target)
+    }
+    fn remote_sha(&self, url: &str, branch: &str) -> UpdaterResult<String> {
+        RealGitExecutor.remote_sha(url, branch)
+    }
+    fn clone_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
+        RealGitExecutor.clone_git2(url, branch, target, output)
+    }
+    fn update_git2(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+    ) -> UpdaterResult<()> {
+        RealGitExecutor.update_git2(url, branch, target, output)
+    }
+    fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String> {
+        RealGitExecutor.local_sha_git2(target)
+    }
 }
 
 /// Handles the terminal repo thread task workflow.
@@ -1156,9 +1226,37 @@ fn terminal_repo_thread_task(
                 args.kind.as_str()
             ),
         );
-        let outcome = RealWorkflowServices
-            .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
-            .map_err(|error| error.message())?;
+        let outcome = if config.general.mirrorc_cdk.is_empty()
+            && config.general.git_backend != GitBackend::Git2
+            && RealGitExecutor.has_cli()
+        {
+            let executor = TerminalGitExecutor {
+                args: &args,
+                output: &output,
+            };
+            let result = RepoManager::new(executor)
+                .sync(
+                    &RepoSyncOptions {
+                        kind: args.kind,
+                        channel: config.general.channel,
+                        target_dir: job.target_dir.clone(),
+                        ranking_path: Some(ranking_path.clone()),
+                        git_backend: config.general.git_backend,
+                    },
+                    &GitSourceProbe,
+                    &output,
+                )
+                .map_err(|error| error.message())?;
+            RepositoryOutcome {
+                kind: args.kind,
+                status: result.status,
+                sha: result.sha,
+            }
+        } else {
+            RealWorkflowServices
+                .update_repository(args.kind, &config, &job.target_dir, &ranking_path, &output)
+                .map_err(|error| error.message())?
+        };
         output.line(
             OutputStyle::Success,
             &format!("{} repository ready", args.kind.as_str()),
