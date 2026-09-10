@@ -436,6 +436,48 @@ pub fn run_process_and_wait(
         .unwrap_or(false)
 }
 
+/// Runs a process task synchronously through the existing PTY and chunk renderer.
+/// The caller owns the surrounding task lifecycle and completion event.
+pub fn run_process_commands(
+    inner: &Arc<Mutex<TermState>>,
+    session_id: &str,
+    spec: TaskSpec,
+    renderer_tx: &Sender<RendererEvent>,
+) -> Result<(), String> {
+    for command in spec.process_commands() {
+        let thread_cancel = inner.lock().ok().and_then(|state| {
+            state
+                .tasks
+                .get(&spec.task_id)
+                .and_then(|handle| match handle.as_ref() {
+                    TaskHandle::Thread { cancel } => Some(Arc::clone(cancel)),
+                    TaskHandle::Process { .. } => None,
+                })
+        });
+        let result = run_one_process_command(
+            inner,
+            session_id,
+            &spec.task_id,
+            &spec.region_id,
+            command,
+            renderer_tx,
+        );
+        if let Some(cancel) = thread_cancel
+            && let Ok(mut state) = inner.lock()
+        {
+            state.tasks.insert(
+                spec.task_id.clone(),
+                Arc::new(TaskHandle::Thread { cancel }),
+            );
+        }
+        let code = result?;
+        if code != 0 {
+            return Err(format!("process exited with code {code}"));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
