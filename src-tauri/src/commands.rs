@@ -426,6 +426,42 @@ pub fn android_scrcpy_virtual_display_status(
     })
 }
 
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_list_games() -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_launch_game(_request: serde_json::Value) -> Result<(), String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_screenshot(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_gesture(_request: serde_json::Value) -> Result<(), String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_shizuku_status() -> Result<serde_json::Value, String> {
+    Err("Shizuku is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_request_shizuku_permission() -> Result<(), String> {
+    Err("Shizuku is only available in the Android app".to_string())
+}
+
 /// Simple path probe used by the setup page to recover from older configs
 /// where the install root was lost but the frontend still has a cached path.
 #[tauri::command]

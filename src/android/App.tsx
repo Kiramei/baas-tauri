@@ -35,7 +35,6 @@ const MainLayout = React.lazy(loadMainLayout);
 const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
 
 /**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
@@ -72,8 +71,6 @@ const Main: React.FC = () => {
         return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
       case "settings":
         return <SettingsPage />;
-      case "wiki":
-        return <WikiPage />;
       default:
         return null;
     }
@@ -200,6 +197,12 @@ const WrappedApp: React.FC = () => {
 const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = i18n.language;
+    const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const previousViewport = viewport?.content;
+    if (__WITH_ANDROID__ && viewport) {
+      viewport.content =
+        "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no";
+    }
     /** Handles the on lang change interaction. */
     const onLangChange = (lng: string) => {
       document.documentElement.lang = lng;
@@ -207,6 +210,7 @@ const App: React.FC = () => {
     i18n.on("languageChanged", onLangChange);
     return () => {
       i18n.off("languageChanged", onLangChange);
+      if (viewport && previousViewport) viewport.content = previousViewport;
     };
   }, []);
 

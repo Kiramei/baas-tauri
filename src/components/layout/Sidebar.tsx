@@ -95,7 +95,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: "scheduler", label: t("nav.scheduler"), icon: ListChecks },
     { id: "configuration", label: t("nav.configuration"), icon: SlidersHorizontal },
     { id: "settings", label: t("nav.settings"), icon: Settings },
-    { id: "wiki", label: t("title.wiki"), icon: BookOpenText },
+    ...(!__WITH_ANDROID__
+      ? [{ id: "wiki" as PageKey, label: t("title.wiki"), icon: BookOpenText }]
+      : []),
   ];
 
   const stopAllTasks = async () => {

@@ -19,6 +19,7 @@ import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
 
 const EMPTY_LOGS: LogItem[] = [];
+const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -54,8 +55,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
 
-  const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
-
   const adbSerial = useMemo(() => {
     if (__WITH_ANDROID__) {
       return window.localStorage.getItem("baasAndroidAdbSerial")?.trim() || "auto";
@@ -66,19 +65,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     return adbPort || adbIP || "emulator-5556";
   }, [settings?.adbIP, settings?.adbPort]);
 
-  const syncAndroidDeviceMethods = async (useScrcpy: boolean) => {
+  const syncAndroidDeviceMethods = async () => {
     if (!__WITH_ANDROID__ || !activeConfigId) return;
-    const patch = useScrcpy
-      ? {
-          screenshot_method: "adb",
-          control_method: "adb",
-          adbIP: "127.0.0.1",
-          adbPort: "5555",
-        }
-      : {
-          screenshot_method: "android_local",
-          control_method: "android_local",
-        };
+    const patch = {
+      screenshot_method: "android_local",
+      control_method: "android_local",
+    };
     const timestamp = getTimestampMs();
     const ops = Object.entries(patch).map(([key, value]) => ({
       op: "replace",
@@ -103,7 +95,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         ops,
       });
     });
-    const expectedMethod = useScrcpy ? "adb" : "android_local";
+    const expectedMethod = "android_local";
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       const current = useWebSocketStore.getState().configStore[activeConfigId];
@@ -134,12 +126,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       setAndroidVirtualDisplayActive(Boolean(status.active));
       return Boolean(status.active);
     } catch (error) {
-      console.warn("scrcpy virtual display status failed", error);
+      console.warn("Android background display status failed", error);
       return false;
     }
   }, [adbSerial]);
 
-  const toggleAndroidVirtualDisplay = async (value: boolean) => {
+  const toggleAndroidVirtualDisplay = async (value: boolean, packageName?: string) => {
     if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
     setAndroidVirtualDisplayBusy(true);
     try {
@@ -153,14 +145,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           request: {
             serial: adbSerial,
             configId: activeConfigId,
+            packageName,
             width: 1280,
             height: 720,
             density: 240,
           },
         });
         setAndroidVirtualDisplayActive(true);
-        if (activeConfigId) await syncAndroidDeviceMethods(true);
-        toast.success(`scrcpy virtual display #${report.displayId}`);
+        if (activeConfigId) await syncAndroidDeviceMethods();
+        toast.success(`Background game display #${report.displayId}`);
       } else {
         if (scriptRunning && activeConfigId) {
           useWebSocketStore.getState().trigger({
@@ -172,13 +165,13 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
         await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
         setAndroidVirtualDisplayActive(false);
-        if (activeConfigId) await syncAndroidDeviceMethods(false);
-        toast.success("scrcpy virtual display closed");
+        if (activeConfigId) await syncAndroidDeviceMethods();
+        toast.success("Background game display closed");
       }
       void refreshAndroidVirtualDisplayStatus();
     } catch (error) {
       toast.error(
-        value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed",
+        value ? "Background game display failed" : "Background game display cleanup failed",
         {
           description: String(error),
         }
@@ -199,7 +192,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
+    if (__WITH_ANDROID__) await syncAndroidDeviceMethods();
     useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
@@ -285,18 +278,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               <Keyboard className="w-4 h-4" />
             </CButton>
           )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
             variant={scriptRunning ? "danger" : "primary"}
@@ -330,18 +311,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             >
               <Keyboard className="w-4 h-4" />
             </CButton>
-          )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
           )}
           <CButton
             onClick={scriptRunning ? stopScript : startScript}
@@ -388,6 +357,18 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             toast.success(t("settings.updateSuccess"));
           }}
         />
+      )}
+
+      {isAndroid && (
+        <React.Suspense
+          fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />}
+        >
+          <AndroidGamePanel
+            virtualDisplayActive={androidVirtualDisplayActive}
+            virtualDisplayBusy={androidVirtualDisplayBusy}
+            onToggleVirtualDisplay={toggleAndroidVirtualDisplay}
+          />
+        </React.Suspense>
       )}
 
       {/* Live status for the active task pipeline. */}

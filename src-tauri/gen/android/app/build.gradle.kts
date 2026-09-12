@@ -80,6 +80,7 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        aidl = true
     }
 }
 
@@ -109,6 +110,8 @@ rust {
 }
 
 dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")

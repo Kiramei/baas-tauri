@@ -291,6 +291,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "directories",
+ "minisign-verify",
  "minreq",
  "rand 0.8.6",
  "rsa",
