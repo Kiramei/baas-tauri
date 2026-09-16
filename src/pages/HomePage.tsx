@@ -396,76 +396,72 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         </React.Suspense>
       )}
 
-      {!isAndroid && (
-        <>
-          {/* Live status for the active task pipeline. */}
-          {activeConfigId && <TaskStatus profileId={activeConfigId} />}
+      {/* Live status for the active task pipeline. */}
+      {activeConfigId && <TaskStatus profileId={activeConfigId} />}
 
-          {/* Optional asset snapshot to provide immediate operational context. */}
-          {assetsDisplay && (
-            <div className="shrink-0">
-              {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
-            </div>
-          )}
-
-          {/* Streaming log viewer with scroll management and export tooling. */}
-          <Card
-            className={
-              isAndroid
-                ? "flex-1 min-h-0 flex flex-col overflow-hidden"
-                : "flex-1 min-h-100 flex flex-col"
-            }
-          >
-            <CardHeader className="flex justify-between items-center">
-              <CardTitle>
-                <div className="flex items-center gap-2">
-                  <Logs /> {t("log")}
-                </div>
-              </CardTitle>
-              <div className="sm:flex hidden items-center justify-center">
-                <SwitchButton
-                  checked={scrollToEnd}
-                  onChange={(value) => {
-                    setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-                  }}
-                  label={t("log.scroll")}
-                  className="px-4!"
-                />
-                <CButton onClick={exportLog} className="ml-2">
-                  <div className="flex">
-                    <FileUp size={20} className="mr-2" />
-                    {t("log.export")}
-                  </div>
-                </CButton>
-              </div>
-
-              <div className="sm:hidden flex items-center justify-center">
-                <SwitchButton
-                  checked={scrollToEnd}
-                  onChange={(value) => {
-                    setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-                  }}
-                  label=""
-                  className="ml-2 h-8 w-8"
-                  iconOnly
-                >
-                  <ListEnd size={20} className="rounded w-4 h-4" />
-                </SwitchButton>
-                <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
-                  <FileUp size={20} className="rounded w-4 h-4" />
-                </CButton>
-              </div>
-            </CardHeader>
-
-            <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
-              {remoteAvailable && remoteVisible && activeConfigId && (
-                <RemoteDisplay profileId={activeConfigId} />
-              )}
-              <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
-            </CardContent>
-          </Card>
-        </>
+      {/* Optional asset snapshot to provide immediate operational context. */}
+      {assetsDisplay && (
+        <div className="shrink-0">
+          {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
+        </div>
       )}
+
+      {/* Streaming log viewer with scroll management and export tooling. */}
+      <Card
+        className={
+          isAndroid
+            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
+            : "flex-1 min-h-100 flex flex-col"
+        }
+      >
+        <CardHeader className="flex justify-between items-center">
+          <CardTitle>
+            <div className="flex items-center gap-2">
+              <Logs /> {t("log")}
+            </div>
+          </CardTitle>
+          <div className="sm:flex hidden items-center justify-center">
+            <SwitchButton
+              checked={scrollToEnd}
+              onChange={(value) => {
+                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
+              }}
+              label={t("log.scroll")}
+              className="px-4!"
+            />
+            <CButton onClick={exportLog} className="ml-2">
+              <div className="flex">
+                <FileUp size={20} className="mr-2" />
+                {t("log.export")}
+              </div>
+            </CButton>
+          </div>
+
+          <div className="sm:hidden flex items-center justify-center">
+            <SwitchButton
+              checked={scrollToEnd}
+              onChange={(value) => {
+                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
+              }}
+              label=""
+              className="ml-2 h-8 w-8"
+              iconOnly
+            >
+              <ListEnd size={20} className="rounded w-4 h-4" />
+            </SwitchButton>
+            <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
+              <FileUp size={20} className="rounded w-4 h-4" />
+            </CButton>
+          </div>
+        </CardHeader>
+
+        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
+          {remoteAvailable && remoteVisible && activeConfigId && (
+            <RemoteDisplay profileId={activeConfigId} />
+          )}
+          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -325,7 +325,10 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       )}
 
       {virtualDisplayActive && controlsVisible && (
-        <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-[1px]">
+        <div
+          className="absolute inset-0 z-20 bg-black/40 backdrop-blur-[1px]"
+          onClick={() => setControlsVisible(false)}
+        >
           <div className="absolute left-1/2 top-3 grid -translate-x-1/2 grid-cols-3 gap-3">
             <button
               type="button"

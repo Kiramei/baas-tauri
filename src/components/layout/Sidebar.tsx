@@ -385,19 +385,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       </aside>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 z-40 grid h-14 w-full grid-cols-5 items-end border-t border-slate-200 bg-white px-2 pb-1 pt-0.5 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
+      <nav className="fixed bottom-0 left-0 z-40 grid h-14 w-full grid-cols-5 items-center border-t border-slate-200 bg-white px-2 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
         {navItems.slice(0, 2).map((item) => (
           <button
             key={item.id}
             onClick={() => setActivePage(item.id)}
-            className={`flex h-full flex-col items-center justify-end pb-0.5 text-[11px] font-medium ${
+            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
               activePage === item.id
                 ? "text-primary-500"
                 : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
             }`}
           >
-            <item.icon className="mb-0.5 h-5 w-5" />
-            <span>{item.label}</span>
+            <item.icon className="mb-0.5 h-6 w-6" />
+            <span className="block leading-none">{item.label}</span>
           </button>
         ))}
 
@@ -406,7 +406,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           aria-label={primaryRunning ? t("common.stop") : t("common.start")}
           disabled={!activeProfile}
           onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-          className={`mx-auto mb-1 grid h-16 w-16 translate-y-[-6px] place-items-center rounded-full border-4 border-white text-white shadow-xl transition active:scale-95 disabled:opacity-50 dark:border-slate-900 ${
+          className={`mx-auto grid h-16 w-16 -translate-y-3 place-items-center rounded-full border-4 border-white text-white shadow-xl transition active:scale-95 disabled:opacity-50 dark:border-slate-900 ${
             primaryRunning ? "bg-red-500" : "bg-primary-500"
           }`}
         >
@@ -421,14 +421,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             key={item.id}
             onClick={() => setActivePage(item.id)}
-            className={`flex h-full flex-col items-center justify-end pb-0.5 text-[11px] font-medium ${
+            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
               activePage === item.id
                 ? "text-primary-500"
                 : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
             }`}
           >
-            <item.icon className="mb-0.5 h-5 w-5" />
-            <span>{item.label}</span>
+            <item.icon className="mb-0.5 h-6 w-6" />
+            <span className="block leading-none">{item.label}</span>
           </button>
         ))}
       </nav>
