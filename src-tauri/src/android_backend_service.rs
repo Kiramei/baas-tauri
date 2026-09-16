@@ -83,6 +83,13 @@ struct ShizukuDisplayRequest {
     density: u32,
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ShizukuDisplayLaunchRequest<'a> {
+    package_name: &'a str,
+    display_id: i32,
+}
+
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ShizukuDisplayResult {
@@ -210,4 +217,21 @@ pub fn stop_shizuku_display<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
         .0
         .run_mobile_plugin("stopShizukuDisplay", ())
         .map_err(|error| format!("failed to stop Shizuku virtual display: {error}"))
+}
+
+pub fn launch_package_on_shizuku_display<R: Runtime>(
+    app: &AppHandle<R>,
+    package_name: &str,
+    display_id: i32,
+) -> Result<(), String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin(
+            "launchPackageOnShizukuDisplay",
+            ShizukuDisplayLaunchRequest {
+                package_name,
+                display_id,
+            },
+        )
+        .map_err(|error| format!("failed to launch game on Shizuku display: {error}"))
 }

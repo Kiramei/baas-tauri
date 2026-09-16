@@ -34,6 +34,9 @@ android {
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        externalNativeBuild {
+            cmake {}
+        }
     }
     signingConfigs {
         if (hasAndroidReleaseSigning) {
@@ -81,6 +84,12 @@ android {
     buildFeatures {
         buildConfig = true
         aidl = true
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 }
 

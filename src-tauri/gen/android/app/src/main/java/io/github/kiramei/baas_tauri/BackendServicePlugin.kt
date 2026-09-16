@@ -152,6 +152,21 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   @Command
+  fun launchPackageOnShizukuDisplay(invoke: Invoke) {
+    try {
+      val args = invoke.getArgs()
+      val packageName = allowedGamePackage(args.getString("packageName"))
+      val displayId = args.getInteger("displayId", -1)
+      if (!ShizukuController.launchPackageOnDisplay(activity, packageName, displayId)) {
+        throw IllegalStateException("Android rejected the game launch on the virtual display")
+      }
+      invoke.resolve()
+    } catch (error: Exception) {
+      invoke.reject(error.message, error)
+    }
+  }
+
+  @Command
   fun stopShizukuDisplay(invoke: Invoke) {
     try {
       ShizukuController.stopVirtualDisplay(activity)

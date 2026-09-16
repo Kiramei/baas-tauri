@@ -613,18 +613,14 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
         Some(activity) if !activity.is_empty() => activity.to_string(),
         _ => resolve_android_launcher_component_with_shizuku(app, &package_name)?,
     };
-    let component = if activity_name.contains('/') {
-        activity_name.clone()
-    } else {
-        format!("{package_name}/{activity_name}")
-    };
     crate::android_backend_service::shizuku_shell(
         app,
         &format!("am force-stop --user 0 {package_name}"),
     )?;
-    crate::android_backend_service::shizuku_shell(
+    crate::android_backend_service::launch_package_on_shizuku_display(
         app,
-        &format!("am start --user 0 --display {display_id} -n {component}"),
+        &package_name,
+        display_id as i32,
     )?;
     log.push(format!("launched {package_name} on display {display_id}"));
 

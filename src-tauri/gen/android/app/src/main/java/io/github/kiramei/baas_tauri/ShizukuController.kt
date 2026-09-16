@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -42,8 +43,11 @@ object ShizukuController {
     )
       .daemon(true)
       .processNameSuffix("baas_shizuku")
-      .tag("baas-game-service-v4")
-      .version(4)
+      // Bump both values whenever the persistent user-service implementation changes.
+      // Shizuku may otherwise reconnect to the pre-update process and keep the old
+      // capture Surface alive even after the application APK has been replaced.
+      .tag("baas-game-service-v20")
+      .version(20)
   }
 
   fun state(context: Context): ShizukuState {
@@ -97,7 +101,16 @@ object ShizukuController {
   }
 
   fun captureVirtualDisplay(context: Context): String {
-    return callService(context) { it.captureVirtualDisplay() }
+    val bytes = callService(context) { service ->
+      service.captureVirtualDisplay().use { descriptor ->
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+      }
+    }
+    return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+  }
+
+  fun launchPackageOnDisplay(context: Context, packageName: String, displayId: Int): Boolean {
+    return callService(context) { it.launchPackageOnDisplay(packageName, displayId) }
   }
 
   fun gesture(
