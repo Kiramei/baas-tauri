@@ -86,8 +86,8 @@ const Main: React.FC = () => {
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
-      <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        <div key={currentKey} className="absolute inset-0 overflow-y-auto scroll-embedded pr-2">
+      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-70px)] lg:h-full">
+        <div key={currentKey} className="android-page-scroll absolute inset-0 overflow-y-auto">
           <Suspense fallback={<PageLoadingFallback />}>
             {renderPage(activePage, activePid)}
           </Suspense>
