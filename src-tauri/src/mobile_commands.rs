@@ -320,6 +320,41 @@ pub async fn android_game_screenshot(
     .map_err(|error| format!("Android game screenshot worker failed: {error}"))?
 }
 
+/// Captures a lightweight JPEG frame for the read-only Android live preview.
+#[tauri::command]
+pub async fn android_game_preview(
+    app: AppHandle,
+    request: AndroidGamePackageRequest,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = crate::android_backend_service::game_preview(&app, &request.package_name)?;
+        serde_json::to_value(report).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android game preview worker failed: {error}"))?
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidGameStreamRequest {
+    fps: u32,
+    bitrate: u32,
+}
+
+/// Establishes and returns the endpoint for the persistent binary H.264 stream.
+#[tauri::command]
+pub fn android_game_stream_info(
+    app: AppHandle,
+    request: AndroidGameStreamRequest,
+) -> Result<Value, String> {
+    let info = crate::android_backend_service::game_stream_info(
+        &app,
+        request.fps.clamp(1, 60),
+        request.bitrate.clamp(256_000, 20_000_000),
+    )?;
+    serde_json::to_value(info).map_err(|error| error.to_string())
+}
+
 /// Sends a touch or swipe to the selected game's Shizuku virtual display.
 #[tauri::command]
 pub async fn android_game_gesture(

@@ -11,5 +11,8 @@ interface IShizukuShellService {
     ParcelFileDescriptor captureVirtualDisplay() = 6;
     boolean gesture(int x1, int y1, int x2, int y2, int durationMs) = 7;
     boolean launchPackageOnDisplay(String packageName, int displayId) = 8;
+    ParcelFileDescriptor captureVirtualDisplayPreview() = 9;
+    ParcelFileDescriptor openVideoStream(int fps, int bitrate) = 10;
+    void closeVideoStream() = 11;
     void destroy() = 16777114;
 }

@@ -49,20 +49,24 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   },
 };
 
+const ANDROID_ZOOM_MIGRATION_KEY = "baasAndroidCompactZoomV1";
+
 const loadInitialSettings = (): UISettings => {
   const stored = StorageUtil.get("uiSettings") as UISettings | null;
-  if (!stored) {
-    StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
-    return DEFAULT_UI_SETTINGS;
-  }
-  return {
+  let settings: UISettings = {
     ...DEFAULT_UI_SETTINGS,
-    ...stored,
+    ...(stored ?? {}),
     remoteSettings: {
       ...DEFAULT_UI_SETTINGS.remoteSettings,
-      ...stored.remoteSettings,
+      ...(stored?.remoteSettings ?? {}),
     },
   };
+  if (__WITH_ANDROID__ && StorageUtil.get(ANDROID_ZOOM_MIGRATION_KEY) !== true) {
+    settings = { ...settings, zoomScale: 80 };
+    StorageUtil.set(ANDROID_ZOOM_MIGRATION_KEY, true);
+  }
+  if (!stored || settings.zoomScale !== stored.zoomScale) StorageUtil.set("uiSettings", settings);
+  return settings;
 };
 
 const createUISettingsStore = (): UISettingsStore => {

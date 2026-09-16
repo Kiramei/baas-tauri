@@ -20,6 +20,8 @@ import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.annotation.Keep
 import java.io.ByteArrayOutputStream
+import java.net.InetAddress
+import java.net.Socket
 import java.util.concurrent.Executors
 
 /** Shell/root process which owns the virtual display, frame capture and input channel. */
@@ -35,6 +37,9 @@ class ShizukuShellService : IShizukuShellService.Stub {
   private var displayHeight = 0
   private var lastFrameAt = 0L
   private var privilegedBridge: PrivilegedDisplayBridge? = null
+  private var videoStream: H264VideoStream? = null
+  private var privilegedVideoSocket: Socket? = null
+  private var privilegedVideoRelay: Thread? = null
 
   constructor()
 
@@ -154,14 +159,84 @@ class ShizukuShellService : IShizukuShellService.Stub {
     intArrayOf(displayWidth.coerceAtLeast(1), displayHeight.coerceAtLeast(1))
   }
 
-  override fun captureVirtualDisplay(): ParcelFileDescriptor = synchronized(displayLock) {
-    val png = privilegedBridge?.let { bridge ->
-      val encoded = bridge.request("CAPTURE")
+  override fun captureVirtualDisplay(): ParcelFileDescriptor =
+    captureVirtualDisplay("CAPTURE", Bitmap.CompressFormat.PNG, 100)
+
+  override fun captureVirtualDisplayPreview(): ParcelFileDescriptor =
+    captureVirtualDisplay("PREVIEW", Bitmap.CompressFormat.JPEG, 76)
+
+  override fun openVideoStream(fps: Int, bitrate: Int): ParcelFileDescriptor = privileged {
+    synchronized(displayLock) {
+      closeVideoStreamLocked()
+      privilegedBridge?.let { bridge ->
+        val port = bridge.request("OPEN_STREAM $fps $bitrate").toInt()
+        val connector = Executors.newSingleThreadExecutor()
+        val socket = try {
+          connector.submit<Socket> { Socket(InetAddress.getLoopbackAddress(), port) }.get()
+        } finally {
+          connector.shutdownNow()
+        }
+        val pipe = ParcelFileDescriptor.createPipe()
+        try {
+          privilegedVideoSocket = socket
+          privilegedVideoRelay = Thread({
+            try {
+              socket.getInputStream().use { input ->
+                ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
+                  input.copyTo(output, 64 * 1024)
+                }
+              }
+            } catch (_: Throwable) {
+              runCatching { pipe[1].close() }
+            }
+          }, "baas-privileged-video-relay").apply {
+            isDaemon = true
+            start()
+          }
+          // Binder cannot transfer a Magisk-domain TCP socket directly to an
+          // untrusted app on enforcing SELinux builds. An anonymous pipe keeps
+          // the exact binary stream while giving Binder a transferable fd.
+          return@synchronized pipe[0]
+        } catch (error: Throwable) {
+          runCatching { socket.close() }
+          runCatching { pipe[0].close() }
+          runCatching { pipe[1].close() }
+          throw error
+        }
+      }
+      val display = virtualDisplay ?: throw IllegalStateException("The virtual display is not running")
+      val width = displayWidth.coerceAtLeast(1)
+      val height = displayHeight.coerceAtLeast(1)
+      val pipe = ParcelFileDescriptor.createPipe()
+      try {
+        val sink = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
+        videoStream = H264VideoStream.start(display, width, height, fps, bitrate, sink)
+        pipe[0]
+      } catch (error: Throwable) {
+        runCatching { pipe[0].close() }
+        runCatching { pipe[1].close() }
+        restoreCaptureSurfaceLocked()
+        throw error
+      }
+    }
+  }
+
+  override fun closeVideoStream() = privileged {
+    synchronized(displayLock) { closeVideoStreamLocked() }
+  }
+
+  private fun captureVirtualDisplay(
+    command: String,
+    format: Bitmap.CompressFormat,
+    quality: Int,
+  ): ParcelFileDescriptor = synchronized(displayLock) {
+    val bytes = privilegedBridge?.let { bridge ->
+      val encoded = bridge.request(command)
       if (encoded.isEmpty()) ByteArray(0)
       else android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
     } ?: latestFrame?.let { frame ->
       ByteArrayOutputStream().use { output ->
-        frame.compress(Bitmap.CompressFormat.PNG, 100, output)
+        frame.compress(format, quality, output)
         output.toByteArray()
       }
     } ?: ByteArray(0)
@@ -169,7 +244,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     val pipe = ParcelFileDescriptor.createPipe()
     Thread({
       runCatching {
-        ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { it.write(png) }
+        ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { it.write(bytes) }
       }
     }, "baas-screenshot-pipe").start()
     pipe[0]
@@ -273,6 +348,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
   }
 
   private fun stopVirtualDisplayLocked() {
+    closeVideoStreamLocked(restoreCaptureSurface = false)
     imageReader?.setOnImageAvailableListener(null, null)
     virtualDisplay?.release()
     imageReader?.close()
@@ -287,7 +363,28 @@ class ShizukuShellService : IShizukuShellService.Stub {
     lastFrameAt = 0L
   }
 
+  private fun closeVideoStreamLocked(restoreCaptureSurface: Boolean = true) {
+    privilegedBridge?.let { bridge ->
+      runCatching { bridge.request("CLOSE_STREAM") }
+      runCatching { privilegedVideoSocket?.close() }
+      privilegedVideoRelay?.interrupt()
+      privilegedVideoSocket = null
+      privilegedVideoRelay = null
+      return
+    }
+    videoStream?.close()
+    videoStream = null
+    if (restoreCaptureSurface) restoreCaptureSurfaceLocked()
+  }
+
+  private fun restoreCaptureSurfaceLocked() {
+    val display = virtualDisplay ?: return
+    val surface = imageReader?.surface ?: return
+    runCatching { display.setSurface(surface) }
+  }
+
   override fun destroy() {
+    synchronized(displayLock) { closeVideoStreamLocked() }
     privilegedBridge?.close()
     privilegedBridge = null
     stopVirtualDisplay()

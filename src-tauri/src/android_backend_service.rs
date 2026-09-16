@@ -3,10 +3,25 @@ use tauri::{
     AppHandle, Manager, Runtime,
 };
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AndroidBackendServiceInfo {
     pub pipe_path: String,
+    pub video_stream_url: String,
+    pub video_stream_token: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidGameStreamInfo {
+    pub video_stream_url: String,
+    pub video_stream_token: String,
+}
+
+#[derive(serde::Serialize)]
+struct VideoStreamRequest {
+    fps: u32,
+    bitrate: u32,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -31,6 +46,12 @@ pub struct AndroidGameList {
 #[serde(rename_all = "camelCase")]
 pub struct AndroidGameScreenshot {
     pub png_base64: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidGamePreview {
+    pub jpeg_base64: String,
 }
 
 #[derive(serde::Serialize)]
@@ -138,6 +159,27 @@ pub fn game_screenshot<R: Runtime>(
         .0
         .run_mobile_plugin("gameScreenshot", PackageRequest { package_name })
         .map_err(|error| format!("failed to capture Android game: {error}"))
+}
+
+pub fn game_preview<R: Runtime>(
+    app: &AppHandle<R>,
+    package_name: &str,
+) -> Result<AndroidGamePreview, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("gamePreview", PackageRequest { package_name })
+        .map_err(|error| format!("failed to capture Android game preview: {error}"))
+}
+
+pub fn game_stream_info<R: Runtime>(
+    app: &AppHandle<R>,
+    fps: u32,
+    bitrate: u32,
+) -> Result<AndroidGameStreamInfo, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("gameStreamInfo", VideoStreamRequest { fps, bitrate })
+        .map_err(|error| format!("failed to open Android game stream: {error}"))
 }
 
 pub fn game_gesture<R: Runtime>(

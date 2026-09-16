@@ -8,6 +8,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
+import android.os.Handler
+import android.util.Log
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.provider.Settings
@@ -17,6 +20,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class ShizukuState(
   val installed: Boolean,
@@ -31,11 +35,15 @@ object ShizukuController {
   private const val SHIZUKU_APK_SHA256 = "6e273ab0e991c4e79bc8b1bbb9b9dd739ccac1a8712a541a214078886b7b790f"
   private const val PERMISSION_REQUEST_CODE = 7319
   private val lock = Any()
+  private val initialized = AtomicBoolean(false)
 
   @Volatile
   private var service: IShizukuShellService? = null
   @Volatile
   private var serviceConnection: ServiceConnection? = null
+  @Volatile
+  private var bindingLatch: CountDownLatch? = null
+  private var bindingAttempt = 0
 
   private val userServiceArgs by lazy {
     Shizuku.UserServiceArgs(
@@ -46,8 +54,21 @@ object ShizukuController {
       // Bump both values whenever the persistent user-service implementation changes.
       // Shizuku may otherwise reconnect to the pre-update process and keep the old
       // capture Surface alive even after the application APK has been replaced.
-      .tag("baas-game-service-v20")
-      .version(20)
+      .tag("baas-game-service-v28")
+      .version(28)
+  }
+
+  fun initialize(context: Context) {
+    if (!initialized.compareAndSet(false, true)) return
+    val appContext = context.applicationContext
+    Shizuku.addBinderReceivedListenerSticky { prebind(appContext) }
+    Shizuku.addBinderDeadListener { invalidateService() }
+    Shizuku.addRequestPermissionResultListener { requestCode, grantResult ->
+      if (requestCode == PERMISSION_REQUEST_CODE && grantResult == PackageManager.PERMISSION_GRANTED) {
+        prebind(appContext)
+      }
+    }
+    prebind(appContext)
   }
 
   fun state(context: Context): ShizukuState {
@@ -84,6 +105,51 @@ object ShizukuController {
     return callService(context) { it.execute(command) }
   }
 
+  /** Starts binding without blocking the Android main thread which delivers connection callbacks. */
+  fun prebind(context: Context) {
+    val state = state(context)
+    if (!state.running || !state.granted || service?.asBinder()?.isBinderAlive == true) return
+    synchronized(lock) {
+      if (service?.asBinder()?.isBinderAlive == true || serviceConnection != null) return
+      val latch = CountDownLatch(1)
+      lateinit var connection: ServiceConnection
+      connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+          service = IShizukuShellService.Stub.asInterface(binder)
+          bindingAttempt = 0
+          Log.i("BaasShizuku", "User service connected")
+          latch.countDown()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) = clearConnection(connection, latch)
+
+        override fun onBindingDied(name: ComponentName) = clearConnection(connection, latch)
+
+        override fun onNullBinding(name: ComponentName) = clearConnection(connection, latch)
+      }
+      bindingLatch = latch
+      serviceConnection = connection
+      bindingAttempt += 1
+      Shizuku.bindUserService(userServiceArgs, connection)
+      if (bindingAttempt <= 2) {
+        Handler(Looper.getMainLooper()).postDelayed({
+          synchronized(lock) {
+            if (service == null && serviceConnection === connection) {
+              Log.w("BaasShizuku", "Replacing an unresponsive user service binding")
+              runCatching { Shizuku.unbindUserService(userServiceArgs, connection, true) }
+              serviceConnection = null
+              bindingLatch = null
+              latch.countDown()
+            } else {
+              return@postDelayed
+            }
+          }
+          prebind(context.applicationContext)
+        }, 2_500L)
+      }
+    }
+  }
+
   fun startVirtualDisplay(context: Context, width: Int, height: Int, density: Int): Int {
     return callService(context) { it.startVirtualDisplay(width, height, density) }
   }
@@ -101,12 +167,25 @@ object ShizukuController {
   }
 
   fun captureVirtualDisplay(context: Context): String {
-    val bytes = callService(context) { service ->
-      service.captureVirtualDisplay().use { descriptor ->
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
-      }
-    }
-    return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+    return encodeCapture(callService(context) { it.captureVirtualDisplay() })
+  }
+
+  fun captureVirtualDisplayPreview(context: Context): String {
+    return encodeCapture(callService(context) { it.captureVirtualDisplayPreview() })
+  }
+
+  /** Returns a persistent binary H.264 stream. Ownership of the descriptor passes to the caller. */
+  fun openVideoStream(context: Context, fps: Int, bitrate: Int): ParcelFileDescriptor {
+    return callService(context) { it.openVideoStream(fps, bitrate) }
+  }
+
+  fun closeVideoStream(context: Context) {
+    callService(context) { it.closeVideoStream() }
+  }
+
+  private fun encodeCapture(descriptor: ParcelFileDescriptor): String = descriptor.use {
+    val bytes = ParcelFileDescriptor.AutoCloseInputStream(it).use { input -> input.readBytes() }
+    android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
   }
 
   fun launchPackageOnDisplay(context: Context, packageName: String, displayId: Int): Boolean {
@@ -170,8 +249,19 @@ object ShizukuController {
     )
   }
 
-  private fun ensureBound(): IShizukuShellService {
+  private fun ensureBound(context: Context): IShizukuShellService {
     service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    prebind(context)
+    service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      throw IllegalStateException("Shizuku user service is still connecting; try again")
+    }
+    bindingLatch?.let { latch ->
+      if (!latch.await(12, TimeUnit.SECONDS)) {
+        throw IllegalStateException("Timed out connecting to the Shizuku user service")
+      }
+      service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    }
     synchronized(lock) {
       service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
       val latch = CountDownLatch(1)
@@ -216,17 +306,29 @@ object ShizukuController {
   private fun <T> callService(context: Context, operation: (IShizukuShellService) -> T): T {
     requireReady(context)
     return try {
-      operation(ensureBound())
+      operation(ensureBound(context))
     } catch (error: RemoteException) {
       invalidateService()
-      operation(ensureBound())
+      operation(ensureBound(context))
     }
+  }
+
+  private fun clearConnection(connection: ServiceConnection, latch: CountDownLatch) {
+    service = null
+    synchronized(lock) {
+      if (serviceConnection === connection) {
+        serviceConnection = null
+        bindingLatch = null
+      }
+    }
+    latch.countDown()
   }
 
   private fun invalidateService() = synchronized(lock) {
     val connection = serviceConnection
     service = null
     serviceConnection = null
+    bindingLatch = null
     if (connection != null) {
       runCatching { Shizuku.unbindUserService(userServiceArgs, connection, true) }
     }

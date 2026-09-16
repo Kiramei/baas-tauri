@@ -219,16 +219,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const CurrentModalContent = modalContent ? featureMap[modalContent].component : null;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-baseline justify-between">
-        <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {t("nav.configuration")}
-          </h2>
-          <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {/* Feature catalog rendered as motion-enabled tiles. */}
       <div className="space-y-8">
         {Object.entries(featureGroups).map(([groupTitle, features]) => (

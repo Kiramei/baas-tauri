@@ -446,6 +446,17 @@ pub fn android_game_screenshot(_request: serde_json::Value) -> Result<serde_json
 
 /// Android-only command placeholder retained so the shared desktop handler compiles.
 #[tauri::command]
+pub fn android_game_preview(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+#[tauri::command]
+pub fn android_game_stream_info() -> Result<serde_json::Value, String> {
+    Err("Android game streaming is only available in the Android application".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
 pub fn android_game_gesture(_request: serde_json::Value) -> Result<(), String> {
     Err("Android game control is only available in the Android app".to_string())
 }

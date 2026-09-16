@@ -1,6 +1,9 @@
 package io.github.kiramei.baas_tauri
 
 import android.content.Context
+import android.os.ParcelFileDescriptor
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import org.json.JSONArray
@@ -27,6 +30,7 @@ object BaasLocalDeviceServer {
 
   @Volatile private var serverSocket: ServerSocket? = null
   @Volatile private var authToken = ""
+  @Volatile private var preparedVideoStream: ParcelFileDescriptor? = null
   private val clients = Executors.newCachedThreadPool { runnable ->
     Thread(runnable, "baas-local-device-client").apply { isDaemon = true }
   }
@@ -39,7 +43,7 @@ object BaasLocalDeviceServer {
       authToken = loadOrCreateToken(appContext)
       val socket = ServerSocket().apply {
         reuseAddress = true
-        bind(InetSocketAddress(InetAddress.getLoopbackAddress(), PORT))
+        bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), PORT))
       }
       serverSocket = socket
       Thread({ acceptLoop(appContext, socket) }, "baas-local-device-server").apply {
@@ -47,6 +51,21 @@ object BaasLocalDeviceServer {
         start()
       }
     }
+  }
+
+  fun videoStreamAccess(context: Context): Pair<String, String> {
+    start(context)
+    return "http://127.0.0.1:$PORT/game-stream" to authToken
+  }
+
+  /** Establishes the Binder stream on the caller thread; HTTP workers only forward its bytes. */
+  fun prepareVideoStream(context: Context, fps: Int, bitrate: Int): Pair<String, String> {
+    start(context)
+    synchronized(lock) {
+      runCatching { preparedVideoStream?.close() }
+      preparedVideoStream = ShizukuController.openVideoStream(context, fps, bitrate)
+    }
+    return videoStreamAccess(context)
   }
 
   private fun loadOrCreateToken(context: Context): String {
@@ -83,7 +102,8 @@ object BaasLocalDeviceServer {
         val requestParts = requestLine.split(' ', limit = 3)
         if (requestParts.size < 2) return
         val method = requestParts[0]
-        val path = requestParts[1].substringBefore('?')
+        val requestTarget = requestParts[1]
+        val path = requestTarget.substringBefore('?')
         val headers = linkedMapOf<String, String>()
         while (true) {
           val line = readLine(input) ?: break
@@ -103,8 +123,10 @@ object BaasLocalDeviceServer {
         }
 
         when {
+          method == "OPTIONS" -> writeEmptyResponse(output, 204)
           method == "GET" && path == "/version" -> writeResponse(output, 200, "text/plain", "baas-shizuku-display-1")
           headers[TOKEN_HEADER] != authToken -> writeJson(output, 403, JSONObject().put("error", "forbidden"))
+          method == "GET" && path == "/game-stream" -> streamVideo(context, output)
           method == "GET" && path == "/info" -> writeJson(output, 200, deviceInfo(context))
           method == "POST" && path == "/jsonrpc/0" -> writeJson(
             output,
@@ -119,7 +141,40 @@ object BaasLocalDeviceServer {
           else -> writeJson(output, 404, JSONObject().put("error", "not found"))
         }
       } catch (error: Exception) {
+        Log.e(TAG, "Loopback request failed", error)
         runCatching { writeJson(output, 500, JSONObject().put("error", error.message ?: "request failed")) }
+      }
+    }
+  }
+
+  private fun streamVideo(context: Context, output: BufferedOutputStream) {
+    val descriptor = synchronized(lock) {
+      preparedVideoStream?.also { preparedVideoStream = null }
+        ?: throw IllegalStateException("The Android video stream has not been prepared")
+    }
+    try {
+      output.write(
+        ("HTTP/1.1 200 OK\r\n" +
+          "Content-Type: application/x-baas-h264\r\n" +
+          "Cache-Control: no-store\r\n" +
+          "Access-Control-Allow-Origin: *\r\n" +
+          "Connection: close\r\n\r\n")
+          .toByteArray(StandardCharsets.US_ASCII)
+      )
+      output.flush()
+      ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+          val count = input.read(buffer)
+          if (count < 0) break
+          output.write(buffer, 0, count)
+          output.flush()
+        }
+      }
+    } finally {
+      runCatching { descriptor.close() }
+      Handler(Looper.getMainLooper()).post {
+        runCatching { ShizukuController.closeVideoStream(context) }
       }
     }
   }
@@ -236,10 +291,24 @@ object BaasLocalDeviceServer {
       else -> "Internal Server Error"
     }
     output.write(
-      "HTTP/1.1 $status $reason\r\nContent-Type: $contentType\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n"
+      ("HTTP/1.1 $status $reason\r\nContent-Type: $contentType\r\nContent-Length: ${payload.size}\r\n" +
+        "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
+      )
         .toByteArray(StandardCharsets.US_ASCII)
     )
     output.write(payload)
+    output.flush()
+  }
+
+  private fun writeEmptyResponse(output: BufferedOutputStream, status: Int) {
+    output.write(
+      ("HTTP/1.1 $status No Content\r\nContent-Length: 0\r\n" +
+        "Access-Control-Allow-Origin: *\r\n" +
+        "Access-Control-Allow-Headers: $TOKEN_HEADER\r\n" +
+        "Access-Control-Allow-Methods: GET, OPTIONS\r\nConnection: close\r\n\r\n"
+      )
+        .toByteArray(StandardCharsets.US_ASCII)
+    )
     output.flush()
   }
 }

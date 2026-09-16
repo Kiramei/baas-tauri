@@ -56,7 +56,11 @@ const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
   const activePid = activeProfile?.id;
-  const currentKey = instanceKeyOf(activePage, activePid);
+  const [mountedPages, setMountedPages] = useState<PageKey[]>(["home"]);
+
+  useEffect(() => {
+    setMountedPages((pages) => (pages.includes(activePage) ? pages : [...pages, activePage]));
+  }, [activePage]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -86,12 +90,19 @@ const Main: React.FC = () => {
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
-      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-70px)] lg:h-full">
-        <div key={currentKey} className="android-page-scroll absolute inset-0 overflow-y-auto">
-          <Suspense fallback={<PageLoadingFallback />}>
-            {renderPage(activePage, activePid)}
-          </Suspense>
-        </div>
+      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-56px)] lg:h-full">
+        {mountedPages.map((page) => {
+          const isActive = page === activePage;
+          return (
+            <div
+              key={instanceKeyOf(page, activePid)}
+              className={`android-page-scroll absolute inset-0 overflow-y-auto ${isActive ? "" : "hidden"}`}
+              aria-hidden={!isActive}
+            >
+              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, activePid)}</Suspense>
+            </div>
+          );
+        })}
       </div>
     </MainLayout>
   );

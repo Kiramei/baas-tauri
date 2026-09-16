@@ -33,6 +33,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   fun ensureStarted(invoke: Invoke) {
     try {
       val context = activity.applicationContext
+      ShizukuController.prebind(context)
       val intent = Intent(context, BaasForegroundService::class.java)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(intent)
@@ -41,6 +42,9 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       }
       val result = JSObject()
       result.put("pipePath", File(context.filesDir, "baas-service.sock").absolutePath)
+      val (videoStreamUrl, videoStreamToken) = BaasLocalDeviceServer.videoStreamAccess(context)
+      result.put("videoStreamUrl", videoStreamUrl)
+      result.put("videoStreamToken", videoStreamToken)
       invoke.resolve(result)
     } catch (error: Exception) {
       invoke.reject(error.message, error)
@@ -50,6 +54,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun listGames(invoke: Invoke) {
     try {
+      ShizukuController.prebind(activity)
       val packageManager = activity.packageManager
       val games = JSArray()
       for ((packageName, fallbackLabel) in gamePackages) {
@@ -96,6 +101,37 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       result.put("pngBase64", ShizukuController.captureVirtualDisplay(activity))
       invoke.resolve(result)
     } catch (error: Exception) {
+      invoke.reject(error.message, error)
+    }
+  }
+
+  @Command
+  fun gamePreview(invoke: Invoke) {
+    try {
+      allowedGamePackage(invoke.getArgs().getString("packageName"))
+      val result = JSObject()
+      result.put("jpegBase64", ShizukuController.captureVirtualDisplayPreview(activity))
+      invoke.resolve(result)
+    } catch (error: Exception) {
+      invoke.reject(error.message, error)
+    }
+  }
+
+  @Command
+  fun gameStreamInfo(invoke: Invoke) {
+    try {
+      val args = invoke.getArgs()
+      val (videoStreamUrl, videoStreamToken) = BaasLocalDeviceServer.prepareVideoStream(
+        activity,
+        args.getInteger("fps", 30).coerceIn(1, 60),
+        args.getInteger("bitrate", 4_000_000).coerceIn(256_000, 20_000_000),
+      )
+      val result = JSObject()
+      result.put("videoStreamUrl", videoStreamUrl)
+      result.put("videoStreamToken", videoStreamToken)
+      invoke.resolve(result)
+    } catch (error: Exception) {
+      android.util.Log.e("BaasGameStream", "Unable to prepare H.264 stream", error)
       invoke.reject(error.message, error)
     }
   }

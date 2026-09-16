@@ -22,9 +22,9 @@ use crate::behavior::{
 };
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
-    android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_screenshot,
-    android_launch_game, android_list_games, android_prepare_scrcpy_virtual_display,
-    android_request_shizuku_permission,
+    android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_preview,
+    android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
+    android_prepare_scrcpy_virtual_display, android_request_shizuku_permission,
     android_scrcpy_virtual_display_status, android_shizuku_status, backend_transport_start,
     open_main_devtools, shortcut_apply_bindings, tauri_client_check_update,
     tauri_client_download_and_install, updater_abort_workflow, updater_check_version,
@@ -46,10 +46,10 @@ use crate::system_logs::{
 use crate::{
     behavior::inject_tray_icon,
     commands::{
-        android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_screenshot,
-        android_launch_game, android_list_games, android_prepare_scrcpy_virtual_display,
-        android_request_shizuku_permission, android_scrcpy_virtual_display_status,
-        android_shizuku_status, backend_transport_start,
+        android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_preview,
+        android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
+        android_prepare_scrcpy_virtual_display, android_request_shizuku_permission,
+        android_scrcpy_virtual_display_status, android_shizuku_status, backend_transport_start,
         configure_portable_working_dir, ensure_default_config, open_main_devtools,
         shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
         updater_abort_workflow, updater_check_version, updater_get_startup_state,
@@ -112,6 +112,8 @@ pub fn run() {
             android_scrcpy_virtual_display_status,
             android_list_games,
             android_launch_game,
+            android_game_preview,
+            android_game_stream_info,
             android_game_screenshot,
             android_game_gesture,
             android_shizuku_status,

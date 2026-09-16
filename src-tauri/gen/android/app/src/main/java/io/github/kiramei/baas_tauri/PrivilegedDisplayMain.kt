@@ -23,6 +23,9 @@ import android.util.Log
 import androidx.annotation.Keep
 import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 
 @Keep
 object PrivilegedDisplayMain {
@@ -35,12 +38,17 @@ object PrivilegedDisplayMain {
   private var displayWidth = 0
   private var displayHeight = 0
   private var lastFrameAt = 0L
+  private var streamServer: ServerSocket? = null
+  private var streamThread: Thread? = null
+  private var videoStream: H264VideoStream? = null
 
   @JvmStatic
   fun main(args: Array<String>) {
     val output = PrintWriter(System.out, true)
     try {
-      check(Process.myUid() == Process.SYSTEM_UID) { "Privileged backend did not start as system" }
+      check(Process.myUid() == Process.SYSTEM_UID || Process.myUid() == Process.ROOT_UID) {
+        "Privileged backend did not start with a supported identity"
+      }
       val systemContext = systemContext()
       System.`in`.bufferedReader().forEachLine { line ->
         try {
@@ -51,7 +59,10 @@ object PrivilegedDisplayMain {
             "STOP" -> { stopDisplay(); "" }
             "ID" -> (virtualDisplay?.display?.displayId ?: -1).toString()
             "SIZE" -> "$displayWidth,$displayHeight"
-            "CAPTURE" -> capture()
+            "CAPTURE" -> capture(Bitmap.CompressFormat.PNG, 100)
+            "PREVIEW" -> capture(Bitmap.CompressFormat.JPEG, 76)
+            "OPEN_STREAM" -> openStream(parts[1].toInt(), parts[2].toInt()).toString()
+            "CLOSE_STREAM" -> { closeStream(); "" }
             "GESTURE" -> gesture(parts.drop(1).map(String::toInt)).toString()
             "LAUNCH" -> launch(systemContext, parts[1], parts[2].toInt()).toString()
             "EXIT" -> {
@@ -162,10 +173,10 @@ object PrivilegedDisplayMain {
     return Runtime.getRuntime().exec(command).waitFor() == 0
   }
 
-  @Synchronized private fun capture(): String {
+  @Synchronized private fun capture(format: Bitmap.CompressFormat, quality: Int): String {
     val frame = latestFrame ?: return ""
     return ByteArrayOutputStream().use { output ->
-      frame.compress(Bitmap.CompressFormat.PNG, 100, output)
+      frame.compress(format, quality, output)
       Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
     }
   }
@@ -193,6 +204,7 @@ object PrivilegedDisplayMain {
   }
 
   @Synchronized private fun stopDisplay() {
+    closeStream(restoreCaptureSurface = false)
     imageReader?.setOnImageAvailableListener(null, null)
     virtualDisplay?.release()
     imageReader?.close()
@@ -200,6 +212,57 @@ object PrivilegedDisplayMain {
     latestFrame?.recycle()
     virtualDisplay = null; imageReader = null; imageThread = null; latestFrame = null
     displayWidth = 0; displayHeight = 0; lastFrameAt = 0
+  }
+
+  @Synchronized private fun openStream(fps: Int, bitrate: Int): Int {
+    closeStream()
+    val display = virtualDisplay ?: throw IllegalStateException("The virtual display is not running")
+    val server = ServerSocket().apply {
+      reuseAddress = true
+      bind(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 1)
+    }
+    streamServer = server
+    streamThread = Thread({
+      try {
+        val socket = server.accept()
+        synchronized(this) {
+          if (streamServer !== server) {
+            socket.close()
+            return@Thread
+          }
+          videoStream = H264VideoStream.start(
+            display,
+            displayWidth.coerceAtLeast(1),
+            displayHeight.coerceAtLeast(1),
+            fps,
+            bitrate,
+            socket.getOutputStream(),
+          )
+        }
+      } catch (error: Throwable) {
+        if (!server.isClosed) Log.e(TAG, "H.264 stream failed", error)
+      } finally {
+        runCatching { server.close() }
+      }
+    }, "baas-system-video-accept").apply {
+      isDaemon = true
+      start()
+    }
+    return server.localPort
+  }
+
+  @Synchronized private fun closeStream(restoreCaptureSurface: Boolean = true) {
+    runCatching { streamServer?.close() }
+    videoStream?.close()
+    streamThread?.interrupt()
+    streamServer = null
+    videoStream = null
+    streamThread = null
+    if (restoreCaptureSurface) {
+      val display = virtualDisplay
+      val surface = imageReader?.surface
+      if (display != null && surface != null) runCatching { display.setSurface(surface) }
+    }
   }
 
   private class IdentityContext(base: Context) : ContextWrapper(base) {

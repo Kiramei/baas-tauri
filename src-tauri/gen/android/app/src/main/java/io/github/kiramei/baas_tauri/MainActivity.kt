@@ -16,6 +16,7 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    ShizukuController.initialize(applicationContext)
     BaasLocalDeviceServer.start(applicationContext)
     requestNotificationPermissionIfNeeded()
     scheduleForegroundServiceStart(250L)

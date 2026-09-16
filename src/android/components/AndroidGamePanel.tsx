@@ -1,12 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Gamepad2,
-  Loader2,
-  Play,
-  RefreshCcw,
-  ShieldCheck,
-  Smartphone,
-} from "lucide-react";
+import { Loader2, Play, RefreshCcw, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import { invoke } from "@/shared/TauriInvoke";
 
@@ -21,20 +14,44 @@ type GameListReport = {
   shizukuInstalled: boolean;
   shizukuRunning: boolean;
   shizukuGranted: boolean;
-  shizukuUid?: number | null;
 };
 
-type ScreenshotReport = {
-  pngBase64: string;
-};
-
-type PointerSample = {
-  x: number;
-  y: number;
-  startedAt: number;
+type StreamInfo = {
+  videoStreamUrl: string;
+  videoStreamToken: string;
 };
 
 const SELECTED_GAME_KEY = "baasAndroidSelectedGame";
+const STREAM_FPS = 30;
+const STREAM_BITRATE = 4_000_000;
+
+const appendBytes = (left: Uint8Array, right: Uint8Array): Uint8Array => {
+  const joined = new Uint8Array(left.length + right.length);
+  joined.set(left);
+  joined.set(right, left.length);
+  return joined;
+};
+
+const findSpsCodec = (payload: Uint8Array): string | null => {
+  for (let index = 0; index + 7 < payload.length; index += 1) {
+    const startCodeLength =
+      payload[index] === 0 && payload[index + 1] === 0 && payload[index + 2] === 1
+        ? 3
+        : payload[index] === 0 &&
+            payload[index + 1] === 0 &&
+            payload[index + 2] === 0 &&
+            payload[index + 3] === 1
+          ? 4
+          : 0;
+    if (!startCodeLength) continue;
+    const nal = index + startCodeLength;
+    if ((payload[nal] & 0x1f) !== 7 || nal + 3 >= payload.length) continue;
+    return `avc1.${[payload[nal + 1], payload[nal + 2], payload[nal + 3]]
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+  return null;
+};
 
 interface AndroidGamePanelProps {
   virtualDisplayActive: boolean;
@@ -42,7 +59,7 @@ interface AndroidGamePanelProps {
   onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<void>;
 }
 
-/** Live game preview and control backed by the privileged Shizuku virtual-display service. */
+/** Read-only live game preview backed by the privileged Android virtual display. */
 const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   virtualDisplayActive,
   virtualDisplayBusy,
@@ -50,13 +67,12 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
 }) => {
   const [games, setGames] = useState<AndroidGame[]>([]);
   const [selectedPackage, setSelectedPackage] = useState("");
-  const [shizukuInstalled, setShizukuInstalled] = useState(false);
-  const [shizukuRunning, setShizukuRunning] = useState(false);
   const [shizukuGranted, setShizukuGranted] = useState(false);
-  const [screenshot, setScreenshot] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [launching, setLaunching] = useState(false);
-  const pointerStart = useRef<PointerSample | null>(null);
+  const [previewReady, setPreviewReady] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const selectedGame = useMemo(
     () => games.find((game) => game.packageName === selectedPackage) ?? games[0] ?? null,
@@ -67,20 +83,17 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     try {
       const report = await invoke<GameListReport>("android_list_games");
       setGames(report.games);
-      setShizukuInstalled(report.shizukuInstalled);
-      setShizukuRunning(report.shizukuRunning);
       setShizukuGranted(report.shizukuGranted);
       setSelectedPackage((current) => {
-        const stored = window.localStorage.getItem(SELECTED_GAME_KEY) ?? "";
-        const preferred = current || stored;
-        return report.games.some((game) => game.packageName === preferred)
+        const preferred = current || window.localStorage.getItem(SELECTED_GAME_KEY) || "";
+        const next = report.games.some((game) => game.packageName === preferred)
           ? preferred
           : (report.games[0]?.packageName ?? "");
+        if (next) window.localStorage.setItem(SELECTED_GAME_KEY, next);
+        return next;
       });
     } catch (error) {
       toast.error("Unable to inspect installed games", { description: String(error) });
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -97,48 +110,124 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
 
   useEffect(() => {
     if (!selectedGame || !virtualDisplayActive || !shizukuGranted) {
-      setScreenshot("");
+      setPreviewReady(false);
       return;
     }
-    let cancelled = false;
-    let timeoutId: number | undefined;
-    const refresh = async () => {
-      try {
-        const report = await invoke<ScreenshotReport>("android_game_screenshot", {
-          request: { packageName: selectedGame.packageName },
-        });
-        if (cancelled) return;
-        if (report.pngBase64) setScreenshot(`data:image/png;base64,${report.pngBase64}`);
-      } catch (error) {
-        if (!cancelled) console.warn("Android game preview refresh failed", error);
-      } finally {
-        if (!cancelled) timeoutId = window.setTimeout(refresh, 1200);
+    let disposed = false;
+    const abort = new AbortController();
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d", { alpha: false });
+    let decodedFrames = 0;
+    const decoder = new VideoDecoder({
+      output: (frame) => {
+        if (!disposed && canvas && context) {
+          if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+            canvas.width = frame.displayWidth;
+            canvas.height = frame.displayHeight;
+          }
+          context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+          decodedFrames += 1;
+          canvas.dataset.decodedFrames = String(decodedFrames);
+          setPreviewReady(true);
+        }
+        frame.close();
+      },
+      error: (error) => {
+        if (!disposed) console.warn("Android H.264 decoder failed", error);
+      },
+    });
+
+    const consume = async () => {
+      const info = await invoke<StreamInfo>("android_game_stream_info", {
+        request: { fps: STREAM_FPS, bitrate: STREAM_BITRATE },
+      });
+      const url = new URL(info.videoStreamUrl);
+      url.searchParams.set("fps", String(STREAM_FPS));
+      url.searchParams.set("bitrate", String(STREAM_BITRATE));
+      const response = await fetch(url, {
+        headers: { "x-baas-token": info.videoStreamToken },
+        cache: "no-store",
+        signal: abort.signal,
+      });
+      if (!response.ok || !response.body) throw new Error(`Video stream HTTP ${response.status}`);
+      const reader = response.body.getReader();
+      let pending = new Uint8Array(0);
+      let streamHeaderRead = false;
+      let codecConfigured = false;
+      let codecConfig = new Uint8Array(0);
+      while (!disposed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        pending = appendBytes(pending, value);
+        if (!streamHeaderRead) {
+          if (pending.length < 24) continue;
+          const magic = new TextDecoder().decode(pending.subarray(0, 8));
+          if (magic !== "BAASAVC1") throw new Error("Unsupported Android video stream format");
+          const header = new DataView(pending.buffer, pending.byteOffset + 8, 16);
+          if (canvas) {
+            canvas.width = header.getUint32(0);
+            canvas.height = header.getUint32(4);
+          }
+          pending = pending.slice(24);
+          streamHeaderRead = true;
+        }
+        while (pending.length >= 16) {
+          const record = new DataView(pending.buffer, pending.byteOffset, 16);
+          const payloadLength = record.getUint32(0);
+          if (pending.length < 16 + payloadLength) break;
+          const timestamp = Number(record.getBigInt64(4));
+          const flags = record.getUint32(12);
+          const payload = pending.slice(16, 16 + payloadLength);
+          pending = pending.slice(16 + payloadLength);
+          if (flags & 4) return;
+          if (flags & 1) {
+            codecConfig = payload;
+            const codec = findSpsCodec(payload);
+            if (codec && !codecConfigured) {
+              decoder.configure({ codec, optimizeForLatency: true });
+              codecConfigured = true;
+            }
+            continue;
+          }
+          if (!codecConfigured || payload.length === 0) continue;
+          const key = Boolean(flags & 2);
+          if (!key && decoder.decodeQueueSize > 4) continue;
+          decoder.decode(
+            new EncodedVideoChunk({
+              type: key ? "key" : "delta",
+              timestamp,
+              data: key && codecConfig.length ? appendBytes(codecConfig, payload) : payload,
+            })
+          );
+        }
       }
     };
-    void refresh();
+    const run = async () => {
+      while (!disposed && !abort.signal.aborted) {
+        try {
+          await consume();
+        } catch (error) {
+          if (!disposed && !abort.signal.aborted) {
+            console.warn("Android game stream failed", error);
+          }
+        }
+        if (!disposed && !abort.signal.aborted) {
+          await new Promise((resolve) => window.setTimeout(resolve, 750));
+        }
+      }
+    };
+    void run();
     return () => {
-      cancelled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      disposed = true;
+      abort.abort();
+      if (decoder.state !== "closed") decoder.close();
+      setPreviewReady(false);
     };
   }, [selectedGame, shizukuGranted, virtualDisplayActive]);
 
-  const selectGame = (packageName: string) => {
-    setSelectedPackage(packageName);
-    window.localStorage.setItem(SELECTED_GAME_KEY, packageName);
-    setScreenshot("");
-  };
-
-  const launchGame = async () => {
-    if (!selectedGame || launching) return;
-    setLaunching(true);
-    try {
-      await invoke("android_launch_game", { request: { packageName: selectedGame.packageName } });
-    } catch (error) {
-      toast.error("Unable to open the game", { description: String(error) });
-    } finally {
-      setLaunching(false);
-    }
-  };
+  useEffect(() => {
+    if (!virtualDisplayActive) setControlsVisible(false);
+  }, [virtualDisplayActive]);
 
   const requestShizuku = async () => {
     try {
@@ -149,151 +238,142 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     }
   };
 
-  const toggleBackgroundDisplay = async () => {
-    if (!virtualDisplayActive && !shizukuGranted) {
+  const startBackgroundDisplay = async () => {
+    if (!selectedGame || virtualDisplayBusy) return;
+    if (!shizukuGranted) {
       await requestShizuku();
       return;
     }
-    await onToggleVirtualDisplay(!virtualDisplayActive, selectedGame?.packageName);
+    await onToggleVirtualDisplay(true, selectedGame.packageName);
   };
 
-  const shizukuLabel = !shizukuInstalled
-    ? "Install bundled Shizuku"
-    : !shizukuRunning
-      ? "Start Shizuku"
-      : !shizukuGranted
-        ? "Grant Shizuku"
-        : "Shizuku ready";
-
-  const imagePoint = (event: React.PointerEvent<HTMLImageElement>) => {
-    const image = event.currentTarget;
-    const bounds = image.getBoundingClientRect();
-    return {
-      x: Math.round(((event.clientX - bounds.left) / bounds.width) * image.naturalWidth),
-      y: Math.round(((event.clientY - bounds.top) / bounds.height) * image.naturalHeight),
-    };
+  const closeBackgroundDisplay = async () => {
+    if (virtualDisplayBusy) return;
+    setControlsVisible(false);
+    await onToggleVirtualDisplay(false, selectedGame?.packageName);
   };
 
-  const sendPointerGesture = async (event: React.PointerEvent<HTMLImageElement>) => {
-    const start = pointerStart.current;
-    pointerStart.current = null;
-    if (!start || !selectedGame) return;
-    const end = imagePoint(event);
+  const takeOverGame = async () => {
+    if (!selectedGame || takingOver || virtualDisplayBusy) return;
+    setTakingOver(true);
     try {
-      await invoke("android_game_gesture", {
-        request: {
-          packageName: selectedGame.packageName,
-          x1: start.x,
-          y1: start.y,
-          x2: end.x,
-          y2: end.y,
-          durationMs: Math.max(1, Math.min(10_000, Date.now() - start.startedAt)),
-        },
-      });
+      await onToggleVirtualDisplay(false, selectedGame.packageName);
+      await invoke("android_launch_game", { request: { packageName: selectedGame.packageName } });
     } catch (error) {
-      toast.error("Game control failed", { description: String(error) });
+      toast.error("Unable to take over the game", { description: String(error) });
+    } finally {
+      setTakingOver(false);
     }
   };
 
-  return (
-    <section className="shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          {selectedGame?.iconPngBase64 ? (
-            <img
-              src={`data:image/png;base64,${selectedGame.iconPngBase64}`}
-              alt=""
-              className="h-9 w-9 shrink-0 rounded-lg"
-            />
-          ) : (
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-100 text-primary-600 dark:bg-primary-950/60 dark:text-primary-300">
-              <Gamepad2 className="h-5 w-5" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {loading ? "Finding installed games…" : selectedGame?.label || "Blue Archive not found"}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {virtualDisplayActive ? "Background game display" : "Local Android control"}
-            </div>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {games.length > 1 && (
-            <select
-              aria-label="Installed game"
-              value={selectedGame?.packageName ?? ""}
-              onChange={(event) => selectGame(event.target.value)}
-              className="h-8 max-w-28 rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-            >
-              {games.map((game) => (
-                <option key={game.packageName} value={game.packageName}>
-                  {game.label}
-                </option>
-              ))}
-            </select>
-          )}
-          <button
-            type="button"
-            disabled={!selectedGame || launching}
-            onClick={launchGame}
-            aria-label="Open game"
-            className="grid h-8 w-8 place-items-center rounded-lg bg-primary-600 text-white disabled:opacity-45"
-          >
-            {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            disabled={!selectedGame || virtualDisplayBusy}
-            onClick={() => void toggleBackgroundDisplay()}
-            aria-label={virtualDisplayActive ? "Close background display" : "Open background display"}
-            className={`grid h-8 w-8 place-items-center rounded-lg border transition disabled:opacity-45 ${
-              virtualDisplayActive
-                ? "border-emerald-500 bg-emerald-500 text-white"
-                : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-            }`}
-          >
-            {virtualDisplayBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-          </button>
-        </div>
-      </div>
+  const restartGame = async () => {
+    if (!selectedGame || restarting || virtualDisplayBusy) return;
+    setRestarting(true);
+    try {
+      await onToggleVirtualDisplay(false, selectedGame.packageName);
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
+      await onToggleVirtualDisplay(true, selectedGame.packageName);
+      setControlsVisible(false);
+    } catch (error) {
+      toast.error("Unable to restart the game", { description: String(error) });
+    } finally {
+      setRestarting(false);
+    }
+  };
 
-      {!shizukuGranted && (
-        <button
-          type="button"
-          onClick={() => void requestShizuku()}
-          className="flex w-full items-center justify-center gap-2 border-t border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-800 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200"
-        >
-          <ShieldCheck className="h-4 w-4" /> {shizukuLabel} for non-root background mode
-        </button>
+  const controlBusy = virtualDisplayBusy || takingOver || restarting;
+
+  return (
+    <section className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black shadow-sm ring-1 ring-slate-300/70 dark:ring-slate-700">
+      {virtualDisplayActive && (
+        <canvas
+          ref={canvasRef}
+          aria-label={`${selectedGame?.label ?? "Game"} live display`}
+          className="absolute inset-0 block h-full w-full select-none object-cover"
+        />
       )}
 
-      {screenshot ? (
-        <div className="relative aspect-video overflow-hidden border-t border-slate-200 bg-black dark:border-slate-700">
-          <img
-            src={screenshot}
-            alt={`${selectedGame?.label ?? "Game"} live display`}
-            draggable={false}
-            className="h-full w-full touch-none select-none object-contain"
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              pointerStart.current = { ...imagePoint(event), startedAt: Date.now() };
-            }}
-            onPointerUp={(event) => void sendPointerGesture(event)}
-            onPointerCancel={() => {
-              pointerStart.current = null;
-            }}
-          />
-          <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[11px] font-medium text-white">
-            Live · touch enabled
+      <button
+        type="button"
+        aria-label={virtualDisplayActive ? "Show game controls" : "Start background game"}
+        disabled={!selectedGame || virtualDisplayBusy}
+        onClick={() => {
+          if (virtualDisplayActive) setControlsVisible((visible) => !visible);
+          else void startBackgroundDisplay();
+        }}
+        className="absolute inset-0 z-10 grid h-full w-full place-items-center disabled:cursor-not-allowed"
+      >
+        {!virtualDisplayActive && (
+          <span className="grid h-16 w-16 place-items-center rounded-full bg-primary-600 text-white shadow-xl shadow-black/35 transition active:scale-95 disabled:opacity-50">
+            {virtualDisplayBusy ? (
+              <Loader2 className="h-7 w-7 animate-spin" />
+            ) : (
+              <Play className="ml-1 h-7 w-7 fill-current" />
+            )}
+          </span>
+        )}
+        {virtualDisplayActive && !previewReady && (
+          <Loader2 className="h-7 w-7 animate-spin text-white/80" />
+        )}
+      </button>
+
+      {virtualDisplayActive && (
+        <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+          Live
+        </div>
+      )}
+
+      {virtualDisplayActive && controlsVisible && (
+        <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-[1px]">
+          <div className="absolute left-1/2 top-3 grid -translate-x-1/2 grid-cols-3 gap-3">
+            <button
+              type="button"
+              aria-label="Close game"
+              disabled={controlBusy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void closeBackgroundDisplay();
+              }}
+              className="grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white shadow-lg disabled:opacity-50"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Take over game"
+              disabled={controlBusy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void takeOverGame();
+              }}
+              className="grid h-11 w-11 place-items-center rounded-full bg-primary-600 text-white shadow-lg disabled:opacity-50"
+            >
+              {takingOver ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Share2 className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label="Restart game"
+              disabled={controlBusy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void restartGame();
+              }}
+              className="grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white shadow-lg disabled:opacity-50"
+            >
+              {restarting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-5 w-5" />
+              )}
+            </button>
           </div>
         </div>
-      ) : virtualDisplayActive ? (
-        <div className="flex aspect-video items-center justify-center gap-2 border-t border-slate-200 bg-slate-950 text-sm text-slate-300 dark:border-slate-700">
-          <RefreshCcw className="h-4 w-4 animate-spin" /> Waiting for the game display…
-        </div>
-      ) : null}
+      )}
     </section>
   );
 };

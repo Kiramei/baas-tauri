@@ -25,6 +25,7 @@ export const Modal: React.FC<ModalProps> = ({
   fullscreen = false,
 }) => {
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const zoomScale = useUISetting((settings) => settings.zoomScale);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -68,7 +69,12 @@ export const Modal: React.FC<ModalProps> = ({
         style={
           fullscreen
             ? undefined
-            : { width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }
+            : {
+                width: `${width}%`,
+                minWidth: "min(320px, 100%)",
+                maxWidth: "100%",
+                zoom: zoomScale / 100,
+              }
         }
       >
         <div

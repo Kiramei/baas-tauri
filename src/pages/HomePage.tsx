@@ -137,20 +137,29 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
       if (value) {
-        const report = await invoke<{
-          displayId: number;
-          serial: string;
-          packageName: string;
-        }>("android_prepare_scrcpy_virtual_display", {
-          request: {
-            serial: adbSerial,
-            configId: activeConfigId,
-            packageName,
-            width: 1280,
-            height: 720,
-            density: 240,
-          },
-        });
+        let report: { displayId: number; serial: string; packageName: string } | undefined;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          try {
+            report = await invoke("android_prepare_scrcpy_virtual_display", {
+              request: {
+                serial: adbSerial,
+                configId: activeConfigId,
+                packageName,
+                width: 1280,
+                height: 720,
+                density: 240,
+              },
+            });
+            break;
+          } catch (error) {
+            const message = String(error);
+            const connecting =
+              message.includes("still connecting") || message.includes("Timed out connecting");
+            if (!connecting || attempt === 3) throw error;
+            await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+          }
+        }
+        if (!report) throw new Error("Shizuku display did not become ready");
         setAndroidVirtualDisplayActive(true);
         if (activeConfigId) await syncAndroidDeviceMethods();
         toast.success(`Background game display #${report.displayId}`);
@@ -229,6 +238,16 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     );
   };
 
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    const toggleRun = () => {
+      if (scriptRunning) stopScript();
+      else void startScript();
+    };
+    window.addEventListener("baas:toggle-primary-run", toggleRun);
+    return () => window.removeEventListener("baas:toggle-primary-run", toggleRun);
+  });
+
   /**
    * Serializes the on-screen log buffer and triggers a local download for auditing or support.
    */
@@ -248,89 +267,93 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
   return (
     <div className="h-full flex flex-col min-h-0 gap-2">
-      {/* Header: high-level actions and script controls. */}
-      <div className="flex justify-between items-center shrink-0">
-        <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("nav.home")}</h2>
-          <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
-        </div>
-        <div className="flex sm:hidden items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="h-8 w-8"
-            iconOnly
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </CButton>
-        </div>
-        <div className="hidden sm:flex items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="w-25 pl-3 flex items-center justify-center"
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? (
-              <Square className="w-4 h-4 mr-2" />
-            ) : (
-              <Play className="w-4 h-4 mr-2" />
+      {/* Desktop header: Android exposes its primary action in the bottom navigation. */}
+      {!isAndroid && (
+        <div className="flex justify-between items-center shrink-0">
+          <div className="flex">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("nav.home")}
+            </h2>
+            <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+          </div>
+          <div className="flex sm:hidden items-center gap-2">
+            {remoteAvailable && (
+              <SwitchButton
+                checked={remoteVisible}
+                onChange={(value) => {
+                  setRemoteVisible(value);
+                }}
+                label=""
+                className="ml-2 h-8 w-8"
+                iconOnly
+              >
+                <Webcam size={20} className="rounded w-4 h-4" />
+              </SwitchButton>
             )}
-            {androidVirtualDisplayBusy
-              ? "准备中"
-              : scriptRunning
-                ? t("common.stop")
-                : t("common.start")}
-          </CButton>
+            {hotkeyAvailable && (
+              <CButton
+                onClick={() => setHotkeyOpen(true)}
+                variant="secondary"
+                className="h-8 w-8"
+                iconOnly
+              >
+                <Keyboard className="w-4 h-4" />
+              </CButton>
+            )}
+            <CButton
+              onClick={scriptRunning ? stopScript : startScript}
+              variant={scriptRunning ? "danger" : "primary"}
+              className="h-8 w-8"
+              iconOnly
+              disabled={androidVirtualDisplayBusy}
+            >
+              {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </CButton>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            {remoteAvailable && (
+              <SwitchButton
+                checked={remoteVisible}
+                onChange={(value) => {
+                  setRemoteVisible(value);
+                }}
+                label=""
+                className="ml-2 h-8 w-8"
+                iconOnly
+              >
+                <Webcam size={20} className="rounded w-4 h-4" />
+              </SwitchButton>
+            )}
+            {hotkeyAvailable && (
+              <CButton
+                onClick={() => setHotkeyOpen(true)}
+                variant="secondary"
+                className="h-8 w-8"
+                iconOnly
+              >
+                <Keyboard className="w-4 h-4" />
+              </CButton>
+            )}
+            <CButton
+              onClick={scriptRunning ? stopScript : startScript}
+              variant={scriptRunning ? "danger" : "primary"}
+              className="w-25 pl-3 flex items-center justify-center"
+              disabled={androidVirtualDisplayBusy}
+            >
+              {scriptRunning ? (
+                <Square className="w-4 h-4 mr-2" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              {androidVirtualDisplayBusy
+                ? "准备中"
+                : scriptRunning
+                  ? t("common.stop")
+                  : t("common.start")}
+            </CButton>
+          </div>
         </div>
-      </div>
+      )}
 
       {hotkeyAvailable && (
         <HotkeySettingsModal
@@ -361,7 +384,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
       {isAndroid && (
         <React.Suspense
-          fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />}
+          fallback={
+            <div className="h-14 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />
+          }
         >
           <AndroidGamePanel
             virtualDisplayActive={androidVirtualDisplayActive}
@@ -371,72 +396,76 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         </React.Suspense>
       )}
 
-      {/* Live status for the active task pipeline. */}
-      {activeConfigId && <TaskStatus profileId={activeConfigId} />}
+      {!isAndroid && (
+        <>
+          {/* Live status for the active task pipeline. */}
+          {activeConfigId && <TaskStatus profileId={activeConfigId} />}
 
-      {/* Optional asset snapshot to provide immediate operational context. */}
-      {assetsDisplay && (
-        <div className="shrink-0">
-          {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
-        </div>
-      )}
-
-      {/* Streaming log viewer with scroll management and export tooling. */}
-      <Card
-        className={
-          isAndroid
-            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
-            : "flex-1 min-h-100 flex flex-col"
-        }
-      >
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>
-            <div className="flex items-center gap-2">
-              <Logs /> {t("log")}
+          {/* Optional asset snapshot to provide immediate operational context. */}
+          {assetsDisplay && (
+            <div className="shrink-0">
+              {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
             </div>
-          </CardTitle>
-          <div className="sm:flex hidden items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label={t("log.scroll")}
-              className="px-4!"
-            />
-            <CButton onClick={exportLog} className="ml-2">
-              <div className="flex">
-                <FileUp size={20} className="mr-2" />
-                {t("log.export")}
-              </div>
-            </CButton>
-          </div>
-
-          <div className="sm:hidden flex items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <ListEnd size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-            <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
-              <FileUp size={20} className="rounded w-4 h-4" />
-            </CButton>
-          </div>
-        </CardHeader>
-
-        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
-          {remoteAvailable && remoteVisible && activeConfigId && (
-            <RemoteDisplay profileId={activeConfigId} />
           )}
-          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
-        </CardContent>
-      </Card>
+
+          {/* Streaming log viewer with scroll management and export tooling. */}
+          <Card
+            className={
+              isAndroid
+                ? "flex-1 min-h-0 flex flex-col overflow-hidden"
+                : "flex-1 min-h-100 flex flex-col"
+            }
+          >
+            <CardHeader className="flex justify-between items-center">
+              <CardTitle>
+                <div className="flex items-center gap-2">
+                  <Logs /> {t("log")}
+                </div>
+              </CardTitle>
+              <div className="sm:flex hidden items-center justify-center">
+                <SwitchButton
+                  checked={scrollToEnd}
+                  onChange={(value) => {
+                    setUiSettings((state) => ({ ...state, scrollToEnd: value }));
+                  }}
+                  label={t("log.scroll")}
+                  className="px-4!"
+                />
+                <CButton onClick={exportLog} className="ml-2">
+                  <div className="flex">
+                    <FileUp size={20} className="mr-2" />
+                    {t("log.export")}
+                  </div>
+                </CButton>
+              </div>
+
+              <div className="sm:hidden flex items-center justify-center">
+                <SwitchButton
+                  checked={scrollToEnd}
+                  onChange={(value) => {
+                    setUiSettings((state) => ({ ...state, scrollToEnd: value }));
+                  }}
+                  label=""
+                  className="ml-2 h-8 w-8"
+                  iconOnly
+                >
+                  <ListEnd size={20} className="rounded w-4 h-4" />
+                </SwitchButton>
+                <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
+                  <FileUp size={20} className="rounded w-4 h-4" />
+                </CButton>
+              </div>
+            </CardHeader>
+
+            <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
+              {remoteAvailable && remoteVisible && activeConfigId && (
+                <RemoteDisplay profileId={activeConfigId} />
+              )}
+              <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };
