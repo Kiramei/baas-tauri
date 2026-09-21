@@ -190,7 +190,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
       "drill",
       "whitelist",
     ],
-    [t("settings.general")]: ["server", "script", "emulator", "stage", "team", "push", "other"],
+    [t("settings.general")]: ["server", "script", "stage", "team", "push", "other"],
   };
 
   const renderFeatureCard = (feature: Feature) => {
