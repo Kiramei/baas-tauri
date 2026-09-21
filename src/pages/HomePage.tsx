@@ -65,56 +65,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     return adbPort || adbIP || "emulator-5556";
   }, [settings?.adbIP, settings?.adbPort]);
 
-  const syncAndroidDeviceMethods = async () => {
-    if (!__WITH_ANDROID__ || !activeConfigId) return;
-    const patch = {
-      screenshot_method: "android_local",
-      control_method: "android_local",
-    };
-    const timestamp = getTimestampMs();
-    const ops = Object.entries(patch).map(([key, value]) => ({
-      op: "replace",
-      path: `/${key}`,
-      value,
-    }));
-    const store = useWebSocketStore.getState();
-    await new Promise<void>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        delete useWebSocketStore.getState().pendingCallbacks[timestamp];
-        reject(new Error("Android device method patch was not acknowledged"));
-      }, 5000);
-      store.pendingCallbacks[timestamp] = () => {
-        window.clearTimeout(timeoutId);
-        resolve();
-      };
-      store.send("sync", {
-        type: "patch",
-        resource_id: activeConfigId,
-        resource: "config",
-        timestamp,
-        ops,
-      });
-    });
-    const expectedMethod = "android_local";
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-      const current = useWebSocketStore.getState().configStore[activeConfigId];
-      if (
-        current?.screenshot_method === expectedMethod &&
-        current?.control_method === expectedMethod
-      ) {
-        return;
-      }
-      useWebSocketStore.getState().send("sync", {
-        type: "pull",
-        resource: "config",
-        resource_id: activeConfigId,
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 300));
-    }
-    throw new Error(`Android device methods did not switch to ${expectedMethod}`);
-  };
-
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
     if (!__WITH_ANDROID__) return false;
     try {
@@ -161,7 +111,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
         if (!report) throw new Error("Shizuku display did not become ready");
         setAndroidVirtualDisplayActive(true);
-        if (activeConfigId) await syncAndroidDeviceMethods();
         toast.success(`Background game display #${report.displayId}`);
       } else {
         if (scriptRunning && activeConfigId) {
@@ -174,7 +123,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
         await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
         setAndroidVirtualDisplayActive(false);
-        if (activeConfigId) await syncAndroidDeviceMethods();
         toast.success("Background game display closed");
       }
       void refreshAndroidVirtualDisplayStatus();
@@ -201,7 +149,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__) await syncAndroidDeviceMethods();
     useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
