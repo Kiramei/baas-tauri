@@ -149,6 +149,13 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
+    if (__WITH_ANDROID__ && !androidVirtualDisplayActive) {
+      await toggleAndroidVirtualDisplay(
+        true,
+        window.localStorage.getItem("baasAndroidSelectedGame") || undefined
+      );
+      if (!(await refreshAndroidVirtualDisplayStatus())) return;
+    }
     useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),

@@ -182,6 +182,16 @@ pub fn game_stream_info<R: Runtime>(
         .map_err(|error| format!("failed to open Android game stream: {error}"))
 }
 
+pub fn game_native_preview<R: Runtime>(
+    app: &AppHandle<R>,
+    request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("gameNativePreview", request)
+        .map_err(|error| format!("failed to update native Android preview: {error}"))
+}
+
 pub fn game_gesture<R: Runtime>(
     app: &AppHandle<R>,
     package_name: &str,

@@ -341,6 +341,15 @@ pub struct AndroidGameStreamRequest {
     bitrate: u32,
 }
 
+#[tauri::command]
+pub async fn android_game_native_preview(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::game_native_preview(&app, request)
+    })
+    .await
+    .map_err(|error| format!("Android native preview worker failed: {error}"))?
+}
+
 /// Establishes and returns the endpoint for the persistent binary H.264 stream.
 #[tauri::command]
 pub fn android_game_stream_info(
@@ -662,7 +671,7 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
     finish_android_scrcpy_virtual_display(
         app,
         "shizuku",
-        "",
+        "127.0.0.1:7912",
         request.config_id.as_deref(),
         display_id,
         package_name,
@@ -987,13 +996,18 @@ fn finish_android_scrcpy_virtual_display(
     fs::create_dir_all(&config_dir).map_err(|error| error.to_string())?;
     let display_id_file = config_dir.join("scrcpy_display_id.txt");
     fs::write(&display_id_file, display_id.to_string()).map_err(|error| error.to_string())?;
-    let patched_backend = patch_android_scrcpy_backend_runtime(app)?;
+    let native_capture = mode == "shizuku";
+    let patched_backend = if native_capture {
+        false
+    } else {
+        patch_android_scrcpy_backend_runtime(app)?
+    };
     if patched_backend {
         eprintln!(
             "[BAAS_ANDROID_VD] backend runtime patched; keeping current Android backend alive"
         );
     }
-    patch_android_scrcpy_profile_config(app, config_id, serial)?;
+    patch_android_scrcpy_profile_config(app, config_id, serial, native_capture)?;
     Ok(AndroidScrcpyVirtualDisplayReport {
         serial: serial.to_string(),
         display_id,
@@ -1009,6 +1023,7 @@ fn patch_android_scrcpy_profile_config(
     app: &AppHandle,
     config_id: Option<&str>,
     serial: &str,
+    native_capture: bool,
 ) -> Result<(), String> {
     let Some(config_id) = config_id.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(());
@@ -1034,8 +1049,13 @@ fn patch_android_scrcpy_profile_config(
         .rsplit_once(':')
         .map(|(host, port)| (host.to_string(), port.to_string()))
         .unwrap_or_else(|| ("127.0.0.1".to_string(), "5555".to_string()));
-    object.insert("screenshot_method".to_string(), json!("adb"));
-    object.insert("control_method".to_string(), json!("adb"));
+    let method = if native_capture {
+        "android_local"
+    } else {
+        "adb"
+    };
+    object.insert("screenshot_method".to_string(), json!(method));
+    object.insert("control_method".to_string(), json!(method));
     object.insert("adbIP".to_string(), json!(adb_ip));
     object.insert("adbPort".to_string(), json!(adb_port));
     let pretty = serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?;

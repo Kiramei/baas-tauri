@@ -35,6 +35,7 @@ commands.allow = [
   "android_list_games",
   "android_launch_game",
   "android_game_preview",
+  "android_game_native_preview",
   "android_game_screenshot",
   "android_game_stream_info",
   "android_game_gesture",

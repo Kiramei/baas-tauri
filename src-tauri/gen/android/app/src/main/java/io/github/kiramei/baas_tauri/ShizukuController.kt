@@ -54,8 +54,8 @@ object ShizukuController {
       // Bump both values whenever the persistent user-service implementation changes.
       // Shizuku may otherwise reconnect to the pre-update process and keep the old
       // capture Surface alive even after the application APK has been replaced.
-      .tag("baas-game-service-v28")
-      .version(28)
+      .tag("baas-game-service-v32")
+      .version(32)
   }
 
   fun initialize(context: Context) {
@@ -181,6 +181,36 @@ object ShizukuController {
 
   fun closeVideoStream(context: Context) {
     callService(context) { it.closeVideoStream() }
+  }
+
+  fun setPreviewSurface(context: Context, surface: android.view.Surface?) {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      val endpoint = nativeEndpoint(context)
+      endpoint.setPreviewSurface(surface)
+    } else callService(context) { it.setPreviewSurface(surface) }
+  }
+
+  fun nativeFrameCounts(context: Context): Pair<Long, Long> {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      val endpoint = nativeEndpoint(context)
+      return endpoint.frameCount() to endpoint.previewFrameCount()
+    }
+    return callService(context) { it.frameCount() to it.previewFrameCount() }
+  }
+
+  fun currentGamePackage(context: Context): String {
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).currentPackage()
+    return callService(context) { it.currentPackage() }
+  }
+
+  fun keyEvent(context: Context, code: Int): Boolean = callService(context) { it.keyEvent(code) }
+
+  @Synchronized private fun nativeEndpoint(context: Context): INativeDisplayEndpoint {
+    NativeDisplayProvider.endpoint?.let { return it }
+    // The privileged capture process outlives the UI process. Re-publish its
+    // Binder after an app restart without recreating the display or game.
+    callService(context) { it.reconnectNativeEndpoint() }
+    return NativeDisplayProvider.endpoint ?: throw IllegalStateException("Native display endpoint has not connected")
   }
 
   private fun encodeCapture(descriptor: ParcelFileDescriptor): String = descriptor.use {

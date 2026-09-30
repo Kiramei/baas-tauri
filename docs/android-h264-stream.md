@@ -1,5 +1,9 @@
 # Android virtual-display video stream
 
+> Historical implementation, superseded by [native capture and preview](android-native-capture.md).
+> The on-device UI no longer opens this stream; the compatibility stream API rejects requests
+> so it cannot steal the capture Surface from automation.
+
 The Android live preview is a persistent binary H.264 stream. It does not use the
 compatibility screenshot command, repeated Tauri invocations, JPEG, or Base64.
 

@@ -44,6 +44,7 @@ class PrivilegedDisplayBridge private constructor(
       val mainCommand = listOf(
         "/system/bin/app_process", "/system/bin",
         "--nice-name=baas_display_backend", PrivilegedDisplayMain::class.java.name,
+        nativeCaptureLibrary(context), context.packageName, context.applicationInfo.uid.toString(),
       )
       val command = if (android.os.Process.myUid() == android.os.Process.ROOT_UID) {
         // DisplayManager validates that the owner package belongs to the caller.
@@ -79,6 +80,12 @@ class PrivilegedDisplayBridge private constructor(
           throw error
         }
       }
+    }
+
+    private fun nativeCaptureLibrary(context: Context): String {
+      val extracted = java.io.File(context.applicationInfo.nativeLibraryDir, "libbaas_display_capture.so")
+      if (extracted.exists()) return extracted.absolutePath
+      return "${context.applicationInfo.sourceDir}!/lib/${android.os.Build.SUPPORTED_ABIS.first()}/libbaas_display_capture.so"
     }
   }
 }

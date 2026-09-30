@@ -24,6 +24,7 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    NativeGamePreview.current?.resume()
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
   }
@@ -36,6 +37,16 @@ class MainActivity : TauriActivity() {
     webView.settings.displayZoomControls = false
     loadDebugDevUrl(webView)
     scheduleDebugDevUrlLoads(webView)
+  }
+
+  override fun onPause() {
+    NativeGamePreview.current?.pause()
+    super.onPause()
+  }
+
+  override fun onDestroy() {
+    NativeGamePreview.current?.destroy()
+    super.onDestroy()
   }
 
   private fun ensureForegroundService() {

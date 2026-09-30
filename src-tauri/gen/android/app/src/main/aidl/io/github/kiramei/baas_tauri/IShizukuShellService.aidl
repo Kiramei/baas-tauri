@@ -1,6 +1,7 @@
 package io.github.kiramei.baas_tauri;
 
 import android.os.ParcelFileDescriptor;
+import android.view.Surface;
 
 interface IShizukuShellService {
     String execute(String command) = 1;
@@ -14,5 +15,11 @@ interface IShizukuShellService {
     ParcelFileDescriptor captureVirtualDisplayPreview() = 9;
     ParcelFileDescriptor openVideoStream(int fps, int bitrate) = 10;
     void closeVideoStream() = 11;
+    void setPreviewSurface(in Surface surface) = 12;
+    long frameCount() = 13;
+    long previewFrameCount() = 14;
+    String currentPackage() = 15;
+    boolean keyEvent(int keyCode) = 16;
+    void reconnectNativeEndpoint() = 17;
     void destroy() = 16777114;
 }

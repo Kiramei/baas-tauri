@@ -205,6 +205,7 @@ object BaasLocalDeviceServer {
         "pressKeyCode" -> executeKey(context, params.getInt(0))
         "wakeUp" -> executeKey(context, 224)
         "sleep" -> executeKey(context, 223)
+        "appStart" -> ShizukuController.launchPackageOnDisplay(context, params.getString(0), ShizukuController.virtualDisplayId(context))
         "dumpWindowHierarchy" -> "<?xml version=\"1.0\" encoding=\"UTF-8\"?><hierarchy rotation=\"0\"/>"
         else -> throw IllegalArgumentException("Unsupported local-device method: $method")
       }
@@ -221,12 +222,15 @@ object BaasLocalDeviceServer {
     val displayId = ShizukuController.virtualDisplayId(context)
     if (displayId < 0) throw IllegalStateException("The Shizuku virtual display is not running")
     val size = ShizukuController.virtualDisplaySize(context)
+    val (captured, presented) = ShizukuController.nativeFrameCounts(context)
     return JSONObject()
-      .put("currentPackageName", "")
+      .put("currentPackageName", ShizukuController.currentGamePackage(context))
       .put("displayWidth", size[0])
       .put("displayHeight", size[1])
       .put("display", JSONObject().put("width", size[0]).put("height", size[1]))
       .put("screenOn", true)
+      .put("capturedFrames", captured)
+      .put("presentedFrames", presented)
   }
 
   private fun handleShell(context: Context, encodedBody: String): JSONObject {
@@ -246,8 +250,7 @@ object BaasLocalDeviceServer {
   }
 
   private fun executeKey(context: Context, keyCode: Int): Boolean {
-    ShizukuController.execute(context, "input keyevent ${keyCode.coerceIn(0, 300)}")
-    return true
+    return ShizukuController.keyEvent(context, keyCode.coerceIn(0, 300))
   }
 
   private fun keyCodeFor(name: String): Int = when (name.lowercase()) {

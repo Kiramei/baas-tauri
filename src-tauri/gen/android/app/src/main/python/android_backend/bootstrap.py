@@ -139,6 +139,7 @@ def _configure_environment(files_dir, storage_root_or_port, port=None, native_li
     os.environ.setdefault("BAAS_SERVICE_OCR_UPDATE_CHECK", "1")
     os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
     os.environ["BAAS_ANDROID"] = "1"
+    os.environ["BAAS_ANDROID_NATIVE_CAPTURE"] = "1"
     os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
     os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
     os.environ["BAAS_ANDROID_LOCAL_TOKEN_FILE"] = str(Path(files_dir) / "android-local-device-token")
@@ -440,6 +441,7 @@ def _ensure_android_support_files(root):
     _patch_android_scrcpy_service_injection(root)
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
+    _patch_android_native_capture_runtime(root)
     _write_android_direct_adb_server(root)
     _write_android_media_codec_decoder(root)
     _write_watchfiles_stub(root)
@@ -455,6 +457,42 @@ def _ensure_android_support_files(root):
 # runtime tree. Git updates may replace these files with desktop/uiautomator
 # implementations, but embedded Android control needs the Shizuku-backed local
 # virtual-display bridge.
+def _patch_android_native_capture_runtime(root):
+    # Applied last: legacy scrcpy/ADB patches must not select a second device path.
+    target = root / "service" / "android_local_device.py"
+    if target.parent.exists():
+        # Chaquopy may store modules as bytecode in a zip. Import the APK-owned
+        # adapter instead of assuming a readable sibling .py file on disk.
+        target.write_text(
+            "from android_backend.native_device import (\n"
+            "    ANDROID_LOCAL_METHOD, AndroidLocalControl, AndroidLocalScreenshot,\n"
+            ")\n", encoding="utf-8")
+    manager = root / "service" / "conf" / "manager.py"
+    _replace_once(
+        manager,
+        "BAAS_ANDROID_NATIVE_CAPTURE_CONFIG_V1",
+        "        normalized = copy.deepcopy(data)\n",
+        "        normalized = copy.deepcopy(data)\n"
+        "        # BAAS_ANDROID_NATIVE_CAPTURE_CONFIG_V1\n"
+        "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "            normalized['control_method'] = 'android_local'\n"
+        "            normalized['screenshot_method'] = 'android_local'\n"
+        "            normalized['adbIP'] = '127.0.0.1'\n"
+        "            normalized['adbPort'] = '7912'\n"
+        "            return normalized\n",
+    )
+    injection = root / "service" / "injection.py"
+    _replace_once(
+        injection,
+        "BAAS_ANDROID_NATIVE_CAPTURE_INJECTION_V1",
+        "def _scrcpy_virtual_display_enabled() -> bool:\n",
+        "def _scrcpy_virtual_display_enabled() -> bool:\n"
+        "    # BAAS_ANDROID_NATIVE_CAPTURE_INJECTION_V1\n"
+        "    if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "        return False\n",
+    )
+
+
 def _apply_bundled_android_overlay(root):
     archive_path = _bundled_backend_archive()
     if not archive_path.exists():
@@ -2587,6 +2625,11 @@ def _write_uiautomator2_stub(root):
         "                return line\n"
         "        raise RuntimeError(f'Unable to resolve launcher activity for {package_name}: {output}')\n\n"
         "    def app_start(self, package_name, activity=None, wait=False, stop=False):\n"
+        "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "            result = self._jsonrpc('appStart', [package_name], timeout=20)\n"
+        "            if wait:\n"
+        "                time.sleep(1)\n"
+        "            return result\n"
         "        if stop:\n"
         "            self.app_stop(package_name)\n"
         "        if activity:\n"

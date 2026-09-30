@@ -6,22 +6,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.PixelFormat
-import android.hardware.HardwareBuffer
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.Image
-import android.media.ImageReader
-import android.os.Build
-import android.os.Handler
-import android.os.HandlerThread
 import android.os.Binder
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import androidx.annotation.Keep
 import java.io.ByteArrayOutputStream
-import java.net.InetAddress
-import java.net.Socket
 import java.util.concurrent.Executors
 
 /** Shell/root process which owns the virtual display, frame capture and input channel. */
@@ -30,16 +21,10 @@ class ShizukuShellService : IShizukuShellService.Stub {
   private var context: Context? = null
   private val displayLock = Any()
   private var virtualDisplay: VirtualDisplay? = null
-  private var imageReader: ImageReader? = null
-  private var imageThread: HandlerThread? = null
-  private var latestFrame: Bitmap? = null
   private var displayWidth = 0
   private var displayHeight = 0
-  private var lastFrameAt = 0L
+  @Volatile private var activePackage = ""
   private var privilegedBridge: PrivilegedDisplayBridge? = null
-  private var videoStream: H264VideoStream? = null
-  private var privilegedVideoSocket: Socket? = null
-  private var privilegedVideoRelay: Thread? = null
 
   constructor()
 
@@ -95,21 +80,8 @@ class ShizukuShellService : IShizukuShellService.Stub {
       isAccessible = true
     }
     val manager = constructor.newInstance(displayContext)
-    val thread = HandlerThread("baas-virtual-display-frames").also { it.start() }
-    // Match MAA-Meow's capture surface contract. Unity renders through a GPU-backed
-    // SurfaceView; a CPU-only ImageReader may create a valid display which stays black.
-    val reader = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      ImageReader.newInstance(
-        safeWidth,
-        safeHeight,
-        PixelFormat.RGBA_8888,
-        5,
-        HardwareBuffer.USAGE_CPU_READ_OFTEN or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
-      )
-    } else {
-      ImageReader.newInstance(safeWidth, safeHeight, PixelFormat.RGBA_8888, 5)
-    }
-    reader.setOnImageAvailableListener({ source -> consumeLatestFrame(source) }, Handler(thread.looper))
+    NativeDisplayCapture.load()
+    val captureSurface = NativeDisplayCapture.start(safeWidth, safeHeight)
     val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
@@ -120,15 +92,14 @@ class ShizukuShellService : IShizukuShellService.Stub {
       safeWidth,
       safeHeight,
       safeDensity,
-      reader.surface,
+      captureSurface,
       flags,
     ) ?: run {
-      reader.close()
-      thread.quitSafely()
+      captureSurface.release()
+      NativeDisplayCapture.stop()
       throw IllegalStateException("Android rejected the BAAS virtual display")
     }
-    imageThread = thread
-    imageReader = reader
+    captureSurface.release()
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
@@ -166,59 +137,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     captureVirtualDisplay("PREVIEW", Bitmap.CompressFormat.JPEG, 76)
 
   override fun openVideoStream(fps: Int, bitrate: Int): ParcelFileDescriptor = privileged {
-    synchronized(displayLock) {
-      closeVideoStreamLocked()
-      privilegedBridge?.let { bridge ->
-        val port = bridge.request("OPEN_STREAM $fps $bitrate").toInt()
-        val connector = Executors.newSingleThreadExecutor()
-        val socket = try {
-          connector.submit<Socket> { Socket(InetAddress.getLoopbackAddress(), port) }.get()
-        } finally {
-          connector.shutdownNow()
-        }
-        val pipe = ParcelFileDescriptor.createPipe()
-        try {
-          privilegedVideoSocket = socket
-          privilegedVideoRelay = Thread({
-            try {
-              socket.getInputStream().use { input ->
-                ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { output ->
-                  input.copyTo(output, 64 * 1024)
-                }
-              }
-            } catch (_: Throwable) {
-              runCatching { pipe[1].close() }
-            }
-          }, "baas-privileged-video-relay").apply {
-            isDaemon = true
-            start()
-          }
-          // Binder cannot transfer a Magisk-domain TCP socket directly to an
-          // untrusted app on enforcing SELinux builds. An anonymous pipe keeps
-          // the exact binary stream while giving Binder a transferable fd.
-          return@synchronized pipe[0]
-        } catch (error: Throwable) {
-          runCatching { socket.close() }
-          runCatching { pipe[0].close() }
-          runCatching { pipe[1].close() }
-          throw error
-        }
-      }
-      val display = virtualDisplay ?: throw IllegalStateException("The virtual display is not running")
-      val width = displayWidth.coerceAtLeast(1)
-      val height = displayHeight.coerceAtLeast(1)
-      val pipe = ParcelFileDescriptor.createPipe()
-      try {
-        val sink = ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
-        videoStream = H264VideoStream.start(display, width, height, fps, bitrate, sink)
-        pipe[0]
-      } catch (error: Throwable) {
-        runCatching { pipe[0].close() }
-        runCatching { pipe[1].close() }
-        restoreCaptureSurfaceLocked()
-        throw error
-      }
-    }
+    throw UnsupportedOperationException("Use native preview; screenshots remain active")
   }
 
   override fun closeVideoStream() = privileged {
@@ -234,12 +153,12 @@ class ShizukuShellService : IShizukuShellService.Stub {
       val encoded = bridge.request(command)
       if (encoded.isEmpty()) ByteArray(0)
       else android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
-    } ?: latestFrame?.let { frame ->
-      ByteArrayOutputStream().use { output ->
+    } ?: NativeDisplayCapture.captureBitmap()?.let { frame ->
+      try { ByteArrayOutputStream().use { output ->
         frame.compress(format, quality, output)
         output.toByteArray()
-      }
-    } ?: ByteArray(0)
+      } } finally { frame.recycle() }
+    } ?: throw IllegalStateException("No game frame has been captured yet")
 
     val pipe = ParcelFileDescriptor.createPipe()
     Thread({
@@ -256,14 +175,25 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
     val displayId = getVirtualDisplayId()
     if (displayId < 0) return false
-    val command = if (x1 == x2 && y1 == y2 && durationMs <= 250) {
-      "input -d $displayId tap ${x1.coerceAtLeast(0)} ${y1.coerceAtLeast(0)}"
-    } else {
-      "input -d $displayId swipe ${x1.coerceAtLeast(0)} ${y1.coerceAtLeast(0)} " +
-        "${x2.coerceAtLeast(0)} ${y2.coerceAtLeast(0)} ${durationMs.coerceIn(1, 10_000)}"
-    }
-    execute(command)
-    return true
+    return privileged { DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs) }
+  }
+
+  override fun setPreviewSurface(surface: android.view.Surface?) = privileged {
+    check(Process.myUid() != Process.ROOT_UID) { "Root preview uses the system display endpoint" }
+    NativeDisplayCapture.load()
+    NativeDisplayCapture.setPreviewSurface(surface)
+  }
+
+  override fun frameCount(): Long = NativeDisplayCapture.frameCount()
+  override fun previewFrameCount(): Long = NativeDisplayCapture.previewFrameCount()
+  override fun currentPackage(): String = activePackage
+  override fun reconnectNativeEndpoint() = privileged {
+    privilegedBridge?.request("PUBLISH")
+    Unit
+  }
+  override fun keyEvent(keyCode: Int): Boolean = privileged {
+    privilegedBridge?.let { return@privileged it.request("KEY $keyCode").toBoolean() }
+    DisplayInput.key(getVirtualDisplayId(), keyCode)
   }
 
   /** Launch through ActivityManager's binder, matching MAA-Meow's primary path. */
@@ -315,73 +245,22 @@ class ShizukuShellService : IShizukuShellService.Stub {
       options.toBundle(),
       -2,
     ) as Int
-    result >= 0
+    (result >= 0).also { if (it) activePackage = packageName }
   }
 
-  private fun consumeLatestFrame(reader: ImageReader) {
-    val image = reader.acquireLatestImage() ?: return
-    try {
-      val now = android.os.SystemClock.uptimeMillis()
-      if (now - lastFrameAt < 500L) return
-      lastFrameAt = now
-      val bitmap = imageToBitmap(image)
-      synchronized(displayLock) {
-        latestFrame?.recycle()
-        latestFrame = bitmap
-      }
-    } finally {
-      image.close()
-    }
-  }
-
-  private fun imageToBitmap(image: Image): Bitmap {
-    val plane = image.planes[0]
-    val pixelStride = plane.pixelStride
-    val rowStride = plane.rowStride
-    val rowPadding = rowStride - pixelStride * image.width
-    val padded = Bitmap.createBitmap(image.width + rowPadding / pixelStride, image.height, Bitmap.Config.ARGB_8888)
-    padded.copyPixelsFromBuffer(plane.buffer)
-    if (padded.width == image.width) return padded
-    val cropped = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
-    padded.recycle()
-    return cropped
-  }
 
   private fun stopVirtualDisplayLocked() {
     closeVideoStreamLocked(restoreCaptureSurface = false)
-    imageReader?.setOnImageAvailableListener(null, null)
     virtualDisplay?.release()
-    imageReader?.close()
-    imageThread?.quitSafely()
-    latestFrame?.recycle()
+    if (Process.myUid() != Process.ROOT_UID) NativeDisplayCapture.stop()
     virtualDisplay = null
-    imageReader = null
-    imageThread = null
-    latestFrame = null
+    activePackage = ""
     displayWidth = 0
     displayHeight = 0
-    lastFrameAt = 0L
   }
 
-  private fun closeVideoStreamLocked(restoreCaptureSurface: Boolean = true) {
-    privilegedBridge?.let { bridge ->
-      runCatching { bridge.request("CLOSE_STREAM") }
-      runCatching { privilegedVideoSocket?.close() }
-      privilegedVideoRelay?.interrupt()
-      privilegedVideoSocket = null
-      privilegedVideoRelay = null
-      return
-    }
-    videoStream?.close()
-    videoStream = null
-    if (restoreCaptureSurface) restoreCaptureSurfaceLocked()
-  }
-
-  private fun restoreCaptureSurfaceLocked() {
-    val display = virtualDisplay ?: return
-    val surface = imageReader?.surface ?: return
-    runCatching { display.setSurface(surface) }
-  }
+  // Compatibility stop for the retired stream API. Never changes the capture Surface.
+  private fun closeVideoStreamLocked(restoreCaptureSurface: Boolean = true) = Unit
 
   override fun destroy() {
     synchronized(displayLock) { closeVideoStreamLocked() }

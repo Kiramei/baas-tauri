@@ -22,6 +22,30 @@ import java.io.File
 
 @TauriPlugin
 class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
+  private val nativePreview = NativeGamePreview(activity)
+
+  @Command
+  fun gameNativePreview(invoke: Invoke) {
+    val args = invoke.getArgs()
+    val enabled = args.optBoolean("enabled", false)
+    val result = JSObject()
+    if (enabled) {
+      runCatching { ShizukuController.nativeFrameCounts(activity) }.onSuccess { (captured, presented) ->
+        result.put("capturedFrames", captured)
+        result.put("presentedFrames", presented)
+        result.put("ready", presented > 0)
+      }.onFailure { result.put("error", it.message); result.put("ready", false) }
+    }
+    activity.runOnUiThread {
+      try {
+        nativePreview.update(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
+          args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0), enabled,
+          args.optDouble("clipTop", 0.0), args.optDouble("clipBottom", 0.0))
+        nativePreview.setStatus(result.optBoolean("ready", false), result.optString("error").takeIf { it.isNotEmpty() })
+        invoke.resolve(result)
+      } catch (error: Exception) { invoke.reject(error.message, error) }
+    }
+  }
   private val gamePackages = linkedMapOf(
     "com.RoamingStar.BlueArchive.bilibili" to "Blue Archive (Bilibili)",
     "com.RoamingStar.BlueArchive" to "Blue Archive (CN)",
