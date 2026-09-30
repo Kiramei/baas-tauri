@@ -19,6 +19,7 @@ import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
 
 const EMPTY_LOGS: LogItem[] = [];
+const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -54,8 +55,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
 
-  const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
-
   const adbSerial = useMemo(() => {
     if (__WITH_ANDROID__) {
       return window.localStorage.getItem("baasAndroidAdbSerial")?.trim() || "auto";
@@ -65,63 +64,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     if (adbIP && adbPort) return `${adbIP}:${adbPort}`;
     return adbPort || adbIP || "emulator-5556";
   }, [settings?.adbIP, settings?.adbPort]);
-
-  const syncAndroidDeviceMethods = async (useScrcpy: boolean) => {
-    if (!__WITH_ANDROID__ || !activeConfigId) return;
-    const patch = useScrcpy
-      ? {
-          screenshot_method: "adb",
-          control_method: "adb",
-          adbIP: "127.0.0.1",
-          adbPort: "5555",
-        }
-      : {
-          screenshot_method: "android_local",
-          control_method: "android_local",
-        };
-    const timestamp = getTimestampMs();
-    const ops = Object.entries(patch).map(([key, value]) => ({
-      op: "replace",
-      path: `/${key}`,
-      value,
-    }));
-    const store = useWebSocketStore.getState();
-    await new Promise<void>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        delete useWebSocketStore.getState().pendingCallbacks[timestamp];
-        reject(new Error("Android device method patch was not acknowledged"));
-      }, 5000);
-      store.pendingCallbacks[timestamp] = () => {
-        window.clearTimeout(timeoutId);
-        resolve();
-      };
-      store.send("sync", {
-        type: "patch",
-        resource_id: activeConfigId,
-        resource: "config",
-        timestamp,
-        ops,
-      });
-    });
-    const expectedMethod = useScrcpy ? "adb" : "android_local";
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-      const current = useWebSocketStore.getState().configStore[activeConfigId];
-      if (
-        current?.screenshot_method === expectedMethod &&
-        current?.control_method === expectedMethod
-      ) {
-        return;
-      }
-      useWebSocketStore.getState().send("sync", {
-        type: "pull",
-        resource: "config",
-        resource_id: activeConfigId,
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 300));
-    }
-    throw new Error(`Android device methods did not switch to ${expectedMethod}`);
-  };
 
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
     if (!__WITH_ANDROID__) return false;
@@ -134,33 +76,42 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       setAndroidVirtualDisplayActive(Boolean(status.active));
       return Boolean(status.active);
     } catch (error) {
-      console.warn("scrcpy virtual display status failed", error);
+      console.warn("Android background display status failed", error);
       return false;
     }
   }, [adbSerial]);
 
-  const toggleAndroidVirtualDisplay = async (value: boolean) => {
+  const toggleAndroidVirtualDisplay = async (value: boolean, packageName?: string) => {
     if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
     setAndroidVirtualDisplayBusy(true);
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
       if (value) {
-        const report = await invoke<{
-          displayId: number;
-          serial: string;
-          packageName: string;
-        }>("android_prepare_scrcpy_virtual_display", {
-          request: {
-            serial: adbSerial,
-            configId: activeConfigId,
-            width: 1280,
-            height: 720,
-            density: 240,
-          },
-        });
+        let report: { displayId: number; serial: string; packageName: string } | undefined;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          try {
+            report = await invoke("android_prepare_scrcpy_virtual_display", {
+              request: {
+                serial: adbSerial,
+                configId: activeConfigId,
+                packageName,
+                width: 1280,
+                height: 720,
+                density: 240,
+              },
+            });
+            break;
+          } catch (error) {
+            const message = String(error);
+            const connecting =
+              message.includes("still connecting") || message.includes("Timed out connecting");
+            if (!connecting || attempt === 3) throw error;
+            await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+          }
+        }
+        if (!report) throw new Error("Shizuku display did not become ready");
         setAndroidVirtualDisplayActive(true);
-        if (activeConfigId) await syncAndroidDeviceMethods(true);
-        toast.success(`scrcpy virtual display #${report.displayId}`);
+        toast.success(`Background game display #${report.displayId}`);
       } else {
         if (scriptRunning && activeConfigId) {
           useWebSocketStore.getState().trigger({
@@ -172,13 +123,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
         await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
         setAndroidVirtualDisplayActive(false);
-        if (activeConfigId) await syncAndroidDeviceMethods(false);
-        toast.success("scrcpy virtual display closed");
+        toast.success("Background game display closed");
       }
       void refreshAndroidVirtualDisplayStatus();
     } catch (error) {
       toast.error(
-        value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed",
+        value ? "Background game display failed" : "Background game display cleanup failed",
         {
           description: String(error),
         }
@@ -199,7 +149,13 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
+    if (__WITH_ANDROID__ && !androidVirtualDisplayActive) {
+      await toggleAndroidVirtualDisplay(
+        true,
+        window.localStorage.getItem("baasAndroidSelectedGame") || undefined
+      );
+      if (!(await refreshAndroidVirtualDisplayStatus())) return;
+    }
     useWebSocketStore.getState().trigger(
       {
         timestamp: getTimestampMs(),
@@ -236,6 +192,16 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     );
   };
 
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    const toggleRun = () => {
+      if (scriptRunning) stopScript();
+      else void startScript();
+    };
+    window.addEventListener("baas:toggle-primary-run", toggleRun);
+    return () => window.removeEventListener("baas:toggle-primary-run", toggleRun);
+  });
+
   /**
    * Serializes the on-screen log buffer and triggers a local download for auditing or support.
    */
@@ -255,113 +221,93 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
   return (
     <div className="h-full flex flex-col min-h-0 gap-2">
-      {/* Header: high-level actions and script controls. */}
-      <div className="flex justify-between items-center shrink-0">
-        <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("nav.home")}</h2>
-          <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
-        </div>
-        <div className="flex sm:hidden items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="h-8 w-8"
-            iconOnly
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </CButton>
-        </div>
-        <div className="hidden sm:flex items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="w-25 pl-3 flex items-center justify-center"
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? (
-              <Square className="w-4 h-4 mr-2" />
-            ) : (
-              <Play className="w-4 h-4 mr-2" />
+      {/* Desktop header: Android exposes its primary action in the bottom navigation. */}
+      {!isAndroid && (
+        <div className="flex justify-between items-center shrink-0">
+          <div className="flex">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("nav.home")}
+            </h2>
+            <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+          </div>
+          <div className="flex sm:hidden items-center gap-2">
+            {remoteAvailable && (
+              <SwitchButton
+                checked={remoteVisible}
+                onChange={(value) => {
+                  setRemoteVisible(value);
+                }}
+                label=""
+                className="ml-2 h-8 w-8"
+                iconOnly
+              >
+                <Webcam size={20} className="rounded w-4 h-4" />
+              </SwitchButton>
             )}
-            {androidVirtualDisplayBusy
-              ? "准备中"
-              : scriptRunning
-                ? t("common.stop")
-                : t("common.start")}
-          </CButton>
+            {hotkeyAvailable && (
+              <CButton
+                onClick={() => setHotkeyOpen(true)}
+                variant="secondary"
+                className="h-8 w-8"
+                iconOnly
+              >
+                <Keyboard className="w-4 h-4" />
+              </CButton>
+            )}
+            <CButton
+              onClick={scriptRunning ? stopScript : startScript}
+              variant={scriptRunning ? "danger" : "primary"}
+              className="h-8 w-8"
+              iconOnly
+              disabled={androidVirtualDisplayBusy}
+            >
+              {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            </CButton>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            {remoteAvailable && (
+              <SwitchButton
+                checked={remoteVisible}
+                onChange={(value) => {
+                  setRemoteVisible(value);
+                }}
+                label=""
+                className="ml-2 h-8 w-8"
+                iconOnly
+              >
+                <Webcam size={20} className="rounded w-4 h-4" />
+              </SwitchButton>
+            )}
+            {hotkeyAvailable && (
+              <CButton
+                onClick={() => setHotkeyOpen(true)}
+                variant="secondary"
+                className="h-8 w-8"
+                iconOnly
+              >
+                <Keyboard className="w-4 h-4" />
+              </CButton>
+            )}
+            <CButton
+              onClick={scriptRunning ? stopScript : startScript}
+              variant={scriptRunning ? "danger" : "primary"}
+              className="w-25 pl-3 flex items-center justify-center"
+              disabled={androidVirtualDisplayBusy}
+            >
+              {scriptRunning ? (
+                <Square className="w-4 h-4 mr-2" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              {androidVirtualDisplayBusy
+                ? "准备中"
+                : scriptRunning
+                  ? t("common.stop")
+                  : t("common.start")}
+            </CButton>
+          </div>
         </div>
-      </div>
+      )}
 
       {hotkeyAvailable && (
         <HotkeySettingsModal
@@ -388,6 +334,20 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             toast.success(t("settings.updateSuccess"));
           }}
         />
+      )}
+
+      {isAndroid && (
+        <React.Suspense
+          fallback={
+            <div className="h-14 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />
+          }
+        >
+          <AndroidGamePanel
+            virtualDisplayActive={androidVirtualDisplayActive}
+            virtualDisplayBusy={androidVirtualDisplayBusy}
+            onToggleVirtualDisplay={toggleAndroidVirtualDisplay}
+          />
+        </React.Suspense>
       )}
 
       {/* Live status for the active task pipeline. */}

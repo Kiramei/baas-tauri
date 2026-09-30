@@ -35,7 +35,6 @@ const MainLayout = React.lazy(loadMainLayout);
 const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
 
 /**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
@@ -57,7 +56,11 @@ const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
   const activePid = activeProfile?.id;
-  const currentKey = instanceKeyOf(activePage, activePid);
+  const [mountedPages, setMountedPages] = useState<PageKey[]>(["home"]);
+
+  useEffect(() => {
+    setMountedPages((pages) => (pages.includes(activePage) ? pages : [...pages, activePage]));
+  }, [activePage]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
@@ -72,8 +75,6 @@ const Main: React.FC = () => {
         return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
       case "settings":
         return <SettingsPage />;
-      case "wiki":
-        return <WikiPage />;
       default:
         return null;
     }
@@ -89,12 +90,19 @@ const Main: React.FC = () => {
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
-      <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
-        <div key={currentKey} className="absolute inset-0 overflow-y-auto scroll-embedded pr-2">
-          <Suspense fallback={<PageLoadingFallback />}>
-            {renderPage(activePage, activePid)}
-          </Suspense>
-        </div>
+      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-56px)] lg:h-full">
+        {mountedPages.map((page) => {
+          const isActive = page === activePage;
+          return (
+            <div
+              key={instanceKeyOf(page, activePid)}
+              className={`android-page-scroll absolute inset-0 overflow-y-auto ${isActive ? "" : "hidden"}`}
+              aria-hidden={!isActive}
+            >
+              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, activePid)}</Suspense>
+            </div>
+          );
+        })}
       </div>
     </MainLayout>
   );
@@ -200,6 +208,12 @@ const WrappedApp: React.FC = () => {
 const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.lang = i18n.language;
+    const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const previousViewport = viewport?.content;
+    if (__WITH_ANDROID__ && viewport) {
+      viewport.content =
+        "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no";
+    }
     /** Handles the on lang change interaction. */
     const onLangChange = (lng: string) => {
       document.documentElement.lang = lng;
@@ -207,6 +221,7 @@ const App: React.FC = () => {
     i18n.on("languageChanged", onLangChange);
     return () => {
       i18n.off("languageChanged", onLangChange);
+      if (viewport && previousViewport) viewport.content = previousViewport;
     };
   }, []);
 

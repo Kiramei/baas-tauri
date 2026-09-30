@@ -231,12 +231,15 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
 
   return (
     <div className="h-full flex flex-col gap-4 min-h-0">
-      {/* Page heading with the active profile reference. */}
-      <div className="flex items-center flex-wrap gap-2">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          {t("nav.scheduler")}
-        </h2>
-        <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+      <div className="flex items-center gap-2">
+        {!__WITH_ANDROID__ && (
+          <>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("nav.scheduler")}
+            </h2>
+            <h2 className="ml-3 text-2xl text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+          </>
+        )}
         <div className="ml-auto flex items-center gap-2 text-sm">
           <FormSelect
             value={newEventState}

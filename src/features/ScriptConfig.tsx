@@ -107,41 +107,27 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId, onClose }) => {
         }))}
       />
 
-      <div className="flex items-center justify-between gap-2">
-        {/* Screenshot method (e.g., ADB / API / screen stream) */}
-        <FormSelect
-          label={t("script.screenshotMethod")}
-          value={draft.screenshot_method}
-          onChange={handleChange("screenshot_method")}
-          disabled={__WITH_ANDROID__}
-          options={
-            __WITH_ANDROID__
-              ? [{ value: ANDROID_LOCAL_METHOD, label: ANDROID_LOCAL_LABEL }]
-              : (staticConfig?.screenshot_methods?.map((m: string) => ({
-                  value: m,
-                  label: m,
-                })) ?? [])
-          }
-          className="flex-1"
-        />
+      {!__WITH_ANDROID__ && (
+        <div className="flex items-center justify-between gap-2">
+          {/* Screenshot method (e.g., ADB / API / screen stream) */}
+          <FormSelect
+            label={t("script.screenshotMethod")}
+            value={draft.screenshot_method}
+            onChange={handleChange("screenshot_method")}
+            options={staticConfig?.screenshot_methods?.map((m: string) => ({ value: m, label: m })) ?? []}
+            className="flex-1"
+          />
 
-        {/* Control method (e.g., ADB control / input simulation) */}
-        <FormSelect
-          label={t("script.controlMethod")}
-          value={draft.control_method}
-          onChange={handleChange("control_method")}
-          disabled={__WITH_ANDROID__}
-          options={
-            __WITH_ANDROID__
-              ? [{ value: ANDROID_LOCAL_METHOD, label: ANDROID_LOCAL_LABEL }]
-              : (staticConfig?.control_methods?.map((m: string) => ({
-                  value: m,
-                  label: m,
-                })) ?? [])
-          }
-          className="flex-1"
-        />
-      </div>
+          {/* Control method (e.g., ADB control / input simulation) */}
+          <FormSelect
+            label={t("script.controlMethod")}
+            value={draft.control_method}
+            onChange={handleChange("control_method")}
+            options={staticConfig?.control_methods?.map((m: string) => ({ value: m, label: m })) ?? []}
+            className="flex-1"
+          />
+        </div>
+      )}
 
       {/* Save button */}
       <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">

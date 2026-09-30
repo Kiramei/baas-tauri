@@ -9,8 +9,10 @@ import {
   PackageOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  Play,
   Settings,
   SlidersHorizontal,
+  Square,
 } from "lucide-react";
 import HeartbeatChart from "@/components/HeartbeatIndicator.tsx";
 import { motion } from "framer-motion";
@@ -24,6 +26,7 @@ import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgre
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
+import { useApp } from "@/context/AppContext";
 
 const baseUrl = import.meta.env.BASE_URL;
 const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
@@ -76,6 +79,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDesktopExpandedChange,
 }) => {
   const { t } = useTranslation();
+  const { activeProfile } = useApp();
+  const primaryRunning = useWebSocketStore((state) =>
+    activeProfile?.id ? Boolean(state.statusStore[activeProfile.id]?.running) : false
+  );
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
@@ -95,7 +102,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: "scheduler", label: t("nav.scheduler"), icon: ListChecks },
     { id: "configuration", label: t("nav.configuration"), icon: SlidersHorizontal },
     { id: "settings", label: t("nav.settings"), icon: Settings },
-    { id: "wiki", label: t("title.wiki"), icon: BookOpenText },
+    ...(!__WITH_ANDROID__
+      ? [{ id: "wiki" as PageKey, label: t("title.wiki"), icon: BookOpenText }]
+      : []),
   ];
 
   const stopAllTasks = async () => {
@@ -376,19 +385,50 @@ const Sidebar: React.FC<SidebarProps> = ({
       </aside>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
-        {navItems.map((item) => (
+      <nav className="fixed bottom-0 left-0 z-40 grid h-14 w-full grid-cols-5 items-center border-t border-slate-200 bg-white px-2 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
+        {navItems.slice(0, 2).map((item) => (
           <button
             key={item.id}
             onClick={() => setActivePage(item.id)}
-            className={`flex flex-col items-center w-full text-sm font-medium py-2 ${
+            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
               activePage === item.id
                 ? "text-primary-500"
                 : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
             }`}
           >
-            <item.icon className="w-6 h-6 mb-1" />
-            <span>{item.label}</span>
+            <item.icon className="mb-0.5 h-6 w-6" />
+            <span className="block leading-none">{item.label}</span>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          aria-label={primaryRunning ? t("common.stop") : t("common.start")}
+          disabled={!activeProfile}
+          onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
+          className={`mx-auto grid h-16 w-16 -translate-y-3 place-items-center rounded-full border-4 border-white text-white shadow-xl transition active:scale-95 disabled:opacity-50 dark:border-slate-900 ${
+            primaryRunning ? "bg-red-500" : "bg-primary-500"
+          }`}
+        >
+          {primaryRunning ? (
+            <Square className="h-6 w-6 fill-current" />
+          ) : (
+            <Play className="ml-1 h-7 w-7 fill-current" />
+          )}
+        </button>
+
+        {navItems.slice(2).map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActivePage(item.id)}
+            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
+              activePage === item.id
+                ? "text-primary-500"
+                : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
+            }`}
+          >
+            <item.icon className="mb-0.5 h-6 w-6" />
+            <span className="block leading-none">{item.label}</span>
           </button>
         ))}
       </nav>

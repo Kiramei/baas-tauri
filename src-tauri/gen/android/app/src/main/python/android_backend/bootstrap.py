@@ -139,8 +139,10 @@ def _configure_environment(files_dir, storage_root_or_port, port=None, native_li
     os.environ.setdefault("BAAS_SERVICE_OCR_UPDATE_CHECK", "1")
     os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
     os.environ["BAAS_ANDROID"] = "1"
+    os.environ["BAAS_ANDROID_NATIVE_CAPTURE"] = "1"
     os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
     os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
+    os.environ["BAAS_ANDROID_LOCAL_TOKEN_FILE"] = str(Path(files_dir) / "android-local-device-token")
     os.environ["BAAS_PIPE_NAME"] = str(Path(files_dir) / "baas-service.sock")
     if native_library_dir:
         os.environ["BAAS_ANDROID_NATIVE_LIBRARY_DIR"] = str(native_library_dir)
@@ -439,6 +441,7 @@ def _ensure_android_support_files(root):
     _patch_android_scrcpy_service_injection(root)
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
+    _patch_android_native_capture_runtime(root)
     _write_android_direct_adb_server(root)
     _write_android_media_codec_decoder(root)
     _write_watchfiles_stub(root)
@@ -452,9 +455,44 @@ def _ensure_android_support_files(root):
 
 # Applies Android-specific backend files from the APK bundle over a git-updated
 # runtime tree. Git updates may replace these files with desktop/uiautomator
-# implementations, but embedded Android control needs Android-specific runtime
-# patches. Virtual-display mode uses scrcpy; the accessibility bridge is only
-# the fallback for non-virtual-display Android-local mode.
+# implementations, but embedded Android control needs the Shizuku-backed local
+# virtual-display bridge.
+def _patch_android_native_capture_runtime(root):
+    # Applied last: legacy scrcpy/ADB patches must not select a second device path.
+    target = root / "service" / "android_local_device.py"
+    if target.parent.exists():
+        # Chaquopy may store modules as bytecode in a zip. Import the APK-owned
+        # adapter instead of assuming a readable sibling .py file on disk.
+        target.write_text(
+            "from android_backend.native_device import (\n"
+            "    ANDROID_LOCAL_METHOD, AndroidLocalControl, AndroidLocalScreenshot,\n"
+            ")\n", encoding="utf-8")
+    manager = root / "service" / "conf" / "manager.py"
+    _replace_once(
+        manager,
+        "BAAS_ANDROID_NATIVE_CAPTURE_CONFIG_V1",
+        "        normalized = copy.deepcopy(data)\n",
+        "        normalized = copy.deepcopy(data)\n"
+        "        # BAAS_ANDROID_NATIVE_CAPTURE_CONFIG_V1\n"
+        "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "            normalized['control_method'] = 'android_local'\n"
+        "            normalized['screenshot_method'] = 'android_local'\n"
+        "            normalized['adbIP'] = '127.0.0.1'\n"
+        "            normalized['adbPort'] = '7912'\n"
+        "            return normalized\n",
+    )
+    injection = root / "service" / "injection.py"
+    _replace_once(
+        injection,
+        "BAAS_ANDROID_NATIVE_CAPTURE_INJECTION_V1",
+        "def _scrcpy_virtual_display_enabled() -> bool:\n",
+        "def _scrcpy_virtual_display_enabled() -> bool:\n"
+        "    # BAAS_ANDROID_NATIVE_CAPTURE_INJECTION_V1\n"
+        "    if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "        return False\n",
+    )
+
+
 def _apply_bundled_android_overlay(root):
     archive_path = _bundled_backend_archive()
     if not archive_path.exists():
@@ -2370,6 +2408,18 @@ def _write_uiautomator2_stub(root):
         "from .version import __apk_version__, __atx_agent_version__, __version__\n\n"
         "class UiAutomationNotConnectedError(RuntimeError):\n"
         "    pass\n\n"
+        "def _auth_headers(extra=None):\n"
+        "    headers = dict(extra or {})\n"
+        "    token_file = (os.getenv('BAAS_ANDROID_LOCAL_TOKEN_FILE') or '').strip()\n"
+        "    if token_file:\n"
+        "        try:\n"
+        "            with open(token_file, 'r', encoding='utf-8') as stream:\n"
+        "                token = stream.read().strip()\n"
+        "            if token:\n"
+        "                headers['X-BAAS-Token'] = token\n"
+        "        except OSError:\n"
+        "            pass\n"
+        "    return headers\n\n"
         "def _adb_direct_server():\n"
         "    port = (os.getenv('BAAS_ANDROID_DIRECT_ADB_SERVER_PORT') or os.getenv('ANDROID_ADB_SERVER_PORT') or '').strip()\n"
         "    if not port:\n"
@@ -2451,7 +2501,8 @@ def _write_uiautomator2_stub(root):
         "    def __init__(self, device):\n"
         "        self._device = device\n\n"
         "    def get(self, path, timeout=10):\n"
-        "        with request.urlopen(self._device._url(path), timeout=timeout) as response:\n"
+        "        req = request.Request(self._device._url(path), headers=_auth_headers())\n"
+        "        with request.urlopen(req, timeout=timeout) as response:\n"
         "            return _HttpResponse(response.read())\n\n"
         "class Device:\n"
         "    def __init__(self, serial='127.0.0.1:7912'):\n"
@@ -2489,7 +2540,7 @@ def _write_uiautomator2_stub(root):
         "        req = request.Request(\n"
         "            self._url('/jsonrpc/0'),\n"
         "            data=body,\n"
-        "            headers={'Content-Type': 'application/json'},\n"
+        "            headers=_auth_headers({'Content-Type': 'application/json'}),\n"
         "            method='POST',\n"
         "        )\n"
         "        try:\n"
@@ -2514,7 +2565,7 @@ def _write_uiautomator2_stub(root):
         "        except Exception:\n"
         "            pass\n"
         "        data = parse.urlencode({'command': command, 'timeout': str(timeout)}).encode('utf-8')\n"
-        "        req = request.Request(self._url('/shell'), data=data, method='POST')\n"
+        "        req = request.Request(self._url('/shell'), data=data, headers=_auth_headers(), method='POST')\n"
         "        try:\n"
         "            with request.urlopen(req, timeout=timeout + 10) as response:\n"
         "                payload = json.loads(response.read().decode('utf-8'))\n"
@@ -2574,6 +2625,11 @@ def _write_uiautomator2_stub(root):
         "                return line\n"
         "        raise RuntimeError(f'Unable to resolve launcher activity for {package_name}: {output}')\n\n"
         "    def app_start(self, package_name, activity=None, wait=False, stop=False):\n"
+        "        if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+        "            result = self._jsonrpc('appStart', [package_name], timeout=20)\n"
+        "            if wait:\n"
+        "                time.sleep(1)\n"
+        "            return result\n"
         "        if stop:\n"
         "            self.app_stop(package_name)\n"
         "        if activity:\n"
