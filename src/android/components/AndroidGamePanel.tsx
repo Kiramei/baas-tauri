@@ -42,6 +42,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   const [games, setGames] = useState<AndroidGame[]>([]);
   const [selectedPackage, setSelectedPackage] = useState("");
   const [shizukuGranted, setShizukuGranted] = useState(false);
+  const [shizukuInstalled, setShizukuInstalled] = useState(true);
   const [previewReady, setPreviewReady] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -57,6 +58,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       const report = await invoke<GameListReport>("android_list_games");
       setGames(report.games);
       setShizukuGranted(report.shizukuGranted);
+      setShizukuInstalled(report.shizukuInstalled);
       setSelectedPackage((current) => {
         const preferred = current || window.localStorage.getItem(SELECTED_GAME_KEY) || "";
         const next = report.games.some((game) => game.packageName === preferred)
@@ -179,6 +181,14 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
 
   const startBackgroundDisplay = async () => {
     if (!selectedGame || virtualDisplayBusy) return;
+    if (!shizukuInstalled) {
+      toast.info("需要安装 Shizuku", {
+        description: "虚拟屏和游戏操作需要 Shizuku。请从官方页面下载安装，启动服务后返回授权 BAAS。应用不内置或自动安装 Shizuku。",
+        duration: 15000,
+        action: { label: "官方下载", onClick: () => void requestShizuku() },
+      });
+      return;
+    }
     if (!shizukuGranted) {
       await requestShizuku();
       return;

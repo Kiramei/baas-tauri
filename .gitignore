@@ -14,6 +14,8 @@ dist-ssr
 .cache
 target
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 public/fonts/*.woff2
 
 # Editor directories and files

@@ -35,6 +35,23 @@ const MainLayout = React.lazy(loadMainLayout);
 const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
+let homeReadyReported = false;
+const HomeReadyMarker: React.FC<{ onReady: () => void }> = ({ onReady }) => {
+  useEffect(() => {
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        if (!homeReadyReported) {
+          homeReadyReported = true;
+          console.info(`__ANDROID_HOME_READY__ ${performance.now().toFixed(0)}ms`);
+        }
+        onReady();
+      });
+    });
+    return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+  }, [onReady]);
+  return null;
+};
 
 /**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
@@ -52,7 +69,7 @@ const PageLoadingFallback: React.FC = () => (
 );
 
 /** Renders the main component. */
-const Main: React.FC = () => {
+const Main: React.FC<{ onReady: () => void }> = ({ onReady }) => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
   const { activeProfile } = useApp();
   const activePid = activeProfile?.id;
@@ -68,7 +85,7 @@ const Main: React.FC = () => {
   const renderPage = useCallback((page: PageKey, pid: string) => {
     switch (page) {
       case "home":
-        return <HomePage profileId={pid} />;
+        return <><HomePage profileId={pid} /><HomeReadyMarker onReady={onReady} /></>;
       case "scheduler":
         return <SchedulerPage profileId={pid} />;
       case "configuration":
@@ -78,7 +95,7 @@ const Main: React.FC = () => {
       default:
         return null;
     }
-  }, []);
+  }, [onReady]);
 
   if (!activeProfile || !activePid) {
     return (
@@ -111,6 +128,9 @@ const SetupPage = React.lazy(() => import("@/pages/SetupPage"));
 
 /** Renders the initial page without clearing the startup shell to an empty Suspense fallback. */
 const InitialPage: React.FC = () => {
+  // LoadingPage hands off the original animated HTML shell only after the real
+  // Android installer has committed, not when its lazy fallback commits.
+  if (__WITH_ANDROID__) return <LoadingPage />;
   if (__WITH_TAURI__ && !__WITH_ANDROID__ && !__WITH_WEBUI__) {
     return (
       <StartupShellHandoff>
@@ -130,6 +150,8 @@ const WrappedApp: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [hasReadyOnce, setHasReadyOnce] = useState(false);
   const [hideLoading, setHideLoading] = useState(false);
+  const [homePainted, setHomePainted] = useState(false);
+  const markHomePainted = useCallback(() => setHomePainted(true), []);
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const enableBAComet = useUISetting((settings) => settings.enableBAComet);
 
@@ -140,10 +162,9 @@ const WrappedApp: React.FC = () => {
   }, [ready]);
 
   useEffect(() => {
-    if (__WITH_ANDROID__ && !ready) return;
     void loadMainLayout();
     void loadHomePage();
-  }, [ready]);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("low-performance-mode", lowPerformanceMode);
@@ -153,19 +174,19 @@ const WrappedApp: React.FC = () => {
   }, [lowPerformanceMode]);
 
   useEffect(() => {
-    if (lowPerformanceMode && hasReadyOnce) {
+    if (lowPerformanceMode && homePainted) {
       setHideLoading(true);
     }
-  }, [hasReadyOnce, lowPerformanceMode]);
+  }, [homePainted, lowPerformanceMode]);
 
-  const loadingOpacity = hasReadyOnce ? 0 : 1;
+  const loadingOpacity = homePainted ? 0 : 1;
 
   return (
     <>
       {!hideLoading && (
         <div
           onTransitionEnd={(event) => {
-            if (event.currentTarget === event.target && hasReadyOnce) {
+            if (event.currentTarget === event.target && homePainted) {
               setHideLoading(true);
             }
           }}
@@ -175,7 +196,7 @@ const WrappedApp: React.FC = () => {
             transition: lowPerformanceMode ? "none" : "opacity 200ms ease-out",
           }}
         >
-          <Suspense fallback={<></>}>
+          <Suspense fallback={null}>
             <InitialPage />
           </Suspense>
         </div>
@@ -191,7 +212,7 @@ const WrappedApp: React.FC = () => {
                 <GlobalAppearanceEffects />
                 {__WITH_TAURI__ && <TauriServiceNotifier />}
                 {__WITH_TAURI__ && !__WITH_ANDROID__ && <TauriScriptNotifier />}
-                <Main />
+                <Main onReady={markHomePainted} />
                 <ConfigArchiveDropOverlay />
                 {__WITH_WEBUI__ && !ready && <ReconnectingOverlay />}
                 <Toaster />

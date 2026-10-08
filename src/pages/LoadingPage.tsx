@@ -5,10 +5,12 @@ import { useTheme } from "@/context/ThemeProvider.tsx";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
+import StartupShellHandoff from "@/components/StartupShellHandoff";
 
 const baseUrl = import.meta.env.BASE_URL;
 const ANDROID_TERMINAL_DELAY_MS = 2_000;
 const AndroidStartupTerminal = React.lazy(() => import("@/components/AndroidStartupTerminal"));
+const AndroidInstallStepper = React.lazy(() => import("@/android/components/AndroidInstallStepper"));
 const PasswordInputModal = React.lazy(() => import("@/components/PasswordInputModal.tsx"));
 
 interface LoadingPageProps {
@@ -88,7 +90,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
 
   useEffect(() => {
     if (authPhase === "idle" || authPhase === "revoked") {
-      const delay = __WITH_ANDROID__ ? 400 : 0;
+      const delay = 0;
       const timer = setTimeout(() => {
         void startAuthFlow();
       }, delay);
@@ -142,6 +144,8 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
           : authPhase === "authenticating"
             ? "Authenticating session..."
             : message;
+
+  if (__WITH_ANDROID__) return <React.Suspense fallback={null}><StartupShellHandoff><AndroidInstallStepper text={androidStartupLogChunk} theme={theme} /></StartupShellHandoff></React.Suspense>;
 
   return (
     <>

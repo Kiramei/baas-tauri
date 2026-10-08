@@ -254,6 +254,7 @@ const resetConnectionStores = (): Partial<WebSocketState> => ({
   pendingBinaryCallbacks: {},
   pendingBinaryQueue: [],
   _all_data_initialized: false,
+  _android_ui_ready: false,
   _heartbeat_time: 0,
   _initiating: false,
 });
@@ -584,6 +585,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     pendingBinaryQueue: [],
 
     _all_data_initialized: false,
+    _android_ui_ready: false,
     _heartbeat_time: 0,
     _initiating: false,
     _auth_phase: "idle",
@@ -1419,7 +1421,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     init: async () => {
-      if (get()._initiating || get()._all_data_initialized) return;
+      if (get()._initiating || get()._all_data_initialized || (__WITH_ANDROID__ && get()._android_ui_ready)) return;
       if (get()._auth_phase !== "authenticated") return;
 
       set((state) => ({ ...state, _initiating: true }));
@@ -1544,7 +1546,8 @@ export const useWebSocketStore = create<WebSocketState>()(
           startBackendUpdaterPolling();
         }
 
-        await waitFor(
+        if (__WITH_ANDROID__) set({ _android_ui_ready: true });
+        if (!__WITH_ANDROID__) await waitFor(
           get,
           api.subscribe,
           (state: WebSocketState) => state._all_data_initialized,

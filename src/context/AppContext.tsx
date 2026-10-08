@@ -23,6 +23,7 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   const init = useWebSocketStore((s) => s.init);
   const authPhase = useWebSocketStore((s) => s._auth_phase);
   const allDataInitialized = useWebSocketStore((s) => s._all_data_initialized);
+  const androidUiReady = useWebSocketStore((s) => s._android_ui_ready);
   const initiating = useWebSocketStore((s) => s._initiating);
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
@@ -68,9 +69,9 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
 
   useEffect(() => {
     setReady(
-      authPhase === "authenticated" && allDataInitialized && activeProfile !== null && !initiating
+      authPhase === "authenticated" && (__WITH_ANDROID__ ? androidUiReady : allDataInitialized) && activeProfile !== null && !initiating
     );
-  }, [authPhase, allDataInitialized, setReady, activeProfile, initiating]);
+  }, [authPhase, allDataInitialized, androidUiReady, setReady, activeProfile, initiating]);
 
   useEffect(() => {
     if (!__WITH_ANDROID__ || authPhase !== "authenticated" || !activeProfile?.id) return;

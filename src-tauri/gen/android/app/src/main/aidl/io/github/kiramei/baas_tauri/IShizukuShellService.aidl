@@ -21,5 +21,6 @@ interface IShizukuShellService {
     String currentPackage() = 15;
     boolean keyEvent(int keyCode) = 16;
     void reconnectNativeEndpoint() = 17;
+    boolean pinch(boolean inward, int percent, int durationMs) = 18;
     void destroy() = 16777114;
 }

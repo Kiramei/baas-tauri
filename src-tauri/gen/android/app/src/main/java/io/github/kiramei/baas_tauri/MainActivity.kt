@@ -15,7 +15,18 @@ class MainActivity : TauriActivity() {
   private var foregroundServiceStartScheduled = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
     super.onCreate(savedInstanceState)
+    android.util.Log.i("BAASStartup", "activity_created uptime=${android.os.SystemClock.uptimeMillis()}")
+    // Only the dedicated :baas_backend service process owns Python and its ports.
+    // Activity recreation and WebView reloads must reconnect, never bootstrap here.
+    var drawn = false
+    window.decorView.viewTreeObserver.addOnDrawListener {
+      if (!drawn) {
+        drawn = true
+        android.util.Log.i("BAASStartup", "first_draw uptime=${android.os.SystemClock.uptimeMillis()}")
+      }
+    }
     ShizukuController.initialize(applicationContext)
     BaasLocalDeviceServer.start(applicationContext)
     requestNotificationPermissionIfNeeded()
@@ -30,6 +41,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    android.util.Log.i("BAASStartup", "webview_created uptime=${android.os.SystemClock.uptimeMillis()}")
     super.onWebViewCreate(webView)
     webView.setBackgroundColor(Color.rgb(15, 23, 42))
     webView.settings.setSupportZoom(false)

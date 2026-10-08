@@ -181,6 +181,7 @@ interface WebSocketState {
   _all_data_initialized: boolean;
   _heartbeat_time: number;
   _initiating: boolean;
+  _android_ui_ready: boolean;
   _auth_phase: AuthPhase;
   _auth_error: string | null;
   _server_initialized: boolean;

@@ -2129,6 +2129,10 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
         "portable": true,
         "baasRootExistsNonEmpty": root.join("main.service.py").exists(),
         "platformUnsupported": false,
+        "bootstrap": fs::read_to_string(root.join("android-bootstrap-status.json"))
+            .ok().and_then(|text| serde_json::from_str::<Value>(&text).ok()),
+        "startupLog": app.path().app_cache_dir().ok()
+            .and_then(|path| fs::read_to_string(path.join("android-startup.log")).ok()).unwrap_or_default(),
         "message": ANDROID_BACKEND_MESSAGE
     }))
 }
@@ -2872,9 +2876,7 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    Ok(PathBuf::from(format!(
-        "/storage/emulated/0/Android/data/{ANDROID_PACKAGE_NAME}"
-    )))
+    Ok(app_data_dir.join("files").join("baas"))
 }
 
 /// Handles the android update platform workflow.

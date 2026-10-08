@@ -1,4 +1,6 @@
 import json
+import hashlib
+import types
 import os
 import shutil
 import sys
@@ -89,6 +91,30 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         storage_root = Path(storage_root_or_port)
     root = storage_root
     root.mkdir(parents=True, exist_ok=True)
+    startup_log_path = Path(files_dir).parent / "cache" / "android-startup.log"
+    startup_log_path.parent.mkdir(parents=True, exist_ok=True)
+    startup_log = startup_log_path.open("w", encoding="utf-8", buffering=1)
+
+    class StartupOutput:
+        def __init__(self, original):
+            self.original = original
+
+        def write(self, text):
+            if startup_log.tell() > 1_048_576:
+                startup_log.seek(0)
+                startup_log.truncate()
+            startup_log.write(text)
+            return self.original.write(text)
+
+        def flush(self):
+            startup_log.flush()
+            self.original.flush()
+
+        def __getattr__(self, name):
+            return getattr(self.original, name)
+
+    sys.stdout = StartupOutput(sys.stdout)
+    sys.stderr = StartupOutput(sys.stderr)
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
 
@@ -104,24 +130,33 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     }
 
     try:
+        status["stage"] = "runtime"
+        status["installMessage"] = "Checking embedded runtime and backend files."
+        _write_status(root, status)
+        print("[runtime] Checking embedded Python and backend installation", flush=True)
         installed = _ensure_backend_files(root, status)
         status["backendInstalled"] = True
         status["installedThisRun"] = installed
         status["ok"] = True
         _write_status(root, status)
+        status["stage"] = "service"
+        status["installMessage"] = "Starting local backend service."
+        _write_status(root, status)
+        print("[service] Starting local backend service", flush=True)
         _activate_bundled_service_transport(root)
         _run_baas_service(root, port)
         return
     except Exception as error:
         status.update(
             {
+                "stage": "failed",
                 "backendInstalled": _service_path(root).exists(),
                 "error": str(error),
                 "traceback": traceback.format_exc(),
                 "message": (
                     "Embedded Python 3.9 is running, but the bundled BAAS service "
                     "backend could not be started. Android does not use uv; the "
-                    "backend source is installed at runtime under Android/data. "
+                    "backend source is installed in the app's private files directory. "
                     "The first missing Android-compatible dependency is reported here."
                 ),
             }
@@ -337,13 +372,26 @@ def _download_backend_archive(target_root, channel):
     owner = repo["owner"]
     name = repo["repo"]
     branch = repo["branch"]
+    print(f"[runtime] Resolving backend revision: {owner}/{name}@{branch}", flush=True)
     remote_sha = _get_github_branch_sha(owner, name, branch)
     archive_url = f"https://codeload.github.com/{owner}/{name}/zip/refs/heads/{branch}"
     target_root.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
         archive_path = Path(tmp_dir) / "repo.zip"
+        print(f"[runtime] GET {archive_url}", flush=True)
         with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
-            shutil.copyfileobj(response, output)
+            downloaded = 0
+            last_report = time.monotonic()
+            while True:
+                chunk = response.read(256 * 1024)
+                if not chunk:
+                    break
+                output.write(chunk)
+                downloaded += len(chunk)
+                if time.monotonic() - last_report >= 1:
+                    print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
+                    last_report = time.monotonic()
+        print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
         with zipfile.ZipFile(archive_path) as archive:
             archive.extractall(tmp_dir)
         candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
@@ -434,7 +482,19 @@ def _write_installed_backend_sha(setup_path, sha, channel):
 
 # Handles the ensure android support files workflow.
 def _ensure_android_support_files(root):
+    fingerprint = _android_support_fingerprint(root)
+    cache = root / ".android-support-cache.json"
+    try:
+        if json.loads(cache.read_text(encoding="utf-8")) == fingerprint:
+            print("[runtime] Android adapters unchanged; reusing installed files and Python cache", flush=True)
+            return
+    except (OSError, ValueError):
+        pass
     _apply_bundled_android_overlay(root)
+    _patch_android_ocr_module_injection(root)
+    _reuse_android_ocr_prebuild(root)
+    _patch_android_ocr_session_readiness(root)
+    _patch_android_cafe_swipe_timing(root)
     _patch_scrcpy_virtual_display(root)
     _patch_android_scrcpy_mediacodec(root)
     _patch_android_scrcpy_config_manager(root)
@@ -451,6 +511,120 @@ def _ensure_android_support_files(root):
     _write_psutil_stub(root)
     _write_desktop_only_stub(root, "pyautogui")
     _write_desktop_only_stub(root, "mss")
+    cache.write_text(json.dumps(_android_support_fingerprint(root)), encoding="utf-8")
+
+
+def _android_support_fingerprint(root):
+    """Invalidate on APK adapter changes, missing files, or external source edits."""
+    # Chaquopy's __file__ is an APK asset path, not an ordinary filesystem path.
+    def stable_code(value):
+        if isinstance(value, types.CodeType):
+            return [value.co_code.hex(), value.co_names, value.co_varnames, value.co_freevars,
+                    value.co_cellvars, value.co_flags, stable_code(value.co_consts)]
+        if isinstance(value, bytes):
+            return {"bytes": value.hex()}
+        if isinstance(value, (tuple, list)):
+            return [stable_code(item) for item in value]
+        if isinstance(value, frozenset):
+            return sorted((stable_code(item) for item in value), key=lambda item: json.dumps(item, sort_keys=True))
+        if value is Ellipsis:
+            return {"ellipsis": True}
+        return value
+    source = hashlib.sha256(json.dumps(stable_code(__loader__.get_code(__name__)), sort_keys=True).encode()).hexdigest()
+    archive_path = _bundled_backend_archive()
+    archive_entries = []
+    if archive_path.exists():
+        with zipfile.ZipFile(archive_path) as archive:
+            archive_entries = [[item.filename, item.CRC, item.file_size] for item in archive.infolist()]
+    files = sorted(root.glob("*.py"))
+    for folder in ("core", "module", "service", "uiautomator2", "psutil", "cv2"):
+        files.extend(sorted((root / folder).rglob("*.py")))
+    return {"adapter": source, "archive": archive_entries,
+            "files": [[str(path.relative_to(root)), path.stat().st_size, path.stat().st_mtime_ns] for path in files]}
+
+
+def _patch_android_cafe_swipe_timing(root):
+    _replace_once(
+        root / "service" / "injection.py", "BAAS_ANDROID_CAFE_SWIPE_TIMING_V1",
+        "        self.u2_swipe(131, 660, 1280, 660, duration=0.3)\n",
+        "        # BAAS_ANDROID_CAFE_SWIPE_TIMING_V1\n"
+        "        # Keep the gift held while the configured delayed screenshot is captured.\n"
+        "        self.u2_swipe(131, 660, 1280, 660, duration=max(0.5, shot_delay + 0.4))\n",
+    )
+
+
+def _patch_android_ocr_session_readiness(root):
+    runtime = root / "service" / "runtime.py"
+    _replace_once(
+        runtime, "BAAS_ANDROID_OCR_READINESS_V1",
+        "    def _ensure_config(self) -> None:\n",
+        "    # BAAS_ANDROID_OCR_READINESS_V1\n"
+        "    async def _ensure_android_ocr_ready(self):\n"
+        "        if not _is_android_runtime():\n"
+        "            return\n"
+        "        for _ in range(600):\n"
+        "            if self.is_all_data_initialized:\n"
+        "                break\n"
+        "            await asyncio.sleep(0.1)\n"
+        "        if not self.is_all_data_initialized or self._main.ocr is None:\n"
+        "            raise RuntimeError('Android OCR initialization failed; check the global OCR log before starting tasks')\n"
+        "        for session in list(self._sessions.values()):\n"
+        "            session.baas.set_ocr(self._main.ocr)\n\n"
+        "    def _ensure_config(self) -> None:\n",
+    )
+    _replace_once(
+        runtime, "BAAS_ANDROID_OCR_SCHEDULER_READY_V1",
+        "        async with self._async_lock():\n"
+        "            session = self._get_or_create_session(config_id)\n",
+        "        # BAAS_ANDROID_OCR_SCHEDULER_READY_V1\n"
+        "        await self._ensure_android_ocr_ready()\n"
+        "        async with self._async_lock():\n"
+        "            session = self._get_or_create_session(config_id)\n",
+    )
+    _replace_once(
+        runtime, "BAAS_ANDROID_OCR_SOLVER_READY_V1",
+        "        if task_name in _TASK_ALIAS:\n",
+        "        # BAAS_ANDROID_OCR_SOLVER_READY_V1\n"
+        "        await self._ensure_android_ocr_ready()\n"
+        "        _original_task_name = task_name\n"
+        "        if task_name in _TASK_ALIAS:\n",
+    )
+
+
+def _reuse_android_ocr_prebuild(root):
+    """Reuse complete downloads made by the formerly unaliased installer."""
+    legacy_root = root / "core" / "ocr" / "baas_ocr_client" / "bin-android"
+    for branch, abi in (("android-arm64-v8a", "arm64-v8a"), ("android-x86_64", "x86_64")):
+        source = legacy_root / branch
+        target = root / "service" / "bin-android" / branch
+        binary = Path("lib") / abi / "libBAAS_ocr_server.so"
+        if (target / binary).is_file():
+            continue
+        if not (source / binary).is_file() or not (source / ".baas-ocr-prebuild-sha").is_file():
+            continue
+        shutil.copytree(source, target, dirs_exist_ok=True)
+
+
+def _patch_android_ocr_module_injection(root):
+    """Keep the Android OCR client and installer on the same runtime path.
+
+    The backend's Android injection used to replace only ``Client``. Its
+    ``server_installer`` import therefore resolved to the desktop module under
+    ``core/ocr``, while the Android client looked for the downloaded native
+    library under ``service/bin-android``. Registering both Android modules
+    prevents the installer and loader from silently using different folders.
+    """
+    injection = root / "service" / "injection.py"
+    _replace_once(
+        injection,
+        "BAAS_ANDROID_OCR_INSTALLER_INJECTION_V1",
+        "    from service import android_ocr_client\n\n"
+        "    sys.modules[\"core.ocr.baas_ocr_client.Client\"] = android_ocr_client\n",
+        "    # BAAS_ANDROID_OCR_INSTALLER_INJECTION_V1\n"
+        "    from service import android_ocr_client, android_ocr_installer\n\n"
+        "    sys.modules[\"core.ocr.baas_ocr_client.Client\"] = android_ocr_client\n"
+        "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
+    )
 
 
 # Applies Android-specific backend files from the APK bundle over a git-updated
@@ -506,7 +680,10 @@ def _apply_bundled_android_overlay(root):
                 target = root / relative_name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with archive.open(relative_name) as source:
-                    target.write_bytes(source.read())
+                    content = source.read()
+                if target.exists() and target.read_bytes() == content:
+                    continue
+                target.write_bytes(content)
                 if target.suffix == ".py":
                     pycache = target.parent / "__pycache__"
                     if pycache.exists():
@@ -525,7 +702,6 @@ def _activate_bundled_service_transport(root):
     overlay_root = Path(files_dir) / "backend-service-overlay"
     try:
         if archive_path.exists():
-            shutil.rmtree(overlay_root, ignore_errors=True)
             with zipfile.ZipFile(archive_path) as archive:
                 names = set(archive.namelist())
                 for relative_name in SERVICE_TRANSPORT_OVERLAY_FILES:
@@ -534,7 +710,9 @@ def _activate_bundled_service_transport(root):
                     target = overlay_root / relative_name
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(relative_name) as source:
-                        target.write_bytes(source.read())
+                        content = source.read()
+                    if not target.exists() or target.read_bytes() != content:
+                        target.write_bytes(content)
         else:
             missing = [
                 relative_name
@@ -542,6 +720,9 @@ def _activate_bundled_service_transport(root):
                 if not (overlay_root / relative_name).exists()
             ]
             if missing:
+                if (root / "service/app.py").exists():
+                    # Lightweight APKs download the service instead of bundling it.
+                    return
                 raise RuntimeError(
                     f"Bundled backend archive is unavailable and overlay is incomplete: {missing[0]}"
                 )
@@ -550,13 +731,13 @@ def _activate_bundled_service_transport(root):
             overlay_package = overlay_root / package_path
             external_package = root / package_path
             external_init = external_package / "__init__.py"
-            (overlay_package / "__init__.py").write_text(
-                f"__path__ = [{str(overlay_package)!r}, {str(external_package)!r}]\n"
+            init_content = (f"__path__ = [{str(overlay_package)!r}, {str(external_package)!r}]\n"
                 f"_external_init = {str(external_init)!r}\n"
                 "with open(_external_init, 'rb') as _source:\n"
-                "    exec(compile(_source.read(), _external_init, 'exec'), globals(), globals())\n",
-                encoding="utf-8",
-            )
+                "    exec(compile(_source.read(), _external_init, 'exec'), globals(), globals())\n")
+            init_path = overlay_package / "__init__.py"
+            if not init_path.exists() or init_path.read_text(encoding="utf-8") != init_content:
+                init_path.write_text(init_content, encoding="utf-8")
         os.environ["BAAS_SERVICE_OVERLAY_ROOT"] = str(overlay_root)
     except Exception as exc:
         print(f"Android service transport overlay failed: {exc}", flush=True)
@@ -2613,9 +2794,9 @@ def _write_uiautomator2_stub(root):
         "    def long_click(self, x, y, duration=0.5):\n"
         "        return self.swipe(x, y, x, y, duration=duration)\n\n"
         "    def pinch_in(self, percent=50, steps=30):\n"
-        "        return True\n\n"
+        "        return self._jsonrpc('pinchIn', [int(percent), int(steps)])\n\n"
         "    def pinch_out(self, percent=50, steps=30):\n"
-        "        return True\n\n"
+        "        return self._jsonrpc('pinchOut', [int(percent), int(steps)])\n\n"
         "    def _launcher_component(self, package_name):\n"
         "        output, exit_code = self.shell(['cmd', 'package', 'resolve-activity', '--brief', '--user', '0', '-c', 'android.intent.category.LAUNCHER', package_name], timeout=10)\n"
         "        if exit_code != 0:\n"

@@ -43,6 +43,14 @@ object PrivilegedDisplayMain {
         override fun frameCount(): Long { authorize(); return NativeDisplayCapture.frameCount() }
         override fun previewFrameCount(): Long { authorize(); return NativeDisplayCapture.previewFrameCount() }
         override fun currentPackage(): String { authorize(); return activePackage }
+        override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean {
+          authorize()
+          return DisplayInput.gesture(virtualDisplay?.display?.displayId ?: -1, x1, y1, x2, y2, durationMs)
+        }
+        override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean {
+          authorize()
+          return DisplayInput.pinch(virtualDisplay?.display?.displayId ?: -1, displayWidth, displayHeight, inward, percent, durationMs)
+        }
       }
       publishEndpoint("${args[1]}.native-display", endpoint)
       System.`in`.bufferedReader().forEachLine { line ->

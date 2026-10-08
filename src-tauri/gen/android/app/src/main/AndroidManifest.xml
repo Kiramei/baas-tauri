@@ -22,13 +22,13 @@
     <application
         android:name=".BaasApplication"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${baasAppLabel}"
         android:theme="@style/Theme.baas_tauri"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"
-            android:label="@string/main_activity_title"
+            android:label="${baasAppLabel}"
             android:name=".MainActivity"
             android:screenOrientation="portrait"
             android:exported="true">

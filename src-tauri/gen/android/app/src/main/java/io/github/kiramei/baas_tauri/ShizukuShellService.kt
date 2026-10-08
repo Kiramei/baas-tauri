@@ -178,6 +178,10 @@ class ShizukuShellService : IShizukuShellService.Stub {
     return privileged { DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs) }
   }
 
+  override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = privileged {
+    DisplayInput.pinch(getVirtualDisplayId(), displayWidth, displayHeight, inward, percent, durationMs)
+  }
+
   override fun setPreviewSurface(surface: android.view.Surface?) = privileged {
     check(Process.myUid() != Process.ROOT_UID) { "Root preview uses the system display endpoint" }
     NativeDisplayCapture.load()

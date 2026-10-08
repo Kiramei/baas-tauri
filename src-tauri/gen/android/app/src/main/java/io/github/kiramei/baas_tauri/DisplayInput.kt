@@ -59,4 +59,49 @@ object DisplayInput {
       if (!released) runCatching { send(MotionEvent.ACTION_CANCEL, x2.toFloat(), y2.toFloat(), 0) }
     }
   }
+
+  @Synchronized fun pinch(displayId: Int, width: Int, height: Int, inward: Boolean, percent: Int, durationMs: Int): Boolean {
+    require(displayId >= 0 && width > 0 && height > 0)
+    val downAt = SystemClock.uptimeMillis()
+    val duration = durationMs.coerceIn(1, 10_000)
+    val outer = width * 0.3f
+    val inner = outer * (1f - percent.coerceIn(1, 100) / 100f).coerceAtLeast(0.02f)
+    val start = if (inward) outer else inner
+    val end = if (inward) inner else outer
+    fun send(action: Int, spread: Float, count: Int, mode: Int): Boolean {
+      val properties = Array(count) { index -> MotionEvent.PointerProperties().apply {
+        id = index; toolType = MotionEvent.TOOL_TYPE_FINGER
+      } }
+      val coordinates = Array(count) { index -> MotionEvent.PointerCoords().apply {
+        x = width / 2f + (if (index == 0) -spread else spread)
+        y = height / 2f; pressure = 1f; size = 1f
+      } }
+      val event = MotionEvent.obtain(downAt, SystemClock.uptimeMillis(), action, count,
+        properties, coordinates, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
+      try {
+        setDisplay.invoke(event, displayId)
+        return inject.invoke(manager, event, mode) as Boolean
+      } finally { event.recycle() }
+    }
+    if (!send(MotionEvent.ACTION_DOWN, start, 1, 2)) return false
+    var released = false
+    try {
+      val secondDown = MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+      if (!send(secondDown, start, 2, 2)) return false
+      val started = SystemClock.uptimeMillis()
+      do {
+        val elapsed = (SystemClock.uptimeMillis() - started).coerceAtMost(duration.toLong())
+        val spread = start + (end - start) * elapsed.toFloat() / duration
+        if (!send(MotionEvent.ACTION_MOVE, spread, 2, 0)) return false
+        if (elapsed >= duration) break
+        SystemClock.sleep(8)
+      } while (true)
+      val secondUp = MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+      if (!send(secondUp, end, 2, 0)) return false
+      released = send(MotionEvent.ACTION_UP, end, 1, 0)
+      return released
+    } finally {
+      if (!released) runCatching { send(MotionEvent.ACTION_CANCEL, end, 2, 0) }
+    }
+  }
 }

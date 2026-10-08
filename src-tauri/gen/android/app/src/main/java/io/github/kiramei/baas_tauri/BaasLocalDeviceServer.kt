@@ -202,6 +202,9 @@ object BaasLocalDeviceServer {
           )
         )
         "pressKey" -> executeKey(context, keyCodeFor(params.optString(0)))
+        "pinchIn", "pinchOut" -> requireGesture(
+          ShizukuController.pinch(context, method == "pinchIn", params.optInt(0, 50), (params.optInt(1, 30) * 5).coerceIn(1, 10_000))
+        )
         "pressKeyCode" -> executeKey(context, params.getInt(0))
         "wakeUp" -> executeKey(context, 224)
         "sleep" -> executeKey(context, 223)

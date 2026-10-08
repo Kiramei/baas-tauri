@@ -73,8 +73,19 @@ use tauri::Manager;
 use tauri::{Manager, RunEvent};
 
 /// Performs the run operation.
+#[cfg(target_os = "android")]
+fn android_startup_trace(stage: &str) {
+    #[link(name = "log")]
+    unsafe extern "C" { fn __android_log_write(priority: i32, tag: *const std::ffi::c_char, text: *const std::ffi::c_char) -> i32; }
+    if let Ok(text) = std::ffi::CString::new(stage) {
+        unsafe { __android_log_write(4, c"BAASStartup".as_ptr(), text.as_ptr()); }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "android")]
+    android_startup_trace("rust_entry");
     install_panic_logging();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
@@ -175,7 +186,13 @@ pub fn run() {
         .expect("error while building tauri application");
 
     #[cfg(mobile)]
-    let builder = builder
+    let builder = {
+        #[cfg(target_os = "android")]
+        android_startup_trace("context_start");
+        let context = tauri::generate_context!();
+        #[cfg(target_os = "android")]
+        android_startup_trace("context_ready");
+        builder
         .setup(|app| {
             let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
             app.manage(log_state);
@@ -188,8 +205,9 @@ pub fn run() {
             system_log("INFO", "lifecycle", "Mobile setup completed");
             Ok(())
         })
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .build(context)
+        .expect("error while building tauri application")
+    };
 
     #[cfg(not(mobile))]
     builder.run(|app, event| match event {

@@ -6,18 +6,13 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.os.Handler
 import android.util.Log
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
-import android.provider.Settings
-import androidx.core.content.FileProvider
 import rikka.shizuku.Shizuku
-import java.io.File
-import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,7 +27,6 @@ data class ShizukuState(
 /** Owns Shizuku permission state and the shell-identity user-service connection. */
 object ShizukuController {
   private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
-  private const val SHIZUKU_APK_SHA256 = "6e273ab0e991c4e79bc8b1bbb9b9dd739ccac1a8712a541a214078886b7b790f"
   private const val PERMISSION_REQUEST_CODE = 7319
   private val lock = Any()
   private val initialized = AtomicBoolean(false)
@@ -54,8 +48,8 @@ object ShizukuController {
       // Bump both values whenever the persistent user-service implementation changes.
       // Shizuku may otherwise reconnect to the pre-update process and keep the old
       // capture Surface alive even after the application APK has been replaced.
-      .tag("baas-game-service-v32")
-      .version(32)
+      .tag("baas-game-service-v33")
+      .version(33)
   }
 
   fun initialize(context: Context) {
@@ -89,7 +83,7 @@ object ShizukuController {
   fun requestPermission(context: Context) {
     val state = state(context)
     when {
-      !state.installed -> installBundledShizuku(context)
+      !state.installed -> openShizukuDownload(context)
       !state.running -> openShizuku(context)
       !state.granted -> {
         if (Shizuku.isPreV11()) throw IllegalStateException("Shizuku 11 or newer is required")
@@ -230,7 +224,19 @@ object ShizukuController {
     y2: Int,
     durationMs: Int,
   ): Boolean {
+    // Cafe automation captures a frame halfway through a swipe. Binder input
+    // must not hold the command pipe used by screenshots for the whole gesture.
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      return nativeEndpoint(context).gesture(x1, y1, x2, y2, durationMs)
+    }
     return callService(context) { it.gesture(x1, y1, x2, y2, durationMs) }
+  }
+
+  fun pinch(context: Context, inward: Boolean, percent: Int, durationMs: Int): Boolean {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      return nativeEndpoint(context).pinch(inward, percent, durationMs)
+    }
+    return callService(context) { it.pinch(inward, percent, durationMs) }
   }
 
   fun openShizuku(context: Context) {
@@ -240,42 +246,14 @@ object ShizukuController {
       context.startActivity(launch)
       return
     }
-    installBundledShizuku(context)
+    openShizukuDownload(context)
   }
 
-  /** Copies the pinned official Shizuku APK from this APK and opens Android's installer. */
-  private fun installBundledShizuku(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-      context.startActivity(
-        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
-          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      )
-      return
-    }
-
-    val apk = File(context.cacheDir, "bundled-shizuku-v13.6.0.apk")
-    context.resources.openRawResource(R.raw.shizuku).use { input ->
-      apk.outputStream().use { output -> input.copyTo(output) }
-    }
-    val digest = MessageDigest.getInstance("SHA-256")
-      .digest(apk.readBytes())
-      .joinToString("") { "%02x".format(it) }
-    if (digest != SHIZUKU_APK_SHA256) {
-      apk.delete()
-      throw SecurityException("The bundled Shizuku installer failed integrity verification")
-    }
-
-    val packageInfo = context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
-    if (packageInfo?.packageName != SHIZUKU_PACKAGE) {
-      apk.delete()
-      throw SecurityException("The bundled installer is not the expected Shizuku package")
-    }
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
+  /** Shizuku is an external prerequisite, never an installer bundled into BAAS. */
+  private fun openShizukuDownload(context: Context) {
     context.startActivity(
-      Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, "application/vnd.android.package-archive")
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-      }
+      Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/zh-hans/download/"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
   }
 
