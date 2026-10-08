@@ -96,6 +96,7 @@
       "title": "系统日志"
     },
     "ui": {
+      "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
       "$self": "UI-Einstellungen",
       "assets": "Ressourcendetails anzeigen",
       "backgroundImage": "Hintergrundbild",

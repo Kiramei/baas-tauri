@@ -96,6 +96,7 @@
       "title": "系统日志"
     },
     "ui": {
+      "idleAutoUpdate": "유휴 상태에서 스크립트 자동 업데이트",
       "$self": "UI 설정",
       "assets": "자산 세부 정보 표시",
       "backgroundImage": "배경 이미지",

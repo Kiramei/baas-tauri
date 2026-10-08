@@ -1106,6 +1106,15 @@ const SettingsPage: React.FC = () => {
                 }}
               />
             )}
+            {__WITH_TAURI__ && !__WITH_WEBUI__ && (
+              <SwitchButton
+                label={t("settings.ui.idleAutoUpdate")}
+                checked={uiSettings.idleAutoUpdate ?? true}
+                onChange={(value) =>
+                  setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
+                }
+              />
+            )}
           </div>
           <Separator />
           <SystemLogSettings />

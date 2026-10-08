@@ -96,6 +96,7 @@
       "title": "System logs"
     },
     "ui": {
+      "idleAutoUpdate": "Automatically update scripts when idle",
       "$self": "UI Settings",
       "assets": "Display Asset Details",
       "backgroundImage": "Background image",
