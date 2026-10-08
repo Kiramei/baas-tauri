@@ -96,6 +96,7 @@
       "title": "系统日志"
     },
     "ui": {
+      "idleAutoUpdate": "Mettre à jour les scripts au repos",
       "$self": "Paramètres de l'interface",
       "assets": "Afficher les détails des ressources",
       "backgroundImage": "Image d'arriere-plan",

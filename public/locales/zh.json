@@ -96,6 +96,7 @@
       "title": "系统日志"
     },
     "ui": {
+      "idleAutoUpdate": "空闲时自动更新脚本",
       "$self": "界面设置",
       "assets": "显示资产详细信息",
       "backgroundImage": "背景图",

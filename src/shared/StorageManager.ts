@@ -71,6 +71,14 @@ export function dataURLToBlob(dataURL: string): Blob {
 }
 
 class StorageUtilWebUI {
+  static async setDurable(key: string, value: any) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  static async removeDurable(key: string) {
+    localStorage.removeItem(key);
+  }
+
   static async init() {
     // For the browser has actually done the LocalStorage initialization,
     // we don't implement the init function and leave it blank.
@@ -169,6 +177,20 @@ class StorageUtilTauri {
   private static store: Store | null = null;
   private static cache: Record<string, any> = {};
   private static initialized = false;
+
+  static async setDurable(key: string, value: any) {
+    if (!this.initialized || !this.store) throw new Error("Storage is not initialized");
+    await this.store.set(key, value);
+    await this.store.save();
+    this.cache[key] = value;
+  }
+
+  static async removeDurable(key: string) {
+    if (!this.initialized || !this.store) throw new Error("Storage is not initialized");
+    await this.store.delete(key);
+    await this.store.save();
+    delete this.cache[key];
+  }
 
   static async init() {
     if (this.initialized) return;

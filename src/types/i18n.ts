@@ -82,6 +82,7 @@ export type TranslationKey =
   | "settings.ui.backgroundImageTooLarge"
   | "settings.ui.enableBAComet"
   | "settings.ui.enableSafeStream"
+  | "settings.ui.idleAutoUpdate"
   | "settings.ui.enableSystemNotifications"
   | "settings.ui.lowPerformanceMode"
   | "settings.ui.player"

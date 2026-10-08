@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { isTauriNoUpdateEnabled, useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import IdleBackendUpdater from "@/components/IdleBackendUpdater";
 
 interface TauriSelfUpdateContextType {
   updating: boolean;
@@ -114,7 +115,10 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   );
 
   return (
-    <TauriSelfUpdateContext.Provider value={value}>{children}</TauriSelfUpdateContext.Provider>
+    <TauriSelfUpdateContext.Provider value={value}>
+      <IdleBackendUpdater clientUpdating={updating} />
+      {children}
+    </TauriSelfUpdateContext.Provider>
   );
 };
 
