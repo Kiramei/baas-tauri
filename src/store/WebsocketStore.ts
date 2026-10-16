@@ -254,6 +254,8 @@ const checkAndroidClientUpdate = async (currentVersion?: string) => {
 const resetConnectionStores = (): Partial<WebSocketState> => ({
   _receivedSnapshots: {},
   connections: {},
+  // Runtime sessions belong to the connected backend, unlike saved configs/logs.
+  statusStore: {},
   pendingCallbacks: {},
   pendingStreamCallbacks: {},
   pendingBinaryCallbacks: {},
@@ -1179,7 +1181,9 @@ export const useWebSocketStore = create<WebSocketState>()(
               }));
             } else {
               const firstKey = Object.keys(data)[0];
-              if (typeof data[firstKey] === "object" && "config_id" in data[firstKey]) {
+              if (!firstKey) {
+                set({ statusStore: {} });
+              } else if (isPlainObject(data[firstKey]) && "config_id" in data[firstKey]) {
                 set((state) => {
                   const statusStore = { ...state.statusStore };
                   Object.keys(data).forEach((key) => {
@@ -1190,11 +1194,14 @@ export const useWebSocketStore = create<WebSocketState>()(
                   });
                   return { statusStore };
                 });
-              } else {
+              } else if (typeof data.config_id === "string" && isPlainObject(data.status)) {
                 set((state) => ({
                   statusStore: {
                     ...state.statusStore,
-                    [(data as StatusItem).config_id!]: (data as WrappedStatusItem).status,
+                    [data.config_id]: {
+                      ...(state.statusStore[data.config_id] ?? {}),
+                      ...(data as WrappedStatusItem).status,
+                    },
                   },
                 }));
               }
@@ -1340,6 +1347,11 @@ export const useWebSocketStore = create<WebSocketState>()(
         };
         pendingLogBatches.add(logBatch);
         try {
+          // A restarted backend may publish no sessions. Register the in-flight
+          // open before notifying subscribers, and never clear a newer generation.
+          if (name === "provider" && connectionGeneration === transportGeneration) {
+            set({ statusStore: {} });
+          }
           await ws.connect((message: any) => {
             if (connectionGeneration !== transportGeneration) return;
             if (message instanceof ArrayBuffer) {
@@ -1683,7 +1695,29 @@ export const useWebSocketStore = create<WebSocketState>()(
 
     trigger: (payload, callback) => {
       const timestamp = payload.timestamp || Date.now();
-      if (callback) {
+      const stopConfigId = payload.command === "stop_scheduler" ? payload.config_id : undefined;
+      if (stopConfigId) {
+        const statusAtRequest = get().statusStore[stopConfigId];
+        get().pendingCallbacks[timestamp] = (response) => {
+          if (
+            statusAtRequest &&
+            response?.command === "stop_scheduler" &&
+            response.status === "ok" &&
+            response.data?.status === "unknown-config" &&
+            response.data.config_id === stopConfigId
+          ) {
+            // Older backends omit a stopped update for unknown sessions. A newer
+            // provider update may precede this ACK on its separate channel.
+            set((state) => {
+              if (state.statusStore[stopConfigId] !== statusAtRequest) return state;
+              const statusStore = { ...state.statusStore };
+              delete statusStore[stopConfigId];
+              return { statusStore };
+            });
+          }
+          callback?.(response);
+        };
+      } else if (callback) {
         get().pendingCallbacks[timestamp] = callback;
       }
       const normalizedPayload = {
