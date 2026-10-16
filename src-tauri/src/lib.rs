@@ -5,6 +5,10 @@
 
 #[cfg(target_os = "android")]
 mod android_backend_service;
+#[cfg(target_os = "android")]
+mod android_h264_decoder;
+#[cfg(target_os = "android")]
+mod android_hardware_buffer;
 mod behavior;
 #[cfg(not(mobile))]
 mod commands;
@@ -12,7 +16,14 @@ mod commands;
 mod mobile_commands;
 mod notifier_commands;
 mod pipe_commands;
+mod shm_commands;
+#[cfg(windows)]
+mod shm_native;
+#[cfg(windows)]
+mod shm_protocol;
 mod system_logs;
+#[cfg(windows)]
+mod window_material;
 
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
@@ -35,6 +46,10 @@ use crate::notifier_commands::baas_notify;
 use crate::pipe_commands::{
     backend_pipe_close, backend_pipe_close_all, backend_pipe_open, backend_pipe_send_bytes,
     backend_pipe_send_json, BackendPipeManager,
+};
+use crate::shm_commands::{
+    backend_shm_close, backend_shm_close_all, backend_shm_open, backend_shm_send_bytes,
+    backend_shm_send_json, BackendShmManager,
 };
 use crate::system_logs::{
     initialize_system_logs, install_panic_logging, system_log, system_logs_clear,
@@ -98,6 +113,11 @@ pub fn run() {
             backend_pipe_send_bytes,
             backend_pipe_close,
             backend_pipe_close_all,
+            backend_shm_open,
+            backend_shm_send_json,
+            backend_shm_send_bytes,
+            backend_shm_close,
+            backend_shm_close_all,
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term,
@@ -136,6 +156,8 @@ pub fn run() {
             let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
             app.manage(log_state);
             system_log("INFO", "lifecycle", "Desktop setup started");
+            #[cfg(windows)]
+            window_material::initialize(app.handle());
             configure_portable_working_dir().map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
             install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
@@ -147,6 +169,7 @@ pub fn run() {
             let config_manager =
                 ensure_default_config(app.handle()).map_err(std::io::Error::other)?;
             app.manage(BackendPipeManager::default());
+            app.manage(BackendShmManager::default());
             app.manage(UpdaterTermManager::default());
             let backend = BackendProcessManager::default();
             let _ = backend.stop_for_config(&config_manager.config);
@@ -166,10 +189,11 @@ pub fn run() {
             let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
             app.manage(log_state);
             system_log("INFO", "lifecycle", "Mobile setup started");
-            app.manage(BehaviorState::default());
+            app.manage(BehaviorState);
             #[cfg(target_os = "android")]
             app.manage(AndroidUpdaterTermManager::default());
             app.manage(BackendPipeManager::default());
+            app.manage(BackendShmManager::default());
             disable_f5_press_event(app);
             system_log("INFO", "lifecycle", "Mobile setup completed");
             Ok(())
@@ -191,6 +215,8 @@ pub fn run() {
             let _ = backend.stop_all();
             let pipe = app.state::<BackendPipeManager>();
             let _ = pipe.close_all();
+            let shm = app.state::<BackendShmManager>();
+            let _ = shm.close_all();
         }
         _ => {}
     });

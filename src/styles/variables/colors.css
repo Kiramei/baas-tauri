@@ -1,15 +1,26 @@
 @theme {
-  /* Primary (cyan-green) */
-  --color-primary-50: #ecfeff;
-  --color-primary-100: #cffafe;
-  --color-primary-200: #67e8f9;
-  --color-primary-300: #22d3ee;
-  --color-primary-400: #06b6d4;
-  --color-primary-500: #0891b2;
-  --color-primary-600: #0891b2;
-  --color-primary-700: #155e75;
-  --color-primary-800: #164e63;
-  --color-primary-900: #164e63;
+  /* Neutral UI palette. Functional status colors remain separate below. */
+  --color-primary-50: #f9f9f9;
+  --color-primary-100: #ededed;
+  --color-primary-200: #dfdfdf;
+  --color-primary-300: #b9b9b9;
+  --color-primary-400: #9f9f9f;
+  --color-primary-500: #767676;
+  --color-primary-600: #5d5d5d;
+  --color-primary-700: #414141;
+  --color-primary-800: #303030;
+  --color-primary-900: #212121;
+  --color-slate-50: #f9f9f9;
+  --color-slate-100: #ededed;
+  --color-slate-200: #dfdfdf;
+  --color-slate-300: #b9b9b9;
+  --color-slate-400: #9f9f9f;
+  --color-slate-500: #767676;
+  --color-slate-600: #5d5d5d;
+  --color-slate-700: #414141;
+  --color-slate-800: #282828;
+  --color-slate-900: #181818;
+  --color-slate-950: #101010;
 
   /* Secondary (purple) */
   --color-secondary-50: #f6f5ff;
@@ -71,24 +82,19 @@
   --color-red-800: #9c294a;
   --color-red-900: #7f2440;
 
-  /* Gray (milky gray) */
-  --color-gray-50: #f8fafb;
-  --color-gray-100: #f0f2f4;
-  --color-gray-200: #e5e8eb;
-  --color-gray-300: #d4d9de;
-  --color-gray-400: #b3bac2;
-  --color-gray-500: #8f98a3;
-  --color-gray-600: #717a86;
-  --color-gray-700: #5b646f;
-  --color-gray-800: #4a535c;
-  --color-gray-900: #3e464e;
-}
-
-:root {
-  --selection-background: #0891b2;
+  --color-gray-50: #f9f9f9;
+  --color-gray-100: #ededed;
+  --color-gray-200: #dfdfdf;
+  --color-gray-300: #b9b9b9;
+  --color-gray-400: #9f9f9f;
+  --color-gray-500: #767676;
+  --color-gray-600: #5d5d5d;
+  --color-gray-700: #414141;
+  --color-gray-800: #303030;
+  --color-gray-900: #212121;
 }
 
 ::selection {
-  background: var(--selection-background, #0891b2); /* Preferred selection background color. */
-  color: #ffffff; /* Selected text color. */
+  background: var(--selection-background);
+  color: var(--selection-foreground);
 }

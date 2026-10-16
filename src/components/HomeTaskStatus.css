@@ -1,0 +1,14 @@
+.task-status-row {
+  container: task-status / inline-size;
+}
+
+.task-status-upcoming {
+  display: none;
+}
+
+/* Keep the fixed current task and queue button when the summary is too narrow. */
+@container task-status (min-width: 560px) {
+  .task-status-upcoming {
+    display: flex;
+  }
+}

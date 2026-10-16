@@ -1,3 +1,5 @@
+import { IconTooltip } from "@/components/ui/Tooltip";
+import { SearchInput } from "@/components/ui/SearchInput";
 import React, { useMemo } from "react";
 import { Modal } from "@/components/ui/Modal.tsx";
 import CButton from "@/components/ui/CButton.tsx";
@@ -174,39 +176,42 @@ export default function HotkeyField({
 
         {/* Clear button – visible only when a value is present. */}
         {value && !recording && (
-          <button
-            type="button"
-            className="absolute right-9 p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            onClick={() => onChange("")}
-            title="Clear"
-            aria-label="Clear"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
+          <IconTooltip content="Clear">
+            <button
+              type="button"
+              className="absolute right-9 p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              onClick={() => onChange("")}
+              aria-label="Clear"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+          </IconTooltip>
         )}
 
         {/* Toggle recording state. */}
-        <button
-          type="button"
-          onClick={() => setRecording((r) => !r)}
-          className={`absolute right-1.5 my-0.5 px-2 py-1 rounded-md transition
+        <IconTooltip content={recording ? "Stop recording" : "Record hotkey"}>
+          <button
+            type="button"
+            onClick={() => setRecording((r) => !r)}
+            className={`absolute right-1.5 my-0.5 px-2 py-1 rounded-md transition
                      ${
                        recording
                          ? "bg-primary-600 text-white hover:bg-primary-700"
                          : "text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
                      }`}
-          title={recording ? "Stop recording" : "Record hotkey"}
-          aria-pressed={recording}
-        >
-          {recording ? (
-            <span className="flex items-center gap-1">
-              <RecIcon className="w-3.5 h-3.5" />
-              <span className="text-xs">REC</span>
-            </span>
-          ) : (
-            <KeyboardIcon className="w-4 h-4" />
-          )}
-        </button>
+            aria-label={recording ? "Stop recording" : "Record hotkey"}
+            aria-pressed={recording}
+          >
+            {recording ? (
+              <span className="flex items-center gap-1">
+                <RecIcon className="w-3.5 h-3.5" />
+                <span className="text-xs">REC</span>
+              </span>
+            ) : (
+              <KeyboardIcon className="w-4 h-4" />
+            )}
+          </button>
+        </IconTooltip>
       </div>
 
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
@@ -314,15 +319,10 @@ const HotkeySettingsModal: React.FC<{
         </p>
 
         <div className="mb-2 p-1">
-          <input
-            type="text"
+          <SearchInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("hotkey.search")}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600
-                   px-3 py-2 text-sm bg-white dark:bg-slate-900
-                   text-slate-900 dark:text-slate-100
-                   focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
           />
         </div>
 

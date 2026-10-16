@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "戻る",
+    "close": "閉じる",
+    "collapseSidebar": "サイドバーを閉じる",
+    "expandSidebar": "サイドバーを開く",
+    "forward": "進む",
+    "maximize": "最大化",
+    "minimize": "最小化",
+    "restore": "元に戻す",
+    "windowControls": "ウィンドウ操作"
   },
   "nav": {
     "configuration": "設定",
@@ -12,6 +20,7 @@
     "add": "追加",
     "cancel": "取り消し",
     "choose": "選択",
+    "close": "閉じる",
     "confirm": "確認",
     "create": "作成",
     "delete": "削除",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "ログ",
+    "empty": {
+      "description": "タスクを開始すると、進行状況がここに表示されます。",
+      "title": "実行履歴はまだありません"
+    },
     "export": "ログをエクスポート",
     "scroll": {
       "$self": "自動スクロール",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "次のタスク",
+    "next": "後続タスク",
     "noneQueued": "キューにタスクはありません",
     "noneRunning": "実行中のタスクはありません",
     "overview": "タスク概要",
@@ -65,12 +78,6 @@
       "disconnectedBody": "{{transport}} 接続が切断されました。自動的に再接続しています。",
       "disconnectedTitle": "BAAS サービスが切断されました"
     }
-  },
-  "time": {
-    "daysAgo": "{{count}}日前",
-    "hoursAgo": "{{count}}時間前",
-    "minutesAgo": "{{count}}分前",
-    "secondsAgo": "{{count}}秒前"
   },
   "settings": {
     "feature": "機能設定",
@@ -96,7 +103,6 @@
       "title": "系统日志"
     },
     "ui": {
-      "idleAutoUpdate": "待機中にスクリプトを自動更新",
       "$self": "UI設定",
       "assets": "資産詳細を表示",
       "backgroundImage": "背景画像",
@@ -111,6 +117,7 @@
       "enableBAComet": "BAComet有効",
       "enableSafeStream": "安全ストリーム",
       "enableSystemNotifications": "システム通知を有効化",
+      "idleAutoUpdate": "待機中にスクリプトを自動更新",
       "lowPerformanceMode": "低パフォーマンスモード",
       "player": "プレイヤー",
       "themeColor": "テーマカラー",
@@ -173,6 +180,7 @@
     "import": "プロファイルアーカイブをインポート",
     "importArchive": "プロファイルアーカイブを選択",
     "importFailed": "プロファイルのインポートに失敗しました",
+    "list": "プロファイル",
     "name": "プロファイル名",
     "nameExists": "名前は既に存在します"
   },
@@ -260,15 +268,9 @@
     "subtitle": "BAAS自動化プラットフォーム向けの標準化されたガイドおよび運用マニュアル。",
     "title": "Wikiドキュメント",
     "web": {
-      "detach": "別ウィンドウ",
-      "detachedDescription": "Web Wiki は別ウィンドウで開いています。",
-      "detachedTitle": "Web Wiki を分離",
       "failed": "Web Wikiの読み込みに失敗",
-      "focusDetached": "ウィンドウを表示",
       "loading": "Web Wikiを読み込み中...",
       "openBrowser": "ブラウザで開く",
-      "openExternal": "外部で開く",
-      "return": "戻る",
       "title": "Web Wiki"
     }
   },
@@ -471,6 +473,9 @@
     "purchaseRewarded": "指名手配チケット購入回数",
     "purchaseScrimmage": "学園交流会チケット購入回数",
     "rewarded": "指名手配の掃討回数",
+    "rewardedHint": "ゲーム内のエリア順に入力してください（{{count}} エリア）。0以上の整数または max を指定できます。0 はスキップします。",
+    "rewardedInvalid": "0以上の整数または max を入力してください。",
+    "rewardedRegion": "エリア {{number}}",
     "scrimmage": "学園交流会の掃討回数",
     "special": "特別依頼の掃討回数"
   },
@@ -615,6 +620,20 @@
     "pasteFailed": "クリップボードを使用できません。",
     "reload": "再読み込み"
   },
+  "about": {
+    "backendCommit": "スクリプトのリビジョン",
+    "clientVersion": "クライアントバージョン",
+    "connectionMethod": "接続方式",
+    "connectionStatus": "接続状態",
+    "description": "ブルーアーカイブの複数アカウント設定、自動タスク、実行ログを管理します。",
+    "disconnected": "未接続",
+    "frontendProject": "クライアントのプロジェクト",
+    "license": "ライセンス",
+    "openLinkFailed": "リンクを開けませんでした",
+    "scriptProject": "スクリプトのプロジェクト",
+    "title": "BAAS について",
+    "unavailable": "取得できません"
+  },
   "adb": {
     "detectBtn": "ADBを検出",
     "detecting": "ADBを検出中...",
@@ -666,6 +685,9 @@
     "connected": "サービスに接続しました",
     "connecting": "サービスに接続中..."
   },
+  "home": {
+    "preparing": "準備中"
+  },
   "label": {
     "installDir": "インストール先"
   },
@@ -700,6 +722,7 @@
   "transport": {
     "label": "データ転送方式",
     "pipe": "名前付きパイプ（デスクトップ）",
+    "shm": "共有メモリ（ネイティブ）",
     "websocket": "WebSocket（互換）"
   },
   "ui": {

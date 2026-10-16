@@ -22,13 +22,13 @@ export const SlideOutButton: React.FC<SlideOutButtonProps> = ({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white shadow-md hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+        className="z-10 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
       >
         {icon ?? <Settings className="h-5 w-5" />}
       </button>
 
       <div
-        className="overflow-hidden text-white transition-all duration-300 ease-out"
+        className="overflow-hidden text-foreground transition-all duration-200 ease-out"
         style={{
           width: open ? width : 0,
           opacity: open ? 1 : 0,

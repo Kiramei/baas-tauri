@@ -9,6 +9,11 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { DynamicConfig } from "@/types/dynamic";
 import CButton from "@/components/ui/CButton.tsx";
 import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
+import {
+  isRewardedTaskCount,
+  readRewardedTaskCounts,
+  serializeRewardedTaskCounts,
+} from "@/features/rewardedTaskConfig";
 
 interface DailySweepTabsProps {
   profileId: string;
@@ -56,6 +61,10 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
   }, []);
 
   const [draft, setDraft] = useState<Draft>(ext);
+  const [rewardedCounts, setRewardedCounts] = useState(() =>
+    readRewardedTaskCounts(ext.rewarded_task_times, settings.server)
+  );
+  const rewardedTimes = serializeRewardedTaskCounts(rewardedCounts, settings.server);
 
   const getStagesByName = (name: string): string[] => {
     return hard_task_student_material
@@ -67,14 +76,17 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
     return Array.from(new Set(hard_task_student_material.map(([name]) => name)));
   };
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
+  const dirty =
+    JSON.stringify({ ...draft, rewarded_task_times: rewardedTimes }) !== JSON.stringify(ext);
 
   /** Handles the handle save interaction. */
   const handleSave = async () => {
+    if (rewardedTimes === null) return;
     const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
+    const savedDraft = { ...draft, rewarded_task_times: rewardedTimes };
+    (Object.keys(savedDraft) as (keyof Draft)[]).forEach((k) => {
+      if (JSON.stringify(savedDraft[k]) !== JSON.stringify(ext[k])) {
+        (patch as any)[k] = savedDraft[k];
       }
     });
 
@@ -129,11 +141,35 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
 
         {/* SweepCountConfig Tab */}
         <TabsContent value="sweep" className="grid gap-2 grid-cols-1 md:grid-cols-2">
-          <FormInput
-            label={t("sweep.rewarded")}
-            value={draft.rewarded_task_times}
-            onChange={(e) => setDraft({ ...draft, rewarded_task_times: e.target.value })}
-          />
+          <fieldset className="space-y-2 md:col-span-2">
+            <legend className="text-sm font-medium">{t("sweep.rewarded")}</legend>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {t("sweep.rewardedHint", { count: rewardedCounts.length })}
+            </p>
+            <div
+              className={`grid grid-cols-3 gap-2 ${rewardedCounts.length === 5 ? "sm:grid-cols-5" : ""}`}
+            >
+              {rewardedCounts.map((value, index) => (
+                <FormInput
+                  key={index}
+                  label={t("sweep.rewardedRegion", { number: index + 1 })}
+                  aria-label={t("sweep.rewardedRegion", { number: index + 1 })}
+                  value={value}
+                  aria-invalid={!isRewardedTaskCount(value)}
+                  onChange={(e) => {
+                    const counts = [...rewardedCounts];
+                    counts[index] = e.target.value;
+                    setRewardedCounts(counts);
+                  }}
+                />
+              ))}
+            </div>
+            {rewardedTimes === null && (
+              <p role="alert" className="text-xs text-destructive">
+                {t("sweep.rewardedInvalid")}
+              </p>
+            )}
+          </fieldset>
           <FormInput
             label={t("sweep.scrimmage")}
             value={draft.scrimmage_times}
@@ -191,7 +227,7 @@ const DailySweepTabs: React.FC<DailySweepTabsProps> = ({ profileId, onClose }) =
       <div className="flex justify-end pt-4">
         <button
           onClick={handleSave}
-          disabled={!dirty}
+          disabled={!dirty || rewardedTimes === null}
           className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
         >
           {t("common.save")}

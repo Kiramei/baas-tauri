@@ -9,13 +9,23 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import java.io.File
 
 class MainActivity : TauriActivity() {
+  // The mobile UI is a state-driven SPA and does not expose browser navigation.
+  // Treat Back as application exit so the backend service can release the virtual display.
+  override val handleBackNavigation: Boolean = false
+
   private var foregroundServiceStartScheduled = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        finishAndRemoveTask()
+      }
+    })
     requestNotificationPermissionIfNeeded()
     scheduleForegroundServiceStart(250L)
   }
@@ -24,6 +34,20 @@ class MainActivity : TauriActivity() {
     super.onResume()
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
+  }
+
+  override fun onDestroy() {
+    if (isFinishing && !isChangingConfigurations) {
+      try {
+        startService(
+          Intent(this, BaasForegroundService::class.java)
+            .setAction(BaasForegroundService.ACTION_SHUTDOWN),
+        )
+      } catch (error: RuntimeException) {
+        android.util.Log.w("BAAS", "Unable to request exit cleanup", error)
+      }
+    }
+    super.onDestroy()
   }
 
   override fun onWebViewCreate(webView: WebView) {

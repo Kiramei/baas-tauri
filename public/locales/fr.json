@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "Précédent",
+    "close": "Fermer",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale",
+    "forward": "Suivant",
+    "maximize": "Agrandir",
+    "minimize": "Réduire",
+    "restore": "Restaurer",
+    "windowControls": "Commandes de la fenêtre"
   },
   "nav": {
     "configuration": "Config",
@@ -12,6 +20,7 @@
     "add": "Ajouter",
     "cancel": "Annuler",
     "choose": "Choisir",
+    "close": "Fermer",
     "confirm": "Confirmer",
     "create": "Créer",
     "delete": "Supprimer",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "Journaux",
+    "empty": {
+      "description": "Lancez une tâche pour voir sa progression ici.",
+      "title": "Aucune activité pour le moment"
+    },
     "export": "Exporter les journaux",
     "scroll": {
       "$self": "Défilement automatique",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "Tâche suivante",
+    "next": "Tâches à venir",
     "noneQueued": "Aucune tâche dans la file d'attente",
     "noneRunning": "Aucune tâche en cours d'exécution",
     "overview": "Aperçu des tâches",
@@ -65,12 +78,6 @@
       "disconnectedBody": "La connexion {{transport}} a ete interrompue. Reconnexion automatique en cours.",
       "disconnectedTitle": "Service BAAS deconnecte"
     }
-  },
-  "time": {
-    "daysAgo": "il y a {{count}} jours",
-    "hoursAgo": "il y a {{count}} heures",
-    "minutesAgo": "il y a {{count}} minutes",
-    "secondsAgo": "il y a {{count}} secondes"
   },
   "settings": {
     "feature": "Paramètres des fonctionnalités",
@@ -96,7 +103,6 @@
       "title": "系统日志"
     },
     "ui": {
-      "idleAutoUpdate": "Mettre à jour les scripts au repos",
       "$self": "Paramètres de l'interface",
       "assets": "Afficher les détails des ressources",
       "backgroundImage": "Image d'arriere-plan",
@@ -111,6 +117,7 @@
       "enableBAComet": "Activer BAComet",
       "enableSafeStream": "Stream sécurisé",
       "enableSystemNotifications": "Activer les notifications systeme",
+      "idleAutoUpdate": "Mettre à jour les scripts au repos",
       "lowPerformanceMode": "Mode basse performance",
       "player": "Lecteur",
       "themeColor": "Couleur du theme",
@@ -173,6 +180,7 @@
     "import": "Importer une archive de profil",
     "importArchive": "Choisir une archive de profil",
     "importFailed": "Échec de l'import du profil",
+    "list": "Profils",
     "name": "Nom du profil",
     "nameExists": "Nom déjà utilisé"
   },
@@ -260,15 +268,9 @@
     "subtitle": "Un guide normalisé et un manuel d'exploitation pour la plateforme d'automatisation BAAS.",
     "title": "Documentation Wiki",
     "web": {
-      "detach": "Detacher",
-      "detachedDescription": "Le Wiki web est ouvert dans une fenetre separee.",
-      "detachedTitle": "Wiki web detache",
       "failed": "Echec du chargement du Wiki web",
-      "focusDetached": "Afficher la fenetre",
       "loading": "Chargement du Wiki web...",
       "openBrowser": "Ouvrir dans le navigateur",
-      "openExternal": "Ouvrir dans le navigateur",
-      "return": "Retour",
       "title": "Wiki web"
     }
   },
@@ -471,6 +473,9 @@
     "purchaseRewarded": "Nombre d'achats de tickets de prime",
     "purchaseScrimmage": "Nombre d'achats de tickets de commission",
     "rewarded": "Nombre de balayages de primes",
+    "rewardedHint": "Saisissez les quantités dans l’ordre des zones du jeu ({{count}} zones). Utilisez un entier positif ou nul, ou max ; 0 ignore une zone.",
+    "rewardedInvalid": "Saisissez un entier positif ou nul, ou max.",
+    "rewardedRegion": "Zone {{number}}",
     "scrimmage": "Nombre de balayages de commissions",
     "special": "Nombre de balayages de mission spéciale"
   },
@@ -615,6 +620,20 @@
     "pasteFailed": "Le presse-papiers n'est pas disponible.",
     "reload": "Recharger"
   },
+  "about": {
+    "backendCommit": "Révision des scripts",
+    "clientVersion": "Version du client",
+    "connectionMethod": "Mode de connexion",
+    "connectionStatus": "État de la connexion",
+    "description": "Gérez les profils Blue Archive, les tâches automatisées et les journaux d’activité.",
+    "disconnected": "Déconnecté",
+    "frontendProject": "Projet du client",
+    "license": "Licence",
+    "openLinkFailed": "Impossible d’ouvrir le lien",
+    "scriptProject": "Projet des scripts",
+    "title": "À propos de BAAS",
+    "unavailable": "Indisponible"
+  },
   "adb": {
     "detectBtn": "Détecter ADB",
     "detecting": "Détection d'ADB...",
@@ -666,6 +685,9 @@
     "connected": "Service connecté",
     "connecting": "Connexion au service..."
   },
+  "home": {
+    "preparing": "Préparation"
+  },
   "label": {
     "installDir": "Répertoire d'installation"
   },
@@ -700,6 +722,7 @@
   "transport": {
     "label": "Transport des donnees",
     "pipe": "Canal nomme (bureau)",
+    "shm": "Mémoire partagée (native)",
     "websocket": "WebSocket (compatible)"
   },
   "ui": {

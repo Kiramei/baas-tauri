@@ -6,6 +6,7 @@ interface GlobalLogInterface {
   terminalLogData: LogItem[];
 
   appendGlobalLog: (log: LogItem) => void;
+  appendGlobalLogs: (logs: LogItem[]) => void;
 
   appendTerminalLog: (log: LogItem) => void;
   appendTerminalLogs: (logs: LogItem[]) => void;
@@ -18,6 +19,10 @@ export const useGlobalLogStore = create<GlobalLogInterface>((set) => ({
     set((state) => {
       return { globalLogData: [...state.globalLogData, log] };
     });
+  },
+  appendGlobalLogs: (logs: LogItem[]) => {
+    if (logs.length === 0) return;
+    set((state) => ({ globalLogData: [...state.globalLogData, ...logs] }));
   },
 
   appendTerminalLog: (log: LogItem) => {

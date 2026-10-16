@@ -35,7 +35,6 @@ const MainLayout = React.lazy(loadMainLayout);
 const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
-const WikiPage = React.lazy(() => import("@/pages/WikiPage.tsx"));
 
 /**
  * Builds a stable key so each profile-specific page instance can preserve its internal state.
@@ -72,8 +71,6 @@ const Main: React.FC = () => {
         return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
       case "settings":
         return <SettingsPage />;
-      case "wiki":
-        return <WikiPage />;
       default:
         return null;
     }

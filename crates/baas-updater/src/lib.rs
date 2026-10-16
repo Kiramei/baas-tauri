@@ -251,6 +251,10 @@ pub struct WorkflowOptions {
     /// Native endpoint allocated by the desktop host before launching.
     #[serde(default)]
     pub pipe_name: Option<String>,
+    /// Shared-memory endpoint allocated by the Windows host before launching.
+    #[cfg(not(target_os = "android"))]
+    #[serde(default)]
+    pub shm_name: Option<String>,
 }
 
 impl Default for WorkflowOptions {
@@ -261,6 +265,8 @@ impl Default for WorkflowOptions {
             install_path: None,
             launch: true,
             pipe_name: None,
+            #[cfg(not(target_os = "android"))]
+            shm_name: None,
         }
     }
 }

@@ -3,7 +3,7 @@ import { invoke } from "@/shared/TauriInvoke";
 
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
-const DEFAULT_THEME_COLOR = "#0891b2";
+const DEFAULT_THEME_COLOR = "#1a1c1f";
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 type Rgb = {
@@ -51,70 +51,6 @@ const buildPrimaryScale = (baseHex: string) => {
   };
 };
 
-const slateShades = [
-  "50",
-  "100",
-  "200",
-  "300",
-  "400",
-  "500",
-  "600",
-  "700",
-  "800",
-  "900",
-  "950",
-] as const;
-type SlateShade = (typeof slateShades)[number];
-
-const baseSlateScale: Record<SlateShade, string> = {
-  50: "#f8fafc",
-  100: "#f1f5f9",
-  200: "#e2e8f0",
-  300: "#cbd5e1",
-  400: "#94a3b8",
-  500: "#64748b",
-  600: "#475569",
-  700: "#334155",
-  800: "#1e293b",
-  900: "#0f172a",
-  950: "#020617",
-};
-
-const slateThemeMixWeights: Record<SlateShade, number> = {
-  50: 0.02,
-  100: 0.024,
-  200: 0.03,
-  300: 0.038,
-  400: 0.048,
-  500: 0.055,
-  600: 0.06,
-  700: 0.05,
-  800: 0.045,
-  900: 0.035,
-  950: 0.025,
-};
-
-const buildSlateScale = (baseHex: string) => {
-  const theme = hexToRgb(baseHex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
-  const black = { r: 0, g: 0, b: 0 };
-
-  return Object.fromEntries(
-    slateShades.map((shade) => {
-      const themeTone =
-        Number(shade) >= 800
-          ? mix(theme, black, 0.58)
-          : Number(shade) >= 700
-            ? mix(theme, black, 0.42)
-            : theme;
-
-      return [
-        shade,
-        rgbToHex(mix(hexToRgb(baseSlateScale[shade])!, themeTone, slateThemeMixWeights[shade])),
-      ];
-    })
-  ) as Record<SlateShade, string>;
-};
-
 const contrastText = (hex: string) => {
   const rgb = hexToRgb(hex) ?? hexToRgb(DEFAULT_THEME_COLOR)!;
   const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
@@ -136,18 +72,20 @@ const GlobalAppearanceEffects: React.FC = () => {
     ? selectedThemeColor
     : DEFAULT_THEME_COLOR;
   const backgroundOpacity = Math.min(1, Math.max(0, selectedBackgroundOpacity ?? 0.18));
-  const primaryScale = useMemo(() => buildPrimaryScale(themeColor), [themeColor]);
-  const slateScale = useMemo(() => buildSlateScale(themeColor), [themeColor]);
+  // The standard palette is defined in CSS so it follows light/dark mode. A
+  // custom accent affects actions only; it never tints neutral app surfaces.
+  const primaryScale = useMemo(
+    () => themeColor.toLowerCase() === DEFAULT_THEME_COLOR ? null : buildPrimaryScale(themeColor),
+    [themeColor]
+  );
 
   useEffect(() => {
+    if (!primaryScale) return;
     const root = document.documentElement;
     const foreground = contrastText(themeColor);
 
     Object.entries(primaryScale).forEach(([shade, value]) => {
       root.style.setProperty(`--color-primary-${shade}`, value);
-    });
-    Object.entries(slateScale).forEach(([shade, value]) => {
-      root.style.setProperty(`--color-slate-${shade}`, value);
     });
     root.style.setProperty("--primary", themeColor);
     root.style.setProperty("--primary-foreground", foreground);
@@ -156,13 +94,11 @@ const GlobalAppearanceEffects: React.FC = () => {
     root.style.setProperty("--sidebar-primary-foreground", foreground);
     root.style.setProperty("--sidebar-ring", primaryScale[300]);
     root.style.setProperty("--selection-background", themeColor);
+    root.style.setProperty("--selection-foreground", foreground);
 
     return () => {
       Object.keys(primaryScale).forEach((shade) =>
         root.style.removeProperty(`--color-primary-${shade}`)
-      );
-      Object.keys(slateScale).forEach((shade) =>
-        root.style.removeProperty(`--color-slate-${shade}`)
       );
       [
         "--primary",
@@ -172,9 +108,10 @@ const GlobalAppearanceEffects: React.FC = () => {
         "--sidebar-primary-foreground",
         "--sidebar-ring",
         "--selection-background",
+        "--selection-foreground",
       ].forEach((name) => root.style.removeProperty(name));
     };
-  }, [primaryScale, slateScale, themeColor]);
+  }, [primaryScale, themeColor]);
 
   if (!backgroundImageBase64) return null;
 

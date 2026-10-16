@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import GlobalContextMenu from "@/components/GlobalContextMenu";
@@ -23,10 +23,15 @@ import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WikiPage from "@/pages/WikiPage.tsx";
-import WebWikiViewer from "@/components/WebWikiViewer";
 import PageActivity from "@/components/PageActivity";
 import SetupPage from "@/pages/SetupPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
+import WindowTitlebar from "@/components/layout/WindowTitlebar";
+import { WindowLayoutProvider } from "@/context/WindowLayoutProvider";
+import {
+  NavigationHistoryProvider,
+  useNavigationHistoryController,
+} from "@/context/NavigationHistoryProvider";
 
 /**
  * Shared motion variants that keep inactive pages mounted while keeping the transition lightweight.
@@ -83,10 +88,30 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
 /** Renders the main component. */
 const Main: React.FC = () => {
   const [activePage, setActivePage] = React.useState<PageKey>("home");
-  const { activeProfile } = useApp();
+  const { activeProfile, profiles, setActiveProfile } = useApp();
+  const navigationHistory = useNavigationHistoryController();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
+
+  useLayoutEffect(
+    () =>
+      navigationHistory.attach((view) => {
+        const profile = profiles.find((item) => item.id === view.profileId);
+        if (!profile) return false;
+        setActiveProfile(profile);
+        setActivePage(view.page);
+        return true;
+      }),
+    [navigationHistory, profiles, setActiveProfile]
+  );
+
+  useLayoutEffect(() => {
+    navigationHistory.observe(
+      activePid ? { page: activePage, profileId: activePid } : null,
+      profiles.map((profile) => profile.id)
+    );
+  }, [navigationHistory, activePage, activePid, profiles]);
 
   const [seenKeys, setSeenKeys] = React.useState<string[]>(() =>
     activePid ? [instanceKeyOf("home", activePid)] : []
@@ -130,7 +155,7 @@ const Main: React.FC = () => {
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
-      <div className="relative flex-1 min-h-0 overflow-hidden scroll-embedded h-[calc(100%-70px)] lg:h-full">
+      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-70px)] lg:h-full">
         {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
           const isActive = instKey === currentKey;
@@ -138,7 +163,12 @@ const Main: React.FC = () => {
           return (
             <motion.div
               key={instKey}
-              className="absolute inset-0 overflow-y-auto scroll-embedded pr-2"
+              className={
+                __WITH_ANDROID__
+                  ? "absolute inset-0 overflow-y-auto scroll-embedded pr-2"
+                  : "app-page-scroll absolute inset-0 overflow-y-auto scroll-embedded px-5 pb-3 pt-5 lg:px-8 lg:pb-6 lg:pt-6"
+              }
+              data-page={page}
               variants={lowPerformanceMode ? lowPerformanceVariants : variants}
               initial={isActive ? "show" : "hide"}
               animate={isActive ? "show" : "hide"}
@@ -218,7 +248,7 @@ const WrappedApp: React.FC = () => {
               setHideLoading(true);
             }
           }}
-          className="fixed inset-0 z-100"
+          className="absolute inset-0 z-100"
         >
           <InitialPage />
         </motion.div>
@@ -259,18 +289,19 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const isWebWikiWindow = new URLSearchParams(window.location.search).get("view") === "web-wiki";
-
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        {isWebWikiWindow ? (
-          <StartupShellHandoff>
-            <WebWikiViewer />
-          </StartupShellHandoff>
-        ) : (
-          <WrappedApp />
-        )}
+        <WindowLayoutProvider>
+          <NavigationHistoryProvider>
+            <div className="app-window-frame flex h-full min-h-0 flex-col overflow-hidden text-foreground">
+              <WindowTitlebar />
+              <div className="app-workspace relative min-h-0 flex-1 overflow-hidden">
+                <WrappedApp />
+              </div>
+            </div>
+          </NavigationHistoryProvider>
+        </WindowLayoutProvider>
       </UISettingsProvider>
     </ThemeProvider>
   );

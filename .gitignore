@@ -15,6 +15,14 @@ dist-ssr
 target
 *.tsbuildinfo
 public/fonts/*.woff2
+.codex_tmp/
+.worktrees/
+.superpowers/
+__pycache__/
+*.pyc
+*.pyo
+/benchmarks/evidence/
+/benchmarks/build-validation-*.json
 
 # Editor directories and files
 .vscode/*

@@ -7,7 +7,6 @@ import {
   Loader2,
   RefreshCw,
   ScrollText,
-  Search,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +15,8 @@ import CButton from "@/components/ui/CButton";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { Modal } from "@/components/ui/Modal";
 import SwitchButton from "@/components/ui/SwitchButton";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { IconTooltip } from "@/components/ui/Tooltip";
 import {
   clearSystemLogs,
   collectSystemLogs,
@@ -207,15 +208,12 @@ export const SystemLogSettings: React.FC = () => {
       >
         <div className="flex h-[72vh] min-h-[420px] flex-col gap-3 pt-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
-              <Search className="size-4 shrink-0 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("settings.systemLogs.search")}
-                className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none"
-              />
-            </div>
+            <SearchInput
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("settings.systemLogs.search")}
+              containerClassName="flex-1"
+            />
             <FormSelect
               value={source}
               onChange={(value) => setSource(value as typeof source)}
@@ -248,19 +246,19 @@ export const SystemLogSettings: React.FC = () => {
                 action: () => setClearConfirmationOpen(true),
               },
             ].map(({ icon: Icon, label: buttonLabel, action }) => (
-              <button
-                key={buttonLabel}
-                type="button"
-                title={buttonLabel}
-                aria-label={buttonLabel}
-                onClick={() => void action()}
-                disabled={loading}
-                className="flex size-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <Icon
-                  className={`size-4 ${buttonLabel === t("settings.systemLogs.clear") ? "text-red-500" : ""}`}
-                />
-              </button>
+              <IconTooltip key={buttonLabel} content={buttonLabel}>
+                <button
+                  type="button"
+                  aria-label={buttonLabel}
+                  onClick={() => void action()}
+                  disabled={loading}
+                  className="flex size-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <Icon
+                    className={`size-4 ${buttonLabel === t("settings.systemLogs.clear") ? "text-red-500" : ""}`}
+                  />
+                </button>
+              </IconTooltip>
             ))}
           </div>
 
@@ -303,9 +301,11 @@ export const SystemLogSettings: React.FC = () => {
               </SwitchButton>
             </div>
             {paths.length > 0 && (
-              <span className="max-w-full truncate font-mono" title={paths.join("\n")}>
-                {paths.join(" | ")}
-              </span>
+              <IconTooltip
+                content={<span className="whitespace-pre-wrap">{paths.join("\n")}</span>}
+              >
+                <span className="max-w-full truncate font-mono">{paths.join(" | ")}</span>
+              </IconTooltip>
             )}
           </div>
 
@@ -337,9 +337,9 @@ export const SystemLogSettings: React.FC = () => {
                         <span className="text-slate-500">{formatTimestamp(entry.timestampMs)}</span>
                         <span className="text-violet-400">{entry.source}</span>
                         <span className={levelClasses[entry.level]}>{entry.level}</span>
-                        <span className="truncate text-emerald-400" title={entry.target}>
-                          {entry.target}
-                        </span>
+                        <IconTooltip content={entry.target}>
+                          <span className="truncate text-emerald-400">{entry.target}</span>
+                        </IconTooltip>
                         <span>{entry.message}</span>
                       </summary>
                       {details && (

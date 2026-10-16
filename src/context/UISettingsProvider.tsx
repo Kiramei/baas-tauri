@@ -25,8 +25,8 @@ interface UISettingsStore {
 
 const DEFAULT_UI_SETTINGS: UISettings = {
   lang: "",
-  theme: "",
-  themeColor: "#0891b2",
+  theme: "system",
+  themeColor: "#1a1c1f",
   backgroundImageBase64: null,
   backgroundImageOpacity: 0.18,
   zoomScale: 100,
@@ -59,6 +59,14 @@ const loadInitialSettings = (): UISettings => {
   return {
     ...DEFAULT_UI_SETTINGS,
     ...stored,
+    // Migrate the former default accent, preserving all explicitly customized
+    // colors and other appearance preferences.
+    themeColor:
+      typeof stored.themeColor !== "string" ||
+      !stored.themeColor ||
+      stored.themeColor.toLowerCase() === "#0891b2"
+        ? DEFAULT_UI_SETTINGS.themeColor
+        : stored.themeColor,
     remoteSettings: {
       ...DEFAULT_UI_SETTINGS.remoteSettings,
       ...stored.remoteSettings,

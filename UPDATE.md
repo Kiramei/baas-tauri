@@ -13,6 +13,12 @@
 3. **Expanded gameplay configuration**
    Added unrestricted decisive battle formation settings, including copying a cleared formation and its unavailable-student/refresh limits. Friend cleanup now supports level, inactivity, and last total-assault rank filters alongside the existing whitelist.
 
+4. **Windows shared-memory transport**
+   Added a bounded, ordered shared-memory adapter for local task updates, logs, and remote display. Existing WebSocket and named-pipe modes remain available. Shared memory requires a backend that supports `--shm-name`; startup checks report an incompatible backend explicitly.
+
+5. **Desktop navigation and appearance**
+   Added a custom title bar with back/forward navigation, an expandable profile drawer, consistent menus and tooltips, a permanent About entry, and responsive task and log layouts. Original UI fonts, monospace logs, cursor shapes, and the color application logo are preserved.
+
 ### Improvements
 
 1. **Multi-source download recovery**
@@ -30,6 +36,8 @@
 2. Preserved the log viewer across page switches and reduced log scrolling jitter.
 3. Preserved array types and immutable snapshots when applying scheduler resource patches, without dropping unrelated task fields.
 4. Extended localization and regression coverage for the new configuration and scheduler controls.
+5. Displayed five bounty regions for JP profiles and three for CN/Global profiles. Existing JP counts retain their values and gain two zero-valued draft entries; saving continues to use the backend's CSV format.
+6. Removed the obsolete detached Wiki window, duplicate display and installer code, and development-only frame diagnostics. Documentation links now open in the system browser.
 
 ### Release Notes
 

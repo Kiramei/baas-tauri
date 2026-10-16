@@ -1,11 +1,12 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Info, Loader2 } from "lucide-react";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
 const overlayCls =
-  "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50";
+  "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[1100]";
 
 /** Renders the tauri update progress modal component. */
 export const TauriUpdateProgressModal: React.FC<{
@@ -19,9 +20,10 @@ export const TauriUpdateProgressModal: React.FC<{
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className={overlayCls}
+      style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
       onMouseDown={(event) => {
         if (!updating && event.target === event.currentTarget) onClose();
       }}
@@ -32,7 +34,8 @@ export const TauriUpdateProgressModal: React.FC<{
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
         onMouseDown={(event) => event.stopPropagation()}
-        className="w-90 max-w-[calc(100vw-2rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
+        className="w-90 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
+        style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 p-3">
@@ -65,6 +68,7 @@ export const TauriUpdateProgressModal: React.FC<{
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
