@@ -141,7 +141,12 @@ where
 
     {
         let mut state = inner.lock().map_err(|_| "term manager lock poisoned")?;
-        state.tasks.insert(spec.task_id.clone(), handle);
+        if state.current_session_id.as_deref() != Some(session_id) {
+            return Err("stale term session".to_string());
+        }
+        state
+            .tasks
+            .insert(spec.task_id.clone(), Arc::clone(&handle));
     }
 
     renderer_tx
@@ -153,6 +158,7 @@ where
     let thread_completion_tx = completion_tx.clone();
     let thread_task_id = spec.task_id.clone();
     let thread_region_id = spec.region_id.clone();
+    let thread_session_id = session_id.to_string();
     thread::spawn(move || {
         let output = ThreadOutput {
             task_id: thread_task_id.clone(),
@@ -164,7 +170,13 @@ where
                 .unwrap_or_else(|_| Err("thread task panicked".to_string()));
         let cancelled = cancel.load(Ordering::Relaxed);
 
-        if let Ok(mut state) = thread_inner.lock() {
+        if let Ok(mut state) = thread_inner.lock()
+            && state.current_session_id.as_deref() == Some(thread_session_id.as_str())
+            && state
+                .tasks
+                .get(&thread_task_id)
+                .is_some_and(|current| Arc::ptr_eq(current, &handle))
+        {
             state.tasks.remove(&thread_task_id);
         }
 

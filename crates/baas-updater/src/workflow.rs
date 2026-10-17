@@ -5,8 +5,8 @@ use crate::{
     WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
-        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
-        RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
+        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
+        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
         launch_backend_pipe_command, launch_backend_shm_command, managed_python_configured,
         requirements_compile_cached, requirements_path, save_requirements_cache,
         uses_managed_runtime, uv_compile_command_with_index, uv_executable,
@@ -476,6 +476,44 @@ struct TerminalStageContext<'a> {
     completion_tx: &'a Sender<TaskCompletion>,
     completion_rx: &'a mpsc::Receiver<TaskCompletion>,
     workflow_plan: &'a WorkflowPlan,
+}
+
+/// Runs environment commands through the same session-owned PTY as Git tasks.
+#[derive(Clone)]
+struct TerminalProcessContext {
+    inner: Arc<Mutex<TermState>>,
+    session_id: String,
+    renderer_tx: Sender<RendererEvent>,
+    workflow_plan: WorkflowPlan,
+}
+
+impl TerminalProcessContext {
+    fn new(context: &TerminalStageContext<'_>) -> Self {
+        Self {
+            inner: Arc::clone(context.inner),
+            session_id: context.session_id.to_string(),
+            renderer_tx: context.renderer_tx.clone(),
+            workflow_plan: context.workflow_plan.clone(),
+        }
+    }
+
+    fn run(
+        &self,
+        command: &CommandSpec,
+        output: &ThreadOutput,
+        cancelled: &AtomicBool,
+    ) -> UpdaterResult<()> {
+        if cancelled.load(Ordering::Relaxed) || !session_is_current(&self.inner, &self.session_id) {
+            return Err(UpdaterError::Cancelled);
+        }
+        let spec = planned_direct_process_task(&self.workflow_plan, &output.task_id, command);
+        output.line(OutputStyle::Info, &format!("Running {}", spec.command));
+        let result = run_process_commands(&self.inner, &self.session_id, spec, &self.renderer_tx);
+        if cancelled.load(Ordering::Relaxed) || !session_is_current(&self.inner, &self.session_id) {
+            return Err(UpdaterError::Cancelled);
+        }
+        result.map_err(UpdaterError::Environment)
+    }
 }
 
 /// Runs the BAAS updater workflow as a `baas-term` task graph.
@@ -1728,6 +1766,7 @@ fn run_terminal_environment_prepare_stage(
             state: Arc::clone(&state),
             config: config.clone(),
             ranking_dir: ranking_dir.clone(),
+            process: TerminalProcessContext::new(context),
         },
         terminal_cpython_rank_task,
     )
@@ -1861,6 +1900,7 @@ fn run_terminal_dependency_stage(
             state: Arc::clone(&state),
             config: config.clone(),
             ranking_dir,
+            process: TerminalProcessContext::new(context),
         },
         terminal_pypi_rank_task,
     )
@@ -2048,6 +2088,7 @@ struct TerminalCpythonRankArgs {
     state: Arc<Mutex<TerminalWorkflowState>>,
     config: UpdaterConfig,
     ranking_dir: PathBuf,
+    process: TerminalProcessContext,
 }
 
 /// Handles the terminal cpython rank task workflow.
@@ -2066,9 +2107,10 @@ fn terminal_cpython_rank_task(
         &HttpSourceProbe,
         &output,
         |url| {
-            RealProcessRunner.run(
+            args.process.run(
                 &uv_python_install_command_with_mirror(&args.config, url),
                 &output,
+                &cancelled,
             )
         },
     )
@@ -2089,6 +2131,7 @@ struct TerminalPypiRankArgs {
     state: Arc<Mutex<TerminalWorkflowState>>,
     config: UpdaterConfig,
     ranking_dir: PathBuf,
+    process: TerminalProcessContext,
 }
 
 /// Handles the terminal pypi rank task workflow.
@@ -2112,11 +2155,16 @@ fn terminal_pypi_rank_task(
             if requirements_compile_cached(&args.config, &requirements, url)? {
                 return Ok(false);
             }
-            RealProcessRunner.run(
+            args.process.run(
                 &uv_compile_command_with_index(&args.config, &requirements, url),
                 &output,
+                &cancelled,
             )?;
-            RealProcessRunner.run(&uv_sync_command_with_index(&args.config, url), &output)?;
+            args.process.run(
+                &uv_sync_command_with_index(&args.config, url),
+                &output,
+                &cancelled,
+            )?;
             Ok(true)
         },
     )
@@ -2319,6 +2367,301 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
 mod tests {
     use super::*;
     use crate::NoopOutput;
+    use baas_term::types::TaskHandle;
+
+    fn terminal_process_fixture() -> (
+        TerminalProcessContext,
+        ThreadOutput,
+        Arc<AtomicBool>,
+        mpsc::Receiver<RendererEvent>,
+    ) {
+        let (tx, rx) = mpsc::channel();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut state = TermState {
+            current_session_id: Some("uv-test".to_string()),
+            rows: 32,
+            cols: 120,
+            ..TermState::default()
+        };
+        state.tasks.insert(
+            "pypi-source-ranking".to_string(),
+            Arc::new(TaskHandle::Thread {
+                cancel: Arc::clone(&cancelled),
+            }),
+        );
+        let context = TerminalProcessContext {
+            inner: Arc::new(Mutex::new(state)),
+            session_id: "uv-test".to_string(),
+            renderer_tx: tx.clone(),
+            workflow_plan: terminal_workflow_plan(),
+        };
+        let output = ThreadOutput {
+            task_id: "pypi-source-ranking".to_string(),
+            region_id: "pypi-source-ranking".to_string(),
+            tx,
+        };
+        (context, output, cancelled, rx)
+    }
+
+    #[cfg(windows)]
+    fn gated_terminal_command(root: &Path, exit_code: i32) -> CommandSpec {
+        let script = root.join("child.ps1");
+        fs::write(&script, format!(
+            "[Console]::Out.Write(\"uv-live-out`nuv-live-progress`r\"); [Console]::Out.Flush(); [Console]::Error.Write(\"uv-live-err`n\"); [Console]::Error.Flush(); $until = [DateTime]::UtcNow.AddSeconds(20); while (!(Test-Path -LiteralPath $env:BAAS_TERM_TEST_GATE) -and [DateTime]::UtcNow -lt $until) {{ Start-Sleep -Milliseconds 20 }}; exit {exit_code}"
+        )).unwrap();
+        CommandSpec::new("powershell.exe")
+            .arg("-NoLogo")
+            .arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-File")
+            .arg(script.to_string_lossy())
+            .env(
+                "BAAS_TERM_TEST_GATE",
+                root.join("release").to_string_lossy(),
+            )
+            .cwd(root)
+    }
+
+    #[cfg(not(windows))]
+    fn gated_terminal_command(root: &Path, exit_code: i32) -> CommandSpec {
+        let script = root.join("child.sh");
+        fs::write(&script, format!(
+            "printf 'uv-live-out\\nuv-live-progress\\r'; printf 'uv-live-err\\n' >&2; count=0; while [ ! -f \"$BAAS_TERM_TEST_GATE\" ] && [ $count -lt 1000 ]; do sleep 0.02; count=$((count+1)); done; exit {exit_code}"
+        )).unwrap();
+        CommandSpec::new("/bin/sh")
+            .arg(script.to_string_lossy())
+            .env(
+                "BAAS_TERM_TEST_GATE",
+                root.join("release").to_string_lossy(),
+            )
+            .cwd(root)
+    }
+
+    fn receive_live_child_output(rx: &mpsc::Receiver<RendererEvent>) -> String {
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut text = String::new();
+        while Instant::now() < deadline {
+            if let Ok(RendererEvent::Output {
+                task_id,
+                region_id,
+                chunk,
+            }) = rx.recv_timeout(Duration::from_millis(100))
+            {
+                assert_eq!(task_id, "pypi-source-ranking");
+                assert_eq!(region_id, "pypi-source-ranking");
+                text.push_str(&String::from_utf8_lossy(&chunk));
+                if text.contains("uv-live-out") && text.contains("uv-live-err") {
+                    return text;
+                }
+            }
+        }
+        panic!("PTY did not deliver live stdout and stderr: {text:?}");
+    }
+
+    #[test]
+    fn terminal_environment_pty_streams_before_exit_and_preserves_failure() {
+        let root = tempfile::tempdir().unwrap();
+        let command = gated_terminal_command(root.path(), 7);
+        let (context, output, cancelled, rx) = terminal_process_fixture();
+        let child_context = context.clone();
+        let child_cancelled = Arc::clone(&cancelled);
+        let worker = thread::spawn(move || child_context.run(&command, &output, &child_cancelled));
+        let text = receive_live_child_output(&rx);
+        assert!(
+            text.contains('\r'),
+            "carriage-return output was lost: {text:?}"
+        );
+        assert!(
+            !worker.is_finished(),
+            "output must arrive while the child is alive"
+        );
+        {
+            let state = context.inner.lock().unwrap();
+            assert!(
+                matches!(state.tasks["pypi-source-ranking"].as_ref(), TaskHandle::Thread { cancel } if Arc::ptr_eq(cancel, &cancelled))
+            );
+            assert!(
+                state
+                    .tasks
+                    .values()
+                    .any(|handle| matches!(handle.as_ref(), TaskHandle::Process { .. }))
+            );
+        }
+        fs::write(root.path().join("release"), "continue").unwrap();
+        let error = worker.join().unwrap().unwrap_err();
+        assert!(error.message().contains("7"), "exit code lost: {error}");
+        assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
+        assert!(!cancelled.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn terminal_environment_pty_abort_cancels_child_and_preserves_new_session() {
+        let root = tempfile::tempdir().unwrap();
+        let command = gated_terminal_command(root.path(), 0);
+        let (context, _output, _cancelled, rx) = terminal_process_fixture();
+        let child_context = context.clone();
+        let (completion_tx, completion_rx) = mpsc::channel();
+        spawn_thread_task(
+            &context.inner,
+            &context.session_id,
+            planned_thread_task(&context.workflow_plan, "pypi-source-ranking"),
+            &context.renderer_tx,
+            &completion_tx,
+            (),
+            move |output, cancelled, ()| {
+                let result = child_context.run(&command, &output, &cancelled);
+                assert_eq!(result, Err(UpdaterError::Cancelled));
+                result.map_err(|error| error.message())
+            },
+        )
+        .unwrap();
+        receive_live_child_output(&rx);
+        let cancelled = {
+            let state = context.inner.lock().unwrap();
+            match state.tasks["pypi-source-ranking"].as_ref() {
+                TaskHandle::Thread { cancel } => Arc::clone(cancel),
+                _ => panic!("parent thread handle was replaced"),
+            }
+        };
+        let handles = {
+            let mut state = context.inner.lock().unwrap();
+            state.current_session_id = None;
+            state
+                .tasks
+                .drain()
+                .map(|(_, handle)| handle)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(handles.len(), 2, "abort must own both parent and child");
+        for handle in handles {
+            match handle.as_ref() {
+                TaskHandle::Thread { cancel } => cancel.store(true, Ordering::Relaxed),
+                TaskHandle::Process { child, .. } => {
+                    child.lock().unwrap().kill().unwrap();
+                }
+            }
+        }
+        let new_handle = Arc::new(TaskHandle::Thread {
+            cancel: Arc::new(AtomicBool::new(false)),
+        });
+        {
+            let mut state = context.inner.lock().unwrap();
+            state.current_session_id = Some("new-session".to_string());
+            state
+                .tasks
+                .insert("pypi-source-ranking".to_string(), Arc::clone(&new_handle));
+        }
+        let completion = completion_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert!(!completion.success);
+        assert!(cancelled.load(Ordering::Relaxed));
+        let state = context.inner.lock().unwrap();
+        assert_eq!(state.tasks.len(), 1);
+        assert!(Arc::ptr_eq(
+            &state.tasks["pypi-source-ranking"],
+            &new_handle
+        ));
+    }
+
+    /// Opt-in integration fixture uses an existing UV/Python and a generated
+    /// local wheel. Offline/no-index prevents every package network request.
+    #[test]
+    #[ignore = "set BAAS_TEST_UV and BAAS_TEST_PYTHON to existing local executables"]
+    fn terminal_environment_pty_uv_compiles_and_syncs_offline_wheel() {
+        let uv = PathBuf::from(std::env::var_os("BAAS_TEST_UV").expect("BAAS_TEST_UV"));
+        let python = std::env::var("BAAS_TEST_PYTHON").expect("BAAS_TEST_PYTHON");
+        let root = tempfile::tempdir().unwrap();
+        let wheels = root.path().join("wheels");
+        fs::create_dir(&wheels).unwrap();
+        let wheel =
+            fs::File::create(wheels.join("baas_pty_fixture-0.0.1-py3-none-any.whl")).unwrap();
+        let mut zip = zip::ZipWriter::new(wheel);
+        for (path, content) in [
+            ("baas_pty_fixture.py", "value = 1\n"),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/METADATA",
+                "Metadata-Version: 2.1\nName: baas-pty-fixture\nVersion: 0.0.1\n",
+            ),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/WHEEL",
+                "Wheel-Version: 1.0\nGenerator: baas-pty-test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+            ),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/RECORD",
+                "baas_pty_fixture.py,,\nbaas_pty_fixture-0.0.1.dist-info/METADATA,,\nbaas_pty_fixture-0.0.1.dist-info/WHEEL,,\nbaas_pty_fixture-0.0.1.dist-info/RECORD,,\n",
+            ),
+        ] {
+            zip.start_file(path, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(content.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = root.path().to_string_lossy().to_string();
+        let requirements = root.path().join("requirements.txt");
+        fs::write(&requirements, "baas-pty-fixture==0.0.1\n").unwrap();
+        let (context, output, cancelled, rx) = terminal_process_fixture();
+        context
+            .run(
+                &CommandSpec::new(&uv)
+                    .arg("venv")
+                    .arg(root.path().join(".venv").to_string_lossy())
+                    .arg("--python")
+                    .arg(python)
+                    .arg("--no-python-downloads")
+                    .arg("--offline")
+                    .env("UV_CACHE_DIR", root.path().join("cache").to_string_lossy())
+                    .cwd(root.path()),
+                &output,
+                &cancelled,
+            )
+            .unwrap();
+        for mut command in [
+            uv_compile_command_with_index(&config, &requirements, "https://unused.invalid/simple"),
+            uv_sync_command_with_index(&config, "https://unused.invalid/simple"),
+        ] {
+            command.program = uv.clone();
+            command.args.extend([
+                "--offline".to_string(),
+                "--no-index".to_string(),
+                "--find-links".to_string(),
+                wheels.to_string_lossy().to_string(),
+            ]);
+            context.run(&command, &output, &cancelled).unwrap();
+        }
+        let text = rx
+            .try_iter()
+            .filter_map(|event| match event {
+                RendererEvent::Output { chunk, .. } => {
+                    Some(String::from_utf8_lossy(&chunk).into_owned())
+                }
+                _ => None,
+            })
+            .collect::<String>();
+        assert!(
+            text.contains("Resolved"),
+            "compile output missing: {text:?}"
+        );
+        assert!(text.contains("Installed"), "sync output missing: {text:?}");
+        assert!(
+            text.contains("baas-pty-fixture"),
+            "package output missing: {text:?}"
+        );
+        assert!(
+            fs::read_to_string(root.path().join("requirements.service.lock"))
+                .unwrap()
+                .contains("baas-pty-fixture==0.0.1")
+        );
+        assert!(
+            !requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
+                .unwrap()
+        );
+        save_requirements_cache(&config, &requirements, "https://unused.invalid/simple").unwrap();
+        assert!(
+            requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
+                .unwrap()
+        );
+        assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
+    }
 
     /// Handles the git cpp job reclones when existing bin has no git metadata workflow.
     #[test]

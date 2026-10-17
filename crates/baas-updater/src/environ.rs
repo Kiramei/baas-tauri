@@ -812,7 +812,6 @@ fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
 /// Handles the uv pip command with index workflow.
 fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
-        .arg("--no-progress")
         .arg("pip")
         .env("UV_INDEX", index)
         .env("UV_DEFAULT_INDEX", index)
@@ -959,6 +958,7 @@ where
                 selector.mark_succeeded(&url)?;
                 return Ok((url, value));
             }
+            Err(UpdaterError::Cancelled) => return Err(UpdaterError::Cancelled),
             Err(error) => {
                 output.line(
                     OutputStyle::Warning,
@@ -1327,9 +1327,9 @@ mod tests {
         let clean = uv_cache_clean_command(&config);
 
         assert!(compile.env.iter().any(|(key, _)| key == "UV_CACHE_DIR"));
-        assert!(compile.args.contains(&"--no-progress".to_string()));
+        assert!(!compile.args.contains(&"--no-progress".to_string()));
         assert!(sync.env.iter().any(|(key, _)| key == "VIRTUAL_ENV"));
-        assert!(sync.args.contains(&"--no-progress".to_string()));
+        assert!(!sync.args.contains(&"--no-progress".to_string()));
         assert!(sync.args.contains(&"sync".to_string()));
         assert!(clean.args.contains(&"--no-progress".to_string()));
     }
@@ -1570,6 +1570,33 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(persisted.active_sources()[0].url, selected);
+    }
+
+    #[test]
+    fn cancelled_environment_operation_does_not_retry_or_demote_source() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec!["https://local-fixture.invalid/simple".to_string()];
+        let path = root.path().join("pypi.json");
+        let mut ranking = SourceRanking::from_urls(&config.general.source_list);
+        ranking.promote_success(&config.general.source_list[0]);
+        save_ranking(&path, &ranking).unwrap();
+        let before = fs::read(&path).unwrap();
+        let mut calls = 0;
+        let result: UpdaterResult<(String, ())> = with_environment_source_failover(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(root.path()),
+            &Probe { ok: Vec::new() },
+            &crate::NoopOutput,
+            |_| {
+                calls += 1;
+                Err(UpdaterError::Cancelled)
+            },
+        );
+        assert_eq!(result, Err(UpdaterError::Cancelled));
+        assert_eq!(calls, 1);
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 
     /// Handles the ranked environment source errors after three all failed cycles workflow.

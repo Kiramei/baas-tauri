@@ -18,7 +18,7 @@ use std::{
     fs,
     path::Path,
     process::{Command as StdCommand, Stdio},
-    sync::{Arc, Mutex, mpsc::Sender},
+    sync::{Arc, Mutex, atomic::Ordering, mpsc::Sender},
     thread,
     time::Duration,
 };
@@ -156,6 +156,7 @@ pub fn spawn_process_task(
                 &wait_session_id,
                 &wait_task_id,
                 &wait_region_id,
+                &wait_task_id,
                 command,
                 &wait_tx,
             ) {
@@ -176,7 +177,9 @@ pub fn spawn_process_task(
             }
         }
 
-        if let Ok(mut state) = wait_inner.lock() {
+        if let Ok(mut state) = wait_inner.lock()
+            && state.current_session_id.as_deref() == Some(wait_session_id.as_str())
+        {
             state.tasks.remove(&wait_task_id);
         }
         let success = status == STATUS_SUCCESS;
@@ -202,6 +205,7 @@ fn run_one_process_command(
     session_id: &str,
     task_id: &str,
     region_id: &str,
+    handle_id: &str,
     command_spec: TaskCommandSpec,
     renderer_tx: &Sender<RendererEvent>,
 ) -> Result<i32, String> {
@@ -257,7 +261,20 @@ fn run_one_process_command(
 
     {
         let mut state = inner.lock().map_err(|_| "term manager lock poisoned")?;
-        state.tasks.insert(task_id.to_string(), handle);
+        let parent_cancelled = state.tasks.get(task_id).is_some_and(|handle| {
+            matches!(handle.as_ref(), TaskHandle::Thread { cancel } if cancel.load(Ordering::Relaxed))
+        });
+        if state.current_session_id.as_deref() != Some(session_id) || parent_cancelled {
+            drop(state);
+            if let Ok(mut child) = child.lock() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            return Err("stale term session".to_string());
+        }
+        state
+            .tasks
+            .insert(handle_id.to_string(), Arc::clone(&handle));
     }
 
     let read_tx = renderer_tx.clone();
@@ -305,8 +322,14 @@ fn run_one_process_command(
 
     thread::sleep(Duration::from_millis(PROCESS_FINISH_SETTLE_MS));
 
-    if let Ok(mut state) = inner.lock() {
-        state.tasks.remove(task_id);
+    if let Ok(mut state) = inner.lock()
+        && state.current_session_id.as_deref() == Some(session_id)
+        && state
+            .tasks
+            .get(handle_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &handle))
+    {
+        state.tasks.remove(handle_id);
     }
 
     Ok(exit_code)
@@ -444,32 +467,28 @@ pub fn run_process_commands(
     spec: TaskSpec,
     renderer_tx: &Sender<RendererEvent>,
 ) -> Result<(), String> {
+    // Keep the enclosing thread registered so abort sets its cancellation flag
+    // as well as killing this child, including between sequential commands.
+    let handle_id = format!("{}:pty:{}", spec.task_id, uuid::Uuid::new_v4());
     for command in spec.process_commands() {
-        let thread_cancel = inner.lock().ok().and_then(|state| {
-            state
-                .tasks
-                .get(&spec.task_id)
-                .and_then(|handle| match handle.as_ref() {
-                    TaskHandle::Thread { cancel } => Some(Arc::clone(cancel)),
-                    TaskHandle::Process { .. } => None,
-                })
-        });
+        {
+            let state = inner.lock().map_err(|_| "term manager lock poisoned")?;
+            let parent_cancelled = state.tasks.get(&spec.task_id).is_some_and(|handle| {
+                matches!(handle.as_ref(), TaskHandle::Thread { cancel } if cancel.load(Ordering::Relaxed))
+            });
+            if state.current_session_id.as_deref() != Some(session_id) || parent_cancelled {
+                return Err("stale or cancelled term session".to_string());
+            }
+        }
         let result = run_one_process_command(
             inner,
             session_id,
             &spec.task_id,
             &spec.region_id,
+            &handle_id,
             command,
             renderer_tx,
         );
-        if let Some(cancel) = thread_cancel
-            && let Ok(mut state) = inner.lock()
-        {
-            state.tasks.insert(
-                spec.task_id.clone(),
-                Arc::new(TaskHandle::Thread { cancel }),
-            );
-        }
         let code = result?;
         if code != 0 {
             return Err(format!("process exited with code {code}"));
