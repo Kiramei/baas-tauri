@@ -2501,6 +2501,7 @@ mod tests {
         let (context, _output, _cancelled, rx) = terminal_process_fixture();
         let child_context = context.clone();
         let (completion_tx, completion_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
         spawn_thread_task(
             &context.inner,
             &context.session_id,
@@ -2510,7 +2511,7 @@ mod tests {
             (),
             move |output, cancelled, ()| {
                 let result = child_context.run(&command, &output, &cancelled);
-                assert_eq!(result, Err(UpdaterError::Cancelled));
+                result_tx.send(result.clone()).unwrap();
                 result.map_err(|error| error.message())
             },
         )
@@ -2553,6 +2554,10 @@ mod tests {
         }
         let completion = completion_rx.recv_timeout(Duration::from_secs(10)).unwrap();
         assert!(!completion.success);
+        assert_eq!(
+            result_rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            Err(UpdaterError::Cancelled)
+        );
         assert!(cancelled.load(Ordering::Relaxed));
         let state = context.inner.lock().unwrap();
         assert_eq!(state.tasks.len(), 1);
