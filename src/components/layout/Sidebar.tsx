@@ -1,20 +1,16 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import { IconTooltip } from "@/components/ui/Tooltip";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  BookOpenText,
   Download,
-  Home,
-  ListChecks,
   Loader2,
   PackageOpen,
   PanelLeftClose,
   PanelLeftOpen,
   Play,
-  Settings,
-  SlidersHorizontal,
   Square,
 } from "lucide-react";
-import HeartbeatChart from "@/components/HeartbeatIndicator.tsx";
+import HeartbeatIndicator from "@/components/HeartbeatIndicator.tsx";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
@@ -26,63 +22,34 @@ import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgre
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
+import Header from "@/components/layout/Header";
+import { useWindowLayout } from "@/context/WindowLayoutProvider";
+import NavigationIcon from "@/components/layout/NavigationIcon";
+import AboutBaasModal from "@/components/AboutBaasModal";
 import { useApp } from "@/context/AppContext";
 
-const baseUrl = import.meta.env.BASE_URL;
 const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
 interface SidebarProps {
   activePage: string;
   setActivePage: (page: PageKey) => void;
   desktopExpanded: boolean;
-  onDesktopExpandedChange: (expanded: boolean) => void;
 }
 
-const AutoFitSidebarTitle: React.FC<{ children: string }> = ({ children }) => {
-  const titleRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const title = titleRef.current;
-    if (!title) return;
-
-    const fit = () => {
-      let fontSize = 15;
-      title.style.fontSize = `${fontSize}px`;
-      while (title.scrollWidth > title.clientWidth && fontSize > 10) {
-        fontSize -= 0.25;
-        title.style.fontSize = `${fontSize}px`;
-      }
-    };
-
-    fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(title.parentElement ?? title);
-    return () => observer.disconnect();
-  }, [children]);
-
-  return (
-    <div
-      ref={titleRef}
-      className="ml-[8px] min-w-0 flex-1 overflow-hidden whitespace-nowrap font-semibold text-slate-900 dark:text-white"
-      title={children}
-    >
-      {children}
-    </div>
-  );
-};
-
 /** Renders the sidebar component. */
-const Sidebar: React.FC<SidebarProps> = ({
-  activePage,
-  setActivePage,
-  desktopExpanded,
-  onDesktopExpandedChange,
-}) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExpanded }) => {
   const { t } = useTranslation();
   const { activeProfile } = useApp();
   const primaryRunning = useWebSocketStore((state) =>
     activeProfile?.id ? Boolean(state.statusStore[activeProfile.id]?.running) : false
   );
+  const { customFrame, setExpanded } = useWindowLayout();
+  const [peek, setPeek] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const homeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const profilePaneRef = React.useRef<HTMLElement>(null);
+  const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const versionConfig = useWebSocketStore((state) => state.versionStore);
   const trigger = useWebSocketStore((state) => state.trigger);
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
@@ -96,15 +63,102 @@ const Sidebar: React.FC<SidebarProps> = ({
     Boolean(versionConfig["remote"]) && versionConfig["local"] !== versionConfig["remote"];
   const hasTauriUpdate = Boolean(__WITH_TAURI__ && tauriVersion.updateAvailable);
   const hasAnyUpdate = hasBackendUpdate || hasTauriUpdate;
+  const sidebarToggleLabel = desktopExpanded ? t("app.collapseSidebar") : t("app.expandSidebar");
+  const profilePaneVisible = desktopExpanded || peek;
 
-  const navItems: Array<{ id: PageKey; label: string; icon: any }> = [
-    { id: "home", label: t("nav.home"), icon: Home },
-    { id: "scheduler", label: t("nav.scheduler"), icon: ListChecks },
-    { id: "configuration", label: t("nav.configuration"), icon: SlidersHorizontal },
-    { id: "settings", label: t("nav.settings"), icon: Settings },
-    ...(!__WITH_ANDROID__
-      ? [{ id: "wiki" as PageKey, label: t("title.wiki"), icon: BookOpenText }]
-      : []),
+  const cancelClose = React.useCallback(() => {
+    if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
+  const cancelOpen = React.useCallback(() => {
+    if (openTimerRef.current !== null) clearTimeout(openTimerRef.current);
+    openTimerRef.current = null;
+  }, []);
+  const closePeek = React.useCallback(() => {
+    cancelOpen();
+    cancelClose();
+    setPeek(false);
+  }, [cancelOpen, cancelClose]);
+  const hasOpenOverlay = () =>
+    Boolean(
+      document.querySelector(
+        "[role='menu'], [role='listbox'], [role='dialog'], [role='alertdialog']"
+      )
+    );
+  const scheduleClose = () => {
+    cancelOpen();
+    if (desktopExpanded || closeTimerRef.current !== null) return;
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (!hasOpenOverlay() && !profilePaneRef.current?.contains(document.activeElement))
+        setPeek(false);
+    }, 180);
+  };
+  const scheduleOpen = () => {
+    cancelClose();
+    if (desktopExpanded || peek || !window.matchMedia("(min-width: 64rem)").matches) return;
+    cancelOpen();
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      setPeek(true);
+    }, 120);
+  };
+
+  React.useEffect(() => {
+    if (desktopExpanded) closePeek();
+  }, [desktopExpanded, closePeek]);
+
+  React.useEffect(
+    () => () => {
+      cancelOpen();
+      cancelClose();
+    },
+    [cancelOpen, cancelClose]
+  );
+
+  React.useEffect(() => {
+    if (!peek || desktopExpanded) return;
+    const isInside = (target: EventTarget | null) =>
+      target instanceof Node &&
+      (profilePaneRef.current?.contains(target) || homeButtonRef.current?.contains(target));
+    const isOverlayTarget = (target: EventTarget | null) =>
+      target instanceof Element &&
+      Boolean(
+        target.closest("[role='menu'], [role='listbox'], [role='dialog'], [role='alertdialog']")
+      );
+    const onPointerDown = (event: PointerEvent) => {
+      if (!isInside(event.target) && !isOverlayTarget(event.target)) closePeek();
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (isInside(event.target) || isOverlayTarget(event.target)) cancelClose();
+      else if (!hasOpenOverlay()) scheduleClose();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || hasOpenOverlay()) return;
+      event.preventDefault();
+      closePeek();
+      homeButtonRef.current?.focus({ preventScroll: true });
+    };
+    const onResize = () => closePeek();
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+      cancelClose();
+    };
+  }, [peek, desktopExpanded, closePeek, cancelClose]);
+
+  const navItems: Array<{ id: PageKey; label: string }> = [
+    { id: "home", label: t("nav.home") },
+    { id: "scheduler", label: t("nav.scheduler") },
+    { id: "configuration", label: t("nav.configuration") },
+    { id: "settings", label: t("nav.settings") },
+    ...(!__WITH_ANDROID__ ? ([{ id: "wiki", label: t("title.wiki") }] as const) : []),
   ];
 
   const stopAllTasks = async () => {
@@ -284,78 +338,173 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-      className={`relative h-full w-0 shrink-0 transition-[width] duration-300 ease-in-out ${
-        desktopExpanded ? "lg:w-64" : "lg:w-[52px]"
+      className={`app-sidebar relative flex h-[52px] w-full shrink-0 flex-col lg:mb-[2px] lg:grid lg:h-auto lg:min-h-0 lg:self-stretch lg:grid-rows-[minmax(0,1fr)] lg:transition-[width] lg:duration-200 ${
+        desktopExpanded
+          ? "lg:w-[292px] lg:grid-cols-[52px_minmax(0,1fr)]"
+          : "lg:w-[52px] lg:grid-cols-[52px_0px]"
       }`}
     >
-      {/* Desktop sidebar */}
-      <aside className="hidden h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900 lg:flex">
-        <div className="flex h-[52px] w-full shrink-0 items-center">
-          {desktopExpanded ? (
-            <div className="flex w-full items-center px-[8px]">
-              <AutoFitSidebarTitle>{t("app.title")}</AutoFitSidebarTitle>
-              <button
-                type="button"
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
-                aria-expanded="true"
-                onClick={() => onDesktopExpandedChange(false)}
-                className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <PanelLeftClose className="h-[20px] w-[20px]" />
-              </button>
-            </div>
-          ) : (
+      <aside
+        className="desktop-app-rail hidden min-h-0 flex-col items-center gap-3 py-2 lg:col-start-1 lg:row-start-1 lg:flex"
+        aria-label="BAAS"
+      >
+        {!customFrame && (
+          <IconTooltip content={sidebarToggleLabel} side="right">
             <button
               type="button"
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
-              aria-expanded="false"
-              onClick={() => onDesktopExpandedChange(true)}
-              className="group/logo relative m-[8px] flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label={sidebarToggleLabel}
+              aria-expanded={desktopExpanded}
+              onClick={() => setExpanded(!desktopExpanded)}
+              className="mb-1 flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <img
-                src={`${baseUrl}images/logo.png`}
-                alt="BAAS"
-                className="h-[20px] w-[20px] shrink-0 transition-opacity duration-150 group-hover/logo:opacity-0"
-              />
-              <PanelLeftOpen className="absolute h-[20px] w-[20px] opacity-0 transition-opacity duration-150 group-hover/logo:opacity-100" />
+              {desktopExpanded ? (
+                <PanelLeftClose size={17} strokeWidth={1.5} />
+              ) : (
+                <PanelLeftOpen size={17} strokeWidth={1.5} />
+              )}
             </button>
-          )}
-        </div>
-
-        <nav className="flex h-[calc(100%-52px)] flex-1 flex-col px-[8px] py-4">
-          <ul>
-            {navItems.map((item) => (
-              <li key={item.id}>
-                {item.id === "settings" && (
-                  <hr key={item.id + "hr"} className="border-slate-300 dark:border-slate-500" />
-                )}
+          </IconTooltip>
+        )}
+        <nav className="flex flex-col gap-2">
+          {navItems
+            .filter((item) => item.id !== "settings" && item.id !== "wiki")
+            .map((item) => (
+              <IconTooltip key={item.id} content={item.label} side="right">
+                <button
+                  ref={item.id === "home" ? homeButtonRef : undefined}
+                  type="button"
+                  aria-label={item.label}
+                  aria-current={activePage === item.id ? "page" : undefined}
+                  onClick={() => setActivePage(item.id)}
+                  onPointerEnter={
+                    item.id === "home"
+                      ? (event) => {
+                          if (event.pointerType !== "touch") scheduleOpen();
+                        }
+                      : undefined
+                  }
+                  onPointerLeave={item.id === "home" ? scheduleClose : undefined}
+                  onKeyDown={
+                    item.id === "home"
+                      ? (event) => {
+                          if (event.key === "ArrowRight" && !desktopExpanded) {
+                            event.preventDefault();
+                            cancelOpen();
+                            cancelClose();
+                            setPeek(true);
+                            requestAnimationFrame(() =>
+                              profilePaneRef.current
+                                ?.querySelector<HTMLButtonElement>("button")
+                                ?.focus()
+                            );
+                          }
+                        }
+                      : undefined
+                  }
+                  aria-expanded={item.id === "home" ? profilePaneVisible : undefined}
+                  aria-controls={item.id === "home" ? "desktop-profile-pane" : undefined}
+                  className={`flex size-9 items-center justify-center rounded-[9px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring ${activePage === item.id ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"}`}
+                >
+                  <NavigationIcon page={item.id} selected={activePage === item.id} size={19} />
+                </button>
+              </IconTooltip>
+            ))}
+        </nav>
+        <div className="mx-auto mt-1 w-5 border-t border-[var(--workspace-edge)]" />
+        <div className="min-h-2 flex-1" />
+        {!desktopExpanded && hasAnyUpdate && !peek && (
+          <div className="flex w-full flex-col gap-2 px-2">
+            {hasBackendUpdate && (
+              <UpdateActionButton
+                label="BAAS"
+                title={t("update.backendAction")}
+                icon={PackageOpen}
+                busy={backendUpdating}
+                onClick={handleBackendUpdate}
+                tone="red"
+                expanded={false}
+              />
+            )}
+            {hasTauriUpdate && (
+              <UpdateActionButton
+                label={t("update.tauriAction")}
+                title={t("update.tauriAvailable")}
+                icon={Download}
+                busy={tauriUpdate.updating}
+                onClick={tauriUpdate.runUpdate}
+                tone="blue"
+                expanded={false}
+              />
+            )}
+          </div>
+        )}
+        <nav className="flex flex-col gap-2">
+          {navItems
+            .filter((item) => item.id === "settings" || item.id === "wiki")
+            .map((item) => (
+              <IconTooltip key={item.id} content={item.label} side="right">
                 <button
                   type="button"
-                  title={item.label}
+                  aria-label={item.label}
+                  aria-current={activePage === item.id ? "page" : undefined}
                   onClick={() => setActivePage(item.id)}
-                  className={`my-1 flex h-[36px] w-full items-center overflow-hidden rounded-lg px-[8px] text-sm font-bold transition-colors duration-200 ${
-                    activePage === item.id
-                      ? "bg-primary-500 text-white"
-                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
+                  className={`flex size-9 items-center justify-center rounded-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-ring ${activePage === item.id ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"}`}
                 >
-                  <item.icon className="h-[20px] w-[20px] shrink-0" />
-                  <span
-                    className={`ml-3 whitespace-nowrap transition-opacity duration-150 ${
-                      desktopExpanded ? "opacity-100" : "opacity-0"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
+                  <NavigationIcon page={item.id} selected={activePage === item.id} size={19} />
                 </button>
-              </li>
+              </IconTooltip>
             ))}
-          </ul>
-          <div className="grow" />
+        </nav>
+        <AboutLogoButton
+          onClick={() => {
+            closePeek();
+            setAboutOpen(true);
+          }}
+        />
+      </aside>
+
+      <section
+        id="desktop-profile-pane"
+        ref={profilePaneRef}
+        data-profile-peek={peek && !desktopExpanded ? "true" : undefined}
+        onPointerEnter={cancelClose}
+        onPointerLeave={scheduleClose}
+        onFocusCapture={cancelClose}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleClose();
+        }}
+        className={`contents min-h-0 min-w-0 lg:flex-col lg:overflow-hidden ${
+          desktopExpanded
+            ? "lg:relative lg:col-start-2 lg:row-start-1 lg:flex lg:rounded-l-[14px] lg:border-y lg:border-l lg:border-[var(--workspace-edge)] lg:bg-sidebar"
+            : peek
+              ? "lg:absolute lg:inset-y-0 lg:left-[52px] lg:z-[200] lg:flex lg:w-[260px] lg:max-w-[calc(100vw-60px)] lg:rounded-[10px] lg:border lg:border-[var(--menu-border)] lg:bg-[var(--menu-background)] lg:shadow-[var(--menu-shadow)] lg:backdrop-blur-xl"
+              : "lg:hidden"
+        }`}
+      >
+        <div className="profile-pane-heading hidden h-11 min-w-0 shrink-0 items-center justify-between px-4 lg:flex">
+          <span className="text-[14px] font-semibold tracking-[-0.01em]">BAAS</span>
+          {!desktopExpanded && peek && (
+            <IconTooltip content={t("app.expandSidebar")} side="right">
+              <button
+                type="button"
+                aria-label={t("app.expandSidebar")}
+                onClick={() => setExpanded(true)}
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-[var(--menu-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                <PanelLeftOpen size={17} strokeWidth={1.5} />
+              </button>
+            </IconTooltip>
+          )}
+        </div>
+        <div className="profile-pane-content flex min-h-0 min-w-0 [&>.profile-navigation]:min-w-0 [&>.profile-navigation]:flex-1 lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-2">
+          <div className="flex shrink-0 items-center pl-2 lg:hidden">
+            <AboutLogoButton onClick={() => setAboutOpen(true)} side="bottom" />
+          </div>
+          <Header desktopExpanded={profilePaneVisible} />
+        </div>
+        <footer className="hidden min-w-0 shrink-0 flex-col gap-2 px-2 py-2 lg:flex">
           {hasAnyUpdate && (
-            <div className={`mb-2 flex gap-2 ${desktopExpanded ? "flex-row" : "flex-col"}`}>
+            <div className="flex flex-row gap-2">
               {hasBackendUpdate && (
                 <UpdateActionButton
                   label="BAAS"
@@ -364,7 +513,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   busy={backendUpdating}
                   onClick={handleBackendUpdate}
                   tone="red"
-                  expanded={desktopExpanded}
+                  expanded={true}
                 />
               )}
               {hasTauriUpdate && (
@@ -375,61 +524,57 @@ const Sidebar: React.FC<SidebarProps> = ({
                   busy={tauriUpdate.updating}
                   onClick={tauriUpdate.runUpdate}
                   tone="blue"
-                  expanded={desktopExpanded}
+                  expanded={true}
                 />
               )}
             </div>
           )}
-          <HeartbeatChart expanded={desktopExpanded} />
-        </nav>
-      </aside>
+          <HeartbeatIndicator />
+        </footer>
+      </section>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 z-40 grid h-14 w-full grid-cols-5 items-center border-t border-slate-200 bg-white px-2 dark:border-slate-700 dark:bg-slate-900 lg:hidden">
-        {navItems.slice(0, 2).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActivePage(item.id)}
-            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
-              activePage === item.id
-                ? "text-primary-500"
-                : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
-            }`}
-          >
-            <item.icon className="mb-0.5 h-6 w-6" />
-            <span className="block leading-none">{item.label}</span>
-          </button>
-        ))}
-
-        <button
-          type="button"
-          aria-label={primaryRunning ? t("common.stop") : t("common.start")}
-          disabled={!activeProfile}
-          onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-          className={`mx-auto grid h-16 w-16 -translate-y-3 place-items-center rounded-full border-4 border-white text-white shadow-xl transition active:scale-95 disabled:opacity-50 dark:border-slate-900 ${
-            primaryRunning ? "bg-red-500" : "bg-primary-500"
-          }`}
-        >
-          {primaryRunning ? (
-            <Square className="h-6 w-6 fill-current" />
-          ) : (
-            <Play className="ml-1 h-7 w-7 fill-current" />
-          )}
-        </button>
-
-        {navItems.slice(2).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActivePage(item.id)}
-            className={`flex h-12 flex-col items-center justify-center text-xs font-medium leading-none ${
-              activePage === item.id
-                ? "text-primary-500"
-                : "text-slate-600 dark:text-slate-300 hover:text-primary-500"
-            }`}
-          >
-            <item.icon className="mb-0.5 h-6 w-6" />
-            <span className="block leading-none">{item.label}</span>
-          </button>
+      <nav
+        className={`fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-14" : "h-[70px]"}`}
+      >
+        {navItems.map((item, index) => (
+          <React.Fragment key={item.id}>
+            <button
+              type="button"
+              aria-label={item.label}
+              aria-current={activePage === item.id ? "page" : undefined}
+              onClick={() => setActivePage(item.id)}
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
+                activePage === item.id
+                  ? "text-foreground"
+                  : "text-muted-foreground/75 hover:text-foreground"
+              }`}
+            >
+              <span
+                className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${activePage === item.id ? "bg-sidebar-accent" : "bg-transparent"}`}
+              >
+                <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
+              </span>
+              <span className={activePage === item.id ? "font-semibold" : "font-normal"}>
+                {item.label}
+              </span>
+            </button>
+            {__WITH_ANDROID__ && index === 1 && (
+              <button
+                type="button"
+                aria-label={primaryRunning ? t("common.stop") : t("common.start")}
+                disabled={!activeProfile}
+                onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
+                className={`mx-2 grid h-16 w-16 shrink-0 -translate-y-3 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+              >
+                {primaryRunning ? (
+                  <Square className="h-6 w-6 fill-current" />
+                ) : (
+                  <Play className="ml-1 h-7 w-7 fill-current" />
+                )}
+              </button>
+            )}
+          </React.Fragment>
         ))}
       </nav>
 
@@ -457,6 +602,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
 
+      <AboutBaasModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <TauriUpdateProgressModal
         open={tauriUpdate.progressOpen}
         onClose={() => tauriUpdate.setProgressOpen(false)}
@@ -503,6 +649,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 
 export default Sidebar;
 
+const AboutLogoButton: React.FC<{ onClick: () => void; side?: "right" | "bottom" }> = ({
+  onClick,
+  side = "right",
+}) => {
+  const { t } = useTranslation();
+  return (
+    <IconTooltip content={t("about.title")} side={side}>
+      <button
+        type="button"
+        aria-label={t("about.title")}
+        onClick={onClick}
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <img src="/images/logo.png" alt="" draggable={false} className="size-5 object-contain" />
+      </button>
+    </IconTooltip>
+  );
+};
+
 type UpdateTone = "red" | "blue";
 
 const toneClasses: Record<UpdateTone, { desktop: string; floating: string }> = {
@@ -528,23 +693,24 @@ const UpdateActionButton: React.FC<{
   tone: UpdateTone;
   expanded: boolean;
 }> = ({ label, title, icon: Icon, busy, onClick, tone, expanded }) => (
-  <button
-    type="button"
-    title={title}
-    aria-label={title}
-    onClick={onClick}
-    disabled={busy}
-    className={`flex min-w-0 flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition disabled:opacity-60 ${toneClasses[tone].desktop}`}
-  >
-    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-    <span
-      className={`overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-150 ${
-        expanded ? "ml-2 w-auto opacity-100" : "ml-0 w-0 opacity-0"
-      }`}
+  <IconTooltip content={title} side="right">
+    <button
+      type="button"
+      aria-label={title}
+      onClick={onClick}
+      disabled={busy}
+      className={`flex min-w-0 flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition disabled:opacity-60 ${toneClasses[tone].desktop}`}
     >
-      {label}
-    </span>
-  </button>
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+      <span
+        className={`overflow-hidden whitespace-nowrap transition-[width,opacity,margin] duration-150 ${
+          expanded ? "ml-2 w-auto opacity-100" : "ml-0 w-0 opacity-0"
+        }`}
+      >
+        {label}
+      </span>
+    </button>
+  </IconTooltip>
 );
 
 /** Renders the floating update button component. */
@@ -558,24 +724,25 @@ const FloatingUpdateButton: React.FC<{
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
 
   return (
-    <motion.button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      disabled={busy}
-      whileHover={lowPerformanceMode ? undefined : { scale: 1.08 }}
-      whileTap={lowPerformanceMode ? undefined : { scale: 0.95 }}
-      animate={lowPerformanceMode ? { y: 0 } : { y: [0, -4, 0] }}
-      transition={{
-        duration: lowPerformanceMode ? 0 : 2,
-        repeat: lowPerformanceMode ? 0 : Infinity,
-        ease: "easeInOut",
-      }}
-      className={`flex h-13 w-13 items-center justify-center rounded-full shadow-lg transition disabled:opacity-60 ${toneClasses[tone].floating}`}
-    >
-      {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
-    </motion.button>
+    <IconTooltip content={title} side="top">
+      <motion.button
+        type="button"
+        aria-label={title}
+        onClick={onClick}
+        disabled={busy}
+        whileHover={lowPerformanceMode ? undefined : { scale: 1.08 }}
+        whileTap={lowPerformanceMode ? undefined : { scale: 0.95 }}
+        animate={lowPerformanceMode ? { y: 0 } : { y: [0, -4, 0] }}
+        transition={{
+          duration: lowPerformanceMode ? 0 : 2,
+          repeat: lowPerformanceMode ? 0 : Infinity,
+          ease: "easeInOut",
+        }}
+        className={`flex h-13 w-13 items-center justify-center rounded-full shadow-lg transition disabled:opacity-60 ${toneClasses[tone].floating}`}
+      >
+        {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Icon className="h-6 w-6" />}
+      </motion.button>
+    </IconTooltip>
   );
 };
 

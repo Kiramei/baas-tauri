@@ -10,7 +10,7 @@
       #root {
         height: 100%;
         margin: 0;
-        background: #0f172a;
+        background: #fff;
       }
 
       #baas-startup-shell {
@@ -20,48 +20,42 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        background: #0f172a;
-        color: #dbeafe;
+        background: var(--background, #fff);
+        color: var(--foreground, #1a1c1f);
         opacity: 1;
         pointer-events: none;
         transition: opacity 160ms ease-out;
-        font-family:
-          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-family: "Blueaka", "GmarketSans", "Rubik", system-ui, sans-serif;
       }
 
       .baas-startup-content {
         position: relative;
         display: grid;
-        gap: 22px;
+        gap: 16px;
         justify-items: center;
       }
 
       .baas-startup-mark {
         position: relative;
         display: grid;
-        width: 156px;
-        height: 156px;
+        width: 80px;
+        height: 80px;
         place-items: center;
       }
 
       .baas-startup-mark img {
-        width: 112px;
-        height: 112px;
+        width: 48px;
+        height: 48px;
         border-radius: 999px;
-        box-shadow:
-          0 0 28px rgba(34, 211, 238, 0.34),
-          0 0 64px rgba(34, 211, 238, 0.18);
       }
 
       .baas-startup-spinner {
         position: absolute;
         inset: 0;
         box-sizing: border-box;
-        border: 3px solid transparent;
-        border-top-color: #22d3ee;
-        border-bottom-color: #67e8f9;
+        border: 1px solid #8883;
+        border-top-color: #888;
         border-radius: 999px;
-        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.82));
         animation: baas-startup-spin 1.05s linear infinite;
       }
 
@@ -69,7 +63,7 @@
         content: "";
         position: absolute;
         inset: 8px;
-        border: 1px solid rgba(103, 232, 249, 0.2);
+        border: 0;
         border-radius: inherit;
       }
 
@@ -80,7 +74,7 @@
       }
 
       #baas-startup-shell span {
-        color: rgba(219, 234, 254, 0.82);
+        color: var(--muted-foreground, #6a6b6d);
         font-size: 14px;
       }
 
@@ -93,11 +87,17 @@
           animation-duration: 2.4s;
         }
       }
+      @media (prefers-color-scheme: dark) {
+        html:not(.light),
+        html:not(.light) body {
+          background: #181818;
+        }
+      }
     </style>
     <link rel="stylesheet" href="/src/styles/index.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   </head>
-  <body class="bg-slate-50 dark:bg-slate-900">
+  <body class="bg-background text-foreground">
     <div id="baas-startup-shell">
       <div class="baas-startup-content">
         <div class="baas-startup-mark">

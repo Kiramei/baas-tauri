@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "Back",
+    "close": "Close",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "forward": "Forward",
+    "maximize": "Maximize",
+    "minimize": "Minimize",
+    "restore": "Restore",
+    "windowControls": "Window controls"
   },
   "nav": {
     "configuration": "Configuration",
@@ -12,6 +20,7 @@
     "add": "Add",
     "cancel": "Cancel",
     "choose": "Choose",
+    "close": "Close",
     "confirm": "Confirm",
     "create": "Create",
     "delete": "Delete",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "Logs",
+    "empty": {
+      "description": "Start a task to see its progress here.",
+      "title": "No activity yet"
+    },
     "export": "Export Logs",
     "scroll": {
       "$self": "Auto Scroll",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "Next Task",
+    "next": "Upcoming Tasks",
     "noneQueued": "No tasks in the queue",
     "noneRunning": "No task is currently running",
     "overview": "Task Overview",
@@ -65,12 +78,6 @@
       "disconnectedBody": "The {{transport}} connection was interrupted. Reconnecting automatically.",
       "disconnectedTitle": "BAAS service disconnected"
     }
-  },
-  "time": {
-    "daysAgo": "{{count}} days ago",
-    "hoursAgo": "{{count}} hours ago",
-    "minutesAgo": "{{count}} minutes ago",
-    "secondsAgo": "{{count}} seconds ago"
   },
   "settings": {
     "feature": "Feature Settings",
@@ -96,7 +103,6 @@
       "title": "System logs"
     },
     "ui": {
-      "idleAutoUpdate": "Automatically update scripts when idle",
       "$self": "UI Settings",
       "assets": "Display Asset Details",
       "backgroundImage": "Background image",
@@ -111,6 +117,7 @@
       "enableBAComet": "Enable BAComet",
       "enableSafeStream": "Enable safe stream",
       "enableSystemNotifications": "Enable system notifications",
+      "idleAutoUpdate": "Automatically update scripts when idle",
       "lowPerformanceMode": "Low performance mode",
       "player": "Player",
       "themeColor": "Theme color",
@@ -173,6 +180,7 @@
     "import": "Import Profile Archive",
     "importArchive": "Choose profile archive",
     "importFailed": "Failed to import profile",
+    "list": "Profiles",
     "name": "Profile Name",
     "nameExists": "Name already exists"
   },
@@ -260,15 +268,9 @@
     "subtitle": "Open the BAAS online documentation for installation, configuration, scheduling, feature guides, and development notes.",
     "title": "Wiki Docs",
     "web": {
-      "detach": "Detach",
-      "detachedDescription": "The documentation site is open in a separate window. Focus that window, or close it and return the page to the main window.",
-      "detachedTitle": "Opened in a separate window",
       "failed": "Web Wiki failed to load",
-      "focusDetached": "Focus separate window",
       "loading": "Loading Web Wiki...",
       "openBrowser": "Open in browser",
-      "openExternal": "Open in browser",
-      "return": "Return to main window",
       "title": "Wiki Docs"
     }
   },
@@ -471,6 +473,9 @@
     "purchaseRewarded": "Bounty Ticket Purchase Count",
     "purchaseScrimmage": "Commissions Ticket Purchase Count",
     "rewarded": "Bounty Sweep Count",
+    "rewardedHint": "Enter counts in the game’s region order ({{count}} regions). Use a non-negative integer or max; 0 skips a region.",
+    "rewardedInvalid": "Enter a non-negative integer or max.",
+    "rewardedRegion": "Region {{number}}",
     "scrimmage": "Commissions Sweep Count",
     "special": "Special Mission Sweep Count"
   },
@@ -615,6 +620,20 @@
     "pasteFailed": "Clipboard is not available.",
     "reload": "Reload"
   },
+  "about": {
+    "backendCommit": "Script revision",
+    "clientVersion": "Client version",
+    "connectionMethod": "Connection method",
+    "connectionStatus": "Connection status",
+    "description": "Manage Blue Archive profiles, automated tasks, and activity logs.",
+    "disconnected": "Disconnected",
+    "frontendProject": "Client project",
+    "license": "License",
+    "openLinkFailed": "Could not open the link",
+    "scriptProject": "Script project",
+    "title": "About BAAS",
+    "unavailable": "Unavailable"
+  },
   "adb": {
     "detectBtn": "Detect ADB",
     "detecting": "Detecting ADB...",
@@ -666,6 +685,9 @@
     "connected": "Service connected",
     "connecting": "Connecting to service..."
   },
+  "home": {
+    "preparing": "Preparing"
+  },
   "label": {
     "installDir": "Installation Directory"
   },
@@ -700,6 +722,7 @@
   "transport": {
     "label": "Data transport",
     "pipe": "Named pipe (desktop)",
+    "shm": "Shared memory (native)",
     "websocket": "WebSocket (compatible)"
   },
   "ui": {

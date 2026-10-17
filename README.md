@@ -208,7 +208,7 @@ baas-tauri/
 
 The app no longer uses the old local Wiki as the primary documentation surface. The Wiki page loads the web documentation site by default.
 
-In Tauri mode, Detach opens a normal independent window titled `Wiki Docs`. The main window then shows that documentation is already open separately and offers actions to focus the detached window or return the page to the main window.
+The Docs page can open the same site in your system's default browser. The embedded documentation remains available in the app.
 
 ## License
 

@@ -435,8 +435,9 @@ impl GitExecutor for RealGitExecutor {
         run_git(&["remote", "set-url", "origin", url], Some(target))?;
         run_git(&["fetch", "--depth", "1", "origin", branch], Some(target))?;
         run_git(&["reset", "--hard", "FETCH_HEAD"], Some(target))?;
-        let _ = run_git(&["reflog", "expire", "--expire=now", "--all"], Some(target));
-        let _ = run_git(&["gc", "--prune=now"], Some(target));
+        // Fetch already performs Git's threshold-based automatic maintenance.
+        // Repacking all objects on every update delays launch, especially for
+        // the binary-heavy OCR repository, and needlessly expires recovery data.
         Ok(())
     }
 
@@ -1474,12 +1475,17 @@ mod tests {
 
     #[test]
     fn main_repository_channels_include_cnb_mirrors() {
-        assert!(repository_urls(RepositoryKind::Main, UpdateChannel::Stable).iter().any(
-            |url| url == "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git"
-        ));
-        assert!(repository_urls(RepositoryKind::Main, UpdateChannel::Dev)
-            .iter()
-            .any(|url| url == "https://cnb.cool/kiramei/baas-dev.git"));
+        assert!(
+            repository_urls(RepositoryKind::Main, UpdateChannel::Stable)
+                .iter()
+                .any(|url| url
+                    == "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git")
+        );
+        assert!(
+            repository_urls(RepositoryKind::Main, UpdateChannel::Dev)
+                .iter()
+                .any(|url| url == "https://cnb.cool/kiramei/baas-dev.git")
+        );
     }
 
     /// Handles the remove git index before hard reset workflow.
@@ -1574,6 +1580,63 @@ mod tests {
 
         assert_eq!(result.status, UpdateStatus::Skipped);
         assert!(calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn real_cli_update_resets_files_and_retains_recovery_reflog() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let source_dir = dir.path().join("source");
+        let mut init = git2::RepositoryInitOptions::new();
+        init.initial_head("master");
+        let source = Repository::init_opts(&source_dir, &init).unwrap();
+        let commit_file = |content: &str| {
+            fs::write(source_dir.join("app.txt"), content).unwrap();
+            let mut index = source.index().unwrap();
+            index.add_path(Path::new("app.txt")).unwrap();
+            index.write().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = source.find_tree(tree_id).unwrap();
+            let signature =
+                git2::Signature::now("updater test", "updater@example.invalid").unwrap();
+            let parent = source
+                .head()
+                .ok()
+                .map(|head| head.peel_to_commit().unwrap());
+            let parents = parent.iter().collect::<Vec<_>>();
+            source
+                .commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    content,
+                    &tree,
+                    &parents,
+                )
+                .unwrap()
+        };
+        let initial = commit_file("initial");
+        let target = dir.path().join("checkout");
+        let url = source_dir.to_string_lossy().replace('\\', "/");
+        RealGitExecutor.clone_cli(&url, "master", &target).unwrap();
+        fs::write(target.join("app.txt"), "local change").unwrap();
+        let updated = commit_file("updated");
+
+        RealGitExecutor.update_cli(&url, "master", &target).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(target.join("app.txt")).unwrap(),
+            "updated"
+        );
+        assert_eq!(
+            RealGitExecutor.local_sha_cli(&target).unwrap(),
+            updated.to_string()
+        );
+        let checkout = Repository::open(&target).unwrap();
+        let reflog = checkout.reflog("HEAD").unwrap();
+        assert!((0..reflog.len()).any(|index| reflog.get(index).unwrap().id_old() == initial));
     }
 
     /// Performs the sync with git2 uses ranked sources operation.

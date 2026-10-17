@@ -7,11 +7,11 @@ use crate::{
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
         RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        launch_backend_pipe_command, managed_python_configured, requirements_compile_cached,
-        requirements_path,
-        save_requirements_cache, uses_managed_runtime, uv_cache_clean_command,
-        uv_compile_command_with_index, uv_executable, uv_python_install_command_with_mirror,
-        uv_sync_command_with_index, uv_venv_command, with_environment_source_failover,
+        launch_backend_pipe_command, launch_backend_shm_command, managed_python_configured,
+        requirements_compile_cached, requirements_path, save_requirements_cache,
+        uses_managed_runtime, uv_compile_command_with_index, uv_executable,
+        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
+        validate_backend_shm_support, with_environment_source_failover,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
@@ -558,6 +558,7 @@ pub fn run_terminal_workflow_flow(
         Arc::clone(&state),
         options.launch,
         options.pipe_name.as_deref(),
+        options.shm_name.as_deref(),
     ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
@@ -673,9 +674,9 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
         .process_task(
             "uv-cache-clean",
             "uv-cache-clean",
-            "Clean UV Cache",
-            "Clean UV cache after dependency synchronization.",
-            "uv cache clean",
+            "Retain UV Cache",
+            "Keep downloaded and built wheels for subsequent dependency updates.",
+            "Retain UV cache",
         )
         .serial(vec![
             WorkflowTask::new(
@@ -1482,22 +1483,6 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
                 .arg("--hard")
                 .arg("FETCH_HEAD"),
         )
-        .after(
-            git_cli_command()
-                .arg("-C")
-                .arg(target_dir.to_string_lossy())
-                .arg("reflog")
-                .arg("expire")
-                .arg("--expire=now")
-                .arg("--all"),
-        )
-        .after(
-            git_cli_command()
-                .arg("-C")
-                .arg(target_dir.to_string_lossy())
-                .arg("gc")
-                .arg("--prune=now"),
-        )
 }
 
 /// Handles the git rev parse command workflow.
@@ -1799,6 +1784,7 @@ fn run_terminal_dependency_stage(
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
     pipe_name: Option<&str>,
+    shm_name: Option<&str>,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1836,7 +1822,7 @@ fn run_terminal_dependency_stage(
                 return false;
             }
         }
-        return run_terminal_launch_stage(context, config, launch, pipe_name);
+        return run_terminal_launch_stage(context, config, launch, pipe_name, shm_name);
     }
 
     let requirements = match requirements_path(&config) {
@@ -1912,33 +1898,19 @@ fn run_terminal_dependency_stage(
             return false;
         }
     }
-    if dependencies_changed {
-        let task = planned_direct_process_task(
-            context.workflow_plan,
-            "uv-cache-clean",
-            &uv_cache_clean_command(&config),
-        )
-        .with_running_region_max_lines(4);
-        if !run_process_and_wait(
-            context.inner,
-            context.session_id,
-            task,
-            context.renderer_tx,
-            context.completion_tx,
-            context.completion_rx,
-        ) || save_requirements_cache(&config, &requirements, &pypi_index).is_err()
-        {
-            return false;
-        }
-    } else if !run_terminal_skip_task(
+    if dependencies_changed && save_requirements_cache(&config, &requirements, &pypi_index).is_err()
+    {
+        return false;
+    }
+    if !run_terminal_skip_task(
         context,
         "uv-cache-clean",
-        "requirements unchanged; skipping uv cache clean",
+        "Retaining UV cache for subsequent dependency updates",
     ) {
         return false;
     }
 
-    run_terminal_launch_stage(context, config, launch, pipe_name)
+    run_terminal_launch_stage(context, config, launch, pipe_name, shm_name)
 }
 
 /// Performs the run terminal skip task operation.
@@ -1985,6 +1957,7 @@ fn run_terminal_launch_stage(
     config: UpdaterConfig,
     launch: bool,
     pipe_name: Option<&str>,
+    shm_name: Option<&str>,
 ) -> bool {
     if !launch || !config.general.launch {
         return run_terminal_skip_task(
@@ -1993,13 +1966,34 @@ fn run_terminal_launch_stage(
             "Backend launch disabled; skipping backend launch",
         );
     }
+    if shm_name.is_some()
+        && let Err(error) = validate_backend_shm_support(&config)
+    {
+        // Report a failed launch task immediately instead of leaving the
+        // frontend on the connection screen until its port timeout expires.
+        if spawn_thread_task(
+            context.inner,
+            context.session_id,
+            planned_thread_task(context.workflow_plan, "launch-backend"),
+            context.renderer_tx,
+            context.completion_tx,
+            error.message(),
+            |_output, _cancel, message| Err(message),
+        )
+        .is_ok()
+        {
+            let _ = wait_for_task(context.completion_rx, "launch-backend");
+        }
+        return false;
+    }
     let port = match available_port() {
         Ok(port) => port,
         Err(_) => return false,
     };
-    let command = match pipe_name {
-        Some(name) => launch_backend_pipe_command(&config, port, name),
-        None => launch_backend_command(&config, port),
+    let command = match (shm_name, pipe_name) {
+        (Some(name), _) => launch_backend_shm_command(&config, port, name),
+        (None, Some(name)) => launch_backend_pipe_command(&config, port, name),
+        (None, None) => launch_backend_command(&config, port),
     };
     let success = run_process_and_wait(
         context.inner,
@@ -2447,7 +2441,7 @@ mod tests {
             "core.sshCommand=ssh -o BatchMode=yes",
         ];
 
-        assert_eq!(sequence.len(), 5);
+        assert_eq!(sequence.len(), 3);
         assert_eq!(
             sequence[0].args,
             [
@@ -2478,18 +2472,6 @@ mod tests {
                 &["-C", "repo", "reset", "--hard", "FETCH_HEAD",]
             ]
             .concat()
-        );
-        assert_eq!(
-            sequence[3].args,
-            [
-                git_prefix.as_slice(),
-                &["-C", "repo", "reflog", "expire", "--expire=now", "--all",]
-            ]
-            .concat()
-        );
-        assert_eq!(
-            sequence[4].args,
-            [git_prefix.as_slice(), &["-C", "repo", "gc", "--prune=now",]].concat()
         );
     }
 

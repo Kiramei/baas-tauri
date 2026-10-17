@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-16",
+  "timezone": "Asia/Shanghai",
+  "scope": "Transport switch race observed in the native WebView; distinct from shared-memory throughput and game task logic.",
+  "preFixObservation": {
+    "mode": "websocket",
+    "switchReadyMs": 2972.399999976158,
+    "statusRpcCount": 200,
+    "statusRpcP50Ms": 0.29999998211860657,
+    "firstSolve": "Frontend callback timed out after 30 seconds.",
+    "nativeBackendPortsForOneSwitch": [
+      6553,
+      6591,
+      8538
+    ]
+  },
+  "selectedEvidence": [
+    {
+      "localTime": "00:09:25.864",
+      "source": "frontend",
+      "event": "Data initialization starts during an explicit WebSocket switch."
+    },
+    {
+      "localTime": "00:09:25.865-00:09:25.867",
+      "source": "frontend",
+      "event": "Provider, sync, and trigger report no authenticated session and request recovery."
+    },
+    {
+      "localTime": "00:09:27.194",
+      "source": "tauri",
+      "event": "Backend ready on port 6553."
+    },
+    {
+      "localTime": "00:09:28.452",
+      "source": "tauri",
+      "event": "Another backend ready on port 6591."
+    },
+    {
+      "localTime": "00:09:28.824",
+      "source": "frontend",
+      "event": "Data ready is reported."
+    },
+    {
+      "localTime": "00:09:30.465",
+      "source": "tauri",
+      "event": "Backend is stopped again after readiness."
+    },
+    {
+      "localTime": "00:09:31.784",
+      "source": "tauri",
+      "event": "Third backend ready on port 8538."
+    }
+  ],
+  "findings": [
+    "Closing business/control channels exposed authenticated with no session; automatic init could start recovery during the explicit switch.",
+    "Old initialization waits/finally and inbound messages lacked a complete generation boundary.",
+    "Heartbeat recovery retained the previous connection age and could run before authentication or a fresh heartbeat grace period. Individual recovery callers were not recorded, so the third restart is not attributed solely to the watchdog."
+  ],
+  "changes": [
+    "Control teardown atomically changes authentication phase; explicit switching suppresses automatic init/recovery.",
+    "Initialization/retries/inbound messages are generation-aware; stale waits cancel and old finally blocks cannot change the new generation.",
+    "Successful switches start initialization after releasing the switch guard.",
+    "The heartbeat watchdog refreshes grace when mode/authentication/heartbeat changes and only recovers authenticated WebSocket connections.",
+    "Control-channel heartbeat and auth_revoked messages also require the active control identity and generation."
+  ],
+  "regressions": [
+    "Real store with automatic initialization and concurrent recovery starts only one backend per switch.",
+    "A delayed old init cannot clear a new init flag or report stale readiness.",
+    "A native switch initializes without a component/probe invoking init on its behalf.",
+    "Clock-driven watchdog tests cover same-mode reconnect, zero heartbeat, authentication phases, and polling that must not extend grace.",
+    "A retired control cannot refresh the new heartbeat or revoke the new authenticated connection."
+  ],
+  "validation": {
+    "frontendTests": 51,
+    "frontendAssertions": 703,
+    "rustLibTests": 21,
+    "tsc": "passed",
+    "browserProbeTsc": "passed including remoteRegion",
+    "cdpMjsCheckJs": "passed",
+    "relatedEslint": "passed",
+    "clippyDenyWarnings": "passed",
+    "i18n": "572 keys across 7 locales",
+    "gitDiffCheck": "passed"
+  },
+  "deviceActionsByThisAgent": false,
+  "releaseBuildAfterFix": "Passed: bunx tauri build --no-bundle after live A/B sampling completed; see build-validation-windows-2026-10-16.json",
+  "releaseArtifactSha256": "8771FDA879FBFEAFE77872D834D621EFF0BA5B902FE91F0E311335CF767286E0"
+}

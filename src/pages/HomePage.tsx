@@ -1,12 +1,11 @@
+import { IconTooltip } from "@/components/ui/Tooltip";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
 import AssetsDisplay from "@/components/AssetsDisplay";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
+import { ArrowDownToLine, FileDown, Keyboard, Logs, Play, Square, Webcam } from "lucide-react";
 import { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
@@ -17,9 +16,20 @@ import StorageUtil from "@/shared/StorageManager.ts";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
+import { buildServerOptions, SERVER_VALUES } from "@/shared/serverOptions";
 
 const EMPTY_LOGS: LogItem[] = [];
 const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
+const TOOL_BUTTON_CLASS =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-40";
+const ANDROID_GAME_PACKAGES: Record<string, string> = {
+  [SERVER_VALUES.CN_OFFICIAL]: "com.RoamingStar.BlueArchive",
+  [SERVER_VALUES.CN_BILIBILI]: "com.RoamingStar.BlueArchive.bilibili",
+  [SERVER_VALUES.GLOBAL]: "com.nexon.bluearchive",
+  [SERVER_VALUES.GLOBAL_TEEN]: "com.nexon.bluearchiveteen",
+  [SERVER_VALUES.KR_ONE]: "com.nexon.bluearchiveone",
+  [SERVER_VALUES.JP]: "com.YostarJP.BlueArchive",
+};
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -55,6 +65,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
 
+  const androidGamePackage = ANDROID_GAME_PACKAGES[String(settings?.server ?? "")];
+  const serverLabel = buildServerOptions(t).find(
+    (server) => server.value === settings?.server
+  )?.label;
+  const showServerLabel = Boolean(serverLabel && serverLabel !== profile?.name);
+
   const adbSerial = useMemo(() => {
     if (__WITH_ANDROID__) {
       return window.localStorage.getItem("baasAndroidAdbSerial")?.trim() || "auto";
@@ -81,8 +97,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     }
   }, [adbSerial]);
 
-  const toggleAndroidVirtualDisplay = async (value: boolean, packageName?: string) => {
-    if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
+  const toggleAndroidVirtualDisplay = async (
+    value: boolean,
+    packageName?: string
+  ): Promise<boolean> => {
+    if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return false;
     setAndroidVirtualDisplayBusy(true);
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
@@ -94,7 +113,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               request: {
                 serial: adbSerial,
                 configId: activeConfigId,
-                packageName,
+                packageName: packageName ?? androidGamePackage,
                 width: 1280,
                 height: 720,
                 density: 240,
@@ -126,6 +145,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         toast.success("Background game display closed");
       }
       void refreshAndroidVirtualDisplayStatus();
+      return true;
     } catch (error) {
       toast.error(
         value ? "Background game display failed" : "Background game display cleanup failed",
@@ -134,6 +154,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         }
       );
       void refreshAndroidVirtualDisplayStatus();
+      return false;
     } finally {
       setAndroidVirtualDisplayBusy(false);
     }
@@ -150,11 +171,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
     if (__WITH_ANDROID__ && !androidVirtualDisplayActive) {
-      await toggleAndroidVirtualDisplay(
+      const prepared = await toggleAndroidVirtualDisplay(
         true,
-        window.localStorage.getItem("baasAndroidSelectedGame") || undefined
+        window.localStorage.getItem("baasAndroidSelectedGame") || androidGamePackage
       );
-      if (!(await refreshAndroidVirtualDisplayStatus())) return;
+      if (!prepared || !(await refreshAndroidVirtualDisplayStatus())) return;
     }
     useWebSocketStore.getState().trigger(
       {
@@ -220,87 +241,64 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   };
 
   return (
-    <div className="h-full flex flex-col min-h-0 gap-2">
-      {/* Desktop header: Android exposes its primary action in the bottom navigation. */}
+    <div
+      className={`flex h-full min-h-0 min-w-0 flex-col text-foreground ${isAndroid ? "gap-2" : "gap-5"}`}
+    >
       {!isAndroid && (
-        <div className="flex justify-between items-center shrink-0">
-          <div className="flex">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {t("nav.home")}
-            </h2>
-            <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1 className="min-w-0 truncate text-[16px] font-medium leading-6 tracking-[-0.01em]">
+                {profile?.name ?? t("nav.home")}
+              </h1>
+              {showServerLabel && (
+                <span className="shrink-0 rounded-md bg-secondary/70 px-1.5 py-0.5 text-[10px] leading-4 text-muted-foreground">
+                  {serverLabel}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex sm:hidden items-center gap-2">
+
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             {remoteAvailable && (
-              <SwitchButton
-                checked={remoteVisible}
-                onChange={(value) => {
-                  setRemoteVisible(value);
-                }}
-                label=""
-                className="ml-2 h-8 w-8"
-                iconOnly
-              >
-                <Webcam size={20} className="rounded w-4 h-4" />
-              </SwitchButton>
+              <IconTooltip content={t("remote.emulator")}>
+                <button
+                  type="button"
+                  onClick={() => setRemoteVisible((visible) => !visible)}
+                  aria-label={t("remote.emulator")}
+                  aria-pressed={remoteVisible}
+                  className={`${TOOL_BUTTON_CLASS} ${remoteVisible ? "bg-secondary text-foreground" : ""}`}
+                >
+                  <Webcam className="h-4 w-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
             )}
             {hotkeyAvailable && (
-              <CButton
-                onClick={() => setHotkeyOpen(true)}
-                variant="secondary"
-                className="h-8 w-8"
-                iconOnly
-              >
-                <Keyboard className="w-4 h-4" />
-              </CButton>
+              <IconTooltip content={t("hotkey")}>
+                <button
+                  type="button"
+                  onClick={() => setHotkeyOpen(true)}
+                  aria-label={t("hotkey")}
+                  className={TOOL_BUTTON_CLASS}
+                >
+                  <Keyboard className="h-4 w-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
             )}
             <CButton
               onClick={scriptRunning ? stopScript : startScript}
+              aria-label={scriptRunning ? t("common.stop") : t("common.start")}
               variant={scriptRunning ? "danger" : "primary"}
-              className="h-8 w-8"
-              iconOnly
-              disabled={androidVirtualDisplayBusy}
-            >
-              {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            </CButton>
-          </div>
-          <div className="hidden sm:flex items-center gap-2">
-            {remoteAvailable && (
-              <SwitchButton
-                checked={remoteVisible}
-                onChange={(value) => {
-                  setRemoteVisible(value);
-                }}
-                label=""
-                className="ml-2 h-8 w-8"
-                iconOnly
-              >
-                <Webcam size={20} className="rounded w-4 h-4" />
-              </SwitchButton>
-            )}
-            {hotkeyAvailable && (
-              <CButton
-                onClick={() => setHotkeyOpen(true)}
-                variant="secondary"
-                className="h-8 w-8"
-                iconOnly
-              >
-                <Keyboard className="w-4 h-4" />
-              </CButton>
-            )}
-            <CButton
-              onClick={scriptRunning ? stopScript : startScript}
-              variant={scriptRunning ? "danger" : "primary"}
-              className="w-25 pl-3 flex items-center justify-center"
+              className="ml-2 h-[34px] gap-1.5 rounded-lg px-3.5 py-0 text-xs"
               disabled={androidVirtualDisplayBusy}
             >
               {scriptRunning ? (
-                <Square className="w-4 h-4 mr-2" />
+                <Square className="h-3 w-3" fill="currentColor" strokeWidth={1.6} />
               ) : (
-                <Play className="w-4 h-4 mr-2" />
+                <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.6} />
               )}
               {androidVirtualDisplayBusy
-                ? "准备中"
+                ? t("home.preparing")
                 : scriptRunning
                   ? t("common.stop")
                   : t("common.start")}
@@ -338,84 +336,73 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
       {isAndroid && (
         <React.Suspense
-          fallback={
-            <div className="h-14 shrink-0 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700" />
-          }
+          fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-secondary" />}
         >
           <AndroidGamePanel
             virtualDisplayActive={androidVirtualDisplayActive}
             virtualDisplayBusy={androidVirtualDisplayBusy}
-            onToggleVirtualDisplay={toggleAndroidVirtualDisplay}
+            onToggleVirtualDisplay={async (active, packageName) => {
+              await toggleAndroidVirtualDisplay(active, packageName);
+            }}
           />
         </React.Suspense>
       )}
 
-      {/* Live status for the active task pipeline. */}
-      {activeConfigId && <TaskStatus profileId={activeConfigId} />}
-
-      {/* Optional asset snapshot to provide immediate operational context. */}
-      {assetsDisplay && (
-        <div className="shrink-0">
-          {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
+      {/* Account data and task context share one compact summary area. */}
+      {activeConfigId && (
+        <div className={`min-w-0 shrink-0 ${isAndroid ? "space-y-2" : "space-y-5"}`}>
+          {isAndroid && <TaskStatus profileId={activeConfigId} />}
+          {assetsDisplay && <AssetsDisplay profileId={activeConfigId} />}
+          {!isAndroid && <TaskStatus profileId={activeConfigId} />}
         </div>
       )}
 
-      {/* Streaming log viewer with scroll management and export tooling. */}
-      <Card
-        className={
-          isAndroid
-            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
-            : "flex-1 min-h-100 flex flex-col"
-        }
+      {/* Logs form the main workspace; controls stay quiet until they are needed. */}
+      <section
+        className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-[var(--log-surface)] shadow-[var(--log-card-shadow)] ${isAndroid ? "min-h-0" : "min-h-64"}`}
       >
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>
-            <div className="flex items-center gap-2">
-              <Logs /> {t("log")}
-            </div>
-          </CardTitle>
-          <div className="sm:flex hidden items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label={t("log.scroll")}
-              className="px-4!"
-            />
-            <CButton onClick={exportLog} className="ml-2">
-              <div className="flex">
-                <FileUp size={20} className="mr-2" />
-                {t("log.export")}
-              </div>
-            </CButton>
+        <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5">
+          <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
+            <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
+            {t("log")}
+            {activeLogs.length > 0 && (
+              <span className="ml-0.5 text-[11px] font-normal tabular-nums text-muted-foreground">
+                {activeLogs.length.toLocaleString()}
+              </span>
+            )}
+          </h2>
+          <div className="flex shrink-0 items-center gap-1">
+            <IconTooltip content={t("log.scroll.detail")}>
+              <button
+                type="button"
+                onClick={() => setUiSettings((state) => ({ ...state, scrollToEnd: !scrollToEnd }))}
+                aria-label={t("log.scroll")}
+                aria-pressed={scrollToEnd}
+                className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
+              >
+                <ArrowDownToLine className="h-3.5 w-3.5" strokeWidth={1.6} />
+                <span className="hidden sm:inline">{t("log.scroll")}</span>
+              </button>
+            </IconTooltip>
+            <IconTooltip content={t("log.export")}>
+              <button
+                type="button"
+                onClick={exportLog}
+                aria-label={t("log.export")}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <FileDown className="h-3.5 w-3.5" strokeWidth={1.6} />
+              </button>
+            </IconTooltip>
           </div>
-
-          <div className="sm:hidden flex items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <ListEnd size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-            <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
-              <FileUp size={20} className="rounded w-4 h-4" />
-            </CButton>
-          </div>
-        </CardHeader>
-
-        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
+        </div>
+        <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden pb-3 pt-1">
           {remoteAvailable && remoteVisible && activeConfigId && (
             <RemoteDisplay profileId={activeConfigId} />
           )}
           <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 };

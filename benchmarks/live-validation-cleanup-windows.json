@@ -1,0 +1,10 @@
+{
+  "closedTestNativePid": 3616,
+  "closedNativeChildCount": 11,
+  "closedVitePids": [
+    40596
+  ],
+  "remainingTestListeners": [],
+  "gameAndEmulatorLeftRunning": true,
+  "installedBackendUnchanged": true
+}

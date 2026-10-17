@@ -17,14 +17,14 @@ import {
   ArrowRight,
   ArrowLeft,
   Settings,
-  Search,
   Ban,
   ArrowUp,
   ArrowDown,
   Network,
 } from "lucide-react";
 import { ProfileProps } from "@/types/app";
-import { FormInput } from "@/components/ui/FormInput";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { IconTooltip } from "@/components/ui/Tooltip";
 import { FormSelect } from "@/components/ui/FormSelect";
 import CButton from "@/components/ui/CButton.tsx";
 import { Separator } from "@/components/ui/Separator";
@@ -65,7 +65,7 @@ const TaskRow = React.memo(function TaskRow({
   const MoveToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   return (
-    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-2 rounded-md gap-2 min-w-0 overflow-x-hidden">
+    <div className="flex min-w-0 items-center justify-between gap-2 overflow-x-hidden rounded-lg p-2 transition-colors hover:bg-secondary/70">
       {side === "left" ? (
         <>
           <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-left mr-2">
@@ -76,21 +76,37 @@ const TaskRow = React.memo(function TaskRow({
             onChange={(ts) => onChangeTime(task, ts!)}
             className="hidden xl:flex"
           />
-          <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
+          <CButton
+            variant="secondary"
+            onClick={() => onEdit(task)}
+            className="rounded-[50%] w-8 h-8"
+          >
             <Settings className="w-4 h-4" />
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
-          <CButton onClick={() => onMove(task, true)} className="rounded-[50%] w-8 h-8">
+          <CButton
+            variant="secondary"
+            onClick={() => onMove(task, true)}
+            className="rounded-[50%] w-8 h-8"
+          >
             <MoveToEnabledIcon className="w-4 h-4" />
           </CButton>
         </>
       ) : (
         <>
-          <CButton onClick={() => onMove(task, false)} className="rounded-[50%] w-8 h-8">
+          <CButton
+            variant="secondary"
+            onClick={() => onMove(task, false)}
+            className="rounded-[50%] w-8 h-8"
+          >
             <MoveToInactiveIcon className="w-4 h-4" />
           </CButton>
           <Separator orientation="vertical" className="h-8!" />
-          <CButton onClick={() => onEdit(task)} className="rounded-[50%] w-8 h-8">
+          <CButton
+            variant="secondary"
+            onClick={() => onEdit(task)}
+            className="rounded-[50%] w-8 h-8"
+          >
             <Settings className="w-4 h-4" />
           </CButton>
           <DateTimePicker
@@ -230,14 +246,15 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   };
 
   return (
-    <div className="h-full flex flex-col gap-4 min-h-0">
-      <div className="flex items-center gap-2">
+    <div className="h-full flex flex-col gap-4 min-h-0 text-foreground">
+      {/* Page heading with the active profile reference. */}
+      <div className="flex items-center flex-wrap gap-2">
         {!__WITH_ANDROID__ && (
           <>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
               {t("nav.scheduler")}
             </h2>
-            <h2 className="ml-3 text-2xl text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+            <span className="ml-1 text-sm text-muted-foreground">{profile?.name}</span>
           </>
         )}
         <div className="ml-auto flex items-center gap-2 text-sm">
@@ -255,16 +272,18 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
               },
             ]}
           />
-          <CButton
-            className="rounded-full w-9 h-9"
-            title={t("workflow.showGraph")}
-            aria-label={t("workflow.showGraph")}
-            aria-haspopup="dialog"
-            disabled={!pid}
-            onClick={() => setGraphOpen(true)}
-          >
-            <Network size={18} />
-          </CButton>
+          <IconTooltip content={t("workflow.showGraph")}>
+            <CButton
+              variant="secondary"
+              className="rounded-full w-9 h-9"
+              aria-label={t("workflow.showGraph")}
+              aria-haspopup="dialog"
+              disabled={!pid}
+              onClick={() => setGraphOpen(true)}
+            >
+              <Network size={18} />
+            </CButton>
+          </IconTooltip>
         </div>
       </div>
 
@@ -272,57 +291,47 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Hourglass className="w-5 h-5 mr-2 text-primary-500" />
+              <Hourglass className="w-4 h-4 mr-2 text-muted-foreground" />
               {t("task.overview")}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="border-dashed border-b-2 pb-1">
+            <div className="space-y-3 text-sm">
+              <div>
                 {runningTask ? (
-                  <div className="px-3 py-2 bg-primary-100 dark:bg-primary-800 rounded-md">
-                    <span className="text-primary-700 dark:text-primary-300 font-semibold">
+                  <div className="rounded-lg bg-secondary px-3 py-2">
+                    <span className="text-foreground font-medium">
                       {t("task.running")}: {t(eventNameKey(runningTask))}
                     </span>
                   </div>
                 ) : (
-                  <p className="text-slate-500 dark:text-slate-400">{t("task.noneRunning")}</p>
+                  <p className="text-muted-foreground">{t("task.noneRunning")}</p>
                 )}
               </div>
               {taskQueue && taskQueue.length > 0 ? (
-                <ul className="space-y-0 h-35 overflow-auto pr-2 gap-2 flex flex-col">
+                <ul className="flex max-h-24 flex-wrap gap-2 overflow-auto">
                   {taskQueue.map((task, index) => (
-                    <div
-                      key={index}
-                      className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-md"
-                    >
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {t(eventNameKey(task))}
-                      </span>
+                    <div key={index} className="rounded-md bg-secondary/60 px-2.5 py-1.5 text-xs">
+                      <span className="text-foreground">{t(eventNameKey(task))}</span>
                     </div>
                   ))}
                 </ul>
               ) : (
-                <p className="h-35 max-h-35 text-slate-500 dark:text-slate-400">
-                  {t("task.noneQueued")}
-                </p>
+                <p className="text-muted-foreground">{t("task.noneQueued")}</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
       {/* Filtering toolbar for quick navigation and sorting. */}
-      <div className="flex items-center justify-between gap-2">
-        <Search size={20} />
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-md shadow-sm">
-          <FormInput
-            placeholder={t("scheduler.search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
-          />
-        </div>
-        <div className="bg-white dark:bg-slate-800 rounded-md shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <SearchInput
+          placeholder={t("scheduler.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          containerClassName="flex-1"
+        />
+        <div className="rounded-lg">
           <FormSelect
             onChange={(value: string) =>
               setUiSettings((settings) => ({
@@ -337,7 +346,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
             ]}
           />
         </div>
-        <CButton variant="primary" onClick={refreshAll} className="mr-2 rounded-[50%] w-8 h-8">
+        <CButton variant="secondary" onClick={refreshAll} className="w-8 h-8">
           <RefreshCw className="w-4 h-4" />
         </CButton>
       </div>
@@ -383,20 +392,20 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
         {/* Inactive task backlog awaiting activation. */}
         <Card className="flex flex-col min-h-0">
           <CardContent className="pr-1 sm:pr-4 flex flex-col flex-1 min-h-0">
-            <div className="flex justify-between mb-2">
+            <div className="flex justify-between border-b border-border pb-3 mb-2">
               <div className="flex items-center">
-                <Ban className="w-5 h-5 mr-2 text-red-500" />
+                <Ban className="w-4 h-4 mr-2 text-muted-foreground" />
                 <span className="font-medium">{t("scheduler.inactiveTasks")}</span>
               </div>
               <CButton
-                variant="primary"
+                variant="secondary"
                 onClick={() => moveAll(true)}
                 className="rounded-[50%] w-8 h-8 mr-4.5"
               >
                 <MoveAllToEnabledIcon className="w-4 h-4" />
               </CButton>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
+            <div className="flex-1 min-h-0 overflow-auto space-y-1 scroll-embedded pr-1 max-md:max-h-40">
               {left.map((task) => (
                 <TaskRow
                   key={task.func_name}
@@ -414,9 +423,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
         {/* Active task queue currently scheduled for execution. */}
         <Card className="flex flex-col min-h-0">
           <CardContent className="flex flex-col flex-1 min-h-0">
-            <div className="flex justify-between mb-2">
+            <div className="flex justify-between border-b border-border pb-3 mb-2">
               <CButton
-                variant="primary"
+                variant="secondary"
                 onClick={() => moveAll(false)}
                 className="rounded-[50%] w-8 h-8 ml-2"
               >
@@ -424,10 +433,10 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
               </CButton>
               <div className="flex items-center">
                 <span className="font-medium">{t("scheduler.activeTasks")}</span>
-                <CheckCircle2 className="w-5 h-5 ml-2 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 ml-2 text-muted-foreground" />
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto space-y-2 scroll-embedded pr-1 max-md:max-h-40">
+            <div className="flex-1 min-h-0 overflow-auto space-y-1 scroll-embedded pr-1 max-md:max-h-40">
               {right.map((task) => (
                 <TaskRow
                   key={task.func_name}

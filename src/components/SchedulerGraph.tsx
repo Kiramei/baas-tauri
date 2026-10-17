@@ -21,9 +21,10 @@ import { useTranslation } from "react-i18next";
 import { GitBranch, GripHorizontal, LayoutGrid, Unplug, AlertTriangle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { EventConfig } from "@/types/event";
-import { useUISetting } from "@/context/UISettingsProvider";
+import { useTheme } from "@/context/ThemeProvider";
 import StorageUtil from "@/shared/StorageManager";
 import { eventNameKey } from "@/shared/I18nKeys";
+import { IconTooltip } from "@/components/ui/Tooltip";
 import {
   arrangeTasks,
   connectionError,
@@ -60,31 +61,56 @@ const WorkflowNode = memo(function WorkflowNode({ data, selected }: NodeProps<Ta
           <GitBranch size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 title={t(eventNameKey(task.func_name))}>{t(eventNameKey(task.func_name))}</h3>
+          <IconTooltip content={t(eventNameKey(task.func_name))}>
+            <h3>{t(eventNameKey(task.func_name))}</h3>
+          </IconTooltip>
           <span className="workflow-node-id">
             {task.func_name}
             {data.queued ? ` · ${t("workflow.queued")}` : ""}
           </span>
         </div>
-        <GripHorizontal size={16} className="text-slate-400" />
+        <GripHorizontal size={16} className="text-muted-foreground" />
       </div>
       <div className="workflow-ports">
         <div className="workflow-port-row pre">
-          <Handle type="target" position={Position.Left} id="pre" title={t("scheduler.preTask")} />
+          <IconTooltip content={t("scheduler.preTask")} side="left">
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="pre"
+              aria-label={t("scheduler.preTask")}
+            />
+          </IconTooltip>
           <span>{t("scheduler.preTask")}</span>
           <span>{t("workflow.asPre")}</span>
-          <Handle type="source" position={Position.Right} id="pre" title={t("workflow.asPre")} />
+          <IconTooltip content={t("workflow.asPre")} side="right">
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="pre"
+              aria-label={t("workflow.asPre")}
+            />
+          </IconTooltip>
         </div>
         <div className="workflow-port-row post">
-          <Handle type="target" position={Position.Left} id="post" title={t("workflow.asPost")} />
+          <IconTooltip content={t("workflow.asPost")} side="left">
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="post"
+              aria-label={t("workflow.asPost")}
+            />
+          </IconTooltip>
           <span>{t("workflow.asPost")}</span>
           <span>{t("scheduler.postTask")}</span>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="post"
-            title={t("scheduler.postTask")}
-          />
+          <IconTooltip content={t("scheduler.postTask")} side="right">
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="post"
+              aria-label={t("scheduler.postTask")}
+            />
+          </IconTooltip>
         </div>
       </div>
     </section>
@@ -108,22 +134,23 @@ const WorkflowEdge = memo(function WorkflowEdge(props: EdgeProps<RelationEdge>) 
       />
       {props.selected && (
         <EdgeLabelRenderer>
-          <button
-            type="button"
-            className="nodrag nopan absolute flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 shadow-md hover:bg-red-50 dark:border-red-800 dark:bg-slate-800 dark:text-red-400 focus-visible:outline-2 focus-visible:outline-red-500"
-            style={{
-              pointerEvents: "all",
-              transform: `translate(-50%, -50%) translate(${x}px, ${y - 22}px)`,
-            }}
-            title={t("workflow.disconnect")}
-            aria-label={t("workflow.disconnect")}
-            onClick={(event) => {
-              event.stopPropagation();
-              props.data?.onDelete();
-            }}
-          >
-            <Trash2 size={15} />
-          </button>
+          <IconTooltip content={t("workflow.disconnect")}>
+            <button
+              type="button"
+              className="nodrag nopan absolute flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-popover text-destructive shadow-[var(--popover-shadow)] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              style={{
+                pointerEvents: "all",
+                transform: `translate(-50%, -50%) translate(${x}px, ${y - 22}px)`,
+              }}
+              aria-label={t("workflow.disconnect")}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.data?.onDelete();
+              }}
+            >
+              <Trash2 size={15} />
+            </button>
+          </IconTooltip>
         </EdgeLabelRenderer>
       )}
     </>
@@ -155,7 +182,7 @@ export default function SchedulerGraph({
   onEdit: (task: EventConfig) => void;
 }) {
   const { t } = useTranslation();
-  const theme = useUISetting((settings) => settings.theme);
+  const { theme } = useTheme();
   const storageKey = graphStorageKey(backend, profileId);
   const [positions, setPositions] = useState<Positions>(() => ({
     ...arrangeTasks(tasks),
@@ -204,13 +231,13 @@ export default function SchedulerGraph({
     },
     selected: selectedEdge === relation.id,
     style: {
-      stroke: relation.kind === "pre" ? "#0891b2" : "#8b5cf6",
+      stroke: relation.kind === "pre" ? "var(--wf-pre)" : "var(--wf-post)",
       strokeWidth: selectedEdge === relation.id ? 3.5 : 2,
       strokeDasharray: relation.kind === "post" ? "7 5" : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: relation.kind === "pre" ? "#0891b2" : "#8b5cf6",
+      color: relation.kind === "pre" ? "var(--wf-pre)" : "var(--wf-post)",
     },
     label:
       selectedEdge === relation.id
@@ -274,6 +301,7 @@ export default function SchedulerGraph({
       )}
       <div className="workflow-canvas">
         <ReactFlow<TaskNode>
+          proOptions={{ hideAttribution: true }}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -361,13 +389,17 @@ export default function SchedulerGraph({
             );
           }}
         >
-          <Background gap={22} size={1} color="#94a3b833" />
+          <Background gap={22} size={1} color="var(--border)" />
           <Controls showInteractive={false} />
           <MiniMap
             pannable
             zoomable
-            nodeColor={(node) => ((node.data.task as EventConfig).enabled ? "#0891b2" : "#94a3b8")}
-            maskColor="rgba(148,163,184,0.12)"
+            nodeColor={(node) =>
+              (node.data.task as EventConfig).enabled
+                ? "var(--muted-foreground)"
+                : "var(--border-strong)"
+            }
+            maskColor="var(--wf-minimap-mask)"
           />
           <Panel position="top-left">
             <div className="workflow-legend">

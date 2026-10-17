@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
 import { PageKey } from "@/types/app";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { WindowLayoutBoundary, useWindowLayout } from "@/context/WindowLayoutProvider";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,28 +28,30 @@ export function useZoom(scale: number) {
 }
 
 /** Renders the main layout component. */
-const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
+const MainLayoutContent: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
   const zoomScale = useUISetting((settings) => settings.zoomScale);
   const zoomRef = useZoom(zoomScale / 100);
-  const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(false);
+  const { expanded: desktopSidebarExpanded, registerSidebar } = useWindowLayout();
+  useLayoutEffect(registerSidebar, [registerSidebar]);
   return (
     <div
-      className="flex h-full w-full overflow-hidden bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      className="app-layout flex h-full w-full min-h-0 flex-col overflow-hidden text-foreground lg:flex-row"
       ref={zoomRef}
+      data-sidebar-expanded={desktopSidebarExpanded}
     >
       <Sidebar
         activePage={activePage}
         setActivePage={setActivePage}
         desktopExpanded={desktopSidebarExpanded}
-        onDesktopExpandedChange={setDesktopSidebarExpanded}
       />
-      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
-        <Header />
+      <div
+        className={`app-content-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:mb-[2px] lg:mr-[2px] lg:border lg:border-[var(--workspace-edge)] ${desktopSidebarExpanded ? "lg:rounded-tr-[14px]" : "lg:rounded-t-[14px] lg:rounded-bl-[14px]"}`}
+      >
         <main
           className={
             __WITH_ANDROID__
-              ? "desktop-main-panel flex-1 overflow-y-auto bg-slate-100 bg-clip-padding p-3 dark:bg-slate-800 lg:rounded-tl-[16px] lg:border-l"
-              : "desktop-main-panel flex-1 overflow-y-auto bg-slate-100 bg-clip-padding p-6 pr-0 dark:bg-slate-800 lg:rounded-tl-[16px] lg:border-l"
+              ? "desktop-main-panel min-h-0 flex-1 overflow-hidden bg-background p-3"
+              : "desktop-main-panel min-h-0 flex-1 overflow-hidden bg-background"
           }
         >
           {children}
@@ -58,5 +60,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activePage, setActive
     </div>
   );
 };
+
+const MainLayout: React.FC<MainLayoutProps> = (props) => (
+  <WindowLayoutBoundary>
+    <MainLayoutContent {...props} />
+  </WindowLayoutBoundary>
+);
 
 export default MainLayout;

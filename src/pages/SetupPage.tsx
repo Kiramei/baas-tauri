@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import StorageUtil from "@/shared/StorageManager";
 import { waitForNormal, useWebSocketStore } from "@/store/WebsocketStore";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
-import { useTheme } from "@/context/ThemeProvider";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import CButton from "@/components/ui/CButton.tsx";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +18,7 @@ import ConfigEditorModal from "@/components/updater/ConfigEditor.tsx";
 import TermViewer from "@/components/updater/TermViewer.tsx";
 import PathSelector from "@/components/updater/PathSelector";
 import InstallerLayout from "@/components/updater/InstallerLayout";
+import { normalizeTransportMode } from "@/transport/factory";
 
 interface UpdaterConfig {
   general?: {
@@ -27,7 +27,7 @@ interface UpdaterConfig {
     mirrorcCdk?: string;
     no_update?: boolean;
     noUpdate?: boolean;
-    transport?: "websocket" | "pipe";
+    transport?: "websocket" | "pipe" | "shm";
   };
   paths?: {
     baas_root_path?: string;
@@ -111,7 +111,6 @@ const SetupPage = () => {
   const workflowStartedRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
   const { t } = useTranslation();
-  const { theme } = useTheme();
 
   const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
     pendingWorkflowRef.current = null;
@@ -127,7 +126,7 @@ const SetupPage = () => {
           channel: nextConfig?.general?.channel ?? "stable",
           mirrorcCdk: setupMirrorcCdk(nextConfig),
           noUpdate: setupNoUpdate(nextConfig),
-          transport: nextConfig?.general?.transport ?? "pipe",
+          transport: nextConfig?.general?.transport ?? normalizeTransportMode(undefined),
         },
       });
       setConfig(updated);
@@ -337,18 +336,11 @@ const SetupPage = () => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-slate-100 dark:bg-slate-950 overflow-hidden z-1">
-        <img
-          src={theme === "light" ? "/images/bg-light.webp" : "/images/bg-dark.webp"}
-          alt="Loading BG"
-          className="w-full h-full object-cover object-center"
-        />
-      </div>
       <InstallerLayout title={t("installer.title.wizard")}>
-        <div className="flex flex-col gap-2 max-w-3xl mx-auto w-full bg-background px-5 md:px-20 py-5 backdrop-blur supports-backdrop-filter:bg-background/85 md:py-10 rounded-xl shadow-2xl shadow-slate-800">
+        <div className="flex flex-col gap-5 max-w-3xl mx-auto w-full rounded-2xl border border-border bg-card px-5 py-6 md:px-10 md:py-9">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold">{t("installer.title")}</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-xl font-semibold tracking-tight">{t("installer.title")}</h2>
+            <p className="text-sm text-muted-foreground">
               {setupPhase ? t("installer.subtitle.stage1") : t("installer.subtitle.stage2")}
             </p>
           </div>
@@ -358,7 +350,11 @@ const SetupPage = () => {
               <div className="space-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <PathSelector path={installPath} setPath={setInstallPath} disabled={portable} />
                 <div className="flex justify-around pt-4 gap-2 flex-col md:flex-row max-md:w-full">
-                  <CButton onClick={async () => await exit(0)} className="md:w-48" variant="danger">
+                  <CButton
+                    onClick={async () => await exit(0)}
+                    className="md:w-48"
+                    variant="secondary"
+                  >
                     {t("installer.exit")}
                   </CButton>
                   <CButton
@@ -419,11 +415,9 @@ const SetupPage = () => {
         <div className="space-y-3 max-h-[78vh] overflow-y-auto pr-1">
           <div className="text-sm max-h-36 overflow-auto pr-1">
             <div className="font-medium text-red-500">{failure?.step}</div>
-            <div className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">
-              {failure?.message}
-            </div>
+            <div className="mt-1 whitespace-pre-wrap text-foreground">{failure?.message}</div>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
+          <div className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-foreground">
             Return to setup to change the install path or retry. Copy logs before reporting this
             issue.
           </div>

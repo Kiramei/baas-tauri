@@ -85,9 +85,10 @@ const targetAr = path.join(llvmBin, exe("llvm-ar")).replaceAll("\\", "/");
 const targetRanlib = path.join(llvmBin, exe("llvm-ranlib")).replaceAll("\\", "/");
 const targetFlag = `--target=${target.clangPrefix}${apiLevel}`;
 const cargoEnvTarget = target.rust.toUpperCase().replaceAll("-", "_");
-const targetLinkerName = process.platform === "win32"
-  ? `${target.clangPrefix}${apiLevel}-clang.cmd`
-  : `${target.clangPrefix}${apiLevel}-clang`;
+const targetLinkerName =
+  process.platform === "win32"
+    ? `${target.clangPrefix}${apiLevel}-clang.cmd`
+    : `${target.clangPrefix}${apiLevel}-clang`;
 const targetLinker = path.join(llvmBin, targetLinkerName).replaceAll("\\", "/");
 
 process.env[`CARGO_TARGET_${cargoEnvTarget}_LINKER`] = targetLinker;
@@ -192,10 +193,22 @@ function configurePerl() {
     writeAndroidPerlCompat(compatRoot);
     const bash = path.join(gitPerlBin, "bash.exe");
     if (fs.existsSync(bash)) {
-      const unixCompatRoot = output(bash, ["-lc", `cygpath -u '${compatRoot.replaceAll("'", "'\\''")}'`]);
+      const unixCompatRoot = output(bash, [
+        "-lc",
+        `cygpath -u '${compatRoot.replaceAll("'", "'\\''")}'`,
+      ]);
       process.env.PERL5LIB = process.env.PERL5LIB
-        ? `${unixCompatRoot}${path.delimiter}${process.env.PERL5LIB}`
+        ? `${unixCompatRoot}:${process.env.PERL5LIB}`
         : unixCompatRoot;
+      // Git for Windows rewrites Unix-looking environment paths when starting an
+      // MSYS executable. Perl then treats the converted `D:/...` value as two
+      // entries because its path separator is `:`, so our compatibility modules
+      // disappear from @INC. Keep PERL5LIB in `/d/...` form for Git's Perl.
+      const envConversionExclusions = new Set(
+        (process.env.MSYS2_ENV_CONV_EXCL ?? "").split(";").filter(Boolean)
+      );
+      envConversionExclusions.add("PERL5LIB");
+      process.env.MSYS2_ENV_CONV_EXCL = [...envConversionExclusions].join(";");
     }
     return;
   }
@@ -238,7 +251,8 @@ async function ensureMake() {
     fs.mkdirSync(toolsRoot, { recursive: true });
     if (!fs.existsSync(archive)) {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to download Windows build tools: HTTP ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Failed to download Windows build tools: HTTP ${response.status}`);
       fs.writeFileSync(archive, Buffer.from(await response.arrayBuffer()));
     }
     fs.rmSync(xpackRoot, { recursive: true, force: true });
@@ -273,9 +287,19 @@ function buildAndroidOpenSsl() {
   const sslLib = path.join(installRoot, "lib", "libssl.a");
   if (fs.existsSync(cryptoLib) && fs.existsSync(sslLib)) return installRoot;
 
-  run("cargo", ["fetch", "--manifest-path", path.join(repoRoot, "src-tauri", "Cargo.toml"), "--target", target.rust], {
-    errorMessage: "Failed to fetch Rust dependencies before building Android OpenSSL.",
-  });
+  run(
+    "cargo",
+    [
+      "fetch",
+      "--manifest-path",
+      path.join(repoRoot, "src-tauri", "Cargo.toml"),
+      "--target",
+      target.rust,
+    ],
+    {
+      errorMessage: "Failed to fetch Rust dependencies before building Android OpenSSL.",
+    }
+  );
 
   const crateRoot = findOpenSslSrcCrate();
   if (!crateRoot) throw new Error("Unable to locate openssl-src crate after cargo fetch.");
@@ -327,9 +351,16 @@ function buildAndroidOpenSsl() {
       "--openssldir=/usr/local/ssl",
       "--libdir=lib",
     ],
-    { cwd: buildRoot, env, errorMessage: "OpenSSL Configure failed." },
+    { cwd: buildRoot, env, errorMessage: "OpenSSL Configure failed." }
   );
-  run("make", ["build_libs", "install_dev"], {
+  const makeJobs = Math.max(
+    1,
+    Math.min(
+      typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length,
+      16
+    )
+  );
+  run("make", [`-j${makeJobs}`, "build_libs", "install_dev"], {
     cwd: buildRoot,
     env,
     errorMessage: "OpenSSL build failed.",
@@ -390,36 +421,51 @@ function patchAndroidScrcpyRuntimeSources() {
         fs.writeFileSync(file, text, "utf8");
       }
     }
-    patchAndroidScrcpyRuntimeFile(connection, [[
-      "        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n",
-      `        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.adbIP = '127.0.0.1'\n            self.adbPort = '5555'\n`,
-    ]]);
-    patchAndroidScrcpyRuntimeFile(screenshot, [[
-      "        self.method = self.config.screenshot_method\n        self.logger.info(\"Screenshot method : \" + self.method)\n",
-      `        self.method = self.config.screenshot_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Screenshot method : \" + self.method)\n`,
-    ]]);
-    patchAndroidScrcpyRuntimeFile(control, [[
-      "        self.method = self.config.control_method\n        self.logger.info(\"Control method : \" + self.method)\n",
-      `        self.method = self.config.control_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Control method : \" + self.method)\n`,
-    ]]);
+    patchAndroidScrcpyRuntimeFile(connection, [
+      [
+        "        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n",
+        `        self.adbIP = self.config.adbIP\n        self.adbPort = self.config.adbPort\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.adbIP = '127.0.0.1'\n            self.adbPort = '5555'\n`,
+      ],
+    ]);
+    patchAndroidScrcpyRuntimeFile(screenshot, [
+      [
+        '        self.method = self.config.screenshot_method\n        self.logger.info("Screenshot method : " + self.method)\n',
+        `        self.method = self.config.screenshot_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Screenshot method : \" + self.method)\n`,
+      ],
+    ]);
+    patchAndroidScrcpyRuntimeFile(control, [
+      [
+        '        self.method = self.config.control_method\n        self.logger.info("Control method : " + self.method)\n',
+        `        self.method = self.config.control_method\n        # BAAS_ANDROID_SCRCPY_RUNTIME_SELECTION_PATCH_V3\n${candidatesBlock}\n            self.method = 'android_local'\n        self.logger.info(\"Control method : \" + self.method)\n`,
+      ],
+    ]);
   }
 }
 
 /** Reads Cargo package metadata so Android-only plugin Gradle projects can be located reliably. */
 function cargoMetadata() {
   return JSON.parse(
-    output("cargo", [
-      "metadata",
-      "--format-version",
-      "1",
-      "--manifest-path",
-      path.join(repoRoot, "src-tauri", "Cargo.toml"),
-    ], { maxBuffer: 64 * 1024 * 1024 }),
+    output(
+      "cargo",
+      [
+        "metadata",
+        "--format-version",
+        "1",
+        "--manifest-path",
+        path.join(repoRoot, "src-tauri", "Cargo.toml"),
+      ],
+      { maxBuffer: 64 * 1024 * 1024 }
+    )
   );
 }
 
 /** Injects a Tauri Android Gradle project into the generated Android workspace. */
-function ensureTauriAndroidProject(metadata, crateName, gradleProjectName, androidPath = ["android"]) {
+function ensureTauriAndroidProject(
+  metadata,
+  crateName,
+  gradleProjectName,
+  androidPath = ["android"]
+) {
   const pkg = metadata.packages.find((candidate) => candidate.name === crateName);
   if (!pkg) throw new Error(`Unable to find Cargo package metadata for ${crateName}.`);
 
@@ -442,13 +488,38 @@ function ensureTauriAndroidProject(metadata, crateName, gradleProjectName, andro
   const projectReference = `project(":${gradleProjectName}")`;
   if (!buildText.includes(projectReference)) {
     const dependencyBlock = `dependencies {\n${dependencyLine}\n}\n`;
-    const nextText = buildText.length === 0
-      ? `// THIS IS AN AUTOGENERATED FILE. DO NOT EDIT THIS FILE DIRECTLY.\nval implementation by configurations\n${dependencyBlock}`
-      : /dependencies\s*\{/.test(buildText)
-        ? buildText.replace(/dependencies\s*\{\s*/, (match) => `${match}${dependencyLine}\n`)
-        : `${buildText.trimEnd()}\n\n${dependencyBlock}`;
+    const nextText =
+      buildText.length === 0
+        ? `// THIS IS AN AUTOGENERATED FILE. DO NOT EDIT THIS FILE DIRECTLY.\nval implementation by configurations\n${dependencyBlock}`
+        : /dependencies\s*\{/.test(buildText)
+          ? buildText.replace(/dependencies\s*\{\s*/, (match) => `${match}${dependencyLine}\n`)
+          : `${buildText.trimEnd()}\n\n${dependencyBlock}`;
     fs.writeFileSync(buildPath, nextText, "utf8");
   }
+}
+
+function syncAndroidVersion() {
+  const tauriConfig = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "src-tauri", "tauri.conf.json"), "utf8")
+  );
+  const versionName = String(tauriConfig.version ?? "").trim();
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(versionName);
+  if (!match) throw new Error(`Invalid Tauri version for Android: ${versionName}`);
+  const derivedVersionCode =
+    Number(match[1]) * 1_000_000 + Number(match[2]) * 1_000 + Number(match[3]);
+  const versionCode = Number(process.env.BAAS_ANDROID_VERSION_CODE ?? derivedVersionCode);
+  if (!Number.isSafeInteger(versionCode) || versionCode < 1) {
+    throw new Error(
+      `Invalid Android version code: ${process.env.BAAS_ANDROID_VERSION_CODE ?? versionCode}`
+    );
+  }
+  fs.writeFileSync(
+    path.join(androidRoot, "app", "tauri.properties"),
+    "// THIS IS AN AUTOGENERATED FILE. DO NOT EDIT THIS FILE DIRECTLY.\n" +
+      `tauri.android.versionName=${versionName}\n` +
+      `tauri.android.versionCode=${versionCode}\n`,
+    "utf8"
+  );
 }
 
 configurePerl();
@@ -498,10 +569,16 @@ run(
     "tauri/custom-protocol",
     ...(isRelease ? ["--release"] : []),
   ],
-  { errorMessage: `Rust Android build failed for ${target.rust}.` },
+  { errorMessage: `Rust Android build failed for ${target.rust}.` }
 );
 
-const sourceLib = path.join(repoRoot, "target", target.rust, cargoProfileDir, "libbaas_tauri_lib.so");
+const sourceLib = path.join(
+  repoRoot,
+  "target",
+  target.rust,
+  cargoProfileDir,
+  "libbaas_tauri_lib.so"
+);
 if (!fs.existsSync(sourceLib)) throw new Error(`Missing Rust Android library: ${sourceLib}`);
 const destinationDir = path.join(jniRoot, target.androidAbi);
 fs.mkdirSync(destinationDir, { recursive: true });
@@ -513,22 +590,24 @@ ensureTauriAndroidProject(metadata, "tauri-plugin-fs", "tauri-plugin-fs");
 ensureTauriAndroidProject(metadata, "tauri-plugin-opener", "tauri-plugin-opener");
 ensureTauriAndroidProject(metadata, "tauri-plugin-notification", "tauri-plugin-notification");
 
-const libcxx = path.join(
-  llvmRoot,
-  "sysroot",
-  "usr",
-  "lib",
-  target.ndkLibcxx,
-  "libc++_shared.so",
-);
+const libcxx = path.join(llvmRoot, "sysroot", "usr", "lib", target.ndkLibcxx, "libc++_shared.so");
 if (!fs.existsSync(libcxx)) throw new Error(`Missing Android libc++ runtime: ${libcxx}`);
 fs.copyFileSync(libcxx, path.join(destinationDir, "libc++_shared.so"));
 ensureInside(repoRoot, destinationDir, "JNI destination");
 
 patchAndroidScrcpyRuntimeSources();
+syncAndroidVersion();
 
 const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-run(gradlew, [`:app:assemble${target.gradle}${profileTaskName}`, "-x", `rustBuild${target.gradle}${profileTaskName}`], {
-  cwd: androidRoot,
-  errorMessage: "Gradle Android build failed.",
-});
+run(
+  gradlew,
+  [
+    `:app:assemble${target.gradle}${profileTaskName}`,
+    "-x",
+    `rustBuild${target.gradle}${profileTaskName}`,
+  ],
+  {
+    cwd: androidRoot,
+    errorMessage: "Gradle Android build failed.",
+  }
+);

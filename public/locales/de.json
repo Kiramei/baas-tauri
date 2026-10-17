@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "Zurück",
+    "close": "Schließen",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "forward": "Vorwärts",
+    "maximize": "Maximieren",
+    "minimize": "Minimieren",
+    "restore": "Wiederherstellen",
+    "windowControls": "Fenstersteuerung"
   },
   "nav": {
     "configuration": "Konfiguration",
@@ -12,6 +20,7 @@
     "add": "Hinzufügen",
     "cancel": "Abbrechen",
     "choose": "Wählen",
+    "close": "Schließen",
     "confirm": "Bestätigen",
     "create": "Erstellen",
     "delete": "Löschen",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "Protokolle",
+    "empty": {
+      "description": "Starte eine Aufgabe, um ihren Fortschritt hier zu sehen.",
+      "title": "Noch keine Aktivität"
+    },
     "export": "Protokolle exportieren",
     "scroll": {
       "$self": "Automatisch scrollen",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "Nächste Aufgabe",
+    "next": "Weitere Aufgaben",
     "noneQueued": "Keine Aufgaben in der Warteschlange",
     "noneRunning": "Derzeit wird keine Aufgabe ausgeführt",
     "overview": "Aufgabenübersicht",
@@ -65,12 +78,6 @@
       "disconnectedBody": "Die {{transport}}-Verbindung wurde unterbrochen. Die Verbindung wird automatisch wiederhergestellt.",
       "disconnectedTitle": "BAAS-Dienst getrennt"
     }
-  },
-  "time": {
-    "daysAgo": "vor {{count}} Tagen",
-    "hoursAgo": "vor {{count}} Stunden",
-    "minutesAgo": "vor {{count}} Minuten",
-    "secondsAgo": "vor {{count}} Sekunden"
   },
   "settings": {
     "feature": "Funktionseinstellungen",
@@ -96,7 +103,6 @@
       "title": "系统日志"
     },
     "ui": {
-      "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
       "$self": "UI-Einstellungen",
       "assets": "Ressourcendetails anzeigen",
       "backgroundImage": "Hintergrundbild",
@@ -111,6 +117,7 @@
       "enableBAComet": "BAComet aktivieren",
       "enableSafeStream": "Sicheren Stream aktivieren",
       "enableSystemNotifications": "Systembenachrichtigungen aktivieren",
+      "idleAutoUpdate": "Skripte im Leerlauf automatisch aktualisieren",
       "lowPerformanceMode": "Leistungsarmer Modus",
       "player": "Wiedergabe",
       "themeColor": "Designfarbe",
@@ -173,6 +180,7 @@
     "import": "Profilarchiv importieren",
     "importArchive": "Profilarchiv auswählen",
     "importFailed": "Profil konnte nicht importiert werden",
+    "list": "Profile",
     "name": "Profilname",
     "nameExists": "Name existiert bereits"
   },
@@ -260,15 +268,9 @@
     "subtitle": "Ein standardisierter Leitfaden und ein Betriebshandbuch für die BAAS-Automatisierungsplattform.",
     "title": "Wiki-Dokumentation",
     "web": {
-      "detach": "Abtrennen",
-      "detachedDescription": "Das Web-Wiki ist in einem eigenen Fenster geoeffnet.",
-      "detachedTitle": "Web-Wiki getrennt",
       "failed": "Web-Wiki konnte nicht laden",
-      "focusDetached": "Fenster fokussieren",
       "loading": "Web-Wiki wird geladen...",
       "openBrowser": "Im Browser öffnen",
-      "openExternal": "Im Browser oeffnen",
-      "return": "Zurueck",
       "title": "Web-Wiki"
     }
   },
@@ -471,6 +473,9 @@
     "purchaseRewarded": "Anzahl der gekauften Kopfgeldtickets",
     "purchaseScrimmage": "Anzahl der gekauften Kommissionstickets",
     "rewarded": "Anzahl der Kopfgeld-Sweeps",
+    "rewardedHint": "Anzahl in der Reihenfolge der Gebiete im Spiel eingeben ({{count}} Gebiete). Eine nicht negative ganze Zahl oder max verwenden; 0 überspringt ein Gebiet.",
+    "rewardedInvalid": "Eine nicht negative ganze Zahl oder max eingeben.",
+    "rewardedRegion": "Gebiet {{number}}",
     "scrimmage": "Anzahl der Kommissions-Sweeps",
     "special": "Anzahl der Spezialmissions-Sweeps"
   },
@@ -615,6 +620,20 @@
     "pasteFailed": "Zwischenablage ist nicht verfuegbar.",
     "reload": "Neu laden"
   },
+  "about": {
+    "backendCommit": "Skript-Revision",
+    "clientVersion": "Client-Version",
+    "connectionMethod": "Verbindungsart",
+    "connectionStatus": "Verbindungsstatus",
+    "description": "Verwalte Blue Archive-Profile, automatisierte Aufgaben und Ausführungsprotokolle.",
+    "disconnected": "Nicht verbunden",
+    "frontendProject": "Client-Projekt",
+    "license": "Lizenz",
+    "openLinkFailed": "Der Link konnte nicht geöffnet werden",
+    "scriptProject": "Skript-Projekt",
+    "title": "Über BAAS",
+    "unavailable": "Nicht verfügbar"
+  },
   "adb": {
     "detectBtn": "ADB erkennen",
     "detecting": "Erkenne ADB...",
@@ -666,6 +685,9 @@
     "connected": "Dienst verbunden",
     "connecting": "Verbinde mit Dienst..."
   },
+  "home": {
+    "preparing": "Vorbereitung"
+  },
   "label": {
     "installDir": "Installationsverzeichnis"
   },
@@ -700,6 +722,7 @@
   "transport": {
     "label": "Datentransport",
     "pipe": "Named Pipe (Desktop)",
+    "shm": "Gemeinsamer Speicher (nativ)",
     "websocket": "WebSocket (kompatibel)"
   },
   "ui": {

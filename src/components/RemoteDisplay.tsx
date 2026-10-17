@@ -71,7 +71,15 @@ type PlayerFactory = (
  * 5. Capturing pointer gestures on the modal overlay and forwarding them
  *    to the backend as normalized remote-control events.
  */
-export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
+interface RemoteDisplayProps {
+  profileId: string;
+  variant?: "floating" | "inline";
+}
+
+export const RemoteDisplay: React.FC<RemoteDisplayProps> = ({
+  profileId,
+  variant = "floating",
+}) => {
   /**
    * The actual rendering canvas is created imperatively and stored in a ref.
    * We do this to keep the same canvas element alive when it is moved between
@@ -231,7 +239,10 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
     return {
       "canvas": () => {
         const canvas = document.createElement("canvas");
-        canvas.className = "absolute top-0 justify-self-center h-full block select-none";
+        canvas.className =
+          variant === "inline"
+            ? "absolute inset-y-0 left-1/2 h-full max-w-full -translate-x-1/2 block select-none"
+            : "absolute top-0 justify-self-center h-full block select-none";
         return canvas;
       },
       "video": () => {
@@ -483,13 +494,11 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
 
   const titleNode = (
     <div className="flex mb-2 w-full">
-      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-        {t("remote.emulator")}
-      </h2>
+      <h2 className="text-lg font-medium text-foreground">{t("remote.emulator")}</h2>
       <div className="flex grow">
         <SlideOutButton width={400} className="ml-4" icon={<List className="h-5 w-5" />}>
           <div className="flex grow">
-            <div className="ml-2 w-px bg-slate-400 opacity-60" />
+            <div className="ml-2 w-px bg-border" />
             <CButton
               onMouseDown={btnTrigger("power", 0)}
               onMouseUp={btnTrigger("power", 1)}
@@ -555,7 +564,13 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
   );
 
   return (
-    <div className="absolute bg-black w-64 h-36 right-5 top-3 rounded-xl m-4 overflow-hidden border-2 border-gray-500 z-10">
+    <div
+      className={
+        variant === "inline"
+          ? "relative h-full w-full overflow-hidden bg-black"
+          : "absolute right-5 top-3 z-10 m-4 h-36 w-64 overflow-hidden rounded-xl border border-border bg-black"
+      }
+    >
       {connectionState === ConnectionStatus.connected && (
         <div
           onClick={openModalView}
@@ -583,7 +598,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
       <Modal isOpen={modalOpen} title="" titleNode={titleNode} onClose={onCloseModal} width={95}>
         <div className="relative w-full max-w-full select-none font-mono">
           {showStatus && (
-            <div className="absolute text-white right-0 m-2 py-2 px-4 bg-slate-800/70 rounded-lg backdrop-blur-[2px] pointer-events-none z-2 grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-1 [font-variant-numeric:tabular-nums]">
+            <div className="absolute text-popover-foreground right-0 m-2 py-2 px-4 bg-popover/90 rounded-lg border border-border backdrop-blur-[2px] pointer-events-none z-2 grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-1 [font-variant-numeric:tabular-nums]">
               <span className="text-right">{t("remote.inputBytes")}:</span>
               <span className="text-right min-w-22.5">{quality.prettyBytes}</span>
               <span>{t("remote.avg")}:</span>
@@ -612,7 +627,7 @@ export const RemoteDisplay: React.FC<{ profileId: string }> = ({ profileId }) =>
         </div>
 
         <Accordion
-          className="bg-white border dark:border-none dark:bg-slate-600/50 px-5 py-0 rounded-sm mt-2"
+          className="bg-card border border-border px-5 py-0 rounded-xl mt-3"
           type="single"
           collapsible
         >

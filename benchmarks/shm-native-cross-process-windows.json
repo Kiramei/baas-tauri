@@ -1,0 +1,25 @@
+{
+  "binarySizesVerified": [
+    0,
+    1,
+    65522,
+    65523,
+    65532,
+    65533,
+    4194427,
+    8388625
+  ],
+  "jsonBytesVerified": 100012,
+  "latency1KiB": {
+    "iterations": 100,
+    "p50Ms": 0.1076,
+    "p95Ms": 0.1629,
+    "p99Ms": 0.9396
+  },
+  "scope": "Rust/Python cross-process native shared memory; excludes WebView and game",
+  "throughput1MiB": {
+    "iterations": 20,
+    "roundtripMiBs": 995.0149749753734,
+    "seconds": 0.0402004
+  }
+}
