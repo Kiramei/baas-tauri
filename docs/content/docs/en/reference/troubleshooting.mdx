@@ -216,7 +216,7 @@ Recommendations:
 v0.0.7 added the Android client. If Android cannot start, script toggles fail, or the backend keeps restarting:
 
 - Confirm the APK is current and Android allows the app to be installed and run.
-- Enable the accessibility service; some automation controls depend on it.
+- Start Shizuku, authorize BAAS, and enable the background game display. Accessibility is not required.
 - Keep the foreground service notification alive; if the system kills the app, backend and scripts stop.
 - If the notification script toggle does not work, open the app, confirm the backend has started, then retry from the notification.
 - If the UI does not recover after an Android backend update, close and reopen the app.

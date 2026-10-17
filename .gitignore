@@ -36,3 +36,6 @@ __pycache__/
 *.sw?
 *.br
 .secrets
+
+# Local-only internal documentation
+docs/superpowers/

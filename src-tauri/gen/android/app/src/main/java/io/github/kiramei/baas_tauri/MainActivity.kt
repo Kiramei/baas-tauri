@@ -26,17 +26,21 @@ class MainActivity : TauriActivity() {
         finishAndRemoveTask()
       }
     })
+    ShizukuController.initialize(applicationContext)
+    BaasLocalDeviceServer.start(applicationContext)
     requestNotificationPermissionIfNeeded()
     scheduleForegroundServiceStart(250L)
   }
 
   override fun onResume() {
     super.onResume()
+    NativeGamePreview.current?.resume()
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
   }
 
   override fun onDestroy() {
+    NativeGamePreview.current?.destroy()
     if (isFinishing && !isChangingConfigurations) {
       try {
         startService(
@@ -53,8 +57,16 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     webView.setBackgroundColor(Color.rgb(15, 23, 42))
+    webView.settings.setSupportZoom(false)
+    webView.settings.builtInZoomControls = false
+    webView.settings.displayZoomControls = false
     loadDebugDevUrl(webView)
     scheduleDebugDevUrlLoads(webView)
+  }
+
+  override fun onPause() {
+    NativeGamePreview.current?.pause()
+    super.onPause()
   }
 
   private fun ensureForegroundService() {

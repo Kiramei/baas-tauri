@@ -57,6 +57,7 @@ base64 = "0.22.1"
 jni = "0.21.1"
 openh264 = "0.9.8"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
+minisign-verify = "0.2.4"
 rand = "0.8.5"
 rsa = { version = "0.9.8", features = ["pem"] }
 sha1 = { version = "0.10.6", features = ["oid"] }

@@ -249,10 +249,14 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     <div className="h-full flex flex-col gap-4 min-h-0 text-foreground">
       {/* Page heading with the active profile reference. */}
       <div className="flex items-center flex-wrap gap-2">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">
-          {t("nav.scheduler")}
-        </h2>
-        <span className="ml-1 text-sm text-muted-foreground">{profile?.name}</span>
+        {!__WITH_ANDROID__ && (
+          <>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              {t("nav.scheduler")}
+            </h2>
+            <span className="ml-1 text-sm text-muted-foreground">{profile?.name}</span>
+          </>
+        )}
         <div className="ml-auto flex items-center gap-2 text-sm">
           <FormSelect
             value={newEventState}

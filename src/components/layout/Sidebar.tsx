@@ -1,7 +1,15 @@
 import { IconTooltip } from "@/components/ui/Tooltip";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, Loader2, PackageOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  PackageOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Play,
+  Square,
+} from "lucide-react";
 import HeartbeatIndicator from "@/components/HeartbeatIndicator.tsx";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -18,6 +26,7 @@ import Header from "@/components/layout/Header";
 import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import NavigationIcon from "@/components/layout/NavigationIcon";
 import AboutBaasModal from "@/components/AboutBaasModal";
+import { useApp } from "@/context/AppContext";
 
 const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
@@ -30,6 +39,10 @@ interface SidebarProps {
 /** Renders the sidebar component. */
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExpanded }) => {
   const { t } = useTranslation();
+  const { activeProfile } = useApp();
+  const primaryRunning = useWebSocketStore((state) =>
+    activeProfile?.id ? Boolean(state.statusStore[activeProfile.id]?.running) : false
+  );
   const { customFrame, setExpanded } = useWindowLayout();
   const [peek, setPeek] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -521,29 +534,47 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       </section>
 
       {/* Mobile bottom navigation */}
-      <nav className="fixed bottom-0 left-0 z-40 flex h-[70px] w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-label={item.label}
-            aria-current={activePage === item.id ? "page" : undefined}
-            onClick={() => setActivePage(item.id)}
-            className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
-              activePage === item.id
-                ? "text-foreground"
-                : "text-muted-foreground/75 hover:text-foreground"
-            }`}
-          >
-            <span
-              className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${activePage === item.id ? "bg-sidebar-accent" : "bg-transparent"}`}
+      <nav
+        className={`fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-14" : "h-[70px]"}`}
+      >
+        {navItems.map((item, index) => (
+          <React.Fragment key={item.id}>
+            <button
+              type="button"
+              aria-label={item.label}
+              aria-current={activePage === item.id ? "page" : undefined}
+              onClick={() => setActivePage(item.id)}
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
+                activePage === item.id
+                  ? "text-foreground"
+                  : "text-muted-foreground/75 hover:text-foreground"
+              }`}
             >
-              <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
-            </span>
-            <span className={activePage === item.id ? "font-semibold" : "font-normal"}>
-              {item.label}
-            </span>
-          </button>
+              <span
+                className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${activePage === item.id ? "bg-sidebar-accent" : "bg-transparent"}`}
+              >
+                <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
+              </span>
+              <span className={activePage === item.id ? "font-semibold" : "font-normal"}>
+                {item.label}
+              </span>
+            </button>
+            {__WITH_ANDROID__ && index === 1 && (
+              <button
+                type="button"
+                aria-label={primaryRunning ? t("common.stop") : t("common.start")}
+                disabled={!activeProfile}
+                onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
+                className={`mx-2 grid h-16 w-16 shrink-0 -translate-y-3 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+              >
+                {primaryRunning ? (
+                  <Square className="h-6 w-6 fill-current" />
+                ) : (
+                  <Play className="ml-1 h-7 w-7 fill-current" />
+                )}
+              </button>
+            )}
+          </React.Fragment>
         ))}
       </nav>
 

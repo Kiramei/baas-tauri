@@ -3,7 +3,7 @@ title: Android Client
 description: Install the Android APK, start the bundled backend, configure permissions, use notification script toggles, and troubleshoot common problems.
 ---
 
-Starting from v0.0.7, BAAS Tauri ships a native Android client. It bundles the frontend UI, Python backend runtime, updater, accessibility automation bridge, and foreground service into one APK for Android-local automation and testing.
+Starting from v0.0.7, BAAS Tauri ships a native Android client. It bundles the frontend UI, Python backend runtime, updater, Shizuku installer, and foreground service into one APK for Android-local automation and testing.
 
 ## Scope
 
@@ -34,7 +34,7 @@ On first launch, the app prepares the bundled backend runtime. This can take a w
 
 | Permission / State | Purpose | Symptom When Missing |
 | --- | --- | --- |
-| Accessibility service | Allows automation controls | Scripts cannot click or toggle correctly |
+| Shizuku running and authorized | Creates the background game display and injects input | Game preview and controls are unavailable |
 | Foreground service notification | Keeps backend and scripts alive | Backend disconnects after running for a while |
 | Network access | Updates and resource synchronization | Update or backend preparation fails |
 | Storage / file access | Stores runtime, logs, and profiles | Config or logs cannot be written |
@@ -57,7 +57,7 @@ Before using it, confirm:
 
 1. The app is open and backend startup has completed.
 2. The foreground service notification is present.
-3. Accessibility service is enabled.
+3. Shizuku is running and BAAS is authorized.
 4. The current profile and task configuration are correct.
 
 If the notification button does nothing, return to the app, confirm connection state, then start or stop the script in-app to verify backend health.
@@ -79,7 +79,7 @@ If update fails:
 | --- | --- |
 | APK cannot install | Check Android version, CPU architecture, and unknown-source install permission |
 | Backend keeps preparing | Wait for terminal output; preserve startup logs if it fails |
-| Script cannot click | Check accessibility service and notification script toggle state |
+| Script cannot click | Check Shizuku state and the background game display |
 | Disconnects after a while | Check foreground service notification, battery optimization, and background restrictions |
 | Old state after update | Restart the app, then confirm version and update logs |
 

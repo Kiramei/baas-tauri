@@ -292,6 +292,7 @@ dependencies = [
  "chrono",
  "directories",
  "jni 0.21.1",
+ "minisign-verify",
  "minreq",
  "openh264",
  "rand 0.8.6",

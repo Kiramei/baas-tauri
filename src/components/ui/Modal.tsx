@@ -97,6 +97,7 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const zoomScale = useUISetting((settings) => settings.zoomScale);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const titleId = React.useId();
   useModalFocus(isOpen, panelRef, onClose);
@@ -140,7 +141,12 @@ export const Modal: React.FC<ModalProps> = ({
         style={
           fullscreen
             ? undefined
-            : { width: `${width}%`, minWidth: "min(320px, 100%)", maxWidth: "100%" }
+            : {
+                width: `${width}%`,
+                minWidth: "min(320px, 100%)",
+                maxWidth: "100%",
+                zoom: zoomScale / 100,
+              }
         }
       >
         <div
