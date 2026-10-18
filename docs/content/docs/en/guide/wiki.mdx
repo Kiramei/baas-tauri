@@ -1,6 +1,6 @@
 ---
 title: Web Wiki
-description: The in-app Docs page loads the web documentation site by default and can detach into a separate Tauri window.
+description: Read the documentation in the app or open the same site in your default browser.
 ---
 
 BAAS Tauri no longer uses the old local Wiki article list as the main documentation entry. The Docs page loads the web documentation site generated from `baas-tauri/docs` with Fumadocs.
@@ -13,19 +13,12 @@ The page shows:
 
 - Wiki title.
 - Current loading state.
-- Detach button.
+- Open-in-browser button.
 - Failure message and Wiki URL if loading fails.
 
-## Detached Window
+## Open in Browser
 
-Click Detach to create a normal system window for the same documentation site. The main window then shows that the docs are open separately and offers actions to focus the detached window or return the docs to the main window.
-
-Window titles follow language:
-
-- Chinese: `百科文档`
-- English: `Wiki Docs`
-
-The detached window is a normal system window and no longer uses the old traffic-light visual decoration.
+Click the browser button to open the same documentation site in your system's default browser. The embedded page stays available while you read or configure tasks in the app.
 
 ## Languages and Fallback
 
@@ -49,4 +42,4 @@ If the Docs page keeps failing:
 - Open the same Wiki URL in a browser to confirm network or local dev server availability.
 - For GitHub Pages, confirm Pages is enabled and `NEXT_PUBLIC_BASE_PATH` matches the repository Pages path.
 - For local development, confirm the Next dev server is running under `docs`.
-- If detached mode works but embedded mode fails, check WebView2, proxy settings, and iframe sandbox constraints.
+- If the site opens in your browser but the embedded page fails, check WebView2, proxy settings, and iframe sandbox constraints.

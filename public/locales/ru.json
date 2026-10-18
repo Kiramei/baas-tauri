@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "Назад",
+    "close": "Закрыть",
+    "collapseSidebar": "Свернуть боковую панель",
+    "expandSidebar": "Развернуть боковую панель",
+    "forward": "Вперёд",
+    "maximize": "Развернуть",
+    "minimize": "Свернуть",
+    "restore": "Восстановить",
+    "windowControls": "Управление окном"
   },
   "nav": {
     "configuration": "Конфигурация",
@@ -12,6 +20,7 @@
     "add": "Добавить",
     "cancel": "Отмена",
     "choose": "Выбрать",
+    "close": "Закрыть",
     "confirm": "Подтвердить",
     "create": "Создать",
     "delete": "Удалить",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "Логи",
+    "empty": {
+      "description": "Запустите задачу, чтобы увидеть её ход здесь.",
+      "title": "Записей пока нет"
+    },
     "export": "Экспорт логов",
     "scroll": {
       "$self": "Автопрокрутка",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "Следующая задача",
+    "next": "Следующие задачи",
     "noneQueued": "В очереди нет задач",
     "noneRunning": "Нет выполняемых задач",
     "overview": "Обзор задач",
@@ -65,12 +78,6 @@
       "disconnectedBody": "Соединение {{transport}} прервано. Выполняется автоматическое переподключение.",
       "disconnectedTitle": "Служба BAAS отключена"
     }
-  },
-  "time": {
-    "daysAgo": "{{count}} дней назад",
-    "hoursAgo": "{{count}} часов назад",
-    "minutesAgo": "{{count}} минут назад",
-    "secondsAgo": "{{count}} секунд назад"
   },
   "settings": {
     "feature": "Настройки функций",
@@ -110,6 +117,7 @@
       "enableBAComet": "Включить BAComet",
       "enableSafeStream": "Безопасный поток",
       "enableSystemNotifications": "Включить системные уведомления",
+      "idleAutoUpdate": "Обновлять скрипты во время простоя",
       "lowPerformanceMode": "Режим низкой производительности",
       "player": "Плеер",
       "themeColor": "Цвет темы",
@@ -172,6 +180,7 @@
     "import": "Импортировать архив профиля",
     "importArchive": "Выберите архив профиля",
     "importFailed": "Не удалось импортировать профиль",
+    "list": "Профили",
     "name": "Имя профиля",
     "nameExists": "Имя уже существует"
   },
@@ -259,15 +268,9 @@
     "subtitle": "Стандартизированное руководство и руководство по эксплуатации для платформы автоматизации BAAS.",
     "title": "Документация Wiki",
     "web": {
-      "detach": "Отделить",
-      "detachedDescription": "Web Wiki открыта в отдельном окне.",
-      "detachedTitle": "Web Wiki отделена",
       "failed": "Не удалось загрузить Web Wiki",
-      "focusDetached": "Перейти к окну",
       "loading": "Загрузка Web Wiki...",
       "openBrowser": "Открыть в браузере",
-      "openExternal": "Открыть во внешнем окне",
-      "return": "Назад",
       "title": "Web Wiki"
     }
   },
@@ -470,6 +473,9 @@
     "purchaseRewarded": "Количество покупок билетов Охоты за головами",
     "purchaseScrimmage": "Количество покупок билетов Поручений",
     "rewarded": "Количество зачисток Охоты за головами",
+    "rewardedHint": "Укажите количество в порядке областей в игре (всего {{count}}). Введите неотрицательное целое число или max; 0 пропускает область.",
+    "rewardedInvalid": "Введите неотрицательное целое число или max.",
+    "rewardedRegion": "Область {{number}}",
     "scrimmage": "Количество зачисток Поручений",
     "special": "Количество зачисток особых миссий"
   },
@@ -614,6 +620,20 @@
     "pasteFailed": "Буфер обмена недоступен.",
     "reload": "Обновить"
   },
+  "about": {
+    "backendCommit": "Ревизия скриптов",
+    "clientVersion": "Версия клиента",
+    "connectionMethod": "Способ подключения",
+    "connectionStatus": "Состояние подключения",
+    "description": "Управляйте профилями Blue Archive, автоматическими задачами и журналами выполнения.",
+    "disconnected": "Нет подключения",
+    "frontendProject": "Проект клиента",
+    "license": "Лицензия",
+    "openLinkFailed": "Не удалось открыть ссылку",
+    "scriptProject": "Проект скриптов",
+    "title": "О BAAS",
+    "unavailable": "Недоступно"
+  },
   "adb": {
     "detectBtn": "Обнаружить ADB",
     "detecting": "Обнаружение ADB...",
@@ -665,6 +685,9 @@
     "connected": "Сервис подключен",
     "connecting": "Подключение к сервису..."
   },
+  "home": {
+    "preparing": "Подготовка"
+  },
   "label": {
     "installDir": "Папка установки"
   },
@@ -699,6 +722,7 @@
   "transport": {
     "label": "Передача данных",
     "pipe": "Именованный канал (ПК)",
+    "shm": "Общая память (нативная)",
     "websocket": "WebSocket (совместимый)"
   },
   "ui": {

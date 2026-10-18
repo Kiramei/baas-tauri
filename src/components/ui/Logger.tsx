@@ -5,42 +5,43 @@ import type { LogItem } from "@/types/app";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { List } from "react-window";
 import { type ListImperativeAPI, type RowComponentProps, useDynamicRowHeight } from "react-window";
+import { Logs } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface LoggerProps {
   logs: LogItem[];
   scrollToEnd: boolean; // Controls whether the logger scrolls to the bottom.
 }
 
-// Desktop text-sm resolves to 12.25px / 17.5px after the 14px root-font adjustment.
-const LOG_ROW_LINE_HEIGHT = 17.5;
+const LOG_ROW_LINE_HEIGHT = 20;
 
 const getLevelColor = (level: string) => {
   switch (level) {
     case "INFO":
-      return "text-blue-400";
+      return "text-muted-foreground";
     case "WARNING":
-      return "text-yellow-400";
+      return "text-amber-600 dark:text-amber-400";
     case "ERROR":
-      return "text-red-400";
+      return "text-red-600 dark:text-red-400";
     case "CRITICAL":
-      return "text-purple-400";
+      return "text-violet-600 dark:text-violet-400";
     default:
-      return "text-slate-400";
+      return "text-muted-foreground/60";
   }
 };
 
 const getMessageStyle = (level: string) => {
   switch (level) {
     case "INFO":
-      return "text-inherit font-normal border-l-[3px] border-gray-400";
+      return "text-foreground font-normal border-l-[3px] border-gray-400";
     case "WARNING":
-      return "text-yellow-500 font-bold border-l-[5px] border-yellow-500";
+      return "text-amber-700 dark:text-amber-300 font-bold border-l-[5px] border-amber-500";
     case "ERROR":
-      return "text-red-500 font-bold border-l-[5px] border-red-500";
+      return "text-red-600 dark:text-red-300 font-bold border-l-[5px] border-red-500";
     case "CRITICAL":
-      return "text-purple-500 font-bold border-l-[5px] border-purple-500";
+      return "text-violet-700 dark:text-violet-300 font-bold border-l-[5px] border-violet-500";
     default:
-      return "text-inherit font-normal border-l-[3px] border-gray-400";
+      return "text-foreground font-normal border-l-[3px] border-gray-400";
   }
 };
 
@@ -63,14 +64,19 @@ const getLogLevelDisplay = (level: string) => {
 const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => {
   const log: LogItem = logs[index];
   return (
-    <div style={style} className="flex items-start cursor-text px-2">
+    <div
+      style={style}
+      className="flex cursor-text items-start px-2 font-mono text-[12px] leading-5"
+    >
       {/* Time */}
-      <span className="text-gray-500 whitespace-nowrap min-w-25 hidden sm:block">
+      <span className="hidden min-w-[88px] shrink-0 whitespace-nowrap tabular-nums text-muted-foreground sm:block">
         {formatIsoToReadableTime(log.time)}
       </span>
 
       {/* Level */}
-      <span className={`sm:min-w-11 ${getLevelColor(log.level)} font-bold flex justify-end mr-2`}>
+      <span
+        className={`mr-2 flex w-3 shrink-0 justify-end font-bold sm:min-w-11 ${getLevelColor(log.level)}`}
+      >
         {/* Show only the first letter on small screens and the full label on larger screens. */}
         <span className="block sm:hidden">{getLogLevelDisplay(log.level).trim().charAt(0)}</span>
         <span className="hidden sm:block">{getLogLevelDisplay(log.level)}</span>
@@ -78,7 +84,7 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
 
       {/* Message */}
       <div
-        className={`flex-1 pl-2 sm:pl-2 whitespace-pre-wrap wrap-break-word ${getMessageStyle(log.level)}`}
+        className={`min-w-0 flex-1 whitespace-pre-wrap wrap-break-word pl-2 ${getMessageStyle(log.level)}`}
       >
         {log.message}
       </div>
@@ -88,6 +94,7 @@ const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => 
 
 /** Renders the logger component. */
 const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
+  const { t } = useTranslation();
   const listRef = useRef<ListImperativeAPI | null>(null);
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: LOG_ROW_LINE_HEIGHT });
 
@@ -98,7 +105,7 @@ const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
   }, [scrollToEnd, logs.length, rowHeight]);
 
   return (
-    <div className="w-full h-full bg-slate-900/80 dark:bg-slate/50 rounded-lg font-mono text-sm text-white py-1 pl-1 sm:py-4 sm:pl-4 overflow-x-auto allow-select-text">
+    <div className="allow-select-text relative h-full min-h-0 w-full overflow-hidden text-foreground">
       {logs.length > 0 ? (
         <List
           listRef={listRef}
@@ -108,7 +115,13 @@ const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
           rowProps={{ logs }}
         />
       ) : (
-        <div className="text-slate-400 px-2 py-2 select-none">No logs yet.</div>
+        <div className="flex h-full min-h-48 select-none flex-col items-center justify-center px-6 pb-10 text-center">
+          <Logs className="mb-4 h-7 w-7 text-muted-foreground/50" strokeWidth={1.3} />
+          <p className="text-sm font-medium text-foreground/85">{t("log.empty.title")}</p>
+          <p className="mt-1.5 max-w-72 text-xs leading-5 text-muted-foreground">
+            {t("log.empty.description")}
+          </p>
+        </div>
       )}
     </div>
   );

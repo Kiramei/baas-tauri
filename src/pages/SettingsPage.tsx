@@ -8,6 +8,7 @@ import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
 import { Separator } from "@/components/ui/Separator";
 import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
+import { IconTooltip } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
 import {
   AppWindow,
@@ -30,6 +31,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { supportsSharedMemory } from "@/transport/factory";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { resolveClientVersion } from "@/shared/ClientVersion";
 import SwitchButton from "@/components/ui/SwitchButton.tsx";
@@ -142,7 +144,7 @@ const SHA_TEST_TIMEOUT_SECONDS = SHA_TEST_TIMEOUT_MS / 1000;
 const MAX_BACKGROUND_IMAGE_BYTES = 5 * 1024 * 1024;
 const BACKGROUND_IMAGE_ACCEPT = ".png,.jpg,.jpeg,.webp,.gif";
 const THEME_COLOR_PRESETS = [
-  "#0891b2",
+  "#1a1c1f",
   "#2563eb",
   "#7c3aed",
   "#db2777",
@@ -389,19 +391,19 @@ const SettingsPage: React.FC = () => {
     {
       label: t("version.local"),
       value: localVersion,
-      icon: <HardDrive className="w-8 h-8 text-cyan-500" />,
+      icon: <HardDrive className="w-5 h-5 text-muted-foreground" />,
     },
     {
       label: t("version.remote"),
       value: remoteVersion,
-      icon: <Cloud className="w-8 h-8 text-indigo-500" />,
+      icon: <Cloud className="w-5 h-5 text-muted-foreground" />,
     },
     {
       label: t("update.method"),
       value: t(i18nKey(updateStatus)),
       icon: (
         <RefreshCcw
-          className={`w-8 h-8 text-purple-500 ${versionChecking ? "animate-spin" : ""}`}
+          className={`w-5 h-5 text-muted-foreground ${versionChecking ? "animate-spin" : ""}`}
         />
       ),
     },
@@ -410,19 +412,19 @@ const SettingsPage: React.FC = () => {
           {
             label: t("version.tauriLocal"),
             value: tauriCurrentVersion,
-            icon: <AppWindow className="w-8 h-8 text-sky-500" />,
+            icon: <AppWindow className="w-5 h-5 text-muted-foreground" />,
           },
           {
             label: t("version.tauriRemote"),
             value: tauriRemoteVersion,
-            icon: <Download className="w-8 h-8 text-blue-500" />,
+            icon: <Download className="w-5 h-5 text-muted-foreground" />,
           },
           {
             label: t("version.tauriStatus"),
             value: tauriStatus,
             icon: (
               <RefreshCcw
-                className={`w-8 h-8 text-blue-500 ${
+                className={`w-5 h-5 text-muted-foreground ${
                   tauriVersion.checking || tauriUpdate.updating ? "animate-spin" : ""
                 }`}
               />
@@ -762,7 +764,7 @@ const SettingsPage: React.FC = () => {
 
   /** Persists and activates the selected desktop backend transport. */
   const handleTransportMode = async (value: string) => {
-    const mode = value === "pipe" ? "pipe" : "websocket";
+    const mode = value === "shm" ? "shm" : value === "pipe" ? "pipe" : "websocket";
     try {
       await setTransportMode(mode);
     } catch {
@@ -771,26 +773,23 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="relative overflow-hidden rounded-2xl border border-slate-200/50 bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 shadow-lg">
-        <div className="absolute inset-0 rounded-2xl border border-transparent mask-exclude bg-linear-to-r from-cyan-400/40 via-indigo-400/40 to-purple-400/40 blur-2xl opacity-40 pointer-events-none" />
-
+    <div className="mx-auto w-full max-w-4xl space-y-5 text-foreground">
+      <h2 className="text-xl font-semibold tracking-tight">{t("nav.settings")}</h2>
+      <Card>
         <CardHeader className="flex flex-row items-center gap-2">
-          <Info className="w-5 h-5 text-cyan-400" />
-          <CardTitle className="text-lg font-semibold tracking-wide bg-linear-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            {t("version.info")}
-          </CardTitle>
+          <Info className="w-[18px] h-[18px] text-muted-foreground" />
+          <CardTitle>{t("version.info")}</CardTitle>
         </CardHeader>
 
-        <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {infos.map((info, i) => (
             <div
               key={i}
               role={info.onClick || info.label === t("update.method") ? "button" : undefined}
               tabIndex={info.onClick || info.label === t("update.method") ? 0 : undefined}
-              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${
+              className={`flex min-w-0 items-center gap-3 p-3 rounded-lg transition-colors ${
                 info.label === t("update.method") || info.onClick
-                  ? " cursor-pointer hover:bg-white/70 dark:hover:bg-slate-700/50"
+                  ? " cursor-pointer hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   : ""
               }`}
               onClick={
@@ -810,13 +809,9 @@ const SettingsPage: React.FC = () => {
               }}
             >
               {info.icon}
-              <div className="flex flex-col">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  {info.label}
-                </p>
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  {info.value}
-                </p>
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="text-xs text-muted-foreground">{info.label}</p>
+                <p className="truncate text-sm font-medium text-foreground">{info.value}</p>
               </div>
             </div>
           ))}
@@ -847,18 +842,18 @@ const SettingsPage: React.FC = () => {
 
           {/* Theme Settings */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               {t("common.theme")}
             </label>
-            <div className="flex space-x-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-lg">
+            <div className="flex gap-1 rounded-lg bg-secondary p-1">
               {(["light", "dark", "system"] as Theme[]).map((value) => (
                 <button
                   key={value}
                   onClick={() => handleThemeChange(value)}
                   className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                     theme === value
-                      ? "bg-white dark:bg-slate-600 shadow"
-                      : "hover:bg-white/50 dark:hover:bg-slate-700/50"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:bg-card/60"
                   }`}
                 >
                   {t(themeKey(value))}
@@ -868,26 +863,27 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <Palette className="h-4 w-4 text-primary-500" />
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Palette className="h-4 w-4 text-muted-foreground" />
               {t("settings.ui.themeColor")}
             </label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="rounded-xl border border-border bg-secondary/30 p-3">
               <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-3 items-center">
                 <ColorPicker value={activeThemeColor} onValueChange={commitThemeColor}>
-                  <ColorPickerTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white shadow-xs transition hover:border-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 dark:border-slate-700 dark:bg-slate-800 sm:w-14"
-                      title={t("settings.ui.themeColor")}
-                      aria-label={t("settings.ui.themeColor")}
-                    >
-                      <ColorPickerSwatch className="h-7 w-7 rounded-full border-white ring-1 ring-slate-300 dark:ring-slate-600" />
-                    </button>
-                  </ColorPickerTrigger>
+                  <IconTooltip content={t("settings.ui.themeColor")}>
+                    <ColorPickerTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex h-11 w-full items-center justify-center rounded-lg border border-border bg-card transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-14"
+                        aria-label={t("settings.ui.themeColor")}
+                      >
+                        <ColorPickerSwatch className="h-7 w-7 rounded-full border-white ring-1 ring-slate-300 dark:ring-slate-600" />
+                      </button>
+                    </ColorPickerTrigger>
+                  </IconTooltip>
                   <ColorPickerContent
                     align="start"
-                    className="w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                    className="w-80 rounded-xl border border-border bg-card p-3 shadow-lg"
                   >
                     <ColorPickerArea className="h-40 rounded-lg" />
                     <ColorPickerHueSlider />
@@ -898,19 +894,19 @@ const SettingsPage: React.FC = () => {
 
                     <div className="grid grid-cols-8 gap-2">
                       {THEME_COLOR_PRESETS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          aria-label={color}
-                          title={color}
-                          onClick={() => commitThemeColor(color)}
-                          className={`h-7 w-7 rounded-full border-2 shadow-xs transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-                            (uiSettings.themeColor || DEFAULT_THEME_COLOR).toLowerCase() === color
-                              ? "border-slate-900 ring-2 ring-primary-300 dark:border-white"
-                              : "border-white dark:border-slate-700"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
+                        <IconTooltip key={color} content={color}>
+                          <button
+                            type="button"
+                            aria-label={color}
+                            onClick={() => commitThemeColor(color)}
+                            className={`h-7 w-7 rounded-full border-2 shadow-xs transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                              (uiSettings.themeColor || DEFAULT_THEME_COLOR).toLowerCase() === color
+                                ? "border-slate-900 ring-2 ring-primary-300 dark:border-white"
+                                : "border-white dark:border-slate-700"
+                            }`}
+                            style={{ backgroundColor: color }}
+                          />
+                        </IconTooltip>
                       ))}
                     </div>
                   </ColorPickerContent>
@@ -944,15 +940,15 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <ImagePlus className="h-4 w-4 text-primary-500" />
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <ImagePlus className="h-4 w-4 text-muted-foreground" />
               {t("settings.ui.backgroundImage")}
             </label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <div className="rounded-xl border border-border bg-secondary/30 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white text-primary-500 shadow-xs dark:border-slate-700 dark:bg-slate-800"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-muted-foreground"
                     style={
                       uiSettings.backgroundImageBase64
                         ? {
@@ -966,12 +962,12 @@ const SettingsPage: React.FC = () => {
                     {!uiSettings.backgroundImageBase64 && <ImagePlus className="h-5 w-5" />}
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <div className="truncate text-sm font-medium text-foreground">
                       {uiSettings.backgroundImageBase64
                         ? t("settings.ui.backgroundImageSelected")
                         : t("settings.ui.backgroundImageEmpty")}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                    <div className="text-xs text-muted-foreground">
                       {t("settings.ui.backgroundImageOpacity")}:{" "}
                       {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
                     </div>
@@ -981,7 +977,7 @@ const SettingsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSelectBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ImagePlus className="h-4 w-4" />
                     {t("settings.ui.backgroundImageChoose")}
@@ -990,19 +986,19 @@ const SettingsPage: React.FC = () => {
                     type="button"
                     disabled={!uiSettings.backgroundImageBase64}
                     onClick={handleRemoveBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600  transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
                   >
                     <Trash2 className="h-4 w-4" />
                     {t("settings.ui.backgroundImageRemove")}
                   </button>
                 </div>
               </div>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="mt-4 rounded-lg border border-border bg-card px-3 py-2">
                 <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-slate-600 dark:text-slate-300">
+                  <span className="font-medium text-muted-foreground">
                     {t("settings.ui.backgroundImageOpacity")}
                   </span>
-                  <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
+                  <span className="font-mono tabular-nums text-muted-foreground">
                     {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
                   </span>
                 </div>
@@ -1013,7 +1009,7 @@ const SettingsPage: React.FC = () => {
                   step={1}
                   value={Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}
                   onChange={handleBackgroundOpacityChange}
-                  className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary-600 dark:bg-slate-700"
+                  className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-foreground"
                 />
               </div>
             </div>
@@ -1106,6 +1102,15 @@ const SettingsPage: React.FC = () => {
                 }}
               />
             )}
+            {__WITH_TAURI__ && !__WITH_WEBUI__ && (
+              <SwitchButton
+                label={t("settings.ui.idleAutoUpdate")}
+                checked={uiSettings.idleAutoUpdate ?? true}
+                onChange={(value) =>
+                  setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
+                }
+              />
+            )}
           </div>
           <Separator />
           <SystemLogSettings />
@@ -1148,11 +1153,11 @@ const SettingsPage: React.FC = () => {
               </CButton>
             </div>
             {dueDate !== "" ? (
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-muted-foreground">
                 {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
               </div>
             ) : (
-              <div className="text-sm text-slate-600">&nbsp;</div>
+              <div className="text-sm text-muted-foreground">&nbsp;</div>
             )}
           </div>
 
@@ -1165,6 +1170,7 @@ const SettingsPage: React.FC = () => {
             options={[
               { value: "websocket", label: t("transport.websocket") },
               { value: "pipe", label: t("transport.pipe") },
+              ...(supportsSharedMemory() ? [{ value: "shm", label: t("transport.shm") }] : []),
             ]}
           />
 
@@ -1215,16 +1221,16 @@ const SettingsPage: React.FC = () => {
             </CButton>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="overflow-hidden rounded-lg border border-border">
             <button
               type="button"
-              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
               onClick={() => setShowShaResults((visible) => !visible)}
               aria-expanded={showShaResults}
             >
-              <TestTube className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <TestTube className="h-4 w-4 text-muted-foreground" />
               <span>{t("shaTest.results")}</span>
-              <span className="ml-auto text-xs font-normal text-slate-500 dark:text-slate-400">
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
                 {shaResults.filter((result) => ["success", "error"].includes(result.status)).length}
                 /{shaResults.length}
               </span>
@@ -1234,20 +1240,20 @@ const SettingsPage: React.FC = () => {
             </button>
 
             {showShaResults && (
-              <div className="max-h-60 overflow-auto border-t border-slate-200 dark:border-slate-700">
+              <div className="max-h-60 overflow-auto border-t border-border">
                 <table className="w-full text-xs sm:text-sm border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800">
+                  <thead className="sticky top-0 z-10 bg-secondary">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">
                         {t("shaTest.method")}
                       </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
                         {t("shaTest.status")}
                       </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
                         {t("shaTest.time")}
                       </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
                         {t("shaTest.sha")}
                       </th>
                     </tr>
@@ -1257,14 +1263,14 @@ const SettingsPage: React.FC = () => {
                     {shaResults.map((r, idx) => (
                       <tr
                         key={idx}
-                        className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        className="odd:bg-card even:bg-secondary/30 hover:bg-secondary transition-colors"
                       >
-                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex">
+                        <td className="px-3 py-2 border-b border-border flex">
                           <EllipsisWithTooltip text={t(i18nKey(r.method))} />
                           <div className="grow"></div>
                         </td>
 
-                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 w-16">
+                        <td className="px-3 py-2 text-center border-b border-border w-16">
                           {r.status === "success" && (
                             <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
                           )}
@@ -1275,15 +1281,15 @@ const SettingsPage: React.FC = () => {
                             <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
                           )}
                           {!["success", "error", "testing"].includes(r.status) && (
-                            <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
+                            <MinusCircle className="w-5 h-5 mx-auto text-muted-foreground" />
                           )}
                         </td>
 
-                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-20">
+                        <td className="px-3 py-2 text-center border-b border-border font-mono w-20">
                           {r.time ?? "-"}
                         </td>
 
-                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 font-mono w-16">
+                        <td className="px-3 py-2 border-b border-border font-mono w-16">
                           {r.sha ? (
                             <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
                           ) : (

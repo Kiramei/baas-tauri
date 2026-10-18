@@ -1,7 +1,7 @@
 import type { ControlConnection, ControlSessionBundle } from "@/shared/SecureWebSocket";
 
 export type BackendChannelName = "provider" | "sync" | "trigger" | "remote";
-export type BackendTransportMode = "websocket" | "pipe";
+export type BackendTransportMode = "websocket" | "pipe" | "shm";
 
 export interface BackendConnection {
   readonly readyState: number | undefined;

@@ -5,30 +5,31 @@ use crate::{
     WorkflowOptions,
     config::{ConfigManager, UpdaterConfig},
     environ::{
-        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, ProcessRunner,
-        RealProcessRunner, ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        launch_backend_pipe_command, managed_python_configured, requirements_compile_cached,
-        requirements_path,
-        save_requirements_cache, uses_managed_runtime, uv_cache_clean_command,
-        uv_compile_command_with_index, uv_executable, uv_python_install_command_with_mirror,
-        uv_sync_command_with_index, uv_venv_command, with_environment_source_failover,
+        CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
+        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
+        launch_backend_pipe_command, launch_backend_shm_command, managed_python_configured,
+        requirements_compile_cached, requirements_path, save_requirements_cache,
+        uses_managed_runtime, uv_compile_command_with_index, uv_executable,
+        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
+        validate_backend_shm_support, with_environment_source_failover,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
-        GitExecutor, GitHttpSourceProbe, GitSourceProbe, RealGitExecutor, RepoManager,
-        RepoSyncOptions, load_or_benchmark_ranking_with_output, repository_branch, repository_urls,
-        save_ranking,
+        GitExecutor, GitHttpSourceProbe, GitSourceProbe, GitUpdateGuard, RealGitExecutor,
+        RepoManager, RepoSyncOptions,
     },
 };
 use baas_term::{
     common::{session_is_current, wait_for_completions},
-    processor::{ScriptCommand, run_process_and_wait, run_process_commands, spawn_process_task},
+    processor::{ScriptCommand, run_process_and_wait, run_process_commands},
     threader::{
         ThreadOutput, ThreadTaskOutcome, spawn_thread_task, spawn_thread_task_with_outcome,
     },
     types::{RendererEvent, TaskCompletion, TaskSpec, TermState, WorkflowPlan},
     workflow::{WorkflowBuilder, WorkflowTask},
 };
+#[cfg(test)]
+use std::time::Instant;
 use std::{
     collections::BTreeSet,
     fs,
@@ -42,7 +43,7 @@ use std::{
         mpsc::Sender,
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 /// Shared cleanup registry for one updater workflow run.
@@ -478,6 +479,44 @@ struct TerminalStageContext<'a> {
     workflow_plan: &'a WorkflowPlan,
 }
 
+/// Runs environment commands through the same session-owned PTY as Git tasks.
+#[derive(Clone)]
+struct TerminalProcessContext {
+    inner: Arc<Mutex<TermState>>,
+    session_id: String,
+    renderer_tx: Sender<RendererEvent>,
+    workflow_plan: WorkflowPlan,
+}
+
+impl TerminalProcessContext {
+    fn new(context: &TerminalStageContext<'_>) -> Self {
+        Self {
+            inner: Arc::clone(context.inner),
+            session_id: context.session_id.to_string(),
+            renderer_tx: context.renderer_tx.clone(),
+            workflow_plan: context.workflow_plan.clone(),
+        }
+    }
+
+    fn run(
+        &self,
+        command: &CommandSpec,
+        output: &ThreadOutput,
+        cancelled: &AtomicBool,
+    ) -> UpdaterResult<()> {
+        if cancelled.load(Ordering::Relaxed) || !session_is_current(&self.inner, &self.session_id) {
+            return Err(UpdaterError::Cancelled);
+        }
+        let spec = planned_direct_process_task(&self.workflow_plan, &output.task_id, command);
+        output.line(OutputStyle::Info, &format!("Running {}", spec.command));
+        let result = run_process_commands(&self.inner, &self.session_id, spec, &self.renderer_tx);
+        if cancelled.load(Ordering::Relaxed) || !session_is_current(&self.inner, &self.session_id) {
+            return Err(UpdaterError::Cancelled);
+        }
+        result.map_err(UpdaterError::Environment)
+    }
+}
+
 /// Runs the BAAS updater workflow as a `baas-term` task graph.
 ///
 /// This is the integration entry point intended for the Tauri app. It mirrors
@@ -558,6 +597,7 @@ pub fn run_terminal_workflow_flow(
         Arc::clone(&state),
         options.launch,
         options.pipe_name.as_deref(),
+        options.shm_name.as_deref(),
     ) {
         fail_terminal_session(&inner, &session_id, &renderer_tx, &cleanup_state);
         return;
@@ -673,9 +713,9 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
         .process_task(
             "uv-cache-clean",
             "uv-cache-clean",
-            "Clean UV Cache",
-            "Clean UV cache after dependency synchronization.",
-            "uv cache clean",
+            "Retain UV Cache",
+            "Keep downloaded and built wheels for subsequent dependency updates.",
+            "Retain UV cache",
         )
         .serial(vec![
             WorkflowTask::new(
@@ -867,178 +907,9 @@ fn run_terminal_repo_stage(
     context: &TerminalStageContext<'_>,
     state: Arc<Mutex<TerminalWorkflowState>>,
 ) -> bool {
-    let (config, main_job, cpp_job, ranking_dir) = match terminal_state_snapshot(&state) {
-        Ok(snapshot) => snapshot,
-        Err(error) => {
-            let output = ThreadOutput {
-                task_id: "updater-repo-stage".to_string(),
-                region_id: "updater-repo-stage".to_string(),
-                tx: context.renderer_tx.clone(),
-            };
-            output.line(OutputStyle::Error, &error);
-            return false;
-        }
-    };
-
-    // Repository operations must stay inside RepoManager so a real clone/fetch
-    // failure can disable the selected source and immediately re-run the race.
-    if config.general.no_update
-        || !config.general.mirrorc_cdk.is_empty()
-        || matches!(
-            config.general.git_backend,
-            GitBackend::Auto | GitBackend::GitCli | GitBackend::Git2
-        )
-        || !RealGitExecutor.has_cli()
-    {
-        let git_backend_override = if config.general.git_backend == GitBackend::Auto
-            && config.general.mirrorc_cdk.is_empty()
-            && !RealGitExecutor.has_cli()
-        {
-            Some(GitBackend::Git2)
-        } else {
-            None
-        };
-        return run_terminal_thread_repo_stage(context, state, git_backend_override);
-    }
-
-    let main_start = planned_thread_task(context.workflow_plan, "main-repository");
-    let cpp_start = planned_thread_task(context.workflow_plan, "cpp-repository");
-    let _ = context.renderer_tx.send(RendererEvent::BufferRegions {
-        region_ids: vec![main_start.region_id.clone(), cpp_start.region_id.clone()],
-    });
-    if context
-        .renderer_tx
-        .send(RendererEvent::TaskStarted(main_start.clone()))
-        .is_err()
-        || context
-            .renderer_tx
-            .send(RendererEvent::TaskStarted(cpp_start.clone()))
-            .is_err()
-    {
-        return false;
-    }
-
-    let main_ranking_path = ranking_dir.join("main.json");
-    let cpp_ranking_path = ranking_dir.join("cpp.json");
-    let main_output = ThreadOutput {
-        task_id: main_start.task_id,
-        region_id: main_start.region_id,
-        tx: context.renderer_tx.clone(),
-    };
-    let cpp_output = ThreadOutput {
-        task_id: cpp_start.task_id,
-        region_id: cpp_start.region_id,
-        tx: context.renderer_tx.clone(),
-    };
-    let (main_plan_result, cpp_plan_result) = thread::scope(|scope| {
-        let main_handle = scope.spawn(|| {
-            plan_git_cli_process(
-                RepositoryKind::Main,
-                &config,
-                &main_job.target_dir,
-                &main_ranking_path,
-                &main_output,
-            )
-        });
-        let cpp_handle = scope.spawn(|| {
-            plan_git_cli_process(
-                RepositoryKind::Cpp,
-                &config,
-                &cpp_job.target_dir,
-                &cpp_ranking_path,
-                &cpp_output,
-            )
-        });
-        (
-            main_handle.join().unwrap_or_else(|_| {
-                Err(UpdaterError::Workflow(
-                    "main repository planning panicked".to_string(),
-                ))
-            }),
-            cpp_handle.join().unwrap_or_else(|_| {
-                Err(UpdaterError::Workflow(
-                    "cpp repository planning panicked".to_string(),
-                ))
-            }),
-        )
-    });
-
-    let main_plan = match main_plan_result {
-        Ok(plan) => plan,
-        Err(_) => {
-            return if config.general.git_backend == GitBackend::Auto {
-                run_terminal_thread_repo_stage(context, state, Some(GitBackend::Git2))
-            } else {
-                run_terminal_thread_repo_stage(context, state, None)
-            };
-        }
-    };
-    let cpp_plan = match cpp_plan_result {
-        Ok(plan) => plan,
-        Err(_) => {
-            return if config.general.git_backend == GitBackend::Auto {
-                run_terminal_thread_repo_stage(context, state, Some(GitBackend::Git2))
-            } else {
-                run_terminal_thread_repo_stage(context, state, None)
-            };
-        }
-    };
-
-    let main_spec =
-        planned_direct_process_task(context.workflow_plan, "main-repository", &main_plan.command);
-    let cpp_spec =
-        planned_direct_process_task(context.workflow_plan, "cpp-repository", &cpp_plan.command);
-    let main_id = main_spec.task_id.clone();
-    let cpp_id = cpp_spec.task_id.clone();
-    if spawn_process_task(
-        context.inner,
-        context.session_id,
-        main_spec,
-        context.renderer_tx,
-        context.completion_tx,
-    )
-    .is_err()
-        || spawn_process_task(
-            context.inner,
-            context.session_id,
-            cpp_spec,
-            context.renderer_tx,
-            context.completion_tx,
-        )
-        .is_err()
-    {
-        return false;
-    }
-    let success =
-        wait_for_completions(context.completion_rx, vec![main_id, cpp_id]).unwrap_or(false);
-    let _ = context.renderer_tx.send(RendererEvent::FlushRegions {
-        region_ids: vec!["main-repository".to_string(), "cpp-repository".to_string()],
-    });
-    if !success || !session_is_current(context.inner, context.session_id) {
-        if config.general.git_backend == GitBackend::Auto
-            && session_is_current(context.inner, context.session_id)
-        {
-            return run_terminal_thread_repo_stage(context, state, Some(GitBackend::Git2));
-        }
-        return false;
-    }
-
-    let record_spec = planned_thread_task(context.workflow_plan, "git-record-sha");
-    spawn_thread_task(
-        context.inner,
-        context.session_id,
-        record_spec,
-        context.renderer_tx,
-        context.completion_tx,
-        TerminalGitRecordArgs {
-            state,
-            main_plan,
-            cpp_plan,
-        },
-        terminal_git_record_task,
-    )
-    .is_ok()
-        && wait_for_task(context.completion_rx, "git-record-sha")
+    // All Git backends use RepoManager, including PTY CLI operations. Keeping a
+    // second direct fetch/reset planner would bypass mirror validation/failover.
+    run_terminal_thread_repo_stage(context, state, None)
 }
 
 /// Performs the run terminal thread repo stage operation.
@@ -1109,23 +980,39 @@ struct TerminalRepoArgs {
 struct TerminalGitExecutor<'a> {
     args: &'a TerminalRepoArgs,
     output: &'a ThreadOutput,
+    cancelled: &'a AtomicBool,
 }
 
 impl TerminalGitExecutor<'_> {
     fn run(&self, command: &CommandSpec) -> UpdaterResult<()> {
+        self.check_cancelled()?;
         let spec =
             planned_direct_process_task(&self.args.workflow_plan, &self.output.task_id, command);
-        run_process_commands(
+        let result = run_process_commands(
             &self.args.inner,
             &self.args.session_id,
             spec,
             &self.args.renderer_tx,
-        )
-        .map_err(UpdaterError::Git)
+        );
+        self.check_cancelled()?;
+        result.map_err(UpdaterError::Git)
     }
 }
 
 impl GitExecutor for TerminalGitExecutor<'_> {
+    fn record_delivery(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        self.check_cancelled()?;
+        RealGitExecutor.record_delivery(url, branch, target)
+    }
+    fn check_cancelled(&self) -> UpdaterResult<()> {
+        if self.cancelled.load(Ordering::Relaxed)
+            || !session_is_current(&self.args.inner, &self.args.session_id)
+        {
+            Err(UpdaterError::Cancelled)
+        } else {
+            Ok(())
+        }
+    }
     fn has_cli(&self) -> bool {
         RealGitExecutor.has_cli()
     }
@@ -1133,7 +1020,14 @@ impl GitExecutor for TerminalGitExecutor<'_> {
         self.run(&git_clone_command(url, branch, target))
     }
     fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
-        self.run(&git_update_command(url, branch, target))
+        let guard = GitUpdateGuard::capture(url, branch, target)?;
+        self.run(&git_fetch_command(url, branch, target, "1"))?;
+        if guard.validated_target(target)?.is_none() {
+            self.run(&git_fetch_command(url, branch, target, "64"))?;
+        }
+        let verified = guard.require_target(target)?;
+        self.run(&git_reset_command(target, &verified.to_string()))?;
+        guard.record_success(target)
     }
     fn local_sha_cli(&self, target: &Path) -> UpdaterResult<String> {
         RealGitExecutor.local_sha_cli(target)
@@ -1233,6 +1127,7 @@ fn terminal_repo_thread_task(
             let executor = TerminalGitExecutor {
                 args: &args,
                 output: &output,
+                cancelled: &cancelled,
             };
             let result = RepoManager::new(executor)
                 .sync(
@@ -1278,171 +1173,6 @@ fn terminal_repo_thread_task(
     })
 }
 
-#[derive(Clone)]
-struct GitCliPlan {
-    kind: RepositoryKind,
-    command: CommandSpec,
-    target_dir: PathBuf,
-    status: UpdateStatus,
-}
-
-/// Handles the plan git cli process workflow.
-fn plan_git_cli_process(
-    kind: RepositoryKind,
-    config: &UpdaterConfig,
-    target_dir: &Path,
-    ranking_path: &Path,
-    output: &ThreadOutput,
-) -> UpdaterResult<GitCliPlan> {
-    let planning_started = Instant::now();
-    output.line(
-        OutputStyle::Info,
-        &format!("{} repository: loading source ranking", kind.as_str()),
-    );
-    let expected_urls = repository_urls(kind, config.general.channel);
-    let ranking = load_or_benchmark_ranking_with_output(
-        Some(ranking_path),
-        &expected_urls,
-        &GitSourceProbe,
-        output,
-    )?;
-    save_ranking(ranking_path, &ranking)?;
-    let source = ranking
-        .active_sources()
-        .into_iter()
-        .next()
-        .ok_or_else(|| UpdaterError::Git("no active repository source".to_string()))?;
-    let branch = repository_branch(kind)?;
-    output.line(
-        OutputStyle::Info,
-        &format!(
-            "{} repository: selected {} for branch {} ({})",
-            kind.as_str(),
-            source.url,
-            branch,
-            format_elapsed(planning_started.elapsed())
-        ),
-    );
-    let is_update = target_dir.join(".git").exists();
-    let executor = RealGitExecutor;
-    let local_sha = if is_update {
-        let started = Instant::now();
-        output.line(
-            OutputStyle::Info,
-            &format!("{} repository: reading local HEAD", kind.as_str()),
-        );
-        match executor
-            .local_sha_cli(target_dir)
-            .or_else(|_| executor.local_sha_git2(target_dir))
-        {
-            Ok(sha) => {
-                output.line(
-                    OutputStyle::Success,
-                    &format!(
-                        "{} repository: local HEAD {} ({})",
-                        kind.as_str(),
-                        sha.get(..8).unwrap_or(&sha),
-                        format_elapsed(started.elapsed())
-                    ),
-                );
-                Some(sha)
-            }
-            Err(error) => {
-                output.line(
-                    OutputStyle::Warning,
-                    &format!(
-                        "{} repository: local HEAD unavailable after {}: {}",
-                        kind.as_str(),
-                        format_elapsed(started.elapsed()),
-                        error.message()
-                    ),
-                );
-                None
-            }
-        }
-    } else {
-        output.line(
-            OutputStyle::Info,
-            &format!(
-                "{} repository: no existing Git checkout; clone required",
-                kind.as_str()
-            ),
-        );
-        None
-    };
-    let remote_sha = if is_update {
-        let started = Instant::now();
-        output.line(
-            OutputStyle::Info,
-            &format!("{} repository: requesting remote HEAD", kind.as_str()),
-        );
-        match executor.remote_sha(&source.url, &branch) {
-            Ok(sha) => {
-                output.line(
-                    OutputStyle::Success,
-                    &format!(
-                        "{} repository: remote HEAD {} ({})",
-                        kind.as_str(),
-                        sha.get(..8).unwrap_or(&sha),
-                        format_elapsed(started.elapsed())
-                    ),
-                );
-                Some(sha)
-            }
-            Err(error) => {
-                output.line(
-                    OutputStyle::Warning,
-                    &format!(
-                        "{} repository: remote HEAD unavailable after {}: {}",
-                        kind.as_str(),
-                        format_elapsed(started.elapsed()),
-                        error.message()
-                    ),
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let (command, status) = if is_update && local_sha.is_some() && local_sha == remote_sha {
-        output.line(
-            OutputStyle::Success,
-            &format!("{} repository: already current", kind.as_str()),
-        );
-        (git_rev_parse_command(target_dir), UpdateStatus::Skipped)
-    } else if is_update {
-        output.line(
-            OutputStyle::Info,
-            &format!("{} repository: update required", kind.as_str()),
-        );
-        (
-            git_update_command(&source.url, &branch, target_dir),
-            UpdateStatus::Updated,
-        )
-    } else {
-        (
-            git_clone_command(&source.url, &branch, target_dir),
-            UpdateStatus::Installed,
-        )
-    };
-    Ok(GitCliPlan {
-        kind,
-        command,
-        target_dir: target_dir.to_path_buf(),
-        status,
-    })
-}
-
-/// Formats updater sub-step timings without exposing noisy nanosecond precision.
-fn format_elapsed(duration: Duration) -> String {
-    if duration >= Duration::from_secs(1) {
-        format!("{:.2}s", duration.as_secs_f64())
-    } else {
-        format!("{}ms", duration.as_millis())
-    }
-}
-
 /// Handles the git clone command workflow.
 fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
     git_cli_command()
@@ -1455,8 +1185,8 @@ fn git_clone_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec 
         .arg(target_dir.to_string_lossy())
 }
 
-/// Handles the git update command workflow.
-fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec {
+/// Keep fetching separate from reset so the installed version can be verified.
+fn git_fetch_command(url: &str, branch: &str, target_dir: &Path, depth: &str) -> CommandSpec {
     git_cli_command()
         .arg("-C")
         .arg(target_dir.to_string_lossy())
@@ -1470,43 +1200,19 @@ fn git_update_command(url: &str, branch: &str, target_dir: &Path) -> CommandSpec
                 .arg(target_dir.to_string_lossy())
                 .arg("fetch")
                 .arg("--depth")
-                .arg("1")
+                .arg(depth)
                 .arg("origin")
                 .arg(branch),
         )
-        .after(
-            git_cli_command()
-                .arg("-C")
-                .arg(target_dir.to_string_lossy())
-                .arg("reset")
-                .arg("--hard")
-                .arg("FETCH_HEAD"),
-        )
-        .after(
-            git_cli_command()
-                .arg("-C")
-                .arg(target_dir.to_string_lossy())
-                .arg("reflog")
-                .arg("expire")
-                .arg("--expire=now")
-                .arg("--all"),
-        )
-        .after(
-            git_cli_command()
-                .arg("-C")
-                .arg(target_dir.to_string_lossy())
-                .arg("gc")
-                .arg("--prune=now"),
-        )
 }
 
-/// Handles the git rev parse command workflow.
-fn git_rev_parse_command(target_dir: &Path) -> CommandSpec {
+fn git_reset_command(target_dir: &Path, verified_sha: &str) -> CommandSpec {
     git_cli_command()
         .arg("-C")
         .arg(target_dir.to_string_lossy())
-        .arg("rev-parse")
-        .arg("HEAD")
+        .arg("reset")
+        .arg("--hard")
+        .arg(verified_sha)
 }
 
 /// Handles the git cli command workflow.
@@ -1525,48 +1231,6 @@ fn git_cli_command() -> CommandSpec {
         .env("GCM_MODAL_PROMPT", "0")
         .env("GIT_ASKPASS", "echo")
         .env("SSH_ASKPASS", "echo")
-}
-
-struct TerminalGitRecordArgs {
-    state: Arc<Mutex<TerminalWorkflowState>>,
-    main_plan: GitCliPlan,
-    cpp_plan: GitCliPlan,
-}
-
-/// Handles the terminal git record task workflow.
-fn terminal_git_record_task(
-    output: ThreadOutput,
-    cancelled: Arc<AtomicBool>,
-    args: TerminalGitRecordArgs,
-) -> Result<(), String> {
-    if cancelled.load(Ordering::Relaxed) {
-        return Err("git record task cancelled".to_string());
-    }
-    let executor = RealGitExecutor;
-    let main_sha = executor
-        .local_sha_cli(&args.main_plan.target_dir)
-        .or_else(|_| executor.local_sha_git2(&args.main_plan.target_dir))
-        .map_err(|error| error.message())?;
-    let cpp_sha = executor
-        .local_sha_cli(&args.cpp_plan.target_dir)
-        .or_else(|_| executor.local_sha_git2(&args.cpp_plan.target_dir))
-        .map_err(|error| error.message())?;
-    output.line(OutputStyle::Success, "Git versions captured");
-    let mut state = args
-        .state
-        .lock()
-        .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
-    state.main_outcome = Some(RepositoryOutcome {
-        kind: args.main_plan.kind,
-        status: args.main_plan.status,
-        sha: main_sha,
-    });
-    state.cpp_outcome = Some(RepositoryOutcome {
-        kind: args.cpp_plan.kind,
-        status: args.cpp_plan.status,
-        sha: cpp_sha,
-    });
-    Ok(())
 }
 
 /// Handles the terminal finalize repos task workflow.
@@ -1743,6 +1407,7 @@ fn run_terminal_environment_prepare_stage(
             state: Arc::clone(&state),
             config: config.clone(),
             ranking_dir: ranking_dir.clone(),
+            process: TerminalProcessContext::new(context),
         },
         terminal_cpython_rank_task,
     )
@@ -1799,6 +1464,7 @@ fn run_terminal_dependency_stage(
     state: Arc<Mutex<TerminalWorkflowState>>,
     launch: bool,
     pipe_name: Option<&str>,
+    shm_name: Option<&str>,
 ) -> bool {
     let config = match terminal_config(&state) {
         Ok(config) => config,
@@ -1836,7 +1502,7 @@ fn run_terminal_dependency_stage(
                 return false;
             }
         }
-        return run_terminal_launch_stage(context, config, launch, pipe_name);
+        return run_terminal_launch_stage(context, config, launch, pipe_name, shm_name);
     }
 
     let requirements = match requirements_path(&config) {
@@ -1875,6 +1541,7 @@ fn run_terminal_dependency_stage(
             state: Arc::clone(&state),
             config: config.clone(),
             ranking_dir,
+            process: TerminalProcessContext::new(context),
         },
         terminal_pypi_rank_task,
     )
@@ -1912,33 +1579,19 @@ fn run_terminal_dependency_stage(
             return false;
         }
     }
-    if dependencies_changed {
-        let task = planned_direct_process_task(
-            context.workflow_plan,
-            "uv-cache-clean",
-            &uv_cache_clean_command(&config),
-        )
-        .with_running_region_max_lines(4);
-        if !run_process_and_wait(
-            context.inner,
-            context.session_id,
-            task,
-            context.renderer_tx,
-            context.completion_tx,
-            context.completion_rx,
-        ) || save_requirements_cache(&config, &requirements, &pypi_index).is_err()
-        {
-            return false;
-        }
-    } else if !run_terminal_skip_task(
+    if dependencies_changed && save_requirements_cache(&config, &requirements, &pypi_index).is_err()
+    {
+        return false;
+    }
+    if !run_terminal_skip_task(
         context,
         "uv-cache-clean",
-        "requirements unchanged; skipping uv cache clean",
+        "Retaining UV cache for subsequent dependency updates",
     ) {
         return false;
     }
 
-    run_terminal_launch_stage(context, config, launch, pipe_name)
+    run_terminal_launch_stage(context, config, launch, pipe_name, shm_name)
 }
 
 /// Performs the run terminal skip task operation.
@@ -1985,6 +1638,7 @@ fn run_terminal_launch_stage(
     config: UpdaterConfig,
     launch: bool,
     pipe_name: Option<&str>,
+    shm_name: Option<&str>,
 ) -> bool {
     if !launch || !config.general.launch {
         return run_terminal_skip_task(
@@ -1993,13 +1647,34 @@ fn run_terminal_launch_stage(
             "Backend launch disabled; skipping backend launch",
         );
     }
+    if shm_name.is_some()
+        && let Err(error) = validate_backend_shm_support(&config)
+    {
+        // Report a failed launch task immediately instead of leaving the
+        // frontend on the connection screen until its port timeout expires.
+        if spawn_thread_task(
+            context.inner,
+            context.session_id,
+            planned_thread_task(context.workflow_plan, "launch-backend"),
+            context.renderer_tx,
+            context.completion_tx,
+            error.message(),
+            |_output, _cancel, message| Err(message),
+        )
+        .is_ok()
+        {
+            let _ = wait_for_task(context.completion_rx, "launch-backend");
+        }
+        return false;
+    }
     let port = match available_port() {
         Ok(port) => port,
         Err(_) => return false,
     };
-    let command = match pipe_name {
-        Some(name) => launch_backend_pipe_command(&config, port, name),
-        None => launch_backend_command(&config, port),
+    let command = match (shm_name, pipe_name) {
+        (Some(name), _) => launch_backend_shm_command(&config, port, name),
+        (None, Some(name)) => launch_backend_pipe_command(&config, port, name),
+        (None, None) => launch_backend_command(&config, port),
     };
     let success = run_process_and_wait(
         context.inner,
@@ -2054,6 +1729,7 @@ struct TerminalCpythonRankArgs {
     state: Arc<Mutex<TerminalWorkflowState>>,
     config: UpdaterConfig,
     ranking_dir: PathBuf,
+    process: TerminalProcessContext,
 }
 
 /// Handles the terminal cpython rank task workflow.
@@ -2072,9 +1748,10 @@ fn terminal_cpython_rank_task(
         &HttpSourceProbe,
         &output,
         |url| {
-            RealProcessRunner.run(
+            args.process.run(
                 &uv_python_install_command_with_mirror(&args.config, url),
                 &output,
+                &cancelled,
             )
         },
     )
@@ -2095,6 +1772,7 @@ struct TerminalPypiRankArgs {
     state: Arc<Mutex<TerminalWorkflowState>>,
     config: UpdaterConfig,
     ranking_dir: PathBuf,
+    process: TerminalProcessContext,
 }
 
 /// Handles the terminal pypi rank task workflow.
@@ -2118,11 +1796,16 @@ fn terminal_pypi_rank_task(
             if requirements_compile_cached(&args.config, &requirements, url)? {
                 return Ok(false);
             }
-            RealProcessRunner.run(
+            args.process.run(
                 &uv_compile_command_with_index(&args.config, &requirements, url),
                 &output,
+                &cancelled,
             )?;
-            RealProcessRunner.run(&uv_sync_command_with_index(&args.config, url), &output)?;
+            args.process.run(
+                &uv_sync_command_with_index(&args.config, url),
+                &output,
+                &cancelled,
+            )?;
             Ok(true)
         },
     )
@@ -2187,34 +1870,6 @@ fn backend_auth_endpoint_ready(port: u16) -> bool {
         .read(&mut response)
         .map(|read| read > 0 && response.starts_with(b"HTTP/"))
         .unwrap_or(false)
-}
-
-/// Handles the terminal state snapshot workflow.
-fn terminal_state_snapshot(
-    state: &Arc<Mutex<TerminalWorkflowState>>,
-) -> Result<(UpdaterConfig, RepositoryJob, RepositoryJob, PathBuf), String> {
-    let state = state
-        .lock()
-        .map_err(|_| "terminal workflow state lock poisoned".to_string())?;
-    let manager = state
-        .manager
-        .as_ref()
-        .ok_or_else(|| "configuration not initialized".to_string())?;
-    Ok((
-        manager.config.clone(),
-        state
-            .main_job
-            .clone()
-            .ok_or_else(|| "main repository job missing".to_string())?,
-        state
-            .cpp_job
-            .clone()
-            .ok_or_else(|| "cpp repository job missing".to_string())?,
-        state
-            .ranking_dir
-            .clone()
-            .ok_or_else(|| "ranking directory missing".to_string())?,
-    ))
 }
 
 /// Handles the terminal config workflow.
@@ -2325,6 +1980,306 @@ fn direct_script(command: &CommandSpec) -> ScriptCommand {
 mod tests {
     use super::*;
     use crate::NoopOutput;
+    use baas_term::types::TaskHandle;
+
+    fn terminal_process_fixture() -> (
+        TerminalProcessContext,
+        ThreadOutput,
+        Arc<AtomicBool>,
+        mpsc::Receiver<RendererEvent>,
+    ) {
+        let (tx, rx) = mpsc::channel();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut state = TermState {
+            current_session_id: Some("uv-test".to_string()),
+            rows: 32,
+            cols: 120,
+            ..TermState::default()
+        };
+        state.tasks.insert(
+            "pypi-source-ranking".to_string(),
+            Arc::new(TaskHandle::Thread {
+                cancel: Arc::clone(&cancelled),
+            }),
+        );
+        let context = TerminalProcessContext {
+            inner: Arc::new(Mutex::new(state)),
+            session_id: "uv-test".to_string(),
+            renderer_tx: tx.clone(),
+            workflow_plan: terminal_workflow_plan(),
+        };
+        let output = ThreadOutput {
+            task_id: "pypi-source-ranking".to_string(),
+            region_id: "pypi-source-ranking".to_string(),
+            tx,
+        };
+        (context, output, cancelled, rx)
+    }
+
+    #[cfg(windows)]
+    fn gated_terminal_command(root: &Path, exit_code: i32) -> CommandSpec {
+        let script = root.join("child.ps1");
+        fs::write(&script, format!(
+            "[Console]::Out.Write(\"uv-live-out`nuv-live-progress`r\"); [Console]::Out.Flush(); [Console]::Error.Write(\"uv-live-err`n\"); [Console]::Error.Flush(); $until = [DateTime]::UtcNow.AddSeconds(20); while (!(Test-Path -LiteralPath $env:BAAS_TERM_TEST_GATE) -and [DateTime]::UtcNow -lt $until) {{ Start-Sleep -Milliseconds 20 }}; exit {exit_code}"
+        )).unwrap();
+        CommandSpec::new("powershell.exe")
+            .arg("-NoLogo")
+            .arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-File")
+            .arg(script.to_string_lossy())
+            .env(
+                "BAAS_TERM_TEST_GATE",
+                root.join("release").to_string_lossy(),
+            )
+            .cwd(root)
+    }
+
+    #[cfg(not(windows))]
+    fn gated_terminal_command(root: &Path, exit_code: i32) -> CommandSpec {
+        let script = root.join("child.sh");
+        fs::write(&script, format!(
+            "printf 'uv-live-out\\nuv-live-progress\\r'; printf 'uv-live-err\\n' >&2; count=0; while [ ! -f \"$BAAS_TERM_TEST_GATE\" ] && [ $count -lt 1000 ]; do sleep 0.02; count=$((count+1)); done; exit {exit_code}"
+        )).unwrap();
+        CommandSpec::new("/bin/sh")
+            .arg(script.to_string_lossy())
+            .env(
+                "BAAS_TERM_TEST_GATE",
+                root.join("release").to_string_lossy(),
+            )
+            .cwd(root)
+    }
+
+    fn receive_live_child_output(rx: &mpsc::Receiver<RendererEvent>) -> String {
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut text = String::new();
+        while Instant::now() < deadline {
+            if let Ok(RendererEvent::Output {
+                task_id,
+                region_id,
+                chunk,
+            }) = rx.recv_timeout(Duration::from_millis(100))
+            {
+                assert_eq!(task_id, "pypi-source-ranking");
+                assert_eq!(region_id, "pypi-source-ranking");
+                text.push_str(&String::from_utf8_lossy(&chunk));
+                if text.contains("uv-live-out") && text.contains("uv-live-err") {
+                    return text;
+                }
+            }
+        }
+        panic!("PTY did not deliver live stdout and stderr: {text:?}");
+    }
+
+    #[test]
+    fn terminal_environment_pty_streams_before_exit_and_preserves_failure() {
+        let root = tempfile::tempdir().unwrap();
+        let command = gated_terminal_command(root.path(), 7);
+        let (context, output, cancelled, rx) = terminal_process_fixture();
+        let child_context = context.clone();
+        let child_cancelled = Arc::clone(&cancelled);
+        let worker = thread::spawn(move || child_context.run(&command, &output, &child_cancelled));
+        let text = receive_live_child_output(&rx);
+        assert!(
+            text.contains('\r'),
+            "carriage-return output was lost: {text:?}"
+        );
+        assert!(
+            !worker.is_finished(),
+            "output must arrive while the child is alive"
+        );
+        {
+            let state = context.inner.lock().unwrap();
+            assert!(
+                matches!(state.tasks["pypi-source-ranking"].as_ref(), TaskHandle::Thread { cancel } if Arc::ptr_eq(cancel, &cancelled))
+            );
+            assert!(
+                state
+                    .tasks
+                    .values()
+                    .any(|handle| matches!(handle.as_ref(), TaskHandle::Process { .. }))
+            );
+        }
+        fs::write(root.path().join("release"), "continue").unwrap();
+        let error = worker.join().unwrap().unwrap_err();
+        assert!(error.message().contains("7"), "exit code lost: {error}");
+        assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
+        assert!(!cancelled.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn terminal_environment_pty_abort_cancels_child_and_preserves_new_session() {
+        let root = tempfile::tempdir().unwrap();
+        let command = gated_terminal_command(root.path(), 0);
+        let (context, _output, _cancelled, rx) = terminal_process_fixture();
+        let child_context = context.clone();
+        let (completion_tx, completion_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        spawn_thread_task(
+            &context.inner,
+            &context.session_id,
+            planned_thread_task(&context.workflow_plan, "pypi-source-ranking"),
+            &context.renderer_tx,
+            &completion_tx,
+            (),
+            move |output, cancelled, ()| {
+                let result = child_context.run(&command, &output, &cancelled);
+                result_tx.send(result.clone()).unwrap();
+                result.map_err(|error| error.message())
+            },
+        )
+        .unwrap();
+        receive_live_child_output(&rx);
+        let cancelled = {
+            let state = context.inner.lock().unwrap();
+            match state.tasks["pypi-source-ranking"].as_ref() {
+                TaskHandle::Thread { cancel } => Arc::clone(cancel),
+                _ => panic!("parent thread handle was replaced"),
+            }
+        };
+        let handles = {
+            let mut state = context.inner.lock().unwrap();
+            state.current_session_id = None;
+            state
+                .tasks
+                .drain()
+                .map(|(_, handle)| handle)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(handles.len(), 2, "abort must own both parent and child");
+        for handle in handles {
+            match handle.as_ref() {
+                TaskHandle::Thread { cancel } => cancel.store(true, Ordering::Relaxed),
+                TaskHandle::Process { child, .. } => {
+                    child.lock().unwrap().kill().unwrap();
+                }
+            }
+        }
+        let new_handle = Arc::new(TaskHandle::Thread {
+            cancel: Arc::new(AtomicBool::new(false)),
+        });
+        {
+            let mut state = context.inner.lock().unwrap();
+            state.current_session_id = Some("new-session".to_string());
+            state
+                .tasks
+                .insert("pypi-source-ranking".to_string(), Arc::clone(&new_handle));
+        }
+        let completion = completion_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert!(!completion.success);
+        assert_eq!(
+            result_rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            Err(UpdaterError::Cancelled)
+        );
+        assert!(cancelled.load(Ordering::Relaxed));
+        let state = context.inner.lock().unwrap();
+        assert_eq!(state.tasks.len(), 1);
+        assert!(Arc::ptr_eq(
+            &state.tasks["pypi-source-ranking"],
+            &new_handle
+        ));
+    }
+
+    /// Opt-in integration fixture uses an existing UV/Python and a generated
+    /// local wheel. Offline/no-index prevents every package network request.
+    #[test]
+    #[ignore = "set BAAS_TEST_UV and BAAS_TEST_PYTHON to existing local executables"]
+    fn terminal_environment_pty_uv_compiles_and_syncs_offline_wheel() {
+        let uv = PathBuf::from(std::env::var_os("BAAS_TEST_UV").expect("BAAS_TEST_UV"));
+        let python = std::env::var("BAAS_TEST_PYTHON").expect("BAAS_TEST_PYTHON");
+        let root = tempfile::tempdir().unwrap();
+        let wheels = root.path().join("wheels");
+        fs::create_dir(&wheels).unwrap();
+        let wheel =
+            fs::File::create(wheels.join("baas_pty_fixture-0.0.1-py3-none-any.whl")).unwrap();
+        let mut zip = zip::ZipWriter::new(wheel);
+        for (path, content) in [
+            ("baas_pty_fixture.py", "value = 1\n"),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/METADATA",
+                "Metadata-Version: 2.1\nName: baas-pty-fixture\nVersion: 0.0.1\n",
+            ),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/WHEEL",
+                "Wheel-Version: 1.0\nGenerator: baas-pty-test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+            ),
+            (
+                "baas_pty_fixture-0.0.1.dist-info/RECORD",
+                "baas_pty_fixture.py,,\nbaas_pty_fixture-0.0.1.dist-info/METADATA,,\nbaas_pty_fixture-0.0.1.dist-info/WHEEL,,\nbaas_pty_fixture-0.0.1.dist-info/RECORD,,\n",
+            ),
+        ] {
+            zip.start_file(path, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(content.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+        let mut config = UpdaterConfig::default();
+        config.paths.baas_root_path = root.path().to_string_lossy().to_string();
+        let requirements = root.path().join("requirements.txt");
+        fs::write(&requirements, "baas-pty-fixture==0.0.1\n").unwrap();
+        let (context, output, cancelled, rx) = terminal_process_fixture();
+        context
+            .run(
+                &CommandSpec::new(&uv)
+                    .arg("venv")
+                    .arg(root.path().join(".venv").to_string_lossy())
+                    .arg("--python")
+                    .arg(python)
+                    .arg("--no-python-downloads")
+                    .arg("--offline")
+                    .env("UV_CACHE_DIR", root.path().join("cache").to_string_lossy())
+                    .cwd(root.path()),
+                &output,
+                &cancelled,
+            )
+            .unwrap();
+        for mut command in [
+            uv_compile_command_with_index(&config, &requirements, "https://unused.invalid/simple"),
+            uv_sync_command_with_index(&config, "https://unused.invalid/simple"),
+        ] {
+            command.program = uv.clone();
+            command.args.extend([
+                "--offline".to_string(),
+                "--no-index".to_string(),
+                "--find-links".to_string(),
+                wheels.to_string_lossy().to_string(),
+            ]);
+            context.run(&command, &output, &cancelled).unwrap();
+        }
+        let text = rx
+            .try_iter()
+            .filter_map(|event| match event {
+                RendererEvent::Output { chunk, .. } => {
+                    Some(String::from_utf8_lossy(&chunk).into_owned())
+                }
+                _ => None,
+            })
+            .collect::<String>();
+        assert!(
+            text.contains("Resolved"),
+            "compile output missing: {text:?}"
+        );
+        assert!(text.contains("Installed"), "sync output missing: {text:?}");
+        assert!(
+            text.contains("baas-pty-fixture"),
+            "package output missing: {text:?}"
+        );
+        assert!(
+            fs::read_to_string(root.path().join("requirements.service.lock"))
+                .unwrap()
+                .contains("baas-pty-fixture==0.0.1")
+        );
+        assert!(
+            !requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
+                .unwrap()
+        );
+        save_requirements_cache(&config, &requirements, "https://unused.invalid/simple").unwrap();
+        assert!(
+            requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
+                .unwrap()
+        );
+        assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
+    }
 
     /// Handles the git cpp job reclones when existing bin has no git metadata workflow.
     #[test]
@@ -2427,73 +2382,34 @@ mod tests {
         assert_eq!(launch.running_region_max_lines, None);
     }
 
-    /// Handles the git update command uses serial command chain workflow.
     #[test]
-    fn git_update_command_uses_serial_command_chain() {
-        let command = git_update_command(
+    fn git_fetch_command_keeps_reset_separate_for_validation() {
+        let command = git_fetch_command(
             "https://example.invalid/repo.git",
             "master",
             Path::new("repo"),
+            "64",
         );
         let sequence = command.command_sequence();
-        let git_prefix = [
-            "-c",
-            "credential.helper=",
-            "-c",
-            "credential.interactive=never",
-            "-c",
-            "core.askPass=echo",
-            "-c",
-            "core.sshCommand=ssh -o BatchMode=yes",
-        ];
-
-        assert_eq!(sequence.len(), 5);
-        assert_eq!(
-            sequence[0].args,
-            [
-                git_prefix.as_slice(),
-                &[
-                    "-C",
-                    "repo",
-                    "remote",
-                    "set-url",
-                    "origin",
-                    "https://example.invalid/repo.git",
-                ]
-            ]
-            .concat()
+        assert_eq!(sequence.len(), 2);
+        assert!(
+            sequence[1]
+                .args
+                .ends_with(&["fetch", "--depth", "64", "origin", "master"].map(str::to_string))
         );
-        assert_eq!(
-            sequence[1].args,
-            [
-                git_prefix.as_slice(),
-                &["-C", "repo", "fetch", "--depth", "1", "origin", "master",]
-            ]
-            .concat()
+        assert!(
+            sequence
+                .iter()
+                .all(|command| !command.args.iter().any(|arg| arg == "reset"))
         );
-        assert_eq!(
-            sequence[2].args,
-            [
-                git_prefix.as_slice(),
-                &["-C", "repo", "reset", "--hard", "FETCH_HEAD",]
-            ]
-            .concat()
-        );
-        assert_eq!(
-            sequence[3].args,
-            [
-                git_prefix.as_slice(),
-                &["-C", "repo", "reflog", "expire", "--expire=now", "--all",]
-            ]
-            .concat()
-        );
-        assert_eq!(
-            sequence[4].args,
-            [git_prefix.as_slice(), &["-C", "repo", "gc", "--prune=now",]].concat()
+        let reset = git_reset_command(Path::new("repo"), "verified-commit");
+        assert!(
+            reset
+                .args
+                .ends_with(&["reset", "--hard", "verified-commit"].map(str::to_string))
         );
     }
 
-    /// Handles the backend ready probe requires http response workflow.
     #[test]
     fn backend_ready_probe_requires_http_response() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();

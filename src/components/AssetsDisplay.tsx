@@ -1,202 +1,212 @@
-import React, { useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
+import { formatIsoToReadable } from "@/shared/GlobalUtilities";
+import { IconTooltip } from "@/components/ui/Tooltip";
 
-const baseUrl = import.meta.env.BASE_URL;
-
-/** Coordinates the use time ago hook behavior. */
-const useTimeAgo = () => {
-  const { t } = useTranslation();
-  // eslint-disable-next-line react-hooks/purity
-  const [now, setNow] = React.useState(Date.now());
-
-  React.useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 10000); // update every 10 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  return (timestamp: number) => {
-    const seconds = Math.floor(now / 1000 - timestamp);
-    if (seconds < 60) return t("time.secondsAgo", { count: seconds });
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return t("time.minutesAgo", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return t("time.hoursAgo", { count: hours });
-    const days = Math.floor(hours / 24);
-    return t("time.daysAgo", { count: days });
-  };
+const normalizeAmount = (value: unknown): number | null => {
+  if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 };
 
-/** Renders the skeleton component. */
-const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`animate-pulse bg-slate-200 dark:bg-slate-700 rounded-md ${className}`} />
-);
+// A zero timestamp is the backend's unrecorded value, not a reading from 1970.
+const isRecordedTime = (timestamp: unknown): timestamp is number =>
+  typeof timestamp === "number" &&
+  timestamp > 0 &&
+  Number.isFinite(new Date(timestamp * 1000).getTime());
 
-const hasAssetData = (config: any): boolean =>
-  Boolean(
-    config?.ap &&
-      config?.creditpoints &&
-      config?.pyroxene &&
-      config?.tactical_challenge_coin &&
-      config?.bounty_coin &&
-      config?.create_item_holding_quantity &&
-      config?._pass
-  );
-
-/** Renders the assets display component. */
+/** A quiet, horizontally scrollable account summary, rather than eight separate cards. */
 const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
   const { t } = useTranslation();
-  const timeAgo = useTimeAgo();
-  const config = useWebSocketStore((e) => e.configStore[profileId]);
-  const [open, setOpen] = useState(Array.from({ length: 8 }).map(() => false));
-  const isAndroid = __WITH_ANDROID__;
+  const config = useWebSocketStore((state) => state.configStore[profileId]);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const pointerXRef = React.useRef<number | null>(null);
+  const pointerYRef = React.useRef<number | null>(null);
+  const frameRef = React.useRef<number | null>(null);
+  const frameTimeRef = React.useRef(0);
 
-  const containerClass = isAndroid
-    ? "max-[320px]:hidden scrollbar-hide flex gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory"
-    : "max-[320px]:hidden grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2";
-  const cardClass = isAndroid
-    ? "bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex w-32 shrink-0 snap-start flex-col items-center justify-center transition-transform active:scale-[0.98]"
-    : "bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-start transition-transform hover:scale-[1.02]";
-  const iconColumnClass = isAndroid
-    ? "flex w-full shrink-0 flex-col items-center justify-center"
-    : "mr-4 ml-1 flex w-16 shrink-0 flex-col items-center justify-center";
-  const valueColumnClass = isAndroid ? "mt-1 w-full text-center" : "";
+  const stopScroll = React.useCallback(() => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    frameTimeRef.current = 0;
+  }, []);
+  const stopHover = React.useCallback(() => {
+    pointerXRef.current = null;
+    pointerYRef.current = null;
+    stopScroll();
+  }, [stopScroll]);
 
-  const noData = !hasAssetData(config);
+  const edgeSpeed = React.useCallback(() => {
+    const element = scrollRef.current;
+    if (!element || pointerXRef.current === null || pointerYRef.current === null || document.hidden)
+      return 0;
+    const overflow = element.scrollWidth - element.clientWidth;
+    if (overflow <= 1 || element.clientWidth === 0) return 0;
+    const bounds = element.getBoundingClientRect();
+    if (
+      bounds.width === 0 ||
+      bounds.height === 0 ||
+      pointerYRef.current < bounds.top ||
+      pointerYRef.current > bounds.bottom
+    )
+      return 0;
+    // The workspace can be scaled; pointer coordinates and scrollLeft use different units then.
+    const x = ((pointerXRef.current - bounds.left) * element.clientWidth) / bounds.width;
+    if (x < 0 || x > element.clientWidth) return 0;
+    const edge = Math.min(40, element.clientWidth / 3);
+    if (x < edge && element.scrollLeft > 1) return -(80 + 240 * (1 - x / edge));
+    const rightDistance = element.clientWidth - x;
+    if (rightDistance < edge && element.scrollLeft < overflow - 1) {
+      return 80 + 240 * (1 - rightDistance / edge);
+    }
+    return 0;
+  }, []);
 
-  if (noData) {
-    return (
-      <div
-        className={
-          isAndroid
-            ? "scrollbar-hide flex gap-2 overflow-x-auto overscroll-x-contain p-2 snap-x snap-mandatory"
-            : "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-2 p-2"
-        }
-      >
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className={`flex items-center bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700 ${
-              isAndroid ? "w-32 shrink-0 snap-start" : ""
-            }`}
-          >
-            <Skeleton className="w-10 h-10 rounded-full mr-4 shrink-0" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const tick = React.useCallback(
+    function advance(timestamp: number) {
+      const speed = edgeSpeed();
+      const element = scrollRef.current;
+      if (!element || speed === 0) {
+        stopScroll();
+        return;
+      }
+      const elapsed = Math.max(0, Math.min(50, timestamp - frameTimeRef.current));
+      frameTimeRef.current = timestamp;
+      element.scrollLeft += (speed * elapsed) / 1000;
+      frameRef.current = requestAnimationFrame(advance);
+    },
+    [edgeSpeed, stopScroll]
+  );
+
+  const checkScroll = React.useCallback(() => {
+    if (edgeSpeed() === 0) {
+      stopScroll();
+    } else if (frameRef.current === null) {
+      frameTimeRef.current = performance.now();
+      frameRef.current = requestAnimationFrame(tick);
+    }
+  }, [edgeSpeed, stopScroll, tick]);
+
+  React.useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(checkScroll);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    const onVisibility = () => {
+      if (document.hidden) stopHover();
+    };
+    window.addEventListener("blur", stopHover);
+    window.addEventListener("resize", checkScroll);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("blur", stopHover);
+      window.removeEventListener("resize", checkScroll);
+      document.removeEventListener("visibilitychange", onVisibility);
+      stopHover();
+    };
+  }, [checkScroll, stopHover]);
+
+  React.useEffect(checkScroll, [config, profileId, checkScroll]);
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") {
+      stopHover();
+      return;
+    }
+    pointerXRef.current = event.clientX;
+    pointerYRef.current = event.clientY;
+    checkScroll();
+  };
+
+  const amount = (value: unknown, timestamp?: unknown) => {
+    const numeric = normalizeAmount(value);
+    return numeric !== null && (timestamp === undefined || isRecordedTime(timestamp))
+      ? numeric.toLocaleString()
+      : "—";
+  };
+  const fraction = (value: unknown, max: unknown, timestamp: unknown) => {
+    const numeric = normalizeAmount(value);
+    const numericMax = normalizeAmount(max);
+    if (numeric === null || numericMax === null || !isRecordedTime(timestamp)) return "—";
+    return `${numeric.toLocaleString()} / ${numericMax.toLocaleString()}`;
+  };
+  const holding = config?.create_item_holding_quantity as Record<string, unknown> | undefined;
 
   const assetItems = [
     {
       name: t("property.ap"),
-      value: `${config.ap.count}/${config.ap.max}`,
-      time: config.ap.time,
-      icon: `${baseUrl}icons/property/currency_icon_ap.webp`,
+      value: fraction(config?.ap?.count, config?.ap?.max, config?.ap?.time),
+      time: config?.ap?.time,
     },
     {
       name: t("property.credits"),
-      value: config.creditpoints.count.toLocaleString(),
-      time: config.creditpoints.time,
-      icon: `${baseUrl}icons/property/currency_icon_gold.webp`,
+      value: amount(config?.creditpoints?.count, config?.creditpoints?.time),
+      time: config?.creditpoints?.time,
     },
     {
       name: t("property.pyroxene"),
-      value: config.pyroxene.count.toLocaleString(),
-      time: config.pyroxene.time,
-      icon: `${baseUrl}icons/property/currency_icon_gem.webp`,
+      value: amount(config?.pyroxene?.count, config?.pyroxene?.time),
+      time: config?.pyroxene?.time,
     },
     {
       name: t("property.coin.arena"),
-      value: config.tactical_challenge_coin.count.toLocaleString(),
-      time: config.tactical_challenge_coin.time,
-      icon: `${baseUrl}icons/property/item_icon_chasecoin.webp`,
+      value: amount(config?.tactical_challenge_coin?.count, config?.tactical_challenge_coin?.time),
+      time: config?.tactical_challenge_coin?.time,
     },
     {
       name: t("property.coin.commission"),
-      value: config.bounty_coin.count,
-      time: config.bounty_coin.time,
-      icon: `${baseUrl}icons/property/item_icon_arenacoin.webp`,
+      value: amount(config?.bounty_coin?.count, config?.bounty_coin?.time),
+      time: config?.bounty_coin?.time,
     },
-    {
-      name: t("property.keystone"),
-      value: config.create_item_holding_quantity.Keystone?.toLocaleString() ?? "-1",
-      time: config.pyroxene.time,
-      icon: `${baseUrl}icons/property/item_icon_craftitem_1.webp`,
-    },
-    {
-      name: t("property.keystone.piece"),
-      value: config.create_item_holding_quantity["Keystone-Piece"]?.toLocaleString() ?? "-1",
-      time: config.pyroxene.time,
-      icon: `${baseUrl}icons/property/item_icon_craftitem_0.webp`,
-    },
+    { name: t("property.keystone"), value: amount(holding?.Keystone) },
+    { name: t("property.keystone.piece"), value: amount(holding?.["Keystone-Piece"]) },
     {
       name: t("property.pass"),
-      value: `${config._pass.level}/${config._pass.max_level}`,
-      time: config._pass.time,
-      icon: `${baseUrl}icons/property/item_icon_pass.webp`,
+      value: fraction(config?._pass?.level, config?._pass?.max_level, config?._pass?.time),
+      time: config?._pass?.time,
     },
   ];
 
   return (
-    <div className={containerClass}>
-      {assetItems.map((item, idx) => (
-        <Popover
-          key={item.name}
-          open={open[idx]}
-          onOpenChange={() =>
-            setOpen((prev) => {
-              const copy = [...prev];
-              copy[idx] = false;
-              return copy;
-            })
-          }
-        >
-          <PopoverTrigger asChild>
-            <div
-              onMouseEnter={() =>
-                setOpen((prev) => {
-                  const copy = [...prev];
-                  copy[idx] = false;
-                  return copy;
-                })
-              }
-              onMouseLeave={() =>
-                setOpen((prev) => {
-                  const copy = [...prev];
-                  copy[idx] = false;
-                  return copy;
-                })
-              }
-              className={cardClass}
-            >
-              <div className={iconColumnClass}>
-                <div className="flex h-9 w-12 items-center justify-center">
-                  <img src={item.icon} className="max-h-8 max-w-10 object-contain" alt={item.name} />
-                </div>
-                <div className="w-full text-center text-sm leading-tight text-slate-500 dark:text-slate-400 line-clamp-2">
-                  {item.name}
-                </div>
+    <div
+      ref={scrollRef}
+      data-assets-scroll
+      onPointerEnter={onPointerMove}
+      onPointerMove={onPointerMove}
+      onPointerLeave={stopHover}
+      onPointerCancel={stopHover}
+      onBlurCapture={stopHover}
+      onScroll={checkScroll}
+      className="scrollbar-hide min-w-0 overflow-x-auto overscroll-x-contain"
+    >
+      <div className="grid w-full min-w-[800px] max-w-[960px] grid-cols-8 gap-x-4">
+        {assetItems.map((item) => (
+          <IconTooltip
+            key={item.name}
+            content={
+              item.value !== "—" && isRecordedTime(item.time)
+                ? formatIsoToReadable(new Date(item.time * 1000).toISOString())
+                : undefined
+            }
+          >
+            <div className="min-w-0">
+              <div className="mb-1.5 whitespace-nowrap text-xs leading-4 text-muted-foreground">
+                {item.name}
               </div>
-              <div className={valueColumnClass}>
-                <div className="truncate text-l font-bold text-slate-800 dark:text-slate-100">
-                  {item.value}
-                </div>
-                <div className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">
-                  {timeAgo(item.time)}
-                </div>
+              <div
+                className={`whitespace-nowrap text-[15px] font-medium leading-[22px] tabular-nums ${item.value === "—" ? "text-muted-foreground/60" : "text-foreground"}`}
+              >
+                {item.value}
               </div>
             </div>
-          </PopoverTrigger>
-
-          <PopoverContent className="w-56 p-2 mr-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 max-h-100 overflow-y-auto" />
-        </Popover>
-      ))}
+          </IconTooltip>
+        ))}
+      </div>
     </div>
   );
 };

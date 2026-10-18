@@ -1,0 +1,47 @@
+{
+  "runtime": "Bun 1.3.14",
+  "results": [
+    {
+      "payloadBytes": 1024,
+      "iterations": 20,
+      "legacyJson": {
+        "p50Ms": 0.054700000000000415,
+        "p95Ms": 0.09970000000000212,
+        "encodedBytes": 3711
+      },
+      "rawInvoke": {
+        "p50Ms": 0.0015000000000000568,
+        "p95Ms": 0.00420000000000087,
+        "encodedBytes": 1045
+      }
+    },
+    {
+      "payloadBytes": 65536,
+      "iterations": 20,
+      "legacyJson": {
+        "p50Ms": 0.9808000000000021,
+        "p95Ms": 1.9819999999999993,
+        "encodedBytes": 234039
+      },
+      "rawInvoke": {
+        "p50Ms": 0.005400000000001626,
+        "p95Ms": 0.041100000000000136,
+        "encodedBytes": 65557
+      }
+    },
+    {
+      "payloadBytes": 1048576,
+      "iterations": 20,
+      "legacyJson": {
+        "p50Ms": 13.309599999999989,
+        "p95Ms": 14.255099999999999,
+        "encodedBytes": 3743799
+      },
+      "rawInvoke": {
+        "p50Ms": 0.03809999999998581,
+        "p95Ms": 0.041600000000016735,
+        "encodedBytes": 1048597
+      }
+    }
+  ]
+}

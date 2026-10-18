@@ -1,0 +1,25 @@
+{
+  "archiveRef": "origin/archive/shared-memory-wip-20260712",
+  "archiveCommit": "ccb75a4194f7d25cae00a5a0bb83011975644ad7",
+  "fragmentAuditScope": "Explicit fragmented input to archived Rust receiver; not the default Python-to-Rust 100 KiB response path",
+  "archivedRustSenderFragmentBytes": 65536,
+  "productionDirectionToAudit": "Rust-to-Python commands above 64 KiB; Python receiver must reassemble fragments",
+  "ringBenchmarkScope": "in-process ring algorithm only; not cross-process IPC or WebView delivery",
+  "fragmentAudit": {
+    "archivedBinaryMessageSizes": [
+      65536,
+      34464
+    ],
+    "archivedJsonErrors": [
+      "SharedMemoryCorrupted: invalid JSON payload: EOF while parsing a string at line 1 column 65536",
+      "SharedMemoryCorrupted: invalid JSON payload: expected value at line 1 column 1"
+    ],
+    "archivedJsonMessagesAccepted": 0,
+    "binaryPayloadBytes": 100000,
+    "expectedBinaryMessages": 1,
+    "jsonFragments": 2,
+    "jsonPayloadBytes": 100011,
+    "reassembledJsonAndBinaryMatch": true
+  },
+  "ringAlgorithmBenchmark": "payload_bytes,iterations,roundtrip_us,throughput_mib_s\n1024,20000,0.148,13218.67\n65536,2000,1.515,82483.75\n1048576,200,195.540,10228.09"
+}

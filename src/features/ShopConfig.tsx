@@ -183,26 +183,28 @@ const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
                   const priceText = `${price} ${currencyLabelByCoin[coin as ShopCurrency] ?? coin}`;
 
                   return (
-                    <div
+                    <button
                       key={`${nameKey}-${i}`}
+                      type="button"
+                      aria-pressed={enabled}
                       className={`${
                         enabled
-                          ? "bg-primary-600 text-white hover:bg-primary-700"
-                          : "bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                      } p-2 rounded-lg cursor-pointer`}
+                          ? "border-black/10 bg-white text-[#1a1c1f] hover:bg-[#f5f5f5] dark:border-white"
+                          : "border-transparent bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                      } rounded-lg border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                       onClick={() => toggleItem(tab, i)}
                     >
                       <div>
                         <EllipsisWithTooltip text={nameKey} />
                         <div
                           className={`text-sm ${
-                            enabled ? "text-slate-200" : "text-slate-500 dark:text-slate-400"
+                            enabled ? "text-[#5f6368]" : "text-slate-500 dark:text-slate-400"
                           }`}
                         >
                           {priceText}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

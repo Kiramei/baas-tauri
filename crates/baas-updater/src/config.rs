@@ -24,9 +24,29 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 pub enum BackendTransport {
     /// Encrypted loopback WebSocket transport.
     Websocket,
-    /// Windows named-pipe transport owned by the Tauri process.
-    #[default]
+    /// Windows shared-memory transport owned by the Tauri process.
+    #[cfg_attr(windows, default)]
+    Shm,
+    /// Legacy native transport retained on non-Windows platforms.
+    #[cfg_attr(not(windows), default)]
     Pipe,
+}
+
+impl BackendTransport {
+    /// Parses an explicit transport choice, including legacy pipes for comparison.
+    pub fn parse(value: &str) -> UpdaterResult<Self> {
+        match value {
+            "websocket" => Ok(Self::Websocket),
+            "pipe" => Ok(Self::Pipe),
+            "shm" if cfg!(windows) => Ok(Self::Shm),
+            "shm" => Err(UpdaterError::Config(
+                "shared-memory transport is currently available on Windows only".to_string(),
+            )),
+            _ => Err(UpdaterError::Config(format!(
+                "unsupported backend transport: {value}"
+            ))),
+        }
+    }
 }
 
 /// Default Python package indexes used by UV.
@@ -105,8 +125,11 @@ impl UpdaterConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GeneralConfig {
-    /// Frontend/backend data transport. Android always uses WebSocket.
+    /// Frontend/backend data transport; native support depends on the platform.
     pub transport: BackendTransport,
+    /// Native transport migration marker. Missing legacy values deserialize as zero.
+    #[serde(default)]
+    pub transport_version: u32,
     /// MirrorC CDK. Empty means Git update mode.
     #[serde(alias = "mirrorc_cdk")]
     pub mirrorc_cdk: String,
@@ -142,7 +165,8 @@ impl Default for GeneralConfig {
     /// Handles the default workflow.
     fn default() -> Self {
         Self {
-            transport: BackendTransport::Pipe,
+            transport: BackendTransport::default(),
+            transport_version: 1,
             mirrorc_cdk: String::new(),
             channel: UpdateChannel::Stable,
             current_baas_sha: String::new(),
@@ -349,6 +373,7 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         || value.get("repositories").is_some()
     {
         let mut config: UpdaterConfig = value.clone().try_into()?;
+        migrate_transport(&mut config);
         if config.general.git_backend == GitBackend::Auto
             && let Some(general) = value.get("General").and_then(toml::Value::as_table)
         {
@@ -361,7 +386,15 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
     }
 
     let mut config = UpdaterConfig::default();
+    config.general.transport_version = 0;
     if let Some(general) = value.get("General").and_then(toml::Value::as_table) {
+        let transport = string_value(general, "transport");
+        if !transport.is_empty() {
+            config.general.transport = match transport.as_str() {
+                "shm" => BackendTransport::Shm,
+                other => BackendTransport::parse(other)?,
+            };
+        }
         config.general.mirrorc_cdk = string_value(general, "mirrorc_cdk");
         config.general.current_baas_sha =
             first_string_value(general, &["current_baas_version", "current_BAAS_version"]);
@@ -412,7 +445,22 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
         }
     }
 
+    migrate_transport(&mut config);
     Ok(config)
+}
+
+/// Migrates existing Windows pipe preferences once while retaining explicit test choices.
+fn migrate_transport(config: &mut UpdaterConfig) {
+    if cfg!(windows)
+        && config.general.transport_version == 0
+        && config.general.transport == BackendTransport::Pipe
+    {
+        config.general.transport = BackendTransport::Shm;
+    }
+    if !cfg!(windows) && config.general.transport == BackendTransport::Shm {
+        config.general.transport = BackendTransport::Pipe;
+    }
+    config.general.transport_version = config.general.transport_version.max(1);
 }
 
 /// Handles the string value workflow.
@@ -444,6 +492,47 @@ fn bool_value(table: &toml::map::Map<String, toml::Value>, key: &str, default: b
 mod tests {
     use super::*;
 
+    #[test]
+    fn legacy_native_transport_migrates_once_for_current_platform() {
+        let config = migrate_toml("[general]\ntransport = 'pipe'\n").unwrap();
+        assert_eq!(config.general.transport, BackendTransport::default());
+        assert_eq!(config.general.transport_version, 1);
+        let serialized = toml::to_string(&config).unwrap();
+        assert_eq!(migrate_toml(&serialized).unwrap(), config);
+    }
+
+    #[test]
+    fn explicit_current_pipe_and_websocket_preferences_are_preserved() {
+        for (name, expected) in [
+            ("pipe", BackendTransport::Pipe),
+            ("websocket", BackendTransport::Websocket),
+        ] {
+            let config = migrate_toml(&format!(
+                "[general]\ntransport = '{name}'\ntransport_version = 1\n"
+            ))
+            .unwrap();
+            assert_eq!(config.general.transport, expected);
+        }
+        assert_eq!(
+            BackendTransport::parse("pipe").unwrap(),
+            BackendTransport::Pipe
+        );
+    }
+
+    #[test]
+    fn shared_memory_preference_is_portable_to_non_windows_config_readers() {
+        let config = migrate_toml("[general]\ntransport = 'shm'\ntransport_version = 1\n").unwrap();
+        assert_eq!(
+            config.general.transport,
+            if cfg!(windows) {
+                BackendTransport::Shm
+            } else {
+                BackendTransport::Pipe
+            }
+        );
+        assert_eq!(BackendTransport::parse("shm").is_ok(), cfg!(windows));
+    }
+
     /// Handles the default config uses stable channel and default runtime workflow.
     #[test]
     fn default_config_uses_stable_channel_and_default_runtime() {
@@ -451,7 +540,7 @@ mod tests {
 
         assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
         assert_eq!(config.general.channel, UpdateChannel::Stable);
-        assert_eq!(config.general.transport, BackendTransport::Pipe);
+        assert_eq!(config.general.transport, BackendTransport::default());
         assert_eq!(config.general.git_backend, GitBackend::Auto);
         assert_eq!(config.python.runtime_path, "default");
         assert!(!config.general.source_list.is_empty());

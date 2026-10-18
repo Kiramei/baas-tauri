@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Info, KeyRound, ShieldCheck } from "lucide-react";
@@ -9,7 +10,7 @@ import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 
 const overlayCls =
-  "fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-[120] backdrop-blur-sm";
+  "fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-[1100] backdrop-blur-sm";
 
 /** Renders the password input modal component. */
 const PasswordInputModal: React.FC<{
@@ -58,14 +59,18 @@ const PasswordInputModal: React.FC<{
     });
   };
 
-  return (
-    <div className={overlayCls}>
+  return createPortal(
+    <div
+      className={overlayCls}
+      style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
+    >
       <motion.div
         initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
-        className="w-full max-w-110 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
+        className="w-full max-w-110 overflow-y-auto overscroll-contain rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
+        style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
       >
         <form onSubmit={(e) => e.preventDefault()}>
           <div className="flex items-center gap-3 mb-4">
@@ -154,7 +159,8 @@ const PasswordInputModal: React.FC<{
           </div>
         </form>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

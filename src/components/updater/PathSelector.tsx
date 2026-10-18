@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { FolderOpen } from "lucide-react";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useTranslation } from "react-i18next";
+import { IconTooltip } from "@/components/ui/Tooltip";
 
 interface PathSelectorProps {
   path: string;
@@ -40,16 +41,18 @@ const PathSelector: React.FC<PathSelectorProps> = ({ path, setPath, disabled = f
           childClassName="text-sm bg-background/30"
           disabled={disabled}
         />
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleBrowse}
-          title="Browse"
-          className="bg-background/30"
-          disabled={disabled}
-        >
-          <FolderOpen className="h-4 w-4" />
-        </Button>
+        <IconTooltip content="Browse">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleBrowse}
+            aria-label="Browse"
+            className="bg-background/30"
+            disabled={disabled}
+          >
+            <FolderOpen className="h-4 w-4" />
+          </Button>
+        </IconTooltip>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ import React, {
 import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/Button";
 import { CircleSlash2, Copy, LoaderCircle, Terminal as TerminalIcon } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, IconTooltip } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { FitAddon } from "@xterm/addon-fit";
@@ -795,11 +795,13 @@ const TermViewer: React.FC<TermViewerProps> = ({
     <div className="rounded-lg border border-border bg-transparent text-card-foreground shadow-sm overflow-hidden flex flex-col h-100">
       <div className="flex items-center justify-between px-3 py-0 border-b border-border bg-muted/50">
         <div className="flex items-center gap-2">
-          <button
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 focus:outline-none transition duration-150 ease-in-out"
-            title="Abort"
-            onClick={() => void onAbort()}
-          />
+          <IconTooltip content="Abort" side="bottom">
+            <button
+              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 focus:outline-none transition duration-150 ease-in-out"
+              aria-label="Abort"
+              onClick={() => void onAbort()}
+            />
+          </IconTooltip>
           <button className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 focus:outline-none transition duration-150 ease-in-out" />
           <button className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 focus:outline-none transition duration-150 ease-in-out" />
         </div>

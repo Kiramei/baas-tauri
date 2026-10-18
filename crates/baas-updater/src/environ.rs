@@ -452,7 +452,9 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         if !dependencies_changed {
             return Ok(());
         }
-        self.runner.run(&uv_cache_clean_command(config), output)?;
+        // Keep downloaded/built wheels available for the next requirements
+        // change. Clearing the entire cache here adds filesystem work to this
+        // launch and makes the next sync download unchanged packages again.
         save_requirements_cache(config, &requirements, &pypi_index)?;
         Ok(())
     }
@@ -608,7 +610,9 @@ pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> C
         )
 }
 
-/// Builds the UV cache clean command.
+/// Builds an explicit UV cache clean command for manual maintenance.
+///
+/// Normal dependency synchronization retains the cache for subsequent updates.
 pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
         .arg("--no-progress")
@@ -646,6 +650,53 @@ pub fn launch_backend_pipe_command(
     command.args.push("--pipe-name".to_string());
     command.args.push(pipe_name.to_string());
     command
+}
+
+/// Builds the backend launch command for an already-created shared-memory endpoint.
+pub fn launch_backend_shm_command(
+    config: &UpdaterConfig,
+    port: u16,
+    shm_name: &str,
+) -> CommandSpec {
+    let mut command = launch_backend_command(config, port);
+    command.args.push("--shm-name".to_string());
+    command.args.push(shm_name.to_string());
+    command
+}
+
+/// Reject a backend replaced by an older release before waiting for SHM READY.
+/// Remote updates may predate the desktop adapter, even when setup.toml still
+/// retains `transport = "shm"` from the previous local build.
+pub fn validate_backend_shm_support(config: &UpdaterConfig) -> UpdaterResult<()> {
+    let root = config.baas_root();
+    let entry = root.join("main.service.py");
+    let entry_source = fs::read_to_string(&entry).unwrap_or_default();
+    let missing = if !entry_source.contains("--shm-name") {
+        Some("main.service.py --shm-name support".to_string())
+    } else {
+        [
+            "service/transport/shm_native.py",
+            "service/transport/shm_budget.py",
+            "service/transport/shm_endpoint.py",
+            "service/transport/shm_server.py",
+        ]
+        .into_iter()
+        .find(|path| !root.join(path).is_file())
+        .map(str::to_string)
+        .or_else(|| {
+            let app = fs::read_to_string(root.join("service/app.py")).unwrap_or_default();
+            (!app.contains("BAAS_SHM_NAME")).then(|| "service/app.py SHM startup".to_string())
+        })
+    };
+    if let Some(missing) = missing {
+        return Err(UpdaterError::Environment(format!(
+            "Backend at {} does not support shared-memory transport: missing {missing}. \
+             A backend update may have replaced the matching local build. \
+             Restore the matching baas-dev backend, or select WebSocket in setup to use this older backend.",
+            root.display()
+        )));
+    }
+    Ok(())
 }
 
 /// Returns the pid file used for the currently launched backend process.
@@ -761,7 +812,6 @@ fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
 /// Handles the uv pip command with index workflow.
 fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
-        .arg("--no-progress")
         .arg("pip")
         .env("UV_INDEX", index)
         .env("UV_DEFAULT_INDEX", index)
@@ -908,6 +958,7 @@ where
                 selector.mark_succeeded(&url)?;
                 return Ok((url, value));
             }
+            Err(UpdaterError::Cancelled) => return Err(UpdaterError::Cancelled),
             Err(error) => {
                 output.line(
                     OutputStyle::Warning,
@@ -1187,6 +1238,63 @@ mod tests {
         assert_eq!(pipe.args, expected);
     }
 
+    #[test]
+    fn shm_launch_keeps_backend_options_and_does_not_enable_pipes() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let websocket = launch_backend_command(&config, 8190);
+        let shm = launch_backend_shm_command(&config, 8190, "baas-shm-test-endpoint");
+        assert_eq!(shm.program, websocket.program);
+        assert_eq!(shm.cwd, websocket.cwd);
+        assert_eq!(shm.env, websocket.env);
+        assert_eq!(shm.detached_pid_file, websocket.detached_pid_file);
+        let mut expected = websocket.args;
+        expected.extend([
+            "--shm-name".to_string(),
+            "baas-shm-test-endpoint".to_string(),
+        ]);
+        assert_eq!(shm.args, expected);
+        assert!(!shm.args.iter().any(|arg| arg == "--pipe-name"));
+    }
+
+    #[test]
+    fn shm_preflight_rejects_a_backend_updated_to_an_older_entry_point() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        fs::write(
+            root.path().join("main.service.py"),
+            "parser.add_argument('--pipe-name')",
+        )
+        .unwrap();
+        let error = validate_backend_shm_support(&config).unwrap_err().message();
+        assert!(error.contains("main.service.py --shm-name support"));
+        assert!(error.contains("backend update"));
+    }
+
+    #[test]
+    fn shm_preflight_detects_partial_overwrite_and_accepts_a_complete_backend() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        fs::create_dir_all(root.path().join("service/transport")).unwrap();
+        fs::write(
+            root.path().join("main.service.py"),
+            "parser.add_argument('--shm-name')",
+        )
+        .unwrap();
+        fs::write(root.path().join("service/app.py"), "BAAS_SHM_NAME").unwrap();
+        for name in ["shm_native", "shm_budget", "shm_endpoint", "shm_server"] {
+            fs::write(root.path().join(format!("service/transport/{name}.py")), "").unwrap();
+        }
+        validate_backend_shm_support(&config).unwrap();
+        fs::remove_file(root.path().join("service/transport/shm_server.py")).unwrap();
+        assert!(
+            validate_backend_shm_support(&config)
+                .unwrap_err()
+                .message()
+                .contains("shm_server.py")
+        );
+    }
+
     /// Handles the existing uv and python skip prepare ranking and downloads workflow.
     #[test]
     fn existing_uv_and_python_skip_prepare_ranking_and_downloads() {
@@ -1219,9 +1327,9 @@ mod tests {
         let clean = uv_cache_clean_command(&config);
 
         assert!(compile.env.iter().any(|(key, _)| key == "UV_CACHE_DIR"));
-        assert!(compile.args.contains(&"--no-progress".to_string()));
+        assert!(!compile.args.contains(&"--no-progress".to_string()));
         assert!(sync.env.iter().any(|(key, _)| key == "VIRTUAL_ENV"));
-        assert!(sync.args.contains(&"--no-progress".to_string()));
+        assert!(!sync.args.contains(&"--no-progress".to_string()));
         assert!(sync.args.contains(&"sync".to_string()));
         assert!(clean.args.contains(&"--no-progress".to_string()));
     }
@@ -1270,6 +1378,65 @@ mod tests {
             !requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn dependency_sync_retains_wheels_and_reuses_requirements_cache() {
+        struct LockfileRunner {
+            commands: Arc<Mutex<Vec<CommandSpec>>>,
+        }
+
+        impl ProcessRunner for LockfileRunner {
+            fn run<O: OutputSink + ?Sized>(
+                &self,
+                command: &CommandSpec,
+                _output: &O,
+            ) -> UpdaterResult<()> {
+                self.commands.lock().unwrap().push(command.clone());
+                if let Some(index) = command.args.iter().position(|arg| arg == "-o") {
+                    fs::write(&command.args[index + 1], "package==1\n")?;
+                }
+                // Model the destructive effect of the old post-sync command.
+                if command.args.iter().any(|arg| arg == "clean") {
+                    return Err(UpdaterError::Environment(
+                        "normal sync must not clear the wheel cache".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+        }
+
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let requirements = config.baas_root().join("requirements.txt");
+        fs::write(&requirements, "package==1\n").unwrap();
+        let wheel = uv_cache_dir(&config).join("cached-wheel");
+        fs::create_dir_all(wheel.parent().unwrap()).unwrap();
+        fs::write(&wheel, "reusable wheel").unwrap();
+        let ranking_dir = root.path().join("ranking");
+        let urls = environment_source_urls(EnvironmentSourceKind::Pypi, &config).unwrap();
+        let mut ranking = SourceRanking::from_urls(&urls);
+        ranking.promote_success(&urls[0]);
+        save_ranking(&ranking_dir.join("pypi.json"), &ranking).unwrap();
+        let commands = Arc::new(Mutex::new(Vec::new()));
+        let manager = EnvironmentManager::new(
+            LockfileRunner {
+                commands: Arc::clone(&commands),
+            },
+            EmptyDownloader,
+        );
+
+        manager
+            .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
+            .unwrap();
+        assert_eq!(commands.lock().unwrap().len(), 2);
+        assert_eq!(fs::read_to_string(&wheel).unwrap(), "reusable wheel");
+        assert!(requirements_compile_cached(&config, &requirements, &urls[0]).unwrap());
+
+        manager
+            .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
+            .unwrap();
+        assert_eq!(commands.lock().unwrap().len(), 2);
     }
 
     /// Handles the launch command uses custom runtime when configured workflow.
@@ -1403,6 +1570,33 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(persisted.active_sources()[0].url, selected);
+    }
+
+    #[test]
+    fn cancelled_environment_operation_does_not_retry_or_demote_source() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec!["https://local-fixture.invalid/simple".to_string()];
+        let path = root.path().join("pypi.json");
+        let mut ranking = SourceRanking::from_urls(&config.general.source_list);
+        ranking.promote_success(&config.general.source_list[0]);
+        save_ranking(&path, &ranking).unwrap();
+        let before = fs::read(&path).unwrap();
+        let mut calls = 0;
+        let result: UpdaterResult<(String, ())> = with_environment_source_failover(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(root.path()),
+            &Probe { ok: Vec::new() },
+            &crate::NoopOutput,
+            |_| {
+                calls += 1;
+                Err(UpdaterError::Cancelled)
+            },
+        );
+        assert_eq!(result, Err(UpdaterError::Cancelled));
+        assert_eq!(calls, 1);
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 
     /// Handles the ranked environment source errors after three all failed cycles workflow.

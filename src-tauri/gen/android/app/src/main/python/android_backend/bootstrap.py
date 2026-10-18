@@ -1666,8 +1666,19 @@ def _ensure_python_import(path, module_name):
     uses_crlf = "\r\n" in text
     text = text.replace("\r\n", "\n")
     import_line = f"import {module_name}"
-    if any(line.strip() == import_line for line in text.splitlines()):
-        return
+    lines = text.splitlines(keepends=True)
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if line == line.lstrip() and (
+            stripped.startswith("import ") or stripped.startswith("from ")
+        ):
+            if line.rstrip("\n") == import_line:
+                return
+            continue
+        break
+    text = "".join(line for line in lines if line.strip() != import_line)
     needle = "import sys\n"
     if needle in text:
         next_text = text.replace(needle, f"{needle}{import_line}\n", 1)
@@ -1676,7 +1687,9 @@ def _ensure_python_import(path, module_name):
         cursor = 0
         for line in text.splitlines(keepends=True):
             stripped = line.strip()
-            if stripped.startswith("import ") or stripped.startswith("from "):
+            if line == line.lstrip() and (
+                stripped.startswith("import ") or stripped.startswith("from ")
+            ):
                 insert_at = cursor + len(line)
             cursor += len(line)
         if insert_at is None:
@@ -2576,6 +2589,7 @@ def _write_pygit2_stub(root):
         "    pass\n\n"
         "class _RemoteCallbacks:\n"
         "    pass\n\n"
+        "RemoteCallbacks = _RemoteCallbacks\n\n"
         "class callbacks:\n"
         "    RemoteCallbacks = _RemoteCallbacks\n\n"
         "class Repository:\n"
@@ -3092,6 +3106,19 @@ async def _handle_android_reset_auth(scope, receive, send):
 # Builds the ASGI app and reserves a bootstrap-owned restart endpoint.
 def _build_baas_asgi_app(root, port):
     from service.app import app as service_app
+
+    # Wiki is intentionally unavailable in the Android client. Remove its API
+    # surface too, so it cannot be loaded accidentally and does not appear in
+    # the generated OpenAPI contract.
+    router = getattr(service_app, "router", None)
+    routes = getattr(router, "routes", None)
+    if routes is not None:
+        routes[:] = [
+            route
+            for route in routes
+            if not str(getattr(route, "path", "")).startswith("/android/wiki")
+        ]
+        service_app.openapi_schema = None
 
     async def app(scope, receive, send):
         if scope.get("type") == "http" and scope.get("path") == "/android/reset-auth":

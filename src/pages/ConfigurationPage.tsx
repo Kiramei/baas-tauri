@@ -147,7 +147,7 @@ const MotionCard: React.FC<
   if (lowPerformanceMode) {
     return (
       <div className="cursor-pointer" onClick={onClick}>
-        <Card>{children}</Card>
+        <Card className="h-full transition-colors hover:bg-secondary/60">{children}</Card>
       </div>
     );
   }
@@ -157,13 +157,12 @@ const MotionCard: React.FC<
       variants={cardVariants}
       initial="hidden"
       animate="show"
-      whileHover={{ y: -2 }}
       whileTap={{ scale: 0.99 }}
       transition={{ duration: 0 }}
       className="cursor-pointer"
       onClick={onClick}
     >
-      <Card>{children}</Card>
+      <Card className="h-full transition-colors hover:bg-secondary/60">{children}</Card>
     </motion.div>
   );
 };
@@ -219,14 +218,18 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         lowPerformanceMode={lowPerformanceMode}
         onClick={() => openModal(feature)}
       >
-        <CardHeader className="border-b-0">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary-100 dark:bg-primary-900/50 p-3 rounded-lg">
-              <Icon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+        <CardHeader className="border-b-0! p-4!">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <Icon className="w-[18px] h-[18px] text-foreground" />
             </div>
             <div>
-              <CardTitle>{t(featureTranslationKey(feature))}</CardTitle>
-              <CardDescription>{t(i18nKey(descKey))}</CardDescription>
+              <CardTitle className="text-sm! font-medium!">
+                {t(featureTranslationKey(feature))}
+              </CardTitle>
+              <CardDescription className="mt-1 text-xs! leading-5">
+                {t(i18nKey(descKey))}
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -237,13 +240,13 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const CurrentModalContent = modalContent ? featureMap[modalContent].component : null;
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-5xl space-y-7 text-foreground">
       <div className="flex items-baseline justify-between">
-        <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        <div className="flex items-baseline">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
             {t("nav.configuration")}
           </h2>
-          <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
+          <span className="ml-3 text-sm text-muted-foreground">{profile?.name}</span>
         </div>
       </div>
 
@@ -252,14 +255,12 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         variants={lowPerformanceMode ? undefined : gridVariants}
         initial={lowPerformanceMode ? false : "show"}
         animate={lowPerformanceMode ? undefined : "show"}
-        className="space-y-8"
+        className="space-y-7"
       >
         {Object.entries(featureGroups).map(([groupTitle, features]) => (
           <section key={groupTitle}>
-            <h3 className="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-200">
-              {groupTitle}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <h3 className="mb-3 text-sm font-medium text-muted-foreground">{groupTitle}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {features.map(renderFeatureCard)}
             </div>
           </section>

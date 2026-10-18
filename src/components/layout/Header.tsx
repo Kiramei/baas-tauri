@@ -1,4 +1,6 @@
+import { IconTooltip } from "@/components/ui/Tooltip";
 import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import {
@@ -7,7 +9,9 @@ import {
   Copy,
   Download,
   FilePlus2,
+  FileText,
   Loader2,
+  MoreHorizontal,
   Pencil,
   Trash2,
   Upload,
@@ -17,6 +21,7 @@ import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
+import { useModalFocus } from "@/components/ui/Modal.tsx";
 import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
@@ -34,13 +39,19 @@ const isProfileReady = (settings: any): boolean =>
   Boolean(settings?.name && settings?.ap && settings?._pass);
 
 /** Renders the header component. */
-const Header: React.FC = () => {
+const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = true }) => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  const headerHeight = __WITH_ANDROID__ ? "h-[64px]" : "h-[52px]";
-  const tabHeight = __WITH_ANDROID__ ? "h-[48px]" : "h-[36px]";
-  const buttonSize = __WITH_ANDROID__ ? "h-[48px] w-[48px]" : "h-[36px] w-[36px]";
+  const [desktop, setDesktop] = React.useState(
+    () => window.matchMedia("(min-width: 64rem)").matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 64rem)");
+    const update = () => setDesktop(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
@@ -88,6 +99,8 @@ const Header: React.FC = () => {
   };
 
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; tab?: Tab } | null>(null);
+  const ctxMenuRef = React.useRef<HTMLDivElement>(null);
+  const ctxMenuOpener = React.useRef<HTMLElement | null>(null);
 
   const [editor, setEditor] = React.useState<null | { mode: "create" | "edit"; tab?: Tab }>(null);
 
@@ -296,15 +309,52 @@ const Header: React.FC = () => {
     });
   };
 
-  // Close the context menu.
+  React.useLayoutEffect(() => {
+    const element = ctxMenuRef.current;
+    if (!ctxMenu || !element) return;
+    const { width, height } = element.getBoundingClientRect();
+    element.style.left = `${Math.max(8, Math.min(ctxMenu.x + 2, window.innerWidth - width - 8))}px`;
+    element.style.top = `${Math.max(8, Math.min(ctxMenu.y + 2, window.innerHeight - height - 8))}px`;
+    element.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus({ preventScroll: true });
+  }, [ctxMenu]);
+
   React.useEffect(() => {
-    window.addEventListener("click", hideCtxMenu);
-    // window.addEventListener('contextmenu', hide);
-    return () => {
-      window.removeEventListener("click", hideCtxMenu);
-      window.removeEventListener("contextmenu", hideCtxMenu);
+    if (!ctxMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!ctxMenuRef.current?.contains(event.target as Node)) hideCtxMenu();
     };
-  }, []);
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("resize", hideCtxMenu);
+    window.addEventListener("blur", hideCtxMenu);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", hideCtxMenu);
+      window.removeEventListener("blur", hideCtxMenu);
+    };
+  }, [ctxMenu]);
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault();
+      event.stopPropagation();
+      hideCtxMenu();
+      ctxMenuOpener.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']")
+    );
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus({ preventScroll: true });
+  };
 
   const runningByProfile = useWebSocketStore(
     useShallow((state) =>
@@ -315,18 +365,33 @@ const Header: React.FC = () => {
   );
 
   return (
-    <header className={`flex ${headerHeight} shrink-0 items-center border-b border-slate-200 bg-white px-[8px] text-sm dark:border-slate-700 dark:bg-slate-900 lg:border-b-0`}>
+    <header
+      className={`profile-navigation flex h-[52px] min-h-0 shrink-0 items-center gap-1 border-b border-border bg-background px-2 text-sm lg:h-auto lg:flex-1 lg:flex-col lg:items-stretch lg:gap-2 lg:border-0 lg:bg-transparent lg:pt-5 ${desktopExpanded ? "" : "lg:hidden"}`}
+    >
+      <div className="hidden shrink-0 items-center justify-between px-2 lg:flex">
+        <span className="text-[12px] font-medium text-muted-foreground">{t("profile.list")}</span>
+        <IconTooltip content={t("profile.add")} side="bottom">
+          <button
+            type="button"
+            onClick={() => setEditor({ mode: "create" })}
+            aria-label={t("profile.add")}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <FilePlus2 className="h-4 w-4" strokeWidth={1.6} />
+          </button>
+        </IconTooltip>
+      </div>
       {/* Left side: scroll controls */}
-      <div className="mr-2 flex items-center gap-1">
+      <div className="mr-1 flex items-center gap-1 lg:hidden">
         <button
-          className={`flex ${buttonSize} items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
+          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(-200)}
           aria-label="scroll-left"
         >
           <ChevronLeft className="h-[20px] w-[20px]" />
         </button>
         <button
-          className={`flex ${buttonSize} items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
+          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(200)}
           aria-label="scroll-right"
         >
@@ -334,12 +399,15 @@ const Header: React.FC = () => {
         </button>
       </div>
 
-      <div ref={stripRef} className={`flex-1 overflow-x-auto ${noScrollbarStyle}`}>
+      <div
+        ref={stripRef}
+        className={`min-h-0 min-w-0 flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto ${noScrollbarStyle}`}
+      >
         <Reorder.Group
-          axis="x"
+          axis={desktop ? "y" : "x"}
           values={tabs}
           onReorder={onReorder}
-          className={`flex ${tabHeight} items-stretch gap-1`}
+          className="flex h-9 items-stretch gap-1 lg:h-auto lg:flex-col lg:gap-0.5"
         >
           {tabs.map((tab) => {
             const active = activeProfile?.id === tab.id;
@@ -350,12 +418,29 @@ const Header: React.FC = () => {
                 value={tab}
                 layout={lowPerformanceMode ? undefined : true}
                 transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
-                className={`group relative flex ${tabHeight} max-w-xs shrink-0 select-none items-center rounded-lg px-3
-                    border cursor-pointer transition-colors
+                role="button"
+                tabIndex={0}
+                aria-pressed={active}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+                    event.preventDefault();
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    ctxMenuOpener.current = event.currentTarget;
+                    setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
+                    return;
+                  }
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(tab);
+                  }
+                }}
+                className={`group relative flex h-9 max-w-xs shrink-0 select-none items-center rounded-lg px-3 lg:h-8 lg:w-full lg:max-w-none lg:px-[11px]
+                    cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring
                     ${
                       active
-                        ? "bg-slate-100 dark:bg-slate-700 border-slate-400 dark:border-slate-500"
-                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        ? "bg-secondary text-foreground lg:bg-sidebar-accent"
+                        : "text-foreground hover:bg-secondary lg:hover:bg-sidebar-accent"
                     }
                   `}
                 onClick={() => onSelect(tab)}
@@ -368,29 +453,37 @@ const Header: React.FC = () => {
                 onContextMenu={(e: any) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  ctxMenuOpener.current = e.currentTarget;
                   setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                 }}
               >
                 {runningByProfile[tab.id] ? (
                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 ) : (
-                  <></>
+                  <FileText
+                    className="mr-2 hidden h-4 w-4 shrink-0 text-muted-foreground lg:block"
+                    strokeWidth={1.6}
+                  />
                 )}
 
                 {/* Profile name */}
-                <span className="truncate pr-5">{tab.name}</span>
+                <span className="truncate pr-6 text-[14px] font-normal">{tab.name}</span>
 
                 {/* Close button, shown on hover. */}
-                <button
-                  title={t("common.delete")}
-                  className="absolute right-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDelete(tab);
-                  }}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <IconTooltip content={t("profile.edit")} side="bottom">
+                  <button
+                    aria-label={`${t("profile.edit")} ${tab.name}`}
+                    className="absolute right-1 rounded-md p-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const bounds = e.currentTarget.getBoundingClientRect();
+                      ctxMenuOpener.current = e.currentTarget;
+                      setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
+                    }}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </IconTooltip>
               </Reorder.Item>
             ) : (
               <div key={tab.id}></div>
@@ -400,103 +493,129 @@ const Header: React.FC = () => {
       </div>
 
       {/* Right side: create button */}
-      <div className="ml-3">
-        <button
-          onClick={() => setEditor({ mode: "create" })}
-          title={t("profile.add")}
-          aria-label={t("profile.add")}
-          className={`flex ${buttonSize} shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700`}
-        >
-          <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
-        </button>
+      <div className="ml-1 lg:hidden">
+        <IconTooltip content={t("profile.add")} side="bottom">
+          <button
+            onClick={() => setEditor({ mode: "create" })}
+            aria-label={t("profile.add")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary"
+          >
+            <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
+          </button>
+        </IconTooltip>
       </div>
 
-      {/* Context menu */}
-      <AnimatePresence>
-        {ctxMenu && ctxMenu.tab && (
-          <motion.div
-            role="menu"
-            aria-label={ctxMenu.tab.name}
-            data-native-preview-blocker
-            initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.96 }}
-            transition={{ type: "tween", duration: lowPerformanceMode ? 0 : 0.12 }}
-            className="fixed z-50 min-w-40 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1"
-            style={{ top: ctxMenu.y + 2, left: ctxMenu.x + 2 }}
-          >
-            <button
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => {
-                setEditor({ mode: "edit", tab: ctxMenu.tab! });
-                setCtxMenu(null);
-              }}
-            >
-              <Pencil className="w-4 h-4" /> {t("common.edit")}
-            </button>
-            <button
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => {
-                void handleCopy(ctxMenu.tab!);
-                setCtxMenu(null);
-              }}
-            >
-              <Copy className="w-4 h-4" /> {t("profile.copy")}
-            </button>
-            <button
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-              onClick={() => {
-                void handleExport(ctxMenu.tab!);
-                setCtxMenu(null);
-              }}
-            >
-              <Download className="w-4 h-4" /> {t("profile.export")}
-            </button>
-            <button
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-              onClick={() => {
-                setConfirmDelete(ctxMenu.tab!);
-                setCtxMenu(null);
-              }}
-            >
-              <Trash2 className="w-4 h-4" /> {t("common.delete")}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <>
+          {/* Menus live outside the scrolling sidebar so they remain visible at any zoom. */}
+          <AnimatePresence>
+            {ctxMenu && ctxMenu.tab && (
+              <motion.div
+                ref={ctxMenuRef}
+                role="menu"
+                data-native-preview-blocker
+                aria-label={ctxMenu.tab.name}
+                onKeyDown={onMenuKeyDown}
+                onContextMenu={(event) => event.preventDefault()}
+                initial={lowPerformanceMode ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={lowPerformanceMode ? undefined : { opacity: 0 }}
+                transition={{ type: "tween", duration: lowPerformanceMode ? 0 : 0.1 }}
+                className="fixed z-[1300] w-[220px] max-w-[calc(100vw-16px)] select-none rounded-[8px] border border-[var(--menu-border)] bg-[var(--menu-background)] p-[6px] text-popover-foreground shadow-[var(--menu-shadow)] backdrop-blur-xl backdrop-saturate-125"
+                style={{
+                  top: Math.max(8, Math.min(ctxMenu.y + 2, window.innerHeight - 180)),
+                  left: Math.max(8, Math.min(ctxMenu.x + 2, window.innerWidth - 200)),
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex h-7 w-full cursor-default items-center gap-2.5 rounded-[4px] px-3 text-[13px] outline-none hover:bg-[var(--menu-hover)] focus-visible:bg-[var(--menu-hover)]"
+                  onClick={() => {
+                    ctxMenuOpener.current?.focus({ preventScroll: true });
+                    setEditor({ mode: "edit", tab: ctxMenu.tab! });
+                    setCtxMenu(null);
+                  }}
+                >
+                  <Pencil className="size-3.5 text-muted-foreground" strokeWidth={1.6} />{" "}
+                  {t("common.edit")}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex h-7 w-full cursor-default items-center gap-2.5 rounded-[4px] px-3 text-[13px] outline-none hover:bg-[var(--menu-hover)] focus-visible:bg-[var(--menu-hover)]"
+                  onClick={() => {
+                    void handleCopy(ctxMenu.tab!);
+                    setCtxMenu(null);
+                  }}
+                >
+                  <Copy className="size-3.5 text-muted-foreground" strokeWidth={1.6} />{" "}
+                  {t("profile.copy")}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex h-7 w-full cursor-default items-center gap-2.5 rounded-[4px] px-3 text-[13px] outline-none hover:bg-[var(--menu-hover)] focus-visible:bg-[var(--menu-hover)]"
+                  onClick={() => {
+                    void handleExport(ctxMenu.tab!);
+                    setCtxMenu(null);
+                  }}
+                >
+                  <Download className="size-3.5 text-muted-foreground" strokeWidth={1.6} />{" "}
+                  {t("profile.export")}
+                </button>
+                <div role="separator" className="-mx-[6px] my-[6px] h-px bg-[var(--menu-border)]" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex h-7 w-full cursor-default items-center gap-2.5 rounded-[4px] px-3 text-[13px] text-destructive outline-none hover:bg-[var(--menu-hover)] focus-visible:bg-[var(--menu-hover)]"
+                  onClick={() => {
+                    ctxMenuOpener.current?.focus({ preventScroll: true });
+                    setConfirmDelete(ctxMenu.tab!);
+                    setCtxMenu(null);
+                  }}
+                >
+                  <Trash2 className="size-3.5" strokeWidth={1.6} /> {t("common.delete")}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      {/* Edit/create modal */}
-      <ProfileEditorModal
-        open={!!editor}
-        mode={editor?.mode || "create"}
-        initial={editor?.tab || null}
-        onClose={() => setEditor(null)}
-        onSubmit={async (vals) => {
-          if (editor?.mode === "create") {
-            await handleCreate(vals.name, vals.server);
-          } else if (editor?.mode === "edit" && editor?.tab) {
-            await handleEdit(editor.tab, vals.name, vals.server);
-          }
-          setEditor(null);
-        }}
-        onImport={handleImport}
-        // Local duplicate-name validation.
-        checkName={(name, selfId) =>
-          tabs.some((t) => t.id !== selfId && t.name.trim() === name.trim())
-        }
-      />
+          {/* Edit/create modal */}
+          <ProfileEditorModal
+            open={!!editor}
+            mode={editor?.mode || "create"}
+            initial={editor?.tab || null}
+            onClose={() => setEditor(null)}
+            onSubmit={async (vals) => {
+              if (editor?.mode === "create") {
+                await handleCreate(vals.name, vals.server);
+              } else if (editor?.mode === "edit" && editor?.tab) {
+                await handleEdit(editor.tab, vals.name, vals.server);
+              }
+              setEditor(null);
+            }}
+            onImport={handleImport}
+            // Local duplicate-name validation.
+            checkName={(name, selfId) =>
+              tabs.some((t) => t.id !== selfId && t.name.trim() === name.trim())
+            }
+          />
 
-      {/* Delete confirmation modal with icon. */}
-      <ConfirmDeleteModal
-        open={!!confirmDelete}
-        name={confirmDelete?.name || ""}
-        onCancel={() => setConfirmDelete(null)}
-        onConfirm={async () => {
-          if (confirmDelete) await handleDelete(confirmDelete);
-          setConfirmDelete(null);
-        }}
-        disabled={tabs.length <= 1}
-      />
+          {/* Delete confirmation modal with icon. */}
+          <ConfirmDeleteModal
+            open={!!confirmDelete}
+            name={confirmDelete?.name || ""}
+            onCancel={() => setConfirmDelete(null)}
+            onConfirm={async () => {
+              if (confirmDelete) await handleDelete(confirmDelete);
+              setConfirmDelete(null);
+            }}
+            disabled={tabs.length <= 1}
+          />
+        </>,
+        document.body
+      )}
     </header>
   );
 };
@@ -504,7 +623,7 @@ const Header: React.FC = () => {
 export default Header;
 
 const overlayCls =
-  "fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50";
+  "fixed inset-0 bg-black/35 flex items-center justify-center p-4 pt-[calc(var(--window-titlebar-height,0px)+1rem)] z-[1100]";
 
 /** Renders the profile editor modal component. */
 const ProfileEditorModal = (props: {
@@ -523,6 +642,11 @@ const ProfileEditorModal = (props: {
   const [err, setErr] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useModalFocus(props.open, panelRef, () => {
+    if (!submitting && !importing) props.onClose();
+  });
 
   React.useEffect(() => {
     if (props.open) {
@@ -566,23 +690,38 @@ const ProfileEditorModal = (props: {
   return (
     <div
       className={overlayCls}
-      role="dialog"
-      aria-modal="true"
-      aria-label={props.mode === "create" ? t("profile.create") : t("profile.edit")}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) props.onClose();
+        if (e.target === e.currentTarget && !submitting && !importing) props.onClose();
       }}
     >
       <motion.div
-        initial={lowPerformanceMode ? false : { opacity: 0, y: 12, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
-        transition={{ duration: lowPerformanceMode ? 0 : 0.18, type: "tween", ease: "easeOut" }}
-        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 4 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.14, type: "tween", ease: "easeOut" }}
+        className="w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)] outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="text-lg font-semibold mb-4">
-          {props.mode === "create" ? t("profile.create") : t("profile.edit")}
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 id={titleId} className="text-[16px] font-medium leading-6">
+            {props.mode === "create" ? t("profile.create") : t("profile.edit")}
+          </h2>
+          <IconTooltip content={t("common.close")} side="bottom">
+            <button
+              type="button"
+              aria-label={t("common.close")}
+              onClick={props.onClose}
+              disabled={submitting || importing}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+            >
+              <X className="size-4" />
+            </button>
+          </IconTooltip>
         </div>
 
         <div className="space-y-4">
@@ -591,7 +730,7 @@ const ProfileEditorModal = (props: {
               type="button"
               onClick={handleImport}
               disabled={importing || submitting}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-input px-3 text-sm outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
             >
               {importing ? (
                 <Loader2 className="animate-spin h-4 w-4" />
@@ -603,6 +742,7 @@ const ProfileEditorModal = (props: {
           )}
 
           <FormInput
+            data-autofocus
             value={name}
             label={t("profile.name")}
             placeholder={t("placeholder.profileName")}
@@ -621,21 +761,27 @@ const ProfileEditorModal = (props: {
             ]}
           />
 
-          {err && <div className="text-red-600 text-sm">{err}</div>}
+          {err && (
+            <div role="alert" className="text-sm text-destructive">
+              {err}
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
+            type="button"
             onClick={props.onClose}
-            className="px-3 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
-            disabled={submitting}
+            className="h-9 rounded-[8px] border border-input px-3.5 text-sm font-medium outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+            disabled={submitting || importing}
           >
             {t("common.cancel")}
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
-            className="px-3 py-2 rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60 flex items-center"
-            disabled={submitting}
+            className="flex h-9 items-center rounded-[8px] bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+            disabled={submitting || importing}
           >
             {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
             <span>{props.mode === "create" ? t("common.create") : t("common.save")}</span>
@@ -656,48 +802,53 @@ const ConfirmDeleteModal = (props: {
 }) => {
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useModalFocus(props.open, panelRef, props.onCancel);
   if (!props.open) return null;
   return (
     <div
       className={overlayCls}
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={t("profile.deleteConfirmTitle")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onCancel();
       }}
     >
       <motion.div
-        initial={lowPerformanceMode ? false : { opacity: 0, y: 8 }}
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        initial={lowPerformanceMode ? false : { opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 8 }}
-        transition={{ duration: lowPerformanceMode ? 0 : 0.16 }}
-        className="w-full max-w-105 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl p-5"
+        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 4 }}
+        transition={{ duration: lowPerformanceMode ? 0 : 0.14 }}
+        className="w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)] outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3">
-          <div className="mt-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 p-2">
-            <Trash2 className="w-5 h-5" />
-          </div>
-          <div className="flex-1">
-            <div className="text-lg font-semibold">{t("profile.deleteConfirmTitle")}</div>
-            <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-              {t("profile.deleteConfirmMessage", { name: props.name })}
-            </div>
+        <div>
+          <h2 id={titleId} className="text-[16px] font-medium leading-6">
+            {t("profile.deleteConfirmTitle")}
+          </h2>
+          <div className="mt-3 text-sm leading-6 text-muted-foreground">
+            {t("profile.deleteConfirmMessage", { name: props.name })}
           </div>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
+            type="button"
+            data-autofocus
             onClick={props.onCancel}
-            className="px-3 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="h-9 rounded-[8px] border border-input px-3.5 text-sm font-medium outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             {t("common.cancel")}
           </button>
           <button
+            type="button"
             onClick={props.onConfirm}
             disabled={props.disabled}
-            className="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+            className="h-9 rounded-[8px] bg-destructive px-3.5 text-sm font-medium text-white outline-none transition-colors hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-destructive/40 disabled:opacity-40"
           >
             {t("common.delete")}
           </button>

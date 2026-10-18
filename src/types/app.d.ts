@@ -40,6 +40,7 @@ export interface UISettings {
   lowPerformanceMode: boolean;
   enableSystemNotifications: boolean;
   minimizeToTray?: boolean;
+  idleAutoUpdate?: boolean;
   schedulerSortMode?: "default" | "time";
   remoteSettings: RemoteSettings;
 }

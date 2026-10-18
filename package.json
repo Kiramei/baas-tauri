@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "lint": "eslint . --ext .ts,.tsx && bun run i18n:check",
     "test:android-bootstrap": "python scripts/tests/test_android_bootstrap_preserve.py",
+    "test:android-smoke": "bun scripts/android-smoke.mjs",
     "test:transport": "bun test tests/frontend",
     "i18n:check": "bun scripts/i18n.mjs check",
     "i18n:sync": "bun scripts/i18n.mjs sync",
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
+    "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.7",

@@ -55,6 +55,8 @@ url = "2"
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }
 base64 = "0.22.1"
+jni = "0.21.1"
+openh264 = "0.9.8"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
 minisign-verify = "0.2.4"
 rand = "0.8.5"
@@ -66,6 +68,11 @@ tempfile = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Security",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
   "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
 ] }

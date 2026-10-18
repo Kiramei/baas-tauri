@@ -2,6 +2,7 @@ import React, { useDeferredValue, useState, useMemo } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SearchInput } from "@/components/ui/SearchInput";
 
 type Student = {
   CN_name: string;
@@ -57,10 +58,16 @@ const StudentSelectorModal: React.FC<Props> = ({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+    <Dialog open={isOpen} onClose={onClose} className="relative z-[1200]">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
+      <div
+        className="fixed inset-0 flex items-center justify-center p-4"
+        style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
+      >
+        <DialogPanel
+          className="w-full max-w-3xl overflow-y-auto overscroll-contain rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg"
+          style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
+        >
           <div className="flex justify-between items-center mb-4">
             <DialogTitle className="text-lg font-semibold">
               {t("artifact.selectStudent")}
@@ -70,12 +77,11 @@ const StudentSelectorModal: React.FC<Props> = ({
             </button>
           </div>
 
-          <input
-            type="text"
+          <SearchInput
             placeholder={t("student.search")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full mb-4 px-3 py-2 border rounded-md focus:ring-primary-500 focus:border-primary-500"
+            containerClassName="mb-4"
           />
 
           {/* Student list */}

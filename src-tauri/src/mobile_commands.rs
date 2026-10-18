@@ -523,7 +523,6 @@ fn android_scrcpy_virtual_display_status_blocking(
     let marker_display_id = fs::read_to_string(&display_id_file)
         .ok()
         .and_then(|value| value.trim().parse::<u32>().ok());
-
     let auth_dir = Some(config_dir.as_path());
     if let Ok(shizuku) = crate::android_backend_service::shizuku_status(&app) {
         if shizuku.shizuku_granted && shizuku.shizuku_display_id >= 0 {
@@ -578,7 +577,7 @@ fn android_scrcpy_virtual_display_status_blocking(
         &display_id_file,
         marker_display_id,
         &mut log,
-        |command, log| run_android_shell_command(command, log),
+        run_android_shell_command,
     ) {
         return Ok(json!(status));
     }
@@ -679,9 +678,11 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
         "shizuku",
         "127.0.0.1:7912",
         request.config_id.as_deref(),
-        display_id,
-        package_name,
-        activity_name,
+        AndroidDisplayLaunch {
+            display_id,
+            package_name,
+            activity_name,
+        },
         log,
     )
 }
@@ -730,10 +731,6 @@ fn prepare_scrcpy_virtual_display_with_adbd(
     let density = request.density.unwrap_or(240);
     let serial = normalized_android_adb_serial(request.serial.as_deref());
     let auth_dir = android_storage_root(app)?.join("config");
-    let activity_name = request
-        .activity_name
-        .clone()
-        .unwrap_or_else(|| "com.yostar.sdk.bridge.YoStarUnityPlayerActivity".to_string());
     let mut log = Vec::new();
 
     adb_direct_shell(
@@ -753,9 +750,20 @@ fn prepare_scrcpy_virtual_display_with_adbd(
         parse_android_overlay_display_id(&display_dump, width, height).ok_or_else(|| {
             format!("failed to find overlay display in dumpsys output:\n{display_dump}")
         })?;
-    let package_name = match request.package_name.clone() {
-        Some(package) if !package.trim().is_empty() => package,
-        _ => resolve_android_blue_archive_package_with_adbd(&serial, &mut log, &auth_dir)?,
+    let package_name = resolve_requested_android_package_with_adbd(
+        request.package_name.as_deref(),
+        &serial,
+        &mut log,
+        &auth_dir,
+    )?;
+    let activity_name = match request.activity_name.clone() {
+        Some(activity) if !activity.trim().is_empty() => activity,
+        _ => resolve_android_launcher_activity_with_adbd(
+            &serial,
+            &package_name,
+            &mut log,
+            &auth_dir,
+        )?,
     };
 
     start_android_activity_on_display_with_adbd(
@@ -772,9 +780,11 @@ fn prepare_scrcpy_virtual_display_with_adbd(
         "embedded-adbd",
         &serial,
         request.config_id.as_deref(),
-        display_id,
-        package_name,
-        activity_name,
+        AndroidDisplayLaunch {
+            display_id,
+            package_name,
+            activity_name,
+        },
         log,
     )
 }
@@ -791,6 +801,14 @@ fn start_android_activity_on_display_with_adbd(
     let command = format!("am start-activity --display {display_id} -n {component}");
     let mut last_start_output = String::new();
     let mut last_display_dump = String::new();
+
+    adb_direct_shell(
+        serial,
+        &format!("am force-stop --user 0 {package_name}"),
+        log,
+        Some(auth_dir),
+    )?;
+    thread::sleep(Duration::from_millis(300));
 
     for attempt in 1..=6 {
         log.push(format!(
@@ -811,6 +829,33 @@ fn start_android_activity_on_display_with_adbd(
             ));
             return Ok(());
         }
+
+        // Some game SDK splash activities create the Unity task on display 0
+        // even when the launcher was started with --display. Move the whole
+        // root task so subsequent activities and automation stay headless.
+        let stack_dump = adb_direct_shell(serial, "cmd activity stack list", log, Some(auth_dir))?;
+        if let Some(root_task_id) = android_root_task_for_package(&stack_dump, package_name) {
+            adb_direct_shell(
+                serial,
+                &format!("cmd activity display move-stack {root_task_id} {display_id}"),
+                log,
+                Some(auth_dir),
+            )?;
+            thread::sleep(Duration::from_secs(1));
+            last_display_dump =
+                adb_direct_shell(serial, "dumpsys window displays", log, Some(auth_dir))?;
+            if android_display_contains_activity(
+                &last_display_dump,
+                display_id,
+                package_name,
+                activity_name,
+            ) {
+                log.push(format!(
+                    "moved {package_name} root task {root_task_id} to Android display {display_id}"
+                ));
+                return Ok(());
+            }
+        }
     }
 
     Err(format!(
@@ -818,17 +863,31 @@ fn start_android_activity_on_display_with_adbd(
     ))
 }
 
+fn android_root_task_for_package(stack_dump: &str, package_name: &str) -> Option<u32> {
+    let mut root_task_id = None;
+    for line in stack_dump.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("RootTask id=") {
+            root_task_id = rest
+                .split_whitespace()
+                .next()
+                .and_then(|value| value.parse::<u32>().ok());
+            continue;
+        }
+        if root_task_id.is_some() && trimmed.contains(package_name) {
+            return root_task_id;
+        }
+    }
+    None
+}
+
 fn android_display_contains_activity(
     display_dump: &str,
     display_id: u32,
     package_name: &str,
-    activity_name: &str,
+    _activity_name: &str,
 ) -> bool {
     let display_marker = format!("Display: mDisplayId={display_id}");
-    let activity_leaf = activity_name
-        .rsplit_once('.')
-        .map(|(_, leaf)| leaf)
-        .unwrap_or(activity_name);
     let mut in_target_display = false;
 
     for line in display_dump.lines() {
@@ -836,10 +895,9 @@ fn android_display_contains_activity(
             in_target_display = line.contains(&display_marker);
             continue;
         }
-        if in_target_display
-            && line.contains(package_name)
-            && (line.contains(activity_name) || line.contains(activity_leaf))
-        {
+        // Game launchers commonly replace their splash Activity immediately.
+        // The package on the requested display is the stable invariant.
+        if in_target_display && line.contains(package_name) {
             return true;
         }
     }
@@ -853,10 +911,6 @@ fn prepare_scrcpy_virtual_display_with_shell(
     let width = request.width.unwrap_or(1280);
     let height = request.height.unwrap_or(720);
     let density = request.density.unwrap_or(240);
-    let activity_name = request
-        .activity_name
-        .clone()
-        .unwrap_or_else(|| "com.yostar.sdk.bridge.YoStarUnityPlayerActivity".to_string());
     let mut log = Vec::new();
 
     run_command(
@@ -879,6 +933,10 @@ fn prepare_scrcpy_virtual_display_with_shell(
         Some(package) if !package.trim().is_empty() => package,
         _ => resolve_android_blue_archive_package_with_shell(&mut log)?,
     };
+    let activity_name = match request.activity_name.clone() {
+        Some(activity) if !activity.trim().is_empty() => activity,
+        _ => resolve_android_launcher_activity_with_shell(&package_name, &mut log)?,
+    };
 
     run_command(
         "am",
@@ -897,9 +955,11 @@ fn prepare_scrcpy_virtual_display_with_shell(
         "app-shell",
         "",
         request.config_id.as_deref(),
-        display_id,
-        package_name,
-        activity_name,
+        AndroidDisplayLaunch {
+            display_id,
+            package_name,
+            activity_name,
+        },
         log,
     )
 }
@@ -912,10 +972,6 @@ fn prepare_scrcpy_virtual_display_with_adb(
     let height = request.height.unwrap_or(720);
     let density = request.density.unwrap_or(240);
     let serial = normalized_android_adb_serial(request.serial.as_deref());
-    let activity_name = request
-        .activity_name
-        .clone()
-        .unwrap_or_else(|| "com.yostar.sdk.bridge.YoStarUnityPlayerActivity".to_string());
     let mut errors = Vec::new();
 
     for adb_path in android_adb_candidates(request.adb_path.as_deref()) {
@@ -952,6 +1008,15 @@ fn prepare_scrcpy_virtual_display_with_adb(
                 Some(package) if !package.trim().is_empty() => package,
                 _ => resolve_android_blue_archive_package_with_adb(&adb_path, &serial, &mut log)?,
             };
+            let activity_name = match request.activity_name.clone() {
+                Some(activity) if !activity.trim().is_empty() => activity,
+                _ => resolve_android_launcher_activity_with_adb(
+                    &adb_path,
+                    &serial,
+                    &package_name,
+                    &mut log,
+                )?,
+            };
             run_command(
                 &adb_path,
                 &[
@@ -972,9 +1037,11 @@ fn prepare_scrcpy_virtual_display_with_adb(
                 "local-adb",
                 &serial,
                 request.config_id.as_deref(),
-                display_id,
-                package_name,
-                activity_name.clone(),
+                AndroidDisplayLaunch {
+                    display_id,
+                    package_name,
+                    activity_name: activity_name.clone(),
+                },
                 log,
             )
         })();
@@ -988,16 +1055,103 @@ fn prepare_scrcpy_virtual_display_with_adb(
     Err(errors.join("\n"))
 }
 
+fn parse_android_launcher_activity(package_name: &str, output: &str) -> Result<String, String> {
+    output
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find_map(|line| {
+            line.strip_prefix(&format!("{package_name}/"))
+                .map(str::to_string)
+        })
+        .filter(|activity| !activity.is_empty())
+        .ok_or_else(|| format!("unable to resolve launcher activity for {package_name}: {output}"))
+}
+
+fn resolve_android_launcher_activity_with_adbd(
+    serial: &str,
+    package_name: &str,
+    log: &mut Vec<String>,
+    auth_dir: &Path,
+) -> Result<String, String> {
+    let output = adb_direct_shell(
+        serial,
+        &format!(
+            "cmd package resolve-activity --brief --user 0 -c android.intent.category.LAUNCHER {package_name}"
+        ),
+        log,
+        Some(auth_dir),
+    )?;
+    parse_android_launcher_activity(package_name, &output)
+}
+
+fn resolve_android_launcher_activity_with_shell(
+    package_name: &str,
+    log: &mut Vec<String>,
+) -> Result<String, String> {
+    let output = run_command(
+        "cmd",
+        &[
+            "package",
+            "resolve-activity",
+            "--brief",
+            "--user",
+            "0",
+            "-c",
+            "android.intent.category.LAUNCHER",
+            package_name,
+        ],
+        log,
+    )?;
+    parse_android_launcher_activity(package_name, &output)
+}
+
+fn resolve_android_launcher_activity_with_adb(
+    adb_path: &str,
+    serial: &str,
+    package_name: &str,
+    log: &mut Vec<String>,
+) -> Result<String, String> {
+    let output = run_command(
+        adb_path,
+        &[
+            "-s",
+            serial,
+            "shell",
+            "cmd",
+            "package",
+            "resolve-activity",
+            "--brief",
+            "--user",
+            "0",
+            "-c",
+            "android.intent.category.LAUNCHER",
+            package_name,
+        ],
+        log,
+    )?;
+    parse_android_launcher_activity(package_name, &output)
+}
+
+struct AndroidDisplayLaunch {
+    display_id: u32,
+    package_name: String,
+    activity_name: String,
+}
+
 fn finish_android_scrcpy_virtual_display(
     app: &AppHandle,
     mode: &str,
     serial: &str,
     config_id: Option<&str>,
-    display_id: u32,
-    package_name: String,
-    activity_name: String,
+    launch: AndroidDisplayLaunch,
     log: Vec<String>,
 ) -> Result<AndroidScrcpyVirtualDisplayReport, String> {
+    let AndroidDisplayLaunch {
+        display_id,
+        package_name,
+        activity_name,
+    } = launch;
     let config_dir = android_storage_root(app)?.join("config");
     fs::create_dir_all(&config_dir).map_err(|error| error.to_string())?;
     let display_id_file = config_dir.join("scrcpy_display_id.txt");
@@ -1621,7 +1775,7 @@ where
     let setting = shell("settings get global overlay_display_devices", log)
         .map(|value| value.trim().to_string())?;
     let active_setting =
-        !setting.is_empty() && setting != "null" && setting.to_ascii_lowercase() != "deleted";
+        !setting.is_empty() && setting != "null" && !setting.eq_ignore_ascii_case("deleted");
     let display_dump = shell("dumpsys window displays", log).unwrap_or_default();
     let display_id = parse_android_overlay_display_id(&display_dump, 1280, 720)
         .or_else(|| parse_android_overlay_display_id_from_display_dump(&display_dump))
@@ -1746,6 +1900,27 @@ fn resolve_android_blue_archive_package_with_adbd(
     Err("Blue Archive package not found".to_string())
 }
 
+fn resolve_requested_android_package_with_adbd(
+    preferred: Option<&str>,
+    serial: &str,
+    log: &mut Vec<String>,
+    auth_dir: &Path,
+) -> Result<String, String> {
+    if let Some(package) = preferred.map(str::trim).filter(|value| !value.is_empty()) {
+        let installed =
+            adb_direct_shell(serial, &format!("pm path {package}"), log, Some(auth_dir))
+                .map(|output| output.contains("package:"))
+                .unwrap_or(false);
+        if installed {
+            return Ok(package.to_string());
+        }
+        log.push(format!(
+            "configured Android package {package} is unavailable; resolving an installed Blue Archive variant"
+        ));
+    }
+    resolve_android_blue_archive_package_with_adbd(serial, log, auth_dir)
+}
+
 fn normalized_android_adb_serial(serial: Option<&str>) -> String {
     let serial = serial.unwrap_or("").trim();
     if serial.is_empty() || serial == "auto" || serial.starts_with("emulator-") {
@@ -1786,6 +1961,27 @@ fn adb_direct_shell_with_timeout(
     log: &mut Vec<String>,
     auth_dir: Option<&Path>,
     io_timeout: Duration,
+) -> Result<String, String> {
+    adb_direct_shell_service_with_timeout(serial, command, log, auth_dir, io_timeout, false)
+}
+
+fn adb_direct_shell_v2_with_timeout(
+    serial: &str,
+    command: &str,
+    log: &mut Vec<String>,
+    auth_dir: Option<&Path>,
+    io_timeout: Duration,
+) -> Result<String, String> {
+    adb_direct_shell_service_with_timeout(serial, command, log, auth_dir, io_timeout, true)
+}
+
+fn adb_direct_shell_service_with_timeout(
+    serial: &str,
+    command: &str,
+    log: &mut Vec<String>,
+    auth_dir: Option<&Path>,
+    io_timeout: Duration,
+    shell_v2: bool,
 ) -> Result<String, String> {
     log.push(format!("embedded-adbd -s {serial} shell {command}"));
     let mut stream = adb_connect_with_timeout(serial, io_timeout)?;
@@ -1840,7 +2036,12 @@ fn adb_direct_shell_with_timeout(
     }
 
     let local_id = 1;
-    let mut service = format!("shell:{command}").into_bytes();
+    let service_name = if shell_v2 {
+        format!("shell,v2,raw:{command}")
+    } else {
+        format!("shell:{command}")
+    };
+    let mut service = service_name.into_bytes();
     service.push(0);
     adb_write_packet(&mut stream, *b"OPEN", local_id, 0, &service)?;
 
@@ -1874,11 +2075,41 @@ fn adb_direct_shell_with_timeout(
             }
         }
     }
-    let text = String::from_utf8_lossy(&output).trim_end().to_string();
+    let text = if shell_v2 {
+        decode_adb_shell_v2(&output)?
+    } else {
+        String::from_utf8_lossy(&output).trim_end().to_string()
+    };
     if !text.trim().is_empty() {
         log.push(text.clone());
     }
     Ok(text)
+}
+
+fn decode_adb_shell_v2(output: &[u8]) -> Result<String, String> {
+    let mut cursor = 0usize;
+    let mut text = Vec::new();
+    while cursor < output.len() {
+        if output.len() - cursor < 5 {
+            return Err("truncated adb shell v2 frame".to_string());
+        }
+        let stream_id = output[cursor];
+        let length = u32::from_le_bytes([
+            output[cursor + 1],
+            output[cursor + 2],
+            output[cursor + 3],
+            output[cursor + 4],
+        ]) as usize;
+        cursor += 5;
+        if output.len() - cursor < length {
+            return Err("truncated adb shell v2 payload".to_string());
+        }
+        if stream_id == 1 || stream_id == 2 {
+            text.extend_from_slice(&output[cursor..cursor + length]);
+        }
+        cursor += length;
+    }
+    Ok(String::from_utf8_lossy(&text).trim_end().to_string())
 }
 
 fn load_or_create_adb_auth_key(auth_dir: &Path) -> Result<RsaPrivateKey, String> {
@@ -1976,7 +2207,7 @@ fn encode_adb_public_key(key: &RsaPrivateKey) -> Result<String, String> {
 }
 
 fn mod_inverse_u32(value: u32) -> Result<u32, String> {
-    if value % 2 == 0 {
+    if value.is_multiple_of(2) {
         return Err("adb auth modulus low word is not odd".to_string());
     }
     let modulus = 1i64 << 32;
@@ -3098,7 +3329,7 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     };
     fs::write(
         &setup_path,
-        mobile_setup_toml(&root, &request, "", "", "github"),
+        mobile_setup_toml(root, &request, "", "", "github"),
     )
     .map_err(|error| error.to_string())?;
     Ok(setup_path)
@@ -3174,5 +3405,18 @@ mod tests {
         assert!(setup.contains("transport = \"pipe\""));
         assert!(setup.contains("current_baas_sha = \"main-sha\""));
         assert!(setup.contains("current_baas_cpp_sha = \"cpp-sha\""));
+    }
+
+    #[test]
+    fn finds_android_game_root_task() {
+        let stack_dump = "RootTask id=55 bounds=[0,0][720,1280] displayId=0\n\
+  taskId=55: io.github.kiramei.baas_tauri.dev/.MainActivity\n\n\
+RootTask id=56 bounds=[0,0][1280,720] displayId=0\n\
+  taskId=56: com.RoamingStar.BlueArchive.bilibili/com.tech.core.TechSplashActivity\n";
+
+        assert_eq!(
+            android_root_task_for_package(stack_dump, "com.RoamingStar.BlueArchive.bilibili"),
+            Some(56)
+        );
     }
 }

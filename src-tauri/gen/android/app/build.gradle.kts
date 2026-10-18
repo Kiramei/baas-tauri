@@ -56,6 +56,9 @@ android {
     }
     buildTypes {
         getByName("debug") {
+            System.getenv("BAAS_ANDROID_DEBUG_APPLICATION_ID_SUFFIX")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { applicationIdSuffix = it }
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
             isJniDebuggable = true

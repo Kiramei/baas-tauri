@@ -1,12 +1,12 @@
+import asyncio
 import importlib.util
 import json
-import asyncio
-import tempfile
 import sys
+import tempfile
 import types
 import unittest
-from unittest.mock import patch, AsyncMock, Mock
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -177,6 +177,59 @@ class AndroidBootstrapPreserveTest(unittest.TestCase):
 
             bootstrap._patch_android_ocr_module_injection(root)
             self.assertEqual(injection.read_text(encoding="utf-8"), patched)
+
+    def test_pygit2_stub_supports_installer_callback_import(self):
+        bootstrap = load_bootstrap()
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(sys.modules):
+            root = Path(tmp)
+            bootstrap._write_pygit2_stub(root)
+            for name in list(sys.modules):
+                if name == "pygit2" or name.startswith("pygit2."):
+                    del sys.modules[name]
+            spec = importlib.util.spec_from_file_location(
+                "pygit2", root / "pygit2" / "__init__.py"
+            )
+            stub = importlib.util.module_from_spec(spec)
+            sys.modules["pygit2"] = stub
+            assert spec.loader is not None
+            spec.loader.exec_module(stub)
+
+            self.assertIs(stub.RemoteCallbacks, stub.callbacks.RemoteCallbacks)
+            # Importing an installer helper must be safe even though Android's
+            # stub deliberately refuses repository/network operations.
+            class NonInteractiveCallbacks(stub.RemoteCallbacks):
+                pass
+
+            self.assertIsInstance(NonInteractiveCallbacks(), stub.callbacks.RemoteCallbacks)
+            backend_helper = (
+                REPO_ROOT.parent / "baas-dev" / "deploy" / "installer" / "git_backend.py"
+            )
+            if backend_helper.is_file():
+                spec = importlib.util.spec_from_file_location(
+                    "android_git_backend_test", backend_helper
+                )
+                helper = importlib.util.module_from_spec(spec)
+                assert spec.loader is not None
+                spec.loader.exec_module(helper)
+                callbacks = helper.NonInteractiveCallbacks()
+                self.assertIsInstance(callbacks, stub.RemoteCallbacks)
+                with self.assertRaises(stub.GitError):
+                    callbacks.credentials("https://example.invalid/repo.git", None, 0)
+
+    def test_python_import_relocates_stray_nested_import(self):
+        bootstrap = load_bootstrap()
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "sample.py"
+            target.write_text(
+                "import os\n\n\ndef helper():\n    from java import jclass\nimport time\n    return jclass\n",
+                encoding="utf-8",
+            )
+
+            bootstrap._ensure_python_import(target, "time")
+
+            patched = target.read_text(encoding="utf-8")
+            self.assertTrue(patched.startswith("import os\nimport time\n"))
+            self.assertEqual(patched.count("import time"), 1)
 
     def test_git_managed_backend_skips_bundled_replacement(self):
         bootstrap = load_bootstrap()

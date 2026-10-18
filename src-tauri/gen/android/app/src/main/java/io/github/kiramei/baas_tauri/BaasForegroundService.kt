@@ -15,14 +15,25 @@ class BaasForegroundService : Service() {
     private const val NOTIFICATION_ID = 8190
   }
 
+  private var foregroundStarted = false
+
   override fun onCreate() {
     super.onCreate()
     createNotificationChannel()
-    startForeground(NOTIFICATION_ID, buildNotification())
+    foregroundStarted = try {
+      startForeground(NOTIFICATION_ID, buildNotification())
+      true
+    } catch (error: RuntimeException) {
+      android.util.Log.e("BaasForegroundService", "Unable to enter foreground; stopping cleanly", error)
+      stopSelf()
+      false
+    }
+    if (!foregroundStarted) return
     BaasBackend.ensureStarted(this)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    if (!foregroundStarted) return START_NOT_STICKY
     BaasBackend.ensureStarted(this)
     return START_STICKY
   }

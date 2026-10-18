@@ -1,6 +1,14 @@
 {
   "app": {
-    "title": "BlueArchiveAutoScript"
+    "back": "返回",
+    "close": "关闭",
+    "collapseSidebar": "收起侧栏",
+    "expandSidebar": "展开侧栏",
+    "forward": "前进",
+    "maximize": "最大化",
+    "minimize": "最小化",
+    "restore": "还原",
+    "windowControls": "窗口控制"
   },
   "nav": {
     "configuration": "配置",
@@ -12,6 +20,7 @@
     "add": "添加",
     "cancel": "取消",
     "choose": "选择",
+    "close": "关闭",
     "confirm": "确认",
     "create": "创建",
     "delete": "删除",
@@ -39,6 +48,10 @@
   },
   "log": {
     "$self": "日志",
+    "empty": {
+      "description": "启动任务后，运行过程会显示在这里。",
+      "title": "还没有运行记录"
+    },
     "export": "导出日志",
     "scroll": {
       "$self": "自动滚动",
@@ -46,7 +59,7 @@
     }
   },
   "task": {
-    "next": "下一个任务",
+    "next": "后续任务",
     "noneQueued": "队列中暂无任务",
     "noneRunning": "暂无正在执行的任务",
     "overview": "任务概览",
@@ -65,12 +78,6 @@
       "disconnectedBody": "{{transport}} 链路已断开，正在自动重连。",
       "disconnectedTitle": "BAAS 服务已断开"
     }
-  },
-  "time": {
-    "daysAgo": "{{count}}天前",
-    "hoursAgo": "{{count}}小时前",
-    "minutesAgo": "{{count}}分钟前",
-    "secondsAgo": "{{count}}秒前"
   },
   "settings": {
     "feature": "功能设置",
@@ -110,6 +117,7 @@
       "enableBAComet": "启用 BAComet",
       "enableSafeStream": "远程模拟器画面启用流加密",
       "enableSystemNotifications": "启用系统通知",
+      "idleAutoUpdate": "空闲时自动更新脚本",
       "lowPerformanceMode": "低性能模式",
       "player": "远程模拟器解码器",
       "themeColor": "主题色",
@@ -172,6 +180,7 @@
     "import": "导入配置压缩包",
     "importArchive": "选择配置压缩包",
     "importFailed": "导入配置失败",
+    "list": "配置列表",
     "name": "配置名",
     "nameExists": "配置名已存在"
   },
@@ -259,15 +268,9 @@
     "subtitle": "打开 BAAS 在线文档站，查看安装、配置、调度、功能说明与开发资料。",
     "title": "百科文档",
     "web": {
-      "detach": "独立窗口",
-      "detachedDescription": "文档站正在独立窗口中显示。你可以聚焦该窗口，或关闭独立窗口并回到主窗口内查看。",
-      "detachedTitle": "已在单独窗口打开",
       "failed": "网页 Wiki 加载失败",
-      "focusDetached": "聚焦独立窗口",
       "loading": "正在加载网页 Wiki...",
       "openBrowser": "在浏览器中访问",
-      "openExternal": "在浏览器打开",
-      "return": "回到主窗口",
       "title": "百科文档"
     }
   },
@@ -470,6 +473,9 @@
     "purchaseRewarded": "悬赏委托扫荡券购买次数",
     "purchaseScrimmage": "学院交流会扫荡券购买次数",
     "rewarded": "悬赏通缉扫荡次数",
+    "rewardedHint": "按游戏中的区域顺序填写，共 {{count}} 个区域。输入非负整数或 max；0 表示跳过。",
+    "rewardedInvalid": "请输入非负整数或 max。",
+    "rewardedRegion": "区域 {{number}}",
     "scrimmage": "学院交流会扫荡次数",
     "special": "特殊委托扫荡次数"
   },
@@ -614,6 +620,20 @@
     "pasteFailed": "剪贴板不可用。",
     "reload": "重载"
   },
+  "about": {
+    "backendCommit": "脚本版本",
+    "clientVersion": "客户端版本",
+    "connectionMethod": "连接方式",
+    "connectionStatus": "连接状态",
+    "description": "管理《蔚蓝档案》的多账号配置、自动化任务与运行日志。",
+    "disconnected": "未连接",
+    "frontendProject": "客户端项目",
+    "license": "开源许可证",
+    "openLinkFailed": "无法打开链接",
+    "scriptProject": "脚本项目",
+    "title": "关于 BAAS",
+    "unavailable": "暂不可用"
+  },
   "adb": {
     "detectBtn": "检测 ADB",
     "detecting": "正在检测 ADB...",
@@ -665,6 +685,9 @@
     "connected": "服务已连接",
     "connecting": "服务连接中..."
   },
+  "home": {
+    "preparing": "准备中"
+  },
   "label": {
     "installDir": "安装目录"
   },
@@ -699,6 +722,7 @@
   "transport": {
     "label": "数据传输方式",
     "pipe": "命名管道（主机端）",
+    "shm": "共享内存（主机端）",
     "websocket": "WebSocket（兼容模式）"
   },
   "ui": {

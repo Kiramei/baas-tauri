@@ -29,6 +29,8 @@ The current schema is version `1`:
 schema_version = 1
 
 [general]
+transport = "shm"
+transport_version = 1
 mirrorc_cdk = ""
 channel = "stable"
 current_baas_sha = ""
@@ -58,6 +60,13 @@ cpp_sources = []
 Legacy `[General]`, `[URLs]`, and `[Paths]` files are migrated on load. The
 old `dev = true` flag becomes `channel = "dev"`; otherwise the channel defaults
 to `stable`.
+
+On Windows, the default native transport is `shm`. Existing `pipe` preferences
+without `transport_version` migrate once to shared memory. A versioned explicit
+`pipe` preference remains available for compatibility and performance comparison;
+`websocket` preferences are preserved. Other platforms retain their existing
+native pipe transport, and map shared-memory preferences to that transport when
+reading a configuration copied from Windows.
 
 ## Workflow
 
@@ -92,7 +101,9 @@ the failing source by setting `order = -1`; if every source fails three
 consecutive ranking cycles, the updater reports an error.
 
 All Git clone and update operations are shallow. CLI updates use
-`fetch --depth 1`, `reset --hard FETCH_HEAD`, and a best-effort history prune.
+`fetch --depth 1` and `reset --hard FETCH_HEAD`. Git's automatic maintenance
+decides when object cleanup is necessary; updates no longer force a complete
+repack or expire all reflogs before launching the backend.
 CLI commands run with interactive credential prompts disabled so the installer
 fails or falls back instead of waiting on an external credential window.
 
@@ -104,7 +115,12 @@ Managed UV is installed under:
 $BAAS_ROOT_PATH/<toolkit_path>/uv
 ```
 
-UV cache is kept under the BAAS root and cleaned after dependency sync. When
+UV cache is kept under the BAAS root and retained after dependency sync so
+later updates can reuse downloaded and built wheels. Cache cleanup is an
+explicit maintenance action (`uv cache prune` for unused entries, or
+`uv cache clean` to clear everything); accumulated cache uses additional disk
+space. Pass `--cache-dir "$BAAS_ROOT_PATH/<toolkit_path>/uv/cache"` when running
+either command manually so it operates on the updater's cache. When
 `python.runtime_path` is not `default`, managed UV setup and dependency sync are
 skipped, and launch commands use the configured interpreter directly.
 
@@ -117,6 +133,12 @@ skipped, and launch commands use the configured interpreter directly.
 The main app wraps the session manager with its own `#[tauri::command]` layer.
 `UpdaterTermManager` owns the renderer session and emits the terminal events
 consumed by the frontend.
+
+For shared memory, the desktop host creates a fresh randomly named endpoint
+before launching Python and passes it through `WorkflowOptions.shm_name` and
+`--shm-name`. The updater does not create a second backend when attaching to the
+endpoint allocated for its launch. The legacy `pipe_name` option is retained
+for other native platforms and compatibility runs.
 
 ## Testing
 
@@ -137,3 +159,32 @@ Useful verification commands:
 cargo test -p baas-updater
 cargo check -p baas-tauri
 ```
+
+The offline performance fixture compares the previous forced Git cleanup and
+UV cache clearing behavior with retained caches:
+
+```powershell
+python scripts/benchmark-updater.py --uv path/to/uv.exe --output result.json
+```
+
+It creates temporary Git repositories and a loopback HTTP wheel server; it does
+not modify an installed BAAS or contact public mirrors. The Git fixture is a
+12 MiB binary tree with small revision changes. The UV fixture alternates two
+8 MiB wheel versions after warming both versions, then measures compile/sync
+and the old post-sync cleanup. This models reuse and rollback, rather than
+first-time dependency downloads.
+
+On Windows (Git 2.54.0, UV 0.9.11), four local rounds on 2026-10-15 produced:
+
+| Fixture | Previous median | Retained cache median |
+| --- | ---: | ---: |
+| Shallow Git update | 937 ms | 441 ms |
+| Warm wheel version change | 525 ms | 175 ms |
+
+The wheel test transferred 64.2 MiB over loopback in the previous behavior
+and zero bytes in the retained-cache runs. These are local fixture results,
+not an estimate of overall updater speed or public network throughput.
+Raw samples are in `docs/updater-performance-local-2026-10-15.json`.
+Git fetch's [automatic maintenance](https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---auto-maintenance)
+and UV's [cache reuse behavior](https://docs.astral.sh/uv/concepts/cache/)
+explain why explicit full cleanup is unnecessary on every update.

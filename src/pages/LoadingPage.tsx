@@ -18,8 +18,8 @@ interface LoadingPageProps {
 }
 
 const statusColorMap: Record<string, string> = {
-  INFO: "var(--color-primary-500)",
-  WARNING: "var(--color-yello-500)",
+  INFO: "var(--muted-foreground)",
+  WARNING: "var(--color-yellow-500)",
   ERROR: "var(--color-red-500)",
   CRITICAL: "var(--color-purple-500)",
 };
@@ -36,7 +36,7 @@ export function AutoScrollTerminal({ children }: { children: React.ReactNode }) 
   }, [children, lowPerformanceMode]);
 
   return (
-    <div className="w-full h-full opacity-50 scrollbar-hide font-mono overflow-auto p-2 text-sm">
+    <div className="w-full h-full scrollbar-hide font-mono overflow-auto p-4 text-xs leading-5 text-muted-foreground">
       {children}
       <div ref={endRef} />
     </div>
@@ -64,7 +64,6 @@ const keepRecentLogLines = (text: string, maxLines = 120) => {
 
 /** Renders the loading page component. */
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
-  const logoRef = useRef<HTMLImageElement>(null);
   const androidLogCursorRef = useRef(0);
   const androidAuthResetAttemptedRef = useRef(false);
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
@@ -149,24 +148,43 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
 
   return (
     <>
-      <div className="fixed inset-0 bg-slate-100 dark:bg-slate-950 overflow-hidden">
-        {!__WITH_ANDROID__ && (
+      <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
+        <div className="flex min-h-44 flex-1 flex-col items-center justify-center gap-5 px-6 py-10">
           <img
-            src={
-              theme === "light" ? `${baseUrl}images/bg-light.webp` : `${baseUrl}images/bg-dark.webp`
-            }
-            alt="Loading BG"
-            className="w-full h-full object-cover object-center"
+            src={`${baseUrl}images/logo.png`}
+            alt="BAAS"
+            className="h-14 w-14 rounded-2xl object-contain"
           />
-        )}
-      </div>
+          <div className="max-w-lg space-y-2 text-center">
+            <h1 className="text-xl font-semibold tracking-tight">BAAS</h1>
+            <p
+              className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+              role="status"
+            >
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+              {loadingMessage}
+            </p>
+          </div>
+          {__WITH_ANDROID__ && (
+            <div className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-sm">
+              <div className="mb-2 font-medium">Android startup</div>
+              <div className="grid gap-1 text-xs text-muted-foreground">
+                <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
+                <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
+                <div>
+                  Configuration sync:{" "}
+                  {initiating ? "running" : allDataInitialized ? "done" : "waiting"}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-      <div className="fixed w-full h-full p-2">
-        <div className="w-full h-full bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-[5px] rounded-md p-2 border-2 border-primary-500/70">
+        <div className="mx-4 mb-4 h-44 min-h-24 shrink-0 overflow-hidden rounded-xl border border-border bg-secondary/30 sm:mx-8 sm:mb-6">
           {__WITH_ANDROID__ ? (
             <React.Suspense
               fallback={
-                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-2 font-mono text-xs leading-5 text-slate-200">
+                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-muted-foreground">
                   {androidStartupLogChunk || "Waiting for backend startup logs..."}
                 </pre>
               }
@@ -177,7 +195,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
                   theme={theme}
                 />
               ) : (
-                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-2 font-mono text-xs leading-5 text-slate-200">
+                <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-muted-foreground">
                   {androidStartupLogChunk || "Waiting for backend startup logs..."}
                 </pre>
               )}
@@ -185,25 +203,16 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
           ) : (
             <AutoScrollTerminal>
               {globalLogData.map((log, idx) => (
-                <div className="flex" key={`${log.time}-${idx}`}>
-                  <div className="min-w-20 text-slate-600 dark:text-slate-400">
+                <div className="flex gap-3" key={`${log.time}-${idx}`}>
+                  <div className="w-18 shrink-0 tabular-nums">
                     {formatIsoToReadableTime(log.time)}
                   </div>
-                  <div
-                    className="min-w-20 flex justify-end mr-2 font-bold"
-                    style={{ color: statusColorMap[log.level] }}
-                  >
+                  <div className="w-14 shrink-0" style={{ color: statusColorMap[log.level] }}>
                     {log.level}
                   </div>
                   <div
-                    className="flex-1 border-l-3 pl-4"
-                    style={{
-                      borderColor: statusColorMap[log.level],
-                      whiteSpace: "pre-wrap",
-                      borderLeftWidth: log.level === "INFO" ? "3px" : "5px",
-                      color: log.level === "INFO" ? "inherit" : statusColorMap[log.level],
-                      fontWeight: log.level === "INFO" ? "inherit" : "bold",
-                    }}
+                    className="min-w-0 flex-1 whitespace-pre-wrap break-words"
+                    style={{ color: log.level === "INFO" ? "inherit" : statusColorMap[log.level] }}
                   >
                     {log.message}
                   </div>
@@ -212,63 +221,6 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
             </AutoScrollTerminal>
           )}
         </div>
-      </div>
-
-      <div className="z-10 flex flex-col items-center justify-center w-full h-full">
-        <div
-          className="fixed"
-          style={{
-            marginTop: "calc(var(--spacing) * -15)",
-            width: "160px",
-            height: "160px",
-          }}
-        >
-          <img
-            ref={logoRef}
-            src={`${baseUrl}images/logo.png`}
-            alt="App Logo"
-            className="rounded-full drop-shadow-[0_0_80px_rgba(0,215,255,0.8)] dark:drop-shadow-[0_0_80px_rgba(59,130,246,0.8)]"
-            style={{
-              position: "absolute",
-              top: "8px",
-              left: "8px",
-              width: "144px",
-              height: "144px",
-              maxWidth: "144px",
-              objectFit: "contain",
-            }}
-          />
-
-          <div
-            className="animate-spin rounded-full border-t-4 border-b-4 drop-shadow-[0_0_10px_rgba(255,255,246,0.8)]
-              border-primary-500 dark:border-primary-300 mb-6 dark:drop-shadow-[0_0_10px_rgba(255,255,246,0.8)]"
-            style={{
-              width: "160px",
-              height: "160px",
-            }}
-          />
-        </div>
-
-        <p
-          className="text-lg font-bold text-slate-500 dark:text-slate-200 absolute mt-40 py-1 px-4 rounded-lg font-mono
-              bg-[#eeeeeeee] dark:bg-[#0000002f] backdrop-blur-[5px] border-[#90a1b977] dark:border-slate-700 border"
-        >
-          {loadingMessage}
-        </p>
-
-        {__WITH_ANDROID__ && (
-          <div className="absolute bottom-6 left-4 right-4 mx-auto max-w-xl rounded-md border border-primary-400/40 bg-slate-950/65 p-3 text-sm text-slate-100 shadow-xl backdrop-blur">
-            <div className="mb-2 font-semibold text-primary-200">Android startup</div>
-            <div className="grid gap-1 font-mono text-xs">
-              <div>Python backend: {serverVerified ? "connected" : "starting"}</div>
-              <div>Auth: {serverInitialized ? authPhase : "initial setup"}</div>
-              <div>
-                Configuration sync:{" "}
-                {initiating ? "running" : allDataInitialized ? "done" : "waiting"}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {!__WITH_ANDROID__ && (
