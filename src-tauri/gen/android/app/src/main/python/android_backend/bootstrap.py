@@ -507,11 +507,41 @@ def _ensure_android_support_files(root):
     _write_watchfiles_stub(root)
     _write_pygit2_stub(root)
     _write_uiautomator2_stub(root)
+    _remove_android_legacy_device_dependencies(root)
     _write_cv2_stub(root)
     _write_psutil_stub(root)
     _write_desktop_only_stub(root, "pyautogui")
     _write_desktop_only_stub(root, "mss")
     cache.write_text(json.dumps(_android_support_fingerprint(root)), encoding="utf-8")
+
+
+def _remove_android_legacy_device_dependencies(root):
+    """Avoid eagerly importing unused third-party ADB/UIAutomator packages.
+
+    Patch only Android's private backend copy, after any repository/APK overlay.
+    Desktop source and its dependency declarations are left untouched.
+    """
+    device = root / "core" / "device"
+    for relative in ("connection.py", "control/adb.py", "screenshot/adb.py",
+                     "scrcpy/core.py", "scrcpy_client.py"):
+        path = device / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        updated = text.replace("from adbutils.errors import ", "from android_backend.legacy_device_imports import ")
+        updated = updated.replace("from adbutils import ", "from android_backend.legacy_device_imports import ")
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+    client = device / "uiautomator2_client.py"
+    if client.is_file():
+        updated = (
+            "# Android local RPC compatibility; no third-party UIAutomator/ADB dependency.\n"
+            "from android_backend.local_device_client import (\n"
+            "    U2Client, BAAS_U2_Initer, __apk_version__, __atx_agent_version__, __version__,\n"
+            ")\n"
+        )
+        if client.read_text(encoding="utf-8") != updated:
+            client.write_text(updated, encoding="utf-8")
 
 
 def _android_support_fingerprint(root):

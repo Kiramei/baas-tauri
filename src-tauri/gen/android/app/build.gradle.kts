@@ -112,8 +112,6 @@ chaquopy {
             install("tomli")
             install("tomli-w")
             install("rich")
-            install("adbutils==2.2.1")
-            install("uiautomator2==2.16.23")
             install("numpy<2.0")
             install("Pillow")
         }

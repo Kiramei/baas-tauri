@@ -4,6 +4,9 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.SurfaceTexture
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.content.res.ColorStateList
 import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
@@ -19,6 +22,12 @@ import java.util.concurrent.Executors
 
 /** Native GPU view above the WebView, positioned by the DOM placeholder, with native controls. */
 class NativeGamePreview(private val activity: Activity) {
+  private fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
+  private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
+    setColor(color)
+    cornerRadius = dp(radius).toFloat()
+    setStroke(dp(1), 0x22ffffff)
+  }
   companion object { var current: NativeGamePreview? = null }
   private val worker = Executors.newSingleThreadExecutor()
   private var container: FrameLayout? = null
@@ -26,6 +35,7 @@ class NativeGamePreview(private val activity: Activity) {
   private var surface: Surface? = null
   private var controls: FrameLayout? = null
   private var status: TextView? = null
+  private var badge: TextView? = null
   private var webView: WebView? = null
   private var visible = false
   private var paused = false
@@ -77,36 +87,51 @@ class NativeGamePreview(private val activity: Activity) {
     val overlay = FrameLayout(activity).apply {
       setBackgroundColor(0x66000000)
       visibility = View.GONE
-      setOnClickListener { visibility = View.GONE }
+      setOnClickListener { visibility = View.GONE; badge?.visibility = View.VISIBLE }
     }
     controls = overlay
-    val row = LinearLayout(activity).apply { gravity = Gravity.CENTER }
+    val row = LinearLayout(activity).apply {
+      gravity = Gravity.CENTER
+      setPadding(dp(6), dp(6), dp(6), dp(6))
+      background = rounded(0xdd101827.toInt(), 24)
+      elevation = dp(4).toFloat()
+    }
     val density = activity.resources.displayMetrics.density
-    listOf("close" to android.R.drawable.ic_menu_close_clear_cancel,
-      "takeover" to android.R.drawable.ic_menu_share,
-      "restart" to android.R.drawable.ic_menu_rotate).forEach { (action, icon) ->
+    listOf("close" to R.drawable.preview_close,
+      "takeover" to R.drawable.preview_takeover,
+      "restart" to R.drawable.preview_restart).forEach { (action, icon) ->
       val button = ImageButton(activity).apply {
         setImageResource(icon)
         setColorFilter(Color.WHITE)
         contentDescription = action
-        setBackgroundColor(if (action == "takeover") 0xff0891b2.toInt() else 0xbb101827.toInt())
+        scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+        background = RippleDrawable(ColorStateList.valueOf(0x44ffffff),
+          rounded(if (action == "takeover") 0xff0891b2.toInt() else 0xff263449.toInt(), 18),
+          rounded(Color.WHITE, 18))
         setOnClickListener {
           overlay.visibility = View.GONE
+          badge?.visibility = View.VISIBLE
           webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('android-game-action',{detail:'$action'}))", null)
         }
       }
       row.addView(button, LinearLayout.LayoutParams((48 * density).toInt(), (48 * density).toInt()).apply {
-        setMargins((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+        setMargins(dp(3), 0, dp(3), 0)
       })
     }
     overlay.addView(row, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = (12 * density).toInt() })
     host.addView(overlay, FrameLayout.LayoutParams(-1, -1))
     val live = TextView(activity).apply {
-      text = "● Live"; textSize = 11f; setTextColor(Color.WHITE); setBackgroundColor(0xaa000000.toInt())
-      setPadding(12, 5, 12, 5); isClickable = false
+      text = "● Live"; textSize = 11f; setTextColor(Color.WHITE)
+      background = rounded(0xcc101827.toInt(), 24)
+      setPadding(dp(10), dp(4), dp(10), dp(4)); isClickable = false
     }
-    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(8, 8, 8, 0) })
-    view.setOnClickListener { overlay.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+    badge = live
+    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(8), dp(8), dp(8), 0) })
+    view.setOnClickListener {
+      overlay.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+      live.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+    }
     val parent = activity.findViewById<ViewGroup>(android.R.id.content)
     parent.addView(host, FrameLayout.LayoutParams(1, 1))
     container = host

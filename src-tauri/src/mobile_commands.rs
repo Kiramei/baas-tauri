@@ -297,7 +297,7 @@ pub fn android_list_games(app: AppHandle) -> Result<Value, String> {
     serde_json::to_value(report).map_err(|error| error.to_string())
 }
 
-/// Launches an allow-listed game through Android's PackageManager, without ADB.
+/// Transfers an embedded game task to the main display, or launches a game if no embedded session exists.
 #[tauri::command]
 pub fn android_launch_game(
     app: AppHandle,
@@ -412,15 +412,21 @@ fn android_cleanup_scrcpy_virtual_display_blocking(
         .map(|status| status.shizuku_granted)
         .unwrap_or(false)
     {
-        match crate::android_backend_service::stop_shizuku_display(&app) {
-            Ok(_) => log.push("Shizuku stopped the virtual display".to_string()),
-            Err(error) => failures.push(format!("Shizuku stop display: {error}")),
+        crate::android_backend_service::stop_shizuku_display(&app)?;
+        // Native Shizuku capture does not own overlay_display_devices or an ADB
+        // connection. Do not run legacy cleanup after a successful native stop.
+        if crate::android_backend_service::shizuku_status(&app)?.shizuku_display_id >= 0 {
+            return Err("The native game display is still active after stopping".to_string());
         }
-        let _ = crate::android_backend_service::shizuku_shell(&app, &force_stop_command);
-        let _ = crate::android_backend_service::shizuku_shell(
-            &app,
-            "pkill -f com.genymobile.scrcpy.Server || true",
-        );
+        if let Ok(root) = android_storage_root(&app) {
+            let path = root.join("config").join("scrcpy_display_id.txt");
+            if let Err(error) = fs::remove_file(&path) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    return Err(format!("Failed to clear native display state: {error}"));
+                }
+            }
+        }
+        return Ok(());
     }
     match adb_direct_shell_with_timeout(
         &adb_serial,

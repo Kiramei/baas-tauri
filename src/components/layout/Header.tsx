@@ -38,6 +38,9 @@ const Header: React.FC = () => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
+  const headerHeight = __WITH_ANDROID__ ? "h-[64px]" : "h-[52px]";
+  const tabHeight = __WITH_ANDROID__ ? "h-[48px]" : "h-[36px]";
+  const buttonSize = __WITH_ANDROID__ ? "h-[48px] w-[48px]" : "h-[36px] w-[36px]";
 
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
@@ -312,18 +315,18 @@ const Header: React.FC = () => {
   );
 
   return (
-    <header className="flex h-[52px] shrink-0 items-center border-b border-slate-200 bg-white px-[8px] text-sm dark:border-slate-700 dark:bg-slate-900 lg:border-b-0">
+    <header className={`flex ${headerHeight} shrink-0 items-center border-b border-slate-200 bg-white px-[8px] text-sm dark:border-slate-700 dark:bg-slate-900 lg:border-b-0`}>
       {/* Left side: scroll controls */}
       <div className="mr-2 flex items-center gap-1">
         <button
-          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
+          className={`flex ${buttonSize} items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(-200)}
           aria-label="scroll-left"
         >
           <ChevronLeft className="h-[20px] w-[20px]" />
         </button>
         <button
-          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
+          className={`flex ${buttonSize} items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
           onClick={() => scrollBy(200)}
           aria-label="scroll-right"
         >
@@ -336,7 +339,7 @@ const Header: React.FC = () => {
           axis="x"
           values={tabs}
           onReorder={onReorder}
-          className="flex h-[36px] items-stretch gap-1"
+          className={`flex ${tabHeight} items-stretch gap-1`}
         >
           {tabs.map((tab) => {
             const active = activeProfile?.id === tab.id;
@@ -347,7 +350,7 @@ const Header: React.FC = () => {
                 value={tab}
                 layout={lowPerformanceMode ? undefined : true}
                 transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
-                className={`group relative flex h-[36px] max-w-xs shrink-0 select-none items-center rounded-lg px-3
+                className={`group relative flex ${tabHeight} max-w-xs shrink-0 select-none items-center rounded-lg px-3
                     border cursor-pointer transition-colors
                     ${
                       active
@@ -402,7 +405,7 @@ const Header: React.FC = () => {
           onClick={() => setEditor({ mode: "create" })}
           title={t("profile.add")}
           aria-label={t("profile.add")}
-          className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700"
+          className={`flex ${buttonSize} shrink-0 items-center justify-center rounded-lg bg-primary-600 p-0 text-white transition-colors hover:bg-primary-700`}
         >
           <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
         </button>
@@ -412,6 +415,9 @@ const Header: React.FC = () => {
       <AnimatePresence>
         {ctxMenu && ctxMenu.tab && (
           <motion.div
+            role="menu"
+            aria-label={ctxMenu.tab.name}
+            data-native-preview-blocker
             initial={lowPerformanceMode ? false : { opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.96 }}
@@ -560,6 +566,9 @@ const ProfileEditorModal = (props: {
   return (
     <div
       className={overlayCls}
+      role="dialog"
+      aria-modal="true"
+      aria-label={props.mode === "create" ? t("profile.create") : t("profile.edit")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}
@@ -651,6 +660,9 @@ const ConfirmDeleteModal = (props: {
   return (
     <div
       className={overlayCls}
+      role="alertdialog"
+      aria-modal="true"
+      aria-label={t("profile.deleteConfirmTitle")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onCancel();
       }}

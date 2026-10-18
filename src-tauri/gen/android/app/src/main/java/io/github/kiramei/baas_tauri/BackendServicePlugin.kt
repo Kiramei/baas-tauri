@@ -107,6 +107,11 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   fun launchGame(invoke: Invoke) {
     try {
       val packageName = allowedGamePackage(invoke.getArgs().getString("packageName"))
+      if (ShizukuController.state(activity).granted && ShizukuController.virtualDisplayId(activity) >= 0) {
+        ShizukuController.takeOverGame(activity, packageName)
+        invoke.resolve()
+        return
+      }
       val intent = activity.packageManager.getLaunchIntentForPackage(packageName)
         ?: throw IllegalStateException("No launcher activity is available for $packageName")
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)

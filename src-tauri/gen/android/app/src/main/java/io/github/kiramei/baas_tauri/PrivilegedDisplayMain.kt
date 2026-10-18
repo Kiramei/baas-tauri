@@ -70,6 +70,12 @@ object PrivilegedDisplayMain {
             "GESTURE" -> gesture(parts.drop(1).map(String::toInt)).toString()
             "KEY" -> DisplayInput.key(virtualDisplay?.display?.displayId ?: -1, parts[1].toInt()).toString()
             "LAUNCH" -> launch(systemContext, parts[1], parts[2].toInt()).toString()
+            "TRANSFER" -> {
+              check(parts[1] == activePackage) { "The selected game is not active" }
+              GameTaskTransfer.move(parts[1], virtualDisplay?.display?.displayId ?: -1, parts[2].toInt())
+              activePackage = ""
+              ""
+            }
             "EXIT" -> {
               stopDisplay()
               output.println("OK")

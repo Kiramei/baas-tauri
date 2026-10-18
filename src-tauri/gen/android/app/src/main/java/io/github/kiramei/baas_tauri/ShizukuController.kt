@@ -48,8 +48,8 @@ object ShizukuController {
       // Bump both values whenever the persistent user-service implementation changes.
       // Shizuku may otherwise reconnect to the pre-update process and keep the old
       // capture Surface alive even after the application APK has been replaced.
-      .tag("baas-game-service-v33")
-      .version(33)
+      .tag("baas-game-service-v35")
+      .version(35)
   }
 
   fun initialize(context: Context) {
@@ -113,6 +113,12 @@ object ShizukuController {
           bindingAttempt = 0
           Log.i("BaasShizuku", "User service connected")
           latch.countDown()
+          Thread {
+            runCatching { service?.disableOwnNotifications(context.applicationInfo.uid) }
+              .onFailure { Log.w("BaasShizuku", "Could not disable BAAS notifications", it) }
+            runCatching { LegacyGameAudioSettings.restoreAll(context) }
+              .onFailure { Log.w("BaasShizuku", "Could not restore legacy game audio settings", it) }
+          }.start()
         }
 
         override fun onServiceDisconnected(name: ComponentName) = clearConnection(connection, latch)
@@ -149,11 +155,23 @@ object ShizukuController {
   }
 
   fun stopVirtualDisplay(context: Context) {
+    val packageName = currentGamePackage(context)
     callService(context) { it.stopVirtualDisplay() }
+    if (packageName.isNotEmpty()) {
+      require(packageName.matches(Regex("[A-Za-z0-9_.]+")))
+      execute(context, "am force-stop --user 0 $packageName")
+    }
+  }
+
+  fun takeOverGame(context: Context, packageName: String) {
+    setPreviewSurface(context, null)
+    callService(context) { it.moveGameToDisplay(packageName, android.view.Display.DEFAULT_DISPLAY) }
+    stopVirtualDisplay(context)
   }
 
   fun virtualDisplayId(context: Context): Int {
-    return callService(context) { it.virtualDisplayId }
+    val id = callService(context) { it.virtualDisplayId }
+    return id
   }
 
   fun virtualDisplaySize(context: Context): IntArray {
@@ -193,6 +211,7 @@ object ShizukuController {
   }
 
   fun currentGamePackage(context: Context): String {
+    if (virtualDisplayId(context) < 0) return ""
     if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).currentPackage()
     return callService(context) { it.currentPackage() }
   }

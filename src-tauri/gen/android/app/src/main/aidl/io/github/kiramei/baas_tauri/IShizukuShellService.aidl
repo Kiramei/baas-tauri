@@ -21,6 +21,8 @@ interface IShizukuShellService {
     String currentPackage() = 15;
     boolean keyEvent(int keyCode) = 16;
     void reconnectNativeEndpoint() = 17;
+  void moveGameToDisplay(String packageName, int displayId) = 19;
+  void disableOwnNotifications(int appUid) = 20;
     boolean pinch(boolean inward, int percent, int durationMs) = 18;
     void destroy() = 16777114;
 }

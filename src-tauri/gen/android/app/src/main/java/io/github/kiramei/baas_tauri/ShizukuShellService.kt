@@ -54,6 +54,19 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
   }
 
+  override fun disableOwnNotifications(appUid: Int) {
+    // This privileged operation is intentionally restricted to BAAS, never a
+    // caller-supplied package. Disabling at NotificationManager also clears
+    // already-posted notifications, unlike merely changing an app-op.
+    val manager = Class.forName("android.os.ServiceManager")
+      .getMethod("getService", String::class.java).invoke(null, "notification") as android.os.IBinder
+    val notifications = Class.forName("android.app.INotificationManager\$Stub")
+      .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, manager)
+    Class.forName("android.app.INotificationManager")
+      .getMethod("setNotificationsEnabledForPackage", String::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
+      .invoke(notifications, BuildConfig.APPLICATION_ID, appUid, false)
+  }
+
   override fun startVirtualDisplay(width: Int, height: Int, density: Int): Int = privileged {
     if (Process.myUid() == Process.ROOT_UID) {
       val bridge = privilegedBridge ?: PrivilegedDisplayBridge.start(
@@ -191,6 +204,12 @@ class ShizukuShellService : IShizukuShellService.Stub {
   override fun frameCount(): Long = NativeDisplayCapture.frameCount()
   override fun previewFrameCount(): Long = NativeDisplayCapture.previewFrameCount()
   override fun currentPackage(): String = activePackage
+  override fun moveGameToDisplay(packageName: String, displayId: Int) = privileged {
+    privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }
+    check(packageName == activePackage) { "The selected game is not active" }
+    GameTaskTransfer.move(packageName, getVirtualDisplayId(), displayId)
+    activePackage = ""
+  }
   override fun reconnectNativeEndpoint() = privileged {
     privilegedBridge?.request("PUBLISH")
     Unit

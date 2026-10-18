@@ -86,11 +86,17 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   useEffect(() => {
     let disposed = false;
     let inFlight = false;
+    let updatePending = false;
     let animation = 0;
     let lastLayout = "";
     let lastPoll = 0;
     const update = async () => {
-      if (disposed || inFlight) return;
+      if (disposed) return;
+      if (inFlight) {
+        updatePending = true;
+        return;
+      }
+      updatePending = false;
       const bounds = previewRef.current?.getBoundingClientRect();
       let clipTop = 0;
       let clipBottom = window.innerHeight;
@@ -105,7 +111,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
         selectedGame &&
         virtualDisplayActive &&
         shizukuGranted &&
-        !document.querySelector('[role="dialog"], [role="alertdialog"]') &&
+        !document.querySelector('[role="dialog"], [role="alertdialog"], [data-native-preview-blocker]') &&
         !document.hidden &&
         bounds &&
         bounds.bottom > clipTop &&
@@ -141,6 +147,9 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
         if (!disposed) console.warn("Native Android preview failed", error);
       } finally {
         inFlight = false;
+        // A menu can open while a native layout request is pending. Apply its
+        // visibility immediately afterward, rather than waiting for the next poll.
+        if (updatePending && !disposed) schedule();
       }
     };
     const schedule = () => {
@@ -205,8 +214,8 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     if (!selectedGame || takingOver || virtualDisplayBusy) return;
     setTakingOver(true);
     try {
-      await onToggleVirtualDisplay(false, selectedGame.packageName);
       await invoke("android_launch_game", { request: { packageName: selectedGame.packageName } });
+      await onToggleVirtualDisplay(false, selectedGame.packageName);
     } catch (error) {
       toast.error("Unable to take over the game", { description: String(error) });
     } finally {
