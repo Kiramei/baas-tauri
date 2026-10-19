@@ -7,12 +7,18 @@
     "forward": "Suivant",
     "maximize": "Agrandir",
     "minimize": "Réduire",
+    "modeBaasDescription": "Automatise les tâches quotidiennes.",
+    "modeInDevelopment": "En cours de développement. À venir.",
+    "modeRaidDescription": "Aide aux combats d’Assaut total.",
     "restore": "Restaurer",
     "windowControls": "Commandes de la fenêtre"
   },
   "nav": {
     "configuration": "Config",
     "home": "Accueil",
+    "mobileConfiguration": "Config",
+    "mobileScheduler": "Tâches",
+    "mobileSettings": "Réglages",
     "scheduler": "Planificateur",
     "settings": "Paramètres"
   },
@@ -55,7 +61,7 @@
     "export": "Exporter les journaux",
     "scroll": {
       "$self": "Défilement automatique",
-      "detail": "Faire défiler automatiquement la zone de texte du journal"
+      "detail": "Suivre les derniers journaux"
     }
   },
   "task": {
@@ -80,8 +86,59 @@
     }
   },
   "settings": {
-    "feature": "Paramètres des fonctionnalités",
-    "general": "Paramètres généraux",
+    "categories": "Catégories des paramètres",
+    "descriptions": {
+      "assets": "Afficher les ressources du jeu sur la page d’accueil.",
+      "idleAutoUpdate": "Mettre les scripts à jour automatiquement lorsque tous les profils sont inactifs.",
+      "language": "Choisir la langue d’affichage de l’application.",
+      "lowPerformanceMode": "Réduire les animations et les effets visuels pour alléger l’interface.",
+      "minimizeToTray": "Masquer la fenêtre réduite dans la zone de notification et continuer en arrière-plan.",
+      "safeStream": "Chiffrer les données d’aperçu à distance transmises par WebSocket.",
+      "systemNotifications": "Afficher des notifications système lors des changements d’état des tâches ou des déconnexions du service."
+    },
+    "feature": "Fonctions",
+    "general": "Général",
+    "groups": {
+      "connection": "Connexion et contrôle à distance",
+      "desktop": "Comportement du bureau",
+      "display": "Affichage et effets",
+      "preferences": "Préférences"
+    },
+    "noResults": "Aucun réglage correspondant",
+    "search": "Rechercher un réglage",
+    "sections": {
+      "appearance": "Apparence",
+      "general": "Général",
+      "logs": "Journaux",
+      "runtime": "Connexion et exécution",
+      "shortcuts": "Raccourcis",
+      "updates": "Mises à jour"
+    },
+    "shortcuts": {
+      "application": "Raccourcis de l'application",
+      "binding": "Combinaison de touches",
+      "clear": "Effacer le raccourci",
+      "conflict": "Déjà attribué à « {{shortcut}} ».",
+      "defaultBinding": "Par défaut : {{binding}}",
+      "disabled": "Non attribué",
+      "escapeDescription": "Arrêter l'enregistrement, fermer une fenêtre ou annuler l'installation.",
+      "global": "Raccourcis globaux des tâches",
+      "globalDescription": "Contrôlez les tâches même lorsque BAAS est en arrière-plan.",
+      "instructions": "Cliquez sur le clavier pour enregistrer ; effacez pour désactiver.",
+      "native": "Édition de texte",
+      "nativeDescription": "Raccourcis de texte standard, sans configuration.",
+      "nativeTextDescription": "À utiliser lors de l'édition ou de la sélection de texte.",
+      "profileDescription": "Activez ou arrêtez ce profil depuis n'importe quelle fenêtre.",
+      "profileRun": "Activer/arrêter le profil",
+      "record": "Enregistrer un raccourci",
+      "recordHint": "Appuyez sur les touches ; Échap annule",
+      "recording": "Enregistrement",
+      "recordMainKey": "Appuyez sur une touche principale…",
+      "resetAll": "Réinitialiser les raccourcis",
+      "resetButton": "Valeurs par défaut",
+      "resetDescription": "Réinitialise les raccourcis de l'application et garde ceux des profils.",
+      "stopRecording": "Arrêter l'enregistrement"
+    },
     "systemLogs": {
       "allLevels": "全部级别",
       "allSources": "全部来源",
@@ -103,8 +160,7 @@
       "title": "系统日志"
     },
     "ui": {
-      "$self": "Paramètres de l'interface",
-      "assets": "Afficher les détails des ressources",
+      "assets": "Afficher les ressources du jeu",
       "backgroundImage": "Image d'arriere-plan",
       "backgroundImageChoose": "Choisir un arriere-plan",
       "backgroundImageEmpty": "Aucune image d'arriere-plan definie",
@@ -115,11 +171,11 @@
       "backgroundImageSelected": "Image d'arriere-plan definie",
       "backgroundImageTooLarge": "L'image d'arriere-plan doit faire 5 Mo ou moins.",
       "enableBAComet": "Activer BAComet",
-      "enableSafeStream": "Stream sécurisé",
+      "enableSafeStream": "Chiffrer la vidéo distante",
       "enableSystemNotifications": "Activer les notifications systeme",
       "idleAutoUpdate": "Mettre à jour les scripts au repos",
-      "lowPerformanceMode": "Mode basse performance",
-      "player": "Lecteur",
+      "lowPerformanceMode": "Effets réduits",
+      "player": "Décodeur vidéo",
       "themeColor": "Couleur du theme",
       "themeColorInvalid": "Saisissez une couleur de theme au format #RRGGBB.",
       "themeColorReset": "Reinitialiser la couleur du theme"
@@ -150,13 +206,9 @@
   "version": {
     "checkError": "Échec de la récupération de la version",
     "fetching": "Récupération...",
-    "info": "Informations sur la version",
     "local": "Version actuelle",
     "remote": "Dernière version",
     "tapToTest": "Vérifier",
-    "tauriLocal": "Client actuel",
-    "tauriRemote": "Client récent",
-    "tauriStatus": "État client",
     "testing": "Test en cours..."
   },
   "profile": {
@@ -185,55 +237,57 @@
     "nameExists": "Nom déjà utilisé"
   },
   "description": {
-    "arena": "Automatisation arène",
+    "arena": "Adversaires et limites d'essais",
     "artifact": {
-      "$self": "Fabrication",
+      "$self": "Matériaux et priorité des nœuds",
       "useTicket": "Utiliser les tickets de fabrication"
     },
     "cafe": {
-      "$self": "Invitations et récompenses café",
+      "$self": "Invitations, interactions et récompenses",
       "patRounds": "Plus le nombre de tours est élevé, moins il y a de chances de manquer une caresse"
     },
     "commonShop": {
-      "refresh": "Actualiser automatiquement la boutique"
+      "refresh": "Actualisations après achat ; 0 les désactive."
     },
     "dailySweep": "Stages et balayages quotidiens",
-    "drill": "Paramètres du drill",
+    "drill": "Équipes et difficulté de l'exercice",
     "emulator": "Chemin et lancement émulateur",
-    "finalRestrictionRls": "Configurer la formation et la copie des équipes victorieuses",
+    "finalRestrictionRls": "Choix et copie d'équipes",
     "getEmulator": "Choisir l’émulateur",
     "other": {
       "$self": "Réglages divers",
-      "fhx": "Tenter d'appliquer le patch anti-censure (exclusif CN)"
+      "fhx": "Rétablir les illustrations d'origine sur CN"
     },
     "push": "Notifications push",
-    "schedule": "Planning quotidien",
+    "schedule": "Lieux et élèves des leçons",
     "script": "Scripts",
     "server": "Serveur et connexion",
     "settings": {
       "updateSuccess": "Vos paramètres ont été mis à jour avec succès."
     },
-    "shop": "Priorités d’achat",
-    "stage": {
-      "$self": "Stages auto",
-      "hard": "Les paramètres des niveaux difficiles sont les mêmes. Note : max 3 tentatives. Utilisez des virgules anglaises. Pour les serveurs JP/Global, 'max' peut être utilisé.",
-      "normal": "Niveaux normaux et nombre de fois (ex. : \"1-1-1,1-2-3\" signifie niveau 1-1 une fois, puis niveau 1-2 trois fois)"
-    },
+    "shop": "Articles à acheter",
+    "stage": "Stages auto",
     "tactical": "Total Assault",
     "team": "Formation",
     "whitelist": "Configurer les filtres et la liste blanche"
   },
   "installer": {
     "advanced": "Paramètres avancés",
+    "advancedHint": "Langue, apparence, canal de mise à jour et connexion.",
+    "autoEnter": "Ouvrir automatiquement après l’installation",
+    "autoEnterHint": "Si désactivé, les journaux d’installation restent affichés jusqu’au clic sur « Ouvrir l’accueil ».",
+    "completed": "Installation terminée",
+    "directoryHint": "L’environnement d’exécution et les scripts seront installés dans ce dossier.",
+    "enter": "Ouvrir l’accueil",
+    "entering": "Ouverture…",
     "exit": "Annuler l'installation",
+    "logs": "Journal d’installation",
+    "noOutput": "Aucune sortie du terminal pour le moment.",
+    "portableHint": "Le mode portable utilise le dossier de l’application.",
+    "preparing": "Préparation du terminal…",
     "setting": "Paramètres d'installation",
     "start": "Démarrer l'installation",
-    "subtitle": {
-      "stage1": "Configurez votre installation",
-      "stage2": "Nous configurons votre environnement. Cela peut prendre quelques minutes."
-    },
     "title": {
-      "$self": "Bienvenue dans Blue Archive Auto Script",
       "wizard": "Assistant d'installation"
     }
   },
@@ -254,38 +308,22 @@
     "validateKeySubtitle": "Valider la clé",
     "verifyingServerIdentity": "Vérification de l’identité du serveur..."
   },
-  "wiki": {
-    "category": {
-      "all": "Tous",
-      "architecture": "Architecture",
-      "configuration": "Gestion de la configuration",
-      "environment": "Configuration de l'environnement",
-      "formation": "Stratégie de formation",
-      "getting-started": "Pour commencer",
-      "operations": "Opérations",
-      "support": "Support et commentaires"
-    },
-    "subtitle": "Un guide normalisé et un manuel d'exploitation pour la plateforme d'automatisation BAAS.",
-    "title": "Documentation Wiki",
-    "web": {
-      "failed": "Echec du chargement du Wiki web",
-      "loading": "Chargement du Wiki web...",
-      "openBrowser": "Ouvrir dans le navigateur",
-      "title": "Wiki web"
-    }
-  },
   "scheduler": {
     "activeTasks": "Tâches actives",
     "dailyReset": "Heure de réinitialisation quotidienne",
-    "detailConfig": "Configuration détaillée du programme des tâches",
+    "detailConfig": "Planification de la tâche",
+    "disableAll": "Tout désactiver",
     "disabledRange": "Plage horaire désactivée",
+    "enableAll": "Tout activer",
     "eventName": "Nom de la tâche",
     "inactiveTasks": "Tâches inactives",
     "interval": "Intervalle (secondes)",
     "nextTick": "Prochaine exécution",
+    "noResults": "Aucune tâche correspondante",
     "postTask": "Tâche suivante",
     "preTask": "Tâche prérequise",
     "priority": "Priorité",
+    "resetTimes": "Réinitialiser les horaires",
     "search": "Rechercher des tâches",
     "selector": "Sélecteur de tâches",
     "sortByTime": "Trier par heure",
@@ -293,29 +331,29 @@
   },
   "stage": {
     "$self": "Étapes",
-    "attrTable": "Table de référence des attributs de niveau",
-    "challenge": "Terminer les niveaux de défi",
+    "attrTable": "Attributs des niveaux",
+    "challenge": "Défis",
     "currentEvent": "Événement actuel",
-    "dailyTab": "Balayage de niveau",
+    "dailyTab": "Balayage de missions",
     "eventTab": "Niveaux d'événement",
-    "exploreTab": "Histoire principale",
-    "hardLabel": "Balayage quotidien des niveaux difficiles",
-    "hardTask": "Mission difficile",
-    "manualBoss": "Combat de boss manuel",
-    "mission": "Terminer les niveaux de mission",
+    "exploreTab": "Missions",
+    "hardLabel": "Missions difficiles",
+    "hardTask": "Missions difficiles",
+    "manualBoss": "Boss en manuel",
+    "mission": "Quêtes",
     "noEvent": "Aucun événement actuellement",
     "noHardTask": "Aucun niveau difficile n'est défini !",
     "noNormalTask": "Aucun niveau normal n'est défini !",
-    "normalLabel": "Balayage quotidien des niveaux normaux",
-    "normalTask": "Mission normale",
+    "normalLabel": "Missions normales",
+    "normalTask": "Missions normales",
     "selectStudent": "Sélectionner un étudiant",
     "story": {
-      "$self": "Terminer les niveaux d'histoire",
-      "group": "Terminer les histoires de club",
-      "main": "Terminer l'histoire principale",
-      "mini": "Terminer les mini-histoires"
+      "$self": "Histoires",
+      "group": "Histoires de groupe",
+      "main": "Histoire principale",
+      "mini": "Mini-histoires"
     },
-    "sweepTab": "Détails du balayage",
+    "sweepTab": "Autres balayages",
     "taskTriggered": "Tâche distribuée : {{task}}",
     "taskTriggerStart": "La tâche a été distribuée"
   },
@@ -342,24 +380,24 @@
     "starredPosition": "Position de l'étudiant favori",
     "useInvitation": "Utiliser ticket"
   },
-  "dailySweep": "Quotidien",
+  "dailySweep": "Balayages quotidiens",
   "schedule": {
-    "$self": "Planning",
+    "$self": "Leçons",
     "advanced": "Avancé",
-    "normal": "Normal",
-    "primary": "Débutant",
+    "normal": "Intermédiaire",
+    "primary": "Initial",
     "superior": "Supérieur"
   },
   "shop": "Boutique",
   "arena": {
-    "$self": "Arène",
-    "higherLevel": "Niveau de l'adversaire supérieur au vôtre de",
-    "maxRefreshTimes": "Nombre maximal d'actualisations",
-    "opponentNo": "Numéro de l'adversaire"
+    "$self": "Défi tactique",
+    "higherLevel": "Écart de niveau adverse",
+    "maxRefreshTimes": "Limite d'actualisation",
+    "opponentNo": "Position de l'adversaire"
   },
   "server": {
     "$self": "Serveur",
-    "adbIP": "Adresse IP ADB",
+    "adbIP": "Adresse ADB",
     "adbPort": "Port ADB",
     "cn": {
       "bilibili": "Bilibili CN",
@@ -378,10 +416,10 @@
   "emulator": {
     "$self": "Émulateur",
     "address": "Chemin de l'émulateur",
-    "instanceCount": "Numéro de l'émulateur multi-instance",
-    "multiInstance": "Multi-instance de l'émulateur",
+    "instanceCount": "N° d'instance",
+    "multiInstance": "Utiliser une instance",
     "multiType": "Type d'émulateur",
-    "openOnLaunch": "Ouvrir l'émulateur au lancement du script",
+    "openOnLaunch": "Lancer l'émulateur",
     "types": {
       "bluestacksCn": "BlueStacks CN",
       "bluestacksGlobal": "BlueStacks Global",
@@ -392,7 +430,7 @@
       "xiaoyaoNat": "MEmu (NAT)",
       "yeshen": "NoxPlayer"
     },
-    "waitTime": "Temps d'attente pour le lancement de l'émulateur (secondes)"
+    "waitTime": "Attente au démarrage (s)"
   },
   "push": {
     "$self": "Notification",
@@ -406,10 +444,10 @@
     "fhx": "Anti-censure en un clic"
   },
   "drill": {
-    "$self": "Drill conjoint",
+    "$self": "Exercice de tir conjoint",
     "difficulty": "Difficulté de l'exercice",
-    "outPartyNo": "Numéro de l'équipe",
-    "useAllAfterSweep": "Utiliser tous les tickets d'exercice après la sortie"
+    "outPartyNo": "Numéros d'équipe",
+    "useAllAfterSweep": "Balayer les essais restants"
   },
   "artifact": {
     "$self": "Fabrication",
@@ -417,36 +455,36 @@
     "blue": "Bleu",
     "createTime": "Nombre de fabrications",
     "default": "Défaut",
-    "global": "Paramètres globaux",
+    "global": "Général",
     "gold": "Or",
-    "goldPurple": "Or et Violet",
-    "materialSelect": "Sélection des matériaux",
-    "phase1": "Phase I",
+    "goldPurple": "Or + violet",
+    "materialSelect": "Matériaux",
+    "phase1": "Nœud 1",
     "phase2": {
-      "$self": "Phase II",
-      "recommend": "Recommander en fonction de l'étudiant"
+      "$self": "Nœud 2",
+      "recommend": "Selon l'élève"
     },
-    "phase3": "Phase III",
-    "phaseCount": "Phase de fabrication",
+    "phase3": "Nœud 3",
+    "phaseCount": "Étapes de fabrication",
     "priority": "Priorité",
     "purple": "Violet",
     "selectStudent": "Sélectionner un étudiant",
     "white": "Blanc",
-    "whiteBlue": "Blanc et Bleu"
+    "whiteBlue": "Blanc + bleu"
   },
   "whitelist": "Nettoyage des amis",
   "script": {
     "$self": "Scripts",
-    "autostart": "Démarrage automatique au lancement du script",
+    "autostart": "Lancer les tâches automatiquement",
     "controlMethod": "Méthode de contrôle",
     "doNothing": "Ne rien faire",
-    "exitBaas": "Quitter Blue Archive",
-    "exitBoth": "Quitter Blue Archive et l'émulateur",
+    "exitBaas": "Quitter BAAS",
+    "exitBoth": "Quitter BAAS et l'émulateur",
     "exitEmu": "Quitter l'émulateur",
-    "screenshotInterval": "Intervalle de capture d'écran (secondes)",
-    "screenshotMethod": "Méthode de capture d'écran",
+    "screenshotInterval": "Intervalle de capture (s)",
+    "screenshotMethod": "Méthode de capture",
     "shutdown": "Éteindre l'ordinateur",
-    "then": "Action après la fin de la tâche"
+    "then": "À la fin des tâches"
   },
   "tactical": {
     "$self": "Total Assault",
@@ -460,24 +498,23 @@
     "side": "Par attributs de la barre latérale"
   },
   "lesson": {
-    "enableFavorStudent": "Donner la priorité aux étudiants favoris",
-    "favorStudent": "Étudiants favoris",
-    "region": "Région de la leçon",
-    "relationshipFirst": "Donner la priorité aux étudiants avec une affection élevée",
-    "times": "Tentatives de leçon"
+    "enableFavorStudent": "Privilégier les favorites",
+    "favorStudent": "Élèves favorites",
+    "region": "Zone",
+    "relationshipFirst": "Privilégier les gains d’affinité",
+    "times": "Nombre"
   },
   "sweep": {
-    "activityNumber": "Niveau de balayage de l'événement",
-    "activityTimes": "Nombre de balayages de l'événement",
-    "purchaseLesson": "Nombre d'achats de tickets de leçon",
-    "purchaseRewarded": "Nombre d'achats de tickets de prime",
-    "purchaseScrimmage": "Nombre d'achats de tickets de commission",
-    "rewarded": "Nombre de balayages de primes",
-    "rewardedHint": "Saisissez les quantités dans l’ordre des zones du jeu ({{count}} zones). Utilisez un entier positif ou nul, ou max ; 0 ignore une zone.",
+    "activityNumber": "Niveau d'événement",
+    "activityTimes": "Balayage d'événement",
+    "purchaseLesson": "Acheter des tickets de leçon",
+    "purchaseRewarded": "Acheter des tickets de prime",
+    "purchaseScrimmage": "Acheter des tickets d'escarmouche",
+    "rewarded": "Primes",
     "rewardedInvalid": "Saisissez un entier positif ou nul, ou max.",
     "rewardedRegion": "Zone {{number}}",
-    "scrimmage": "Nombre de balayages de commissions",
-    "special": "Nombre de balayages de mission spéciale"
+    "scrimmage": "Escarmouches",
+    "special": "Commissions"
   },
   "remote": {
     "advanced": "Paramètres avancés",
@@ -520,13 +557,13 @@
     "ap": "PA",
     "burst": "Explosif",
     "coin": {
-      "arena": "Pièce tactique",
-      "commission": "Pièce de Commission"
+      "arena": "Pièces tactiques",
+      "commission": "Pièces de prime"
     },
     "credits": "Points de crédit",
     "keystone": {
-      "$self": "Clé de voûte",
-      "piece": "Fragment"
+      "$self": "Clés de voûte",
+      "piece": "Fragments de clé de voûte"
     },
     "mystic": "Mystique",
     "pass": "Passe",
@@ -537,39 +574,39 @@
   },
   "eventName": {
     "activitySweep": "Balayage d'événement",
-    "arena": "Arène",
+    "arena": "Défi tactique",
     "cafeReward": "Café",
-    "clearSpecialTaskPower": "Missions spéciales quotidiennes",
-    "collectDailyFreePower": "Collecter les PA gratuits",
-    "collectDailyPower": "Collecter les PA quotidiens",
-    "collectReward": "Collecter les récompenses",
+    "clearSpecialTaskPower": "Commissions",
+    "collectDailyFreePower": "Récupérer les PA gratuits",
+    "collectDailyPower": "Récupérer les PA quotidiens",
+    "collectReward": "Récupérer les récompenses",
     "commonShop": "Achat en boutique",
-    "create": "Fabrication automatique",
+    "create": "Fabrication",
     "dailyGameActivity": "Mini-jeu quotidien",
     "friend": "Nettoyer la liste d'amis",
-    "group": "Collecter les gains du club",
-    "hardTask": "Utiliser les PA dans les niveaux difficiles",
-    "jointFiringDrill": "Exercice de tir interarmées",
+    "group": "Récupérer les PA du club",
+    "hardTask": "Balayer les missions difficiles",
+    "jointFiringDrill": "Exercice de tir conjoint",
     "lesson": "Leçons",
     "mail": "Vérifier le courrier",
     "momoTalk": "MomoTalk automatique",
-    "no1CafeInvite": "Invitation Café 1",
-    "no2CafeInvite": "Invitation Café 2",
-    "normalTask": "Utiliser les PA dans les niveaux normaux",
-    "pass": "Réclamer les récompenses du Passe",
+    "no1CafeInvite": "Invitations du café 1",
+    "no2CafeInvite": "Invitations du café 2",
+    "normalTask": "Balayer les missions normales",
+    "pass": "Récupérer les récompenses du pass",
     "restart": "Redémarrage à 4h du matin",
     "rewardedTask": "Primes",
-    "scrimmage": "Commissions",
+    "scrimmage": "Escarmouches",
     "startExploreActivityChallenge": "Défi événement",
     "startExploreActivityMission": "Mission événement",
     "startExploreActivityStory": "Histoire événement",
-    "startFhx": "FHX",
-    "startGroupStory": "Histoire groupe",
-    "startHardTask": "Stage difficile",
+    "startFhx": "Rétablir les illustrations d'origine",
+    "startGroupStory": "Histoires de groupe",
+    "startHardTask": "Missions difficiles",
     "startMainStory": "Histoire principale",
-    "startMiniStory": "Mini-histoire",
-    "startNormalTask": "Stage normal",
-    "tacticalChallengeShop": "Achat dans la boutique de défi tactique",
+    "startMiniStory": "Mini-histoires",
+    "startNormalTask": "Missions normales",
+    "tacticalChallengeShop": "Achats à la boutique tactique",
     "totalAssault": "Assaut Total",
     "unknown": "Tâche inconnue"
   },
@@ -640,9 +677,61 @@
     "noData": "Aucune donnée ADB disponible",
     "title": "Panneau de détection ADB"
   },
+  "android": {
+    "game": {
+      "fallbackName": "Jeu",
+      "inspectFailed": "Impossible de lire les jeux installés",
+      "live": "En direct",
+      "liveDisplay": "{{game}} en direct",
+      "restartFailed": "Impossible de redémarrer le jeu",
+      "showControls": "Afficher les commandes du jeu",
+      "startBackground": "Démarrer le jeu en arrière-plan",
+      "takeoverFailed": "Impossible de reprendre le contrôle du jeu"
+    },
+    "start": {
+      "actionFailed": "L’action n’a pas abouti. Vérifiez le service et l’autorisation de BAAS dans Shizuku.",
+      "authorize": "Autoriser l’accès",
+      "checkAgain": "Réessayer",
+      "checkFailedDescription": "L’état de Shizuku est indisponible. Réessayez.",
+      "checkFailedTitle": "Impossible de vérifier Shizuku",
+      "cleanupFailed": "Impossible de fermer l’affichage du jeu en arrière-plan",
+      "displayClosed": "Affichage du jeu en arrière-plan fermé",
+      "displayFailed": "Impossible de lancer le jeu en arrière-plan",
+      "displayNotReady": "L’affichage du jeu n’est pas prêt",
+      "displayOpened": "Jeu lancé en arrière-plan",
+      "missingDescription": "Shizuku est nécessaire pour lancer le script. Installez Shizuku, puis revenez réessayer.",
+      "missingGameDescription": "« {{profile}} » utilise {{server}}, mais le client correspondant est absent. Installez-le ou créez un profil pour le serveur déjà installé.",
+      "missingGameTitle": "Le jeu de ce profil n’est pas installé",
+      "missingTitle": "Shizuku n’est pas installé",
+      "openShizuku": "Ouvrir Shizuku",
+      "otherProfileRunningDescription": "« {{profiles}} » est en cours. Android partage un seul affichage de jeu. Arrêtez ce profil avant de démarrer « {{profile}} ».",
+      "otherProfileRunningTitle": "Un autre profil est en cours",
+      "permissionDescription": "BAAS a besoin de Shizuku pour lancer et contrôler le jeu. Autorisez l’accès, puis appuyez à nouveau sur Démarrer.",
+      "permissionTitle": "Autorisation Shizuku requise",
+      "readyDescription": "Fermez ce message et appuyez à nouveau sur Démarrer.",
+      "readyTitle": "Shizuku est prêt",
+      "scriptFailed": "Impossible de lancer le script",
+      "stoppedDescription": "Ouvrez Shizuku et démarrez son service, puis revenez lancer le script.",
+      "stoppedTitle": "Shizuku n’est pas démarré",
+      "unsupportedGameDescription": "Le serveur « {{server}} » du profil « {{profile}} » n’est pas pris en charge sur Android. Créez un profil pour un serveur installé sur ce téléphone.",
+      "unsupportedGameTitle": "Ce serveur ne fonctionne pas sur Android"
+    }
+  },
+  "applicationShortcutHelp": {
+    "back": "Revenez à la page ou au profil précédent.",
+    "forward": "Allez à la page ou au profil suivant.",
+    "fullscreen": "Activez ou quittez le plein écran.",
+    "redo": "Rétablissez une modification annulée.",
+    "resetZoom": "Rétablissez l'échelle de l'interface à 100 %.",
+    "settings": "Ouvrez les paramètres de l'application.",
+    "sidebar": "Basculez la barre des profils ; elle reste ouverte dans les paramètres.",
+    "undo": "Annulez la dernière modification ; les champs de recherche gardent l'annulation de texte.",
+    "zoomIn": "Agrandissez l'interface.",
+    "zoomOut": "Réduisez l'interface."
+  },
   "commonShop": {
-    "refreshTimes": "Nombre d'actualisations de la boutique",
-    "title": "Boutique commune"
+    "refreshTimes": "Actualisations",
+    "title": "Boutique normale"
   },
   "configAdd": {
     "nameDuplicate": "Le nom du profil existe déjà",
@@ -651,45 +740,210 @@
     "selectServer": "Veuillez sélectionner un serveur",
     "serverRequired": "Un serveur doit être spécifié"
   },
+  "configuration": {
+    "categories": "Catégories",
+    "history": "Historique des modifications",
+    "noResults": "Aucun résultat",
+    "search": "Rechercher"
+  },
+  "configurationCounts": {
+    "activityEntry": "Niveau d'événement {{number}}",
+    "activityHint": "Les pourcentages utilisent les PA actuels.",
+    "all": "Tous les essais",
+    "allActivity": "Répartir tous les PA",
+    "amount": "Nombre",
+    "bountyClassroom": "Salle de classe",
+    "bountyOverpass": "Voie surélevée",
+    "bountyRailroad": "Voie ferrée du désert",
+    "countHint": "Exécution de haut en bas jusqu'à épuisement des essais.",
+    "fixed": "Nombre défini",
+    "legacyHint": "Valeur conservée. Réinitialisez pour la modifier avec ces contrôles.",
+    "legacyTitle": "Paramètre enregistré",
+    "maximumPurchases": "Limite d'achats",
+    "mode": "Mode de balayage",
+    "percent": "Part des PA (%)",
+    "replace": "Réinitialiser",
+    "scrimmageGehenna": "Gehenna",
+    "scrimmageMillennium": "Millennium",
+    "scrimmageTrinity": "Trinity",
+    "share": "Part des PA",
+    "skip": "Ignorer",
+    "specialDefense": "Défense de base",
+    "specialRetrieval": "Récupération d'objets"
+  },
+  "configurationDifficulties": {
+    "extreme": "Extreme",
+    "hard": "Hard",
+    "hardcore": "Hardcore",
+    "insane": "Insane",
+    "normal": "Normal",
+    "torment": "Torment",
+    "veryHard": "Very Hard"
+  },
+  "configurationHelp": {
+    "adbAddress": "Généralement 127.0.0.1. Pour un numéro de série, saisissez-le ici et laissez le port vide.",
+    "adbPort": "Port de 0 à 65535, ou détection automatique. Sans adresse, ce champ peut contenir un numéro de série.",
+    "arenaLevel": "Écart de niveau autorisé avec l'adversaire : de -89 à 89.",
+    "arenaOpponent": "Choisissez le 1er, 2e ou 3e adversaire de la liste.",
+    "arenaRefresh": "Nombre maximal d'actualisations lors de la recherche d'un adversaire.",
+    "artifactCreateTimes": "De 1 à 10 fabrications par tâche.",
+    "artifactMaterialRule": "Raretés des matériaux à utiliser pour ce nœud.",
+    "artifactPhases": "Choisissez le nombre de nœuds à fabriquer et leurs priorités.",
+    "artifactRecommendedPriority": "Appliquez l'ordre recommandé d'une élève au nœud 2.",
+    "artifactUseTicket": "Utilisez des tickets de fabrication instantanée pour réduire l'attente.",
+    "cafeCollectReward": "Récupérez les gains accumulés au café.",
+    "cafeDuplicateInvite": "Autorisez les invitations répétées d'une même élève.",
+    "cafeExchangeStudent": "Autorisez les autres tenues d'une même élève.",
+    "cafeInviteMode": "Choisissez selon l'affinité, la position favorite ou le nom.",
+    "cafePatNormal": "Interaction normale",
+    "cafePatStyle": "Mode d'interaction avec les élèves du café.",
+    "cafeSecondCafe": "Activez le café 2 et ses invitations.",
+    "cafeStarredPosition": "Choisissez la position 1 à 5 dans les favoris.",
+    "cafeStudents": "Ajoutez les élèves à inviter ; retirez-les avec ×.",
+    "cafeUseInvitation": "Invitez des élèves avec des tickets.",
+    "controlMethod": "Choisissez une méthode de contrôle compatible avec l'appareil.",
+    "drillDifficulty": "Définissez la difficulté de chaque équipe dans l'ordre des combats.",
+    "drillFormation": "Numéros des équipes prédéfinies, dans l'ordre des combats.",
+    "drillSweep": "Balayez les essais restants après les combats prévus.",
+    "emulatorInstance": "L'identifiant dans le gestionnaire d'instances, pas le nombre à lancer.",
+    "emulatorLaunch": "Ouvrez cet émulateur au démarrage du script.",
+    "emulatorMulti": "Lancez l'instance choisie via son gestionnaire.",
+    "emulatorPath": "Sélectionnez l'exécutable de l'émulateur.",
+    "emulatorWait": "Délai en secondes avant la connexion.",
+    "finalMethod": "Utilisez l'équipe actuelle ou copiez une équipe des réussites.",
+    "finalRefresh": "Actualisations maximales pour trouver une équipe utilisable.",
+    "finalUnavailable": "Autorisez de 0 à 10 élèves indisponibles dans l'équipe copiée.",
+    "friendCode": "Saisissez un code ami de ce serveur, puis ajoutez-le.",
+    "friendLevel": "Seuil de niveau du nettoyage ; -1 désactive ce filtre.",
+    "friendLogin": "Seuil de jours hors ligne ; -1 désactive ce filtre.",
+    "friendRank": "Seuil de classement du dernier Total Assault ; -1 le désactive.",
+    "friendWhitelist": "Les amis listés sont protégés du nettoyage ; × retire la protection.",
+    "hardSweepPlan": "Choisissez les niveaux et le nombre, ou ajoutez tous les niveaux d'Elephs d'une élève.",
+    "lessonFavorEnabled": "Privilégiez les élèves favorites.",
+    "lessonFavorOrder": "Priorité de gauche à droite ; faites glisser les noms pour réordonner.",
+    "lessonRegionTable": "Lieux des leçons",
+    "lessonRegionTableHint": "Choisissez les niveaux autorisés et le nombre ; 0 ignore la zone.",
+    "lessonRelationshipFirst": "Privilégiez les lieux avec plus d’élèves pouvant gagner des points d’affinité.",
+    "manualBoss": "Jouez les combats de boss manuellement pendant la progression.",
+    "normalSweepPlan": "Balayez les niveaux choisis dans l'ordre de la liste.",
+    "pushCompletion": "Notifiez lorsque toutes les tâches du profil sont terminées.",
+    "pushError": "Notifiez les erreurs via les services ci-dessous.",
+    "pushJson": "Paramètres de notification JSON ; laissez vide si inutilisé.",
+    "pushServerchan": "Paramètres ServerChan ; laissez vide si inutilisé.",
+    "screenshotInterval": "Délai entre les captures, 0,1 seconde minimum.",
+    "screenshotMethod": "Choisissez une méthode de capture compatible.",
+    "scriptAutostart": "Lancez les tâches du profil au démarrage du script.",
+    "scriptThen": "Action à la fin de toutes les tâches.",
+    "server": "Serveur du profil. Créez un autre profil pour un serveur différent.",
+    "sweepPurchaseLesson": "Achats de tickets de leçon ; 0 pour aucun.",
+    "sweepPurchaseRewarded": "Achats de tickets de prime ; 0 pour aucun.",
+    "sweepPurchaseScrimmage": "Achats de tickets d'escarmouche ; 0 pour aucun.",
+    "sweepTicketsTitle": "Achat de tickets",
+    "tacticalDifficulty": "Difficulté du Total Assault.",
+    "teamMethod": "Choisissez par préréglage, attribut ou ordre de la barre latérale.",
+    "teamPreset": "Attributs des emplacements, dans l'ordre des préréglages du jeu.",
+    "teamSide": "Attributs des équipes dans l'ordre de la barre latérale."
+  },
+  "configurationMethods": {
+    "adbControl": "Envoyez les appuis et balayages via ADB.",
+    "adbScreenshot": "Capturez l'écran de l'appareil via ADB.",
+    "mssScreenshot": "Capturez la zone de la fenêtre du jeu Windows.",
+    "nemuControl": "Utilise l'interface Nemu ; le chemin et l'instance doivent correspondre.",
+    "nemuScreenshot": "Capture via Nemu ; le chemin et l'instance doivent correspondre.",
+    "pyautoguiControl": "Utilise la souris système et déplace le pointeur réel.",
+    "pyautoguiScreenshot": "Capturez la fenêtre du jeu Windows affichée à l'écran.",
+    "scrcpyControl": "Envoyez les actions tactiles via scrcpy.",
+    "scrcpyScreenshot": "Lisez les images du flux scrcpy.",
+    "uiautomator2Control": "Contrôlez via le service uiautomator2 de l'appareil.",
+    "uiautomator2Screenshot": "Capture via le service uiautomator2 de l'appareil."
+  },
+  "edit": {
+    "actionFailed": "L’action a échoué. Vérifiez les autorisations du presse-papiers et réessayez.",
+    "cut": "Couper",
+    "redo": "Rétablir",
+    "selectAll": "Tout sélectionner",
+    "unavailable": "Cette action n’est pas disponible pour la sélection actuelle.",
+    "undo": "Annuler"
+  },
   "export": {
     "log": {
       "folderSelect": "Choisir export logs"
     }
   },
+  "file": {
+    "openConfigFolder": "Ouvrir le dossier de configuration",
+    "openConfigFolderFailed": "Impossible d’ouvrir le dossier de configuration."
+  },
   "finalRestrictionRls": {
     "$self": "Combat décisif sans restriction",
     "copyClearFormation": "Copier une équipe victorieuse",
     "copyClearUnavailableHint": "Sélectionnez « Copier une équipe victorieuse » pour configurer ces options.",
-    "formationMethod": "Méthode de formation",
-    "maxRefreshCount": "Actualisations maximales des équipes victorieuses",
-    "maxUnavailableStudentCount": "Nombre maximal d'élèves indisponibles",
+    "formationMethod": "Choix d'équipe",
+    "maxRefreshCount": "Limite d'actualisation",
+    "maxUnavailableStudentCount": "Élèves indisponibles max.",
     "useCurrentFormation": "Utiliser la formation actuelle"
   },
   "friend": {
     "add": "Ajouter",
     "addFailed": "Échec de l'ajout",
     "alreadyExists": "L'ami existe déjà",
-    "disabledThresholdHint": "Saisissez -1 pour désactiver un filtre.",
     "empty": "La liste blanche d'amis est vide",
     "filters": "Filtres de nettoyage",
     "invalidFormatCN": "Code CN : chiffres et minuscules",
     "invalidFormatGlobal": "Code global : majuscules",
     "invalidLength": "Longueur du code ami invalide",
-    "lastLoginDays": "Seuil de jours depuis la dernière connexion",
-    "lastTotalAssaultRankLimit": "Seuil du classement du dernier assaut total",
-    "levelLimit": "Seuil de niveau des amis",
+    "lastLoginDays": "Jours hors ligne",
+    "lastTotalAssaultRankLimit": "Classement du raid précédent",
+    "levelLimit": "Seuil de niveau",
     "placeholder": "Entrez le code ami",
     "whitelist": "Liste blanche des amis"
+  },
+  "friendlyBounty": {
+    "activityStageOption": "Niveau {{number}}",
+    "activityStageSaved": "Niveau {{number}} (enregistré)"
+  },
+  "friendlyPriority": {
+    "addChapter": "Ajouter un chapitre",
+    "chapter": "Chapitre",
+    "chapterLabel": "Chapitre {{chapter}}",
+    "emptyExplore": "Aucun chapitre ajouté.",
+    "emptyLegacy": "Entrée vide enregistrée",
+    "emptyPriority": "Aucun nœud prioritaire.",
+    "keyboardHint": "Espace pour saisir, flèches pour déplacer, Entrée pour valider, Échap pour annuler.",
+    "legacyValue": "Ancienne valeur conservée ; retirez-la pour la remplacer",
+    "mission": "Niveau",
+    "missionA": "Niveau A",
+    "missionLabel": "Niveau {{mission}}",
+    "moveDown": "Descendre",
+    "moveUp": "Monter",
+    "noResults": "Aucun nœud trouvé",
+    "position": "{{item}}, {{position}} sur {{total}}",
+    "reorderHint": "Glissez la poignée pour trier ; le haut est prioritaire.",
+    "reorderItem": "Réordonner {{item}}",
+    "searchNodes": "Rechercher des nœuds",
+    "selectNodes": "Choisir les nœuds",
+    "wholeChapter": "Chapitre entier"
   },
   "heartbeat": {
     "connected": "Service connecté",
     "connecting": "Connexion au service..."
+  },
+  "help": {
+    "documentation": "Documentation",
+    "openFailed": "Impossible d’ouvrir la documentation. Veuillez réessayer.",
+    "title": "Aide"
   },
   "home": {
     "preparing": "Préparation"
   },
   "label": {
     "installDir": "Répertoire d'installation"
+  },
+  "menu": {
+    "bar": "Menu de l’application",
+    "edit": "Édition",
+    "file": "Fichier",
+    "view": "Affichage"
   },
   "placeholder": {
     "config": {
@@ -698,22 +952,34 @@
     "nobinding": "Non lié",
     "profileName": "Entrez le nom de votre profil ici"
   },
-  "select": {
-    "placeholder": "Choisir"
-  },
   "student": {
     "add": "Ajouter élève",
     "search": "Rechercher un étudiant"
   },
-  "switch": {
-    "off": "Désactivé",
-    "on": "Activé"
+  "sweepPlan": {
+    "add": "Ajouter un niveau",
+    "chapter": "Chapitre",
+    "count": "Nombre de balayages",
+    "countMode": "Mode de décompte",
+    "down": "Descendre",
+    "empty": "Aucun niveau ajouté.",
+    "emptyEntry": "Entrée vide",
+    "fixedCount": "Nombre défini",
+    "invalidChapter": "Choisissez un chapitre disponible sur ce serveur.",
+    "invalidCount": "Saisissez un entier supérieur ou égal à 0.",
+    "invalidFormat": "Entrée enregistrée incomplète ou non prise en charge.",
+    "invalidMission": "Choisissez un niveau disponible dans ce mode.",
+    "maximum": "Maximum",
+    "maxUnsupported": "Les missions difficiles CN nécessitent un nombre défini.",
+    "mission": "Niveau",
+    "remove": "Retirer le niveau",
+    "repair": "Valeur d'origine conservée. Retirez l'entrée et ajoutez-la à nouveau pour la corriger.",
+    "row": "Entrée {{number}}",
+    "unsaved": "Corrigez ou retirez les entrées invalides pour enregistrer les modifications.",
+    "up": "Monter"
   },
   "tacticalShop": {
-    "title": "Boutique de défi tactique"
-  },
-  "title": {
-    "wiki": "Docs"
+    "title": "Boutique tactique"
   },
   "toast": {
     "dateUpdated": "Date mise à jour",
@@ -729,7 +995,7 @@
     "zoom": "Paramètres de zoom de l'interface"
   },
   "updateChannel": {
-    "dev": "Development",
+    "dev": "Développement",
     "stable": "Stable"
   },
   "updateMethod": {
@@ -745,6 +1011,14 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "view": {
+    "fullscreen": "Plein écran",
+    "fullscreenFailed": "Impossible de changer le mode plein écran.",
+    "resetZoom": "Réinitialiser le zoom",
+    "sidebar": "Afficher la barre latérale",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière"
   },
   "workflow": {
     "arrange": "Disposition automatique",

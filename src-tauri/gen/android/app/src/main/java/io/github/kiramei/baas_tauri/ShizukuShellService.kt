@@ -33,10 +33,10 @@ class ShizukuShellService : IShizukuShellService.Stub {
     this.context = context.applicationContext
   }
 
-  override fun execute(command: String): String {
+  override fun execute(command: String): String = privileged {
     val process = ProcessBuilder("sh", "-c", command).start()
     val readers = Executors.newFixedThreadPool(2)
-    return try {
+    try {
       val stdout = readers.submit<String> { process.inputStream.bufferedReader().use { it.readText() } }
       val stderr = readers.submit<String> { process.errorStream.bufferedReader().use { it.readText() } }
       val exitCode = process.waitFor()
@@ -54,7 +54,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
   }
 
-  override fun disableOwnNotifications(appUid: Int) {
+  override fun disableOwnNotifications(appUid: Int) = privileged {
     // This privileged operation is intentionally restricted to BAAS, never a
     // caller-supplied package. Disabling at NotificationManager also clears
     // already-posted notifications, unlike merely changing an app-op.
@@ -65,6 +65,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     Class.forName("android.app.INotificationManager")
       .getMethod("setNotificationsEnabledForPackage", String::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
       .invoke(notifications, BuildConfig.APPLICATION_ID, appUid, false)
+    Unit
   }
 
   override fun startVirtualDisplay(width: Int, height: Int, density: Int): Int = privileged {
@@ -72,14 +73,16 @@ class ShizukuShellService : IShizukuShellService.Stub {
       val bridge = privilegedBridge ?: PrivilegedDisplayBridge.start(
         context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
       ).also { privilegedBridge = it }
-      return@privileged bridge.request("START $width $height $density").toInt()
+      return@privileged PrivilegedExecution.virtualDisplayId(
+        bridge.request("START $width $height $density").toInt()
+      )
     }
     synchronized(displayLock) {
     val safeWidth = width.coerceIn(640, 3840)
     val safeHeight = height.coerceIn(360, 2160)
     val safeDensity = density.coerceIn(120, 640)
     if (virtualDisplay != null && displayWidth == safeWidth && displayHeight == safeHeight) {
-      return@synchronized virtualDisplay?.display?.displayId ?: -1
+      return@synchronized PrivilegedExecution.virtualDisplayId(virtualDisplay?.display?.displayId ?: -1)
     }
     stopVirtualDisplayLocked()
     val serviceContext = context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
@@ -116,7 +119,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
-      display.display.displayId
+      PrivilegedExecution.virtualDisplayId(display.display.displayId)
     }
   }
 
@@ -130,24 +133,30 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
   }
 
-  override fun getVirtualDisplayId(): Int = synchronized(displayLock) {
-    privilegedBridge?.let { return@synchronized it.request("ID").toInt() }
-    virtualDisplay?.display?.displayId ?: -1
-  }
-
-  override fun getVirtualDisplaySize(): IntArray = synchronized(displayLock) {
-    privilegedBridge?.let {
-      val parts = it.request("SIZE").split(',')
-      return@synchronized intArrayOf(parts[0].toInt(), parts[1].toInt())
+  override fun getVirtualDisplayId(): Int = privileged {
+    synchronized(displayLock) {
+      privilegedBridge?.let { return@synchronized it.request("ID").toInt() }
+      virtualDisplay?.display?.displayId ?: -1
     }
-    intArrayOf(displayWidth.coerceAtLeast(1), displayHeight.coerceAtLeast(1))
   }
 
-  override fun captureVirtualDisplay(): ParcelFileDescriptor =
-    captureVirtualDisplay("CAPTURE", Bitmap.CompressFormat.PNG, 100)
+  override fun getVirtualDisplaySize(): IntArray = privileged {
+    synchronized(displayLock) {
+      privilegedBridge?.let {
+        val parts = it.request("SIZE").split(',')
+        return@synchronized intArrayOf(parts[0].toInt(), parts[1].toInt())
+      }
+      intArrayOf(displayWidth.coerceAtLeast(1), displayHeight.coerceAtLeast(1))
+    }
+  }
 
-  override fun captureVirtualDisplayPreview(): ParcelFileDescriptor =
+  override fun captureVirtualDisplay(): ParcelFileDescriptor = privileged {
+    captureVirtualDisplay("CAPTURE", Bitmap.CompressFormat.PNG, 100)
+  }
+
+  override fun captureVirtualDisplayPreview(): ParcelFileDescriptor = privileged {
     captureVirtualDisplay("PREVIEW", Bitmap.CompressFormat.JPEG, 76)
+  }
 
   override fun openVideoStream(fps: Int, bitrate: Int): ParcelFileDescriptor = privileged {
     throw UnsupportedOperationException("Use native preview; screenshots remain active")
@@ -182,13 +191,13 @@ class ShizukuShellService : IShizukuShellService.Stub {
     pipe[0]
   }
 
-  override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean {
+  override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = privileged {
     privilegedBridge?.let {
-      return it.request("GESTURE $x1 $y1 $x2 $y2 $durationMs").toBoolean()
+      return@privileged it.request("GESTURE $x1 $y1 $x2 $y2 $durationMs").toBoolean()
     }
     val displayId = getVirtualDisplayId()
-    if (displayId < 0) return false
-    return privileged { DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs) }
+    if (displayId <= 0) return@privileged false
+    DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs)
   }
 
   override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = privileged {
@@ -201,9 +210,9 @@ class ShizukuShellService : IShizukuShellService.Stub {
     NativeDisplayCapture.setPreviewSurface(surface)
   }
 
-  override fun frameCount(): Long = NativeDisplayCapture.frameCount()
-  override fun previewFrameCount(): Long = NativeDisplayCapture.previewFrameCount()
-  override fun currentPackage(): String = activePackage
+  override fun frameCount(): Long = privileged { NativeDisplayCapture.frameCount() }
+  override fun previewFrameCount(): Long = privileged { NativeDisplayCapture.previewFrameCount() }
+  override fun currentPackage(): String = privileged { activePackage }
   override fun moveGameToDisplay(packageName: String, displayId: Int) = privileged {
     privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }
     check(packageName == activePackage) { "The selected game is not active" }
@@ -221,10 +230,11 @@ class ShizukuShellService : IShizukuShellService.Stub {
 
   /** Launch through ActivityManager's binder, matching MAA-Meow's primary path. */
   override fun launchPackageOnDisplay(packageName: String, displayId: Int): Boolean = privileged {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(getVirtualDisplayId() == displayId) { "The requested game display is no longer active" }
     privilegedBridge?.let {
       return@privileged it.request("LAUNCH $packageName $displayId").toBoolean()
     }
-    require(displayId >= 0) { "Invalid virtual display id" }
     require(packageName.matches(Regex("[A-Za-z0-9_.]+"))) { "Invalid package name" }
     val serviceContext = context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
     val intent = serviceContext.packageManager.getLaunchIntentForPackage(packageName)
@@ -285,7 +295,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
   // Compatibility stop for the retired stream API. Never changes the capture Surface.
   private fun closeVideoStreamLocked(restoreCaptureSurface: Boolean = true) = Unit
 
-  override fun destroy() {
+  override fun destroy() = privileged {
     synchronized(displayLock) { closeVideoStreamLocked() }
     privilegedBridge?.close()
     privilegedBridge = null
@@ -296,7 +306,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
   private inline fun <T> privileged(block: () -> T): T {
     val identity = Binder.clearCallingIdentity()
     return try {
-      block()
+      PrivilegedExecution.binderResult(block)
     } finally {
       Binder.restoreCallingIdentity(identity)
     }

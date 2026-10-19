@@ -1,6 +1,6 @@
 import { Circle, List, LoaderCircle } from "lucide-react";
 import React, { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { eventNameKey } from "@/shared/I18nKeys";
@@ -10,7 +10,7 @@ import "./HomeTaskStatus.css";
 
 /** Task context stays on a single quiet line when the window has room. */
 export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const [open, setOpen] = useState(false);
   const runningTask = useWebSocketStore((state) => state.statusStore[profileId]?.current_task);
   const runningTaskName = runningTask ? t(eventNameKey(runningTask)) : t("task.noneRunning");
@@ -19,8 +19,8 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
 
   return (
     <div className="task-status-row flex min-w-0 shrink-0 items-start gap-3 text-[13px] leading-5">
-      <div className="flex min-w-0 flex-1 items-center gap-x-6 pt-0.5">
-        <div className="flex min-w-0 max-w-full shrink-0 items-center gap-2">
+      <div className="task-status-content flex min-w-0 flex-1 items-center gap-x-6 pt-0.5">
+        <div className="task-status-current flex min-w-0 max-w-full shrink-0 items-center gap-2">
           {runningTask ? (
             <LoaderCircle
               className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
@@ -29,11 +29,11 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
           ) : (
             <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" strokeWidth={1.6} />
           )}
-          <span className="shrink-0 text-muted-foreground">{t("task.running")}</span>
+          <span className="task-status-label shrink-0 text-muted-foreground">{t("task.running")}</span>
           <IconTooltip content={runningTask ? runningTaskName : undefined}>
             <span
               data-running-task-name
-              className={`block w-[144px] shrink-0 truncate text-center ${runningTask ? "font-medium text-foreground" : "text-muted-foreground/70"}`}
+              className={`task-status-name block w-[144px] shrink-0 truncate text-center ${runningTask ? "font-medium text-foreground" : "text-muted-foreground/70"}`}
             >
               {runningTaskName}
             </span>
@@ -70,7 +70,7 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
             <button
               type="button"
               aria-label={t("task.overview")}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="task-status-overview flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <List className="h-3.5 w-3.5" strokeWidth={1.6} />
             </button>
@@ -78,7 +78,7 @@ export const TaskStatus: React.FC<{ profileId: string }> = ({ profileId }) => {
         </IconTooltip>
         <PopoverContent
           align="end"
-          className="max-h-80 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+          className="max-h-80 w-64 overflow-y-auto rounded-lg bg-popover p-1.5 text-popover-foreground shadow-lg"
           onFocusOutside={() => setOpen(false)}
         >
           {taskQueue?.length ? (

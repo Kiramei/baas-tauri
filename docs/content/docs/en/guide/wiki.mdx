@@ -1,28 +1,19 @@
 ---
-title: Web Wiki
-description: Read the documentation in the app or open the same site in your default browser.
+title: Documentation
+description: Open the documentation site in your default browser from the desktop Help menu.
 ---
 
-BAAS Tauri no longer uses the old local Wiki article list as the main documentation entry. The Docs page loads the web documentation site generated from `baas-tauri/docs` with Fumadocs.
+The standalone documentation site is generated from `baas-tauri/docs` with Fumadocs. BAAS Tauri opens it in your system's default browser.
 
-## Embedded Mode
+## Open the Documentation
 
-Open Docs from the sidebar to display the web documentation inside the main window. This is useful when you want to read while configuring tasks.
+Choose **Help → Documentation** in the desktop titlebar. The app no longer embeds a Wiki page or displays a Docs item in the sidebar.
 
-The page shows:
+Choose **Help → About BAAS**, or click the navigation logo, to open the same About dialog with client, backend, connection, and project information.
 
-- Wiki title.
-- Current loading state.
-- Open-in-browser button.
-- Failure message and Wiki URL if loading fails.
+## Languages
 
-## Open in Browser
-
-Click the browser button to open the same documentation site in your system's default browser. The embedded page stays available while you read or configure tasks in the app.
-
-## Languages and Fallback
-
-The documentation site maintains only Chinese and English. Japanese, Korean, French, German, and Russian UI languages fall back to English documentation. Use the language menu in the documentation top bar to switch between Chinese and English.
+The documentation site maintains Chinese and English. Its own language menu controls the language independently of the app.
 
 ## Local Development URL
 
@@ -33,13 +24,13 @@ http://localhost:3000/docs/zh/
 http://localhost:3000/docs/en/
 ```
 
-After GitHub Pages deployment, the in-app Wiki URL can be changed to the deployed URL.
+Set `VITE_BAAS_DOCS_URL` when building the app to change its documentation link. The former `VITE_BAAS_WIKI_URL` override remains supported for existing deployments.
 
-## Loading Failures
+## Opening Failures
 
-If the Docs page keeps failing:
+If the documentation does not open:
 
-- Open the same Wiki URL in a browser to confirm network or local dev server availability.
+- Open the documentation URL in a browser to confirm network or local dev server availability.
 - For GitHub Pages, confirm Pages is enabled and `NEXT_PUBLIC_BASE_PATH` matches the repository Pages path.
 - For local development, confirm the Next dev server is running under `docs`.
-- If the site opens in your browser but the embedded page fails, check WebView2, proxy settings, and iframe sandbox constraints.
+- Confirm that your system has a default browser configured. The app shows an error when the native browser opener fails.

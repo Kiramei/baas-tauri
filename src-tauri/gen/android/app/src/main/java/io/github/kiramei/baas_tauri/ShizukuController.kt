@@ -48,8 +48,8 @@ object ShizukuController {
       // Bump both values whenever the persistent user-service implementation changes.
       // Shizuku may otherwise reconnect to the pre-update process and keep the old
       // capture Surface alive even after the application APK has been replaced.
-      .tag("baas-game-service-v35")
-      .version(35)
+      .tag("baas-game-service-v36")
+      .version(36)
   }
 
   fun initialize(context: Context) {
@@ -151,7 +151,9 @@ object ShizukuController {
   }
 
   fun startVirtualDisplay(context: Context, width: Int, height: Int, density: Int): Int {
-    return callService(context) { it.startVirtualDisplay(width, height, density) }
+    return PrivilegedExecution.virtualDisplayId(
+      callService(context) { it.startVirtualDisplay(width, height, density) }
+    )
   }
 
   fun stopVirtualDisplay(context: Context) {
@@ -171,7 +173,7 @@ object ShizukuController {
 
   fun virtualDisplayId(context: Context): Int {
     val id = callService(context) { it.virtualDisplayId }
-    return id
+    return if (id > 0) id else -1
   }
 
   fun virtualDisplaySize(context: Context): IntArray {
@@ -232,6 +234,8 @@ object ShizukuController {
   }
 
   fun launchPackageOnDisplay(context: Context, packageName: String, displayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplayId(context) == displayId) { "The requested game display is no longer active" }
     return callService(context) { it.launchPackageOnDisplay(packageName, displayId) }
   }
 
@@ -266,6 +270,14 @@ object ShizukuController {
       return
     }
     openShizukuDownload(context)
+  }
+
+  /** Explicit user action: open the installed manager without a browser fallback. */
+  fun openInstalledShizuku(context: Context) {
+    if (!state(context).installed) throw IllegalStateException("Shizuku is not installed")
+    val launch = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+      ?: throw IllegalStateException("The installed Shizuku app cannot be opened")
+    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
   }
 
   /** Shizuku is an external prerequisite, never an installer bundled into BAAS. */

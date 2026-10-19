@@ -1,12 +1,10 @@
 import { DynamicConfig } from "@/types/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import { PageKey } from "@/App.tsx";
-import {
-  AuthPhase,
-  ControlConnection,
-  ControlSessionBundle,
-} from "@/shared/SecureWebSocket";
+import { AuthPhase, ControlConnection, ControlSessionBundle } from "@/shared/SecureWebSocket";
 import type { BackendConnection, BackendTransportMode } from "@/transport/types";
+import type { SettingsSection } from "@/shared/SettingsSections";
+import type { ApplicationShortcutOverrides } from "@/shared/ApplicationShortcuts";
 
 export interface ConfigProfile {
   id: string;
@@ -41,7 +39,10 @@ export interface UISettings {
   enableSystemNotifications: boolean;
   minimizeToTray?: boolean;
   idleAutoUpdate?: boolean;
+  autoEnterAfterInstall?: boolean;
   schedulerSortMode?: "default" | "time";
+  settingsSection?: SettingsSection;
+  applicationShortcuts?: ApplicationShortcutOverrides;
   remoteSettings: RemoteSettings;
 }
 
@@ -50,7 +51,7 @@ export type Theme = "light" | "dark" | "system";
 /**
  * Identifiers for each primary application route.
  */
-export type PageKey = "home" | "scheduler" | "configuration" | "settings" | "wiki";
+export type PageKey = "home" | "scheduler" | "configuration" | "settings";
 
 export interface ProfileProps {
   profileId?: string;

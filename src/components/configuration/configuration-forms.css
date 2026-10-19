@@ -1,0 +1,266 @@
+.configuration-row.sweep-count-row {
+  gap: 16px;
+}
+
+.configuration-row.sweep-count-row > .settings-row-control {
+  width: min(280px, 62%);
+  max-width: 62%;
+}
+
+.sweep-count-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.sweep-count-controls.has-amount {
+  grid-template-columns: minmax(0, 1fr) 68px;
+}
+
+.sweep-count-controls > *,
+.sweep-count-stage > * {
+  min-width: 0;
+}
+
+.sweep-count-amount-with-unit {
+  position: relative;
+  min-width: 0;
+}
+
+.sweep-count-unit {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.sweep-count-amount-with-unit:has(.sweep-count-unit) input {
+  padding-right: 24px;
+  appearance: textfield;
+}
+
+.sweep-count-amount-with-unit:has(.sweep-count-unit) input::-webkit-inner-spin-button,
+.sweep-count-amount-with-unit:has(.sweep-count-unit) input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.sweep-count-hint {
+  padding-block: 10px 14px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.configuration-row.activity-sweep-row > .settings-row-control {
+  width: min(400px, 72%);
+  max-width: 72%;
+}
+
+.sweep-count-controls.has-stage {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.sweep-count-controls.has-stage.has-amount {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 68px;
+}
+
+.stage-plan-section {
+  min-width: 0;
+  padding-block: 15px;
+}
+
+.stage-plan-section + .stage-plan-section {
+  border-top: 1px solid var(--border);
+}
+
+.stage-plan-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.stage-plan-heading > .settings-label {
+  min-width: 0;
+}
+
+.stage-plan-heading > button {
+  flex-shrink: 0;
+}
+
+.explore-plan-editor {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  container-type: inline-size;
+}
+
+.explore-plan-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px;
+}
+
+.explore-plan-row:first-child {
+  padding-top: 0;
+}
+
+.explore-plan-fields {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.explore-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.explore-plan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.explore-plan-footer > p {
+  min-width: 0;
+}
+
+.explore-plan-footer > button {
+  flex-shrink: 0;
+}
+
+.stage-task-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-block: 14px;
+}
+
+.stage-task-action {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.stage-task-action span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stage-task-action svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.stage-task-action:hover {
+  background: var(--background);
+}
+
+.stage-task-action:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.configuration-row.stage-event-name > .settings-row-control {
+  width: auto;
+  max-width: 75%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.stage-attribute-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 20px;
+  padding-block: 8px;
+}
+
+.stage-attribute-grid > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-block: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.stage-attribute-grid dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stage-attribute-grid dd {
+  min-width: 0;
+  max-width: 60%;
+  flex-shrink: 1;
+  color: var(--muted-foreground);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 420px) {
+  .explore-plan-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .explore-plan-actions {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 639px) {
+  .stage-attribute-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+
+  .stage-task-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 479px) {
+  .configuration-row.sweep-count-row > .settings-row-control {
+    width: 66%;
+    max-width: 66%;
+  }
+
+  .configuration-row.activity-sweep-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .configuration-row.activity-sweep-row > .settings-row-control {
+    width: 100%;
+    max-width: 100%;
+  }
+}

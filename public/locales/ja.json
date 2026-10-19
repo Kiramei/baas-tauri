@@ -7,14 +7,20 @@
     "forward": "進む",
     "maximize": "最大化",
     "minimize": "最小化",
+    "modeBaasDescription": "デイリー任務を自動で処理。",
+    "modeInDevelopment": "開発中です。公開をお待ちください。",
+    "modeRaidDescription": "総力戦の戦闘をサポート。",
     "restore": "元に戻す",
     "windowControls": "ウィンドウ操作"
   },
   "nav": {
     "configuration": "設定",
     "home": "ホーム",
+    "mobileConfiguration": "設定",
+    "mobileScheduler": "タスク",
+    "mobileSettings": "アプリ設定",
     "scheduler": "スケジュール",
-    "settings": "設定"
+    "settings": "アプリ設定"
   },
   "common": {
     "add": "追加",
@@ -55,7 +61,7 @@
     "export": "ログをエクスポート",
     "scroll": {
       "$self": "自動スクロール",
-      "detail": "ログテキストボックスを自動的にスクロールします"
+      "detail": "最新のログを追従"
     }
   },
   "task": {
@@ -80,8 +86,59 @@
     }
   },
   "settings": {
-    "feature": "機能設定",
-    "general": "一般設定",
+    "categories": "設定カテゴリ",
+    "descriptions": {
+      "assets": "ホーム画面にゲーム内リソースを表示します。",
+      "idleAutoUpdate": "すべてのプロファイルが待機中の場合にスクリプトを自動更新します。",
+      "language": "アプリの表示言語を選択します。",
+      "lowPerformanceMode": "アニメーションや視覚効果を減らし、画面描画の負荷を抑えます。",
+      "minimizeToTray": "最小化したウィンドウをシステムトレイに隠し、バックグラウンドで実行を続けます。",
+      "safeStream": "WebSocket 経由のリモートプレビューを暗号化します。",
+      "systemNotifications": "タスクの状態変更やサービスの切断時にシステム通知を表示します。"
+    },
+    "feature": "機能",
+    "general": "共通",
+    "groups": {
+      "connection": "通信とリモート操作",
+      "desktop": "デスクトップの動作",
+      "display": "表示と効果",
+      "preferences": "基本設定"
+    },
+    "noResults": "一致する設定がありません",
+    "search": "設定を検索",
+    "sections": {
+      "appearance": "外観",
+      "general": "一般",
+      "logs": "ログ",
+      "runtime": "接続と動作",
+      "shortcuts": "ショートカット",
+      "updates": "更新"
+    },
+    "shortcuts": {
+      "application": "アプリのショートカット",
+      "binding": "キーの組み合わせ",
+      "clear": "割り当てを解除",
+      "conflict": "「{{shortcut}}」で使用中です。",
+      "defaultBinding": "既定：{{binding}}",
+      "disabled": "未設定",
+      "escapeDescription": "記録の中止、ダイアログを閉じる、インストールの中止。",
+      "global": "タスクのグローバルキー",
+      "globalDescription": "BAAS がバックグラウンドでもスケジューラーを操作できます。",
+      "instructions": "キーボードを押して記録します。空欄で無効になります。",
+      "native": "テキスト編集",
+      "nativeDescription": "システム標準のため、設定は不要です。",
+      "nativeTextDescription": "入力中やテキスト選択時に使います。",
+      "profileDescription": "どのウィンドウからでもこのプロファイルの実行を切り替えます。",
+      "profileRun": "プロファイルの実行切替",
+      "record": "キーを記録",
+      "recordHint": "キーを入力、Esc で中止",
+      "recording": "記録中",
+      "recordMainKey": "修飾キー以外のキーを押してください…",
+      "resetAll": "アプリのキーをリセット",
+      "resetButton": "既定に戻す",
+      "resetDescription": "アプリのキーを既定に戻します。プロファイルのグローバルキーは保持します。",
+      "stopRecording": "記録を終了"
+    },
     "systemLogs": {
       "allLevels": "全部级别",
       "allSources": "全部来源",
@@ -103,8 +160,7 @@
       "title": "系统日志"
     },
     "ui": {
-      "$self": "UI設定",
-      "assets": "資産詳細を表示",
+      "assets": "ゲーム内資源を表示",
       "backgroundImage": "背景画像",
       "backgroundImageChoose": "背景を選択",
       "backgroundImageEmpty": "背景画像が設定されていません",
@@ -115,11 +171,11 @@
       "backgroundImageSelected": "背景画像を設定しました",
       "backgroundImageTooLarge": "背景画像は 5MB 以下にしてください。",
       "enableBAComet": "BAComet有効",
-      "enableSafeStream": "安全ストリーム",
+      "enableSafeStream": "リモート映像を暗号化",
       "enableSystemNotifications": "システム通知を有効化",
       "idleAutoUpdate": "待機中にスクリプトを自動更新",
-      "lowPerformanceMode": "低パフォーマンスモード",
-      "player": "プレイヤー",
+      "lowPerformanceMode": "軽量モード",
+      "player": "映像デコーダー",
       "themeColor": "テーマカラー",
       "themeColorInvalid": "#RRGGBB 形式でテーマカラーを入力してください。",
       "themeColorReset": "テーマカラーをリセット"
@@ -150,13 +206,9 @@
   "version": {
     "checkError": "バージョンの取得に失敗しました",
     "fetching": "取得中...",
-    "info": "バージョン情報",
     "local": "現在のバージョン",
     "remote": "最新バージョン",
     "tapToTest": "更新確認",
-    "tauriLocal": "クライアント現在",
-    "tauriRemote": "クライアント最新",
-    "tauriStatus": "クライアント状態",
     "testing": "テスト中..."
   },
   "profile": {
@@ -185,55 +237,57 @@
     "nameExists": "名前は既に存在します"
   },
   "description": {
-    "arena": "アリーナ自動化",
+    "arena": "対戦相手と挑戦回数",
     "artifact": {
-      "$self": "製造設定",
+      "$self": "素材とノードの優先度",
       "useTicket": "製造チケットを使用"
     },
     "cafe": {
-      "$self": "カフェ招待と報酬",
+      "$self": "招待・交流・収益の受取",
       "patRounds": "回数が多いほど、なで忘れが少なくなります"
     },
     "commonShop": {
-      "refresh": "ショップを自動更新"
+      "refresh": "購入後の更新回数です。0 で更新しません。"
     },
     "dailySweep": "日課ステージと掃討",
-    "drill": "合同火力演習設定",
+    "drill": "部隊と演習難易度",
     "emulator": "エミュレーターのパスと起動",
-    "finalRestrictionRls": "編成方法とクリア編成のコピーを設定",
+    "finalRestrictionRls": "編成選択とクリア編成のコピー",
     "getEmulator": "エミュレーターを選択",
     "other": {
       "$self": "その他設定",
-      "fhx": "規制解除を試みます（中国サーバー限定）"
+      "fhx": "中国版の元のイラストに戻す"
     },
     "push": "通知設定",
-    "schedule": "デイリー予定",
+    "schedule": "スケジュールの場所と生徒",
     "script": "スクリプト設定",
     "server": "サーバーと接続",
     "settings": {
       "updateSuccess": "設定が正常に更新されました。"
     },
-    "shop": "購入優先度",
-    "stage": {
-      "$self": "自動ステージ",
-      "hard": "ハードステージの設定も同様です。注意：回数は最大3回、カンマは半角です。日本/グローバルサーバーでは'max'と入力できます。",
-      "normal": "ノーマルステージと回数（例：「1-1-1,1-2-3」はステージ1-1を1回、次に1-2を3回）"
-    },
+    "shop": "購入する商品",
+    "stage": "自動ステージ",
     "tactical": "総力戦設定",
     "team": "編成設定",
     "whitelist": "整理条件とフレンド白リストを設定"
   },
   "installer": {
     "advanced": "詳細設定",
+    "advancedHint": "言語、外観、更新チャンネル、接続方式。",
+    "autoEnter": "インストール完了後に自動で開く",
+    "autoEnterHint": "オフにすると完了後もインストールログを表示し、「ホームを開く」をクリックして進みます。",
+    "completed": "インストール完了",
+    "directoryHint": "ランタイムとスクリプトファイルはこのフォルダーにインストールされます。",
+    "enter": "ホームを開く",
+    "entering": "開いています…",
     "exit": "キャンセル",
+    "logs": "インストールログ",
+    "noOutput": "ターミナル出力はまだありません。",
+    "portableHint": "ポータブルモードではアプリと同じフォルダーを使用します。",
+    "preparing": "ターミナルを準備中…",
     "setting": "インストール設定",
     "start": "インストール開始",
-    "subtitle": {
-      "stage1": "インストールの設定",
-      "stage2": "実行環境を構築しています。少々お待ちください。"
-    },
     "title": {
-      "$self": "Blue Archive Auto Script へようこそ",
       "wizard": "セットアップウィザード"
     }
   },
@@ -254,38 +308,22 @@
     "validateKeySubtitle": "キーを検証",
     "verifyingServerIdentity": "サーバー ID を検証しています..."
   },
-  "wiki": {
-    "category": {
-      "all": "すべて",
-      "architecture": "アーキテクチャ",
-      "configuration": "設定管理",
-      "environment": "環境設定",
-      "formation": "編成戦略",
-      "getting-started": "入門",
-      "operations": "運用操作",
-      "support": "サポートとフィードバック"
-    },
-    "subtitle": "BAAS自動化プラットフォーム向けの標準化されたガイドおよび運用マニュアル。",
-    "title": "Wikiドキュメント",
-    "web": {
-      "failed": "Web Wikiの読み込みに失敗",
-      "loading": "Web Wikiを読み込み中...",
-      "openBrowser": "ブラウザで開く",
-      "title": "Web Wiki"
-    }
-  },
   "scheduler": {
     "activeTasks": "有効なタスク",
     "dailyReset": "デイリーリセット時間",
-    "detailConfig": "タスク詳細スケジュール設定",
+    "detailConfig": "タスクのスケジュール",
+    "disableAll": "すべて無効",
     "disabledRange": "無効時間帯",
+    "enableAll": "すべて有効",
     "eventName": "タスク名",
     "inactiveTasks": "無効なタスク",
     "interval": "間隔 (秒)",
     "nextTick": "次回実行時間",
+    "noResults": "一致するタスクがありません",
     "postTask": "後続タスク",
     "preTask": "先行タスク",
     "priority": "優先度",
+    "resetTimes": "タスク時刻をリセット",
     "search": "タスクを検索",
     "selector": "タスク選択",
     "sortByTime": "時間順に並べ替え",
@@ -293,29 +331,29 @@
   },
   "stage": {
     "$self": "ステージ",
-    "attrTable": "ステージ属性参照表",
-    "challenge": "チャレンジ任務をクリア",
+    "attrTable": "ステージ属性",
+    "challenge": "チャレンジ",
     "currentEvent": "現在のイベント",
     "dailyTab": "任務掃討",
     "eventTab": "イベントステージ",
-    "exploreTab": "メインストーリー",
-    "hardLabel": "ハードステージのデイリー掃討",
-    "hardTask": "ハード任務",
-    "manualBoss": "手動ボス戦",
-    "mission": "ミッション任務をクリア",
+    "exploreTab": "任務",
+    "hardLabel": "任務 Hard",
+    "hardTask": "任務 Hard",
+    "manualBoss": "ボス戦を手動操作",
+    "mission": "クエスト",
     "noEvent": "現在イベントはありません",
     "noHardTask": "ハードステージが設定されていません！",
     "noNormalTask": "ノーマルステージが設定されていません！",
-    "normalLabel": "ノーマルステージのデイリー掃討",
-    "normalTask": "ノーマル任務",
+    "normalLabel": "任務 Normal",
+    "normalTask": "任務 Normal",
     "selectStudent": "生徒を選択",
     "story": {
-      "$self": "ストーリー任務をクリア",
-      "group": "サークルストーリーを進める",
-      "main": "メインストーリーを進める",
-      "mini": "ミニストーリーを進める"
+      "$self": "ストーリー",
+      "group": "グループストーリー",
+      "main": "メインストーリー",
+      "mini": "ミニストーリー"
     },
-    "sweepTab": "掃討詳細",
+    "sweepTab": "その他の掃討",
     "taskTriggered": "発行されたタスク: {{task}}",
     "taskTriggerStart": "タスクが発行されました"
   },
@@ -342,24 +380,24 @@
     "starredPosition": "お気に入り生徒の位置",
     "useInvitation": "招待券を使う"
   },
-  "dailySweep": "日課",
+  "dailySweep": "日課掃討",
   "schedule": {
-    "$self": "予定",
+    "$self": "スケジュール",
     "advanced": "上級",
-    "normal": "普通",
+    "normal": "中級",
     "primary": "初級",
-    "superior": "特級"
+    "superior": "最上級"
   },
   "shop": "ショップ",
   "arena": {
-    "$self": "アリーナ",
-    "higherLevel": "相手が自分より高いレベル数",
-    "maxRefreshTimes": "最大更新回数",
-    "opponentNo": "対戦相手番号"
+    "$self": "戦術対抗戦",
+    "higherLevel": "相手とのレベル差",
+    "maxRefreshTimes": "更新回数の上限",
+    "opponentNo": "対戦相手の位置"
   },
   "server": {
     "$self": "サーバー",
-    "adbIP": "ADB IPアドレス",
+    "adbIP": "ADB アドレス",
     "adbPort": "ADB ポート",
     "cn": {
       "bilibili": "Bilibiliサーバー",
@@ -377,11 +415,11 @@
   },
   "emulator": {
     "$self": "エミュレーター",
-    "address": "エミュレータのパス",
-    "instanceCount": "マルチインスタンスエミュレータ番号",
-    "multiInstance": "エミュレータのマルチインスタンス",
-    "multiType": "エミュレータの種類",
-    "openOnLaunch": "スクリプト起動時にエミュレータを開く",
+    "address": "エミュレーターのパス",
+    "instanceCount": "インスタンス番号",
+    "multiInstance": "マルチインスタンス",
+    "multiType": "エミュレーターの種類",
+    "openOnLaunch": "エミュレーターを起動",
     "types": {
       "bluestacksCn": "BlueStacks CN",
       "bluestacksGlobal": "BlueStacks Global",
@@ -392,7 +430,7 @@
       "xiaoyaoNat": "MEmu (NAT)",
       "yeshen": "NoxPlayer"
     },
-    "waitTime": "エミュレータ起動待機時間 (秒)"
+    "waitTime": "起動待機（秒）"
   },
   "push": {
     "$self": "通知",
@@ -409,7 +447,7 @@
     "$self": "合同火力演習",
     "difficulty": "演習難易度",
     "outPartyNo": "部隊番号",
-    "useAllAfterSweep": "出撃後にすべての演習チケットを使用"
+    "useAllAfterSweep": "出撃後に残りを掃討"
   },
   "artifact": {
     "$self": "製造",
@@ -417,36 +455,36 @@
     "blue": "青",
     "createTime": "製造回数",
     "default": "デフォルト",
-    "global": "グローバル設定",
+    "global": "基本設定",
     "gold": "金",
-    "goldPurple": "金紫",
-    "materialSelect": "素材選択",
-    "phase1": "第一段階",
+    "goldPurple": "金・紫",
+    "materialSelect": "投入素材",
+    "phase1": "一次ノード",
     "phase2": {
-      "$self": "第二段階",
-      "recommend": "生徒に基づいて推薦"
+      "$self": "二次ノード",
+      "recommend": "生徒別おすすめ"
     },
-    "phase3": "第三段階",
+    "phase3": "三次ノード",
     "phaseCount": "製造段階数",
     "priority": "優先度",
     "purple": "紫",
     "selectStudent": "生徒を選択",
     "white": "白",
-    "whiteBlue": "白青"
+    "whiteBlue": "白・青"
   },
   "whitelist": "フレンド整理",
   "script": {
     "$self": "スクリプト",
-    "autostart": "スクリプト起動時に自動開始",
-    "controlMethod": "制御方法",
+    "autostart": "タスクを自動開始",
+    "controlMethod": "操作方法",
     "doNothing": "何もしない",
-    "exitBaas": "ブルーアーカイブを終了",
-    "exitBoth": "ブルーアーカイブとエミュレータを終了",
+    "exitBaas": "BAAS を終了",
+    "exitBoth": "BAAS とエミュレーターを終了",
     "exitEmu": "エミュレータを終了",
-    "screenshotInterval": "スクリーンショット間隔 (秒)",
-    "screenshotMethod": "スクリーンショット方法",
+    "screenshotInterval": "撮影間隔（秒）",
+    "screenshotMethod": "撮影方法",
     "shutdown": "コンピュータをシャットダウン",
-    "then": "タスク完了後の操作"
+    "then": "タスク完了後"
   },
   "tactical": {
     "$self": "総力戦",
@@ -460,24 +498,23 @@
     "side": "サイドバーの属性で"
   },
   "lesson": {
-    "enableFavorStudent": "お気に入りの生徒を優先",
+    "enableFavorStudent": "お気に入り優先",
     "favorStudent": "お気に入りの生徒",
-    "region": "スケジュールエリア",
-    "relationshipFirst": "絆ランクが高い生徒を優先",
-    "times": "スケジュール回数"
+    "region": "場所",
+    "relationshipFirst": "絆の上昇を優先",
+    "times": "回数"
   },
   "sweep": {
-    "activityNumber": "イベントステージ掃討ステージ",
-    "activityTimes": "イベントステージ掃討回数",
-    "purchaseLesson": "スケジュールチケット購入回数",
-    "purchaseRewarded": "指名手配チケット購入回数",
-    "purchaseScrimmage": "学園交流会チケット購入回数",
-    "rewarded": "指名手配の掃討回数",
-    "rewardedHint": "ゲーム内のエリア順に入力してください（{{count}} エリア）。0以上の整数または max を指定できます。0 はスキップします。",
+    "activityNumber": "イベント任務",
+    "activityTimes": "イベント掃討",
+    "purchaseLesson": "スケジュールチケット購入",
+    "purchaseRewarded": "指名手配チケット購入",
+    "purchaseScrimmage": "学園交流会チケット購入",
+    "rewarded": "指名手配",
     "rewardedInvalid": "0以上の整数または max を入力してください。",
     "rewardedRegion": "エリア {{number}}",
-    "scrimmage": "学園交流会の掃討回数",
-    "special": "特別依頼の掃討回数"
+    "scrimmage": "学園交流会",
+    "special": "特別依頼"
   },
   "remote": {
     "advanced": "詳細設定",
@@ -521,12 +558,12 @@
     "burst": "爆発",
     "coin": {
       "arena": "戦術コイン",
-      "commission": "交流会コイン"
+      "commission": "指名手配コイン"
     },
     "credits": "クレジットポイント",
     "keystone": {
-      "$self": "秘儀の解放",
-      "piece": "かけら"
+      "$self": "キーストーン",
+      "piece": "キーストーンのかけら"
     },
     "mystic": "神秘",
     "pass": "パス",
@@ -540,36 +577,36 @@
     "arena": "戦術対抗戦",
     "cafeReward": "カフェ",
     "clearSpecialTaskPower": "特別依頼",
-    "collectDailyFreePower": "無料APを回収",
-    "collectDailyPower": "デイリーAPを回収",
-    "collectReward": "報酬を回収",
+    "collectDailyFreePower": "無料 AP を受取",
+    "collectDailyPower": "デイリー AP を受取",
+    "collectReward": "報酬を受取",
     "commonShop": "ショップ購入",
-    "create": "自動製造",
+    "create": "製造",
     "dailyGameActivity": "デイリーミニゲーム",
     "friend": "フレンド整理",
-    "group": "サークルのAPを回収",
-    "hardTask": "ハード任務でAP消費",
+    "group": "サークル AP を受取",
+    "hardTask": "Hard 任務の掃討",
     "jointFiringDrill": "合同火力演習",
     "lesson": "スケジュール",
     "mail": "メールを確認",
     "momoTalk": "モモトーク自動化",
-    "no1CafeInvite": "1号店カフェ招待",
-    "no2CafeInvite": "2号店カフェ招待",
-    "normalTask": "ノーマル任務でAP消費",
-    "pass": "パス報酬を受け取る",
+    "no1CafeInvite": "カフェ 1 号店の招待",
+    "no2CafeInvite": "カフェ 2 号店の招待",
+    "normalTask": "Normal 任務の掃討",
+    "pass": "パス報酬を受取",
     "restart": "午前4時に再起動",
     "rewardedTask": "指名手配",
     "scrimmage": "学園交流会",
     "startExploreActivityChallenge": "イベント挑戦",
     "startExploreActivityMission": "イベント任務",
     "startExploreActivityStory": "イベントストーリー",
-    "startFhx": "FHX",
+    "startFhx": "元のイラストに戻す",
     "startGroupStory": "グループストーリー",
-    "startHardTask": "ハードステージ",
+    "startHardTask": "任務 Hard",
     "startMainStory": "メインストーリー",
     "startMiniStory": "ミニストーリー",
-    "startNormalTask": "ノーマルステージ",
-    "tacticalChallengeShop": "戦術対抗戦ショップ購入",
+    "startNormalTask": "任務 Normal",
+    "tacticalChallengeShop": "戦術対抗戦ショップの購入",
     "totalAssault": "総力戦",
     "unknown": "不明なタスク"
   },
@@ -640,8 +677,60 @@
     "noData": "ADBデータがありません",
     "title": "ADB検出パネル"
   },
+  "android": {
+    "game": {
+      "fallbackName": "ゲーム",
+      "inspectFailed": "インストール済みゲームを読み込めません",
+      "live": "ライブ",
+      "liveDisplay": "{{game}}のライブ画面",
+      "restartFailed": "ゲームを再起動できません",
+      "showControls": "ゲーム操作を表示",
+      "startBackground": "バックグラウンドでゲームを起動",
+      "takeoverFailed": "ゲーム操作を引き継げません"
+    },
+    "start": {
+      "actionFailed": "操作を完了できませんでした。Shizuku のサービスとアプリの権限を確認してください。",
+      "authorize": "権限を許可",
+      "checkAgain": "再試行",
+      "checkFailedDescription": "Shizuku の状態を取得できません。再試行してください。",
+      "checkFailedTitle": "Shizuku を確認できません",
+      "cleanupFailed": "バックグラウンドのゲーム画面を閉じられません",
+      "displayClosed": "バックグラウンドのゲーム画面を閉じました",
+      "displayFailed": "バックグラウンドでゲームを起動できません",
+      "displayNotReady": "ゲーム画面の準備ができていません",
+      "displayOpened": "ゲームをバックグラウンドで起動しました",
+      "missingDescription": "スクリプトの開始には Shizuku が必要です。インストール後、戻って再試行してください。",
+      "missingGameDescription": "「{{profile}}」は{{server}}の設定ですが、対応するクライアントがありません。インストールするか、インストール済みのサーバー用に設定を作成してください。",
+      "missingGameTitle": "この設定のゲームが未インストールです",
+      "missingTitle": "Shizuku が未インストールです",
+      "openShizuku": "Shizuku を開く",
+      "otherProfileRunningDescription": "「{{profiles}}」が実行中です。Android ではゲーム画面を共有するため、停止してから「{{profile}}」を開始してください。",
+      "otherProfileRunningTitle": "別の設定が実行中です",
+      "permissionDescription": "ゲームの起動と操作に Shizuku の権限が必要です。BAAS を許可し、再度開始を押してください。",
+      "permissionTitle": "Shizuku の権限が必要です",
+      "readyDescription": "この画面を閉じ、再度開始を押してください。",
+      "readyTitle": "Shizuku の準備ができました",
+      "scriptFailed": "スクリプトを開始できません",
+      "stoppedDescription": "Shizuku を開いてサービスを開始し、戻ってスクリプトを開始してください。",
+      "stoppedTitle": "Shizuku が停止しています",
+      "unsupportedGameDescription": "「{{profile}}」のサーバー「{{server}}」は Android に対応していません。この端末にインストール済みのサーバー用に設定を作成してください。",
+      "unsupportedGameTitle": "このサーバーは Android に非対応です"
+    }
+  },
+  "applicationShortcutHelp": {
+    "back": "前のページやプロファイルに戻ります。",
+    "forward": "次のページやプロファイルに進みます。",
+    "fullscreen": "全画面表示を切り替えます。",
+    "redo": "元に戻した設定変更をやり直します。",
+    "resetZoom": "表示倍率を 100% に戻します。",
+    "settings": "アプリの設定を開きます。",
+    "sidebar": "プロファイル欄を切り替えます。設定ページでは常に開きます。",
+    "undo": "直前の設定変更を戻します。検索欄ではテキストを元に戻します。",
+    "zoomIn": "画面を拡大します。",
+    "zoomOut": "画面を縮小します。"
+  },
   "commonShop": {
-    "refreshTimes": "ショップ更新回数",
+    "refreshTimes": "更新回数",
     "title": "通常ショップ"
   },
   "configAdd": {
@@ -651,45 +740,210 @@
     "selectServer": "サーバーを選択してください",
     "serverRequired": "サーバーを指定する必要があります"
   },
+  "configuration": {
+    "categories": "設定カテゴリ",
+    "history": "変更履歴",
+    "noResults": "該当する設定はありません",
+    "search": "設定を検索"
+  },
+  "configurationCounts": {
+    "activityEntry": "イベント任務 {{number}}",
+    "activityHint": "AP 割合は現在の AP が基準です。",
+    "all": "すべての回数",
+    "allActivity": "全 AP を均等配分",
+    "amount": "回数",
+    "bountyClassroom": "校舎",
+    "bountyOverpass": "ハイウェイ",
+    "bountyRailroad": "砂漠の線路",
+    "countHint": "上から順に実行し、回数が尽きたら終了します。",
+    "fixed": "回数指定",
+    "legacyHint": "元の設定を保持しています。リセットすると編集できます。",
+    "legacyTitle": "保存済み設定",
+    "maximumPurchases": "購入上限",
+    "mode": "掃討方法",
+    "percent": "AP 割合（%）",
+    "replace": "リセット",
+    "scrimmageGehenna": "ゲヘナ",
+    "scrimmageMillennium": "ミレニアム",
+    "scrimmageTrinity": "トリニティ",
+    "share": "AP 割合",
+    "skip": "実行しない",
+    "specialDefense": "拠点防衛",
+    "specialRetrieval": "クレジット回収"
+  },
+  "configurationDifficulties": {
+    "extreme": "Extreme",
+    "hard": "Hard",
+    "hardcore": "Hardcore",
+    "insane": "Insane",
+    "normal": "Normal",
+    "torment": "Torment",
+    "veryHard": "Very Hard"
+  },
+  "configurationHelp": {
+    "adbAddress": "通常は 127.0.0.1 です。端末のシリアル番号を使う場合はここに入力し、ポートを空欄にします。",
+    "adbPort": "ポートは 0～65535 です。自動検出も可能です。アドレスが空の場合はシリアル番号を入力できます。",
+    "arenaLevel": "自分との許容レベル差です。-89～89 を指定できます。",
+    "arenaOpponent": "一覧の 1～3 番目から対戦相手を選びます。",
+    "arenaRefresh": "対戦相手を探す際のリスト更新回数の上限です。",
+    "artifactCreateTimes": "1 回のタスクで 1～10 回製造します。",
+    "artifactMaterialRule": "このノードに投入する素材のレアリティです。",
+    "artifactPhases": "何次ノードまで製造するかを選び、それぞれ優先度を設定します。",
+    "artifactRecommendedPriority": "生徒を選び、二次ノードのおすすめ順を適用します。",
+    "artifactUseTicket": "クイック製造チケットで待ち時間を短縮します。",
+    "cafeCollectReward": "カフェの収益を受け取ります。",
+    "cafeDuplicateInvite": "招待済みの生徒を再度招待できます。",
+    "cafeExchangeStudent": "同じ生徒の別衣装を招待できます。",
+    "cafeInviteMode": "絆ランク・お気に入りの位置・名前から選びます。",
+    "cafePatNormal": "通常のふれあい",
+    "cafePatStyle": "カフェの生徒とのふれあい方法です。",
+    "cafeSecondCafe": "2 号店とその招待設定を有効にします。",
+    "cafeStarredPosition": "お気に入りの 1～5 番目から選びます。",
+    "cafeStudents": "招待する生徒を追加します。× で削除できます。",
+    "cafeUseInvitation": "招待券で生徒を招待します。",
+    "controlMethod": "端末やエミュレーターに対応する操作方法です。",
+    "drillDifficulty": "出撃順に各部隊の難易度を設定します。",
+    "drillFormation": "出撃順にプリセット部隊番号を選びます。",
+    "drillSweep": "指定した戦闘後に残りを掃討します。",
+    "emulatorInstance": "起動数ではなく、マルチインスタンス管理画面の番号です。",
+    "emulatorLaunch": "スクリプト起動時にエミュレーターを開きます。",
+    "emulatorMulti": "管理画面で指定したインスタンスを起動します。",
+    "emulatorPath": "エミュレーターの起動ファイルを選びます。",
+    "emulatorWait": "起動後、指定した秒数待ってから接続します。",
+    "finalMethod": "現在の編成を使うか、クリア履歴からコピーします。",
+    "finalRefresh": "使用可能な編成を探す際のクリア履歴更新上限です。",
+    "finalUnavailable": "コピーする編成の使用不可生徒を 0～10 人まで許可します。",
+    "friendCode": "このサーバーのフレンドコードを入力して追加します。",
+    "friendLevel": "整理に使うレベル基準です。-1 で無効になります。",
+    "friendLogin": "整理に使う未ログイン日数です。-1 で無効になります。",
+    "friendRank": "前回の総力戦順位の基準です。-1 で無効になります。",
+    "friendWhitelist": "このリストのフレンドは削除されません。× で保護を解除します。",
+    "hardSweepPlan": "任務と回数を選ぶか、生徒の神名文字が落ちる全任務を追加します。",
+    "lessonFavorEnabled": "お気に入りの生徒を優先します。",
+    "lessonFavorOrder": "左から優先します。名前をドラッグして並べ替えます。",
+    "lessonRegionTable": "スケジュールの場所",
+    "lessonRegionTableHint": "実行するランクと回数を選びます。0 でスキップします。",
+    "lessonRelationshipFirst": "絆ポイントを獲得できる生徒が多い場所を優先します。",
+    "manualBoss": "攻略中のボス戦を手動で操作します。",
+    "normalSweepPlan": "選んだ任務を一覧の順に掃討します。",
+    "pushCompletion": "このプロファイルのタスク完了時に通知します。",
+    "pushError": "エラー時に下記サービスで通知します。",
+    "pushJson": "JSON 形式の通知設定です。使わない場合は空欄にします。",
+    "pushServerchan": "ServerChan の設定です。使わない場合は空欄にします。",
+    "screenshotInterval": "撮影間隔です。最小 0.1 秒です。",
+    "screenshotMethod": "端末に対応する撮影方法を選びます。",
+    "scriptAutostart": "スクリプト起動後、このプロファイルのタスクを開始します。",
+    "scriptThen": "すべてのタスク完了後の動作です。",
+    "server": "このプロファイルのサーバーです。別のサーバーは別プロファイルを作成してください。",
+    "sweepPurchaseLesson": "スケジュールチケットの購入回数です。0 で購入しません。",
+    "sweepPurchaseRewarded": "指名手配チケットの購入回数です。0 で購入しません。",
+    "sweepPurchaseScrimmage": "学園交流会チケットの購入回数です。0 で購入しません。",
+    "sweepTicketsTitle": "チケット購入",
+    "tacticalDifficulty": "総力戦の挑戦難易度です。",
+    "teamMethod": "プリセット・サイドバー属性・サイドバー順で部隊を選びます。",
+    "teamPreset": "ゲーム内プリセットと同じ順に各枠の属性を設定します。",
+    "teamSide": "サイドバーの順に部隊の属性を設定します。"
+  },
+  "configurationMethods": {
+    "adbControl": "ADB でタップやスワイプを送信します。",
+    "adbScreenshot": "ADB で端末画面を取得します。",
+    "mssScreenshot": "Windows のゲームウィンドウ領域を撮影します。",
+    "nemuControl": "Nemu の API を使います。パスとインスタンスを合わせてください。",
+    "nemuScreenshot": "Nemu から撮影します。パスとインスタンスを合わせてください。",
+    "pyautoguiControl": "システムのマウスを使うため、実際のポインターが動きます。",
+    "pyautoguiScreenshot": "画面上の Windows ゲームウィンドウを撮影します。",
+    "scrcpyControl": "scrcpy 接続でタッチ操作を送信します。",
+    "scrcpyScreenshot": "scrcpy の映像から画像を取得します。",
+    "uiautomator2Control": "端末の uiautomator2 サービスで操作します。",
+    "uiautomator2Screenshot": "端末の uiautomator2 サービスで撮影します。"
+  },
+  "edit": {
+    "actionFailed": "編集操作に失敗しました。クリップボードの権限を確認して再試行してください。",
+    "cut": "切り取り",
+    "redo": "やり直す",
+    "selectAll": "すべて選択",
+    "unavailable": "現在の選択範囲ではこの操作を使用できません。",
+    "undo": "元に戻す"
+  },
   "export": {
     "log": {
       "folderSelect": "ログ出力先を選択"
     }
   },
+  "file": {
+    "openConfigFolder": "設定フォルダーを開く",
+    "openConfigFolderFailed": "設定フォルダーを開けませんでした。"
+  },
   "finalRestrictionRls": {
-    "$self": "制限解除決戦",
+    "$self": "制約解除決戦",
     "copyClearFormation": "クリア編成をコピー",
     "copyClearUnavailableHint": "「クリア編成をコピー」を選ぶと設定できます。",
     "formationMethod": "編成方法",
-    "maxRefreshCount": "クリア編成の最大更新回数",
-    "maxUnavailableStudentCount": "使用不可生徒の最大数",
+    "maxRefreshCount": "編成更新の上限",
+    "maxUnavailableStudentCount": "使用不可生徒の上限",
     "useCurrentFormation": "現在の編成を使用"
   },
   "friend": {
     "add": "追加",
     "addFailed": "追加に失敗しました",
     "alreadyExists": "このフレンドは既に存在します",
-    "disabledThresholdHint": "-1 を入力すると条件を無効にできます。",
     "empty": "フレンドホワイトリストは空です",
     "filters": "整理条件",
     "invalidFormatCN": "CNコードは数字と小文字",
     "invalidFormatGlobal": "Globalコードは大文字",
     "invalidLength": "フレンドコードの長さが無効です",
-    "lastLoginDays": "最終ログイン日数しきい値",
-    "lastTotalAssaultRankLimit": "前回総力戦順位しきい値",
-    "levelLimit": "フレンドレベルしきい値",
+    "lastLoginDays": "未ログイン日数",
+    "lastTotalAssaultRankLimit": "前回の総力戦順位",
+    "levelLimit": "レベル基準",
     "placeholder": "フレンドコードを入力",
     "whitelist": "フレンド白リスト"
+  },
+  "friendlyBounty": {
+    "activityStageOption": "任務 {{number}}",
+    "activityStageSaved": "任務 {{number}}（保存済み）"
+  },
+  "friendlyPriority": {
+    "addChapter": "エリアを追加",
+    "chapter": "エリア",
+    "chapterLabel": "エリア {{chapter}}",
+    "emptyExplore": "エリアがありません。",
+    "emptyLegacy": "保存済みの空項目",
+    "emptyPriority": "優先ノードがありません。",
+    "keyboardHint": "Space で選択、矢印で移動、Enter で確定、Esc で中止。",
+    "legacyValue": "元の設定を保持中。削除して再選択できます",
+    "mission": "任務",
+    "missionA": "任務 A",
+    "missionLabel": "任務 {{mission}}",
+    "moveDown": "下へ",
+    "moveUp": "上へ",
+    "noResults": "該当するノードはありません",
+    "position": "{{item}}、{{position}}／{{total}} 番目",
+    "reorderHint": "ハンドルをドラッグして並べ替えます。上ほど優先です。",
+    "reorderItem": "{{item}} を並べ替え",
+    "searchNodes": "ノードを検索",
+    "selectNodes": "ノードを選択",
+    "wholeChapter": "エリア全体"
   },
   "heartbeat": {
     "connected": "サービスに接続しました",
     "connecting": "サービスに接続中..."
+  },
+  "help": {
+    "documentation": "ドキュメント",
+    "openFailed": "ドキュメントを開けませんでした。もう一度お試しください。",
+    "title": "ヘルプ"
   },
   "home": {
     "preparing": "準備中"
   },
   "label": {
     "installDir": "インストール先"
+  },
+  "menu": {
+    "bar": "アプリメニュー",
+    "edit": "編集",
+    "file": "ファイル",
+    "view": "表示"
   },
   "placeholder": {
     "config": {
@@ -698,22 +952,34 @@
     "nobinding": "未割り当て",
     "profileName": "ここにプロファイル名を入力してください"
   },
-  "select": {
-    "placeholder": "選択"
-  },
   "student": {
     "add": "生徒を追加",
     "search": "生徒を検索"
   },
-  "switch": {
-    "off": "オフ",
-    "on": "オン"
+  "sweepPlan": {
+    "add": "任務を追加",
+    "chapter": "エリア",
+    "count": "掃討回数",
+    "countMode": "回数設定",
+    "down": "下へ",
+    "empty": "任務がありません。",
+    "emptyEntry": "空の項目",
+    "fixedCount": "回数指定",
+    "invalidChapter": "このサーバーにあるエリアを選んでください。",
+    "invalidCount": "0 以上の整数を入力してください。",
+    "invalidFormat": "保存済みの項目が不完全か、未対応の形式です。",
+    "invalidMission": "このモードにある任務を選んでください。",
+    "maximum": "最大回数",
+    "maxUnsupported": "中国版の Hard 任務は回数指定が必要です。",
+    "mission": "任務",
+    "remove": "任務を削除",
+    "repair": "元の内容を保持しています。削除して追加し直すと修正できます。",
+    "row": "項目 {{number}}",
+    "unsaved": "エラーのある項目を修正または削除すると自動保存されます。",
+    "up": "上へ"
   },
   "tacticalShop": {
     "title": "戦術対抗戦ショップ"
-  },
-  "title": {
-    "wiki": "ドキュメント"
   },
   "toast": {
     "dateUpdated": "日付を更新しました",
@@ -729,8 +995,8 @@
     "zoom": "UIズーム設定"
   },
   "updateChannel": {
-    "dev": "Development",
-    "stable": "Stable"
+    "dev": "開発版",
+    "stable": "安定版"
   },
   "updateMethod": {
     "baasCdn": "BAAS CDN",
@@ -745,6 +1011,14 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "view": {
+    "fullscreen": "全画面表示",
+    "fullscreenFailed": "全画面表示を切り替えられませんでした。",
+    "resetZoom": "ズームをリセット",
+    "sidebar": "サイドバーを表示",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
   },
   "workflow": {
     "arrange": "自動配置",

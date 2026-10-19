@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover
 import { FormInput } from "@/components/ui/FormInput";
 import { cn } from "@/shared/cn";
 import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 
 interface DateTimePickerProps {
   /**
@@ -34,7 +34,7 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
 }) => {
   const [open, setOpen] = React.useState(false);
   const dateObj = value != null ? new Date(value) : null;
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   // Pre-format date and time strings so the inputs remain controlled even with null values.
   const dateStr = dateObj
@@ -88,10 +88,10 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
         setOpen(false);
       });
       toast(t("toast.dateUpdated"), {
-        description: newDate.toLocaleString(),
+        description: newDate.toLocaleString(language),
       });
     },
-    [dateObj, onChange, t]
+    [dateObj, onChange, t, language]
   );
 
   /** Handles the handle time input interaction. */
@@ -113,20 +113,25 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
         });
 
         toast.success(t("toast.timeUpdated"), {
-          description: newDate.toLocaleString(),
+          description: newDate.toLocaleString(language),
         });
       }, delay);
     },
-    [dateObj, delay, onChange, t]
+    [dateObj, delay, onChange, t, language]
   );
 
   return (
-    <div className={cn("flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8", className)}>
+    <div
+      className={cn(
+        "date-time-picker flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8",
+        className
+      )}
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <FormInput
             value={dateStr}
-            className="justify-between font-mono !p-0"
+            className="date-time-picker-date justify-between font-mono !p-0"
             childClassName="border-none !p-0 !bg-transparent shadow-none h-8"
           />
         </PopoverTrigger>
@@ -140,22 +145,16 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
         </PopoverContent>
       </Popover>
 
-      <span className="mx-1 h-8">.</span>
+      <span className="date-time-picker-separator mx-1 h-8">.</span>
 
       <FormInput
         type="time"
         step="1"
         value={localTime}
         onChange={handleTimeInput}
-        className="font-mono h-8"
+        className="date-time-picker-time font-mono h-8"
         childClassName="h-8
           border-none !p-0 !bg-transparent shadow-none
-          focus:outline-none focus-visible:outline-none
-          focus-visible:!ring-0 focus-visible:!ring-offset-0
-          focus-visible:!border-current
-          focus-visible:[--tw-ring-color:transparent]
-          focus-visible:[--tw-ring-shadow:0_0_#0000]
-          focus-visible:[--tw-ring-offset-shadow:0_0_#0000]
         "
       />
     </div>

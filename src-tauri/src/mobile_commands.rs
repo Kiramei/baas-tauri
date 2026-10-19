@@ -396,6 +396,22 @@ pub fn android_request_shizuku_permission(app: AppHandle) -> Result<(), String> 
     crate::android_backend_service::request_shizuku_permission(&app)
 }
 
+/// Opens only the installed Shizuku app after an explicit user action.
+#[tauri::command]
+pub fn android_open_shizuku(app: AppHandle) -> Result<(), String> {
+    crate::android_backend_service::open_shizuku(&app)
+}
+
+/// Applies the app palette to Android's status and navigation bars.
+#[tauri::command]
+pub fn android_set_system_bars(
+    app: AppHandle,
+    background_color: String,
+    dark_icons: bool,
+) -> Result<(), String> {
+    crate::android_backend_service::set_system_bars(&app, &background_color, dark_icons)
+}
+
 fn android_cleanup_scrcpy_virtual_display_blocking(
     app: AppHandle,
     serial: Option<String>,
@@ -646,7 +662,7 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
     let mut log = vec!["Shizuku privileged virtual-display service connected".to_string()];
     let display_id =
         crate::android_backend_service::start_shizuku_display(app, width, height, density)?;
-    if display_id < 0 {
+    if display_id <= 0 {
         return Err("Shizuku did not return a valid virtual display id".to_string());
     }
     let display_id = u32::try_from(display_id)

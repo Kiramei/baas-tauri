@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import { PageKey } from "@/types/app";
@@ -6,6 +6,20 @@ import i18n from "@/shared/I18nTranslator.ts";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LoadingPage from "@/pages/LoadingPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
+import { normalizePageKey } from "@/shared/PageKey";
+import { AboutBaasProvider } from "@/context/AboutBaasProvider";
+import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
+import PageActivity from "@/components/PageActivity";
+import "./mobile.css";
+import { useAndroidSystemBars } from "./useAndroidSystemBars";
+
+declare global {
+  interface Window {
+    __BAAS_ANDROID_HANDLE_BACK__?: () => boolean;
+  }
+}
+
+const ignoreReady = () => {};
 
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
@@ -48,7 +62,10 @@ const HomeReadyMarker: React.FC<{ onReady: () => void }> = ({ onReady }) => {
         onReady();
       });
     });
-    return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, [onReady]);
   return null;
 };
@@ -68,55 +85,132 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 
-/** Renders the main component. */
-const Main: React.FC<{ onReady: () => void }> = ({ onReady }) => {
-  const [activePage, setActivePage] = React.useState<PageKey>("home");
-  const { activeProfile } = useApp();
+/** Preserve each profile's pages and pause inactive editors in the same render. */
+export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady }) => {
+  const [selectedPage, setActivePage] = React.useState<PageKey>("home");
+  const activePage = normalizePageKey(selectedPage);
+  const { activeProfile, profiles } = useApp();
   const activePid = activeProfile?.id;
-  const [mountedPages, setMountedPages] = useState<PageKey[]>(["home"]);
+  const currentKey = instanceKeyOf(activePage, activePid);
+  const [seenKeys, setSeenKeys] = useState<string[]>([]);
+  const homeKey = activePid ? instanceKeyOf("home", activePid) : null;
+  const renderedKeys = Array.from(
+    new Set([...seenKeys, ...(homeKey ? [homeKey] : []), currentKey])
+  );
 
   useEffect(() => {
-    setMountedPages((pages) => (pages.includes(activePage) ? pages : [...pages, activePage]));
+    if (!activePid && activePage !== "settings") return;
+    setSeenKeys((keys) =>
+      keys.includes(currentKey) && (!homeKey || keys.includes(homeKey))
+        ? keys
+        : Array.from(new Set([...keys, ...(homeKey ? [homeKey] : []), currentKey]))
+    );
+  }, [activePage, activePid, currentKey, homeKey]);
+
+  useLayoutEffect(() => {
+    const previousHandler = window.__BAAS_ANDROID_HANDLE_BACK__;
+    const isVisible = (element: Element) =>
+      element.getClientRects().length > 0 && !element.closest("[aria-hidden='true'],[hidden]");
+    const handleBack = () => {
+      const layer = Array.from(
+        document.querySelectorAll(
+          "[role='dialog'],[role='alertdialog'],[role='menu'],[role='listbox'],[data-slot='popover-content']"
+        )
+      ).find(isVisible);
+      if (layer) {
+        // Radix and the shared modal focus handler both use Escape to dismiss.
+        (document.activeElement ?? document.body).dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+        return true;
+      }
+      const focused = document.activeElement;
+      if (
+        focused instanceof HTMLInputElement &&
+        focused.matches("[data-configuration-search],[data-settings-search-source]") &&
+        isVisible(focused)
+      ) {
+        focused.blur();
+        return true;
+      }
+      if (activePage !== "home") {
+        setActivePage("home");
+        return true;
+      }
+      return false;
+    };
+    window.__BAAS_ANDROID_HANDLE_BACK__ = handleBack;
+    return () => {
+      if (window.__BAAS_ANDROID_HANDLE_BACK__ === handleBack) {
+        if (previousHandler) window.__BAAS_ANDROID_HANDLE_BACK__ = previousHandler;
+        else delete window.__BAAS_ANDROID_HANDLE_BACK__;
+      }
+    };
   }, [activePage]);
 
-  /**
-   * Lazily instantiate the requested page while injecting the active profile id when applicable.
-   */
-  const renderPage = useCallback((page: PageKey, pid: string) => {
-    switch (page) {
-      case "home":
-        return <><HomePage profileId={pid} /><HomeReadyMarker onReady={onReady} /></>;
-      case "scheduler":
-        return <SchedulerPage profileId={pid} />;
-      case "configuration":
-        return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
-      case "settings":
-        return <SettingsPage />;
-      default:
-        return null;
-    }
-  }, [onReady]);
+  const renderPage = useCallback(
+    (page: PageKey, pid?: string) => {
+      switch (page) {
+        case "home":
+          return (
+            <>
+              <HomePage profileId={pid} />
+              <HomeReadyMarker onReady={onReady} />
+            </>
+          );
+        case "scheduler":
+          return <SchedulerPage profileId={pid} />;
+        case "configuration":
+          return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
+        case "settings":
+          return <SettingsPage />;
+        default:
+          return <HomePage profileId={pid} />;
+      }
+    },
+    [onReady]
+  );
 
-  if (!activeProfile || !activePid) {
+  if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
-        {null}
+        <HomeReadyMarker onReady={onReady} />
       </MainLayout>
     );
   }
 
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
-      <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-56px)] lg:h-full">
-        {mountedPages.map((page) => {
-          const isActive = page === activePage;
+      <div className="android-page-stack relative h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+        {renderedKeys.map((key) => {
+          const separator = key.indexOf(":");
+          const page = normalizePageKey(separator < 0 ? key : key.slice(0, separator));
+          const pid = separator < 0 ? undefined : key.slice(separator + 1);
+          if (page !== "settings" && !profiles.some((profile) => profile.id === pid)) return null;
+          const isActive = key === currentKey;
+          const content = (
+            <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, pid)}</Suspense>
+          );
           return (
             <div
-              key={instanceKeyOf(page, activePid)}
+              key={key}
               className={`android-page-scroll absolute inset-0 overflow-y-auto ${isActive ? "" : "hidden"}`}
+              data-page={page}
               aria-hidden={!isActive}
             >
-              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, activePid)}</Suspense>
+              {/* react-window keeps its measurements while Home is cached. */}
+              {page === "home" ? (
+                content
+              ) : (
+                <PageActivity active={isActive} suspendDelayMs={0}>
+                  {content}
+                </PageActivity>
+              )}
             </div>
           );
         })}
@@ -225,15 +319,52 @@ const WrappedApp: React.FC = () => {
   );
 };
 
-/** Renders the app component. */
-const App: React.FC = () => {
+/** Share native viewport sizing with the isolated Android UI fixture. */
+export function useAndroidViewport() {
   useEffect(() => {
-    document.documentElement.lang = i18n.language;
+    if (!__WITH_ANDROID__) return;
+    const root = document.documentElement;
+    root.lang = i18n.language;
+    const previousPlatform = root.dataset.appPlatform;
+    root.dataset.appPlatform = "android";
+    const visualViewport = window.visualViewport;
+    const viewportProperties = ["height", "top", "left", "width"] as const;
+    let layoutHeight = window.innerHeight;
+    let layoutWidth = window.innerWidth;
+    const updateViewport = () => {
+      const values = {
+        height: visualViewport?.height ?? window.innerHeight,
+        top: visualViewport?.offsetTop ?? 0,
+        left: visualViewport?.offsetLeft ?? 0,
+        width: visualViewport?.width ?? window.innerWidth,
+      };
+      const focused = document.activeElement;
+      const editing =
+        focused instanceof HTMLElement &&
+        focused.matches("input,textarea,[contenteditable='true']");
+      if (Math.abs(window.innerWidth - layoutWidth) > 80) {
+        layoutHeight = window.innerHeight;
+        layoutWidth = window.innerWidth;
+      } else if (!editing) {
+        layoutHeight = Math.max(layoutHeight, window.innerHeight);
+      }
+      root.dataset.androidKeyboardVisible = String(
+        editing && Math.max(layoutHeight, window.innerHeight) - values.height > 120
+      );
+      for (const property of viewportProperties) {
+        root.style.setProperty(`--android-viewport-${property}`, `${values[property]}px`);
+      }
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    visualViewport?.addEventListener("resize", updateViewport);
+    visualViewport?.addEventListener("scroll", updateViewport);
+    document.addEventListener("focusin", updateViewport);
+    document.addEventListener("focusout", updateViewport);
     const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
     const previousViewport = viewport?.content;
     if (__WITH_ANDROID__ && viewport) {
-      viewport.content =
-        "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no";
+      viewport.content = "width=device-width, initial-scale=1, viewport-fit=cover";
     }
     /** Handles the on lang change interaction. */
     const onLangChange = (lng: string) => {
@@ -242,14 +373,33 @@ const App: React.FC = () => {
     i18n.on("languageChanged", onLangChange);
     return () => {
       i18n.off("languageChanged", onLangChange);
+      window.removeEventListener("resize", updateViewport);
+      visualViewport?.removeEventListener("resize", updateViewport);
+      visualViewport?.removeEventListener("scroll", updateViewport);
+      document.removeEventListener("focusin", updateViewport);
+      document.removeEventListener("focusout", updateViewport);
+      delete root.dataset.androidKeyboardVisible;
+      for (const property of viewportProperties)
+        root.style.removeProperty(`--android-viewport-${property}`);
+      if (previousPlatform) root.dataset.appPlatform = previousPlatform;
+      else delete root.dataset.appPlatform;
       if (viewport && previousViewport) viewport.content = previousViewport;
     };
   }, []);
+}
 
+/** Renders the app component. */
+const App: React.FC = () => {
+  useAndroidViewport();
+  useAndroidSystemBars();
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <WrappedApp />
+        <AboutBaasProvider>
+          <ProfileActionsProvider>
+            <WrappedApp />
+          </ProfileActionsProvider>
+        </AboutBaasProvider>
       </UISettingsProvider>
     </ThemeProvider>
   );

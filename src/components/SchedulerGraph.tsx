@@ -17,7 +17,7 @@ import {
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { GitBranch, GripHorizontal, LayoutGrid, Unplug, AlertTriangle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { EventConfig } from "@/types/event";

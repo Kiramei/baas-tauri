@@ -7,12 +7,18 @@
     "forward": "前进",
     "maximize": "最大化",
     "minimize": "最小化",
+    "modeBaasDescription": "自动处理日常任务。",
+    "modeInDevelopment": "处于开发中，敬请期待",
+    "modeRaidDescription": "协助总力战战斗",
     "restore": "还原",
     "windowControls": "窗口控制"
   },
   "nav": {
     "configuration": "配置",
     "home": "主页",
+    "mobileConfiguration": "配置",
+    "mobileScheduler": "调度",
+    "mobileSettings": "设置",
     "scheduler": "调度",
     "settings": "设置"
   },
@@ -55,7 +61,7 @@
     "export": "导出日志",
     "scroll": {
       "$self": "自动滚动",
-      "detail": "自动滚动日志文本框"
+      "detail": "跟随最新日志"
     }
   },
   "task": {
@@ -80,8 +86,59 @@
     }
   },
   "settings": {
-    "feature": "功能设置",
-    "general": "通用设置",
+    "categories": "设置分类",
+    "descriptions": {
+      "assets": "在主页展示游戏资源。",
+      "idleAutoUpdate": "所有配置档空闲时自动更新脚本。",
+      "language": "选择应用界面的显示语言。",
+      "lowPerformanceMode": "减少动画和视觉效果，降低界面开销。",
+      "minimizeToTray": "最小化窗口时隐藏到系统托盘，继续在后台运行。",
+      "safeStream": "加密 WebSocket 远程预览数据传输。",
+      "systemNotifications": "在任务状态变化或服务断开时显示系统通知。"
+    },
+    "feature": "功能",
+    "general": "通用",
+    "groups": {
+      "connection": "通信与远程控制",
+      "desktop": "桌面行为",
+      "display": "显示与效果",
+      "preferences": "首选项"
+    },
+    "noResults": "未找到相关设置",
+    "search": "搜索设置",
+    "sections": {
+      "appearance": "外观",
+      "general": "常规",
+      "logs": "日志",
+      "runtime": "连接与运行",
+      "shortcuts": "快捷键",
+      "updates": "更新"
+    },
+    "shortcuts": {
+      "application": "应用快捷键",
+      "binding": "组合键",
+      "clear": "清空快捷键",
+      "conflict": "已用于“{{shortcut}}”。",
+      "defaultBinding": "默认：{{binding}}",
+      "disabled": "未绑定",
+      "escapeDescription": "取消录制、关闭弹窗或取消安装。",
+      "global": "全局任务快捷键",
+      "globalDescription": "BAAS 在后台时也可控制调度。",
+      "instructions": "点击键盘图标录制，清空可停用。",
+      "native": "文本编辑",
+      "nativeDescription": "沿用系统文本快捷键，无需配置。",
+      "nativeTextDescription": "输入或选中文本时使用。",
+      "profileDescription": "从任意窗口启停此配置的调度。",
+      "profileRun": "启停配置",
+      "record": "录制快捷键",
+      "recordHint": "按下组合键，Esc 取消",
+      "recording": "录制中",
+      "recordMainKey": "请再按下一个普通按键…",
+      "resetAll": "恢复应用快捷键",
+      "resetButton": "恢复默认",
+      "resetDescription": "恢复应用默认快捷键，保留配置的全局快捷键。",
+      "stopRecording": "停止录制"
+    },
     "systemLogs": {
       "allLevels": "全部级别",
       "allSources": "全部来源",
@@ -103,8 +160,7 @@
       "title": "系统日志"
     },
     "ui": {
-      "$self": "界面设置",
-      "assets": "显示资产详细信息",
+      "assets": "显示游戏资源",
       "backgroundImage": "背景图",
       "backgroundImageChoose": "选择背景图",
       "backgroundImageEmpty": "未设置背景图",
@@ -115,11 +171,11 @@
       "backgroundImageSelected": "已设置背景图",
       "backgroundImageTooLarge": "背景图不能超过 5MB。",
       "enableBAComet": "启用 BAComet",
-      "enableSafeStream": "远程模拟器画面启用流加密",
+      "enableSafeStream": "加密远程画面",
       "enableSystemNotifications": "启用系统通知",
       "idleAutoUpdate": "空闲时自动更新脚本",
       "lowPerformanceMode": "低性能模式",
-      "player": "远程模拟器解码器",
+      "player": "画面解码器",
       "themeColor": "主题色",
       "themeColorInvalid": "请输入 #RRGGBB 格式的主题色。",
       "themeColorReset": "重置主题色"
@@ -150,13 +206,9 @@
   "version": {
     "checkError": "版本获取失败",
     "fetching": "获取中...",
-    "info": "版本信息",
     "local": "当前版本",
     "remote": "最新版本",
     "tapToTest": "检查更新",
-    "tauriLocal": "客户端当前",
-    "tauriRemote": "客户端最新",
-    "tauriStatus": "客户端状态",
     "testing": "测试中..."
   },
   "profile": {
@@ -185,55 +237,57 @@
     "nameExists": "配置名已存在"
   },
   "description": {
-    "arena": "自动进行竞技场战斗",
+    "arena": "选择对手与挑战次数",
     "artifact": {
-      "$self": "制造设置",
+      "$self": "材料与节点优先级",
       "useTicket": "使用制造券"
     },
     "cafe": {
-      "$self": "咖啡厅邀请与奖励",
+      "$self": "邀请学生、互动与领取收益",
       "patRounds": "轮数越高越不容易漏摸"
     },
     "commonShop": {
-      "refresh": "自动刷新商店"
+      "refresh": "购买后刷新商店的次数；0 表示不刷新。"
     },
     "dailySweep": "日常推图与扫荡",
-    "drill": "战术测试设置",
+    "drill": "编队与测试难度",
     "emulator": "模拟器路径与启动项",
-    "finalRestrictionRls": "配置编队方式与通关队伍复制",
+    "finalRestrictionRls": "选择编队与复制通关队伍",
     "getEmulator": "选择模拟器路径",
     "other": {
       "$self": "杂项功能与设置",
-      "fhx": "尝试进行反和谐操作（国区特供）"
+      "fhx": "恢复国服原始立绘"
     },
     "push": "配置消息推送",
-    "schedule": "配置每日日程",
+    "schedule": "选择日程区域与学生",
     "script": "脚本运行设置",
     "server": "游戏服务器与连接",
     "settings": {
       "updateSuccess": "您的设置已成功更新。"
     },
-    "shop": "设置购买优先级",
-    "stage": {
-      "$self": "自动推图",
-      "hard": "困难关卡设置同上，注意：次数最多为3，逗号均为英文逗号，日服、国际服可填max",
-      "normal": "普通关卡与次数（如\"1-1-1,1-2-3\"表示关卡1-1打一次，然后关卡1-2打三次）"
-    },
+    "shop": "选择购买的商品",
+    "stage": "自动推图",
     "tactical": "总力战设置",
     "team": "设置编队",
     "whitelist": "配置清理条件与好友白名单"
   },
   "installer": {
     "advanced": "高级设置",
+    "advancedHint": "语言、外观、更新通道与连接方式。",
+    "autoEnter": "安装完成后自动进入",
+    "autoEnterHint": "关闭后，安装完成时保留安装日志，点击“进入主页”继续。",
+    "completed": "安装完成",
+    "directoryHint": "运行环境与脚本文件将安装到此目录。",
+    "enter": "进入主页",
+    "entering": "正在进入…",
     "exit": "取消安装",
+    "logs": "安装日志",
+    "noOutput": "暂无终端输出。",
+    "portableHint": "便携模式使用程序所在目录。",
+    "preparing": "正在准备终端…",
     "setting": "安装配置",
     "start": "开始安装",
-    "subtitle": {
-      "stage1": "配置您的安装",
-      "stage2": "我们正在设置您的环境，请稍安勿躁。"
-    },
     "title": {
-      "$self": "欢迎使用蔚蓝档案自动脚本",
       "wizard": "安装向导"
     }
   },
@@ -254,38 +308,22 @@
     "validateKeySubtitle": "验证密钥",
     "verifyingServerIdentity": "正在验证服务器身份..."
   },
-  "wiki": {
-    "category": {
-      "all": "全部",
-      "architecture": "架构",
-      "configuration": "配置管理",
-      "environment": "环境配置",
-      "formation": "编队策略",
-      "getting-started": "入门",
-      "operations": "运营操作",
-      "support": "支持与反馈"
-    },
-    "subtitle": "打开 BAAS 在线文档站，查看安装、配置、调度、功能说明与开发资料。",
-    "title": "百科文档",
-    "web": {
-      "failed": "网页 Wiki 加载失败",
-      "loading": "正在加载网页 Wiki...",
-      "openBrowser": "在浏览器中访问",
-      "title": "百科文档"
-    }
-  },
   "scheduler": {
     "activeTasks": "启用的任务",
     "dailyReset": "每日重置时间",
-    "detailConfig": "任务详细调度配置",
+    "detailConfig": "任务调度",
+    "disableAll": "全部停用",
     "disabledRange": "禁用时间段",
+    "enableAll": "全部启用",
     "eventName": "任务名称",
     "inactiveTasks": "未启用的任务",
     "interval": "间隔 (秒)",
     "nextTick": "下次执行时间",
+    "noResults": "未找到匹配的任务",
     "postTask": "后置任务",
     "preTask": "前置任务",
     "priority": "优先级",
+    "resetTimes": "重置任务时间",
     "search": "搜索任务",
     "selector": "任务选择器",
     "sortByTime": "按时间排序",
@@ -293,29 +331,29 @@
   },
   "stage": {
     "$self": "推图",
-    "attrTable": "关卡参考属性表",
-    "challenge": "推挑战关卡",
+    "attrTable": "关卡属性",
+    "challenge": "挑战关卡",
     "currentEvent": "当前活动",
-    "dailyTab": "地图扫荡",
+    "dailyTab": "任务扫荡",
     "eventTab": "活动关卡",
-    "exploreTab": "主线关卡",
-    "hardLabel": "困难图每日扫荡",
+    "exploreTab": "任务关卡",
+    "hardLabel": "困难关卡",
     "hardTask": "困难关卡",
-    "manualBoss": "手动打Boss",
-    "mission": "推任务关卡",
+    "manualBoss": "手动首领战",
+    "mission": "任务关卡",
     "noEvent": "暂无活动",
     "noHardTask": "没有设置困难关卡!",
     "noNormalTask": "没有设置普通关卡!",
-    "normalLabel": "普通图每日扫荡",
+    "normalLabel": "普通关卡",
     "normalTask": "普通关卡",
     "selectStudent": "选择学生",
     "story": {
-      "$self": "推剧情关卡",
-      "group": "推社团故事",
-      "main": "推主线故事",
-      "mini": "推小故事"
+      "$self": "剧情",
+      "group": "社团剧情",
+      "main": "主线剧情",
+      "mini": "小故事"
     },
-    "sweepTab": "扫荡细节",
+    "sweepTab": "其他扫荡",
     "taskTriggered": "下发的任务为: {{task}}",
     "taskTriggerStart": "任务已经下发"
   },
@@ -342,24 +380,24 @@
     "starredPosition": "收藏学生位置",
     "useInvitation": "使用邀请券"
   },
-  "dailySweep": "日常",
+  "dailySweep": "日常扫荡",
   "schedule": {
     "$self": "日程",
     "advanced": "高级",
-    "normal": "普通",
+    "normal": "中级",
     "primary": "初级",
     "superior": "特级"
   },
   "shop": "商店购买",
   "arena": {
-    "$self": "竞技场",
-    "higherLevel": "对手高你的级数",
-    "maxRefreshTimes": "最大刷新次数",
-    "opponentNo": "对手编号"
+    "$self": "战术对抗赛",
+    "higherLevel": "对手等级差",
+    "maxRefreshTimes": "刷新次数上限",
+    "opponentNo": "对手位置"
   },
   "server": {
     "$self": "服务器",
-    "adbIP": "ADB IP地址",
+    "adbIP": "ADB 地址",
     "adbPort": "ADB 端口",
     "cn": {
       "bilibili": "B服",
@@ -378,10 +416,10 @@
   "emulator": {
     "$self": "模拟器",
     "address": "模拟器路径",
-    "instanceCount": "多开模拟器编号",
-    "multiInstance": "模拟器多开",
+    "instanceCount": "多开编号",
+    "multiInstance": "使用多开",
     "multiType": "模拟器类型",
-    "openOnLaunch": "启动脚本时打开模拟器",
+    "openOnLaunch": "自动启动模拟器",
     "types": {
       "bluestacksCn": "蓝叠模拟器",
       "bluestacksGlobal": "蓝叠国际版",
@@ -392,7 +430,7 @@
       "xiaoyaoNat": "逍遥模拟器 (NAT)",
       "yeshen": "夜神模拟器"
     },
-    "waitTime": "等待模拟器启动时间 (秒)"
+    "waitTime": "启动等待（秒）"
   },
   "push": {
     "$self": "推送通知",
@@ -406,10 +444,10 @@
     "fhx": "一键反和谐"
   },
   "drill": {
-    "$self": "战术测试",
+    "$self": "综合战术测试",
     "difficulty": "测试难度",
-    "outPartyNo": "队伍编号",
-    "useAllAfterSweep": "出击后使用所有测试挑战券"
+    "outPartyNo": "编队编号",
+    "useAllAfterSweep": "出击后扫荡剩余次数"
   },
   "artifact": {
     "$self": "制造",
@@ -417,36 +455,36 @@
     "blue": "蓝色",
     "createTime": "制造次数",
     "default": "默认",
-    "global": "全局设置",
+    "global": "基本设置",
     "gold": "金色",
-    "goldPurple": "金紫组合",
-    "materialSelect": "材料选择",
-    "phase1": "第一阶段",
+    "goldPurple": "金色与紫色",
+    "materialSelect": "投入材料",
+    "phase1": "第一节点",
     "phase2": {
-      "$self": "第二阶段",
-      "recommend": "按照学生进行推荐"
+      "$self": "第二节点",
+      "recommend": "按学生推荐"
     },
-    "phase3": "第三阶段",
-    "phaseCount": "制造阶数",
+    "phase3": "第三节点",
+    "phaseCount": "制造阶段数",
     "priority": "优先级",
     "purple": "紫色",
     "selectStudent": "选择学生",
     "white": "白色",
-    "whiteBlue": "白蓝组合"
+    "whiteBlue": "白色与蓝色"
   },
   "whitelist": "好友清理",
   "script": {
     "$self": "脚本设置",
-    "autostart": "脚本开启时自动启动",
+    "autostart": "自动启动任务",
     "controlMethod": "控制方式",
     "doNothing": "不做任何操作",
-    "exitBaas": "退出 Baas",
-    "exitBoth": "退出 Baas 和模拟器",
+    "exitBaas": "退出 BAAS",
+    "exitBoth": "退出 BAAS 和模拟器",
     "exitEmu": "退出模拟器",
-    "screenshotInterval": "截图间隔 (秒)",
+    "screenshotInterval": "截图间隔（秒）",
     "screenshotMethod": "截图方式",
     "shutdown": "关闭电脑",
-    "then": "任务完成后操作"
+    "then": "任务完成后"
   },
   "tactical": {
     "$self": "总力战",
@@ -460,24 +498,23 @@
     "side": "按侧栏属性编队"
   },
   "lesson": {
-    "enableFavorStudent": "优先选择收藏的学生",
-    "favorStudent": "收藏的学生",
+    "enableFavorStudent": "优先收藏学生",
+    "favorStudent": "收藏学生",
     "region": "日程区域",
-    "relationshipFirst": "优先选择高好感度学生",
+    "relationshipFirst": "优先提升好感度",
     "times": "日程次数"
   },
   "sweep": {
-    "activityNumber": "活动关卡扫荡关卡",
-    "activityTimes": "活动关卡扫荡次数",
-    "purchaseLesson": "日程券购买次数",
-    "purchaseRewarded": "悬赏委托扫荡券购买次数",
-    "purchaseScrimmage": "学院交流会扫荡券购买次数",
-    "rewarded": "悬赏通缉扫荡次数",
-    "rewardedHint": "按游戏中的区域顺序填写，共 {{count}} 个区域。输入非负整数或 max；0 表示跳过。",
+    "activityNumber": "活动关卡",
+    "activityTimes": "活动扫荡",
+    "purchaseLesson": "购买日程券",
+    "purchaseRewarded": "购买悬赏通缉券",
+    "purchaseScrimmage": "购买交流会券",
+    "rewarded": "悬赏通缉",
     "rewardedInvalid": "请输入非负整数或 max。",
     "rewardedRegion": "区域 {{number}}",
-    "scrimmage": "学院交流会扫荡次数",
-    "special": "特殊委托扫荡次数"
+    "scrimmage": "学院交流会",
+    "special": "特别委托"
   },
   "remote": {
     "advanced": "高级设置",
@@ -520,13 +557,13 @@
     "ap": "体力",
     "burst": "爆发",
     "coin": {
-      "arena": "战术硬币",
-      "commission": "委托币"
+      "arena": "战术奖币",
+      "commission": "悬赏通缉奖币"
     },
-    "credits": "信用点",
+    "credits": "信用积分",
     "keystone": {
       "$self": "拱心石",
-      "piece": "碎片"
+      "piece": "拱心石碎片"
     },
     "mystic": "神秘",
     "pass": "通行证",
@@ -537,39 +574,39 @@
   },
   "eventName": {
     "activitySweep": "活动扫荡",
-    "arena": "竞技场",
+    "arena": "战术对抗赛",
     "cafeReward": "咖啡厅",
-    "clearSpecialTaskPower": "每日特别委托",
-    "collectDailyFreePower": "收集免费购买体力",
-    "collectDailyPower": "收集每日体力",
-    "collectReward": "收集奖励",
+    "clearSpecialTaskPower": "特别委托",
+    "collectDailyFreePower": "领取免费体力",
+    "collectDailyPower": "领取每日体力",
+    "collectReward": "领取奖励",
     "commonShop": "商店购买",
-    "create": "自动制造",
+    "create": "制造",
     "dailyGameActivity": "日常小游戏",
     "friend": "清理好友",
-    "group": "收集小组体力",
-    "hardTask": "困难关清体力",
+    "group": "领取小组体力",
+    "hardTask": "困难关扫荡",
     "jointFiringDrill": "综合战术测试",
     "lesson": "日程",
     "mail": "查收邮箱",
     "momoTalk": "自动MomoTalk",
-    "no1CafeInvite": "1号咖啡厅邀请",
-    "no2CafeInvite": "2号咖啡厅邀请",
-    "normalTask": "普通关清体力",
-    "pass": "领取pass奖励",
+    "no1CafeInvite": "咖啡厅 1 号店邀请",
+    "no2CafeInvite": "咖啡厅 2 号店邀请",
+    "normalTask": "普通关扫荡",
+    "pass": "领取通行证奖励",
     "restart": "凌晨四点重启",
     "rewardedTask": "悬赏通缉",
     "scrimmage": "学院交流会",
     "startExploreActivityChallenge": "活动挑战",
     "startExploreActivityMission": "活动任务",
     "startExploreActivityStory": "活动剧情",
-    "startFhx": "反和谐",
+    "startFhx": "恢复原始立绘",
     "startGroupStory": "社团剧情",
     "startHardTask": "困难关卡",
     "startMainStory": "主线剧情",
-    "startMiniStory": "迷你剧情",
+    "startMiniStory": "小故事",
     "startNormalTask": "普通关卡",
-    "tacticalChallengeShop": "竞技场商店购买",
+    "tacticalChallengeShop": "战术商店购买",
     "totalAssault": "总力战",
     "unknown": "未知任务"
   },
@@ -640,8 +677,60 @@
     "noData": "暂无 ADB 数据",
     "title": "ADB 检测面板"
   },
+  "android": {
+    "game": {
+      "fallbackName": "游戏",
+      "inspectFailed": "无法读取已安装的游戏",
+      "live": "实时",
+      "liveDisplay": "{{game}}实时画面",
+      "restartFailed": "游戏重启失败",
+      "showControls": "显示游戏控制",
+      "startBackground": "后台启动游戏",
+      "takeoverFailed": "接管游戏失败"
+    },
+    "start": {
+      "actionFailed": "操作未完成，请在 Shizuku 中检查服务和应用授权。",
+      "authorize": "允许授权",
+      "checkAgain": "重试",
+      "checkFailedDescription": "暂时无法读取 Shizuku 状态，请重试。",
+      "checkFailedTitle": "无法检查 Shizuku",
+      "cleanupFailed": "关闭后台游戏画面失败",
+      "displayClosed": "后台游戏画面已关闭",
+      "displayFailed": "后台启动游戏失败",
+      "displayNotReady": "游戏画面尚未就绪",
+      "displayOpened": "游戏已在后台启动",
+      "missingDescription": "启动脚本需要 Shizuku。请先安装 Shizuku，再返回重试。",
+      "missingGameDescription": "配置“{{profile}}”使用{{server}}，手机尚未安装对应客户端。请安装该客户端，或为已安装的服务器新建配置。",
+      "missingGameTitle": "未安装此配置的游戏",
+      "missingTitle": "未安装 Shizuku",
+      "openShizuku": "打开 Shizuku",
+      "otherProfileRunningDescription": "“{{profiles}}”正在运行。Android 共用一个游戏画面，请先停止该配置，再启动“{{profile}}”。",
+      "otherProfileRunningTitle": "其他配置正在运行",
+      "permissionDescription": "BAAS 需要 Shizuku 权限来启动游戏和执行操作。请允许授权，再次点击启动。",
+      "permissionTitle": "需要 Shizuku 授权",
+      "readyDescription": "请关闭此提示，再次点击启动。",
+      "readyTitle": "Shizuku 已就绪",
+      "scriptFailed": "脚本启动失败",
+      "stoppedDescription": "请打开 Shizuku 并启动服务，再返回启动脚本。",
+      "stoppedTitle": "Shizuku 未运行",
+      "unsupportedGameDescription": "配置“{{profile}}”的服务器“{{server}}”不受 Android 支持。请为手机上已安装的服务器新建配置。",
+      "unsupportedGameTitle": "此服务器无法在 Android 上运行"
+    }
+  },
+  "applicationShortcutHelp": {
+    "back": "返回上一个页面或配置。",
+    "forward": "前往下一个页面或配置。",
+    "fullscreen": "进入或退出全屏。",
+    "redo": "重做已撤销的配置修改。",
+    "resetZoom": "恢复 100% 界面缩放。",
+    "settings": "打开应用设置。",
+    "sidebar": "收起或展开配置栏；设置页始终展开。",
+    "undo": "撤销最近的配置修改；搜索框保留文本撤销。",
+    "zoomIn": "放大界面。",
+    "zoomOut": "缩小界面。"
+  },
   "commonShop": {
-    "refreshTimes": "商店刷新次数",
+    "refreshTimes": "刷新次数",
     "title": "普通商店"
   },
   "configAdd": {
@@ -651,45 +740,210 @@
     "selectServer": "请选择服务器",
     "serverRequired": "需要指定服务器"
   },
+  "configuration": {
+    "categories": "配置分类",
+    "history": "配置修改记录",
+    "noResults": "未找到相关配置",
+    "search": "搜索配置"
+  },
+  "configurationCounts": {
+    "activityEntry": "活动关卡 {{number}}",
+    "activityHint": "体力比例按当前体力计算。",
+    "all": "全部次数",
+    "allActivity": "平均分配全部体力",
+    "amount": "次数",
+    "bountyClassroom": "教室",
+    "bountyOverpass": "高架公路",
+    "bountyRailroad": "沙漠铁路",
+    "countHint": "自上而下执行，次数不足时停止。",
+    "fixed": "指定次数",
+    "legacyHint": "已保留原设置。点击重置后可重新配置。",
+    "legacyTitle": "原有设置",
+    "maximumPurchases": "购买上限",
+    "mode": "扫荡方式",
+    "percent": "体力比例（%）",
+    "replace": "重置",
+    "scrimmageGehenna": "歌赫娜",
+    "scrimmageMillennium": "千禧年",
+    "scrimmageTrinity": "崔尼蒂",
+    "share": "体力比例",
+    "skip": "不执行",
+    "specialDefense": "据点防御",
+    "specialRetrieval": "物品回收"
+  },
+  "configurationDifficulties": {
+    "extreme": "极限",
+    "hard": "困难",
+    "hardcore": "硬核",
+    "insane": "疯狂",
+    "normal": "普通",
+    "torment": "折磨",
+    "veryHard": "非常困难"
+  },
+  "configurationHelp": {
+    "adbAddress": "一般为 127.0.0.1。使用设备序列号时，填写在此并留空端口。",
+    "adbPort": "端口范围 0–65535，也可自动检测；地址为空时可填写设备序列号。",
+    "arenaLevel": "允许对手等级比你高或低的范围，支持 -89 至 89。",
+    "arenaOpponent": "选择列表中的第 1、2 或 3 个对手。",
+    "arenaRefresh": "寻找合适对手时，最多刷新列表的次数。",
+    "artifactCreateTimes": "每次任务制造 1–10 次。",
+    "artifactMaterialRule": "选择本节点投入的材料稀有度。",
+    "artifactPhases": "选择制造到第几个节点，并分别设置优先级。",
+    "artifactRecommendedPriority": "选择学生，应用其第二节点推荐顺序。",
+    "artifactUseTicket": "使用加速券缩短制造等待。",
+    "cafeCollectReward": "领取咖啡厅积累的收益。",
+    "cafeDuplicateInvite": "允许再次邀请已邀请过的学生。",
+    "cafeExchangeStudent": "允许邀请学生的其他服装版本。",
+    "cafeInviteMode": "按好感度、收藏位置或姓名选择学生。",
+    "cafePatNormal": "普通互动",
+    "cafePatStyle": "选择与咖啡厅学生互动的方式。",
+    "cafeSecondCafe": "启用 2 号咖啡厅及其邀请设置。",
+    "cafeStarredPosition": "选择收藏列表中第 1–5 位学生。",
+    "cafeStudents": "添加要邀请的学生，点击 × 移除。",
+    "cafeUseInvitation": "使用邀请券邀请学生。",
+    "controlMethod": "选择模拟器或设备支持的控制方式。",
+    "drillDifficulty": "按出击顺序设置每队难度。",
+    "drillFormation": "按出击顺序选择预设编队编号。",
+    "drillSweep": "完成指定战斗后，扫荡剩余次数。",
+    "emulatorInstance": "填写多开管理器中的实例编号，而非开启数量。",
+    "emulatorLaunch": "脚本启动时，打开此模拟器。",
+    "emulatorMulti": "使用多开管理器启动指定实例。",
+    "emulatorPath": "选择模拟器的启动程序。",
+    "emulatorWait": "启动后等待指定秒数，再连接设备。",
+    "finalMethod": "使用当前编队，或复制通关记录中的队伍。",
+    "finalRefresh": "寻找可用队伍时，最多刷新通关记录的次数。",
+    "finalUnavailable": "允许复制队伍中有 0–10 名不可用学生。",
+    "friendCode": "填写此服务器的好友码，点击添加。",
+    "friendLevel": "清理条件中的等级阈值；-1 表示关闭。",
+    "friendLogin": "清理条件中的离线天数；-1 表示关闭。",
+    "friendRank": "清理条件中的上期总力战排名；-1 表示关闭。",
+    "friendWhitelist": "白名单好友不会被清理，点击 × 移除保护。",
+    "hardSweepPlan": "选择关卡与次数，或按学生添加其所有神名文字掉落关卡。",
+    "lessonFavorEnabled": "优先选择收藏列表中的学生。",
+    "lessonFavorOrder": "从左到右优先，拖动姓名调整。",
+    "lessonRegionTable": "日程区域",
+    "lessonRegionTableHint": "勾选允许的等级，并设置次数；0 表示跳过。",
+    "lessonRelationshipFirst": "优先选择可提升好感度的学生更多的地点。",
+    "manualBoss": "推图时暂停自动操作，由你完成首领战。",
+    "normalSweepPlan": "按列表顺序扫荡所选关卡。",
+    "pushCompletion": "此配置的任务全部完成后通知。",
+    "pushError": "任务出错时，通过下方服务通知。",
+    "pushJson": "填写 JSON 推送配置，不使用时留空。",
+    "pushServerchan": "填写 Server酱配置，不使用时留空。",
+    "screenshotInterval": "两次截图的间隔，最小 0.1 秒。",
+    "screenshotMethod": "选择设备支持的截图方式。",
+    "scriptAutostart": "脚本启动后，自动执行此配置的任务。",
+    "scriptThen": "选择任务全部完成后的操作。",
+    "server": "此配置使用的服务器，其他服务器需另建配置。",
+    "sweepPurchaseLesson": "日程券的购买次数，0 表示不买。",
+    "sweepPurchaseRewarded": "悬赏通缉券的购买次数，0 表示不买。",
+    "sweepPurchaseScrimmage": "交流会券的购买次数，0 表示不买。",
+    "sweepTicketsTitle": "挑战券购买",
+    "tacticalDifficulty": "选择总力战的挑战难度。",
+    "teamMethod": "按预设编队、侧栏属性或侧栏顺序选队。",
+    "teamPreset": "各位置的属性，顺序与游戏预设编队一致。",
+    "teamSide": "按侧栏顺序设置队伍属性。"
+  },
+  "configurationMethods": {
+    "adbControl": "通过 ADB 发送点击和滑动。",
+    "adbScreenshot": "通过 ADB 截取设备画面。",
+    "mssScreenshot": "截取 Windows 游戏窗口的屏幕区域。",
+    "nemuControl": "使用 Nemu 接口，需匹配安装路径和实例。",
+    "nemuScreenshot": "通过 Nemu 截图，需匹配安装路径和实例。",
+    "pyautoguiControl": "使用系统鼠标操作，会移动实际指针。",
+    "pyautoguiScreenshot": "截取屏幕上的 Windows 游戏窗口。",
+    "scrcpyControl": "通过 scrcpy 连接发送触摸操作。",
+    "scrcpyScreenshot": "从 scrcpy 画面流获取截图。",
+    "uiautomator2Control": "通过设备上的 uiautomator2 服务操作。",
+    "uiautomator2Screenshot": "通过设备上的 uiautomator2 服务截图。"
+  },
+  "edit": {
+    "actionFailed": "编辑操作失败，请检查剪贴板权限后重试。",
+    "cut": "剪切",
+    "redo": "重做",
+    "selectAll": "全选",
+    "unavailable": "当前选区不支持此操作。",
+    "undo": "撤销"
+  },
   "export": {
     "log": {
       "folderSelect": "选择日志导出位置"
     }
+  },
+  "file": {
+    "openConfigFolder": "打开配置文件夹",
+    "openConfigFolderFailed": "无法打开配置文件夹。"
   },
   "finalRestrictionRls": {
     "$self": "无限制决战",
     "copyClearFormation": "复制通关队伍",
     "copyClearUnavailableHint": "选择“复制通关队伍”后可配置这两个选项。",
     "formationMethod": "编队方式",
-    "maxRefreshCount": "通关队伍最大刷新次数",
-    "maxUnavailableStudentCount": "最多允许不可用学生数",
+    "maxRefreshCount": "队伍刷新上限",
+    "maxUnavailableStudentCount": "不可用学生上限",
     "useCurrentFormation": "使用当前编队"
   },
   "friend": {
     "add": "添加",
     "addFailed": "添加失败",
     "alreadyExists": "该好友已存在",
-    "disabledThresholdHint": "输入 -1 可禁用对应清理条件。",
     "empty": "好友白名单列表为空",
     "filters": "清理条件",
     "invalidFormatCN": "国服好友码只能包含数字和小写字母",
     "invalidFormatGlobal": "国际服好友码只能包含大写字母",
     "invalidLength": "好友码长度无效",
-    "lastLoginDays": "最后登录天数阈值",
-    "lastTotalAssaultRankLimit": "上次总力战排名阈值",
-    "levelLimit": "好友等级清理阈值",
+    "lastLoginDays": "离线天数阈值",
+    "lastTotalAssaultRankLimit": "上期总力战排名阈值",
+    "levelLimit": "等级阈值",
     "placeholder": "输入好友码",
     "whitelist": "好友白名单"
+  },
+  "friendlyBounty": {
+    "activityStageOption": "关卡 {{number}}",
+    "activityStageSaved": "关卡 {{number}}（已保存）"
+  },
+  "friendlyPriority": {
+    "addChapter": "添加章节",
+    "chapter": "章节",
+    "chapterLabel": "第 {{chapter}} 章",
+    "emptyExplore": "尚未添加章节。",
+    "emptyLegacy": "原有空白项",
+    "emptyPriority": "尚未设置优先节点。",
+    "keyboardHint": "空格开始排序，方向键移动，回车确认，Esc 取消。",
+    "legacyValue": "保留的旧设置，可删除后重新选择",
+    "mission": "关卡",
+    "missionA": "关卡 A",
+    "missionLabel": "关卡 {{mission}}",
+    "moveDown": "下移",
+    "moveUp": "上移",
+    "noResults": "未找到节点",
+    "position": "{{item}}，第 {{position}}／{{total}} 项",
+    "reorderHint": "拖动手柄排序，越靠上越优先。",
+    "reorderItem": "调整 {{item}} 的顺序",
+    "searchNodes": "搜索节点",
+    "selectNodes": "选择节点",
+    "wholeChapter": "整章"
   },
   "heartbeat": {
     "connected": "服务已连接",
     "connecting": "服务连接中..."
+  },
+  "help": {
+    "documentation": "文档",
+    "openFailed": "无法打开文档，请稍后重试。",
+    "title": "帮助"
   },
   "home": {
     "preparing": "准备中"
   },
   "label": {
     "installDir": "安装目录"
+  },
+  "menu": {
+    "bar": "应用菜单",
+    "edit": "编辑",
+    "file": "文件",
+    "view": "视图"
   },
   "placeholder": {
     "config": {
@@ -698,22 +952,34 @@
     "nobinding": "无绑定",
     "profileName": "在此输入您的配置名"
   },
-  "select": {
-    "placeholder": "请选择"
-  },
   "student": {
     "add": "添加学生",
     "search": "搜索学生"
   },
-  "switch": {
-    "off": "关",
-    "on": "开"
+  "sweepPlan": {
+    "add": "添加关卡",
+    "chapter": "章节",
+    "count": "扫荡次数",
+    "countMode": "次数设置",
+    "down": "下移",
+    "empty": "尚未添加关卡。",
+    "emptyEntry": "空白项",
+    "fixedCount": "指定次数",
+    "invalidChapter": "请选择此服务器支持的章节。",
+    "invalidCount": "请输入 0 或更大的整数。",
+    "invalidFormat": "原设置不完整或格式不受支持。",
+    "invalidMission": "请选择此模式支持的关卡。",
+    "maximum": "最大次数",
+    "maxUnsupported": "国服困难关卡需指定次数。",
+    "mission": "关卡",
+    "remove": "删除关卡",
+    "repair": "原内容已保留，可删除后重新添加。",
+    "row": "第 {{number}} 项",
+    "unsaved": "请修正或删除有误的项目，修改才会自动保存。",
+    "up": "上移"
   },
   "tacticalShop": {
-    "title": "竞技场商店"
-  },
-  "title": {
-    "wiki": "文档"
+    "title": "战术对抗赛商店"
   },
   "toast": {
     "dateUpdated": "日期已更新",
@@ -745,6 +1011,14 @@
     "githubProxyV6": "GitHub v6 加速",
     "mirrorc": "Mirror酱",
     "sevencdn": "SevenCDN"
+  },
+  "view": {
+    "fullscreen": "全屏",
+    "fullscreenFailed": "无法切换全屏。",
+    "resetZoom": "重置缩放",
+    "sidebar": "显示侧边栏",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
   },
   "workflow": {
     "arrange": "自动排列",

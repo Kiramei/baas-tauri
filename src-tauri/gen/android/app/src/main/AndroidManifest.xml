@@ -30,6 +30,7 @@
             android:launchMode="singleTask"
             android:label="${baasAppLabel}"
             android:name=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>

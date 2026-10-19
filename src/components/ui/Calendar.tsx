@@ -1,9 +1,13 @@
 import * as React from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
+import { de, enUS, fr, ja, ko, ru, zhCN } from "react-day-picker/locale";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 
 import { cn } from "@/shared/cn";
 import { Button, buttonVariants } from "@/components/ui/Button";
+
+const calendarLocales = { de, en: enUS, fr, ja, ko, ru, zh: zhCN };
 
 /** Renders the calendar component. */
 function Calendar({
@@ -14,14 +18,19 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  locale,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const defaultClassNames = getDefaultClassNames();
+  const { language } = useAppTranslation();
+  const languageCode = language.split(/[-_]/)[0] as keyof typeof calendarLocales;
+  const calendarLocale = locale ?? calendarLocales[languageCode] ?? enUS;
 
   return (
     <DayPicker
+      locale={calendarLocale}
       showOutsideDays={showOutsideDays}
       className={cn(
         "bg-background group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
@@ -31,7 +40,8 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       formatters={{
-        formatMonthDropdown: (date) => date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date) =>
+          date.toLocaleString(calendarLocale.code || language, { month: "short" }),
         ...formatters,
       }}
       classNames={{
@@ -61,7 +71,7 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "relative has-focus:border-ring border border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] rounded-md",
+          "relative border border-input shadow-xs rounded-md",
           defaultClassNames.dropdown_root
         ),
         dropdown: cn("absolute bg-popover inset-0 opacity-0", defaultClassNames.dropdown),

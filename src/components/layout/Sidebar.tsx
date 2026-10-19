@@ -23,10 +23,15 @@ import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import Header from "@/components/layout/Header";
+import SettingsNavigation from "@/components/layout/SettingsNavigation";
+import ConfigurationNavigation from "@/components/layout/ConfigurationNavigation";
+import { useConfigurationWorkspace } from "@/shared/useConfigurationWorkspace";
 import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import NavigationIcon from "@/components/layout/NavigationIcon";
-import AboutBaasModal from "@/components/AboutBaasModal";
+import { useAboutBaas } from "@/context/AboutBaasProvider";
 import { useApp } from "@/context/AppContext";
+import WorkspaceSwitcher from "@/components/layout/WorkspaceSwitcher";
+import { resolveSidebarPane, type SidebarPeekContext } from "@/shared/SidebarPane";
 
 const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
@@ -40,13 +45,20 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExpanded }) => {
   const { t } = useTranslation();
   const { activeProfile } = useApp();
+  const configuration = useConfigurationWorkspace(activeProfile?.id);
   const primaryRunning = useWebSocketStore((state) =>
     activeProfile?.id ? Boolean(state.statusStore[activeProfile.id]?.running) : false
   );
-  const { customFrame, setExpanded } = useWindowLayout();
-  const [peek, setPeek] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const homeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const { customFrame, sidebarLocked, setExpanded } = useWindowLayout();
+  const [peekContext, setPeekContext] = useState<SidebarPeekContext | null>(null);
+  const { page: panePage, peek } = resolveSidebarPane(
+    activePage,
+    desktopExpanded,
+    sidebarLocked,
+    peekContext
+  );
+  const openAbout = useAboutBaas();
+  const navigationButtons = React.useRef<Partial<Record<PageKey, HTMLButtonElement | null>>>({});
   const profilePaneRef = React.useRef<HTMLElement>(null);
   const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const closePeek = React.useCallback(() => {
     cancelOpen();
     cancelClose();
-    setPeek(false);
+    setPeekContext(null);
   }, [cancelOpen, cancelClose]);
   const hasOpenOverlay = () =>
     Boolean(
@@ -91,22 +103,32 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
       if (!hasOpenOverlay() && !profilePaneRef.current?.contains(document.activeElement))
-        setPeek(false);
+        setPeekContext(null);
     }, 180);
   };
-  const scheduleOpen = () => {
+  const scheduleOpen = (page: PageKey) => {
     cancelClose();
-    if (desktopExpanded || peek || !window.matchMedia("(min-width: 64rem)").matches) return;
+    if (
+      page === "settings" ||
+      desktopExpanded ||
+      sidebarLocked ||
+      !window.matchMedia("(min-width: 64rem)").matches
+    )
+      return;
     cancelOpen();
+    if (peek) {
+      if (panePage !== page) setPeekContext({ page, originPage: activePage });
+      return;
+    }
     openTimerRef.current = setTimeout(() => {
       openTimerRef.current = null;
-      setPeek(true);
+      setPeekContext({ page, originPage: activePage });
     }, 120);
   };
 
   React.useEffect(() => {
-    if (desktopExpanded) closePeek();
-  }, [desktopExpanded, closePeek]);
+    closePeek();
+  }, [activePage, desktopExpanded, sidebarLocked, closePeek]);
 
   React.useEffect(
     () => () => {
@@ -120,7 +142,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
     if (!peek || desktopExpanded) return;
     const isInside = (target: EventTarget | null) =>
       target instanceof Node &&
-      (profilePaneRef.current?.contains(target) || homeButtonRef.current?.contains(target));
+      (profilePaneRef.current?.contains(target) ||
+        Object.values(navigationButtons.current).some((button) => button?.contains(target)));
     const isOverlayTarget = (target: EventTarget | null) =>
       target instanceof Element &&
       Boolean(
@@ -137,7 +160,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       if (event.key !== "Escape" || event.defaultPrevented || hasOpenOverlay()) return;
       event.preventDefault();
       closePeek();
-      homeButtonRef.current?.focus({ preventScroll: true });
+      (navigationButtons.current[panePage as PageKey] ?? navigationButtons.current.home)?.focus({
+        preventScroll: true,
+      });
     };
     const onResize = () => closePeek();
     window.addEventListener("pointerdown", onPointerDown);
@@ -151,14 +176,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       window.removeEventListener("resize", onResize);
       cancelClose();
     };
-  }, [peek, desktopExpanded, closePeek, cancelClose]);
+  }, [peek, desktopExpanded, closePeek, cancelClose, panePage]);
 
-  const navItems: Array<{ id: PageKey; label: string }> = [
+  const navItems: Array<{ id: PageKey; label: string; compactLabel?: string }> = [
     { id: "home", label: t("nav.home") },
-    { id: "scheduler", label: t("nav.scheduler") },
-    { id: "configuration", label: t("nav.configuration") },
-    { id: "settings", label: t("nav.settings") },
-    ...(!__WITH_ANDROID__ ? ([{ id: "wiki", label: t("title.wiki") }] as const) : []),
+    { id: "scheduler", label: t("nav.scheduler"), compactLabel: t("nav.mobileScheduler") },
+    { id: "configuration", label: t("nav.configuration"), compactLabel: t("nav.mobileConfiguration") },
+    { id: "settings", label: t("nav.settings"), compactLabel: t("nav.mobileSettings") },
   ];
 
   const stopAllTasks = async () => {
@@ -338,7 +362,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
   return (
     <div
-      className={`app-sidebar relative flex h-[52px] w-full shrink-0 flex-col lg:mb-[2px] lg:grid lg:h-auto lg:min-h-0 lg:self-stretch lg:grid-rows-[minmax(0,1fr)] lg:transition-[width] lg:duration-200 ${
+      className={`app-sidebar relative flex ${__WITH_ANDROID__ && activePage === "settings" ? "h-0" : "h-[52px]"} w-full shrink-0 flex-col lg:mb-[2px] lg:grid lg:h-auto lg:min-h-0 lg:self-stretch lg:grid-rows-[minmax(0,1fr)] lg:transition-[width] lg:duration-200 ${
         desktopExpanded
           ? "lg:w-[292px] lg:grid-cols-[52px_minmax(0,1fr)]"
           : "lg:w-[52px] lg:grid-cols-[52px_0px]"
@@ -348,7 +372,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         className="desktop-app-rail hidden min-h-0 flex-col items-center gap-3 py-2 lg:col-start-1 lg:row-start-1 lg:flex"
         aria-label="BAAS"
       >
-        {!customFrame && (
+        {!customFrame && !sidebarLocked && (
           <IconTooltip content={sidebarToggleLabel} side="right">
             <button
               type="button"
@@ -367,42 +391,42 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         )}
         <nav className="flex flex-col gap-2">
           {navItems
-            .filter((item) => item.id !== "settings" && item.id !== "wiki")
+            .filter((item) => item.id !== "settings")
             .map((item) => (
               <IconTooltip key={item.id} content={item.label} side="right">
                 <button
-                  ref={item.id === "home" ? homeButtonRef : undefined}
+                  ref={(button) => {
+                    navigationButtons.current[item.id] = button;
+                  }}
                   type="button"
                   aria-label={item.label}
                   aria-current={activePage === item.id ? "page" : undefined}
-                  onClick={() => setActivePage(item.id)}
-                  onPointerEnter={
-                    item.id === "home"
-                      ? (event) => {
-                          if (event.pointerType !== "touch") scheduleOpen();
-                        }
-                      : undefined
-                  }
-                  onPointerLeave={item.id === "home" ? scheduleClose : undefined}
-                  onKeyDown={
-                    item.id === "home"
-                      ? (event) => {
-                          if (event.key === "ArrowRight" && !desktopExpanded) {
-                            event.preventDefault();
-                            cancelOpen();
-                            cancelClose();
-                            setPeek(true);
-                            requestAnimationFrame(() =>
-                              profilePaneRef.current
-                                ?.querySelector<HTMLButtonElement>("button")
-                                ?.focus()
-                            );
-                          }
-                        }
-                      : undefined
-                  }
-                  aria-expanded={item.id === "home" ? profilePaneVisible : undefined}
-                  aria-controls={item.id === "home" ? "desktop-profile-pane" : undefined}
+                  onClick={() => {
+                    closePeek();
+                    setActivePage(item.id);
+                  }}
+                  onPointerEnter={(event) => {
+                    if (event.pointerType !== "touch") scheduleOpen(item.id);
+                  }}
+                  onPointerLeave={scheduleClose}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "ArrowRight" &&
+                      !desktopExpanded &&
+                      !sidebarLocked &&
+                      item.id !== "settings"
+                    ) {
+                      event.preventDefault();
+                      cancelOpen();
+                      cancelClose();
+                      setPeekContext({ page: item.id, originPage: activePage });
+                      requestAnimationFrame(() =>
+                        profilePaneRef.current?.querySelector<HTMLButtonElement>("button")?.focus()
+                      );
+                    }
+                  }}
+                  aria-expanded={desktopExpanded || (peek && panePage === item.id)}
+                  aria-controls="desktop-profile-pane"
                   className={`flex size-9 items-center justify-center rounded-[9px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring ${activePage === item.id ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"}`}
                 >
                   <NavigationIcon page={item.id} selected={activePage === item.id} size={19} />
@@ -440,7 +464,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         )}
         <nav className="flex flex-col gap-2">
           {navItems
-            .filter((item) => item.id === "settings" || item.id === "wiki")
+            .filter((item) => item.id === "settings")
             .map((item) => (
               <IconTooltip key={item.id} content={item.label} side="right">
                 <button
@@ -458,7 +482,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         <AboutLogoButton
           onClick={() => {
             closePeek();
-            setAboutOpen(true);
+            openAbout();
           }}
         />
       </aside>
@@ -467,6 +491,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         id="desktop-profile-pane"
         ref={profilePaneRef}
         data-profile-peek={peek && !desktopExpanded ? "true" : undefined}
+        data-profile-context={panePage}
         onPointerEnter={cancelClose}
         onPointerLeave={scheduleClose}
         onFocusCapture={cancelClose}
@@ -481,8 +506,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
               : "lg:hidden"
         }`}
       >
-        <div className="profile-pane-heading hidden h-11 min-w-0 shrink-0 items-center justify-between px-4 lg:flex">
-          <span className="text-[14px] font-semibold tracking-[-0.01em]">BAAS</span>
+        <div
+          className={`profile-pane-heading hidden h-11 min-w-0 shrink-0 items-center justify-between pl-4 pr-2 lg:flex ${panePage === "settings" ? "" : "pt-1"}`}
+        >
+          {panePage === "settings" ? (
+            <span className="text-[18px] font-semibold leading-7 tracking-[-0.01em]">
+              {t("nav.settings")}
+            </span>
+          ) : (
+            <WorkspaceSwitcher />
+          )}
           {!desktopExpanded && peek && (
             <IconTooltip content={t("app.expandSidebar")} side="right">
               <button
@@ -496,14 +529,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
             </IconTooltip>
           )}
         </div>
-        <div className="profile-pane-content flex min-h-0 min-w-0 [&>.profile-navigation]:min-w-0 [&>.profile-navigation]:flex-1 lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-2">
-          <div className="flex shrink-0 items-center pl-2 lg:hidden">
-            <AboutLogoButton onClick={() => setAboutOpen(true)} side="bottom" />
-          </div>
-          <Header desktopExpanded={profilePaneVisible} />
+        <div
+          className={`profile-pane-content flex min-h-0 min-w-0 [&>.profile-navigation]:min-w-0 [&>.profile-navigation]:flex-1 lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-2 ${panePage === "configuration" ? "profile-pane-content--configuration" : ""}`}
+        >
+          <Header desktopExpanded={profilePaneVisible} settingsMode={panePage === "settings"} />
+          {panePage === "settings" && (
+            <div className="hidden min-h-0 flex-1 flex-col lg:flex">
+              <SettingsNavigation />
+            </div>
+          )}
+          {panePage === "configuration" && activeProfile && (
+            <div className="configuration-sidebar-navigation hidden min-h-0 min-w-0 flex-1 flex-col lg:flex">
+              <ConfigurationNavigation
+                selected={configuration.selected.id}
+                query={configuration.query}
+                onQueryChange={configuration.search}
+                onSelect={(section) => {
+                  configuration.select(section);
+                  if (activePage !== "configuration") {
+                    closePeek();
+                    setActivePage("configuration");
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
-        <footer className="hidden min-w-0 shrink-0 flex-col gap-2 px-2 py-2 lg:flex">
-          {hasAnyUpdate && (
+        {hasAnyUpdate && (
+          <footer className="hidden min-w-0 shrink-0 flex-col gap-2 px-2 py-2 lg:flex">
             <div className="flex flex-row gap-2">
               {hasBackendUpdate && (
                 <UpdateActionButton
@@ -528,49 +581,50 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                 />
               )}
             </div>
-          )}
-          <HeartbeatIndicator />
-        </footer>
+          </footer>
+        )}
       </section>
 
       {/* Mobile bottom navigation */}
       <nav
-        className={`fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-14" : "h-[70px]"}`}
+        className={`mobile-bottom-navigation fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-[var(--android-bottom-navigation-height)] pb-[env(safe-area-inset-bottom,0px)]" : "h-[70px]"}`}
       >
         {navItems.map((item, index) => (
           <React.Fragment key={item.id}>
-            <button
-              type="button"
-              aria-label={item.label}
-              aria-current={activePage === item.id ? "page" : undefined}
-              onClick={() => setActivePage(item.id)}
-              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
-                activePage === item.id
-                  ? "text-foreground"
-                  : "text-muted-foreground/75 hover:text-foreground"
-              }`}
-            >
-              <span
-                className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${activePage === item.id ? "bg-sidebar-accent" : "bg-transparent"}`}
+            <IconTooltip content={item.label} side="top">
+              <button
+                type="button"
+                aria-label={item.label}
+                aria-current={activePage === item.id ? "page" : undefined}
+                onClick={() => setActivePage(item.id)}
+                className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
+                  activePage === item.id
+                    ? "text-foreground"
+                    : "text-muted-foreground/75 hover:text-foreground"
+                }`}
               >
-                <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
-              </span>
-              <span className={activePage === item.id ? "font-semibold" : "font-normal"}>
-                {item.label}
-              </span>
-            </button>
+                <span className="mobile-navigation-icon flex h-8 w-12 items-center justify-center">
+                  <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
+                </span>
+                <span
+                  className={`mobile-navigation-label block max-w-full truncate text-center text-xs leading-4 ${activePage === item.id ? "font-semibold" : "font-normal"}`}
+                >
+                  {__WITH_ANDROID__ ? (item.compactLabel ?? item.label) : item.label}
+                </span>
+              </button>
+            </IconTooltip>
             {__WITH_ANDROID__ && index === 1 && (
               <button
                 type="button"
                 aria-label={primaryRunning ? t("common.stop") : t("common.start")}
                 disabled={!activeProfile}
                 onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-                className={`mx-2 grid h-16 w-16 shrink-0 -translate-y-3 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+                className={`mobile-primary-run mx-2 grid h-14 w-14 shrink-0 -translate-y-2.5 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
               >
                 {primaryRunning ? (
                   <Square className="h-6 w-6 fill-current" />
                 ) : (
-                  <Play className="ml-1 h-7 w-7 fill-current" />
+                  <Play className="h-7 w-7 -translate-y-px fill-current" />
                 )}
               </button>
             )}
@@ -580,7 +634,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
       {/* Mobile floating update buttons */}
       {hasAnyUpdate && (
-        <div className="lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
+        <div className="mobile-update-actions lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
           {hasBackendUpdate && (
             <FloatingUpdateButton
               title={t("update.backendAction")}
@@ -602,7 +656,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         </div>
       )}
 
-      <AboutBaasModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <TauriUpdateProgressModal
         open={tauriUpdate.progressOpen}
         onClose={() => tauriUpdate.setProgressOpen(false)}
@@ -611,7 +664,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         tauriStatus={tauriUpdate.status}
       />
       {backendUpdateLogOpen && (
-        <div className="fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
+        <div className="mobile-update-log fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Android update log
@@ -659,10 +712,15 @@ const AboutLogoButton: React.FC<{ onClick: () => void; side?: "right" | "bottom"
       <button
         type="button"
         aria-label={t("about.title")}
+        aria-describedby="baas-service-status"
         onClick={onClick}
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="relative flex size-9 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         <img src="/images/logo.png" alt="" draggable={false} className="size-5 object-contain" />
+        <HeartbeatIndicator
+          id="baas-service-status"
+          className="pointer-events-none absolute right-1.5 top-1.5 ring-[1.5px] ring-(--chrome-background)"
+        />
       </button>
     </IconTooltip>
   );

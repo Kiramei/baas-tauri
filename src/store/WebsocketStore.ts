@@ -1224,13 +1224,13 @@ export const useWebSocketStore = create<WebSocketState>()(
             if (callback) {
               if (data?.binary) {
                 get().pendingBinaryCallbacks[timestamp!] = (binary: ArrayBuffer) => {
-                  callback({ command, data, status, binary });
+                  callback({ command, data, status, error, binary });
                   delete get().pendingCallbacks[timestamp!];
                 };
                 get().pendingBinaryQueue.push(timestamp!);
                 return;
               }
-              callback({ command, data, status });
+              callback({ command, data, status, error });
               delete get().pendingCallbacks[timestamp!];
             } else {
               console.warn("CallBack Not Found:", message);

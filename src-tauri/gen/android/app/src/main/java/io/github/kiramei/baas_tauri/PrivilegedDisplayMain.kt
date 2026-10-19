@@ -39,17 +39,19 @@ object PrivilegedDisplayMain {
         private fun authorize() {
           check(android.os.Binder.getCallingUid() == args[2].toInt()) { "Unexpected preview client" }
         }
-        override fun setPreviewSurface(surface: android.view.Surface?) { authorize(); NativeDisplayCapture.setPreviewSurface(surface) }
-        override fun frameCount(): Long { authorize(); return NativeDisplayCapture.frameCount() }
-        override fun previewFrameCount(): Long { authorize(); return NativeDisplayCapture.previewFrameCount() }
-        override fun currentPackage(): String { authorize(); return activePackage }
-        override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean {
-          authorize()
-          return DisplayInput.gesture(virtualDisplay?.display?.displayId ?: -1, x1, y1, x2, y2, durationMs)
+        override fun setPreviewSurface(surface: android.view.Surface?) = PrivilegedExecution.binderResult {
+          authorize(); NativeDisplayCapture.setPreviewSurface(surface)
         }
-        override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean {
+        override fun frameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.frameCount() }
+        override fun previewFrameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.previewFrameCount() }
+        override fun currentPackage(): String = PrivilegedExecution.binderResult { authorize(); activePackage }
+        override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
           authorize()
-          return DisplayInput.pinch(virtualDisplay?.display?.displayId ?: -1, displayWidth, displayHeight, inward, percent, durationMs)
+          DisplayInput.gesture(virtualDisplay?.display?.displayId ?: -1, x1, y1, x2, y2, durationMs)
+        }
+        override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
+          authorize()
+          DisplayInput.pinch(virtualDisplay?.display?.displayId ?: -1, displayWidth, displayHeight, inward, percent, durationMs)
         }
       }
       publishEndpoint("${args[1]}.native-display", endpoint)
@@ -174,10 +176,12 @@ object PrivilegedDisplayMain {
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
-    return display.display.displayId
+    return PrivilegedExecution.virtualDisplayId(display.display.displayId)
   }
 
   private fun launch(context: Context, packageName: String, displayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplay?.display?.displayId == displayId) { "The requested game display is no longer active" }
     require(packageName.matches(Regex("[A-Za-z0-9_.]+")))
     val intent = context.packageManager.getLaunchIntentForPackage(packageName)
       ?: context.packageManager.getLeanbackLaunchIntentForPackage(packageName)

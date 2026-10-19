@@ -1,111 +1,69 @@
-import React, { useMemo, useState } from "react";
-import SwitchButton from "@/components/ui/SwitchButton";
-import { FormInput } from "@/components/ui/FormInput";
-import { useTranslation } from "react-i18next";
-import { DynamicConfig } from "@/types/dynamic";
+import React, { useMemo } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
-type PushConfigProps = {
+interface PushConfigProps {
   profileId: string;
   onClose: () => void;
-};
-
+}
 interface Draft {
   push_after_error: boolean;
   push_after_completion: boolean;
   push_json: string;
   push_serverchan: string;
 }
-
-/** Renders the push config component. */
-const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
+const PushConfig: React.FC<PushConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const initial = useMemo<Draft>(
+    () => ({
+      push_json: settings.push_json ?? "",
+      push_serverchan: settings.push_serverchan ?? "",
+      push_after_error: settings.push_after_error ?? false,
+      push_after_completion: settings.push_after_completion ?? false,
+    }),
+    [settings]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo(() => {
-    return {
-      push_json: settings.push_json,
-      push_serverchan: settings.push_serverchan,
-      push_after_error: settings.push_after_error,
-      push_after_completion: settings.push_after_completion,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle change interaction. */
-  const handleChange =
+  const [draft, setDraft] = useConfigurationDraft(profileId, "push", initial);
+  const change =
     <K extends keyof Draft>(key: K) =>
-    (value: Draft[K]) => {
-      setDraft((prev) => ({ ...prev, [key]: value }));
-    };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
+    (value: Draft[K]) =>
+      setDraft((previous) => ({ ...previous, [key]: value }));
   return (
-    <div className="space-y-6">
-      <div className="w-full flex gap-2 lg:flex-row max-lg:flex-col">
-        <SwitchButton
-          label={t("push.afterError")}
-          checked={draft.push_after_error}
-          onChange={handleChange("push_after_error")}
-          className="flex-1"
-        />
-
-        <SwitchButton
-          label={t("push.afterCompletion")}
-          checked={draft.push_after_completion}
-          onChange={handleChange("push_after_completion")}
-          className="flex-1"
-        />
-      </div>
-
-      <FormInput
+    <ConfigurationGroup title={t("push")}>
+      <ConfigurationToggle
+        label={t("push.afterError")}
+        description={t("configurationHelp.pushError")}
+        checked={draft.push_after_error}
+        onChange={change("push_after_error")}
+      />
+      <ConfigurationToggle
+        label={t("push.afterCompletion")}
+        description={t("configurationHelp.pushCompletion")}
+        checked={draft.push_after_completion}
+        onChange={change("push_after_completion")}
+      />
+      <ConfigurationInput
         label={t("push.json")}
+        description={t("configurationHelp.pushJson")}
         value={draft.push_json}
-        onChange={(e) => handleChange("push_json")(e.target.value)}
+        onChange={(event) => change("push_json")(event.target.value)}
         placeholder={t("placeholder.config.insert")}
       />
-
-      <FormInput
+      <ConfigurationInput
         label={t("push.serverchan")}
+        description={t("configurationHelp.pushServerchan")}
         value={draft.push_serverchan}
-        onChange={(e) => handleChange("push_serverchan")(e.target.value)}
+        onChange={(event) => change("push_serverchan")(event.target.value)}
         placeholder={t("placeholder.config.insert")}
       />
-
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
+    </ConfigurationGroup>
   );
 };
-
 export default PushConfig;

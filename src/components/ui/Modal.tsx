@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
@@ -110,11 +110,28 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       style={{
+        ...(__WITH_ANDROID__
+          ? {
+              top: "var(--android-viewport-top, 0px)",
+              left: "var(--android-viewport-left, 0px)",
+              right: "auto",
+              bottom: "auto",
+              width: "var(--android-viewport-width, 100vw)",
+              height: "var(--android-viewport-height, 100dvh)",
+              padding: fullscreen ? 0 : 12,
+            }
+          : {}),
         paddingTop: fullscreen
           ? "var(--window-titlebar-height, 0px)"
-          : "calc(var(--window-titlebar-height, 0px) + 1rem)",
+          : __WITH_ANDROID__
+            ? "max(12px, env(safe-area-inset-top, 0px))"
+            : "calc(var(--window-titlebar-height, 0px) + 1rem)",
+        ...(__WITH_ANDROID__ && !fullscreen
+          ? { paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }
+          : {}),
       }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
@@ -136,16 +153,16 @@ export const Modal: React.FC<ModalProps> = ({
         className={
           fullscreen
             ? "flex h-full w-full flex-col overflow-hidden bg-background text-foreground"
-            : "rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)]"
+            : "modal-surface"
         }
         style={
           fullscreen
             ? undefined
             : {
-                width: `${width}%`,
+                width: __WITH_ANDROID__ ? "100%" : `${width}%`,
                 minWidth: "min(320px, 100%)",
-                maxWidth: "100%",
-                zoom: zoomScale / 100,
+                maxWidth: __WITH_ANDROID__ ? "min(640px, 100%)" : "100%",
+                zoom: __WITH_ANDROID__ ? 1 : zoomScale / 100,
               }
         }
       >
@@ -154,18 +171,25 @@ export const Modal: React.FC<ModalProps> = ({
           style={
             fullscreen
               ? undefined
-              : { maxHeight: "calc(100vh - var(--window-titlebar-height, 0px) - 80px)" }
+              : {
+                  maxHeight: __WITH_ANDROID__
+                    ? "calc(var(--android-viewport-height, 100dvh) - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
+                    : "calc(100vh - var(--window-titlebar-height, 0px) - 80px)",
+                  ...(__WITH_ANDROID__ ? { overscrollBehavior: "contain" } : {}),
+                }
           }
         >
           <div
-            className={`flex shrink-0 items-center justify-between gap-4 ${
-              fullscreen ? "h-[52px] border-b border-border px-4" : "pb-4"
-            }`}
+            className={
+              fullscreen
+                ? "flex h-[52px] shrink-0 items-center justify-between gap-4 border-b border-border px-4"
+                : "modal-header"
+            }
           >
             {titleNode ? (
               titleNode
             ) : (
-              <h2 id={titleId} className="text-[16px] font-medium leading-6 text-foreground">
+              <h2 id={titleId} className="modal-title">
                 {title}
               </h2>
             )}
@@ -173,7 +197,8 @@ export const Modal: React.FC<ModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label={t("common.close")}
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="modal-close"
+              style={__WITH_ANDROID__ ? { width: 44, height: 44, flexBasis: 44 } : undefined}
             >
               <X className="size-4" />
             </button>

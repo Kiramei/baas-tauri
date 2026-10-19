@@ -1,203 +1,157 @@
-import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import React, { useMemo } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+  ConfigurationSelect,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
 import { FormInput } from "@/components/ui/FormInput";
-import { FormSelect } from "@/components/ui/FormSelect";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { DynamicConfig } from "@/types/dynamic";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import StorageUtil from "@/shared/StorageManager.ts";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import StorageUtil from "@/shared/StorageManager";
 
-type EmulatorConfigProps = {
+interface EmulatorConfigProps {
   profileId: string;
   onClose: () => void;
-};
-
+}
 interface Draft {
   open_emulator_stat: boolean;
   emulator_wait_time: string;
   emulatorIsMultiInstance: boolean;
   program_address: string;
-  emulatorMultiInstanceNumber: number;
+  emulatorMultiInstanceNumber: string;
   multiEmulatorName: string;
 }
+const emulatorTypes = [
+  "mumu",
+  "mumu_global",
+  "bluestacks_nxt_cn",
+  "bluestacks_nxt",
+  "yeshen",
+  "xiaoyao_nat",
+  "leidian",
+  "wsa",
+] as const;
 
-const multiMap: Record<string, string> = {
-  mumu: "mumu",
-  mumu_global: "mumu_global",
-  bluestacks_nxt_cn: "bluestacks_nxt_cn",
-  bluestacks_nxt: "bluestacks_nxt",
-  yeshen: "yeshen",
-  xiaoyao_nat: "xiaoyao_nat",
-  leidian: "leidian",
-  wsa: "wsa",
-};
-
-/** Renders the emulator config component. */
-const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
-
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
-  );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo<Draft>(() => {
-    return {
+const EmulatorConfig: React.FC<EmulatorConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const initial = useMemo<Draft>(
+    () => ({
       open_emulator_stat: settings.open_emulator_stat,
-      emulator_wait_time: settings.emulator_wait_time,
+      emulator_wait_time: String(settings.emulator_wait_time ?? "5"),
       emulatorIsMultiInstance: settings.emulatorIsMultiInstance,
-      program_address: settings.program_address,
-      emulatorMultiInstanceNumber: settings.emulatorMultiInstanceNumber,
+      program_address: settings.program_address ?? "",
+      emulatorMultiInstanceNumber: String(settings.emulatorMultiInstanceNumber ?? 0),
       multiEmulatorName: settings.multiEmulatorName,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle change interaction. */
-  const handleChange = (key: keyof Draft) => (value: string | boolean) => {
-    setDraft((prev) => ({ ...prev, [key]: value as any }));
-  };
-
-  const emulatorTypeLabel = (key: string) => {
-    switch (key) {
-      case "mumu":
-        return t("emulator.types.mumu");
-      case "mumu_global":
-        return t("emulator.types.mumuGlobal");
-      case "bluestacks_nxt_cn":
-        return t("emulator.types.bluestacksCn");
-      case "bluestacks_nxt":
-        return t("emulator.types.bluestacksGlobal");
-      case "yeshen":
-        return t("emulator.types.yeshen");
-      case "xiaoyao_nat":
-        return t("emulator.types.xiaoyaoNat");
-      case "leidian":
-        return t("emulator.types.leidian");
-      case "wsa":
-        return t("emulator.types.wsa");
-      default:
-        return key;
-    }
-  };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
+    }),
+    [settings]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId, "emulator", initial, {
+    serialize: (value) => {
+      const wait = Number(value.emulator_wait_time);
+      const instance = Number(value.emulatorMultiInstanceNumber);
+      if (
+        !value.emulator_wait_time.trim() ||
+        !Number.isFinite(wait) ||
+        wait < 0 ||
+        !value.emulatorMultiInstanceNumber.trim() ||
+        !Number.isInteger(instance) ||
+        instance < 0
+      )
+        return null;
+      return { ...value, emulatorMultiInstanceNumber: instance };
+    },
+  });
+  const change =
+    <K extends keyof Draft>(key: K) =>
+    (value: Draft[K]) =>
+      setDraft((previous) => ({ ...previous, [key]: value }));
+  const typeLabels: Record<string, string> = {
+    mumu: t("emulator.types.mumu"),
+    mumu_global: t("emulator.types.mumuGlobal"),
+    bluestacks_nxt_cn: t("emulator.types.bluestacksCn"),
+    bluestacks_nxt: t("emulator.types.bluestacksGlobal"),
+    yeshen: t("emulator.types.yeshen"),
+    xiaoyao_nat: t("emulator.types.xiaoyaoNat"),
+    leidian: t("emulator.types.leidian"),
+    wsa: t("emulator.types.wsa"),
   };
 
   return (
-    <div className="@container space-y-2">
-      <div className="flex @lg:flex-row @max-lg:flex-col gap-2">
-        {/* Whether to open the emulator on launch. */}
-        <SwitchButton
+    <div className="space-y-7">
+      <ConfigurationGroup title={t("emulator.openOnLaunch")}>
+        <ConfigurationToggle
           label={t("emulator.openOnLaunch")}
+          description={t("configurationHelp.emulatorLaunch")}
           checked={draft.open_emulator_stat}
-          onChange={(v) => handleChange("open_emulator_stat")(v)}
-          className="w-full"
+          onChange={change("open_emulator_stat")}
         />
-
-        {/* Whether to use multiple emulator instances. */}
-        <SwitchButton
-          label={t("emulator.multiInstance")}
-          checked={draft.emulatorIsMultiInstance}
-          onChange={(v) => handleChange("emulatorIsMultiInstance")(v)}
-          className="w-full"
+        <ConfigurationInput
+          type="number"
+          label={t("emulator.waitTime")}
+          description={t("configurationHelp.emulatorWait")}
+          value={draft.emulator_wait_time}
+          onChange={(event) => change("emulator_wait_time")(event.target.value)}
+          min={0}
         />
-      </div>
-
-      {/* Launch wait time. */}
-      <FormInput
-        type="number"
-        label={t("emulator.waitTime")}
-        value={draft.emulator_wait_time}
-        onChange={(e) => handleChange("emulator_wait_time")(e.target.value)}
-        placeholder="5"
-      />
-
-      {/* Single-instance mode. */}
-      {!draft.emulatorIsMultiInstance && (
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-            {t("emulator.address")}
-          </label>
-          <div className="flex gap-2">
+      </ConfigurationGroup>
+      <ConfigurationGroup title={t("emulator")}>
+        <ConfigurationRow
+          label={t("emulator.address")}
+          description={t("configurationHelp.emulatorPath")}
+          className="configuration-row-stacked"
+        >
+          <div className="flex min-w-0 items-center gap-2">
             <FormInput
-              type="text"
+              aria-label={t("emulator.address")}
               value={draft.program_address}
-              onChange={(e) => handleChange("program_address")(e.target.value)}
-              placeholder="C:\\Path\to\emulator.exe"
-              className="flex-1"
+              onChange={(event) => change("program_address")(event.target.value)}
+              placeholder="C:\\Path\\to\\emulator.exe"
+              className="min-w-0 flex-1"
             />
             {__WITH_TAURI__ && (
               <button
                 type="button"
-                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded-md"
+                className="configuration-action shrink-0"
                 onClick={async () => {
                   const path = await StorageUtil.retrievePath(t("description.getEmulator"), [
                     { name: "Executable File", extensions: ["exe", "bin", "app", "*"] },
                   ]);
-                  if (!path) return;
-                  setDraft((state) => ({ ...state, program_address: path }));
+                  if (path) change("program_address")(path);
                 }}
               >
                 {t("common.choose")}
               </button>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Multi-instance mode. */}
-      {draft.emulatorIsMultiInstance && (
-        <div className="space-y-4">
-          <FormSelect
-            label={t("emulator.multiType")}
-            value={draft.multiEmulatorName}
-            onChange={handleChange("multiEmulatorName")}
-            options={Object.keys(multiMap).map((k) => ({
-              value: k,
-              label: emulatorTypeLabel(k),
-            }))}
-          />
-
-          <FormInput
+        </ConfigurationRow>
+        <ConfigurationSelect
+          label={t("emulator.multiType")}
+          value={draft.multiEmulatorName}
+          onChange={change("multiEmulatorName")}
+          options={emulatorTypes.map((value) => ({ value, label: typeLabels[value] }))}
+        />
+        <ConfigurationToggle
+          label={t("emulator.multiInstance")}
+          description={t("configurationHelp.emulatorMulti")}
+          checked={draft.emulatorIsMultiInstance}
+          onChange={change("emulatorIsMultiInstance")}
+        />
+        {draft.emulatorIsMultiInstance && (
+          <ConfigurationInput
             type="number"
             label={t("emulator.instanceCount")}
+            description={t("configurationHelp.emulatorInstance")}
             value={draft.emulatorMultiInstanceNumber}
-            onChange={(e) => handleChange("emulatorMultiInstanceNumber")(e.target.value)}
+            onChange={(event) => change("emulatorMultiInstanceNumber")(event.target.value)}
+            min={0}
           />
-        </div>
-      )}
-
-      {/* Save button. */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
+        )}
+      </ConfigurationGroup>
     </div>
   );
 };
-
 export default EmulatorConfig;

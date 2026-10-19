@@ -2,11 +2,11 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Info, Loader2 } from "lucide-react";
+import { Info, Loader2, X } from "lucide-react";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import CButton from "@/components/ui/CButton";
 
-const overlayCls =
-  "fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[1100]";
+const overlayCls = "fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-[1100]";
 
 /** Renders the tauri update progress modal component. */
 export const TauriUpdateProgressModal: React.FC<{
@@ -22,6 +22,7 @@ export const TauriUpdateProgressModal: React.FC<{
 
   return createPortal(
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
       onMouseDown={(event) => {
@@ -34,38 +35,47 @@ export const TauriUpdateProgressModal: React.FC<{
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
         onMouseDown={(event) => event.stopPropagation()}
-        className="w-90 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-5"
+        className="modal-surface w-90 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain"
         style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 p-3">
-            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Info className="w-5 h-5" />}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {t("update.tauriInstallTitle")}
-            </h2>
-            {tauriStatus && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">{tauriStatus}</p>
+        <div className="modal-header">
+          <div className="flex min-w-0 items-center gap-2">
+            {updating ? (
+              <Loader2 className="size-5 shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+              <Info className="size-5 shrink-0 text-muted-foreground" />
             )}
+            <h2 className="modal-title">{t("update.tauriInstallTitle")}</h2>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updating}
+            aria-label={t("common.close")}
+            className="modal-close disabled:opacity-40"
+          >
+            <X className="size-4" />
+          </button>
         </div>
 
-        <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+        {tauriStatus && <p className="mb-4 text-sm text-muted-foreground">{tauriStatus}</p>}
+
+        <div className="h-2 rounded-full bg-secondary overflow-hidden">
           <div
-            className="h-full bg-sky-600 transition-all"
+            className="h-full bg-[var(--control-checked)] transition-all"
             style={{ width: `${tauriProgress}%` }}
           />
         </div>
 
-        <div className="mt-5 flex justify-end">
-          <button
+        <div className="modal-footer">
+          <CButton
             onClick={onClose}
             disabled={updating}
-            className="px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-200 transition-colors"
+            variant="secondary"
+            className="border-transparent bg-secondary hover:bg-accent"
           >
             {t("common.cancel")}
-          </button>
+          </CButton>
         </div>
       </motion.div>
     </div>,

@@ -1,0 +1,393 @@
+.settings-page {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding-top: 40px;
+  padding-bottom: 24px;
+  color: var(--foreground);
+}
+.settings-page-title {
+  margin: 0 0 40px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+.settings-categories {
+  display: grid;
+  gap: 48px;
+}
+.settings-category {
+  min-width: 0;
+}
+.settings-page > .settings-mobile-navigation {
+  margin-bottom: 32px;
+}
+@media (max-width: 1023px) {
+  .settings-page {
+    padding-top: 0;
+  }
+
+  .settings-page > .settings-mobile-navigation {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding-block: 8px;
+    background: var(--background);
+    box-shadow: 0 -32px 0 var(--background);
+  }
+}
+@media (min-width: 1024px) {
+  .settings-category-inactive {
+    display: none;
+  }
+}
+.settings-sections {
+  display: grid;
+  gap: 36px;
+}
+.settings-group {
+  min-width: 0;
+}
+.settings-group-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.settings-card {
+  --settings-card-inset: 16px;
+  min-width: 0;
+  padding-inline: var(--settings-card-inset);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--secondary);
+}
+.settings-row {
+  display: flex;
+  min-width: 0;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-block: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-card > .settings-row:last-child,
+.settings-update-form > .settings-row:last-child {
+  border-bottom: 0;
+}
+.settings-row-copy {
+  min-width: 0;
+  flex: 1;
+}
+.settings-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.settings-description {
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.settings-row-control {
+  min-width: 0;
+  max-width: 48%;
+  flex-shrink: 0;
+}
+.settings-select-control {
+  min-width: 0;
+}
+.settings-page [data-slot="select-trigger"] {
+  width: auto;
+  min-width: 92px;
+  max-width: 190px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-color: var(--border);
+  border-radius: 9px;
+  background: var(--secondary);
+}
+.settings-page [data-slot="select-value"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-page [data-slot="select-trigger"] svg {
+  width: 13px;
+  height: 13px;
+}
+.settings-theme-row {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.settings-theme-row .settings-row-control {
+  max-width: 100%;
+}
+.settings-block {
+  min-width: 0;
+  padding-block: 16px;
+}
+.settings-block + .settings-block {
+  border-top: 1px solid var(--border);
+}
+.settings-block-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.settings-block-label svg {
+  display: none;
+}
+.settings-color-controls,
+.settings-background-controls {
+  min-width: 0;
+}
+.settings-color-controls input {
+  height: 32px;
+  font-size: 12px;
+}
+.settings-color-controls > div > button {
+  min-height: 32px;
+}
+.settings-opacity {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.settings-version-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 0;
+  padding-block: 18px;
+}
+.settings-version-fields > div {
+  min-width: 0;
+}
+.settings-version-fields dt {
+  margin-bottom: 5px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 18px;
+}
+.settings-version-fields dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+}
+.settings-version-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 12px;
+  border-top: 1px solid var(--border);
+}
+.settings-version-footer > p {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.settings-version-source {
+  margin-inline-start: 10px;
+  color: var(--foreground);
+}
+.settings-update-action {
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.settings-update-form {
+  min-width: 0;
+}
+.settings-update-form > div {
+  margin: 0;
+  padding-block: 14px;
+}
+.settings-update-form > div:first-child {
+  border-bottom: 1px solid var(--border);
+}
+.settings-update-form .settings-row {
+  padding-block: 14px;
+}
+.settings-update-form > .settings-row {
+  margin: 0;
+}
+
+/* Let separators meet the card edges while keeping every control inset. */
+.settings-card > .settings-row,
+.settings-card > .settings-block,
+.settings-card > .settings-version-footer,
+.settings-card > .stage-plan-section,
+.settings-card > .settings-update-form > div:first-child,
+.settings-card > .settings-update-form > .settings-row,
+.settings-card .settings-opacity {
+  margin-inline: calc(-1 * var(--settings-card-inset));
+  padding-inline: var(--settings-card-inset);
+}
+.settings-page .settings-card input:not([type="range"]) {
+  font-size: 13px;
+}
+.settings-page .settings-card button {
+  font-size: 12px;
+}
+.settings-page .settings-background-controls button {
+  min-height: 30px;
+  height: 30px;
+  padding-block: 0;
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .settings-background-controls > div:first-child > div:last-child {
+    flex-wrap: wrap;
+  }
+  .settings-page {
+    padding-bottom: 32px;
+  }
+  .settings-page-title {
+    margin-bottom: 28px;
+    font-size: 25px;
+  }
+  .settings-page > .settings-mobile-navigation {
+    margin-bottom: 24px;
+  }
+  .settings-sections {
+    gap: 28px;
+  }
+  .settings-categories {
+    gap: 36px;
+  }
+  .settings-card {
+    --settings-card-inset: 13px;
+    border-radius: 14px;
+  }
+  .settings-row {
+    gap: 12px;
+    min-height: 62px;
+  }
+  .settings-row-control {
+    max-width: 46%;
+  }
+  .settings-page [data-slot="select-trigger"] {
+    min-width: 80px;
+    max-width: 100%;
+  }
+  .settings-version-fields {
+    gap: 16px;
+  }
+}
+
+/* Keep token defaults above for older Android WebViews. A var() declaration
+   can fail at computed-value time, so a preceding declaration alone is unsafe. */
+@supports (color: color-mix(in srgb, black, white)) {
+  .settings-card {
+    border-color: color-mix(in srgb, var(--border) 85%, transparent);
+    background: color-mix(in srgb, var(--secondary) 70%, var(--background));
+  }
+  .settings-row,
+  .settings-update-form > div:first-child {
+    border-bottom-color: color-mix(in srgb, var(--border) 65%, transparent);
+  }
+  .settings-block + .settings-block,
+  .settings-opacity,
+  .settings-version-footer {
+    border-top-color: color-mix(in srgb, var(--border) 65%, transparent);
+  }
+  .settings-page [data-slot="select-trigger"] {
+    border-color: color-mix(in srgb, var(--border) 85%, transparent);
+    background: color-mix(in srgb, var(--secondary) 65%, transparent);
+  }
+}
+
+.settings-shortcut-row > .settings-row-control {
+  width: 248px;
+  max-width: 48%;
+}
+.settings-shortcut-field input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 72px 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.settings-shortcut-field > div {
+  min-width: 0;
+  border-width: 1px;
+  border-color: var(--border);
+  background: var(--background);
+}
+.settings-shortcut-field button {
+  color: var(--muted-foreground);
+}
+.settings-shortcut-field button:hover {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+.settings-shortcut-field > p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.settings-shortcut-row-inactive .settings-row-control {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.settings-shortcut-action {
+  height: 30px;
+  padding-inline: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  font-size: 12px;
+  transition: background-color 150ms;
+}
+.settings-shortcut-action:hover:enabled {
+  background: var(--secondary);
+}
+.settings-shortcut-action:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.settings-shortcut-key {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 479px) {
+  .settings-shortcut-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .settings-shortcut-row > .settings-row-control {
+    width: 100%;
+    max-width: none;
+  }
+  .settings-shortcut-key {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

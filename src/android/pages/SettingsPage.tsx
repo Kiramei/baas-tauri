@@ -1,46 +1,32 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import { useSettingsSearchHighlight } from "@/shared/useSettingsSearchHighlight";
+import { useSettingsSearch } from "@/shared/useSettingsSearch";
+import { FormSelect } from "@/components/ui/FormSelect";
+import { VersionOverview } from "@/components/settings/VersionOverview";
+import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
+import SettingsNavigation from "@/components/layout/SettingsNavigation";
+import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
+import { SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
+import {
+  SettingsToggle,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSelect,
+} from "@/components/settings/SettingsControls";
 import { useTheme } from "@/context/ThemeProvider";
 import { Theme } from "@/types/app";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
-import { Separator } from "@/components/ui/Separator";
-import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { toast } from "sonner";
-import {
-  AppWindow,
-  CheckCircle2,
-  ChevronDown,
-  Cloud,
-  Download,
-  GitBranch,
-  HardDrive,
-  ImagePlus,
-  Info,
-  Loader2,
-  MinusCircle,
-  Palette,
-  RefreshCcw,
-  TestTube,
-  Trash2,
-  UserSearch,
-  XCircle,
-} from "lucide-react";
+import { ImagePlus, Loader2, Palette, Trash2, UserSearch } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { resolveClientVersion } from "@/shared/ClientVersion";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import {
-  i18nKey,
-  mirrorcMessageKey,
-  shaMethodKey,
-  themeKey,
-  updateMethodKey,
-} from "@/shared/I18nKeys";
+import { i18nKey, mirrorcMessageKey, shaMethodKey, updateMethodKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
@@ -57,13 +43,6 @@ const ThemeColorPicker = React.lazy(() => import("@/android/components/ThemeColo
 type RepoConfig = {
   label: string;
   method: string;
-};
-
-type ShaTestResult = {
-  method: TranslationKey;
-  status: "pending" | "success" | "error" | "testing";
-  time?: string;
-  sha?: string;
 };
 
 type TauriBackendVersionReport = {
@@ -193,9 +172,17 @@ const shaMethodsInit = [
 
 /** Renders the settings page component. */
 const SettingsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, language } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
+  const section = resolveSettingsSection(uiSettings.settingsSection);
+  const { query: settingsQuery } = useSettingsSearch();
+  const pageRef = useRef<HTMLDivElement>(null);
+  useSettingsSearchHighlight(pageRef, section.id, language);
+  useEffect(() => {
+    const scrollRegion = pageRef.current?.closest<HTMLElement>(".android-page-scroll");
+    if (scrollRegion && !settingsQuery.trim()) scrollRegion.scrollTop = 0;
+  }, [section.id, settingsQuery]);
   const backgroundFileInputRef = useRef<HTMLInputElement | null>(null);
   const trigger = useWebSocketStore((state) => state.trigger);
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
@@ -380,55 +367,8 @@ const SettingsPage: React.FC = () => {
     await checkTauriUpdater(true, true);
   };
 
-  const infos = [
-    {
-      label: t("version.local"),
-      value: localVersion,
-      icon: <HardDrive className="w-8 h-8 text-cyan-500" />,
-    },
-    {
-      label: t("version.remote"),
-      value: remoteVersion,
-      icon: <Cloud className="w-8 h-8 text-indigo-500" />,
-    },
-    {
-      label: t("update.method"),
-      value: t(i18nKey(updateStatus)),
-      icon: (
-        <RefreshCcw
-          className={`w-8 h-8 text-purple-500 ${versionChecking ? "animate-spin" : ""}`}
-        />
-      ),
-    },
-    ...(__WITH_TAURI__
-      ? [
-          {
-            label: t("version.tauriLocal"),
-            value: tauriCurrentVersion,
-            icon: <AppWindow className="w-8 h-8 text-sky-500" />,
-          },
-          {
-            label: t("version.tauriRemote"),
-            value: tauriRemoteVersion,
-            icon: <Download className="w-8 h-8 text-blue-500" />,
-          },
-          {
-            label: t("version.tauriStatus"),
-            value: tauriStatus,
-            icon: (
-              <RefreshCcw
-                className={`w-8 h-8 text-blue-500 ${
-                  tauriVersion.checking || tauriUpdate.updating ? "animate-spin" : ""
-                }`}
-              />
-            ),
-            onClick: handleTauriVersionAction,
-          },
-        ]
-      : []),
-  ];
   const [cdk, setCdk] = useState(updateConfig["mirrorcCdk"]);
-  const [shaResults, setShaResults] = useState<ShaTestResult[]>(
+  const [shaResults, setShaResults] = useState<ShaDiagnosticResult[]>(
     shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
   const [showShaResults, setShowShaResults] = useState(false);
@@ -579,7 +519,11 @@ const SettingsPage: React.FC = () => {
   }, [versionStore.local, versionStore.remote]);
 
   useEffect(() => {
-    if (![verLocal, shaLocal, verRemote, shaRemote].some(isPresentVersionValue)) return;
+    if (![verLocal, shaLocal, verRemote, shaRemote].some(isPresentVersionValue)) {
+      setLocalVersion(t("version.fetching"));
+      setRemoteVersion(t("version.fetching"));
+      return;
+    }
 
     if (verLocal === null || shaLocal === null) {
       setLocalVersion(t("version.checkError"));
@@ -768,58 +712,411 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="relative overflow-hidden rounded-2xl border border-slate-200/50 bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 shadow-lg">
-        <div className="absolute inset-0 rounded-2xl border border-transparent mask-exclude bg-linear-to-r from-cyan-400/40 via-indigo-400/40 to-purple-400/40 blur-2xl opacity-40 pointer-events-none" />
-
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Info className="w-5 h-5 text-cyan-400" />
-          <CardTitle className="text-lg font-semibold tracking-wide bg-linear-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            {t("version.info")}
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {infos.map((info, i) => (
-            <div
-              key={i}
-              role={info.onClick || info.label === t("update.method") ? "button" : undefined}
-              tabIndex={info.onClick || info.label === t("update.method") ? 0 : undefined}
-              className={`flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 transition ${
-                info.label === t("update.method") || info.onClick
-                  ? " cursor-pointer hover:bg-white/70 dark:hover:bg-slate-700/50"
-                  : ""
-              }`}
-              onClick={
-                info.onClick
-                  ? info.onClick
-                  : info.label === t("update.method")
-                    ? fetchVersion
-                    : undefined
-              }
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                const action =
-                  info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
-                if (!action) return;
-                event.preventDefault();
-                void action();
-              }}
+    <div
+      ref={pageRef}
+      className={`settings-page android-settings-page${settingsQuery.trim() ? " android-settings-searching" : ""}`}
+    >
+      <div className="settings-mobile-navigation lg:hidden">
+        <SettingsNavigation compact />
+        <FormSelect
+          value={section.id}
+          onChange={(value) =>
+            setUiSettings((settings) => ({
+              ...settings,
+              settingsSection: resolveSettingsSection(value).id,
+            }))
+          }
+          options={SETTINGS_SECTIONS.map(({ id, label }) => ({
+            value: id,
+            label: t(i18nKey(label)),
+          }))}
+          ariaLabel={t("settings.categories")}
+        />
+      </div>
+      <input
+        ref={backgroundFileInputRef}
+        type="file"
+        accept={BACKGROUND_IMAGE_ACCEPT}
+        className="hidden"
+        onChange={handleWebBackgroundImageChange}
+      />
+      <div className="settings-categories">
+        {SETTINGS_SECTIONS.map((displayedSection) => (
+          <section
+            key={displayedSection.id}
+            aria-labelledby={`settings-section-${displayedSection.id}-title`}
+            data-settings-section={displayedSection.id}
+            className={`settings-category${section.id === displayedSection.id ? "" : " settings-category-inactive"}`}
+          >
+            <h2
+              id={`settings-section-${displayedSection.id}-title`}
+              className="settings-page-title"
             >
-              {info.icon}
-              <div className="flex flex-col">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  {info.label}
-                </p>
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                  {info.value}
-                </p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              {t(i18nKey(displayedSection.label))}
+            </h2>
+            <div className="settings-sections">
+              {displayedSection.id === "shortcuts" && <ShortcutSettings />}
+              {displayedSection.id === "general" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("settings.groups.preferences")}>
+                    <SettingsRow
+                      label={t("language")}
+                      description={t("settings.descriptions.language")}
+                    >
+                      <LanguageSelect
+                        handleLanguageChange={handleLanguageChange}
+                        className="settings-select-control"
+                        hideLabel
+                      />
+                    </SettingsRow>
+                    <SettingsToggle
+                      label={t("settings.ui.lowPerformanceMode")}
+                      description={t("settings.descriptions.lowPerformanceMode")}
+                      checked={uiSettings.lowPerformanceMode}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, lowPerformanceMode: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                  {__WITH_TAURI__ && !__WITH_ANDROID__ && (
+                    <SettingsGroup title={t("settings.groups.desktop")}>
+                      {__WITH_TAURI__ && (
+                        <SettingsToggle
+                          label={t("settings.ui.enableSystemNotifications")}
+                          description={t("settings.descriptions.systemNotifications")}
+                          checked={uiSettings.enableSystemNotifications}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({
+                              ...state,
+                              enableSystemNotifications: value,
+                            }))
+                          }
+                        />
+                      )}
+                      {__WITH_TAURI__ && !__WITH_ANDROID__ && (
+                        <SettingsToggle
+                          label={t("workflow.minimizeToTray")}
+                          description={t("settings.descriptions.minimizeToTray")}
+                          checked={uiSettings.minimizeToTray ?? false}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({ ...state, minimizeToTray: value }))
+                          }
+                        />
+                      )}
+                    </SettingsGroup>
+                  )}
+                </div>
+              )}
+              {displayedSection.id === "appearance" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("common.theme")}>
+                    <SettingsRow label={t("common.theme")} className="settings-theme-row">
+                      <ThemeSelector value={theme} onChange={handleThemeChange} compact />
+                    </SettingsRow>
+                    <div className="settings-block">
+                      <label className="settings-block-label">
+                        <Palette className="h-4 w-4 text-primary-500" />
+                        {t("settings.ui.themeColor")}
+                      </label>
+                      <div className="settings-color-controls">
+                        <React.Suspense
+                          fallback={
+                            <div className="h-11 rounded-lg bg-white dark:bg-slate-800 animate-pulse" />
+                          }
+                        >
+                          <ThemeColorPicker
+                            pickerValue={activeThemeColor}
+                            inputValue={themeColorInput}
+                            currentColor={uiSettings.themeColor || DEFAULT_THEME_COLOR}
+                            defaultColor={DEFAULT_THEME_COLOR}
+                            presets={THEME_COLOR_PRESETS}
+                            label={t("settings.ui.themeColor")}
+                            resetLabel={t("settings.ui.themeColorReset")}
+                            onInputChange={setThemeColorInput}
+                            onCommit={commitThemeColor}
+                          />
+                        </React.Suspense>
+                      </div>
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.ui.backgroundImage")}>
+                    <div className="settings-block">
+                      <div className="settings-background-controls">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white text-primary-500 shadow-xs dark:border-slate-700 dark:bg-slate-800"
+                              style={
+                                uiSettings.backgroundImageBase64
+                                  ? {
+                                      backgroundImage: `url(${uiSettings.backgroundImageBase64})`,
+                                      backgroundPosition: "center",
+                                      backgroundSize: "cover",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {!uiSettings.backgroundImageBase64 && (
+                                <ImagePlus className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                                {uiSettings.backgroundImageBase64
+                                  ? t("settings.ui.backgroundImageSelected")
+                                  : t("settings.ui.backgroundImageEmpty")}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {t("settings.ui.backgroundImageOpacity")}:{" "}
+                                {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSelectBackgroundImage}
+                              className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                            >
+                              <ImagePlus className="h-4 w-4" />
+                              {t("settings.ui.backgroundImageChoose")}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!uiSettings.backgroundImageBase64}
+                              onClick={handleRemoveBackgroundImage}
+                              className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              {t("settings.ui.backgroundImageRemove")}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="settings-opacity">
+                          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                            <span className="font-medium text-slate-600 dark:text-slate-300">
+                              {t("settings.ui.backgroundImageOpacity")}
+                            </span>
+                            <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
+                              {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={60}
+                            step={1}
+                            value={Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}
+                            onChange={handleBackgroundOpacityChange}
+                            className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary-600 dark:bg-slate-700"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.groups.display")}>
+                    <SettingsSelect
+                      value={uiSettings?.zoomScale.toString()}
+                      label={t("ui.zoom")}
+                      onChange={handleZoomChange}
+                      options={[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150].map((v) => ({
+                        value: v.toString(),
+                        label: `${v}%`,
+                      }))}
+                    />
+                    <SettingsToggle
+                      label={t("settings.ui.assets")}
+                      description={t("settings.descriptions.assets")}
+                      checked={uiSettings.assetsDisplay}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, assetsDisplay: value }))
+                      }
+                    />
+                    <SettingsToggle
+                      label={t("settings.ui.enableBAComet")}
+                      checked={uiSettings.enableBAComet}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, enableBAComet: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                </div>
+              )}
+              {displayedSection.id === "runtime" && (
+                <SettingsGroup title={t("settings.groups.connection")}>
+                  <SettingsSelect
+                    label={t("transport.label")}
+                    value={transportMode}
+                    onChange={(value) => void handleTransportMode(value)}
+                    options={[
+                      { value: "websocket", label: t("transport.websocket") },
+                      { value: "pipe", label: t("transport.pipe") },
+                    ]}
+                  />
+                  {!__WITH_ANDROID__ && (
+                    <SettingsSelect
+                      value={uiSettings?.remoteSettings.streamPlayer}
+                      label={t("settings.ui.player")}
+                      onChange={handlePlayerChange}
+                      options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
+                        value: v.toString(),
+                        label: v.charAt(0).toUpperCase() + v.slice(1),
+                      }))}
+                    />
+                  )}
+                  {!__WITH_ANDROID__ && (
+                    <SettingsToggle
+                      label={t("settings.ui.enableSafeStream")}
+                      description={t("settings.descriptions.safeStream")}
+                      checked={uiSettings.remoteSettings.enableSafeStream}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({
+                          ...state,
+                          remoteSettings: { ...state.remoteSettings, enableSafeStream: value },
+                        }))
+                      }
+                    />
+                  )}
+                </SettingsGroup>
+              )}
+              {displayedSection.id === "updates" && (
+                <div className="settings-sections">
+                  <VersionOverview
+                    script={{
+                      current: localVersion,
+                      latest: remoteVersion,
+                      currentDetail: shaLocal || undefined,
+                      latestDetail: shaRemote || undefined,
+                      source: t(updateMethodKey(updateMethod)),
+                      checking: versionChecking,
+                      checkLabel: t(i18nKey(updateStatus)),
+                      onCheck: fetchVersion,
+                    }}
+                    client={
+                      __WITH_TAURI__
+                        ? {
+                            current: tauriCurrentVersion,
+                            latest: tauriRemoteVersion,
+                            status: tauriStatus,
+                            busy: Boolean(tauriVersion.checking || tauriUpdate.updating),
+                            updateAvailable: Boolean(tauriVersion.updateAvailable),
+                            onAction: handleTauriVersionAction,
+                          }
+                        : undefined
+                    }
+                  />
+                  <SettingsGroup title={t("update.settingsTitle")}>
+                    {__WITH_TAURI__ && !__WITH_WEBUI__ && (
+                      <SettingsToggle
+                        label={t("settings.ui.idleAutoUpdate")}
+                        description={t("settings.descriptions.idleAutoUpdate")}
+                        checked={uiSettings.idleAutoUpdate ?? true}
+                        onChange={(value) =>
+                          setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
+                        }
+                      />
+                    )}
+                    <div className="settings-update-form">
+                      <div className="grid grid-cols-1 gap-1">
+                        <div className="grid sm:flex gap-2 items-center">
+                          <FormInput
+                            label={t("update.mirrorCdk")}
+                            placeholder={t("update.enterCdk")}
+                            value={cdk}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleTestCdk(undefined);
+                              }
+                            }}
+                            onChange={(e) => setCdk(e.target.value)}
+                            className="flex-1"
+                          />
 
+                          <CButton
+                            onClick={handleTestCdk}
+                            disabled={mcLoading}
+                            className="pl-3 self-end"
+                          >
+                            {mcLoading ? (
+                              <div className="flex justify-center items-center">
+                                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                {t("mirror.verifying")}
+                              </div>
+                            ) : (
+                              <div className="flex justify-center items-center">
+                                <UserSearch className="mr-1 h-4 w-4" />
+                                {t("mirror.verify")}
+                              </div>
+                            )}
+                          </CButton>
+                        </div>
+                        {dueDate !== "" ? (
+                          <div className="text-sm text-muted-foreground">
+                            {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">&nbsp;</div>
+                        )}
+                      </div>
+                      <SettingsSelect
+                        label={t("update.method")}
+                        value={updateMethod}
+                        onChange={handleUpdateMethod}
+                        options={reposInitState.map((r) => ({
+                          value: r.method,
+                          label: t(updateMethodKey(r.method)),
+                        }))}
+                      />
+                      <SettingsSelect
+                        label={t("update.channel")}
+                        value={updateChannel}
+                        onChange={handleUpdateChannel}
+                        options={[
+                          { value: "stable", label: t("updateChannel.stable") },
+                          { value: "dev", label: t("updateChannel.dev") },
+                        ]}
+                      />
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("update.shaConnectivityTest")}>
+                    <ShaDiagnostics
+                      value={updateConfig["shaMethod"]}
+                      onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
+                      options={shaMethodsInit.map((method) => ({
+                        value: method.value,
+                        label: t(shaMethodKey(method.value)),
+                      }))}
+                      loading={apiLoading}
+                      onTest={handleTestSha}
+                      results={shaResults}
+                      expanded={showShaResults}
+                      onExpandedChange={setShowShaResults}
+                    />
+                  </SettingsGroup>
+                </div>
+              )}
+              {displayedSection.id === "logs" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("settings.groups.preferences")}>
+                    <SettingsToggle
+                      label={t("log.scroll.detail")}
+                      checked={uiSettings.scrollToEnd}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, scrollToEnd: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.systemLogs.title")}>
+                    <div className="settings-block">
+                      <SystemLogSettings />
+                    </div>
+                  </SettingsGroup>
+                </div>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
       {tauriUpdate.progressOpen && (
         <React.Suspense fallback={null}>
           <TauriUpdateProgressModal
@@ -831,425 +1128,6 @@ const SettingsPage: React.FC = () => {
           />
         </React.Suspense>
       )}
-
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <AppWindow className="w-5 h-5" />
-          <CardTitle>{t("settings.ui")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <input
-            ref={backgroundFileInputRef}
-            type="file"
-            accept={BACKGROUND_IMAGE_ACCEPT}
-            className="hidden"
-            onChange={handleWebBackgroundImageChange}
-          />
-
-          {/* Theme Settings */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-              {t("common.theme")}
-            </label>
-            <div className="flex space-x-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-lg">
-              {(["light", "dark", "system"] as Theme[]).map((value) => (
-                <button
-                  key={value}
-                  onClick={() => handleThemeChange(value)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                    theme === value
-                      ? "bg-white dark:bg-slate-600 shadow"
-                      : "hover:bg-white/50 dark:hover:bg-slate-700/50"
-                  }`}
-                >
-                  {t(themeKey(value))}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <Palette className="h-4 w-4 text-primary-500" />
-              {t("settings.ui.themeColor")}
-            </label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-              <React.Suspense
-                fallback={
-                  <div className="h-11 rounded-lg bg-white dark:bg-slate-800 animate-pulse" />
-                }
-              >
-                <ThemeColorPicker
-                  pickerValue={activeThemeColor}
-                  inputValue={themeColorInput}
-                  currentColor={uiSettings.themeColor || DEFAULT_THEME_COLOR}
-                  defaultColor={DEFAULT_THEME_COLOR}
-                  presets={THEME_COLOR_PRESETS}
-                  label={t("settings.ui.themeColor")}
-                  resetLabel={t("settings.ui.themeColorReset")}
-                  onInputChange={setThemeColorInput}
-                  onCommit={commitThemeColor}
-                />
-              </React.Suspense>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <ImagePlus className="h-4 w-4 text-primary-500" />
-              {t("settings.ui.backgroundImage")}
-            </label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white text-primary-500 shadow-xs dark:border-slate-700 dark:bg-slate-800"
-                    style={
-                      uiSettings.backgroundImageBase64
-                        ? {
-                            backgroundImage: `url(${uiSettings.backgroundImageBase64})`,
-                            backgroundPosition: "center",
-                            backgroundSize: "cover",
-                          }
-                        : undefined
-                    }
-                  >
-                    {!uiSettings.backgroundImageBase64 && <ImagePlus className="h-5 w-5" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {uiSettings.backgroundImageBase64
-                        ? t("settings.ui.backgroundImageSelected")
-                        : t("settings.ui.backgroundImageEmpty")}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {t("settings.ui.backgroundImageOpacity")}:{" "}
-                      {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
-                    </div>
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    {t("settings.ui.backgroundImageChoose")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!uiSettings.backgroundImageBase64}
-                    onClick={handleRemoveBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {t("settings.ui.backgroundImageRemove")}
-                  </button>
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-slate-600 dark:text-slate-300">
-                    {t("settings.ui.backgroundImageOpacity")}
-                  </span>
-                  <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                    {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={60}
-                  step={1}
-                  value={Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}
-                  onChange={handleBackgroundOpacityChange}
-                  className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary-600 dark:bg-slate-700"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Language Settings */}
-          <LanguageSelect handleLanguageChange={handleLanguageChange} />
-
-          {/* Zoom Settings */}
-          <FormSelect
-            value={uiSettings?.zoomScale.toString()}
-            label={t("ui.zoom")}
-            onChange={handleZoomChange}
-            options={[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150].map((v) => ({
-              value: v.toString(),
-              label: `${v}%`,
-            }))}
-          />
-
-          {!__WITH_ANDROID__ && (
-            <FormSelect
-              value={uiSettings?.remoteSettings.streamPlayer}
-              label={t("settings.ui.player")}
-              onChange={handlePlayerChange}
-              options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
-                value: v.toString(),
-                label: v.charAt(0).toUpperCase() + v.slice(1),
-              }))}
-            />
-          )}
-
-          <Separator />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <SwitchButton
-              label={t("log.scroll.detail")}
-              checked={uiSettings?.scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.assets")}
-              checked={uiSettings?.assetsDisplay}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, assetsDisplay: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.enableBAComet")}
-              checked={uiSettings?.enableBAComet}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, enableBAComet: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.lowPerformanceMode")}
-              checked={uiSettings?.lowPerformanceMode}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
-              }}
-            />
-            {__WITH_TAURI__ && (
-              <SwitchButton
-                label={t("settings.ui.enableSystemNotifications")}
-                checked={uiSettings?.enableSystemNotifications}
-                onChange={(value) => {
-                  setUiSettings((state) => ({ ...state, enableSystemNotifications: value }));
-                }}
-              />
-            )}
-            {!__WITH_ANDROID__ && (
-              <SwitchButton
-                label={t("settings.ui.enableSafeStream")}
-                checked={uiSettings?.remoteSettings.enableSafeStream}
-                onChange={(value) => {
-                  setUiSettings((state) => ({
-                    ...state,
-                    remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
-                  }));
-                }}
-              />
-            )}
-            {__WITH_TAURI__ && !__WITH_WEBUI__ && (
-              <SwitchButton
-                label={t("settings.ui.idleAutoUpdate")}
-                checked={uiSettings.idleAutoUpdate ?? true}
-                onChange={(value) =>
-                  setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
-                }
-              />
-            )}
-          </div>
-          <Separator />
-          <SystemLogSettings />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <GitBranch className="w-5 h-5" />
-          <CardTitle>{t("update.settingsTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-1">
-            <div className="grid sm:flex gap-2 items-center">
-              <FormInput
-                label={t("update.mirrorCdk")}
-                placeholder={t("update.enterCdk")}
-                value={cdk}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleTestCdk(undefined);
-                  }
-                }}
-                onChange={(e) => setCdk(e.target.value)}
-                className="flex-1"
-              />
-
-              <CButton onClick={handleTestCdk} disabled={mcLoading} className="pl-3 self-end">
-                {mcLoading ? (
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                    {t("mirror.verifying")}
-                  </div>
-                ) : (
-                  <div className="flex justify-center items-center">
-                    <UserSearch className="mr-1 h-4 w-4" />
-                    {t("mirror.verify")}
-                  </div>
-                )}
-              </CButton>
-            </div>
-            {dueDate !== "" ? (
-              <div className="text-sm text-slate-600">
-                {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-600">&nbsp;</div>
-            )}
-          </div>
-
-          <Separator />
-
-          <FormSelect
-            label={t("transport.label")}
-            value={transportMode}
-            onChange={(value) => void handleTransportMode(value)}
-            options={[
-              { value: "websocket", label: t("transport.websocket") },
-              { value: "pipe", label: t("transport.pipe") },
-            ]}
-          />
-
-          <FormSelect
-            label={t("update.method")}
-            value={updateMethod}
-            onChange={handleUpdateMethod}
-            options={reposInitState.map((r) => ({
-              value: r.method,
-              label: t(updateMethodKey(r.method)),
-            }))}
-          />
-
-          <FormSelect
-            label={t("update.channel")}
-            value={updateChannel}
-            onChange={handleUpdateChannel}
-            options={[
-              { value: "stable", label: t("updateChannel.stable") },
-              { value: "dev", label: t("updateChannel.dev") },
-            ]}
-          />
-
-          <div className="grid sm:flex gap-2">
-            <FormSelect
-              label={t("update.shaConnectivityTest")}
-              value={updateConfig["shaMethod"]}
-              onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
-              options={shaMethodsInit.map((m) => ({
-                value: m.value,
-                label: t(shaMethodKey(m.value)),
-              }))}
-              className="grow"
-            />
-
-            <CButton onClick={handleTestSha} disabled={apiLoading} className="pl-3 self-end">
-              {apiLoading ? (
-                <div className="flex justify-center items-center">
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                  {t("shaTest.testing")}
-                </div>
-              ) : (
-                <div className="flex justify-center items-center">
-                  <TestTube className="mr-1 h-4 w-4" />
-                  {t("shaTest.testAll")}
-                </div>
-              )}
-            </CButton>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
-              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-              onClick={() => setShowShaResults((visible) => !visible)}
-              aria-expanded={showShaResults}
-            >
-              <TestTube className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              <span>{t("shaTest.results")}</span>
-              <span className="ml-auto text-xs font-normal text-slate-500 dark:text-slate-400">
-                {shaResults.filter((result) => ["success", "error"].includes(result.status)).length}
-                /{shaResults.length}
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${showShaResults ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {showShaResults && (
-              <div className="max-h-60 overflow-auto border-t border-slate-200 dark:border-slate-700">
-                <table className="w-full text-xs sm:text-sm border-collapse">
-                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                        {t("shaTest.method")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                        {t("shaTest.status")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                        {t("shaTest.time")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700">
-                        {t("shaTest.sha")}
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {shaResults.map((r, idx) => (
-                      <tr
-                        key={idx}
-                        className="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex">
-                          <EllipsisWithTooltip text={t(i18nKey(r.method))} />
-                          <div className="grow"></div>
-                        </td>
-
-                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 w-16">
-                          {r.status === "success" && (
-                            <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
-                          )}
-                          {r.status === "error" && (
-                            <XCircle className="w-5 h-5 mx-auto text-red-500" />
-                          )}
-                          {r.status === "testing" && (
-                            <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
-                          )}
-                          {!["success", "error", "testing"].includes(r.status) && (
-                            <MinusCircle className="w-5 h-5 mx-auto text-slate-400" />
-                          )}
-                        </td>
-
-                        <td className="px-3 py-2 text-center border-b border-slate-200 dark:border-slate-700 font-mono w-20">
-                          {r.time ?? "-"}
-                        </td>
-
-                        <td className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 font-mono w-16">
-                          {r.sha ? (
-                            <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

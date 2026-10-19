@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import importlib.util
 import json
 import sys
@@ -177,6 +178,71 @@ class AndroidBootstrapPreserveTest(unittest.TestCase):
 
             bootstrap._patch_android_ocr_module_injection(root)
             self.assertEqual(injection.read_text(encoding="utf-8"), patched)
+
+    def test_ocr_first_download_uses_the_active_installer_folder_with_legacy_and_alias_modules(self):
+        bootstrap = load_bootstrap()
+        for alias in (False, True):
+            with self.subTest(alias=alias), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                service_dir = root / "service"
+                service_dir.mkdir()
+                client = service_dir / "android_ocr_client.py"
+                client.write_text(
+                    "def _server_folder_path():\n"
+                    "    base = os.path.dirname(__file__)\n"
+                    "    android_branch = _android_ocr_branch()\n"
+                    "    if android_branch:\n"
+                    '        return os.path.join(base, "bin-android", android_branch)\n'
+                    '    return os.path.join(base, "bin")\n'
+                    "class Client:\n"
+                    "    server_folder_path = _server_folder_path()\n"
+                    "    def read_library(self):\n"
+                    "        return (Path(_server_folder_path()) / 'lib/arm64-v8a/libBAAS_ocr_server.so').read_bytes()\n",
+                    encoding="utf-8",
+                )
+                installer_file = service_dir / "android_ocr_installer.py"
+                expected = root / ("core/ocr/baas_ocr_client" if alias else "service") / "bin-android/android-arm64-v8a"
+                if alias:
+                    installer_file.write_text(
+                        "import sys\n"
+                        "from core.ocr.baas_ocr_client import server_installer\n"
+                        "sys.modules[__name__] = server_installer\n",
+                        encoding="utf-8",
+                    )
+                else:
+                    installer_file.write_text(f"SERVER_BIN_DIR = {str(expected)!r}\n", encoding="utf-8")
+
+                service = types.ModuleType("service")
+                service.__path__ = [str(service_dir)]
+                core_client = types.ModuleType("core.ocr.baas_ocr_client")
+                core_installer = types.ModuleType("core.ocr.baas_ocr_client.server_installer")
+                core_installer.SERVER_BIN_DIR = str(expected)
+                core_client.server_installer = core_installer
+                modules = {
+                    "service": service,
+                    "core.ocr.baas_ocr_client": core_client,
+                    "core.ocr.baas_ocr_client.server_installer": core_installer,
+                }
+                bootstrap._patch_android_ocr_module_injection(root)
+                first = client.read_text(encoding="utf-8")
+                bootstrap._patch_android_ocr_module_injection(root)
+                self.assertEqual(first, client.read_text(encoding="utf-8"))
+                with patch.dict(sys.modules, modules):
+                    sys.modules.pop("service.android_ocr_installer", None)
+                    namespace = {
+                        "__file__": str(client), "os": bootstrap.os, "Path": Path,
+                        "_android_ocr_branch": lambda: "android-arm64-v8a",
+                    }
+                    exec(compile(first, str(client), "exec"), namespace)
+                    installer = importlib.import_module("service.android_ocr_installer")
+                    self.assertEqual(namespace["Client"].server_folder_path, installer.SERVER_BIN_DIR)
+                    self.assertFalse(expected.exists(), "no previous download or restart copy is required")
+                    binary = Path(installer.SERVER_BIN_DIR) / "lib/arm64-v8a/libBAAS_ocr_server.so"
+                    binary.parent.mkdir(parents=True)
+                    binary.write_bytes(b"downloaded-in-this-process")
+                    self.assertEqual(namespace["Client"]().read_library(), b"downloaded-in-this-process")
+                    namespace["_android_ocr_branch"] = lambda: None
+                    self.assertEqual(namespace["_server_folder_path"](), str(service_dir / "bin"))
 
     def test_pygit2_stub_supports_installer_callback_import(self):
         bootstrap = load_bootstrap()

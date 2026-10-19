@@ -7,27 +7,15 @@ import React, {
   lazy,
   Suspense,
 } from "react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { useApp } from "@/context/AppContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import {
-  CheckCircle2,
-  Hourglass,
-  RefreshCw,
-  ArrowRight,
-  ArrowLeft,
-  Settings,
-  Ban,
-  ArrowUp,
-  ArrowDown,
-  Network,
-} from "lucide-react";
+import { Card } from "@/components/ui/Card";
+import { RefreshCw, Settings, ListTodo, SearchX, Network } from "lucide-react";
 import { ProfileProps } from "@/types/app";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { IconTooltip } from "@/components/ui/Tooltip";
 import { FormSelect } from "@/components/ui/FormSelect";
 import CButton from "@/components/ui/CButton.tsx";
-import { Separator } from "@/components/ui/Separator";
 import FeatureSwitchModal from "@/components/FeatureSwitchModal";
 import { DateTimePicker } from "@/components/DateTimePicker.tsx";
 import { EventConfig } from "@/types/event";
@@ -40,6 +28,10 @@ import { taskFieldPatch } from "@/features/schedulerGraph";
 import { useUISetting, useSetUISettings } from "@/context/UISettingsProvider";
 import { resolveHttpBase } from "@/store/WebsocketStore";
 import FeaturePanelErrorBoundary from "@/components/FeaturePanelErrorBoundary";
+import { TaskStatus } from "@/components/HomeTaskStatus";
+import { sortSchedulerTasks } from "@/shared/SchedulerTaskOrder";
+import "@/components/ui/control-switch.css";
+import "./scheduler-task-list.css";
 
 const SchedulerGraph = lazy(() => import("@/components/SchedulerGraph"));
 
@@ -48,78 +40,70 @@ const EMPTY_ARRAY: any[] = [];
 // Memoized row to keep expensive controls from re-rendering unnecessarily.
 const TaskRow = React.memo(function TaskRow({
   task,
-  side,
-  onMove,
+  startsInactive,
+  onToggle,
   onEdit,
   onChangeTime,
   t,
 }: {
   task: EventConfig;
-  side: "left" | "right";
-  onMove: (task: EventConfig, toRight: boolean) => void;
+  startsInactive: boolean;
+  onToggle: (task: EventConfig, enabled: boolean) => void;
   onEdit: (task: EventConfig) => void;
   onChangeTime: (task: EventConfig, ts: number) => void;
   t: (key: TranslationKey) => string;
 }) {
-  const MoveToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
-  const MoveToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
+  const name = t(eventNameKey(task.func_name));
 
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2 overflow-x-hidden rounded-lg p-2 transition-colors hover:bg-secondary/70">
-      {side === "left" ? (
-        <>
-          <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-left mr-2">
-            <EllipsisWithTooltip text={t(eventNameKey(task.func_name))} />
-          </div>
-          <DateTimePicker
-            value={task.next_tick * 1000}
-            onChange={(ts) => onChangeTime(task, ts!)}
-            className="hidden xl:flex"
-          />
-          <CButton
-            variant="secondary"
+    <li
+      className="scheduler-task-row"
+      data-task-id={task.func_name}
+      data-enabled={task.enabled}
+      data-starts-inactive={startsInactive || undefined}
+    >
+      <div className="scheduler-task-name">
+        <EllipsisWithTooltip text={name} />
+      </div>
+      <div
+        className="scheduler-task-time"
+        role="group"
+        aria-label={`${t("scheduler.nextTick")} · ${name}`}
+      >
+        <DateTimePicker
+          value={task.next_tick * 1000}
+          onChange={(ts) => {
+            if (ts !== null) onChangeTime(task, ts);
+          }}
+        />
+      </div>
+      <div className="scheduler-task-actions">
+        <IconTooltip content={t("common.edit")}>
+          <button
+            type="button"
             onClick={() => onEdit(task)}
-            className="rounded-[50%] w-8 h-8"
+            aria-label={`${t("common.edit")} ${name}`}
+            className="scheduler-task-edit"
           >
-            <Settings className="w-4 h-4" />
-          </CButton>
-          <Separator orientation="vertical" className="h-8!" />
-          <CButton
-            variant="secondary"
-            onClick={() => onMove(task, true)}
-            className="rounded-[50%] w-8 h-8"
+            <Settings size={16} strokeWidth={1.7} />
+          </button>
+        </IconTooltip>
+        <IconTooltip content={task.enabled ? t("workflow.enabled") : t("workflow.disabled")}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={task.enabled}
+            aria-label={name}
+            onClick={() => onToggle(task, !task.enabled)}
+            className="scheduler-task-toggle"
           >
-            <MoveToEnabledIcon className="w-4 h-4" />
-          </CButton>
-        </>
-      ) : (
-        <>
-          <CButton
-            variant="secondary"
-            onClick={() => onMove(task, false)}
-            className="rounded-[50%] w-8 h-8"
-          >
-            <MoveToInactiveIcon className="w-4 h-4" />
-          </CButton>
-          <Separator orientation="vertical" className="h-8!" />
-          <CButton
-            variant="secondary"
-            onClick={() => onEdit(task)}
-            className="rounded-[50%] w-8 h-8"
-          >
-            <Settings className="w-4 h-4" />
-          </CButton>
-          <DateTimePicker
-            value={task.next_tick * 1000}
-            onChange={(ts) => onChangeTime(task, ts!)}
-            className="hidden xl:flex"
-          />
-          <div className="flex grow min-w-0 overflow-hidden text-ellipsis text-right mr-2 justify-end">
-            <EllipsisWithTooltip text={t(eventNameKey(task.func_name))} />
-          </div>
-        </>
-      )}
-    </div>
+            <span className="control-switch" data-checked={task.enabled} aria-hidden="true">
+              <span className="control-switch-thumb" />
+            </span>
+          </button>
+        </IconTooltip>
+      </div>
+    </li>
   );
 });
 
@@ -127,8 +111,6 @@ const TaskRow = React.memo(function TaskRow({
 const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const { t } = useTranslation();
   const { profiles, activeProfile } = useApp();
-  const MoveAllToEnabledIcon = __WITH_ANDROID__ ? ArrowDown : ArrowRight;
-  const MoveAllToInactiveIcon = __WITH_ANDROID__ ? ArrowUp : ArrowLeft;
 
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
@@ -152,26 +134,16 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   const modify = useWebSocketStore((e) => e.modify);
 
   const filtered = useMemo(() => {
-    let base = eventConfigs.filter((task) =>
+    const base = eventConfigs.filter((task) =>
       `${task.event_name} ${task.func_name} ${t(eventNameKey(task.func_name))}`
         .toLowerCase()
         .includes(deferredSearch.toLowerCase())
     );
 
-    if (sortKey === "default") {
-      base = [...base].sort((a, b) => a.priority - b.priority);
-    } else if (sortKey === "time") {
-      base = [...base].sort((a, b) => a.next_tick - b.next_tick);
-    }
-    return base;
+    return sortSchedulerTasks(base, sortKey);
   }, [deferredSearch, eventConfigs, sortKey, t]);
 
-  const { left, right } = useMemo(() => {
-    const inactive: EventConfig[] = [];
-    const enabled: EventConfig[] = [];
-    filtered.forEach((task) => (task.enabled ? enabled : inactive).push(task));
-    return { left: inactive, right: enabled };
-  }, [filtered]);
+  const totalEnabled = eventConfigs.filter((task) => task.enabled).length;
 
   /** Handles the on update interaction. */
   const updateAll = useCallback(
@@ -197,10 +169,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     [pid, modify]
   );
 
-  /** Handles the handle move one interaction. */
-  const handleMoveOne = useCallback(
-    (task: EventConfig, toRight: boolean) => {
-      patchTask(task.func_name, { enabled: toRight });
+  const handleToggle = useCallback(
+    (task: EventConfig, enabled: boolean) => {
+      patchTask(task.func_name, { enabled });
     },
     [patchTask]
   );
@@ -218,9 +189,9 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
     setModalTask(task);
   }, []);
 
-  const moveAll = (toRight: boolean) => {
+  const toggleAll = (enabled: boolean) => {
     startTransition(() => {
-      updateAll({ enabled: toRight });
+      updateAll({ enabled });
     });
   };
 
@@ -246,7 +217,7 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
   };
 
   return (
-    <div className="h-full flex flex-col gap-4 min-h-0 text-foreground">
+    <div className="scheduler-page h-full flex flex-col gap-4 min-h-0 text-foreground">
       {/* Page heading with the active profile reference. */}
       <div className="flex items-center flex-wrap gap-2">
         {!__WITH_ANDROID__ && (
@@ -287,49 +258,16 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Hourglass className="w-4 h-4 mr-2 text-muted-foreground" />
-              {t("task.overview")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
-              <div>
-                {runningTask ? (
-                  <div className="rounded-lg bg-secondary px-3 py-2">
-                    <span className="text-foreground font-medium">
-                      {t("task.running")}: {t(eventNameKey(runningTask))}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">{t("task.noneRunning")}</p>
-                )}
-              </div>
-              {taskQueue && taskQueue.length > 0 ? (
-                <ul className="flex max-h-24 flex-wrap gap-2 overflow-auto">
-                  {taskQueue.map((task, index) => (
-                    <div key={index} className="rounded-md bg-secondary/60 px-2.5 py-1.5 text-xs">
-                      <span className="text-foreground">{t(eventNameKey(task))}</span>
-                    </div>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">{t("task.noneQueued")}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="scheduler-task-overview shrink-0 rounded-xl border border-border px-3 py-3 sm:px-4">
+        <TaskStatus profileId={pid ?? ""} />
       </div>
       {/* Filtering toolbar for quick navigation and sorting. */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="scheduler-task-toolbar flex items-center justify-between gap-3">
         <SearchInput
           placeholder={t("scheduler.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          containerClassName="flex-1"
+          containerClassName="min-w-0 flex-1"
         />
         <div className="rounded-lg">
           <FormSelect
@@ -346,11 +284,18 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
             ]}
           />
         </div>
-        <CButton variant="secondary" onClick={refreshAll} className="w-8 h-8">
-          <RefreshCw className="w-4 h-4" />
-        </CButton>
+        <IconTooltip content={t("scheduler.resetTimes")}>
+          <CButton
+            variant="secondary"
+            onClick={refreshAll}
+            className="w-8 h-8"
+            aria-label={t("scheduler.resetTimes")}
+          >
+            <RefreshCw className="w-4 h-4" />
+          </CButton>
+        </IconTooltip>
       </div>
-      {/* Dual column layout showing inactive and active task queues. */}
+      {/* Keep the graph independent of the list presentation. */}
       {graphOpen && pid && (
         <Modal
           isOpen={true}
@@ -388,70 +333,52 @@ const SchedulerPage: React.FC<ProfileProps> = ({ profileId }) => {
           </div>
         </Modal>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 md:min-h-40">
-        {/* Inactive task backlog awaiting activation. */}
-        <Card className="flex flex-col min-h-0">
-          <CardContent className="pr-1 sm:pr-4 flex flex-col flex-1 min-h-0">
-            <div className="flex justify-between border-b border-border pb-3 mb-2">
-              <div className="flex items-center">
-                <Ban className="w-4 h-4 mr-2 text-muted-foreground" />
-                <span className="font-medium">{t("scheduler.inactiveTasks")}</span>
-              </div>
-              <CButton
-                variant="secondary"
-                onClick={() => moveAll(true)}
-                className="rounded-[50%] w-8 h-8 mr-4.5"
-              >
-                <MoveAllToEnabledIcon className="w-4 h-4" />
-              </CButton>
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto space-y-1 scroll-embedded pr-1 max-md:max-h-40">
-              {left.map((task) => (
+      <Card className="scheduler-task-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="scheduler-task-list-header">
+          <div
+            className="scheduler-task-counts"
+            aria-label={`${t("scheduler.activeTasks")} ${totalEnabled}; ${t("scheduler.inactiveTasks")} ${eventConfigs.length - totalEnabled}`}
+          >
+            <ListTodo size={16} strokeWidth={1.7} aria-hidden="true" />
+            <span className="scheduler-enabled-count tabular-nums">
+              {totalEnabled}/{eventConfigs.length}
+            </span>
+          </div>
+          <div className="scheduler-task-bulk-actions">
+            <button
+              type="button"
+              disabled={!pid || eventConfigs.length === 0}
+              onClick={() => toggleAll(totalEnabled !== eventConfigs.length)}
+            >
+              {totalEnabled === eventConfigs.length
+                ? t("scheduler.disableAll")
+                : t("scheduler.enableAll")}
+            </button>
+          </div>
+        </div>
+        <div className="scheduler-task-scroll scroll-embedded">
+          {filtered.length ? (
+            <ul className="scheduler-task-rows" aria-label={t("nav.scheduler")}>
+              {filtered.map((task, index) => (
                 <TaskRow
                   key={task.func_name}
                   task={task}
-                  side="left"
-                  onMove={handleMoveOne}
+                  startsInactive={!task.enabled && index > 0 && filtered[index - 1].enabled}
+                  onToggle={handleToggle}
                   onEdit={handleEdit}
                   onChangeTime={handleChangeTime}
                   t={t}
                 />
               ))}
+            </ul>
+          ) : (
+            <div className="scheduler-task-empty" role="status">
+              <SearchX size={22} strokeWidth={1.5} aria-hidden="true" />
+              <span>{search.trim() ? t("scheduler.noResults") : t("workflow.empty")}</span>
             </div>
-          </CardContent>
-        </Card>
-        {/* Active task queue currently scheduled for execution. */}
-        <Card className="flex flex-col min-h-0">
-          <CardContent className="flex flex-col flex-1 min-h-0">
-            <div className="flex justify-between border-b border-border pb-3 mb-2">
-              <CButton
-                variant="secondary"
-                onClick={() => moveAll(false)}
-                className="rounded-[50%] w-8 h-8 ml-2"
-              >
-                <MoveAllToInactiveIcon className="w-4 h-4" />
-              </CButton>
-              <div className="flex items-center">
-                <span className="font-medium">{t("scheduler.activeTasks")}</span>
-                <CheckCircle2 className="w-4 h-4 ml-2 text-muted-foreground" />
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto space-y-1 scroll-embedded pr-1 max-md:max-h-40">
-              {right.map((task) => (
-                <TaskRow
-                  key={task.func_name}
-                  task={task}
-                  side="right"
-                  onMove={handleMoveOne}
-                  onEdit={handleEdit}
-                  onChangeTime={handleChangeTime}
-                  t={t}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </div>
+      </Card>
       {/* Modal for editing the selected task configuration in depth. */}
       {modalTask && (
         <FeatureSwitchModal

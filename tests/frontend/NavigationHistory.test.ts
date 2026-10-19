@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { NavigationHistory, type NavigationView } from "../../src/shared/NavigationHistory";
+import { normalizePageKey } from "../../src/shared/PageKey";
 
-const view = (page: NavigationView["page"], profileId: string): NavigationView => ({
-  page,
-  profileId,
-});
+const view = (page: NavigationView["page"], profileId: string): NavigationView =>
+  page === "settings" ? { page } : { page, profileId };
 
 describe("page and profile navigation history", () => {
   test("back and forward restore both the page and active profile", () => {
@@ -111,5 +110,69 @@ describe("page and profile navigation history", () => {
     expect(history.getSnapshot().available).toBe(false);
     expect(history.getSnapshot().canForward).toBe(false);
     expect(history.forward()).toBe(false);
+  });
+
+  test("removed Wiki routes and unknown old page values safely resolve to home", () => {
+    expect(normalizePageKey("wiki")).toBe("home");
+    expect(normalizePageKey("removed-page")).toBe("home");
+    expect(normalizePageKey(undefined)).toBe("home");
+    expect(normalizePageKey("scheduler")).toBe("scheduler");
+    const history = new NavigationHistory();
+    const restored: Readonly<NavigationView>[] = [];
+    history.attach((next) => {
+      restored.push(next);
+      return true;
+    });
+    history.observe(view("home", "one"), ["one"]);
+    history.observe(view("wiki" as NavigationView["page"], "one"), ["one"]);
+    expect(history.getSnapshot().length).toBe(1);
+    history.observe(view("settings", "one"), ["one"]);
+    expect(history.back()).toBe(true);
+    expect(restored.at(-1)).toEqual(view("home", "one"));
+  });
+
+  test("settings is a global view that remains available without profiles", () => {
+    const history = new NavigationHistory();
+    const restored: Readonly<NavigationView>[] = [];
+    history.attach((next) => {
+      restored.push(next);
+      return true;
+    });
+    history.observe({ page: "settings" }, []);
+    expect(history.getSnapshot().available).toBe(true);
+    expect(history.getSnapshot().current).toEqual({ page: "settings" });
+    history.observe(view("home", "one"), ["one"]);
+    expect(history.back()).toBe(true);
+    expect(restored.at(-1)).toEqual({ page: "settings" });
+    history.observe({ page: "settings" }, []);
+    expect(history.getSnapshot().canForward).toBe(false);
+  });
+
+  test("legacy profile-specific settings entries normalize to one global history entry", () => {
+    const history = new NavigationHistory();
+    history.attach(() => true);
+    history.observe({ page: "settings", profileId: "one" }, ["one", "two"]);
+    history.observe({ page: "settings", profileId: "two" }, ["one", "two"]);
+    expect(history.getSnapshot().length).toBe(1);
+    expect(history.getSnapshot().current).toEqual({ page: "settings" });
+    expect(history.getSnapshot().canBack).toBe(false);
+  });
+
+  test("the menu opens global settings even before the first profile is created", () => {
+    const history = new NavigationHistory();
+    expect(history.openSettings()).toBe(false);
+    let current: Readonly<NavigationView> | undefined;
+    history.attach((next) => {
+      current = next;
+      return true;
+    });
+    history.observe(null, []);
+    expect(history.getSnapshot().available).toBe(true);
+    expect(history.openSettings()).toBe(true);
+    expect(current).toEqual({ page: "settings" });
+    expect(history.getSnapshot().current).toEqual({ page: "settings" });
+    expect(history.getSnapshot().canBack).toBe(false);
+    expect(history.openSettings()).toBe(true);
+    expect(history.getSnapshot().length).toBe(1);
   });
 });

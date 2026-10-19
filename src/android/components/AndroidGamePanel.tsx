@@ -2,23 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { invoke } from "@/shared/TauriInvoke";
-
-type AndroidGame = {
-  packageName: string;
-  label: string;
-  iconPngBase64: string;
-};
+import { AndroidNativePreviewOwnership } from "@/shared/AndroidNativePreviewOwnership";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import type { AndroidInstalledGame } from "@/shared/AndroidProfileGame";
 
 type GameListReport = {
-  games: AndroidGame[];
+  games: AndroidInstalledGame[];
   shizukuInstalled: boolean;
   shizukuRunning: boolean;
   shizukuGranted: boolean;
 };
 
-const SELECTED_GAME_KEY = "baasAndroidSelectedGame";
-
 let nativePreviewQueue: Promise<unknown> = Promise.resolve();
+const nativePreviewOwnership = new AndroidNativePreviewOwnership();
 const updateNativePreview = <T,>(request: Record<string, unknown>): Promise<T> => {
   const next = nativePreviewQueue
     .catch(() => undefined)
@@ -28,6 +24,7 @@ const updateNativePreview = <T,>(request: Record<string, unknown>): Promise<T> =
 };
 
 interface AndroidGamePanelProps {
+  configuredPackage?: string;
   virtualDisplayActive: boolean;
   virtualDisplayBusy: boolean;
   onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<void>;
@@ -35,22 +32,22 @@ interface AndroidGamePanelProps {
 
 /** Read-only live game preview backed by the privileged Android virtual display. */
 const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
+  configuredPackage,
   virtualDisplayActive,
   virtualDisplayBusy,
   onToggleVirtualDisplay,
 }) => {
-  const [games, setGames] = useState<AndroidGame[]>([]);
-  const [selectedPackage, setSelectedPackage] = useState("");
+  const { t } = useAppTranslation();
+  const [games, setGames] = useState<AndroidInstalledGame[]>([]);
   const [shizukuGranted, setShizukuGranted] = useState(false);
-  const [shizukuInstalled, setShizukuInstalled] = useState(true);
   const [previewReady, setPreviewReady] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const previewRef = useRef<HTMLElement>(null);
 
   const selectedGame = useMemo(
-    () => games.find((game) => game.packageName === selectedPackage) ?? games[0] ?? null,
-    [games, selectedPackage]
+    () => games.find((game) => game.packageName === configuredPackage) ?? null,
+    [games, configuredPackage]
   );
 
   const loadGames = useCallback(async () => {
@@ -58,19 +55,10 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       const report = await invoke<GameListReport>("android_list_games");
       setGames(report.games);
       setShizukuGranted(report.shizukuGranted);
-      setShizukuInstalled(report.shizukuInstalled);
-      setSelectedPackage((current) => {
-        const preferred = current || window.localStorage.getItem(SELECTED_GAME_KEY) || "";
-        const next = report.games.some((game) => game.packageName === preferred)
-          ? preferred
-          : (report.games[0]?.packageName ?? "");
-        if (next) window.localStorage.setItem(SELECTED_GAME_KEY, next);
-        return next;
-      });
     } catch (error) {
-      toast.error("Unable to inspect installed games", { description: String(error) });
+      toast.error(t("android.game.inspectFailed"), { description: String(error) });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadGames();
@@ -81,9 +69,10 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [loadGames]);
+  }, [loadGames, virtualDisplayActive]);
 
   useEffect(() => {
+    const owner = {};
     let disposed = false;
     let inFlight = false;
     let updatePending = false;
@@ -107,16 +96,37 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
           clipBottom = Math.min(clipBottom, rect.bottom);
         }
       }
-      const enabled = Boolean(
-        selectedGame &&
-        virtualDisplayActive &&
-        shizukuGranted &&
-        !document.querySelector('[role="dialog"], [role="alertdialog"], [data-native-preview-blocker]') &&
+      const visible = Boolean(
+        previewRef.current?.getClientRects().length &&
+        !previewRef.current.closest("[hidden], [aria-hidden='true']") &&
         !document.hidden &&
         bounds &&
+        bounds.width > 0 &&
+        bounds.height > 0 &&
         bounds.bottom > clipTop &&
         bounds.top < clipBottom
       );
+      if (!visible) {
+        lastLayout = "";
+        setPreviewReady(false);
+        // All cached pages observe the DOM, but only the previous visible
+        // owner may close the host, once. Others must leave it untouched.
+        if (nativePreviewOwnership.release(owner)) {
+          void updateNativePreview({ enabled: false }).catch(console.warn);
+        }
+        return;
+      }
+      nativePreviewOwnership.acquire(owner);
+      const blocked = Array.from(
+        document.querySelectorAll(
+          '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot="popover-content"], [data-native-preview-blocker]'
+        )
+      ).some(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          !element.closest("[hidden], [aria-hidden='true']:not([data-native-preview-blocker])")
+      );
+      const enabled = Boolean(selectedGame && virtualDisplayActive && shizukuGranted && !blocked);
       const request = {
         enabled,
         x: bounds?.x ?? 0,
@@ -139,7 +149,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
           capturedFrames?: number;
           error?: string;
         }>(request);
-        if (!disposed) {
+        if (!disposed && nativePreviewOwnership.owns(owner)) {
           setPreviewReady(enabled && Boolean(report.ready));
           if (report.error) console.warn("Native Android preview:", report.error);
         }
@@ -164,7 +174,18 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     document.addEventListener("visibilitychange", schedule);
     // Dialogs may cover the native host without changing its layout.
     const mutations = new MutationObserver(schedule);
-    mutations.observe(document.body, { childList: true, subtree: true });
+    mutations.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [
+        "hidden",
+        "aria-hidden",
+        "class",
+        "data-state",
+        "data-native-preview-blocker",
+      ],
+    });
     schedule();
     return () => {
       disposed = true;
@@ -175,34 +196,16 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
       document.removeEventListener("visibilitychange", schedule);
-      void updateNativePreview({ enabled: false }).catch(console.warn);
+      if (nativePreviewOwnership.release(owner)) {
+        void updateNativePreview({ enabled: false }).catch(console.warn);
+      }
     };
   }, [selectedGame, shizukuGranted, virtualDisplayActive]);
 
-  const requestShizuku = async () => {
-    try {
-      await invoke("android_request_shizuku_permission");
-      window.setTimeout(() => void loadGames(), 750);
-    } catch (error) {
-      toast.error("Shizuku setup needs attention", { description: String(error) });
-    }
-  };
-
   const startBackgroundDisplay = async () => {
-    if (!selectedGame || virtualDisplayBusy) return;
-    if (!shizukuInstalled) {
-      toast.info("需要安装 Shizuku", {
-        description: "虚拟屏和游戏操作需要 Shizuku。请从官方页面下载安装，启动服务后返回授权 BAAS。应用不内置或自动安装 Shizuku。",
-        duration: 15000,
-        action: { label: "官方下载", onClick: () => void requestShizuku() },
-      });
-      return;
-    }
-    if (!shizukuGranted) {
-      await requestShizuku();
-      return;
-    }
-    await onToggleVirtualDisplay(true, selectedGame.packageName);
+    if (virtualDisplayBusy) return;
+    await onToggleVirtualDisplay(true);
+    await loadGames();
   };
 
   const closeBackgroundDisplay = async () => {
@@ -211,13 +214,13 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   };
 
   const takeOverGame = async () => {
-    if (!selectedGame || takingOver || virtualDisplayBusy) return;
+    if (!selectedGame || !virtualDisplayActive || takingOver || virtualDisplayBusy) return;
     setTakingOver(true);
     try {
       await invoke("android_launch_game", { request: { packageName: selectedGame.packageName } });
       await onToggleVirtualDisplay(false, selectedGame.packageName);
     } catch (error) {
-      toast.error("Unable to take over the game", { description: String(error) });
+      toast.error(t("android.game.takeoverFailed"), { description: String(error) });
     } finally {
       setTakingOver(false);
     }
@@ -231,7 +234,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       await new Promise((resolve) => window.setTimeout(resolve, 200));
       await onToggleVirtualDisplay(true, selectedGame.packageName);
     } catch (error) {
-      toast.error("Unable to restart the game", { description: String(error) });
+      toast.error(t("android.game.restartFailed"), { description: String(error) });
     } finally {
       setRestarting(false);
     }
@@ -239,6 +242,15 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
 
   useEffect(() => {
     const action = (event: Event) => {
+      // Each profile keeps its Home mounted. Only the visible page owns game
+      // controls; cached pages must not restart or close another profile's game.
+      if (
+        document.hidden ||
+        !virtualDisplayActive ||
+        !previewRef.current?.getClientRects().length ||
+        previewRef.current.closest("[hidden], [aria-hidden='true']")
+      )
+        return;
       if (virtualDisplayBusy || takingOver || restarting) return;
       const name = (event as CustomEvent<string>).detail;
       if (name === "close") void closeBackgroundDisplay();
@@ -256,15 +268,19 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
     >
       {virtualDisplayActive && (
         <div
-          aria-label={`${selectedGame?.label ?? "Game"} live display`}
+          aria-label={t("android.game.liveDisplay", {
+            game: selectedGame?.label ?? t("android.game.fallbackName"),
+          })}
           className="absolute inset-0 block h-full w-full select-none object-cover"
         />
       )}
 
       <button
         type="button"
-        aria-label={virtualDisplayActive ? "Show game controls" : "Start background game"}
-        disabled={!selectedGame || virtualDisplayBusy}
+        aria-label={
+          virtualDisplayActive ? t("android.game.showControls") : t("android.game.startBackground")
+        }
+        disabled={virtualDisplayBusy}
         onClick={() => {
           if (!virtualDisplayActive) void startBackgroundDisplay();
         }}
@@ -287,7 +303,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       {virtualDisplayActive && (
         <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
-          Live
+          {t("android.game.live")}
         </div>
       )}
     </section>

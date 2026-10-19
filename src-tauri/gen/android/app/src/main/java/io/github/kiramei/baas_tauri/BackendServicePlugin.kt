@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -23,6 +24,28 @@ import java.io.File
 @TauriPlugin
 class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   private val nativePreview = NativeGamePreview(activity)
+
+  @Command
+  fun setSystemBars(invoke: Invoke) {
+    val args = invoke.getArgs()
+    val background = args.optString("backgroundColor")
+    if (!Regex("^#[0-9a-fA-F]{6}$").matches(background)) {
+      invoke.reject("System bar background must be an opaque #RRGGBB color")
+      return
+    }
+    val backgroundColor = Color.parseColor(background)
+    val darkIcons = args.optBoolean("darkIcons", false)
+    activity.runOnUiThread {
+      try {
+        val mainActivity = activity as? MainActivity
+          ?: throw IllegalStateException("Main Android activity is unavailable")
+        mainActivity.applySystemBars(backgroundColor, darkIcons)
+        invoke.resolve()
+      } catch (error: Exception) {
+        invoke.reject(error.message, error)
+      }
+    }
+  }
 
   @Command
   fun gameNativePreview(invoke: Invoke) {
@@ -238,6 +261,18 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       invoke.resolve()
     } catch (error: Exception) {
       invoke.reject(error.message, error)
+    }
+  }
+
+  @Command
+  fun openShizuku(invoke: Invoke) {
+    activity.runOnUiThread {
+      try {
+        ShizukuController.openInstalledShizuku(activity)
+        invoke.resolve()
+      } catch (error: Exception) {
+        invoke.reject(error.message, error)
+      }
     }
   }
 

@@ -91,6 +91,13 @@ struct ShizukuShellRequest<'a> {
     command: &'a str,
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SystemBarsRequest<'a> {
+    background_color: &'a str,
+    dark_icons: bool,
+}
+
 #[derive(serde::Deserialize)]
 struct ShizukuShellResult {
     output: String,
@@ -229,6 +236,24 @@ pub fn shizuku_status<R: Runtime>(app: &AppHandle<R>) -> Result<AndroidShizukuSt
         .map_err(|error| format!("failed to read Shizuku status: {error}"))
 }
 
+pub fn set_system_bars<R: Runtime>(
+    app: &AppHandle<R>,
+    background_color: &str,
+    dark_icons: bool,
+) -> Result<(), String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("setSystemBars", SystemBarsRequest { background_color, dark_icons })
+        .map_err(|error| format!("failed to update Android system bars: {error}"))
+}
+
+pub fn open_shizuku<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("openShizuku", ())
+        .map_err(|error| format!("failed to open Shizuku: {error}"))
+}
+
 pub fn request_shizuku_permission<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
@@ -276,6 +301,9 @@ pub fn launch_package_on_shizuku_display<R: Runtime>(
     package_name: &str,
     display_id: i32,
 ) -> Result<(), String> {
+    if display_id <= 0 {
+        return Err("Refusing to launch the game on the phone's main display".to_string());
+    }
     app.state::<AndroidBackendService<R>>()
         .0
         .run_mobile_plugin(

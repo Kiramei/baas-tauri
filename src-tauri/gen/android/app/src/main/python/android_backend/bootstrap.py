@@ -502,6 +502,7 @@ def _ensure_android_support_files(root):
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
     _patch_android_native_capture_runtime(root)
+    _patch_android_game_resource_update(root)
     _write_android_direct_adb_server(root)
     _write_android_media_codec_decoder(root)
     _write_watchfiles_stub(root)
@@ -513,6 +514,29 @@ def _ensure_android_support_files(root):
     _write_desktop_only_stub(root, "pyautogui")
     _write_desktop_only_stub(root, "mss")
     cache.write_text(json.dumps(_android_support_fingerprint(root)), encoding="utf-8")
+
+
+def _patch_android_game_resource_update(root):
+    """Intercept verified resource updates before generic popup image reactions."""
+    target = root / "core" / "picture.py"
+    if not target.exists():
+        return
+    text = target.read_text(encoding="utf-8")
+    marker = "BAAS_ANDROID_GAME_RESOURCE_UPDATE_V1"
+    if marker in text:
+        return
+    needle = "        # loading check\n"
+    if needle not in text:
+        raise RuntimeError("Cannot install the Android game resource update guard")
+    text = text.replace("import time\n",
+                        "import time\nfrom android_backend.game_update_dialog import handle_resource_update\n", 1)
+    text = text.replace(needle,
+                        f"        # {marker}\n"
+                        "        if handle_resource_update(self):\n"
+                        "            feature_last_appear_time = current_time\n"
+                        "            fail_cnt = 0\n"
+                        "            continue\n" + needle, 1)
+    target.write_text(text, encoding="utf-8")
 
 
 def _remove_android_legacy_device_dependencies(root):
@@ -654,6 +678,20 @@ def _patch_android_ocr_module_injection(root):
         "    from service import android_ocr_client, android_ocr_installer\n\n"
         "    sys.modules[\"core.ocr.baas_ocr_client.Client\"] = android_ocr_client\n"
         "    sys.modules[\"core.ocr.baas_ocr_client.server_installer\"] = android_ocr_installer\n",
+    )
+    # New backends keep the installer in core and expose the old service module
+    # as an alias. Use its actual target folder instead of the client's __file__.
+    # This also works with older, complete service installers and on the very
+    # first download, before an internal runtime or migration copy exists.
+    _replace_once(
+        root / "service" / "android_ocr_client.py",
+        "BAAS_ANDROID_OCR_SHARED_PREBUILD_PATH_V1",
+        "    if android_branch:\n"
+        "        return os.path.join(base, \"bin-android\", android_branch)\n",
+        "    if android_branch:\n"
+        "        # BAAS_ANDROID_OCR_SHARED_PREBUILD_PATH_V1\n"
+        "        from service import android_ocr_installer\n"
+        "        return android_ocr_installer.SERVER_BIN_DIR\n",
     )
 
 

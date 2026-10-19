@@ -46,6 +46,8 @@ commands.allow = [
   "android_game_gesture",
   "android_shizuku_status",
   "android_request_shizuku_permission",
+  "android_open_shizuku",
+  "android_set_system_bars",
   "system_logs_snapshot",
   "system_logs_clear",
   "system_logs_ingest_frontend",
