@@ -20,7 +20,10 @@ mod pipe_commands;
 mod shm_commands;
 #[cfg(windows)]
 mod shm_native;
-#[cfg(windows)]
+#[cfg(target_os = "macos")]
+#[path = "shm_macos.rs"]
+mod shm_native;
+#[cfg(any(windows, target_os = "macos"))]
 mod shm_protocol;
 mod system_logs;
 #[cfg(windows)]

@@ -15,6 +15,7 @@ dist-ssr
 target
 *.tsbuildinfo
 public/fonts/*.woff2
+src-tauri/icons/macos/app.iconset/
 .codex_tmp/
 .worktrees/
 .superpowers/

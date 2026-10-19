@@ -24,11 +24,11 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 pub enum BackendTransport {
     /// Encrypted loopback WebSocket transport.
     Websocket,
-    /// Windows shared-memory transport owned by the Tauri process.
-    #[cfg_attr(windows, default)]
+    /// Native shared-memory transport owned by the Tauri process.
+    #[cfg_attr(any(windows, target_os = "macos"), default)]
     Shm,
     /// Legacy native transport retained on non-Windows platforms.
-    #[cfg_attr(not(windows), default)]
+    #[cfg_attr(not(any(windows, target_os = "macos")), default)]
     Pipe,
 }
 
@@ -37,10 +37,13 @@ impl BackendTransport {
     pub fn parse(value: &str) -> UpdaterResult<Self> {
         match value {
             "websocket" => Ok(Self::Websocket),
-            "pipe" => Ok(Self::Pipe),
-            "shm" if cfg!(windows) => Ok(Self::Shm),
+            "pipe" if !cfg!(target_os = "macos") => Ok(Self::Pipe),
+            "pipe" => Err(UpdaterError::Config(
+                "pipe transport is unavailable on macOS".to_string(),
+            )),
+            "shm" if cfg!(any(windows, target_os = "macos")) => Ok(Self::Shm),
             "shm" => Err(UpdaterError::Config(
-                "shared-memory transport is currently available on Windows only".to_string(),
+                "shared-memory transport requires Windows or macOS".to_string(),
             )),
             _ => Err(UpdaterError::Config(format!(
                 "unsupported backend transport: {value}"
@@ -315,6 +318,7 @@ impl ConfigManager {
     /// caller's perspective.
     pub fn update(&mut self, update: impl FnOnce(&mut UpdaterConfig)) -> UpdaterResult<()> {
         update(&mut self.config);
+        migrate_transport(&mut self.config);
         self.config.validate()?;
         self.save()
     }
@@ -449,7 +453,7 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
     Ok(config)
 }
 
-/// Migrates existing Windows pipe preferences once while retaining explicit test choices.
+/// Migrates legacy native preferences while retaining explicit WebSocket choices.
 fn migrate_transport(config: &mut UpdaterConfig) {
     if cfg!(windows)
         && config.general.transport_version == 0
@@ -457,8 +461,12 @@ fn migrate_transport(config: &mut UpdaterConfig) {
     {
         config.general.transport = BackendTransport::Shm;
     }
-    if !cfg!(windows) && config.general.transport == BackendTransport::Shm {
+    if !cfg!(any(windows, target_os = "macos")) && config.general.transport == BackendTransport::Shm
+    {
         config.general.transport = BackendTransport::Pipe;
+    }
+    if cfg!(target_os = "macos") && config.general.transport == BackendTransport::Pipe {
+        config.general.transport = BackendTransport::Shm;
     }
     config.general.transport_version = config.general.transport_version.max(1);
 }
@@ -511,11 +519,18 @@ mod tests {
                 "[general]\ntransport = '{name}'\ntransport_version = 1\n"
             ))
             .unwrap();
-            assert_eq!(config.general.transport, expected);
+            assert_eq!(
+                config.general.transport,
+                if cfg!(target_os = "macos") && expected == BackendTransport::Pipe {
+                    BackendTransport::Shm
+                } else {
+                    expected
+                }
+            );
         }
         assert_eq!(
-            BackendTransport::parse("pipe").unwrap(),
-            BackendTransport::Pipe
+            BackendTransport::parse("pipe").is_ok(),
+            !cfg!(target_os = "macos")
         );
     }
 
@@ -524,13 +539,16 @@ mod tests {
         let config = migrate_toml("[general]\ntransport = 'shm'\ntransport_version = 1\n").unwrap();
         assert_eq!(
             config.general.transport,
-            if cfg!(windows) {
+            if cfg!(any(windows, target_os = "macos")) {
                 BackendTransport::Shm
             } else {
                 BackendTransport::Pipe
             }
         );
-        assert_eq!(BackendTransport::parse("shm").is_ok(), cfg!(windows));
+        assert_eq!(
+            BackendTransport::parse("shm").is_ok(),
+            cfg!(any(windows, target_os = "macos"))
+        );
     }
 
     /// Handles the default config uses stable channel and default runtime workflow.

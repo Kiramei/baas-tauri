@@ -1,9 +1,9 @@
 use serde_json::Value;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 use std::sync::Mutex;
 #[cfg(not(mobile))]
 use std::time::Duration;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 use tauri::ipc::InvokeBody;
 use tauri::{
     ipc::{Channel, InvokeResponseBody, Request},
@@ -12,31 +12,31 @@ use tauri::{
 
 #[derive(Default)]
 pub struct BackendShmManager {
-    #[cfg(windows)]
-    inner: Mutex<Option<std::sync::Arc<windows_impl::Session>>>,
+    #[cfg(any(windows, target_os = "macos"))]
+    inner: Mutex<Option<std::sync::Arc<native_impl::Session>>>,
 }
 
 impl BackendShmManager {
     #[cfg(not(mobile))]
     pub fn configure(&self, name: String) -> Result<(), String> {
         self.close_all()?;
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         {
-            let session = windows_impl::Session::create(&name)?;
+            let session = native_impl::Session::create(&name)?;
             *self
                 .inner
                 .lock()
                 .map_err(|_| "shared-memory manager lock poisoned")? = Some(session);
             Ok(())
         }
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             let _ = name;
-            Err("Shared-memory transport currently requires Windows desktop".into())
+            Err("Shared-memory transport requires Windows or macOS desktop".into())
         }
     }
     pub fn close_all(&self) -> Result<(), String> {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         if let Some(session) = self
             .inner
             .lock()
@@ -49,18 +49,18 @@ impl BackendShmManager {
     }
     #[cfg(not(mobile))]
     pub fn wait_ready(&self, timeout: Duration) -> Result<(), String> {
-        #[cfg(windows)]
+        #[cfg(any(windows, target_os = "macos"))]
         {
             self.session()?.wait_ready(timeout)
         }
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             let _ = timeout;
-            Err("Shared-memory transport currently requires Windows desktop".into())
+            Err("Shared-memory transport requires Windows or macOS desktop".into())
         }
     }
-    #[cfg(windows)]
-    fn session(&self) -> Result<std::sync::Arc<windows_impl::Session>, String> {
+    #[cfg(any(windows, target_os = "macos"))]
+    fn session(&self) -> Result<std::sync::Arc<native_impl::Session>, String> {
         self.inner
             .lock()
             .map_err(|_| "shared-memory manager lock poisoned")?
@@ -75,8 +75,8 @@ impl Drop for BackendShmManager {
     }
 }
 
-#[cfg(windows)]
-mod windows_impl {
+#[cfg(any(windows, target_os = "macos"))]
+mod native_impl {
     use super::*;
     use crate::{
         shm_native::NativeSession,
@@ -620,15 +620,24 @@ mod windows_impl {
         }
         #[tokio::test]
         async fn real_python_terminal_reopen_and_process_exit_release_streams() {
-            let backend = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            let default_backend = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
                 .unwrap()
                 .parent()
                 .unwrap()
                 .join("baas-dev");
+            let backend = std::env::var_os("BAAS_SHM_TEST_BACKEND")
+                .map(std::path::PathBuf::from)
+                .unwrap_or(default_backend);
             let python = std::env::var_os("BAAS_SHM_TEST_PYTHON")
                 .map(std::path::PathBuf::from)
-                .unwrap_or_else(|| backend.join(".venv/Scripts/python.exe"));
+                .unwrap_or_else(|| {
+                    backend.join(if cfg!(target_os = "macos") {
+                        ".venv/bin/python"
+                    } else {
+                        ".venv/Scripts/python.exe"
+                    })
+                });
             let fixture = backend.join("tests/service/shm_echo_peer.py");
             if !python.is_file() || !fixture.is_file() {
                 eprintln!("shared-memory cross-repository fixture unavailable; native lifecycle unit tests still run");
@@ -661,13 +670,23 @@ mod windows_impl {
                 .unwrap();
             let stream = session.route("provider", "same").unwrap();
             session
-                .send(stream, 1, br#"{"messages":["json"]}"#.to_vec())
+                .send(
+                    stream,
+                    1,
+                    br#"{"messages":["json","bytes","bytes"]}"#.to_vec(),
+                )
                 .await
                 .unwrap();
             let payload =
                 serde_json::to_vec(&serde_json::json!({"data":"x".repeat(100_000)})).unwrap();
             session.send(stream, 1, payload.clone()).await.unwrap();
+            // More than one whole ring: both directions must wrap and unblock
+            // producers without dropping binary bytes, including an empty frame.
+            let binary: Vec<u8> = (0..5 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+            session.send(stream, 2, binary.clone()).await.unwrap();
+            session.send(stream, 2, Vec::new()).await.unwrap();
             let mut saw_json = false;
+            let mut binary_count = 0;
             let mut saw_close = false;
             while !saw_close {
                 let frames = first_messages.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -686,10 +705,20 @@ mod windows_impl {
                     if frames[offset + 5] == 3 {
                         saw_close = true;
                     }
+                    if frames[offset + 5] == 2 {
+                        let expected = if binary_count == 0 {
+                            binary.as_slice()
+                        } else {
+                            &[]
+                        };
+                        assert_eq!(&frames[offset + 10..offset + 10 + length], expected);
+                        binary_count += 1;
+                    }
                     offset += 10 + length;
                 }
             }
             assert!(saw_json);
+            assert_eq!(binary_count, 2);
             // Terminal delivery and removal happen on the reader thread.
             for _ in 0..100 {
                 if session.route("provider", "same").is_err() {
@@ -725,7 +754,7 @@ pub async fn backend_shm_open(
     name: String,
     on_message: Channel<InvokeResponseBody>,
 ) -> Result<String, String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let session = manager.session()?;
         let waiting = session.clone();
@@ -734,10 +763,10 @@ pub async fn backend_shm_open(
             .map_err(|error| error.to_string())??;
         session.open(channel, name, on_message).await
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (manager, channel, name, on_message);
-        Err("Shared-memory transport currently requires Windows desktop".into())
+        Err("Shared-memory transport requires Windows or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -748,7 +777,7 @@ pub async fn backend_shm_send_json(
     payload: Value,
     connection_id: String,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let session = manager.session()?;
         session
@@ -761,10 +790,10 @@ pub async fn backend_shm_send_json(
             )
             .await
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (manager, channel, name, payload, connection_id);
-        Err("Shared-memory transport currently requires Windows desktop".into())
+        Err("Shared-memory transport requires Windows or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -772,7 +801,7 @@ pub async fn backend_shm_send_bytes(
     manager: State<'_, BackendShmManager>,
     request: Request<'_>,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let session = manager.session()?;
         let raw = match request.body() {
@@ -790,10 +819,10 @@ pub async fn backend_shm_send_bytes(
             .send_routed(channel, name, connection_id, 2, payload.to_vec())
             .await
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (manager, request);
-        Err("Shared-memory transport currently requires Windows desktop".into())
+        Err("Shared-memory transport requires Windows or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -803,14 +832,14 @@ pub async fn backend_shm_close(
     name: String,
     connection_id: String,
 ) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let session = manager.session()?;
         if let Some(stream) = session.remove_checked(&format!("{channel}:{name}"), &connection_id) {
             session.send(stream, 3, Vec::new()).await?;
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     let _ = (manager, channel, name, connection_id);
     Ok(())
 }

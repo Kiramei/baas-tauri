@@ -2,6 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { resolveTransportMode } from "../../src/transport/factory";
 
 describe("resolveTransportMode", () => {
+  test("macOS supports shared memory and retains explicit WebSocket preferences", () => {
+    for (const mode of [undefined, "pipe", "shm", "websocket"]) {
+      expect(resolveTransportMode(mode, { android: false, tauri: true, macos: true })).toBe(
+        mode === "websocket" ? "websocket" : "shm"
+      );
+    }
+  });
   test("defaults Windows to shared memory while retaining explicit native pipe for comparison", () => {
     const windows = { android: false, tauri: true, windows: true };
     expect(resolveTransportMode(undefined, windows)).toBe("shm");

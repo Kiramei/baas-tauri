@@ -187,12 +187,16 @@ pub fn inject_tray_icon(app: &mut App) -> Result<TrayMenuItems, Box<dyn Error>> 
     let hide_i = MenuItem::with_id(app, "hide", labels.hide_main_window, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
 
+    #[cfg(target_os = "macos")]
+    let tray_icon = tauri::image::Image::new(include_bytes!("../icons/tray-macos.rgba"), 44, 44);
+    #[cfg(not(target_os = "macos"))]
+    let tray_icon = app
+        .default_window_icon()
+        .ok_or("Missing application tray icon")?
+        .clone();
+
     TrayIconBuilder::new()
-        .icon(
-            app.default_window_icon()
-                .ok_or("Missing application tray icon")?
-                .clone(),
-        )
+        .icon(tray_icon)
         .icon_as_template(cfg!(target_os = "macos"))
         .menu(&menu)
         .show_menu_on_left_click(false)

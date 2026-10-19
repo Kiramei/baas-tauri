@@ -111,6 +111,32 @@ bun run lint
 | `bun run lint`        | 执行 ESLint 和 i18n 检查。 |
 | `bun run i18n:check`  | 检查多语言键一致性。       |
 
+### macOS 本地启动
+
+```bash
+bun install --frozen-lockfile
+bun run tauri dev
+```
+
+`dev:tauri` 只启动前端；`tauri dev` 才启动完整桌面应用。macOS 支持共享内存
+和 WebSocket，安装页不提供命名管道；已有的 WebSocket 选择会保留。
+Apple Silicon 的托管 Python
+明确选择 ARM64；旧的 `3.9.0` 配置使用同系列的可用 ARM64 补丁版本，
+Intel Mac 继续选择 x86_64。
+
+生成可以直接打开的本地调试应用（不要求发布签名密钥）：
+
+```bash
+bun run tauri build --debug --bundles app --no-sign --config '{"bundle":{"createUpdaterArtifacts":false}}'
+open 'target/debug/bundle/macos/BAAS Tauri.app'
+```
+
+首次运行需要安装 BAAS 后端和 OCR 资源，之后复用安装目录内的 `.venv`。
+连接 Android 手机或模拟器还需要 ADB，可通过
+`brew install --cask android-platform-tools` 安装，并用 `adb devices -l` 检查连接。
+桌面启动日志位于 `~/Library/Logs/io.github.kiramei.baas-tauri/baas-tauri.jsonl`，
+后端日志位于安装目录的 `config/logs/baas-service.jsonl`。
+
 ## 🧱 项目结构
 
 ```text

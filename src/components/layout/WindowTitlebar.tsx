@@ -11,7 +11,9 @@ import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import { useNavigationHistory } from "@/context/NavigationHistoryProvider";
 import TitlebarMenus from "@/components/layout/TitlebarMenus";
 
-/** The native frame stays in place on platforms without our custom Windows frame. */
+const macOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+
+/** Shared desktop toolbar, with native traffic lights retained on macOS. */
 export default function WindowTitlebar() {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -44,9 +46,15 @@ export default function WindowTitlebar() {
       }, reportError);
     };
     const syncMaximized = () => {
-      void appWindow.isMaximized().then((value) => {
-        if (!disposed) setMaximized(value);
-      }, reportError);
+      void Promise.all([appWindow.isMaximized(), appWindow.isFullscreen()]).then(
+        ([value, isFullscreen]) => {
+          if (!disposed) {
+            setMaximized(value);
+            setFullscreen(isFullscreen);
+          }
+        },
+        reportError
+      );
     };
 
     void Promise.all([
@@ -56,7 +64,7 @@ export default function WindowTitlebar() {
       appWindow.isFocused(),
     ]).then(([decorated, isMaximized, isFullscreen, isFocused]) => {
       if (disposed) return;
-      setCustomFrame(!decorated);
+      setCustomFrame(!decorated || macOS);
       setMaximized(isMaximized);
       setFullscreen(isFullscreen);
       setFocused(isFocused);
@@ -161,7 +169,11 @@ export default function WindowTitlebar() {
       aria-label={t("app.windowControls")}
       data-window-titlebar=""
       data-focused={focused}
+      data-platform={macOS ? "macos" : "other"}
     >
+      {macOS && !fullscreen && (
+        <div className="h-8 w-20 shrink-0" aria-hidden="true" data-native-traffic-lights="" />
+      )}
       <div className="flex h-8 shrink-0 items-center gap-0.5 px-2">
         <IconTooltip content={t("app.back")} side="bottom">
           <button
@@ -211,7 +223,7 @@ export default function WindowTitlebar() {
         data-tauri-drag-region={fullscreen ? undefined : ""}
         className="h-8 min-w-0 flex-1"
       />
-      {!fullscreen && (
+      {!fullscreen && !macOS && (
         <div className="-mt-1 flex h-[35px] shrink-0 items-stretch" data-window-caption-controls="">
           <IconTooltip content={t("app.minimize")} side="bottom">
             <button
