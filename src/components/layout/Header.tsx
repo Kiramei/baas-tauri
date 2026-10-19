@@ -9,7 +9,6 @@ import {
   Copy,
   Download,
   FilePlus2,
-  FileText,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -29,6 +28,8 @@ import { toast } from "sonner";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { buildServerOptions } from "@/shared/serverOptions";
 import { useShallow } from "zustand/react/shallow";
+import { useProfileActionsController } from "@/context/ProfileActionsProvider";
+import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -39,9 +40,16 @@ const isProfileReady = (settings: any): boolean =>
   Boolean(settings?.name && settings?.ap && settings?._pass);
 
 /** Renders the header component. */
-const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = true }) => {
+const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = ({
+  desktopExpanded = true,
+  settingsMode = false,
+}) => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
+  const profileActions = useProfileActionsController();
+  const canManageProfiles = useWebSocketStore(
+    (state) => state._auth_phase === "authenticated" && state._all_data_initialized
+  );
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [desktop, setDesktop] = React.useState(
     () => window.matchMedia("(min-width: 64rem)").matches
@@ -59,7 +67,11 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
       Object.entries(state.configStore).map(([id, config]: [string, any]) =>
-        JSON.stringify([id, String(config.name ?? ""), String(config.server ?? "")])
+        JSON.stringify([
+          id,
+          profileDisplayName(String(config.name ?? "")),
+          String(config.server ?? ""),
+        ])
       )
     )
   );
@@ -209,11 +221,17 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
     [trigger]
   );
 
-  const waitForConfig = async (serialName: string) => {
-    await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
-    const next = tabsRef.current.find((p) => p.id === serialName);
-    if (next) setActiveProfile(next);
-  };
+  const waitForConfig = React.useCallback(
+    async (serialName: string) => {
+      await waitForNormal(
+        () => useWebSocketStore.getState().configStore[serialName],
+        isProfileReady
+      );
+      const next = tabsRef.current.find((p) => p.id === serialName);
+      if (next) setActiveProfile(next);
+    },
+    [setActiveProfile]
+  );
 
   /** Handles the handle copy interaction. */
   const handleCopy = async (tab: Tab) => {
@@ -240,7 +258,7 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
   };
 
   /** Handles the handle import interaction. */
-  const handleImport = async () => {
+  const handleImport = React.useCallback(async () => {
     try {
       const bytes = await StorageUtil.upload(t, ".zip");
       if (!bytes) return;
@@ -266,7 +284,7 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
     } catch (error: any) {
       toast.error(t("profile.importFailed"), { description: error?.message });
     }
-  };
+  }, [runTrigger, t, waitForConfig]);
 
   /** Handles the handle edit interaction. */
   const handleEdit = async (tab: Tab, name: string, server: string) => {
@@ -364,78 +382,101 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
     )
   );
 
-  return (
-    <header
-      className={`profile-navigation flex h-[52px] min-h-0 shrink-0 items-center gap-1 border-b border-border bg-background px-2 text-sm lg:h-auto lg:flex-1 lg:flex-col lg:items-stretch lg:gap-2 lg:border-0 lg:bg-transparent lg:pt-5 ${desktopExpanded ? "" : "lg:hidden"}`}
-    >
-      <div className="hidden shrink-0 items-center justify-between px-2 lg:flex">
-        <span className="text-[12px] font-medium text-muted-foreground">{t("profile.list")}</span>
-        <IconTooltip content={t("profile.add")} side="bottom">
-          <button
-            type="button"
-            onClick={() => setEditor({ mode: "create" })}
-            aria-label={t("profile.add")}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-          >
-            <FilePlus2 className="h-4 w-4" strokeWidth={1.6} />
-          </button>
-        </IconTooltip>
-      </div>
-      {/* Left side: scroll controls */}
-      <div className="mr-1 flex items-center gap-1 lg:hidden">
-        <button
-          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
-          onClick={() => scrollBy(-200)}
-          aria-label="scroll-left"
-        >
-          <ChevronLeft className="h-[20px] w-[20px]" />
-        </button>
-        <button
-          className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
-          onClick={() => scrollBy(200)}
-          aria-label="scroll-right"
-        >
-          <ChevronRight className="h-[20px] w-[20px]" />
-        </button>
-      </div>
+  useEffect(() => {
+    if (!canManageProfiles) return;
+    return profileActions.attach({
+      create: () => setEditor({ mode: "create" }),
+      import: handleImport,
+    });
+  }, [profileActions, canManageProfiles, handleImport]);
 
-      <div
-        ref={stripRef}
-        className={`min-h-0 min-w-0 flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto ${noScrollbarStyle}`}
+  return (
+    <>
+      <header
+        className={
+          settingsMode
+            ? "profile-navigation flex h-[52px] min-w-0 shrink-0 items-center border-b border-border bg-background px-4 text-sm lg:hidden"
+            : `profile-navigation flex h-[52px] min-h-0 shrink-0 items-center gap-1 border-b border-border bg-background px-2 text-sm lg:h-auto lg:flex-1 lg:flex-col lg:items-stretch lg:gap-2 lg:border-0 lg:bg-transparent lg:px-0 lg:pt-2 ${desktopExpanded ? "" : "lg:hidden"}`
+        }
       >
-        <Reorder.Group
-          axis={desktop ? "y" : "x"}
-          values={tabs}
-          onReorder={onReorder}
-          className="flex h-9 items-stretch gap-1 lg:h-auto lg:flex-col lg:gap-0.5"
-        >
-          {tabs.map((tab) => {
-            const active = activeProfile?.id === tab.id;
-            return tab.id in runningByProfile ? (
-              <Reorder.Item
-                id={`tab-${tab.id}`}
-                key={tab.id}
-                value={tab}
-                layout={lowPerformanceMode ? undefined : true}
-                transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
-                role="button"
-                tabIndex={0}
-                aria-pressed={active}
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return;
-                  if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
-                    event.preventDefault();
-                    const bounds = event.currentTarget.getBoundingClientRect();
-                    ctxMenuOpener.current = event.currentTarget;
-                    setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
-                    return;
-                  }
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(tab);
-                  }
-                }}
-                className={`group relative flex h-9 max-w-xs shrink-0 select-none items-center rounded-lg px-3 lg:h-8 lg:w-full lg:max-w-none lg:px-[11px]
+        {settingsMode ? (
+          <h1 className="font-semibold text-foreground">{t("nav.settings")}</h1>
+        ) : (
+          <>
+            <div className="hidden shrink-0 items-center justify-between pl-2 lg:flex">
+              <span className="text-[14px] font-medium text-muted-foreground">
+                {t("profile.list")}
+              </span>
+              <IconTooltip content={t("profile.add")} side="bottom">
+                <button
+                  type="button"
+                  onClick={() => setEditor({ mode: "create" })}
+                  aria-label={t("profile.add")}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                >
+                  <FilePlus2 className="h-4 w-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            </div>
+            {/* Left side: scroll controls */}
+            <div className="mr-1 flex items-center gap-1 lg:hidden">
+              <button
+                className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
+                onClick={() => scrollBy(-200)}
+                aria-label="scroll-left"
+              >
+                <ChevronLeft className="h-[20px] w-[20px]" />
+              </button>
+              <button
+                className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
+                onClick={() => scrollBy(200)}
+                aria-label="scroll-right"
+              >
+                <ChevronRight className="h-[20px] w-[20px]" />
+              </button>
+            </div>
+
+            <div
+              ref={stripRef}
+              className={`min-h-0 min-w-0 flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto ${noScrollbarStyle}`}
+            >
+              <Reorder.Group
+                axis={desktop ? "y" : "x"}
+                values={tabs}
+                onReorder={onReorder}
+                className="flex h-9 items-stretch gap-1 lg:h-auto lg:flex-col lg:gap-0.5"
+              >
+                {tabs.map((tab) => {
+                  const active = activeProfile?.id === tab.id;
+                  const menuOpen = ctxMenu?.tab?.id === tab.id;
+                  return tab.id in runningByProfile ? (
+                    <Reorder.Item
+                      id={`tab-${tab.id}`}
+                      key={tab.id}
+                      value={tab}
+                      layout={lowPerformanceMode ? undefined : true}
+                      transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={active}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (
+                          event.key === "ContextMenu" ||
+                          (event.shiftKey && event.key === "F10")
+                        ) {
+                          event.preventDefault();
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          ctxMenuOpener.current = event.currentTarget;
+                          setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
+                          return;
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelect(tab);
+                        }
+                      }}
+                      className={`group relative flex h-9 max-w-xs shrink-0 select-none items-center rounded-lg px-3 lg:h-8 lg:w-full lg:max-w-none lg:px-2
                     cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring
                     ${
                       active
@@ -443,68 +484,75 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
                         : "text-foreground hover:bg-secondary lg:hover:bg-sidebar-accent"
                     }
                   `}
-                onClick={() => onSelect(tab)}
-                onPointerDown={(e: any) => {
-                  if ((e as any).button === 1) {
-                    e.preventDefault();
-                    setConfirmDelete(tab);
-                  }
-                }}
-                onContextMenu={(e: any) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  ctxMenuOpener.current = e.currentTarget;
-                  setCtxMenu({ x: e.clientX, y: e.clientY, tab });
-                }}
-              >
-                {runningByProfile[tab.id] ? (
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                ) : (
-                  <FileText
-                    className="mr-2 hidden h-4 w-4 shrink-0 text-muted-foreground lg:block"
-                    strokeWidth={1.6}
-                  />
-                )}
+                      onClick={() => onSelect(tab)}
+                      onPointerDown={(e: any) => {
+                        if ((e as any).button === 1) {
+                          e.preventDefault();
+                          setConfirmDelete(tab);
+                        }
+                      }}
+                      onContextMenu={(e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        ctxMenuOpener.current = e.currentTarget;
+                        setCtxMenu({ x: e.clientX, y: e.clientY, tab });
+                      }}
+                    >
+                      {runningByProfile[tab.id] && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin lg:hidden" />
+                      )}
 
-                {/* Profile name */}
-                <span className="truncate pr-6 text-[14px] font-normal">{tab.name}</span>
+                      {/* Profile name */}
+                      <span className="min-w-0 truncate pr-6 text-[14px] font-normal lg:pr-7">
+                        {tab.name}
+                      </span>
 
-                {/* Close button, shown on hover. */}
-                <IconTooltip content={t("profile.edit")} side="bottom">
-                  <button
-                    aria-label={`${t("profile.edit")} ${tab.name}`}
-                    className="absolute right-1 rounded-md p-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const bounds = e.currentTarget.getBoundingClientRect();
-                      ctxMenuOpener.current = e.currentTarget;
-                      setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
-                    }}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </IconTooltip>
-              </Reorder.Item>
-            ) : (
-              <div key={tab.id}></div>
-            );
-          })}
-        </Reorder.Group>
-      </div>
+                      {/* A single action slot keeps activity and menu icons aligned. */}
+                      <IconTooltip content={t("profile.edit")} side="bottom">
+                        <button
+                          type="button"
+                          aria-label={`${t("profile.edit")} ${tab.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={menuOpen}
+                          className={`absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${runningByProfile[tab.id] ? "lg:opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const bounds = e.currentTarget.getBoundingClientRect();
+                            ctxMenuOpener.current = e.currentTarget;
+                            setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
+                          }}
+                        >
+                          {runningByProfile[tab.id] && !menuOpen && (
+                            <Loader2 className="hidden h-4 w-4 animate-spin lg:block lg:group-hover:hidden lg:group-focus-within:hidden" />
+                          )}
+                          <MoreHorizontal
+                            className={`h-4 w-4 ${runningByProfile[tab.id] && !menuOpen ? "lg:hidden lg:group-hover:block lg:group-focus-within:block" : ""}`}
+                          />
+                        </button>
+                      </IconTooltip>
+                    </Reorder.Item>
+                  ) : (
+                    <div key={tab.id}></div>
+                  );
+                })}
+              </Reorder.Group>
+            </div>
 
-      {/* Right side: create button */}
-      <div className="ml-1 lg:hidden">
-        <IconTooltip content={t("profile.add")} side="bottom">
-          <button
-            onClick={() => setEditor({ mode: "create" })}
-            aria-label={t("profile.add")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary"
-          >
-            <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
-          </button>
-        </IconTooltip>
-      </div>
-
+            {/* Right side: create button */}
+            <div className="ml-1 lg:hidden">
+              <IconTooltip content={t("profile.add")} side="bottom">
+                <button
+                  onClick={() => setEditor({ mode: "create" })}
+                  aria-label={t("profile.add")}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary"
+                >
+                  <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
+                </button>
+              </IconTooltip>
+            </div>
+          </>
+        )}
+      </header>
       {createPortal(
         <>
           {/* Menus live outside the scrolling sidebar so they remain visible at any zoom. */}
@@ -520,7 +568,7 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
                 animate={{ opacity: 1 }}
                 exit={lowPerformanceMode ? undefined : { opacity: 0 }}
                 transition={{ type: "tween", duration: lowPerformanceMode ? 0 : 0.1 }}
-                className="fixed z-[1300] w-[220px] max-w-[calc(100vw-16px)] select-none rounded-[8px] border border-[var(--menu-border)] bg-[var(--menu-background)] p-[6px] text-popover-foreground shadow-[var(--menu-shadow)] backdrop-blur-xl backdrop-saturate-125"
+                className="fixed z-[1300] w-[220px] max-w-[calc(100vw-16px)] select-none rounded-[8px] border-none bg-[var(--menu-background)] p-[6px] text-popover-foreground shadow-[var(--menu-shadow)] backdrop-blur-xl backdrop-saturate-125"
                 style={{
                   top: Math.max(8, Math.min(ctxMenu.y + 2, window.innerHeight - 180)),
                   left: Math.max(8, Math.min(ctxMenu.x + 2, window.innerWidth - 200)),
@@ -615,7 +663,7 @@ const Header: React.FC<{ desktopExpanded?: boolean }> = ({ desktopExpanded = tru
         </>,
         document.body
       )}
-    </header>
+    </>
   );
 };
 
@@ -636,7 +684,9 @@ const ProfileEditorModal = (props: {
 }) => {
   const { t } = useTranslation();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  const [name, setName] = React.useState(props.initial?.name ?? "");
+  const [name, setName] = React.useState(
+    () => props.initial?.name ?? unusedDefaultProfileName((value) => props.checkName(value))
+  );
   const [server, setServer] = React.useState("CN");
   const [err, setErr] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -649,7 +699,7 @@ const ProfileEditorModal = (props: {
 
   React.useEffect(() => {
     if (props.open) {
-      setName(props.initial?.name ?? "");
+      setName(props.initial?.name ?? unusedDefaultProfileName((value) => props.checkName(value)));
       setServer(props.initial?.server ?? "NULL");
       setErr(null);
     }
@@ -688,6 +738,7 @@ const ProfileEditorModal = (props: {
   if (!props.open) return null;
   return (
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !submitting && !importing) props.onClose();
@@ -703,11 +754,11 @@ const ProfileEditorModal = (props: {
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 4 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.14, type: "tween", ease: "easeOut" }}
-        className="w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)] outline-none"
+        className="modal-surface w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 id={titleId} className="text-[16px] font-medium leading-6">
+        <div className="modal-header">
+          <h2 id={titleId} className="modal-title">
             {props.mode === "create" ? t("profile.create") : t("profile.edit")}
           </h2>
           <IconTooltip content={t("common.close")} side="bottom">
@@ -716,7 +767,7 @@ const ProfileEditorModal = (props: {
               aria-label={t("common.close")}
               onClick={props.onClose}
               disabled={submitting || importing}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+              className="modal-close disabled:opacity-40"
             >
               <X className="size-4" />
             </button>
@@ -767,11 +818,12 @@ const ProfileEditorModal = (props: {
           )}
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="modal-footer">
           <button
             type="button"
+            data-variant="secondary"
             onClick={props.onClose}
-            className="h-9 rounded-[8px] border border-input px-3.5 text-sm font-medium outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+            className="h-8 rounded-[8px] bg-secondary px-3.5 text-sm font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
             disabled={submitting || importing}
           >
             {t("common.cancel")}
@@ -779,7 +831,7 @@ const ProfileEditorModal = (props: {
           <button
             type="button"
             onClick={handleSubmit}
-            className="flex h-9 items-center rounded-[8px] bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
+            className="flex h-8 items-center rounded-[8px] bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
             disabled={submitting || importing}
           >
             {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
@@ -807,6 +859,7 @@ const ConfirmDeleteModal = (props: {
   if (!props.open) return null;
   return (
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onCancel();
@@ -822,24 +875,33 @@ const ConfirmDeleteModal = (props: {
         animate={{ opacity: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, y: 4 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.14 }}
-        className="w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)] outline-none"
+        className="modal-surface w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div>
-          <h2 id={titleId} className="text-[16px] font-medium leading-6">
+        <div className="modal-header">
+          <h2 id={titleId} className="modal-title">
             {t("profile.deleteConfirmTitle")}
           </h2>
-          <div className="mt-3 text-sm leading-6 text-muted-foreground">
-            {t("profile.deleteConfirmMessage", { name: props.name })}
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
+            aria-label={t("common.close")}
+            onClick={props.onCancel}
+            className="modal-close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="text-sm leading-6 text-muted-foreground">
+          {t("profile.deleteConfirmMessage", { name: props.name })}
+        </div>
+
+        <div className="modal-footer">
+          <button
+            type="button"
+            data-variant="secondary"
             data-autofocus
             onClick={props.onCancel}
-            className="h-9 rounded-[8px] border border-input px-3.5 text-sm font-medium outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-8 rounded-[8px] bg-secondary px-3.5 text-sm font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             {t("common.cancel")}
           </button>
@@ -847,7 +909,7 @@ const ConfirmDeleteModal = (props: {
             type="button"
             onClick={props.onConfirm}
             disabled={props.disabled}
-            className="h-9 rounded-[8px] bg-destructive px-3.5 text-sm font-medium text-white outline-none transition-colors hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-destructive/40 disabled:opacity-40"
+            className="h-8 rounded-[8px] bg-destructive px-3.5 text-sm font-medium text-white outline-none transition-colors hover:bg-destructive/90 focus-visible:ring-2 focus-visible:ring-destructive/40 disabled:opacity-40"
           >
             {t("common.delete")}
           </button>

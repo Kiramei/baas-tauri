@@ -1127,8 +1127,11 @@ mod tests {
         assert!(snapshot.starts_with("\x1b[H\x1b[2J"));
         assert!(snapshot.contains("[01/04] Alpha"));
         assert!(snapshot.contains("[02/04] Beta"));
+        assert!(snapshot.contains("a2"));
         assert!(snapshot.contains("a6"));
         assert!(!snapshot.contains("a1"));
+        // The default is five body lines plus one title, independently per region.
+        assert_eq!(renderer.render_region_lines("region-a", true).len(), 6);
     }
 
     /// Handles the session renderer does not insert blank lines between regions workflow.
@@ -1150,15 +1153,17 @@ mod tests {
     #[test]
     fn session_renderer_uses_task_running_line_limit() {
         let mut renderer = SessionRenderer::new(20, 80);
-        let spec = spec("task", "region", 1, "Lines").with_running_region_max_lines(5);
+        let spec = spec("task", "region", 1, "Lines").with_running_region_max_lines(2);
         renderer.start_region(&spec);
         renderer.push_output("task", "region", b"1\n2\n3\n4\n5\n6");
 
         let snapshot = renderer.render_running_snapshot();
 
-        assert!(snapshot.contains("2"));
+        assert!(snapshot.contains("\r\n5\x1b[0m"));
         assert!(snapshot.contains("6"));
         assert!(!snapshot.contains("\r\n1\x1b[0m"));
+        assert!(!snapshot.contains("\r\n4\x1b[0m"));
+        assert_eq!(renderer.render_region_lines("region", true).len(), 3);
     }
 
     /// Handles the session renderer can disable task running line limit workflow.
@@ -1206,12 +1211,12 @@ mod tests {
     fn completed_snapshot_includes_full_region_history() {
         let mut renderer = SessionRenderer::new(3, 80);
         renderer.start_region(&spec("task", "region", 1, "History"));
-        renderer.push_output("task", "region", b"1\n2\n3\n4");
+        renderer.push_output("task", "region", b"1\n2\n3\n4\n5\n6\n7");
 
         let snapshot = renderer.render_completed_snapshot();
 
         assert!(snapshot.contains("1"));
-        assert!(snapshot.contains("4"));
+        assert!(snapshot.contains("7"));
     }
 
     /// Handles the stable region snapshot is full and emitted once workflow.
@@ -1219,14 +1224,14 @@ mod tests {
     fn stable_region_snapshot_is_full_and_emitted_once() {
         let mut renderer = SessionRenderer::new(3, 80);
         renderer.start_region(&spec("task", "region", 1, "History"));
-        renderer.push_output("task", "region", b"1\n2\n3\n4");
+        renderer.push_output("task", "region", b"1\n2\n3\n4\n5\n6\n7");
         renderer.finish_region("task");
 
         let snapshot = renderer.stable_region_snapshot("region").unwrap();
 
         assert_eq!(snapshot.region_id, "region");
         assert!(snapshot.title.contains("History"));
-        assert_eq!(snapshot.lines.len(), 4);
+        assert_eq!(snapshot.lines.len(), 7);
         assert!(snapshot.lines[0].contains("1"));
         assert!(renderer.stable_region_snapshot("region").is_none());
     }

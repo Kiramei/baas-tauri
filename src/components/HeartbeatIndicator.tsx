@@ -1,80 +1,70 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, type ComponentProps } from "react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useTranslation } from "react-i18next";
 import { HeartbeatWatchdog } from "@/shared/HeartbeatWatchdog";
+import { formatBackendConnectionStatus } from "@/shared/BackendConnectionStatus";
+import {
+  markBackendHeartbeatTimeout,
+  useBackendConnectionStatus,
+} from "@/shared/useBackendConnectionStatus";
+import { cn } from "@/shared/cn";
 
-interface IndicatorProps {
-  onStateChanged: (state: boolean) => void;
-}
-
-/** Renders the indicator base component. */
-const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
-  const [connected, setConnected] = useState(true);
-  const heartbeatTime = useWebSocketStore((s) => s._heartbeat_time);
-  const transportMode = useWebSocketStore((s) => s.transportMode);
-  const authPhase = useWebSocketStore((s) => s._auth_phase);
-  const pipeConnected = useWebSocketStore(
-    (s) =>
-      s._auth_phase === "authenticated" &&
-      Boolean(s.connections.provider) &&
-      Boolean(s.connections.sync)
-  );
-  const recoverTransport = useWebSocketStore((s) => s.recoverTransport);
+/** One persistent logo badge also owns heartbeat recovery, including on small screens. */
+export default function HeartbeatIndicator({ className, ...props }: ComponentProps<"span">) {
+  const { t } = useTranslation();
+  const status = useBackendConnectionStatus();
+  const recoverTransport = useWebSocketStore((state) => state.recoverTransport);
   const watchdog = useRef(new HeartbeatWatchdog(0));
 
   useEffect(() => {
-    if (transportMode === "websocket") return;
-    setConnected(pipeConnected);
-    onStateChanged(pipeConnected);
-  }, [onStateChanged, pipeConnected, transportMode]);
-
-  useEffect(() => {
-    watchdog.current.update(transportMode, authPhase, heartbeatTime, Date.now());
-    if (transportMode !== "websocket") return;
-    const healthy = authPhase === "authenticated" && heartbeatTime > 0;
-    setConnected(healthy);
-    onStateChanged(healthy);
-  }, [authPhase, heartbeatTime, onStateChanged, transportMode]);
-
-  useEffect(() => {
-    const checkInterval = setInterval(async () => {
+    let previousMode: string | undefined;
+    let previousAuth: string | undefined;
+    let previousHeartbeat: number | undefined;
+    const updateWatchdog = () => {
       const state = useWebSocketStore.getState();
-      const now = Date.now();
-      watchdog.current.update(state.transportMode, state._auth_phase, state._heartbeat_time, now);
-      if (watchdog.current.shouldRecover(now)) {
-        setConnected(false);
-        onStateChanged(false);
+      if (
+        state.transportMode !== previousMode ||
+        state._auth_phase !== previousAuth ||
+        state._heartbeat_time !== previousHeartbeat
+      ) {
+        markBackendHeartbeatTimeout(null);
+        previousMode = state.transportMode;
+        previousAuth = state._auth_phase;
+        previousHeartbeat = state._heartbeat_time;
+      }
+      watchdog.current.update(
+        state.transportMode,
+        state._auth_phase,
+        state._heartbeat_time,
+        Date.now()
+      );
+    };
+    updateWatchdog();
+    const unsubscribe = useWebSocketStore.subscribe(updateWatchdog);
+    const checkInterval = setInterval(async () => {
+      updateWatchdog();
+      if (watchdog.current.shouldRecover(Date.now())) {
+        markBackendHeartbeatTimeout(useWebSocketStore.getState()._heartbeat_time);
         await recoverTransport();
       }
     }, 1000);
-    return () => clearInterval(checkInterval);
-  }, [onStateChanged, recoverTransport, transportMode]);
-
-  const color = connected ? "#30a46c" : "var(--muted-foreground)";
+    return () => {
+      clearInterval(checkInterval);
+      unsubscribe();
+    };
+  }, [recoverTransport]);
 
   return (
-    <div
-      className="size-2 shrink-0 rounded-full"
+    <span
+      {...props}
+      role="status"
+      className={cn("size-1.5 shrink-0 rounded-full", className)}
       style={{
-        backgroundColor: color,
+        ...props.style,
+        backgroundColor: status === "connected" ? "#30a46c" : "var(--muted-foreground)",
       }}
-    />
+    >
+      <span className="sr-only">{formatBackendConnectionStatus(status, t)}</span>
+    </span>
   );
-};
-
-/** Renders the heartbeat indicator component. */
-const HeartbeatIndicator: React.FC = () => {
-  const { t } = useTranslation();
-  const [connected, setConnected] = useState(false);
-  return (
-    <div className="flex h-8 w-full flex-row items-center justify-start self-start overflow-hidden rounded-lg px-3">
-      <IndicatorBase onStateChanged={setConnected} />
-      <div className="ml-2 overflow-hidden whitespace-nowrap text-xs text-muted-foreground">
-        {connected ? t("heartbeat.connected") : t("heartbeat.connecting")}
-      </div>
-      <div className="grow" />
-    </div>
-  );
-};
-
-export default HeartbeatIndicator;
+}

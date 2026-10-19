@@ -1,55 +1,38 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import { useSettingsSearchHighlight } from "@/shared/useSettingsSearchHighlight";
+import {
+  SettingsToggle,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSelect,
+} from "@/components/settings/SettingsControls";
+import { VersionOverview } from "@/components/settings/VersionOverview";
+import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
+import SettingsNavigation from "@/components/layout/SettingsNavigation";
+import { SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
 import { useTheme } from "@/context/ThemeProvider";
 import { Theme } from "@/types/app";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import CButton from "@/components/ui/CButton.tsx";
-import { Separator } from "@/components/ui/Separator";
-import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
 import { IconTooltip } from "@/components/ui/Tooltip";
 import { toast } from "sonner";
-import {
-  AppWindow,
-  CheckCircle2,
-  ChevronDown,
-  Cloud,
-  Download,
-  GitBranch,
-  HardDrive,
-  ImagePlus,
-  Info,
-  Loader2,
-  MinusCircle,
-  Palette,
-  RefreshCcw,
-  RotateCcw,
-  TestTube,
-  Trash2,
-  UserSearch,
-  XCircle,
-} from "lucide-react";
+import { ImagePlus, Loader2, Palette, RotateCcw, Trash2, UserSearch } from "lucide-react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { supportsSharedMemory } from "@/transport/factory";
 import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { resolveClientVersion } from "@/shared/ClientVersion";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useUISettings } from "@/context/UISettingsProvider.tsx";
-import {
-  i18nKey,
-  mirrorcMessageKey,
-  shaMethodKey,
-  themeKey,
-  updateMethodKey,
-} from "@/shared/I18nKeys";
+import { i18nKey, mirrorcMessageKey, shaMethodKey, updateMethodKey } from "@/shared/I18nKeys";
 import type { TranslationKey } from "@/types/i18n";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgressModal";
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
 import { SystemLogSettings } from "@/components/SystemLogSettings";
+import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -64,13 +47,6 @@ import {
 type RepoConfig = {
   label: string;
   method: string;
-};
-
-type ShaTestResult = {
-  method: TranslationKey;
-  status: "pending" | "success" | "error" | "testing";
-  time?: string;
-  sha?: string;
 };
 
 type TauriBackendVersionReport = {
@@ -200,9 +176,18 @@ const shaMethodsInit = [
 
 /** Renders the settings page component. */
 const SettingsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, language } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
+  const section = resolveSettingsSection(uiSettings.settingsSection);
+  const pageRef = useRef<HTMLDivElement>(null);
+  useSettingsSearchHighlight(pageRef, section.id, language);
+  useEffect(() => {
+    const scrollRegion = pageRef.current?.closest<HTMLElement>(".app-page-scroll");
+    if (scrollRegion && window.matchMedia("(min-width: 1024px)").matches) {
+      scrollRegion.scrollTop = 0;
+    }
+  }, [section.id]);
   const backgroundFileInputRef = useRef<HTMLInputElement | null>(null);
   const trigger = useWebSocketStore((state) => state.trigger);
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
@@ -387,55 +372,8 @@ const SettingsPage: React.FC = () => {
     await checkTauriUpdater(true, true);
   };
 
-  const infos = [
-    {
-      label: t("version.local"),
-      value: localVersion,
-      icon: <HardDrive className="w-5 h-5 text-muted-foreground" />,
-    },
-    {
-      label: t("version.remote"),
-      value: remoteVersion,
-      icon: <Cloud className="w-5 h-5 text-muted-foreground" />,
-    },
-    {
-      label: t("update.method"),
-      value: t(i18nKey(updateStatus)),
-      icon: (
-        <RefreshCcw
-          className={`w-5 h-5 text-muted-foreground ${versionChecking ? "animate-spin" : ""}`}
-        />
-      ),
-    },
-    ...(__WITH_TAURI__
-      ? [
-          {
-            label: t("version.tauriLocal"),
-            value: tauriCurrentVersion,
-            icon: <AppWindow className="w-5 h-5 text-muted-foreground" />,
-          },
-          {
-            label: t("version.tauriRemote"),
-            value: tauriRemoteVersion,
-            icon: <Download className="w-5 h-5 text-muted-foreground" />,
-          },
-          {
-            label: t("version.tauriStatus"),
-            value: tauriStatus,
-            icon: (
-              <RefreshCcw
-                className={`w-5 h-5 text-muted-foreground ${
-                  tauriVersion.checking || tauriUpdate.updating ? "animate-spin" : ""
-                }`}
-              />
-            ),
-            onClick: handleTauriVersionAction,
-          },
-        ]
-      : []),
-  ];
   const [cdk, setCdk] = useState(updateConfig["mirrorcCdk"]);
-  const [shaResults, setShaResults] = useState<ShaTestResult[]>(
+  const [shaResults, setShaResults] = useState<ShaDiagnosticResult[]>(
     shaMethodsInit.map((m) => ({ method: shaMethodKey(m.value), status: "pending" }))
   );
   const [showShaResults, setShowShaResults] = useState(false);
@@ -586,7 +524,11 @@ const SettingsPage: React.FC = () => {
   }, [versionStore.local, versionStore.remote]);
 
   useEffect(() => {
-    if (![verLocal, shaLocal, verRemote, shaRemote].some(isPresentVersionValue)) return;
+    if (![verLocal, shaLocal, verRemote, shaRemote].some(isPresentVersionValue)) {
+      setLocalVersion(t("version.fetching"));
+      setRemoteVersion(t("version.fetching"));
+      return;
+    }
 
     const localSha = shortDesktopShaOrNull(shaLocal);
     setLocalVersion(localSha ?? t("version.checkError"));
@@ -773,51 +715,460 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5 text-foreground">
-      <h2 className="text-xl font-semibold tracking-tight">{t("nav.settings")}</h2>
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Info className="w-[18px] h-[18px] text-muted-foreground" />
-          <CardTitle>{t("version.info")}</CardTitle>
-        </CardHeader>
-
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {infos.map((info, i) => (
-            <div
-              key={i}
-              role={info.onClick || info.label === t("update.method") ? "button" : undefined}
-              tabIndex={info.onClick || info.label === t("update.method") ? 0 : undefined}
-              className={`flex min-w-0 items-center gap-3 p-3 rounded-lg transition-colors ${
-                info.label === t("update.method") || info.onClick
-                  ? " cursor-pointer hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  : ""
-              }`}
-              onClick={
-                info.onClick
-                  ? info.onClick
-                  : info.label === t("update.method")
-                    ? fetchVersion
-                    : undefined
-              }
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                const action =
-                  info.onClick ?? (info.label === t("update.method") ? fetchVersion : null);
-                if (!action) return;
-                event.preventDefault();
-                void action();
-              }}
+    <div ref={pageRef} className="settings-page">
+      <div className="settings-mobile-navigation lg:hidden">
+        <SettingsNavigation compact />
+      </div>
+      <input
+        ref={backgroundFileInputRef}
+        type="file"
+        accept={BACKGROUND_IMAGE_ACCEPT}
+        className="hidden"
+        onChange={handleWebBackgroundImageChange}
+      />
+      <div className="settings-categories">
+        {SETTINGS_SECTIONS.map((displayedSection) => (
+          <section
+            key={displayedSection.id}
+            aria-labelledby={`settings-section-${displayedSection.id}-title`}
+            data-settings-section={displayedSection.id}
+            className={`settings-category${section.id === displayedSection.id ? "" : " settings-category-inactive"}`}
+          >
+            <h2
+              id={`settings-section-${displayedSection.id}-title`}
+              className="settings-page-title"
             >
-              {info.icon}
-              <div className="flex min-w-0 flex-col gap-1">
-                <p className="text-xs text-muted-foreground">{info.label}</p>
-                <p className="truncate text-sm font-medium text-foreground">{info.value}</p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              {t(i18nKey(displayedSection.label))}
+            </h2>
+            <div className="settings-sections">
+              {displayedSection.id === "general" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("settings.groups.preferences")}>
+                    <SettingsRow
+                      label={t("language")}
+                      description={t("settings.descriptions.language")}
+                    >
+                      <LanguageSelect
+                        handleLanguageChange={handleLanguageChange}
+                        className="settings-select-control"
+                        hideLabel
+                      />
+                    </SettingsRow>
+                    <SettingsToggle
+                      label={t("settings.ui.lowPerformanceMode")}
+                      description={t("settings.descriptions.lowPerformanceMode")}
+                      checked={uiSettings.lowPerformanceMode}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, lowPerformanceMode: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                  {__WITH_TAURI__ && (
+                    <SettingsGroup title={t("settings.groups.desktop")}>
+                      {__WITH_TAURI__ && (
+                        <SettingsToggle
+                          label={t("settings.ui.enableSystemNotifications")}
+                          description={t("settings.descriptions.systemNotifications")}
+                          checked={uiSettings.enableSystemNotifications}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({
+                              ...state,
+                              enableSystemNotifications: value,
+                            }))
+                          }
+                        />
+                      )}
+                      {__WITH_TAURI__ && !__WITH_ANDROID__ && (
+                        <SettingsToggle
+                          label={t("workflow.minimizeToTray")}
+                          description={t("settings.descriptions.minimizeToTray")}
+                          checked={uiSettings.minimizeToTray ?? false}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({ ...state, minimizeToTray: value }))
+                          }
+                        />
+                      )}
+                      {!__WITH_ANDROID__ && (
+                        <SettingsToggle
+                          label={t("installer.autoEnter")}
+                          description={t("installer.autoEnterHint")}
+                          checked={uiSettings.autoEnterAfterInstall !== false}
+                          onChange={(value) =>
+                            setUiSettings((state) => ({ ...state, autoEnterAfterInstall: value }))
+                          }
+                        />
+                      )}
+                    </SettingsGroup>
+                  )}
+                </div>
+              )}
+              {displayedSection.id === "appearance" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("common.theme")}>
+                    <SettingsRow label={t("common.theme")} className="settings-theme-row">
+                      <ThemeSelector value={theme} onChange={handleThemeChange} compact />
+                    </SettingsRow>
+                    <div className="settings-block">
+                      <label className="settings-block-label">
+                        <Palette className="h-4 w-4 text-muted-foreground" />
+                        {t("settings.ui.themeColor")}
+                      </label>
+                      <div className="settings-color-controls">
+                        <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-3 items-center">
+                          <ColorPicker value={activeThemeColor} onValueChange={commitThemeColor}>
+                            <IconTooltip content={t("settings.ui.themeColor")}>
+                              <ColorPickerTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="flex h-11 w-full items-center justify-center rounded-lg border border-border bg-card transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-14"
+                                  aria-label={t("settings.ui.themeColor")}
+                                >
+                                  <ColorPickerSwatch className="h-7 w-7 rounded-full border-white ring-1 ring-slate-300 dark:ring-slate-600" />
+                                </button>
+                              </ColorPickerTrigger>
+                            </IconTooltip>
+                            <ColorPickerContent
+                              align="start"
+                              className="w-80 rounded-xl bg-popover p-3 shadow-lg"
+                            >
+                              <ColorPickerArea className="h-40 rounded-lg" />
+                              <ColorPickerHueSlider />
+                              <div className="flex items-center gap-2">
+                                <ColorPickerInput withoutAlpha className="min-w-0 flex-1" />
+                                <ColorPickerEyeDropper />
+                              </div>
 
+                              <div className="grid grid-cols-8 gap-2">
+                                {THEME_COLOR_PRESETS.map((color) => (
+                                  <IconTooltip key={color} content={color}>
+                                    <button
+                                      type="button"
+                                      aria-label={color}
+                                      onClick={() => commitThemeColor(color)}
+                                      className={`h-7 w-7 rounded-full border-2 shadow-xs transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                                        (
+                                          uiSettings.themeColor || DEFAULT_THEME_COLOR
+                                        ).toLowerCase() === color
+                                          ? "border-slate-900 ring-2 ring-primary-300 dark:border-white"
+                                          : "border-white dark:border-slate-700"
+                                      }`}
+                                      style={{ backgroundColor: color }}
+                                    />
+                                  </IconTooltip>
+                                ))}
+                              </div>
+                            </ColorPickerContent>
+                          </ColorPicker>
+                          <FormInput
+                            className="min-w-0"
+                            childClassName="font-mono uppercase tracking-wide"
+                            value={themeColorInput}
+                            placeholder={DEFAULT_THEME_COLOR}
+                            onChange={(event) => setThemeColorInput(event.target.value)}
+                            onBlur={(event) => commitThemeColor(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
+                              }
+                            }}
+                          />
+                          <CButton
+                            type="button"
+                            variant="secondary"
+                            className="pl-3"
+                            onClick={() => commitThemeColor(DEFAULT_THEME_COLOR)}
+                          >
+                            <div className="flex items-center justify-center">
+                              <RotateCcw className="mr-1 h-4 w-4" />
+                              {t("settings.ui.themeColorReset")}
+                            </div>
+                          </CButton>
+                        </div>
+                      </div>
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.ui.backgroundImage")}>
+                    <div className="settings-block">
+                      <div className="settings-background-controls">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-muted-foreground"
+                              style={
+                                uiSettings.backgroundImageBase64
+                                  ? {
+                                      backgroundImage: `url(${uiSettings.backgroundImageBase64})`,
+                                      backgroundPosition: "center",
+                                      backgroundSize: "cover",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {!uiSettings.backgroundImageBase64 && (
+                                <ImagePlus className="h-5 w-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-foreground">
+                                {uiSettings.backgroundImageBase64
+                                  ? t("settings.ui.backgroundImageSelected")
+                                  : t("settings.ui.backgroundImageEmpty")}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {t("settings.ui.backgroundImageOpacity")}:{" "}
+                                {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSelectBackgroundImage}
+                              className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <ImagePlus className="h-4 w-4" />
+                              {t("settings.ui.backgroundImageChoose")}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!uiSettings.backgroundImageBase64}
+                              onClick={handleRemoveBackgroundImage}
+                              className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600  transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              {t("settings.ui.backgroundImageRemove")}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="settings-opacity">
+                          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                            <span className="font-medium text-muted-foreground">
+                              {t("settings.ui.backgroundImageOpacity")}
+                            </span>
+                            <span className="font-mono tabular-nums text-muted-foreground">
+                              {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={60}
+                            step={1}
+                            value={Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}
+                            onChange={handleBackgroundOpacityChange}
+                            className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-foreground"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.groups.display")}>
+                    <SettingsSelect
+                      value={uiSettings?.zoomScale.toString()}
+                      label={t("ui.zoom")}
+                      onChange={handleZoomChange}
+                      options={[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150].map((v) => ({
+                        value: v.toString(),
+                        label: `${v}%`,
+                      }))}
+                    />
+                    <SettingsToggle
+                      label={t("settings.ui.assets")}
+                      description={t("settings.descriptions.assets")}
+                      checked={uiSettings.assetsDisplay}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, assetsDisplay: value }))
+                      }
+                    />
+                    <SettingsToggle
+                      label={t("settings.ui.enableBAComet")}
+                      checked={uiSettings.enableBAComet}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, enableBAComet: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                </div>
+              )}
+              {displayedSection.id === "runtime" && (
+                <SettingsGroup title={t("settings.groups.connection")}>
+                  <SettingsSelect
+                    label={t("transport.label")}
+                    value={transportMode}
+                    onChange={(value) => void handleTransportMode(value)}
+                    options={[
+                      { value: "websocket", label: t("transport.websocket") },
+                      { value: "pipe", label: t("transport.pipe") },
+                      ...(supportsSharedMemory()
+                        ? [{ value: "shm", label: t("transport.shm") }]
+                        : []),
+                    ]}
+                  />
+                  {!__WITH_ANDROID__ && (
+                    <SettingsSelect
+                      value={uiSettings?.remoteSettings.streamPlayer}
+                      label={t("settings.ui.player")}
+                      onChange={handlePlayerChange}
+                      options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
+                        value: v.toString(),
+                        label: v.charAt(0).toUpperCase() + v.slice(1),
+                      }))}
+                    />
+                  )}
+                  {!__WITH_ANDROID__ && (
+                    <SettingsToggle
+                      label={t("settings.ui.enableSafeStream")}
+                      description={t("settings.descriptions.safeStream")}
+                      checked={uiSettings.remoteSettings.enableSafeStream}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({
+                          ...state,
+                          remoteSettings: { ...state.remoteSettings, enableSafeStream: value },
+                        }))
+                      }
+                    />
+                  )}
+                </SettingsGroup>
+              )}
+              {displayedSection.id === "updates" && (
+                <div className="settings-sections">
+                  <VersionOverview
+                    script={{
+                      current: localVersion,
+                      latest: remoteVersion,
+                      currentDetail: shaLocal || undefined,
+                      latestDetail: shaRemote || undefined,
+                      source: t(updateMethodKey(updateMethod)),
+                      checking: versionChecking,
+                      checkLabel: t(i18nKey(updateStatus)),
+                      onCheck: fetchVersion,
+                    }}
+                    client={
+                      __WITH_TAURI__
+                        ? {
+                            current: tauriCurrentVersion,
+                            latest: tauriRemoteVersion,
+                            status: tauriStatus,
+                            busy: Boolean(tauriVersion.checking || tauriUpdate.updating),
+                            updateAvailable: Boolean(tauriVersion.updateAvailable),
+                            onAction: handleTauriVersionAction,
+                          }
+                        : undefined
+                    }
+                  />
+                  <SettingsGroup title={t("update.settingsTitle")}>
+                    {__WITH_TAURI__ && !__WITH_WEBUI__ && (
+                      <SettingsToggle
+                        label={t("settings.ui.idleAutoUpdate")}
+                        description={t("settings.descriptions.idleAutoUpdate")}
+                        checked={uiSettings.idleAutoUpdate ?? true}
+                        onChange={(value) =>
+                          setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
+                        }
+                      />
+                    )}
+                    <div className="settings-update-form">
+                      <div className="grid grid-cols-1 gap-1">
+                        <div className="grid sm:flex gap-2 items-center">
+                          <FormInput
+                            label={t("update.mirrorCdk")}
+                            placeholder={t("update.enterCdk")}
+                            value={cdk}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleTestCdk(undefined);
+                              }
+                            }}
+                            onChange={(e) => setCdk(e.target.value)}
+                            className="flex-1"
+                          />
+
+                          <CButton
+                            onClick={handleTestCdk}
+                            disabled={mcLoading}
+                            className="pl-3 self-end"
+                          >
+                            {mcLoading ? (
+                              <div className="flex justify-center items-center">
+                                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                {t("mirror.verifying")}
+                              </div>
+                            ) : (
+                              <div className="flex justify-center items-center">
+                                <UserSearch className="mr-1 h-4 w-4" />
+                                {t("mirror.verify")}
+                              </div>
+                            )}
+                          </CButton>
+                        </div>
+                        {dueDate !== "" ? (
+                          <div className="text-sm text-muted-foreground">
+                            {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">&nbsp;</div>
+                        )}
+                      </div>
+                      <SettingsSelect
+                        label={t("update.method")}
+                        value={updateMethod}
+                        onChange={handleUpdateMethod}
+                        options={reposInitState.map((r) => ({
+                          value: r.method,
+                          label: t(updateMethodKey(r.method)),
+                        }))}
+                      />
+                      <SettingsSelect
+                        label={t("update.channel")}
+                        value={updateChannel}
+                        onChange={handleUpdateChannel}
+                        options={[
+                          { value: "stable", label: t("updateChannel.stable") },
+                          { value: "dev", label: t("updateChannel.dev") },
+                        ]}
+                      />
+                    </div>
+                  </SettingsGroup>
+                  <SettingsGroup title={t("update.shaConnectivityTest")}>
+                    <ShaDiagnostics
+                      value={updateConfig["shaMethod"]}
+                      onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
+                      options={shaMethodsInit.map((method) => ({
+                        value: method.value,
+                        label: t(shaMethodKey(method.value)),
+                      }))}
+                      loading={apiLoading}
+                      onTest={handleTestSha}
+                      results={shaResults}
+                      expanded={showShaResults}
+                      onExpandedChange={setShowShaResults}
+                    />
+                  </SettingsGroup>
+                </div>
+              )}
+              {displayedSection.id === "shortcuts" && <ShortcutSettings />}
+              {displayedSection.id === "logs" && (
+                <div className="settings-sections">
+                  <SettingsGroup title={t("settings.groups.preferences")}>
+                    <SettingsToggle
+                      label={t("log.scroll.detail")}
+                      checked={uiSettings.scrollToEnd}
+                      onChange={(value) =>
+                        setUiSettings((state) => ({ ...state, scrollToEnd: value }))
+                      }
+                    />
+                  </SettingsGroup>
+                  <SettingsGroup title={t("settings.systemLogs.title")}>
+                    <div className="settings-block">
+                      <SystemLogSettings />
+                    </div>
+                  </SettingsGroup>
+                </div>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
       <TauriUpdateProgressModal
         open={tauriUpdate.progressOpen}
         onClose={() => tauriUpdate.setProgressOpen(false)}
@@ -825,486 +1176,6 @@ const SettingsPage: React.FC = () => {
         tauriProgress={tauriUpdate.progress}
         tauriStatus={tauriUpdate.status}
       />
-
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <AppWindow className="w-5 h-5" />
-          <CardTitle>{t("settings.ui")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <input
-            ref={backgroundFileInputRef}
-            type="file"
-            accept={BACKGROUND_IMAGE_ACCEPT}
-            className="hidden"
-            onChange={handleWebBackgroundImageChange}
-          />
-
-          {/* Theme Settings */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              {t("common.theme")}
-            </label>
-            <div className="flex gap-1 rounded-lg bg-secondary p-1">
-              {(["light", "dark", "system"] as Theme[]).map((value) => (
-                <button
-                  key={value}
-                  onClick={() => handleThemeChange(value)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                    theme === value
-                      ? "bg-card text-foreground shadow-xs"
-                      : "text-muted-foreground hover:bg-card/60"
-                  }`}
-                >
-                  {t(themeKey(value))}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Palette className="h-4 w-4 text-muted-foreground" />
-              {t("settings.ui.themeColor")}
-            </label>
-            <div className="rounded-xl border border-border bg-secondary/30 p-3">
-              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-3 items-center">
-                <ColorPicker value={activeThemeColor} onValueChange={commitThemeColor}>
-                  <IconTooltip content={t("settings.ui.themeColor")}>
-                    <ColorPickerTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex h-11 w-full items-center justify-center rounded-lg border border-border bg-card transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-14"
-                        aria-label={t("settings.ui.themeColor")}
-                      >
-                        <ColorPickerSwatch className="h-7 w-7 rounded-full border-white ring-1 ring-slate-300 dark:ring-slate-600" />
-                      </button>
-                    </ColorPickerTrigger>
-                  </IconTooltip>
-                  <ColorPickerContent
-                    align="start"
-                    className="w-80 rounded-xl border border-border bg-card p-3 shadow-lg"
-                  >
-                    <ColorPickerArea className="h-40 rounded-lg" />
-                    <ColorPickerHueSlider />
-                    <div className="flex items-center gap-2">
-                      <ColorPickerInput withoutAlpha className="min-w-0 flex-1" />
-                      <ColorPickerEyeDropper />
-                    </div>
-
-                    <div className="grid grid-cols-8 gap-2">
-                      {THEME_COLOR_PRESETS.map((color) => (
-                        <IconTooltip key={color} content={color}>
-                          <button
-                            type="button"
-                            aria-label={color}
-                            onClick={() => commitThemeColor(color)}
-                            className={`h-7 w-7 rounded-full border-2 shadow-xs transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-                              (uiSettings.themeColor || DEFAULT_THEME_COLOR).toLowerCase() === color
-                                ? "border-slate-900 ring-2 ring-primary-300 dark:border-white"
-                                : "border-white dark:border-slate-700"
-                            }`}
-                            style={{ backgroundColor: color }}
-                          />
-                        </IconTooltip>
-                      ))}
-                    </div>
-                  </ColorPickerContent>
-                </ColorPicker>
-                <FormInput
-                  className="min-w-0"
-                  childClassName="font-mono uppercase tracking-wide"
-                  value={themeColorInput}
-                  placeholder={DEFAULT_THEME_COLOR}
-                  onChange={(event) => setThemeColorInput(event.target.value)}
-                  onBlur={(event) => commitThemeColor(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                />
-                <CButton
-                  type="button"
-                  variant="secondary"
-                  className="pl-3"
-                  onClick={() => commitThemeColor(DEFAULT_THEME_COLOR)}
-                >
-                  <div className="flex items-center justify-center">
-                    <RotateCcw className="mr-1 h-4 w-4" />
-                    {t("settings.ui.themeColorReset")}
-                  </div>
-                </CButton>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <ImagePlus className="h-4 w-4 text-muted-foreground" />
-              {t("settings.ui.backgroundImage")}
-            </label>
-            <div className="rounded-xl border border-border bg-secondary/30 p-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-muted-foreground"
-                    style={
-                      uiSettings.backgroundImageBase64
-                        ? {
-                            backgroundImage: `url(${uiSettings.backgroundImageBase64})`,
-                            backgroundPosition: "center",
-                            backgroundSize: "cover",
-                          }
-                        : undefined
-                    }
-                  >
-                    {!uiSettings.backgroundImageBase64 && <ImagePlus className="h-5 w-5" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {uiSettings.backgroundImageBase64
-                        ? t("settings.ui.backgroundImageSelected")
-                        : t("settings.ui.backgroundImageEmpty")}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {t("settings.ui.backgroundImageOpacity")}:{" "}
-                      {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
-                    </div>
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    {t("settings.ui.backgroundImageChoose")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!uiSettings.backgroundImageBase64}
-                    onClick={handleRemoveBackgroundImage}
-                    className="max-sm:grow inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600  transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/60 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {t("settings.ui.backgroundImageRemove")}
-                  </button>
-                </div>
-              </div>
-              <div className="mt-4 rounded-lg border border-border bg-card px-3 py-2">
-                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-muted-foreground">
-                    {t("settings.ui.backgroundImageOpacity")}
-                  </span>
-                  <span className="font-mono tabular-nums text-muted-foreground">
-                    {Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={60}
-                  step={1}
-                  value={Math.round((uiSettings.backgroundImageOpacity ?? 0.18) * 100)}
-                  onChange={handleBackgroundOpacityChange}
-                  className="block h-2 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-foreground"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Language Settings */}
-          <LanguageSelect handleLanguageChange={handleLanguageChange} />
-
-          {/* Zoom Settings */}
-          <FormSelect
-            value={uiSettings?.zoomScale.toString()}
-            label={t("ui.zoom")}
-            onChange={handleZoomChange}
-            options={[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150].map((v) => ({
-              value: v.toString(),
-              label: `${v}%`,
-            }))}
-          />
-
-          {!__WITH_ANDROID__ && (
-            <FormSelect
-              value={uiSettings?.remoteSettings.streamPlayer}
-              label={t("settings.ui.player")}
-              onChange={handlePlayerChange}
-              options={["mse", "broadway", "tinyh264", "webcodecs"].map((v) => ({
-                value: v.toString(),
-                label: v.charAt(0).toUpperCase() + v.slice(1),
-              }))}
-            />
-          )}
-
-          <Separator />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <SwitchButton
-              label={t("log.scroll.detail")}
-              checked={uiSettings?.scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.assets")}
-              checked={uiSettings?.assetsDisplay}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, assetsDisplay: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.enableBAComet")}
-              checked={uiSettings?.enableBAComet}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, enableBAComet: value }));
-              }}
-            />
-            <SwitchButton
-              label={t("settings.ui.lowPerformanceMode")}
-              checked={uiSettings?.lowPerformanceMode}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, lowPerformanceMode: value }));
-              }}
-            />
-            {__WITH_TAURI__ && (
-              <SwitchButton
-                label={t("settings.ui.enableSystemNotifications")}
-                checked={uiSettings?.enableSystemNotifications}
-                onChange={(value) => {
-                  setUiSettings((state) => ({ ...state, enableSystemNotifications: value }));
-                }}
-              />
-            )}
-            {__WITH_TAURI__ && !__WITH_ANDROID__ && (
-              <SwitchButton
-                label={t("workflow.minimizeToTray")}
-                checked={uiSettings.minimizeToTray ?? false}
-                onChange={(value) =>
-                  setUiSettings((state) => ({ ...state, minimizeToTray: value }))
-                }
-              />
-            )}
-            {!__WITH_ANDROID__ && (
-              <SwitchButton
-                label={t("settings.ui.enableSafeStream")}
-                checked={uiSettings?.remoteSettings.enableSafeStream}
-                onChange={(value) => {
-                  setUiSettings((state) => ({
-                    ...state,
-                    remoteSettings: { ...uiSettings.remoteSettings, enableSafeStream: value },
-                  }));
-                }}
-              />
-            )}
-            {__WITH_TAURI__ && !__WITH_WEBUI__ && (
-              <SwitchButton
-                label={t("settings.ui.idleAutoUpdate")}
-                checked={uiSettings.idleAutoUpdate ?? true}
-                onChange={(value) =>
-                  setUiSettings((state) => ({ ...state, idleAutoUpdate: value }))
-                }
-              />
-            )}
-          </div>
-          <Separator />
-          <SystemLogSettings />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <GitBranch className="w-5 h-5" />
-          <CardTitle>{t("update.settingsTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-1">
-            <div className="grid sm:flex gap-2 items-center">
-              <FormInput
-                label={t("update.mirrorCdk")}
-                placeholder={t("update.enterCdk")}
-                value={cdk}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleTestCdk(undefined);
-                  }
-                }}
-                onChange={(e) => setCdk(e.target.value)}
-                className="flex-1"
-              />
-
-              <CButton onClick={handleTestCdk} disabled={mcLoading} className="pl-3 self-end">
-                {mcLoading ? (
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                    {t("mirror.verifying")}
-                  </div>
-                ) : (
-                  <div className="flex justify-center items-center">
-                    <UserSearch className="mr-1 h-4 w-4" />
-                    {t("mirror.verify")}
-                  </div>
-                )}
-              </CButton>
-            </div>
-            {dueDate !== "" ? (
-              <div className="text-sm text-muted-foreground">
-                {t("update.dueDate")}: {formatIsoToReadable(dueDate)}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">&nbsp;</div>
-            )}
-          </div>
-
-          <Separator />
-
-          <FormSelect
-            label={t("transport.label")}
-            value={transportMode}
-            onChange={(value) => void handleTransportMode(value)}
-            options={[
-              { value: "websocket", label: t("transport.websocket") },
-              { value: "pipe", label: t("transport.pipe") },
-              ...(supportsSharedMemory() ? [{ value: "shm", label: t("transport.shm") }] : []),
-            ]}
-          />
-
-          <FormSelect
-            label={t("update.method")}
-            value={updateMethod}
-            onChange={handleUpdateMethod}
-            options={reposInitState.map((r) => ({
-              value: r.method,
-              label: t(updateMethodKey(r.method)),
-            }))}
-          />
-
-          <FormSelect
-            label={t("update.channel")}
-            value={updateChannel}
-            onChange={handleUpdateChannel}
-            options={[
-              { value: "stable", label: t("updateChannel.stable") },
-              { value: "dev", label: t("updateChannel.dev") },
-            ]}
-          />
-
-          <div className="grid sm:flex gap-2">
-            <FormSelect
-              label={t("update.shaConnectivityTest")}
-              value={updateConfig["shaMethod"]}
-              onChange={(value) => modify("global::setup_toml", { shaMethod: value })}
-              options={shaMethodsInit.map((m) => ({
-                value: m.value,
-                label: t(shaMethodKey(m.value)),
-              }))}
-              className="grow"
-            />
-
-            <CButton onClick={handleTestSha} disabled={apiLoading} className="pl-3 self-end">
-              {apiLoading ? (
-                <div className="flex justify-center items-center">
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                  {t("shaTest.testing")}
-                </div>
-              ) : (
-                <div className="flex justify-center items-center">
-                  <TestTube className="mr-1 h-4 w-4" />
-                  {t("shaTest.testAll")}
-                </div>
-              )}
-            </CButton>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-border">
-            <button
-              type="button"
-              className="flex h-10 w-full items-center gap-2 px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-              onClick={() => setShowShaResults((visible) => !visible)}
-              aria-expanded={showShaResults}
-            >
-              <TestTube className="h-4 w-4 text-muted-foreground" />
-              <span>{t("shaTest.results")}</span>
-              <span className="ml-auto text-xs font-normal text-muted-foreground">
-                {shaResults.filter((result) => ["success", "error"].includes(result.status)).length}
-                /{shaResults.length}
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${showShaResults ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {showShaResults && (
-              <div className="max-h-60 overflow-auto border-t border-border">
-                <table className="w-full text-xs sm:text-sm border-collapse">
-                  <thead className="sticky top-0 z-10 bg-secondary">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">
-                        {t("shaTest.method")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
-                        {t("shaTest.status")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
-                        {t("shaTest.time")}
-                      </th>
-                      <th className="px-3 py-2 text-center font-semibold text-foreground border-b border-border">
-                        {t("shaTest.sha")}
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {shaResults.map((r, idx) => (
-                      <tr
-                        key={idx}
-                        className="odd:bg-card even:bg-secondary/30 hover:bg-secondary transition-colors"
-                      >
-                        <td className="px-3 py-2 border-b border-border flex">
-                          <EllipsisWithTooltip text={t(i18nKey(r.method))} />
-                          <div className="grow"></div>
-                        </td>
-
-                        <td className="px-3 py-2 text-center border-b border-border w-16">
-                          {r.status === "success" && (
-                            <CheckCircle2 className="w-5 h-5 mx-auto text-green-500" />
-                          )}
-                          {r.status === "error" && (
-                            <XCircle className="w-5 h-5 mx-auto text-red-500" />
-                          )}
-                          {r.status === "testing" && (
-                            <Loader2 className="text-yellow-500 mx-auto animate-spin h-5 w-5" />
-                          )}
-                          {!["success", "error", "testing"].includes(r.status) && (
-                            <MinusCircle className="w-5 h-5 mx-auto text-muted-foreground" />
-                          )}
-                        </td>
-
-                        <td className="px-3 py-2 text-center border-b border-border font-mono w-20">
-                          {r.time ?? "-"}
-                        </td>
-
-                        <td className="px-3 py-2 border-b border-border font-mono w-16">
-                          {r.sha ? (
-                            <EllipsisWithTooltip text={r.sha.substring(0, 6)} tooltip={r.sha} />
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

@@ -9,8 +9,7 @@ import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
 
-const overlayCls =
-  "fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-[1100] backdrop-blur-sm";
+const overlayCls = "fixed inset-0 flex items-center justify-center bg-black/40 p-4 z-[1100]";
 
 /** Renders the password input modal component. */
 const PasswordInputModal: React.FC<{
@@ -61,6 +60,7 @@ const PasswordInputModal: React.FC<{
 
   return createPortal(
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
     >
@@ -69,25 +69,24 @@ const PasswordInputModal: React.FC<{
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={lowPerformanceMode ? undefined : { opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: lowPerformanceMode ? 0 : 0.18, ease: "easeOut" }}
-        className="w-full max-w-110 overflow-y-auto overscroll-contain rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6"
+        className="modal-surface w-full max-w-110 overflow-y-auto overscroll-contain"
         style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
       >
         <form onSubmit={(e) => e.preventDefault()}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 p-3">
-              {serverVerified ? (
-                <ShieldCheck className="w-6 h-6" />
-              ) : (
-                <KeyRound className="w-6 h-6" />
-              )}
-            </div>
+          <div className="modal-header items-start">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                {serverVerified ? (
+                  <ShieldCheck className="size-5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <KeyRound className="size-5 shrink-0 text-muted-foreground" />
+                )}
+                <h2 className="modal-title">
+                  {setupMode ? t("auth.initializeKeyTitle") : t("auth.enterKeyTitle")}
+                </h2>
+              </div>
 
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {setupMode ? t("auth.initializeKeyTitle") : t("auth.enterKeyTitle")}
-              </h2>
-
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {serverVerified
                   ? setupMode
                     ? t("auth.setKeySubtitle")
@@ -96,9 +95,11 @@ const PasswordInputModal: React.FC<{
               </p>
             </div>
 
-            <div className="grow" />
-
-            <LanguageSelect handleLanguageChange={handleLanguageChange} className="float-right" />
+            <LanguageSelect
+              handleLanguageChange={handleLanguageChange}
+              className="w-auto max-w-36 shrink-0"
+              hideLabel
+            />
           </div>
 
           <div className="mb-4">
@@ -143,12 +144,12 @@ const PasswordInputModal: React.FC<{
             <p className="mb-4 text-xs text-red-500 dark:text-red-400">{localError || error}</p>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-4">
-            <Info className="w-4 h-4 text-primary-500" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Info className="size-4 shrink-0" />
             <span>{setupMode ? t("auth.rememberKeyTip") : t("auth.forgotKeyTip")}</span>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="modal-footer">
             <CButton onClick={handleConfirm} disabled={!serverVerified || submitting}>
               {submitting
                 ? t("auth.pleaseWait")

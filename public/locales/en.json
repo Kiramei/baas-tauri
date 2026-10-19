@@ -7,6 +7,9 @@
     "forward": "Forward",
     "maximize": "Maximize",
     "minimize": "Minimize",
+    "modeBaasDescription": "Automate daily tasks.",
+    "modeInDevelopment": "In development. Stay tuned.",
+    "modeRaidDescription": "Assist with Total Assault battles.",
     "restore": "Restore",
     "windowControls": "Window controls"
   },
@@ -55,7 +58,7 @@
     "export": "Export Logs",
     "scroll": {
       "$self": "Auto Scroll",
-      "detail": "Automatically scroll the log text box"
+      "detail": "Follow latest logs"
     }
   },
   "task": {
@@ -80,8 +83,59 @@
     }
   },
   "settings": {
-    "feature": "Feature Settings",
-    "general": "General Settings",
+    "categories": "Settings categories",
+    "descriptions": {
+      "assets": "Show game resources on the home page.",
+      "idleAutoUpdate": "Automatically update scripts when all profiles are idle.",
+      "language": "Choose the language used in the app.",
+      "lowPerformanceMode": "Reduce animations and visual effects to lower interface overhead.",
+      "minimizeToTray": "Hide the minimized window in the system tray and keep running in the background.",
+      "safeStream": "Encrypt remote preview data sent over WebSocket.",
+      "systemNotifications": "Show system notifications for task status changes or service disconnections."
+    },
+    "feature": "Features",
+    "general": "General",
+    "groups": {
+      "connection": "Connection & remote control",
+      "desktop": "Desktop behavior",
+      "display": "Display & effects",
+      "preferences": "Preferences"
+    },
+    "noResults": "No matching settings",
+    "search": "Search settings",
+    "sections": {
+      "appearance": "Appearance",
+      "general": "General",
+      "logs": "Logs",
+      "runtime": "Connection & runtime",
+      "shortcuts": "Shortcuts",
+      "updates": "Updates"
+    },
+    "shortcuts": {
+      "application": "App shortcuts",
+      "binding": "Key binding",
+      "clear": "Clear shortcut",
+      "conflict": "Already assigned to “{{shortcut}}”.",
+      "defaultBinding": "Default: {{binding}}",
+      "disabled": "Unassigned",
+      "escapeDescription": "Cancel recording, dismiss a dialog, or cancel installation.",
+      "global": "Global task shortcuts",
+      "globalDescription": "Control schedules even when BAAS is in the background.",
+      "instructions": "Click the keyboard to record; clear to disable.",
+      "native": "Text editing",
+      "nativeDescription": "Standard text shortcuts; no setup needed.",
+      "nativeTextDescription": "Use while editing or selecting text.",
+      "profileDescription": "Toggle this profile's schedule from any window.",
+      "profileRun": "Toggle profile",
+      "record": "Record shortcut",
+      "recordHint": "Press keys; Esc cancels",
+      "recording": "Recording",
+      "recordMainKey": "Press a main key…",
+      "resetAll": "Reset app shortcuts",
+      "resetButton": "Restore defaults",
+      "resetDescription": "Reset app bindings; keep profile global shortcuts.",
+      "stopRecording": "Stop recording"
+    },
     "systemLogs": {
       "allLevels": "All levels",
       "allSources": "All sources",
@@ -103,8 +157,7 @@
       "title": "System logs"
     },
     "ui": {
-      "$self": "UI Settings",
-      "assets": "Display Asset Details",
+      "assets": "Show game resources",
       "backgroundImage": "Background image",
       "backgroundImageChoose": "Choose background",
       "backgroundImageEmpty": "No background image set",
@@ -115,11 +168,11 @@
       "backgroundImageSelected": "Background image set",
       "backgroundImageTooLarge": "Background image must be 5MB or smaller.",
       "enableBAComet": "Enable BAComet",
-      "enableSafeStream": "Enable safe stream",
+      "enableSafeStream": "Encrypt remote video",
       "enableSystemNotifications": "Enable system notifications",
       "idleAutoUpdate": "Automatically update scripts when idle",
-      "lowPerformanceMode": "Low performance mode",
-      "player": "Player",
+      "lowPerformanceMode": "Reduced effects",
+      "player": "Video decoder",
       "themeColor": "Theme color",
       "themeColorInvalid": "Enter a theme color in #RRGGBB format.",
       "themeColorReset": "Reset color"
@@ -150,13 +203,9 @@
   "version": {
     "checkError": "Failed to fetch version",
     "fetching": "Fetching...",
-    "info": "Version Information",
     "local": "Current Version",
     "remote": "Latest Version",
     "tapToTest": "Check for updates",
-    "tauriLocal": "Client Current",
-    "tauriRemote": "Client Latest",
-    "tauriStatus": "Client Status",
     "testing": "Testing..."
   },
   "profile": {
@@ -185,55 +234,57 @@
     "nameExists": "Name already exists"
   },
   "description": {
-    "arena": "Arena automation",
+    "arena": "Opponents and challenge limits",
     "artifact": {
-      "$self": "Crafting settings",
+      "$self": "Materials and node priorities",
       "useTicket": "Use crafting tickets"
     },
     "cafe": {
-      "$self": "Cafe invites and rewards",
+      "$self": "Invitations, interactions, and rewards",
       "patRounds": "Higher rounds reduce the chance of missing pats"
     },
     "commonShop": {
-      "refresh": "Automatically refresh the shop"
+      "refresh": "Refreshes after purchasing; 0 disables refreshes."
     },
     "dailySweep": "Daily stages and sweeps",
-    "drill": "Joint drill settings",
+    "drill": "Teams and drill difficulty",
     "emulator": "Emulator path and startup",
-    "finalRestrictionRls": "Configure formation and clear-team copying",
+    "finalRestrictionRls": "Team selection and formation copying",
     "getEmulator": "Select emulator path",
     "other": {
       "$self": "Misc settings",
-      "fhx": "Attempt to apply anti-censorship patch (CN-exclusive)"
+      "fhx": "Restore original artwork on CN"
     },
     "push": "Push settings",
-    "schedule": "Daily schedule",
+    "schedule": "Lesson areas and students",
     "script": "Script settings",
     "server": "Server and connection",
     "settings": {
       "updateSuccess": "Your settings have been successfully updated."
     },
-    "shop": "Purchase priorities",
-    "stage": {
-      "$self": "Auto stage clearing",
-      "hard": "Hard stage settings are the same as above. Note: max 3 attempts. Use English commas. For JP/Global servers, 'max' can be used.",
-      "normal": "Normal stages and counts (e.g., \"1-1-1,1-2-3\" means stage 1-1 once, then 1-2 three times)"
-    },
+    "shop": "Items to purchase",
+    "stage": "Auto stage clearing",
     "tactical": "Total Assault settings",
     "team": "Formation settings",
     "whitelist": "Configure cleanup filters and friend whitelist"
   },
   "installer": {
     "advanced": "Advanced Settings",
+    "advancedHint": "Language, appearance, update channel and connection.",
+    "autoEnter": "Enter automatically after installation",
+    "autoEnterHint": "When off, installation logs remain visible until you click “Open Home”.",
+    "completed": "Installation complete",
+    "directoryHint": "The runtime and script files will be installed in this directory.",
+    "enter": "Open Home",
+    "entering": "Opening…",
     "exit": "Cancel Installation",
+    "logs": "Installation logs",
+    "noOutput": "No terminal output yet.",
+    "portableHint": "Portable mode uses the directory beside the app.",
+    "preparing": "Preparing terminal…",
     "setting": "Installation Settings",
     "start": "Start Installation",
-    "subtitle": {
-      "stage1": "Configure your installation",
-      "stage2": "We are setting up your environment. This might take a few minutes."
-    },
     "title": {
-      "$self": "Welcome to Blue Archive Auto Script",
       "wizard": "Setup Wizard"
     }
   },
@@ -254,38 +305,22 @@
     "validateKeySubtitle": "Validate the key",
     "verifyingServerIdentity": "Server identity verifying ..."
   },
-  "wiki": {
-    "category": {
-      "all": "All",
-      "architecture": "Architecture",
-      "configuration": "Configuration Management",
-      "environment": "Environment Setup",
-      "formation": "Formation Strategy",
-      "getting-started": "Getting Started",
-      "operations": "Operations",
-      "support": "Support & Feedback"
-    },
-    "subtitle": "Open the BAAS online documentation for installation, configuration, scheduling, feature guides, and development notes.",
-    "title": "Wiki Docs",
-    "web": {
-      "failed": "Web Wiki failed to load",
-      "loading": "Loading Web Wiki...",
-      "openBrowser": "Open in browser",
-      "title": "Wiki Docs"
-    }
-  },
   "scheduler": {
     "activeTasks": "Active Tasks",
     "dailyReset": "Daily Reset Time",
-    "detailConfig": "Detailed Task Schedule Configuration",
+    "detailConfig": "Task schedule",
+    "disableAll": "Disable all",
     "disabledRange": "Disabled Time Range",
+    "enableAll": "Enable all",
     "eventName": "Task Name",
     "inactiveTasks": "Inactive Tasks",
     "interval": "Interval (seconds)",
     "nextTick": "Next Execution Time",
+    "noResults": "No matching tasks",
     "postTask": "Post-Task",
     "preTask": "Prerequisite Task",
     "priority": "Priority",
+    "resetTimes": "Reset task times",
     "search": "Search Tasks",
     "selector": "Task Selector",
     "sortByTime": "Sort by Time",
@@ -293,29 +328,29 @@
   },
   "stage": {
     "$self": "Stages",
-    "attrTable": "Stage Attribute Reference Table",
-    "challenge": "Clear Challenge Stages",
+    "attrTable": "Stage attributes",
+    "challenge": "Challenges",
     "currentEvent": "Current Event",
-    "dailyTab": "Stage Sweep",
+    "dailyTab": "Mission sweeps",
     "eventTab": "Event Stages",
-    "exploreTab": "Main Story",
-    "hardLabel": "Hard Stage Daily Sweep",
-    "hardTask": "Hard Mission",
-    "manualBoss": "Manual Boss Fight",
-    "mission": "Clear Mission Stages",
+    "exploreTab": "Missions",
+    "hardLabel": "Hard missions",
+    "hardTask": "Hard missions",
+    "manualBoss": "Manual boss battle",
+    "mission": "Quests",
     "noEvent": "No event currently",
     "noHardTask": "No hard stages set!",
     "noNormalTask": "No normal stages set!",
-    "normalLabel": "Normal Stage Daily Sweep",
-    "normalTask": "Normal Mission",
+    "normalLabel": "Normal missions",
+    "normalTask": "Normal missions",
     "selectStudent": "Select Student",
     "story": {
-      "$self": "Clear Story Stages",
-      "group": "Clear Club Stories",
-      "main": "Clear Main Story",
-      "mini": "Clear Mini Stories"
+      "$self": "Stories",
+      "group": "Group stories",
+      "main": "Main story",
+      "mini": "Mini stories"
     },
-    "sweepTab": "Sweep Details",
+    "sweepTab": "Other sweeps",
     "taskTriggered": "Dispatched task: {{task}}",
     "taskTriggerStart": "Task has been dispatched"
   },
@@ -342,25 +377,25 @@
     "starredPosition": "Starred Student Position",
     "useInvitation": "Use invitation ticket"
   },
-  "dailySweep": "Daily",
+  "dailySweep": "Daily sweeps",
   "schedule": {
-    "$self": "Schedule",
+    "$self": "Lessons",
     "advanced": "Advanced",
     "normal": "Normal",
-    "primary": "Beginner",
-    "superior": "Expert"
+    "primary": "Basic",
+    "superior": "Superior"
   },
   "shop": "Shop",
   "arena": {
-    "$self": "Arena",
-    "higherLevel": "Opponent level higher than yours by",
-    "maxRefreshTimes": "Max Refresh Times",
-    "opponentNo": "Opponent Number"
+    "$self": "Tactical Challenge",
+    "higherLevel": "Opponent level difference",
+    "maxRefreshTimes": "Refresh limit",
+    "opponentNo": "Opponent position"
   },
   "server": {
     "$self": "Server",
-    "adbIP": "ADB IP Address",
-    "adbPort": "ADB Port",
+    "adbIP": "ADB address",
+    "adbPort": "ADB port",
     "cn": {
       "bilibili": "Bilibili (CN)",
       "official": "Official (CN)"
@@ -377,11 +412,11 @@
   },
   "emulator": {
     "$self": "Emulator",
-    "address": "Emulator Path",
-    "instanceCount": "Multi-instance Emulator Number",
-    "multiInstance": "Emulator Multi-instance",
-    "multiType": "Emulator Type",
-    "openOnLaunch": "Open emulator on script launch",
+    "address": "Emulator path",
+    "instanceCount": "Instance ID",
+    "multiInstance": "Use an instance",
+    "multiType": "Emulator type",
+    "openOnLaunch": "Launch emulator",
     "types": {
       "bluestacksCn": "BlueStacks CN",
       "bluestacksGlobal": "BlueStacks Global",
@@ -392,7 +427,7 @@
       "xiaoyaoNat": "MEmu (NAT)",
       "yeshen": "NoxPlayer"
     },
-    "waitTime": "Emulator launch wait time (seconds)"
+    "waitTime": "Startup wait (s)"
   },
   "push": {
     "$self": "Push",
@@ -406,47 +441,47 @@
     "fhx": "One-click Anti-Censorship"
   },
   "drill": {
-    "$self": "Joint Drill",
+    "$self": "Joint Firing Drill",
     "difficulty": "Drill Difficulty",
-    "outPartyNo": "Team Number",
-    "useAllAfterSweep": "Use all drill tickets after sortie"
+    "outPartyNo": "Team numbers",
+    "useAllAfterSweep": "Sweep remaining attempts"
   },
   "artifact": {
     "$self": "Crafting",
     "all": "All",
     "blue": "Blue",
-    "createTime": "Crafting Count",
+    "createTime": "Craft count",
     "default": "Default",
-    "global": "Global Settings",
+    "global": "General",
     "gold": "Gold",
-    "goldPurple": "Gold & Purple",
-    "materialSelect": "Material Selection",
-    "phase1": "Phase 1",
+    "goldPurple": "Gold + purple",
+    "materialSelect": "Materials",
+    "phase1": "Node 1",
     "phase2": {
-      "$self": "Phase 2",
-      "recommend": "Recommend based on student"
+      "$self": "Node 2",
+      "recommend": "Student recommendation"
     },
-    "phase3": "Phase 3",
-    "phaseCount": "Crafting Phase",
+    "phase3": "Node 3",
+    "phaseCount": "Crafting stages",
     "priority": "Priority",
     "purple": "Purple",
     "selectStudent": "Select Student",
     "white": "White",
-    "whiteBlue": "White & Blue"
+    "whiteBlue": "White + blue"
   },
   "whitelist": "Friend cleanup",
   "script": {
     "$self": "Scripts",
-    "autostart": "Auto-start when script launches",
-    "controlMethod": "Control Method",
+    "autostart": "Start tasks automatically",
+    "controlMethod": "Control method",
     "doNothing": "Do nothing",
-    "exitBaas": "Exit Blue Archive",
-    "exitBoth": "Exit Blue Archive and Emulator",
+    "exitBaas": "Exit BAAS",
+    "exitBoth": "Exit BAAS and emulator",
     "exitEmu": "Exit Emulator",
-    "screenshotInterval": "Screenshot Interval (seconds)",
-    "screenshotMethod": "Screenshot Method",
+    "screenshotInterval": "Capture interval (s)",
+    "screenshotMethod": "Capture method",
     "shutdown": "Shutdown Computer",
-    "then": "Action after task completion"
+    "then": "After tasks finish"
   },
   "tactical": {
     "$self": "Total Assault",
@@ -460,24 +495,23 @@
     "side": "By sidebar attributes"
   },
   "lesson": {
-    "enableFavorStudent": "Prioritize starred students",
-    "favorStudent": "Starred Students",
-    "region": "Lesson Region",
-    "relationshipFirst": "Prioritize students with high affection",
-    "times": "Lesson attempts"
+    "enableFavorStudent": "Prioritize favorites",
+    "favorStudent": "Favorite students",
+    "region": "Area",
+    "relationshipFirst": "Prioritize relationship gains",
+    "times": "Lessons"
   },
   "sweep": {
-    "activityNumber": "Event Stage Sweep Stage",
-    "activityTimes": "Event Stage Sweep Count",
-    "purchaseLesson": "Lesson Ticket Purchase Count",
-    "purchaseRewarded": "Bounty Ticket Purchase Count",
-    "purchaseScrimmage": "Commissions Ticket Purchase Count",
-    "rewarded": "Bounty Sweep Count",
-    "rewardedHint": "Enter counts in the game’s region order ({{count}} regions). Use a non-negative integer or max; 0 skips a region.",
+    "activityNumber": "Event stage",
+    "activityTimes": "Event sweeps",
+    "purchaseLesson": "Buy lesson tickets",
+    "purchaseRewarded": "Buy bounty tickets",
+    "purchaseScrimmage": "Buy scrimmage tickets",
+    "rewarded": "Bounty",
     "rewardedInvalid": "Enter a non-negative integer or max.",
     "rewardedRegion": "Region {{number}}",
-    "scrimmage": "Commissions Sweep Count",
-    "special": "Special Mission Sweep Count"
+    "scrimmage": "Scrimmage",
+    "special": "Commissions"
   },
   "remote": {
     "advanced": "Advanced Settings",
@@ -520,13 +554,13 @@
     "ap": "AP",
     "burst": "Explosive",
     "coin": {
-      "arena": "Tactical Coin",
-      "commission": "Commission Coin"
+      "arena": "Tactical Challenge Coins",
+      "commission": "Bounty Coins"
     },
     "credits": "Credits",
     "keystone": {
-      "$self": "Keystone",
-      "piece": "Piece"
+      "$self": "Keystones",
+      "piece": "Keystone pieces"
     },
     "mystic": "Mystic",
     "pass": "Pass",
@@ -537,39 +571,39 @@
   },
   "eventName": {
     "activitySweep": "Event Sweep",
-    "arena": "Arena",
+    "arena": "Tactical Challenge",
     "cafeReward": "Cafe",
-    "clearSpecialTaskPower": "Daily Special Missions",
-    "collectDailyFreePower": "Collect Free AP",
-    "collectDailyPower": "Collect Daily AP",
-    "collectReward": "Collect Rewards",
+    "clearSpecialTaskPower": "Commissions",
+    "collectDailyFreePower": "Claim free AP",
+    "collectDailyPower": "Claim daily AP",
+    "collectReward": "Claim rewards",
     "commonShop": "Shop Purchase",
-    "create": "Auto Crafting",
+    "create": "Crafting",
     "dailyGameActivity": "Daily Mini-game",
     "friend": "Clean up Friends List",
-    "group": "Collect Club Earnings",
-    "hardTask": "Clear AP on Hard Stages",
+    "group": "Claim club AP",
+    "hardTask": "Sweep Hard missions",
     "jointFiringDrill": "Joint Firing Drill",
     "lesson": "Lessons",
     "mail": "Check Mail",
     "momoTalk": "Auto MomoTalk",
-    "no1CafeInvite": "Cafe 1 Invitation",
-    "no2CafeInvite": "Cafe 2 Invitation",
-    "normalTask": "Clear AP on Normal Stages",
-    "pass": "Claim Pass Rewards",
+    "no1CafeInvite": "Cafe 1 invitations",
+    "no2CafeInvite": "Cafe 2 invitations",
+    "normalTask": "Sweep Normal missions",
+    "pass": "Claim pass rewards",
     "restart": "Restart at 4 AM",
     "rewardedTask": "Bounty",
-    "scrimmage": "Commissions",
+    "scrimmage": "Scrimmage",
     "startExploreActivityChallenge": "Event Challenge",
     "startExploreActivityMission": "Event Mission",
     "startExploreActivityStory": "Event Story",
-    "startFhx": "FHX",
-    "startGroupStory": "Group Story",
-    "startHardTask": "Hard Stage",
-    "startMainStory": "Main Story",
-    "startMiniStory": "Mini Story",
-    "startNormalTask": "Normal Stage",
-    "tacticalChallengeShop": "Tactical Challenge Shop Purchase",
+    "startFhx": "Restore original artwork",
+    "startGroupStory": "Group stories",
+    "startHardTask": "Hard missions",
+    "startMainStory": "Main story",
+    "startMiniStory": "Mini stories",
+    "startNormalTask": "Normal missions",
+    "tacticalChallengeShop": "Tactical shop purchases",
     "totalAssault": "Total Assault",
     "unknown": "Unknown task"
   },
@@ -640,9 +674,21 @@
     "noData": "No ADB data available",
     "title": "ADB Detection Panel"
   },
+  "applicationShortcutHelp": {
+    "back": "Return to the previous page or profile.",
+    "forward": "Go to the next page or profile.",
+    "fullscreen": "Enter or leave full screen.",
+    "redo": "Redo an undone configuration change.",
+    "resetZoom": "Reset interface scale to 100%.",
+    "settings": "Open app settings.",
+    "sidebar": "Toggle the profile sidebar; settings keep it open.",
+    "undo": "Undo the latest config change; search fields keep text undo.",
+    "zoomIn": "Enlarge the interface.",
+    "zoomOut": "Shrink the interface."
+  },
   "commonShop": {
-    "refreshTimes": "Shop Refresh Count",
-    "title": "Common Shop"
+    "refreshTimes": "Refreshes",
+    "title": "Normal Shop"
   },
   "configAdd": {
     "nameDuplicate": "Profile name already exists",
@@ -651,45 +697,210 @@
     "selectServer": "Please select a server",
     "serverRequired": "A server must be specified"
   },
+  "configuration": {
+    "categories": "Setting categories",
+    "history": "Edit history",
+    "noResults": "No matching settings",
+    "search": "Search settings"
+  },
+  "configurationCounts": {
+    "activityEntry": "Event stage {{number}}",
+    "activityHint": "AP shares use your current AP.",
+    "all": "All attempts",
+    "allActivity": "Split all AP",
+    "amount": "Count",
+    "bountyClassroom": "Classroom",
+    "bountyOverpass": "Overpass",
+    "bountyRailroad": "Desert Railroad",
+    "countHint": "Run top to bottom until attempts run out.",
+    "fixed": "Set count",
+    "legacyHint": "Existing value kept. Reset to edit it with these controls.",
+    "legacyTitle": "Saved setting",
+    "maximumPurchases": "Purchase limit",
+    "mode": "Sweep mode",
+    "percent": "AP share (%)",
+    "replace": "Reset",
+    "scrimmageGehenna": "Gehenna",
+    "scrimmageMillennium": "Millennium",
+    "scrimmageTrinity": "Trinity",
+    "share": "AP share",
+    "skip": "Skip",
+    "specialDefense": "Base Defense",
+    "specialRetrieval": "Item Retrieval"
+  },
+  "configurationDifficulties": {
+    "extreme": "Extreme",
+    "hard": "Hard",
+    "hardcore": "Hardcore",
+    "insane": "Insane",
+    "normal": "Normal",
+    "torment": "Torment",
+    "veryHard": "Very Hard"
+  },
+  "configurationHelp": {
+    "adbAddress": "Usually 127.0.0.1. For a device serial, enter it here and leave the port empty.",
+    "adbPort": "Port 0–65535, or detect a device. With an empty address, this can hold a device serial.",
+    "arenaLevel": "Allowed opponent level difference: -89 to 89.",
+    "arenaOpponent": "Choose opponent 1, 2, or 3 in the list.",
+    "arenaRefresh": "Maximum list refreshes while finding an opponent.",
+    "artifactCreateTimes": "Craft 1–10 times per task.",
+    "artifactMaterialRule": "Material rarities to use for this node.",
+    "artifactPhases": "Choose how many nodes to craft and set their priorities.",
+    "artifactRecommendedPriority": "Apply a student's recommended Node 2 order.",
+    "artifactUseTicket": "Use instant crafting tickets to skip the wait.",
+    "cafeCollectReward": "Collect accumulated cafe earnings.",
+    "cafeDuplicateInvite": "Allow repeat invitations for the same student.",
+    "cafeExchangeStudent": "Allow invitations for a student's other outfits.",
+    "cafeInviteMode": "Choose by relationship, favorite position, or name.",
+    "cafePatNormal": "Normal interaction",
+    "cafePatStyle": "How to interact with students in the cafe.",
+    "cafeSecondCafe": "Include Cafe 2 and its invitations.",
+    "cafeStarredPosition": "Choose position 1–5 in the favorites list.",
+    "cafeStudents": "Add students to invite; use × to remove them.",
+    "cafeUseInvitation": "Use tickets to invite students.",
+    "controlMethod": "Choose a control method supported by your device.",
+    "drillDifficulty": "Set each team's difficulty in battle order.",
+    "drillFormation": "Preset team numbers, in battle order.",
+    "drillSweep": "Sweep remaining attempts after the set battles.",
+    "emulatorInstance": "The ID in your instance manager, not how many instances to launch.",
+    "emulatorLaunch": "Open this emulator when the script starts.",
+    "emulatorMulti": "Launch the selected instance through its manager.",
+    "emulatorPath": "Select the emulator's executable.",
+    "emulatorWait": "Wait this many seconds before connecting.",
+    "finalMethod": "Use the current team or copy one from clear records.",
+    "finalRefresh": "Maximum clear-list refreshes while finding a usable team.",
+    "finalUnavailable": "Allow 0–10 unavailable students in a copied team.",
+    "friendCode": "Enter a friend code for this server, then add it.",
+    "friendLevel": "Cleanup level threshold; -1 disables this filter.",
+    "friendLogin": "Offline-days threshold; -1 disables this filter.",
+    "friendRank": "Previous Total Assault rank threshold; -1 disables it.",
+    "friendWhitelist": "Listed friends are protected from cleanup; × removes protection.",
+    "hardSweepPlan": "Choose stages and counts, or add all Eleph stages for a student.",
+    "lessonFavorEnabled": "Prioritize students in your favorites.",
+    "lessonFavorOrder": "Left to right priority; drag names to reorder.",
+    "lessonRegionTable": "Lesson areas",
+    "lessonRegionTableHint": "Choose allowed levels and a count; 0 skips the area.",
+    "lessonRelationshipFirst": "Prefer locations with more students who can gain relationship points.",
+    "manualBoss": "Handle boss battles manually during stage clearing.",
+    "normalSweepPlan": "Sweep selected stages in list order.",
+    "pushCompletion": "Notify when all tasks in this profile finish.",
+    "pushError": "Notify through the services below on task errors.",
+    "pushJson": "JSON notification settings; leave empty if unused.",
+    "pushServerchan": "ServerChan settings; leave empty if unused.",
+    "screenshotInterval": "Time between captures, at least 0.1 seconds.",
+    "screenshotMethod": "Choose a capture method supported by your device.",
+    "scriptAutostart": "Start this profile's tasks when the script starts.",
+    "scriptThen": "What to do after all tasks finish.",
+    "server": "This profile's server. Use another profile for a different server.",
+    "sweepPurchaseLesson": "Lesson ticket purchases; 0 buys none.",
+    "sweepPurchaseRewarded": "Bounty ticket purchases; 0 buys none.",
+    "sweepPurchaseScrimmage": "Scrimmage ticket purchases; 0 buys none.",
+    "sweepTicketsTitle": "Ticket purchases",
+    "tacticalDifficulty": "Difficulty for Total Assault.",
+    "teamMethod": "Choose teams by preset, sidebar attribute, or sidebar order.",
+    "teamPreset": "Slot attributes, in the same order as in-game presets.",
+    "teamSide": "Team attributes in sidebar order."
+  },
+  "configurationMethods": {
+    "adbControl": "Send taps and swipes through ADB.",
+    "adbScreenshot": "Capture the device through ADB.",
+    "mssScreenshot": "Capture the Windows game window's screen area.",
+    "nemuControl": "Use Nemu's interface; path and instance must match.",
+    "nemuScreenshot": "Capture through Nemu; path and instance must match.",
+    "pyautoguiControl": "Use the system mouse; moves your real pointer.",
+    "pyautoguiScreenshot": "Capture the on-screen Windows game window.",
+    "scrcpyControl": "Send touch actions through scrcpy.",
+    "scrcpyScreenshot": "Read images from the scrcpy stream.",
+    "uiautomator2Control": "Control through the device's uiautomator2 service.",
+    "uiautomator2Screenshot": "Capture through the device's uiautomator2 service."
+  },
+  "edit": {
+    "actionFailed": "The edit action failed. Check clipboard permissions and try again.",
+    "cut": "Cut",
+    "redo": "Redo",
+    "selectAll": "Select All",
+    "unavailable": "This action is unavailable for the current selection.",
+    "undo": "Undo"
+  },
   "export": {
     "log": {
       "folderSelect": "Choose log export path"
     }
   },
+  "file": {
+    "openConfigFolder": "Open Configuration Folder",
+    "openConfigFolderFailed": "Could not open the configuration folder."
+  },
   "finalRestrictionRls": {
-    "$self": "Unrestricted Decisive Battle",
+    "$self": "Final Restriction Release",
     "copyClearFormation": "Copy a clear formation",
     "copyClearUnavailableHint": "Select “Copy a clear formation” to configure these options.",
-    "formationMethod": "Formation method",
-    "maxRefreshCount": "Maximum clear-team refreshes",
-    "maxUnavailableStudentCount": "Maximum unavailable students",
+    "formationMethod": "Team selection",
+    "maxRefreshCount": "Team refresh limit",
+    "maxUnavailableStudentCount": "Unavailable student limit",
     "useCurrentFormation": "Use current formation"
   },
   "friend": {
     "add": "Add",
     "addFailed": "Failed to add",
     "alreadyExists": "Friend already exists",
-    "disabledThresholdHint": "Enter -1 to disable a cleanup condition.",
     "empty": "Friend whitelist is empty",
     "filters": "Cleanup filters",
     "invalidFormatCN": "CN code needs numbers and lowercase letters",
     "invalidFormatGlobal": "Global code needs uppercase letters",
     "invalidLength": "Invalid friend code length",
-    "lastLoginDays": "Last-login days threshold",
-    "lastTotalAssaultRankLimit": "Previous total-assault rank threshold",
-    "levelLimit": "Friend level threshold",
+    "lastLoginDays": "Offline days",
+    "lastTotalAssaultRankLimit": "Previous raid rank",
+    "levelLimit": "Level threshold",
     "placeholder": "Enter Friend Code",
     "whitelist": "Friend whitelist"
+  },
+  "friendlyBounty": {
+    "activityStageOption": "Stage {{number}}",
+    "activityStageSaved": "Stage {{number}} (saved)"
+  },
+  "friendlyPriority": {
+    "addChapter": "Add chapter",
+    "chapter": "Chapter",
+    "chapterLabel": "Chapter {{chapter}}",
+    "emptyExplore": "No chapters added.",
+    "emptyLegacy": "Saved empty entry",
+    "emptyPriority": "No priority nodes yet.",
+    "keyboardHint": "Space to pick up, arrows to move, Enter to confirm, Esc to cancel.",
+    "legacyValue": "Saved legacy value; remove to replace",
+    "mission": "Stage",
+    "missionA": "Stage A",
+    "missionLabel": "Stage {{mission}}",
+    "moveDown": "Move down",
+    "moveUp": "Move up",
+    "noResults": "No matching nodes",
+    "position": "{{item}}, {{position}} of {{total}}",
+    "reorderHint": "Drag to reorder; higher items have priority.",
+    "reorderItem": "Reorder {{item}}",
+    "searchNodes": "Search nodes",
+    "selectNodes": "Select nodes",
+    "wholeChapter": "Whole chapter"
   },
   "heartbeat": {
     "connected": "Service connected",
     "connecting": "Connecting to service..."
+  },
+  "help": {
+    "documentation": "Documentation",
+    "openFailed": "Could not open the documentation. Please try again.",
+    "title": "Help"
   },
   "home": {
     "preparing": "Preparing"
   },
   "label": {
     "installDir": "Installation Directory"
+  },
+  "menu": {
+    "bar": "Application menu",
+    "edit": "Edit",
+    "file": "File",
+    "view": "View"
   },
   "placeholder": {
     "config": {
@@ -698,22 +909,34 @@
     "nobinding": "Not bound",
     "profileName": "Enter your profile name here"
   },
-  "select": {
-    "placeholder": "Select"
-  },
   "student": {
     "add": "Add Student",
     "search": "Search Student"
   },
-  "switch": {
-    "off": "Off",
-    "on": "On"
+  "sweepPlan": {
+    "add": "Add stage",
+    "chapter": "Chapter",
+    "count": "Sweep count",
+    "countMode": "Count mode",
+    "down": "Move down",
+    "empty": "No stages added.",
+    "emptyEntry": "Empty entry",
+    "fixedCount": "Set count",
+    "invalidChapter": "Choose a chapter available on this server.",
+    "invalidCount": "Enter a whole number of 0 or more.",
+    "invalidFormat": "Saved entry is incomplete or unsupported.",
+    "invalidMission": "Choose a stage available in this mode.",
+    "maximum": "Maximum",
+    "maxUnsupported": "CN Hard missions need a fixed count.",
+    "mission": "Stage",
+    "remove": "Remove stage",
+    "repair": "Original value kept. Remove and re-add to correct it.",
+    "row": "Entry {{number}}",
+    "unsaved": "Fix or remove invalid entries to save your changes.",
+    "up": "Move up"
   },
   "tacticalShop": {
     "title": "Tactical Challenge Shop"
-  },
-  "title": {
-    "wiki": "Docs"
   },
   "toast": {
     "dateUpdated": "Date updated",
@@ -745,6 +968,14 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "view": {
+    "fullscreen": "Full Screen",
+    "fullscreenFailed": "Could not change full screen mode.",
+    "resetZoom": "Reset Zoom",
+    "sidebar": "Show Sidebar",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
   },
   "workflow": {
     "arrange": "Auto layout",

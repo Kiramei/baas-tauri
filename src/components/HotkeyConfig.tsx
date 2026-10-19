@@ -3,9 +3,9 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import React, { useMemo } from "react";
 import { Modal } from "@/components/ui/Modal.tsx";
 import CButton from "@/components/ui/CButton.tsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Keyboard as KeyboardIcon, Circle as RecIcon, X as XIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 
 export interface HotkeyFieldProps {
   label?: string;
@@ -85,7 +85,8 @@ export default function HotkeyField({
 }: HotkeyFieldProps) {
   const [recording, setRecording] = useState(false);
   const [hint, setHint] = useState("");
-  const { t } = useTranslation();
+  const pendingRecording = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useAppTranslation();
   const placeholder = t("placeholder.nobinding");
 
   useEffect(() => {
@@ -107,21 +108,26 @@ export default function HotkeyField({
 
       // Allow escape to cancel the recording session.
       if (e.key === "Escape") {
+        if (pendingRecording.current !== null) clearTimeout(pendingRecording.current);
+        pendingRecording.current = null;
         setRecording(false);
         setHint("");
         return;
       }
+      if (e.repeat) return;
 
       const liveCombo = comboFromEvent(e, true);
       if (liveCombo) setHint(liveCombo);
 
       const combo = comboFromEvent(e);
       if (!combo) {
-        setHint(isMac ? "Press a main key…" : "Press a non-modifier key…");
+        setHint(t("settings.shortcuts.recordMainKey"));
         return;
       }
 
-      window.setTimeout(() => {
+      if (pendingRecording.current !== null) clearTimeout(pendingRecording.current);
+      pendingRecording.current = setTimeout(() => {
+        pendingRecording.current = null;
         onChange(combo);
         setRecording(false);
         setHint("");
@@ -136,21 +142,23 @@ export default function HotkeyField({
     };
 
     // Surface contextual hints while recording.
-    setHint(isMac ? "Press the key combination, Esc to cancel" : "Press keys, Esc to cancel");
+    setHint(t("settings.shortcuts.recordHint"));
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
     window.addEventListener("keyup", onKeyUp, { capture: true });
     return () => {
+      if (pendingRecording.current !== null) clearTimeout(pendingRecording.current);
+      pendingRecording.current = null;
       window.removeEventListener("keydown", onKeyDown, { capture: true });
       window.removeEventListener("keyup", onKeyUp, { capture: true });
     };
-  }, [recording, onChange]);
+  }, [recording, onChange, t]);
 
   const borderClass = error
-    ? "border-red-400 focus-within:border-red-400"
+    ? "border-red-400"
     : recording
       ? "border-primary-500 ring-2 ring-primary-500/20"
-      : "border-transparent focus-within:border-primary-500";
+      : "border-transparent";
 
   return (
     <div className={`w-full ${className}`}>
@@ -168,6 +176,7 @@ export default function HotkeyField({
         <input
           type={"text"}
           readOnly
+          aria-label={label ?? t("settings.shortcuts.binding")}
           value={recording ? hint : value}
           placeholder={placeholder}
           className={`flex-1 bg-transparent rounded-lg px-3 py-2 outline-none dark:bg-slate-900
@@ -176,12 +185,12 @@ export default function HotkeyField({
 
         {/* Clear button – visible only when a value is present. */}
         {value && !recording && (
-          <IconTooltip content="Clear">
+          <IconTooltip content={t("settings.shortcuts.clear")}>
             <button
               type="button"
               className="absolute right-9 p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               onClick={() => onChange("")}
-              aria-label="Clear"
+              aria-label={t("settings.shortcuts.clear")}
             >
               <XIcon className="w-4 h-4" />
             </button>
@@ -189,7 +198,11 @@ export default function HotkeyField({
         )}
 
         {/* Toggle recording state. */}
-        <IconTooltip content={recording ? "Stop recording" : "Record hotkey"}>
+        <IconTooltip
+          content={
+            recording ? t("settings.shortcuts.stopRecording") : t("settings.shortcuts.record")
+          }
+        >
           <button
             type="button"
             onClick={() => setRecording((r) => !r)}
@@ -199,13 +212,15 @@ export default function HotkeyField({
                          ? "bg-primary-600 text-white hover:bg-primary-700"
                          : "text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
                      }`}
-            aria-label={recording ? "Stop recording" : "Record hotkey"}
+            aria-label={
+              recording ? t("settings.shortcuts.stopRecording") : t("settings.shortcuts.record")
+            }
             aria-pressed={recording}
           >
             {recording ? (
               <span className="flex items-center gap-1">
                 <RecIcon className="w-3.5 h-3.5" />
-                <span className="text-xs">REC</span>
+                <span className="text-xs">{t("settings.shortcuts.recording")}</span>
               </span>
             ) : (
               <KeyboardIcon className="w-4 h-4" />
@@ -253,7 +268,7 @@ const HotkeySettingsModal: React.FC<{
   onRecordingChange?: (recording: boolean) => void;
   value: HotkeyConfig[];
 }> = ({ isOpen, onClose, onRecordingChange, value }) => {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const [draft, setDraft] = useState<HotkeyConfig[]>(value);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -359,7 +374,7 @@ const HotkeySettingsModal: React.FC<{
           <div className="text-sm text-red-500">{t("hotkey.fixInvalid")}</div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="modal-footer">
           <CButton variant="secondary" onClick={() => onClose(false)}>
             {t("common.cancel")}
           </CButton>

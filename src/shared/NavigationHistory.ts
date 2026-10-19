@@ -1,8 +1,9 @@
 import type { PageKey } from "@/types/app";
+import { normalizePageKey } from "./PageKey";
 
 export interface NavigationView {
   page: PageKey;
-  profileId: string;
+  profileId?: string;
 }
 
 export interface NavigationHistorySnapshot {
@@ -17,6 +18,13 @@ export interface NavigationHistorySnapshot {
 type RestoreView = (view: Readonly<NavigationView>) => boolean;
 const sameView = (left?: Readonly<NavigationView>, right?: Readonly<NavigationView>) =>
   left?.page === right?.page && left?.profileId === right?.profileId;
+
+const normalizeView = (view: Readonly<NavigationView>): Readonly<NavigationView> => {
+  const page = normalizePageKey(view.page);
+  if (page === "settings")
+    return view.page === page && view.profileId === undefined ? view : Object.freeze({ page });
+  return view.page === page ? view : Object.freeze({ ...view, page });
+};
 
 /** Navigation is local UI state: restoring it never starts a backend task. */
 export class NavigationHistory {
@@ -55,10 +63,12 @@ export class NavigationHistory {
   /** Observe the committed view, including profile changes from the drawer. */
   observe(view: NavigationView | null, profileIds: readonly string[]): void {
     this.profiles = new Set(profileIds);
-    if (view && this.profiles.has(view.profileId)) {
-      if (!sameView(this.entries[this.position], view)) {
+    this.entries = this.entries.map(normalizeView);
+    const currentView = view && normalizeView(view);
+    if (currentView && this.isAvailable(currentView)) {
+      if (!sameView(this.entries[this.position], currentView)) {
         this.entries = this.entries.slice(0, this.position + 1);
-        this.entries.push(Object.freeze({ ...view }));
+        this.entries.push(Object.freeze({ ...currentView }));
         // Retain a bounded amount of UI history during long desktop sessions.
         if (this.entries.length > 200) this.entries.shift();
         this.position = this.entries.length - 1;
@@ -70,6 +80,12 @@ export class NavigationHistory {
   back = () => this.move(-1);
   forward = () => this.move(1);
 
+  openSettings = () => {
+    if (!this.binding?.restore({ page: "settings" })) return false;
+    this.observe({ page: "settings" }, [...this.profiles]);
+    return true;
+  };
+
   private find(direction: -1 | 1): number {
     const current = this.entries[this.position];
     for (
@@ -78,7 +94,7 @@ export class NavigationHistory {
       index += direction
     ) {
       const entry = this.entries[index];
-      if (this.profiles.has(entry.profileId) && !sameView(current, entry)) return index;
+      if (this.isAvailable(entry) && !sameView(current, entry)) return index;
     }
     return -1;
   }
@@ -86,6 +102,7 @@ export class NavigationHistory {
   private move(direction: -1 | 1): boolean {
     const binding = this.binding;
     if (!binding) return false;
+    this.entries = this.entries.map(normalizeView);
     let target = this.find(direction);
     while (target !== -1) {
       const previous = this.position;
@@ -98,8 +115,12 @@ export class NavigationHistory {
         return true;
       }
       this.position = previous;
+      if (entry.page === "settings") {
+        this.publish();
+        return false;
+      }
       // A profile may disappear between rendering the button and handling it.
-      this.profiles.delete(entry.profileId);
+      if (entry.profileId) this.profiles.delete(entry.profileId);
       target = this.find(direction);
     }
     this.publish();
@@ -107,7 +128,8 @@ export class NavigationHistory {
   }
 
   private publish(): void {
-    const available = this.binding !== null && this.profiles.size > 0;
+    this.entries = this.entries.map(normalizeView);
+    const available = this.binding !== null;
     const next: NavigationHistorySnapshot = {
       available,
       canBack: available && this.find(-1) !== -1,
@@ -125,5 +147,9 @@ export class NavigationHistory {
       return;
     this.snapshot = next;
     this.listeners.forEach((listener) => listener());
+  }
+
+  private isAvailable(view: Readonly<NavigationView>): boolean {
+    return view.page === "settings" || this.profiles.has(view.profileId ?? "");
   }
 }

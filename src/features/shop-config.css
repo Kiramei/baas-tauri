@@ -1,0 +1,98 @@
+.shop-config {
+  container-type: inline-size;
+}
+.shop-goods-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding-block: 16px;
+}
+.shop-goods-item {
+  display: flex;
+  min-width: 0;
+  min-height: 72px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  text-align: start;
+  color: var(--muted-foreground);
+  background: transparent;
+  transition:
+    background-color 0.1s,
+    border-color 0.1s;
+}
+.shop-goods-item:hover {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--foreground) 28%, var(--border));
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+.shop-goods-item[aria-pressed="true"] {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.shop-goods-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.shop-goods-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+.shop-goods-name {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.shop-goods-selected {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  border: 1px solid var(--muted-foreground);
+  border-radius: 50%;
+}
+.shop-goods-item[aria-pressed="true"] .shop-goods-selected {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+.shop-goods-price {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 5px;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--muted-foreground);
+}
+.shop-goods-price > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.shop-goods-price > span:first-child {
+  font-variant-numeric: tabular-nums;
+}
+@container (max-width: 540px) {
+  .shop-goods-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 240px) {
+  .shop-goods-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

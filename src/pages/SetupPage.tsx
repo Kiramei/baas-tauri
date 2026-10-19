@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { exit } from "@tauri-apps/plugin-process";
-import { Copy, RotateCcw } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { CheckCircle2, Copy, Loader2, RotateCcw } from "lucide-react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { toast } from "sonner";
 
 import StorageUtil from "@/shared/StorageManager";
@@ -18,7 +18,10 @@ import ConfigEditorModal from "@/components/updater/ConfigEditor.tsx";
 import TermViewer from "@/components/updater/TermViewer.tsx";
 import PathSelector from "@/components/updater/PathSelector";
 import InstallerLayout from "@/components/updater/InstallerLayout";
+import InstallPreflight from "@/components/updater/InstallPreflight";
+import { useUISetting } from "@/context/UISettingsProvider";
 import { normalizeTransportMode } from "@/transport/factory";
+import { shouldCancelInstallerFromEscape } from "@/shared/InstallerCancelShortcut";
 
 interface UpdaterConfig {
   general?: {
@@ -102,15 +105,23 @@ const SetupPage = () => {
   const [settingModal, setSettingModal] = useState(false);
   const [config, setConfig] = useState<UpdaterConfig | null>(null);
   const [installPath, setInstallPath] = useState("");
+  const [installDisplayPath, setInstallDisplayPath] = useState("");
   const [portable, setPortable] = useState(false);
   const [setupPhase, setSetupPhase] = useState(true);
   const [failure, setFailure] = useState<FailureInfo | null>(null);
+  const [backendReady, setBackendReady] = useState<BackendReadyPayload | null>(null);
+  const [entering, setEntering] = useState(false);
+  const enteringRef = useRef(false);
   const setupCompletedRef = useRef(false);
   const abortingRef = useRef(false);
   const pendingWorkflowRef = useRef<{ path: string; config: UpdaterConfig | null } | null>(null);
   const workflowStartedRef = useRef(false);
   const terminalLogData = useGlobalLogStore((state) => state.terminalLogData);
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
+  const autoEnterAfterInstall = useUISetting(
+    (settings) => settings.autoEnterAfterInstall !== false
+  );
+  const transport = config?.general?.transport ?? normalizeTransportMode(undefined);
 
   const showWorkflowFailure = useCallback((nextFailure: FailureInfo, preserveExisting = false) => {
     pendingWorkflowRef.current = null;
@@ -142,6 +153,7 @@ const SetupPage = () => {
       workflowStartedRef.current = false;
       pendingWorkflowRef.current = { path: targetPath, config: nextConfig };
       setFailure(null);
+      setBackendReady(null);
       setSetupPhase(false);
       setStarted(true);
       StorageUtil.set("base_dir", targetPath);
@@ -152,10 +164,12 @@ const SetupPage = () => {
   const startWorkflowWhenTerminalReady = useCallback(async () => {
     if (workflowStartedRef.current || !pendingWorkflowRef.current) return;
     workflowStartedRef.current = true;
-    const { path, config: requestConfig } = pendingWorkflowRef.current;
+    const pendingWorkflow = pendingWorkflowRef.current;
+    const { path, config: requestConfig } = pendingWorkflow;
     StorageUtil.set("base_dir", path);
     try {
       await persistConfig(path, requestConfig);
+      if (abortingRef.current || pendingWorkflowRef.current !== pendingWorkflow) return;
       await invoke("updater_start_workflow", {
         request: {
           installPath: path,
@@ -163,12 +177,13 @@ const SetupPage = () => {
         },
       });
     } catch (error) {
+      if (abortingRef.current || pendingWorkflowRef.current !== pendingWorkflow) return;
       showWorkflowFailure({
         step: "start",
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      pendingWorkflowRef.current = null;
+      if (pendingWorkflowRef.current === pendingWorkflow) pendingWorkflowRef.current = null;
     }
   }, [persistConfig, showWorkflowFailure]);
 
@@ -242,11 +257,47 @@ const SetupPage = () => {
     []
   );
 
+  const enterBackend = useCallback(
+    async (payload: BackendReadyPayload, automatic = false) => {
+      if (enteringRef.current || abortingRef.current) return;
+      enteringRef.current = true;
+      setEntering(true);
+      try {
+        await authenticateBackend(payload);
+      } catch (error) {
+        if (abortingRef.current) return;
+        try {
+          const recovered = await invoke<BackendReadyPayload>(
+            "updater_reset_backend_auth_and_restart"
+          );
+          if (abortingRef.current) return;
+          setBackendReady(recovered);
+          await authenticateBackend(recovered, true);
+          if (automatic) reloadWithoutPrompt();
+        } catch (retryError) {
+          const firstMessage = error instanceof Error ? error.message : String(error);
+          const retryMessage =
+            retryError instanceof Error ? retryError.message : String(retryError);
+          showWorkflowFailure({
+            step: "auth",
+            message: `${firstMessage}\n\nBackend auth reset retry failed: ${retryMessage}`,
+          });
+        }
+      } finally {
+        enteringRef.current = false;
+        setEntering(false);
+      }
+    },
+    [authenticateBackend, showWorkflowFailure]
+  );
+
   /** Handles the handle abort interaction. */
-  const handleAbort = async () => {
+  const handleAbort = useCallback(async () => {
+    if (abortingRef.current) return;
     abortingRef.current = true;
     pendingWorkflowRef.current = null;
     workflowStartedRef.current = false;
+    setBackendReady(null);
     try {
       await invoke("updater_abort_workflow", {
         request: {
@@ -257,7 +308,39 @@ const SetupPage = () => {
       setStarted(false);
       setSetupPhase(true);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (
+        !shouldCancelInstallerFromEscape(event, {
+          running: started && !setupPhase && backendReady === null,
+          blocked: settingModal || failure !== null,
+          pending: abortingRef.current,
+        })
+      )
+        return;
+      const overlayOpen = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox']"
+        )
+      ).some(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          !element.closest("[aria-hidden='true'], [hidden], [inert]")
+      );
+      if (overlayOpen) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      void handleAbort().catch((error) => {
+        toast.error(error instanceof Error ? error.message : String(error));
+      });
+    };
+    // xterm handles keys itself, so listen before its terminal input consumes Escape.
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [started, setupPhase, backendReady, settingModal, failure, handleAbort]);
 
   const copyFailureLogs = () => {
     const text = terminalLogData
@@ -277,32 +360,16 @@ const SetupPage = () => {
   };
 
   useEffect(() => {
-    const unlisten = listen<BackendReadyPayload>("updater://backend-ready", async (event) => {
-      try {
-        await authenticateBackend(event.payload);
-      } catch (error) {
-        try {
-          const recovered = await invoke<BackendReadyPayload>(
-            "updater_reset_backend_auth_and_restart"
-          );
-          await authenticateBackend(recovered, true);
-          reloadWithoutPrompt();
-        } catch (retryError) {
-          const firstMessage = error instanceof Error ? error.message : String(error);
-          const retryMessage =
-            retryError instanceof Error ? retryError.message : String(retryError);
-          setFailure({
-            step: "auth",
-            message: `${firstMessage}\n\nBackend auth reset retry failed: ${retryMessage}`,
-          });
-        }
-      }
+    const unlisten = listen<BackendReadyPayload>("updater://backend-ready", (event) => {
+      if (abortingRef.current || !workflowStartedRef.current) return;
+      setBackendReady(event.payload);
+      if (autoEnterAfterInstall) void enterBackend(event.payload, true);
     });
 
     return () => {
       unlisten.then((f) => f());
     };
-  }, [authenticateBackend]);
+  }, [autoEnterAfterInstall, enterBackend]);
 
   useEffect(() => {
     if (setupCompletedRef.current) return;
@@ -318,6 +385,16 @@ const SetupPage = () => {
         }).catch(() => undefined);
         const startup = await invoke<StartupState>("updater_get_startup_state");
         const root = startup.installPath || startup.defaultInstallPath;
+        const configSeparator = Math.max(
+          startup.configPath.lastIndexOf("/"),
+          startup.configPath.lastIndexOf("\\")
+        );
+        const configIsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/])/.test(startup.configPath);
+        setInstallDisplayPath(
+          startup.portable && configIsAbsolute && configSeparator >= 0
+            ? startup.configPath.slice(0, configSeparator + 1)
+            : startup.defaultInstallPath
+        );
         setPortable(startup.portable);
         setInstallPath(root);
         setConfig(startup.config);
@@ -336,65 +413,92 @@ const SetupPage = () => {
 
   return (
     <>
-      <InstallerLayout title={t("installer.title.wizard")}>
-        <div className="flex flex-col gap-5 max-w-3xl mx-auto w-full rounded-2xl border border-border bg-card px-5 py-6 md:px-10 md:py-9">
-          <div className="text-center space-y-2">
-            <h2 className="text-xl font-semibold tracking-tight">{t("installer.title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {setupPhase ? t("installer.subtitle.stage1") : t("installer.subtitle.stage2")}
+      <InstallerLayout title={t("installer.title.wizard")} filling={!setupPhase && started}>
+        {setupPhase && config && (
+          <InstallPreflight
+            channelLabel={
+              config.general?.channel === "dev" ? t("updateChannel.dev") : t("updateChannel.stable")
+            }
+            transportLabel={
+              transport === "shm"
+                ? t("transport.shm")
+                : transport === "pipe"
+                  ? t("transport.pipe")
+                  : t("transport.websocket")
+            }
+            onAdvanced={() => setSettingModal(true)}
+            onCancel={() => void exit(0)}
+            onStart={() => void startInstall()}
+          >
+            <PathSelector
+              path={installPath}
+              displayPath={installDisplayPath}
+              setPath={setInstallPath}
+              disabled={portable}
+            />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {portable ? t("installer.portableHint") : t("installer.directoryHint")}
             </p>
-          </div>
+          </InstallPreflight>
+        )}
 
-          <div className="space-y-1">
-            {setupPhase && config && (
-              <div className="space-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <PathSelector path={installPath} setPath={setInstallPath} disabled={portable} />
-                <div className="flex justify-around pt-4 gap-2 flex-col md:flex-row max-md:w-full">
-                  <CButton
-                    onClick={async () => await exit(0)}
-                    className="md:w-48"
-                    variant="secondary"
-                  >
-                    {t("installer.exit")}
-                  </CButton>
-                  <CButton
-                    onClick={() => setSettingModal(true)}
-                    className="md:w-48"
-                    variant="secondary"
-                  >
-                    {t("installer.advanced")}
-                  </CButton>
-                  <CButton onClick={() => startInstall()} className="md:w-48" variant="primary">
-                    {t("installer.start")}
-                  </CButton>
+        {setupPhase && !config && (
+          <div
+            className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
+            role="status"
+          >
+            <Loader2 className="size-4 animate-spin" />
+            {t("version.fetching")}
+          </div>
+        )}
+        {!setupPhase && started && (
+          <div
+            className="flex min-h-0 flex-1 flex-col"
+            data-installer-phase={backendReady ? "completed" : "running"}
+          >
+            <TermViewer
+              onAbort={backendReady ? undefined : handleAbort}
+              onReady={startWorkflowWhenTerminalReady}
+              onFailure={(nextFailure) => {
+                if (!abortingRef.current) showWorkflowFailure(nextFailure);
+              }}
+              onSessionFinished={(success) => {
+                if (!success && !abortingRef.current) {
+                  showWorkflowFailure(
+                    {
+                      step: "workflow",
+                      message: "Updater workflow did not complete successfully.",
+                    },
+                    true
+                  );
+                }
+              }}
+            />
+            {backendReady && (
+              <div
+                className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                role="status"
+              >
+                <div className="flex items-center gap-2.5 text-sm font-medium">
+                  <CheckCircle2
+                    className="size-5 text-blue-500"
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  />
+                  {t("installer.completed")}
                 </div>
-              </div>
-            )}
-
-            {!setupPhase && started && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-4">
-                <TermViewer
-                  onAbort={handleAbort}
-                  onReady={startWorkflowWhenTerminalReady}
-                  onFailure={(nextFailure) => {
-                    if (!abortingRef.current) showWorkflowFailure(nextFailure);
-                  }}
-                  onSessionFinished={(success) => {
-                    if (!success && !abortingRef.current) {
-                      showWorkflowFailure(
-                        {
-                          step: "workflow",
-                          message: "Updater workflow did not complete successfully.",
-                        },
-                        true
-                      );
-                    }
-                  }}
-                />
+                <CButton
+                  disabled={entering}
+                  onClick={() => void enterBackend(backendReady)}
+                  className="h-8 min-w-28 px-4 py-1"
+                >
+                  {entering && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                  {entering ? t("installer.entering") : t("installer.enter")}
+                </CButton>
               </div>
             )}
           </div>
-        </div>
+        )}
         <ConfigEditorModal
           config={config ?? {}}
           setConfig={setConfig}
@@ -430,7 +534,7 @@ const SetupPage = () => {
                   </div>
                 ))}
           </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="modal-footer">
             <Button variant="secondary" onClick={returnToSetup}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Back to Setup

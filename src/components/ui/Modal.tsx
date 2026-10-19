@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
@@ -110,6 +110,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
+      data-modal-backdrop=""
       className={overlayCls}
       style={{
         paddingTop: fullscreen
@@ -136,7 +137,7 @@ export const Modal: React.FC<ModalProps> = ({
         className={
           fullscreen
             ? "flex h-full w-full flex-col overflow-hidden bg-background text-foreground"
-            : "rounded-xl border border-[var(--menu-border)] bg-popover p-6 text-popover-foreground shadow-[var(--menu-shadow)]"
+            : "modal-surface"
         }
         style={
           fullscreen
@@ -158,14 +159,16 @@ export const Modal: React.FC<ModalProps> = ({
           }
         >
           <div
-            className={`flex shrink-0 items-center justify-between gap-4 ${
-              fullscreen ? "h-[52px] border-b border-border px-4" : "pb-4"
-            }`}
+            className={
+              fullscreen
+                ? "flex h-[52px] shrink-0 items-center justify-between gap-4 border-b border-border px-4"
+                : "modal-header"
+            }
           >
             {titleNode ? (
               titleNode
             ) : (
-              <h2 id={titleId} className="text-[16px] font-medium leading-6 text-foreground">
+              <h2 id={titleId} className="modal-title">
                 {title}
               </h2>
             )}
@@ -173,7 +176,7 @@ export const Modal: React.FC<ModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label={t("common.close")}
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="modal-close"
             >
               <X className="size-4" />
             </button>

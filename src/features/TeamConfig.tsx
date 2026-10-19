@@ -1,139 +1,103 @@
-import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import React, { useMemo } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationRow,
+  ConfigurationSelect,
+} from "@/components/configuration/ConfigurationControls";
 import { FormSelect } from "@/components/ui/FormSelect";
-import { DynamicConfig } from "@/types/dynamic";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 import { propertyKey, teamMethodKey } from "@/shared/I18nKeys";
 
-type TeamConfigProps = {
+interface TeamConfigProps {
   profileId: string;
   onClose: () => void;
-};
-
-const PROPERTY = ["burst", "pierce", "mystic", "shock", "Unused"];
-
-const MODE_DICT = ["preset", "side", "order"];
-
+}
 interface Draft {
   choose_team_method: string;
   side_team_attribute: string[][];
   preset_team_attribute: string[][];
 }
+const PROPERTY = ["burst", "pierce", "mystic", "shock", "Unused"];
+const MODES = ["preset", "side", "order"];
 
-/** Renders the team config component. */
-const TeamConfig: React.FC<TeamConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
-
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
-  );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo<Draft>(() => {
-    return {
+const TeamConfig: React.FC<TeamConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const initial = useMemo<Draft>(
+    () => ({
       choose_team_method: settings.choose_team_method,
-      side_team_attribute: settings.side_team_attribute,
-      preset_team_attribute: settings.preset_team_attribute,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle cell change interaction. */
-  const handleCellChange = (tableKey: string, row: number, col: number) => (value: string) => {
-    setDraft((prev) => {
-      const newTable = (prev[tableKey as keyof Draft] as string[][]).map((r: any, ri: any) =>
-        ri === row ? r.map((c: any, ci: any) => (ci === col ? value : c)) : r
-      );
-      return { ...prev, [tableKey]: newTable };
-    });
-  };
-
-  /** Handles the handle change interaction. */
-  const handleChange = (key: string) => (value: string) => {
-    setDraft((d) => ({ ...d, [key]: value }));
-  };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
-  const renderTable = (key: string) => {
-    const rows = draft[key as keyof Draft] as string[][];
-    const cols = key == "preset_team_attribute" ? 4 : 1;
-    return (
-      <div
-        className={`grid gap-2 border rounded-lg p-2 bg-slate-50 dark:bg-slate-800`}
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        }}
-      >
-        {rows.map((row: any, ri: any) =>
-          row.map((val: any, ci: any) => (
-            <FormSelect
-              key={`${ri}-${ci}`}
-              value={val}
-              onChange={(v) => handleCellChange(key, ri, ci)(v)}
-              options={PROPERTY.map((k) => ({
-                value: k,
-                label: t(propertyKey(k)),
-              }))}
-              className="w-full"
-            />
-          ))
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Formation method */}
-      <FormSelect
-        label={t("team.chooseMethod")}
-        value={draft.choose_team_method}
-        onChange={handleChange("choose_team_method")}
-        options={MODE_DICT.map((k) => ({
-          value: k,
-          label: t(teamMethodKey(k)),
-        }))}
-      />
-
-      {/* Method Selection */}
-      {draft.choose_team_method === "preset" && renderTable("preset_team_attribute")}
-
-      {draft.choose_team_method === "side" && (
-        <div className="space-y-4">{renderTable("side_team_attribute")}</div>
-      )}
-
-      {/* Save Button */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
+      side_team_attribute: settings.side_team_attribute ?? [],
+      preset_team_attribute: settings.preset_team_attribute ?? [],
+    }),
+    [settings]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId, "team", initial);
+  const options = PROPERTY.map((value) => ({ value, label: t(propertyKey(value)) }));
+  const changeCell = (
+    key: "side_team_attribute" | "preset_team_attribute",
+    row: number,
+    column: number,
+    value: string
+  ) =>
+    setDraft((previous) => ({
+      ...previous,
+      [key]: previous[key].map((entries, i) =>
+        i === row ? entries.map((entry, j) => (j === column ? value : entry)) : entries
+      ),
+    }));
+  const renderTable = (key: "side_team_attribute" | "preset_team_attribute") => (
+    <div className="space-y-2">
+      {draft[key].map((row, rowIndex) => (
+        <div key={rowIndex} className="flex min-w-0 items-center gap-2">
+          <span className="w-4 shrink-0 text-xs tabular-nums text-muted-foreground">
+            {rowIndex + 1}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+            {row.map((value, column) => (
+              <FormSelect
+                key={column}
+                value={value}
+                onChange={(next) => changeCell(key, rowIndex, column, next)}
+                options={options}
+                ariaLabel={t("team.chooseMethod") + " " + (rowIndex + 1) + " / " + (column + 1)}
+                className="min-w-20 flex-1"
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
+  return (
+    <ConfigurationGroup title={t("team")}>
+      <ConfigurationSelect
+        label={t("team.chooseMethod")}
+        description={t("configurationHelp.teamMethod")}
+        value={draft.choose_team_method}
+        onChange={(value) => setDraft((previous) => ({ ...previous, choose_team_method: value }))}
+        options={MODES.map((value) => ({ value, label: t(teamMethodKey(value)) }))}
+      />
+      {draft.choose_team_method === "preset" && (
+        <ConfigurationRow
+          label={t("team.preset")}
+          description={t("configurationHelp.teamPreset")}
+          className="configuration-row-stacked"
+        >
+          {renderTable("preset_team_attribute")}
+        </ConfigurationRow>
+      )}
+      {draft.choose_team_method === "side" && (
+        <ConfigurationRow
+          label={t("team.side")}
+          description={t("configurationHelp.teamSide")}
+          className="configuration-row-stacked"
+        >
+          {renderTable("side_team_attribute")}
+        </ConfigurationRow>
+      )}
+    </ConfigurationGroup>
+  );
 };
-
 export default TeamConfig;

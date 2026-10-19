@@ -1,5 +1,21 @@
 {
   "dynamicKeys": [
+    "settings.sections.general",
+    "settings.sections.appearance",
+    "settings.sections.shortcuts",
+    "applicationShortcutHelp.undo",
+    "applicationShortcutHelp.redo",
+    "applicationShortcutHelp.settings",
+    "applicationShortcutHelp.sidebar",
+    "applicationShortcutHelp.back",
+    "applicationShortcutHelp.forward",
+    "applicationShortcutHelp.zoomIn",
+    "applicationShortcutHelp.zoomOut",
+    "applicationShortcutHelp.resetZoom",
+    "applicationShortcutHelp.fullscreen",
+    "settings.sections.runtime",
+    "settings.sections.updates",
+    "settings.sections.logs",
     "artifact.phase1",
     "artifact.phase2",
     "artifact.phase3",
@@ -130,15 +146,7 @@
     "updateMethod.mirrorc",
     "version.tapToTest",
     "version.testing",
-    "whitelist",
-    "wiki.category.all",
-    "wiki.category.architecture",
-    "wiki.category.configuration",
-    "wiki.category.environment",
-    "wiki.category.formation",
-    "wiki.category.getting-started",
-    "wiki.category.operations",
-    "wiki.category.support"
+    "whitelist"
   ],
   "allowedDynamicFunctions": [
     "artifactPhaseKey",
@@ -151,7 +159,6 @@
     "shaMethodKey",
     "teamMethodKey",
     "themeKey",
-    "updateMethodKey",
-    "wikiCategoryKey"
+    "updateMethodKey"
   ]
 }

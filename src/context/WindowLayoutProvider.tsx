@@ -1,21 +1,37 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import StorageUtil from "@/shared/StorageManager";
 
 interface WindowLayoutContextType {
   expanded: boolean;
   available: boolean;
+  sidebarLocked: boolean;
   customFrame: boolean;
+  fullscreen: boolean;
   registerSidebar: () => () => void;
   setExpanded: (expanded: boolean) => void;
+  setSidebarLocked: (locked: boolean) => void;
   setCustomFrame: (customFrame: boolean) => void;
+  setFullscreen: (fullscreen: boolean) => void;
 }
 
 const WindowLayoutContext = createContext<WindowLayoutContextType | undefined>(undefined);
 
 export function WindowLayoutProvider({ children }: { children: ReactNode }) {
-  const [expanded, setExpandedState] = useState(true);
+  // Locking Settings open must not overwrite the user's other-page preference.
+  const [preferredExpanded, setExpandedState] = useState(true);
   const [available, setAvailable] = useState(false);
+  const [sidebarLocked, setSidebarLockedState] = useState(false);
+  const sidebarLockedRef = useRef(false);
   const [customFrame, setCustomFrame] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const registerSidebar = useCallback(() => {
     // The workspace mounts after storage is initialized. Setup never registers
@@ -27,13 +43,40 @@ export function WindowLayoutProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setExpanded = useCallback((next: boolean) => {
+    if (sidebarLockedRef.current) return;
     setExpandedState(next);
     StorageUtil.set("desktopSidebarExpanded", next);
   }, []);
 
+  const setSidebarLocked = useCallback((locked: boolean) => {
+    sidebarLockedRef.current = locked;
+    setSidebarLockedState(locked);
+  }, []);
+  const expanded = sidebarLocked || preferredExpanded;
+
   const value = useMemo(
-    () => ({ expanded, available, customFrame, registerSidebar, setExpanded, setCustomFrame }),
-    [expanded, available, customFrame, registerSidebar, setExpanded]
+    () => ({
+      expanded,
+      available,
+      sidebarLocked,
+      customFrame,
+      fullscreen,
+      registerSidebar,
+      setExpanded,
+      setSidebarLocked,
+      setCustomFrame,
+      setFullscreen,
+    }),
+    [
+      expanded,
+      available,
+      sidebarLocked,
+      customFrame,
+      fullscreen,
+      registerSidebar,
+      setExpanded,
+      setSidebarLocked,
+    ]
   );
 
   return <WindowLayoutContext.Provider value={value}>{children}</WindowLayoutContext.Provider>;

@@ -31,7 +31,7 @@ function PopoverContent({
             "data-[state=open]:animate-in data-[state=closed]:animate-out" +
             " data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
             "duration-100 z-[1300] w-72 origin-(--radix-popover-content-transform-origin) rounded-[8px] " +
-            "border border-[var(--menu-border)] p-3 shadow-[var(--menu-shadow)] outline-hidden",
+            "border-none p-3 shadow-[var(--menu-shadow)] outline-hidden",
           className
         )}
         {...props}

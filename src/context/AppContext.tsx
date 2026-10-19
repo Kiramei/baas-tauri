@@ -2,6 +2,7 @@ import React, { createContext, ReactNode, useContext, useEffect, useMemo, useSta
 import type { ConfigProfileSummary } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
+import { profileDisplayName } from "@/shared/ProfileName";
 import { useShallow } from "zustand/react/shallow";
 
 import StorageUtil from "@/shared/StorageManager.ts";
@@ -27,7 +28,7 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
       Object.entries(state.configStore).map(([id, config]: [string, any]) =>
-        JSON.stringify([id, String(config.name ?? "")])
+        JSON.stringify([id, profileDisplayName(String(config.name ?? ""))])
       )
     )
   );
@@ -61,16 +62,14 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
 
   useEffect(() => {
     setActiveProfile((prev) => {
-      if (profiles.length === 0) return prev;
+      if (profiles.length === 0) return null;
       return profiles.find((profile) => profile.id === prev?.id) ?? profiles[0];
     });
   }, [profiles]);
 
   useEffect(() => {
-    setReady(
-      authPhase === "authenticated" && allDataInitialized && activeProfile !== null && !initiating
-    );
-  }, [authPhase, allDataInitialized, setReady, activeProfile, initiating]);
+    setReady(authPhase === "authenticated" && allDataInitialized && !initiating);
+  }, [authPhase, allDataInitialized, setReady, initiating]);
 
   useEffect(() => {
     if (!__WITH_ANDROID__ || authPhase !== "authenticated" || !activeProfile?.id) return;

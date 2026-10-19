@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
-import { t } from "i18next";
 import { cn } from "@/shared/cn";
+import "./control-switch.css";
 
 interface SwitchButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange"> {
@@ -35,25 +35,38 @@ const SwitchButton: React.FC<SwitchButtonProps> = ({
     ? "bg-primary text-primary-foreground hover:bg-primary/90"
     : "border-input bg-transparent text-foreground hover:bg-secondary";
 
-  return children ? (
+  if (!children && !isIconOnly) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          "inline-flex min-h-11 min-w-0 items-center justify-between gap-4 rounded-lg border border-border bg-transparent px-3 py-2 text-left text-sm font-medium text-foreground outline-none transition-colors duration-150 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
+          className
+        )}
+        disabled={disabled}
+        {...props}
+      >
+        <span className="min-w-0">{label}</span>
+        <span aria-hidden="true" className="control-switch" data-checked={checked}>
+          <span className="control-switch-thumb" />
+        </span>
+      </button>
+    );
+  }
+
+  return (
     <button
+      type="button"
       aria-pressed={checked}
       onClick={() => onChange(!checked)}
       className={cn(baseClasses, stateClasses, className)}
       disabled={disabled}
       {...props}
     >
-      {children}
-    </button>
-  ) : (
-    <button
-      aria-pressed={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(baseClasses, stateClasses, className)}
-      disabled={disabled}
-      {...props}
-    >
-      {label ?? ""} : {checked ? t("switch.on") : t("switch.off")}
+      {children ?? label}
     </button>
   );
 };

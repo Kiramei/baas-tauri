@@ -31,7 +31,11 @@ const CButton: React.FC<ButtonProps> = ({
   };
 
   return (
-    <button className={cn(baseClasses, variantClasses[variant], className)} {...props}>
+    <button
+      data-variant={variant}
+      className={cn(baseClasses, variantClasses[variant], className)}
+      {...props}
+    >
       {children}
     </button>
   );
