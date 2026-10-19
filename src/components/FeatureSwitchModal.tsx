@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
+import { eventNameKey } from "@/shared/I18nKeys";
 import { Modal } from "@/components/ui/Modal";
 import CButton from "@/components/ui/CButton.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
-import { Separator } from "@/components/ui/Separator";
 import { OrderedMultiSelector, TimeSelectorModal } from "@/components/MultiSelector.tsx";
 import { EventConfig } from "@/types/event";
 import { DateTimePicker } from "@/components/DateTimePicker.tsx";
@@ -24,6 +24,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form, setForm] = useState<EventConfig>({ ...task });
+  const taskNameKey = eventNameKey(form.func_name);
 
   /** Handles the handle change interaction. */
   const handleChange = (key: keyof EventConfig, value: any) => {
@@ -39,7 +40,15 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
     <Modal isOpen={true} onClose={onClose} title={t("scheduler.detailConfig")} width={80}>
       <div className="space-y-2">
         {/* Event name (read-only) */}
-        <FormInput label={t("scheduler.eventName")} value={form.event_name} disabled />
+        <FormInput
+          label={t("scheduler.eventName")}
+          value={
+            taskNameKey === "eventName.unknown"
+              ? form.event_name
+              : t(eventNameKey(form.func_name))
+          }
+          disabled
+        />
 
         <label className="block text-sm font-medium">{t("scheduler.nextTick")}</label>
 
@@ -113,9 +122,8 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
           />
         </div>
 
-        <Separator />
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="modal-footer">
           <CButton onClick={handleSave}>{t("common.confirm")}</CButton>
         </div>
       </div>

@@ -37,7 +37,9 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   enableSystemNotifications: true,
   minimizeToTray: false,
   idleAutoUpdate: true,
+  autoEnterAfterInstall: true,
   schedulerSortMode: "default",
+  applicationShortcuts: {},
   remoteSettings: {
     streamPlayer: "mse",
     enableSafeStream: true,

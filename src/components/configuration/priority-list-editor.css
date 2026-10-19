@@ -1,0 +1,182 @@
+.priority-editor {
+  min-width: 0;
+  width: 100%;
+}
+.priority-editor-list {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.priority-editor-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.priority-editor-row:last-child {
+  border-bottom: 0;
+}
+.priority-editor-row[data-picked="true"] {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.priority-editor-handle,
+.priority-editor-remove {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+.priority-editor-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.priority-editor-handle[aria-pressed="true"] {
+  cursor: grabbing;
+}
+.priority-editor-handle:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.priority-editor-remove:disabled {
+  opacity: 0.3;
+}
+.priority-editor-handle:hover:not(:disabled),
+.priority-editor-remove:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--background);
+}
+.priority-editor-number {
+  flex-shrink: 0;
+  min-width: 18px;
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.priority-editor-name {
+  flex: 1;
+  min-width: 0;
+  padding-block: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.priority-editor-empty {
+  margin-block: 8px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--muted-foreground);
+}
+.priority-editor-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: var(--foreground);
+  background: transparent;
+  font-size: 12px;
+  line-height: 20px;
+}
+.priority-editor-add:hover:not(:disabled) {
+  background: var(--background);
+}
+.priority-editor-handle:focus-visible,
+.priority-editor-remove:focus-visible,
+.priority-editor-add:focus-visible,
+.priority-editor-choice:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.priority-editor-picker[data-slot="popover-content"] {
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px;
+}
+.priority-editor-choices {
+  display: flex;
+  min-height: 0;
+  max-height: min(320px, calc(100dvh - 200px));
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+.priority-editor-choice {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  text-align: start;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--foreground);
+  background: transparent;
+}
+.priority-editor-choice:hover {
+  background: var(--secondary);
+}
+.priority-editor-choice > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.priority-editor-check {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--muted-foreground);
+  border-radius: 4px;
+}
+.priority-editor-check[data-checked="true"] {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+.priority-editor-drag-preview {
+  position: fixed;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--menu-background);
+  box-shadow: var(--menu-shadow);
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 20px;
+  opacity: 0.95;
+}
+.priority-editor-drag-preview svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.priority-editor-drag-preview span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

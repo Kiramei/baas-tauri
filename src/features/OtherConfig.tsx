@@ -1,59 +1,48 @@
-import React, { Dispatch, SetStateAction } from "react";
-import { useTranslation } from "react-i18next";
+import React, { type Dispatch, type SetStateAction } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationRow,
+} from "@/components/configuration/ConfigurationControls";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { toast } from "sonner";
-import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
-import { PageKey } from "@/types/app";
+import { getTimestampMs } from "@/shared/GlobalUtilities";
+import type { PageKey } from "@/types/app";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { eventNameKey } from "@/shared/I18nKeys";
 
-type OtherConfigProps = {
+interface OtherConfigProps {
   profileId: string;
   onClose: () => void;
   setActivePage?: Dispatch<SetStateAction<PageKey>>;
-};
-
-/** Renders the other config component. */
+}
 const OtherConfig: React.FC<OtherConfigProps> = ({ profileId, onClose, setActivePage }) => {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const trigger = useWebSocketStore((state) => state.trigger);
-
-  /** Handles the handle trigger interaction. */
-  const handleTrigger = (taskName: string) => async () => {
+  const execute = () => {
+    const task = "start_fhx";
     trigger(
-      {
-        timestamp: getTimestampMs(),
-        command: "solve",
-        config_id: profileId,
-        payload: {
-          task: taskName,
-        },
-      },
+      { timestamp: getTimestampMs(), command: "solve", config_id: profileId, payload: { task } },
       () => {
         toast(t("stage.taskTriggerStart"), {
-          description: t("stage.taskTriggered", { task: t(eventNameKey(taskName)) }),
+          description: t("stage.taskTriggered", { task: t(eventNameKey(task)) }),
         });
       }
     );
     onClose();
     setActivePage?.("home");
   };
-
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-        <div>
-          <label className="text-slate-700 dark:text-slate-200 font-medium">{t("other.fhx")}</label>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t("description.other.fhx")}</p>
-        </div>
-        <button
-          onClick={handleTrigger("start_fhx")}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200"
-        >
+    <ConfigurationGroup title={t("other")}>
+      <ConfigurationRow
+        label={t("other.fhx")}
+        description={t("description.other.fhx")}
+        className="configuration-row-action"
+      >
+        <button type="button" onClick={execute} className="configuration-action">
           {t("common.execute")}
         </button>
-      </div>
-    </div>
+      </ConfigurationRow>
+    </ConfigurationGroup>
   );
 };
-
 export default OtherConfig;

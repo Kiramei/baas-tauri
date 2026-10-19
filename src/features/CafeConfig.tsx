@@ -1,23 +1,20 @@
 import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { X } from "lucide-react";
-import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
-import { FormSelect } from "@/components/ui/FormSelect";
-import { FormInput } from "@/components/ui/FormInput";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
+import StudentSelectorModal from "@/components/StudentSelectorModal";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+  ConfigurationSelect,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Separator } from "@/components/ui/Separator";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { serverMap } from "@/shared/GlobalUtilities.ts";
-import { DynamicConfig } from "@/types/dynamic";
-import { i18nKey } from "@/shared/I18nKeys";
-import type { TranslationKey } from "@/types/i18n";
+import { serverMap } from "@/shared/GlobalUtilities";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
-type CafeConfigProps = {
-  onClose: () => void;
-  profileId?: string;
-};
-
+type CafeConfigProps = { onClose: () => void; profileId?: string };
 type Draft = {
   cafe_reward_collect_hour_reward: boolean;
   cafe_reward_use_invitation_ticket: boolean;
@@ -33,19 +30,26 @@ type Draft = {
   favorStudent1: string[];
   favorStudent2: string[];
 };
+const serialize = (draft: Draft) =>
+  draft.cafe_reward_affection_pat_round === ""
+    ? null
+    : {
+        ...draft,
+        cafe_reward_invite1_starred_student_position: Number(
+          draft.cafe_reward_invite1_starred_student_position
+        ),
+        cafe_reward_invite2_starred_student_position: Number(
+          draft.cafe_reward_invite2_starred_student_position
+        ),
+      };
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-
-/* ---------- Main Component for CafeConfig ---------- */
-const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
-  const staticConfig = useWebSocketStore((e) => e.staticStore);
-  const studentNames = staticConfig.student_names;
-  const { t } = useTranslation();
-  const settings = useWebSocketStore((e) => e.configStore[profileId!]);
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo(() => {
-    return {
+/** Cafe behavior and per-cafe invitations, saved as the user edits. */
+const CafeConfig: React.FC<CafeConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId!]);
+  const studentNames = useWebSocketStore((state) => state.staticStore.student_names ?? []);
+  const ext = useMemo<Draft>(
+    () => ({
       cafe_reward_collect_hour_reward: settings.cafe_reward_collect_hour_reward ?? false,
       cafe_reward_use_invitation_ticket: settings.cafe_reward_use_invitation_ticket ?? true,
       cafe_reward_allow_exchange_student: settings.cafe_reward_allow_exchange_student ?? true,
@@ -56,75 +60,101 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
       cafe_reward_invite1_criterion: settings.cafe_reward_invite1_criterion ?? "lowest_affection",
       cafe_reward_invite2_criterion: settings.cafe_reward_invite2_criterion ?? "lowest_affection",
       cafe_reward_invite1_starred_student_position: String(
-        settings.cafe_reward_invite1_starred_student_position ?? "1"
+        settings.cafe_reward_invite1_starred_student_position ?? 1
       ),
       cafe_reward_invite2_starred_student_position: String(
-        settings.cafe_reward_invite2_starred_student_position ?? "1"
+        settings.cafe_reward_invite2_starred_student_position ?? 1
       ),
       favorStudent1: settings.favorStudent1 ?? [],
       favorStudent2: settings.favorStudent2 ?? [],
-    };
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-  const [baseline] = useState<Draft>(ext);
-  const [showSelector1, setShowSelector1] = useState(false);
-  const [showSelector2, setShowSelector2] = useState(false);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
-
-  // Toggle handlers for boolean fields.
-  const onBoolChange = (key: keyof Draft) => (value: boolean) =>
-    setDraft((d) => ({ ...d, [key]: value }));
-
-  // Normalize numeric input and keep it within the supported range.
-  const onNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw === "") return setDraft((d) => ({ ...d, cafe_reward_affection_pat_round: "" }));
-    const n = Number(raw);
-    if (Number.isFinite(n)) {
-      setDraft((d) => ({
-        ...d,
-        cafe_reward_affection_pat_round: clamp(Math.trunc(n), 4, 15),
-      }));
-    }
+    }),
+    [settings]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId!, "cafe", ext, { serialize });
+  const [selector, setSelector] = useState<1 | 2 | null>(null);
+  const [tab, setTab] = useState("basic");
+  const inviteOptions = [
+    { value: "lowest_affection", label: t("cafe.lowestAffection") },
+    { value: "highest_affection", label: t("cafe.highestAffection") },
+    { value: "starred", label: t("cafe.starred") },
+    { value: "name", label: t("cafe.byName") },
+  ];
+  const renderInvitation = (number: 1 | 2) => {
+    const criterion =
+      number === 1 ? "cafe_reward_invite1_criterion" : "cafe_reward_invite2_criterion";
+    const position =
+      number === 1
+        ? "cafe_reward_invite1_starred_student_position"
+        : "cafe_reward_invite2_starred_student_position";
+    const students = number === 1 ? "favorStudent1" : "favorStudent2";
+    return (
+      <ConfigurationGroup title={number === 1 ? t("cafe.cafe1Settings") : t("cafe.cafe2Settings")}>
+        <ConfigurationSelect
+          label={number === 1 ? t("cafe.invite1Mode") : t("cafe.invite2Mode")}
+          description={t("configurationHelp.cafeInviteMode")}
+          value={draft[criterion]}
+          onChange={(value) => setDraft((current) => ({ ...current, [criterion]: value }))}
+          options={inviteOptions}
+        />
+        {draft[criterion] === "starred" && (
+          <ConfigurationSelect
+            label={t("cafe.starredPosition")}
+            description={t("configurationHelp.cafeStarredPosition")}
+            value={draft[position]}
+            onChange={(value) => setDraft((current) => ({ ...current, [position]: value }))}
+            options={[1, 2, 3, 4, 5].map((value) => ({
+              value: String(value),
+              label: String(value),
+            }))}
+          />
+        )}
+        {draft[criterion] === "name" && (
+          <ConfigurationRow
+            label={number === 1 ? t("cafe.cafe1Students") : t("cafe.cafe2Students")}
+            description={t("configurationHelp.cafeStudents")}
+            className="configuration-row-stacked"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {draft[students].map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-sm"
+                >
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
+                  <button
+                    type="button"
+                    aria-label={`${t("common.delete")}: ${name}`}
+                    className="shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        [students]: current[students].filter((item) => item !== name),
+                      }))
+                    }
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSelector(number)}
+                className="rounded-lg bg-secondary px-3 py-1.5 text-sm hover:bg-secondary/70"
+              >
+                {t("student.add")}
+              </button>
+            </div>
+          </ConfigurationRow>
+        )}
+      </ConfigurationGroup>
+    );
   };
-
-  /** Handles the on select change interaction. */
-  const onSelectChange = (key: keyof Draft) => (value: string) => {
-    setDraft((d) => ({ ...d, [key]: value }));
-  };
-
-  // Persist only the fields that have diverged from the server state.
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (draft[k] !== baseline[k]) {
-        if (
-          k === "cafe_reward_invite1_starred_student_position" ||
-          k === "cafe_reward_invite2_starred_student_position"
-        ) {
-          patch[k] = Number(draft[k]);
-          return;
-        }
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        patch[k] = draft[k] as DynamicConfig[typeof k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
   return (
-    <div className="space-y-2">
-      <Tabs defaultValue="basic" className="w-full">
+    <div className="space-y-6">
+      <Tabs
+        value={tab === "cafe2" && !draft.cafe_reward_has_no2_cafe ? "basic" : tab}
+        onValueChange={setTab}
+      >
         <TabsList
           className={`grid w-full ${draft.cafe_reward_has_no2_cafe ? "grid-cols-3" : "grid-cols-2"}`}
         >
@@ -134,201 +164,102 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ onClose, profileId }) => {
             <TabsTrigger value="cafe2">{t("cafe.cafe2Settings")}</TabsTrigger>
           )}
         </TabsList>
-
-        {/* Basic Settings */}
         <TabsContent value="basic" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {[
-              ["cafe_reward_collect_hour_reward", "cafe.collectReward"],
-              ["cafe_reward_use_invitation_ticket", "cafe.useInvitation"],
-              ["cafe_reward_allow_exchange_student", "cafe.exchangeStudent"],
-              ["cafe_reward_allow_duplicate_invite", "cafe.duplicateInvite"],
-              ["cafe_reward_has_no2_cafe", "cafe.hasNo2Cafe"],
-            ].map(([key, label]) => (
-              <SwitchButton
-                label={t(i18nKey(label as TranslationKey))}
-                checked={draft[key as keyof Draft] as boolean}
-                onChange={onBoolChange(key as keyof Draft)}
-                key={label}
-              />
-            ))}
-          </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <FormInput
+          <ConfigurationGroup title={t("cafe.basicSettings")}>
+            <ConfigurationToggle
+              label={t("cafe.collectReward")}
+              description={t("configurationHelp.cafeCollectReward")}
+              checked={draft.cafe_reward_collect_hour_reward}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, cafe_reward_collect_hour_reward: value }))
+              }
+            />
+            <ConfigurationToggle
+              label={t("cafe.useInvitation")}
+              description={t("configurationHelp.cafeUseInvitation")}
+              checked={draft.cafe_reward_use_invitation_ticket}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, cafe_reward_use_invitation_ticket: value }))
+              }
+            />
+            <ConfigurationToggle
+              label={t("cafe.exchangeStudent")}
+              description={t("configurationHelp.cafeExchangeStudent")}
+              checked={draft.cafe_reward_allow_exchange_student}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, cafe_reward_allow_exchange_student: value }))
+              }
+            />
+            <ConfigurationToggle
+              label={t("cafe.duplicateInvite")}
+              description={t("configurationHelp.cafeDuplicateInvite")}
+              checked={draft.cafe_reward_allow_duplicate_invite}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, cafe_reward_allow_duplicate_invite: value }))
+              }
+            />
+            <ConfigurationToggle
+              label={t("cafe.hasNo2Cafe")}
+              description={t("configurationHelp.cafeSecondCafe")}
+              checked={draft.cafe_reward_has_no2_cafe}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, cafe_reward_has_no2_cafe: value }))
+              }
+            />
+          </ConfigurationGroup>
+          <ConfigurationGroup title={t("cafe.patStyle")}>
+            <ConfigurationInput
               label={t("cafe.patRounds")}
-              tooltip={t("description.cafe.patRounds")}
+              description={t("description.cafe.patRounds")}
               type="number"
-              value={draft.cafe_reward_affection_pat_round}
-              onChange={onNumberChange}
               min={4}
               max={15}
+              value={draft.cafe_reward_affection_pat_round}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === "")
+                  setDraft((current) => ({ ...current, cafe_reward_affection_pat_round: "" }));
+                else if (Number.isFinite(Number(value)))
+                  setDraft((current) => ({
+                    ...current,
+                    cafe_reward_affection_pat_round: Math.max(
+                      4,
+                      Math.min(15, Math.trunc(Number(value)))
+                    ),
+                  }));
+              }}
             />
-
-            <FormSelect
+            <ConfigurationSelect
               label={t("cafe.patStyle")}
+              description={t("configurationHelp.cafePatStyle")}
               value={draft.patStyle}
-              onChange={onSelectChange("patStyle")}
-              options={[{ value: "拖动礼物", label: t("cafe.patStyleDragGift") }]}
-            />
-          </div>
-        </TabsContent>
-
-        {/* Cafe 1 */}
-        <TabsContent value="cafe1" className="space-y-6 pt-4">
-          <FormSelect
-            label={t("cafe.invite1Mode")}
-            value={draft.cafe_reward_invite1_criterion}
-            onChange={onSelectChange("cafe_reward_invite1_criterion")}
-            options={[
-              { value: "lowest_affection", label: t("cafe.lowestAffection") },
-              { value: "highest_affection", label: t("cafe.highestAffection") },
-              { value: "starred", label: t("cafe.starred") },
-              { value: "name", label: t("cafe.byName") },
-            ]}
-          />
-
-          {draft.cafe_reward_invite1_criterion === "starred" && (
-            <FormSelect
-              label={t("cafe.starredPosition")}
-              value={draft.cafe_reward_invite1_starred_student_position}
-              onChange={onSelectChange("cafe_reward_invite1_starred_student_position")}
-              options={[1, 2, 3, 4, 5].map((n) => ({
-                value: String(n),
-                label: String(n),
-              }))}
-            />
-          )}
-
-          {draft.cafe_reward_invite1_criterion === "name" && (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium">{t("cafe.cafe1Students")}</label>
-              <div className="flex flex-wrap gap-2">
-                {draft.favorStudent1.map((name) => (
-                  <span
-                    key={name}
-                    className="flex items-center gap-1 px-2 py-1 bg-slate-200 rounded-full text-sm dark:bg-slate-700"
-                  >
-                    {name}
-                    <button
-                      onClick={() =>
-                        setDraft((d) => ({
-                          ...d,
-                          favorStudent1: d.favorStudent1.filter((n) => n !== name),
-                        }))
-                      }
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-                <button
-                  onClick={() => setShowSelector1(true)}
-                  className="px-3 py-1 text-sm border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                >
-                  {t("student.add")}
-                </button>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Cafe 2 */}
-        {draft.cafe_reward_has_no2_cafe && (
-          <TabsContent value="cafe2" className="space-y-6 pt-4">
-            <FormSelect
-              label={t("cafe.invite2Mode")}
-              value={draft.cafe_reward_invite2_criterion}
-              onChange={onSelectChange("cafe_reward_invite2_criterion")}
+              onChange={(value) => setDraft((current) => ({ ...current, patStyle: value }))}
               options={[
-                { value: "lowest_affection", label: t("cafe.lowestAffection") },
-                { value: "highest_affection", label: t("cafe.highestAffection") },
-                { value: "starred", label: t("cafe.starred") },
-                { value: "name", label: t("cafe.byName") },
+                { value: "普通", label: t("configurationHelp.cafePatNormal") },
+                { value: "拖动礼物", label: t("cafe.patStyleDragGift") },
               ]}
             />
-
-            {draft.cafe_reward_invite2_criterion === "starred" && (
-              <FormSelect
-                label={t("cafe.starredPosition")}
-                value={draft.cafe_reward_invite2_starred_student_position}
-                onChange={onSelectChange("cafe_reward_invite2_starred_student_position")}
-                options={[1, 2, 3, 4, 5].map((n) => ({
-                  value: String(n),
-                  label: String(n),
-                }))}
-              />
-            )}
-
-            {draft.cafe_reward_invite2_criterion === "name" && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">{t("cafe.cafe2Students")}</label>
-                <div className="flex flex-wrap gap-2">
-                  {draft.favorStudent2.map((name) => (
-                    <span
-                      key={name}
-                      className="flex items-center gap-1 px-2 py-1 bg-slate-200 rounded-full text-sm dark:bg-slate-700"
-                    >
-                      {name}
-                      <button
-                        onClick={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            favorStudent2: d.favorStudent2.filter((n) => n !== name),
-                          }))
-                        }
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <button
-                    onClick={() => setShowSelector2(true)}
-                    className="px-3 py-1 text-sm border rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                  >
-                    {t("student.add")}
-                  </button>
-                </div>
-              </div>
-            )}
-          </TabsContent>
+          </ConfigurationGroup>
+        </TabsContent>
+        <TabsContent value="cafe1">{renderInvitation(1)}</TabsContent>
+        {draft.cafe_reward_has_no2_cafe && (
+          <TabsContent value="cafe2">{renderInvitation(2)}</TabsContent>
         )}
       </Tabs>
-
       <StudentSelectorModal
-        isOpen={showSelector1}
-        onClose={() => setShowSelector1(false)}
+        isOpen={selector !== null}
+        onClose={() => setSelector(null)}
         allStudents={studentNames}
-        selected={draft.favorStudent1}
-        onChange={(list) => setDraft((d) => ({ ...d, favorStudent1: list }))}
+        selected={selector === 2 ? draft.favorStudent2 : draft.favorStudent1}
+        onChange={(list) =>
+          setDraft((current) => ({
+            ...current,
+            [selector === 2 ? "favorStudent2" : "favorStudent1"]: list,
+          }))
+        }
         lang={serverMap[settings.server]}
       />
-
-      <StudentSelectorModal
-        isOpen={showSelector2}
-        onClose={() => setShowSelector2(false)}
-        allStudents={studentNames}
-        selected={draft.favorStudent2}
-        onChange={(list) => setDraft((d) => ({ ...d, favorStudent2: list }))}
-        lang={serverMap[settings.server]}
-      />
-
-      <Separator />
-
-      {/* Save Button */}
-      <div className="flex justify-end pt-4">
-        <button
-          onClick={handleSave}
-          disabled={!dirty || draft.cafe_reward_affection_pat_round === ""}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
     </div>
   );
 };
-
 export default CafeConfig;

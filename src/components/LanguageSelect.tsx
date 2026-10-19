@@ -1,17 +1,19 @@
 import React from "react";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 
 /** Renders the language select component. */
 const LanguageSelect: React.FC<{
   handleLanguageChange: (value: string) => void;
   className?: string;
-}> = ({ handleLanguageChange, className }) => {
-  const { t, i18n } = useTranslation();
+  hideLabel?: boolean;
+}> = ({ handleLanguageChange, className, hideLabel = false }) => {
+  const { t, i18n } = useAppTranslation();
   return (
     <FormSelect
       value={i18n.language}
-      label={t("language")}
+      label={hideLabel ? undefined : t("language")}
+      ariaLabel={t("language")}
       onChange={handleLanguageChange}
       options={[
         { value: "en", label: t("language.english") },

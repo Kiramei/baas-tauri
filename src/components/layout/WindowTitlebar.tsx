@@ -1,5 +1,5 @@
 import { IconTooltip } from "@/components/ui/Tooltip";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -9,19 +9,26 @@ import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple"
 import { useTheme } from "@/context/ThemeProvider";
 import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import { useNavigationHistory } from "@/context/NavigationHistoryProvider";
-
-interface WindowTitlebarProps {
-  title?: string;
-}
+import TitlebarMenus from "@/components/layout/TitlebarMenus";
 
 /** The native frame stays in place on platforms without our custom Windows frame. */
-export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) {
+export default function WindowTitlebar() {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const { expanded, available, customFrame, setExpanded, setCustomFrame } = useWindowLayout();
+  const {
+    expanded,
+    available,
+    sidebarLocked,
+    customFrame,
+    fullscreen,
+    setExpanded,
+    setCustomFrame,
+    setFullscreen,
+  } = useWindowLayout();
   const navigation = useNavigationHistory();
   const [maximized, setMaximized] = useState(false);
   const [focused, setFocused] = useState(true);
+  const dragRegionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__) return;
@@ -45,11 +52,13 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
     void Promise.all([
       appWindow.isDecorated(),
       appWindow.isMaximized(),
+      appWindow.isFullscreen(),
       appWindow.isFocused(),
-    ]).then(([decorated, isMaximized, isFocused]) => {
+    ]).then(([decorated, isMaximized, isFullscreen, isFocused]) => {
       if (disposed) return;
       setCustomFrame(!decorated);
       setMaximized(isMaximized);
+      setFullscreen(isFullscreen);
       setFocused(isFocused);
     }, reportError);
 
@@ -65,7 +74,7 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
       unlisteners.forEach((unlisten) => unlisten());
       setCustomFrame(false);
     };
-  }, [setCustomFrame]);
+  }, [setCustomFrame, setFullscreen]);
 
   useLayoutEffect(() => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return;
@@ -93,6 +102,40 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
       .catch(console.warn);
   }, [customFrame, theme]);
 
+  useEffect(() => {
+    if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame || fullscreen) return;
+
+    const appWindow = getCurrentWindow();
+    const dragThroughBackdrop = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        !(event.target instanceof Element) ||
+        !event.target.matches("[data-modal-backdrop]")
+      )
+        return;
+      const bounds = dragRegionRef.current?.getBoundingClientRect();
+      if (
+        !bounds ||
+        event.clientX < bounds.left ||
+        event.clientX >= bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY >= bounds.bottom
+      )
+        return;
+
+      // Keep the modal's dimming and input barrier. Only its backdrop over the
+      // existing blank titlebar region forwards this gesture to the native frame.
+      event.preventDefault();
+      event.stopPropagation();
+      void appWindow
+        .startDragging()
+        .catch((error: unknown) => console.warn("[window] modal drag failed", error));
+    };
+    document.addEventListener("mousedown", dragThroughBackdrop, true);
+    return () => document.removeEventListener("mousedown", dragThroughBackdrop, true);
+  }, [customFrame, fullscreen]);
+
   if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return null;
 
   const runWindowAction = (action: "minimize" | "toggleMaximize" | "close") => {
@@ -103,8 +146,10 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
         console.error(`[window] ${action} failed`, error);
       });
   };
+  // Keep caption controls at Windows' proportions, independently of the app's
+  // navigation buttons. Filled glyphs avoid softened half-pixel SVG strokes.
   const controlClass =
-    "inline-flex h-8 w-[46px] shrink-0 items-center justify-center text-[var(--foreground)] outline-none transition-colors duration-100";
+    "inline-flex h-[35px] w-[46px] shrink-0 items-center justify-center rounded-none text-[var(--foreground)] outline-none transition-colors duration-100";
   const neutralControlClass = `${controlClass} hover:bg-[var(--sidebar-accent)] focus-visible:bg-[var(--sidebar-accent)]`;
   const navigationControlClass =
     "flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-30";
@@ -142,7 +187,7 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
             <ArrowRightIcon size={18} weight="regular" aria-hidden="true" />
           </button>
         </IconTooltip>
-        {available && (
+        {available && !sidebarLocked && (
           <IconTooltip
             content={expanded ? t("app.collapseSidebar") : t("app.expandSidebar")}
             side="bottom"
@@ -158,57 +203,81 @@ export default function WindowTitlebar({ title = "BAAS" }: WindowTitlebarProps) 
             </button>
           </IconTooltip>
         )}
+        <TitlebarMenus />
       </div>
-      {/* Tauri handles native dragging and double-click maximize from this region. */}
-      <div data-tauri-drag-region className="flex h-8 min-w-0 flex-1 items-center px-3">
-        <span
-          className={`pointer-events-none truncate text-[12px] font-medium tracking-[0.02em] ${focused ? "opacity-70" : "opacity-40"}`}
-        >
-          {title}
-        </span>
-      </div>
-      <div className="-mt-1 flex h-8 shrink-0 items-stretch">
-        <IconTooltip content={t("app.minimize")} side="bottom">
-          <button
-            type="button"
-            className={neutralControlClass}
-            aria-label={t("app.minimize")}
-            onClick={() => runWindowAction("minimize")}
-          >
-            <svg aria-hidden="true" width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M0 5.5h10" stroke="currentColor" />
-            </svg>
-          </button>
-        </IconTooltip>
-        <IconTooltip content={maximized ? t("app.restore") : t("app.maximize")} side="bottom">
-          <button
-            type="button"
-            className={neutralControlClass}
-            aria-label={maximized ? t("app.restore") : t("app.maximize")}
-            onClick={() => runWindowAction("toggleMaximize")}
-          >
-            <svg aria-hidden="true" width="10" height="10" viewBox="0 0 10 10" fill="none">
-              {maximized ? (
-                <path d="M2.5 2.5v-2h7v7h-2m-7-5h7v7h-7z" stroke="currentColor" />
-              ) : (
-                <path d="M.5.5h9v9h-9z" stroke="currentColor" />
-              )}
-            </svg>
-          </button>
-        </IconTooltip>
-        <IconTooltip content={t("app.close")} side="bottom">
-          <button
-            type="button"
-            className={`${controlClass} hover:bg-[#c42b1c] hover:text-white focus-visible:bg-[#c42b1c] focus-visible:text-white`}
-            aria-label={t("app.close")}
-            onClick={() => runWindowAction("close")}
-          >
-            <svg aria-hidden="true" width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="m.75.75 8.5 8.5m0-8.5-8.5 8.5" stroke="currentColor" />
-            </svg>
-          </button>
-        </IconTooltip>
-      </div>
+      {/* Removing the native region also disables double-click maximize in fullscreen. */}
+      <div
+        ref={dragRegionRef}
+        data-tauri-drag-region={fullscreen ? undefined : ""}
+        className="h-8 min-w-0 flex-1"
+      />
+      {!fullscreen && (
+        <div className="-mt-1 flex h-[35px] shrink-0 items-stretch" data-window-caption-controls="">
+          <IconTooltip content={t("app.minimize")} side="bottom">
+            <button
+              type="button"
+              className={neutralControlClass}
+              aria-label={t("app.minimize")}
+              onClick={() => runWindowAction("minimize")}
+            >
+              <svg
+                aria-hidden="true"
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="currentColor"
+                shapeRendering="crispEdges"
+              >
+                <path d="M0 5h10v1H0z" />
+              </svg>
+            </button>
+          </IconTooltip>
+          <IconTooltip content={maximized ? t("app.restore") : t("app.maximize")} side="bottom">
+            <button
+              type="button"
+              className={neutralControlClass}
+              aria-label={maximized ? t("app.restore") : t("app.maximize")}
+              onClick={() => runWindowAction("toggleMaximize")}
+            >
+              <svg
+                aria-hidden="true"
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="currentColor"
+                shapeRendering="crispEdges"
+              >
+                {maximized ? (
+                  <path
+                    d="M2 0h8v8H8v2H0V2h2V0Zm1 2h5v5h1V1H3v1ZM1 3v6h6V3H1Z"
+                    fillRule="evenodd"
+                  />
+                ) : (
+                  <path d="M0 0h10v10H0V0Zm1 1v8h8V1H1Z" fillRule="evenodd" />
+                )}
+              </svg>
+            </button>
+          </IconTooltip>
+          <IconTooltip content={t("app.close")} side="bottom">
+            <button
+              type="button"
+              className={`${controlClass} hover:bg-[#c42b1c] hover:text-white focus-visible:bg-[#c42b1c] focus-visible:text-white`}
+              aria-label={t("app.close")}
+              onClick={() => runWindowAction("close")}
+            >
+              <svg
+                aria-hidden="true"
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="currentColor"
+              >
+                <path d="M.707 0 5 4.293 9.293 0 10 .707 5.707 5 10 9.293 9.293 10 5 5.707.707 10 0 9.293 4.293 5 0 .707Z" />
+              </svg>
+            </button>
+          </IconTooltip>
+        </div>
+      )}
     </header>
   );
 }

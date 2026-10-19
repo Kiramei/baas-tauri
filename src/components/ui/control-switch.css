@@ -1,0 +1,40 @@
+.control-switch {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 20px;
+  flex: 0 0 32px;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--control-track);
+  outline: none;
+  transition: background-color 150ms;
+}
+
+.dark .control-switch {
+  --control-track: #454545;
+}
+
+.control-switch[data-checked="true"],
+.control-switch[aria-checked="true"] {
+  background: var(--control-checked);
+}
+
+.control-switch-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px #0002;
+  transform: translateX(2px);
+  transition: transform 150ms;
+}
+
+.control-switch[data-checked="true"] .control-switch-thumb,
+.control-switch[aria-checked="true"] .control-switch-thumb {
+  transform: translateX(14px);
+}
+
+.control-switch:focus-visible {
+  box-shadow: 0 0 0 3px var(--ring);
+}

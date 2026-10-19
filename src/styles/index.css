@@ -4,6 +4,7 @@
 @import "./components/scrollbar.css";
 @import "./components/cursor.css";
 @import "./components/term.css";
+@import "../components/ui/modal-surface.css";
 @import "tw-animate-css";
 
 @plugin "@tailwindcss/typography";
@@ -94,6 +95,8 @@ body {
   --ring: #8f8f8f;
   --selection-background: #dce9ff;
   --selection-foreground: #1a1c1f;
+  --control-checked: #3a83f7;
+  --control-track: #d1d1d1;
   --scrollbar-thumb: rgb(26 28 31 / 20%);
   --scrollbar-thumb-hover: rgb(26 28 31 / 34%);
   --log-surface: #fafafa;
@@ -208,6 +211,16 @@ html[data-window-material="acrylic"] .app-window-frame {
   }
 }
 
+/* Text entry and select controls retain their existing surface on focus. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not(
+    [type="submit"]
+  ):not([type="reset"]):focus,
+textarea:focus,
+select:focus,
+[data-slot="select-trigger"]:focus {
+  outline: none;
+}
+
 input:-webkit-autofill {
   -webkit-text-fill-color: var(--foreground);
   box-shadow: 0 0 0 1000px var(--color-autofill) inset;
@@ -246,6 +259,10 @@ html.low-performance-mode *::after {
 
 html.low-performance-mode .animate-spin {
   animation: low-performance-spin 1s linear infinite !important;
+}
+
+#desktop-profile-pane [data-slot="search-input"] {
+  background: var(--sidebar-accent);
 }
 
 html.low-performance-mode * {

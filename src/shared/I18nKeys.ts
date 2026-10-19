@@ -158,17 +158,6 @@ const featureMap: Record<string, TranslationKey> = {
   whitelistDesc: "description.whitelist",
 };
 
-const wikiCategoryMap: Record<string, TranslationKey> = {
-  all: "wiki.category.all",
-  architecture: "wiki.category.architecture",
-  configuration: "wiki.category.configuration",
-  environment: "wiki.category.environment",
-  formation: "wiki.category.formation",
-  "getting-started": "wiki.category.getting-started",
-  operations: "wiki.category.operations",
-  support: "wiki.category.support",
-};
-
 export const artifactPhaseKey = (phase: number): TranslationKey =>
   i18nKey(`artifact.phase${phase}` as TranslationKey);
 
@@ -198,6 +187,3 @@ export const themeKey = (value: string): TranslationKey =>
 
 export const updateMethodKey = (value: string): TranslationKey =>
   fromRecord(updateMethodMap, value, "updateMethod.github");
-
-export const wikiCategoryKey = (value: string): TranslationKey =>
-  fromRecord(wikiCategoryMap, value, "wiki.category.all");

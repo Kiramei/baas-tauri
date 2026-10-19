@@ -6,6 +6,9 @@ import i18n from "@/shared/I18nTranslator.ts";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LoadingPage from "@/pages/LoadingPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
+import { normalizePageKey } from "@/shared/PageKey";
+import { AboutBaasProvider } from "@/context/AboutBaasProvider";
+import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
 
 const BAComet = React.lazy(() => import("@/components/ui/BAComet.tsx"));
 const ConfigArchiveDropOverlay = React.lazy(() => import("@/components/ConfigArchiveDropOverlay"));
@@ -53,7 +56,8 @@ const PageLoadingFallback: React.FC = () => (
 
 /** Renders the main component. */
 const Main: React.FC = () => {
-  const [activePage, setActivePage] = React.useState<PageKey>("home");
+  const [selectedPage, setActivePage] = React.useState<PageKey>("home");
+  const activePage = normalizePageKey(selectedPage);
   const { activeProfile } = useApp();
   const activePid = activeProfile?.id;
   const [mountedPages, setMountedPages] = useState<PageKey[]>(["home"]);
@@ -65,7 +69,7 @@ const Main: React.FC = () => {
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
    */
-  const renderPage = useCallback((page: PageKey, pid: string) => {
+  const renderPage = useCallback((page: PageKey, pid?: string) => {
     switch (page) {
       case "home":
         return <HomePage profileId={pid} />;
@@ -76,11 +80,11 @@ const Main: React.FC = () => {
       case "settings":
         return <SettingsPage />;
       default:
-        return null;
+        return <HomePage profileId={pid} />;
     }
   }, []);
 
-  if (!activeProfile || !activePid) {
+  if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
         {null}
@@ -91,18 +95,22 @@ const Main: React.FC = () => {
   return (
     <MainLayout activePage={activePage} setActivePage={setActivePage}>
       <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-56px)] lg:h-full">
-        {mountedPages.map((page) => {
-          const isActive = page === activePage;
-          return (
-            <div
-              key={instanceKeyOf(page, activePid)}
-              className={`android-page-scroll absolute inset-0 overflow-y-auto ${isActive ? "" : "hidden"}`}
-              aria-hidden={!isActive}
-            >
-              <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, activePid)}</Suspense>
-            </div>
-          );
-        })}
+        {mountedPages
+          .filter((page) => page === "settings" || activePid)
+          .map((page) => {
+            const isActive = page === activePage;
+            return (
+              <div
+                key={instanceKeyOf(page, activePid)}
+                className={`android-page-scroll absolute inset-0 overflow-y-auto ${isActive ? "" : "hidden"}`}
+                aria-hidden={!isActive}
+              >
+                <Suspense fallback={<PageLoadingFallback />}>
+                  {renderPage(page, activePid)}
+                </Suspense>
+              </div>
+            );
+          })}
       </div>
     </MainLayout>
   );
@@ -228,7 +236,11 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <WrappedApp />
+        <AboutBaasProvider>
+          <ProfileActionsProvider>
+            <WrappedApp />
+          </ProfileActionsProvider>
+        </AboutBaasProvider>
       </UISettingsProvider>
     </ThemeProvider>
   );

@@ -71,7 +71,11 @@ export const FormSelect: React.FC<FormSelectProps> = ({
         }}
         {...(global && { open, onOpenChange: handleOpenChange })}
       >
-        <SelectTrigger className="w-full" aria-label={ariaLabel}>
+        <SelectTrigger
+          className="w-full min-w-0"
+          aria-label={ariaLabel}
+          title={options.find((option) => option.value === value)?.label}
+        >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 

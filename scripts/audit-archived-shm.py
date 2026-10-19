@@ -1,7 +1,9 @@
 """Reproduce the archived receiver's fragmentation gap without restoring the app.
 
 Run: python scripts/audit-archived-shm.py
-Requires the archive ref locally and Rust dependencies in the Cargo cache.
+Requires the archived commit locally and Rust dependencies in the Cargo cache.
+The old remote branch has been retired; a saved Git bundle can restore its commit
+with `git fetch <archive.bundle> refs/remotes/origin/archive/shared-memory-wip-20260712`.
 The receiver probe injects explicit 64 KiB fragments. It does not claim that the
 default Python sender fragments a 100 KiB response. The archived Rust sender does
 fragment at 64 KiB; its default peer's reassembly must be audited separately.
@@ -88,10 +90,19 @@ fn main() {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ref", default="origin/archive/shared-memory-wip-20260712")
+    parser.add_argument("--ref", default="ccb75a4194f7d25cae00a5a0bb83011975644ad7")
     parser.add_argument("--out-dir", default=".codex_tmp/shared-memory-audit")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parent.parent
+    archived_commit = subprocess.run(
+        ["git", "cat-file", "-e", f"{args.ref}^{{commit}}"],
+        cwd=repository, capture_output=True,
+    )
+    if archived_commit.returncode:
+        parser.error(
+            "The historical snapshot is missing from this clone. Fetch it from the saved "
+            "Git bundle and retry, or use --ref to select an available archived snapshot."
+        )
     output = (repository / args.out_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
 

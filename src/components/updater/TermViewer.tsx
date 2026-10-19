@@ -17,6 +17,7 @@ import { Terminal } from "@xterm/xterm";
 import { invoke } from "@/shared/TauriInvoke";
 import { listen } from "@tauri-apps/api/event";
 import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObserver";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 
 export interface TerminalHandle {
   write: (chunk: string, onRendered?: () => void) => void;
@@ -121,7 +122,7 @@ interface TermTaskView {
 }
 
 interface TermViewerProps {
-  onAbort: () => void | Promise<void>;
+  onAbort?: () => void | Promise<void>;
   onReady?: () => void | Promise<void>;
   onFailure?: (failure: { step: string; message: string }) => void;
   onSessionFinished?: (success: boolean) => void;
@@ -443,8 +444,8 @@ const WorkflowGraph: React.FC<{
   if (!taskList.length) return null;
 
   return (
-    <div className="h-[80px] w-full min-w-0 shrink-0 overflow-hidden border-b border-border bg-black/90 dark:bg-black/50">
-      <div className="relative h-full w-full">
+    <div className="h-[80px] w-full min-w-0 shrink-0 overflow-x-auto overflow-y-hidden border-b border-white/10 bg-[#171717]">
+      <div className="relative h-full w-full min-w-[640px]">
         <svg
           className="pointer-events-none absolute inset-0 h-full w-full"
           viewBox={`0 0 ${layout.width} ${layout.height}`}
@@ -549,6 +550,7 @@ const TermViewer: React.FC<TermViewerProps> = ({
   onFailure,
   onSessionFinished,
 }) => {
+  const { t } = useAppTranslation();
   const terminalLogData = useGlobalLogStore((e) => e.terminalLogData);
   const appendTerminalLog = useGlobalLogStore((e) => e.appendTerminalLog);
   const appendTerminalLogs = useGlobalLogStore((e) => e.appendTerminalLogs);
@@ -792,48 +794,67 @@ const TermViewer: React.FC<TermViewerProps> = ({
   }, []);
 
   return (
-    <div className="rounded-lg border border-border bg-transparent text-card-foreground shadow-sm overflow-hidden flex flex-col h-100">
-      <div className="flex items-center justify-between px-3 py-0 border-b border-border bg-muted/50">
-        <div className="flex items-center gap-2">
-          <IconTooltip content="Abort" side="bottom">
-            <button
-              className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 focus:outline-none transition duration-150 ease-in-out"
-              aria-label="Abort"
-              onClick={() => void onAbort()}
-            />
+    <div
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
+      data-installer-terminal
+    >
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          <TerminalIcon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate">{t("installer.logs")}</span>
+          {Object.keys(tasks).length > 0 && (
+            <span className="ml-1 text-xs font-normal tabular-nums text-muted-foreground">
+              {
+                Object.values(tasks).filter(
+                  (task) => task.status === "success" || task.status === "skipped"
+                ).length
+              }
+              /{Object.keys(tasks).length}
+            </span>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          <IconTooltip content={t("settings.systemLogs.copy")} side="bottom">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label={t("settings.systemLogs.copy")}
+              onClick={copyLogs}
+            >
+              <Copy className="size-4" />
+            </Button>
           </IconTooltip>
-          <button className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 focus:outline-none transition duration-150 ease-in-out" />
-          <button className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 focus:outline-none transition duration-150 ease-in-out" />
+          {onAbort && (
+            <Button
+              variant="ghost"
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive"
+              onClick={() => void onAbort()}
+            >
+              {t("common.cancel")}
+            </Button>
+          )}
         </div>
-
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <TerminalIcon className="w-4 h-4" />
-          <span>Installation Logs</span>
-        </div>
-
-        <Button variant="ghost" size="icon" onClick={copyLogs}>
-          <Copy className="w-4 h-4" />
-        </Button>
       </div>
 
       <WorkflowGraph tasks={tasks} edges={edges} />
 
-      <div className="relative flex-1 overflow-auto bg-black/90 p-2 font-mono text-xs text-gray-300 dark:bg-black/50">
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171717] p-2 font-mono text-xs text-gray-300 sm:p-3">
         <TermEmulator ref={terminalRef} />
         {terminalDisplayState !== "active" && (
           <div
-            className="absolute inset-0 flex items-center justify-center bg-black/90 dark:bg-black/50"
+            className="absolute inset-0 flex items-center justify-center bg-[#171717]"
             role="status"
             aria-live="polite"
           >
             <div className="flex items-center gap-2 text-slate-400">
               {terminalDisplayState === "preparing" && (
-                <LoaderCircle className="h-4 w-4 animate-spin text-cyan-400" />
+                <LoaderCircle className="h-4 w-4 animate-spin text-slate-400" />
               )}
               <span>
                 {terminalDisplayState === "preparing"
-                  ? "Preparing terminal..."
-                  : "No terminal output."}
+                  ? t("installer.preparing")
+                  : t("installer.noOutput")}
               </span>
             </div>
           </div>

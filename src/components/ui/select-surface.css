@@ -1,0 +1,57 @@
+/* Select lists have their own surface; titlebar and context menus stay separate. */
+.select-surface {
+  --select-surface-solid: #fafafa;
+  --select-surface-tint: rgba(250, 250, 250, 0.94);
+  --select-surface-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.13), 0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --select-surface-highlight: rgba(0, 0, 0, 0.055);
+  --select-surface-selected: rgba(0, 0, 0, 0.025);
+  --select-surface-divider: rgba(0, 0, 0, 0.07);
+  border: none;
+  border-radius: 14px;
+  background: var(--select-surface-solid);
+  box-shadow: var(--select-surface-shadow);
+}
+.dark .select-surface {
+  --select-surface-solid: #2d2d2d;
+  --select-surface-tint: rgba(45, 45, 45, 0.94);
+  --select-surface-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28), 0 2px 7px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --select-surface-highlight: rgba(255, 255, 255, 0.075);
+  --select-surface-selected: rgba(255, 255, 255, 0.025);
+  --select-surface-divider: rgba(255, 255, 255, 0.07);
+}
+.select-surface .select-surface-item[data-state="checked"] {
+  background: var(--select-surface-selected);
+}
+.select-surface .select-surface-item[data-highlighted]:not([data-disabled]) {
+  background: var(--select-surface-highlight);
+}
+.select-surface .select-surface-separator {
+  background: var(--select-surface-divider);
+}
+
+.select-surface-item > span:last-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Old WebViews retain the solid surface when backdrop filtering is unavailable. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .select-surface {
+    background: var(--select-surface-tint);
+    -webkit-backdrop-filter: blur(10px) saturate(1.05);
+    backdrop-filter: blur(10px) saturate(1.05);
+  }
+}
+
+html.low-performance-mode .select-surface {
+  background: var(--select-surface-solid);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+  transition: none;
+}

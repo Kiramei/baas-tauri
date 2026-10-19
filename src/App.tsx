@@ -22,7 +22,9 @@ import HomePage from "@/pages/HomePage";
 import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
-import WikiPage from "@/pages/WikiPage.tsx";
+import { normalizePageKey } from "@/shared/PageKey";
+import { AboutBaasProvider } from "@/context/AboutBaasProvider";
+import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
 import PageActivity from "@/components/PageActivity";
 import SetupPage from "@/pages/SetupPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
@@ -80,14 +82,15 @@ const instanceKeyOf = (page: PageKey, pid?: string) =>
 const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
   if (k.includes(":")) {
     const [p, pid] = k.split(":");
-    return [p as PageKey, pid];
+    return [normalizePageKey(p), pid];
   }
-  return [k as PageKey, undefined];
+  return [normalizePageKey(k), undefined];
 };
 
 /** Renders the main component. */
-const Main: React.FC = () => {
-  const [activePage, setActivePage] = React.useState<PageKey>("home");
+export const Main: React.FC = () => {
+  const [selectedPage, setActivePage] = React.useState<PageKey>("home");
+  const activePage = normalizePageKey(selectedPage);
   const { activeProfile, profiles, setActiveProfile } = useApp();
   const navigationHistory = useNavigationHistoryController();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
@@ -97,6 +100,10 @@ const Main: React.FC = () => {
   useLayoutEffect(
     () =>
       navigationHistory.attach((view) => {
+        if (view.page === "settings") {
+          setActivePage("settings");
+          return true;
+        }
         const profile = profiles.find((item) => item.id === view.profileId);
         if (!profile) return false;
         setActiveProfile(profile);
@@ -108,7 +115,11 @@ const Main: React.FC = () => {
 
   useLayoutEffect(() => {
     navigationHistory.observe(
-      activePid ? { page: activePage, profileId: activePid } : null,
+      activePage === "settings"
+        ? { page: "settings" }
+        : activePid
+          ? { page: activePage, profileId: activePid }
+          : null,
       profiles.map((profile) => profile.id)
     );
   }, [navigationHistory, activePage, activePid, profiles]);
@@ -119,14 +130,14 @@ const Main: React.FC = () => {
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
-    if (!activePid) return;
+    if (!activePid && activePage !== "settings") return;
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
-  }, [activePid, currentKey]);
+  }, [activePid, activePage, currentKey]);
 
   /**
    * Lazily instantiate the requested page while injecting the active profile id when applicable.
    */
-  const renderPage = useCallback((page: PageKey, pid: string) => {
+  const renderPage = useCallback((page: PageKey, pid?: string) => {
     switch (page) {
       case "home":
         return <HomePage profileId={pid} />;
@@ -136,14 +147,12 @@ const Main: React.FC = () => {
         return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
       case "settings":
         return <SettingsPage />;
-      case "wiki":
-        return <WikiPage />;
       default:
-        return null;
+        return <HomePage profileId={pid} />;
     }
   }, []);
 
-  if (!activeProfile || !activePid) {
+  if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
         {null}
@@ -158,6 +167,7 @@ const Main: React.FC = () => {
       <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-70px)] lg:h-full">
         {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
+          if (page !== "settings" && !profiles.some((profile) => profile.id === pid)) return null;
           const isActive = instKey === currentKey;
           const pageContent = renderPage(page, pid ?? activePid);
           return (
@@ -292,16 +302,20 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <UISettingsProvider>
-        <WindowLayoutProvider>
-          <NavigationHistoryProvider>
-            <div className="app-window-frame flex h-full min-h-0 flex-col overflow-hidden text-foreground">
-              <WindowTitlebar />
-              <div className="app-workspace relative min-h-0 flex-1 overflow-hidden">
-                <WrappedApp />
-              </div>
-            </div>
-          </NavigationHistoryProvider>
-        </WindowLayoutProvider>
+        <AboutBaasProvider>
+          <ProfileActionsProvider>
+            <WindowLayoutProvider>
+              <NavigationHistoryProvider>
+                <div className="app-window-frame flex h-full min-h-0 flex-col overflow-hidden text-foreground">
+                  <WindowTitlebar />
+                  <div className="app-workspace relative min-h-0 flex-1 overflow-hidden">
+                    <WrappedApp />
+                  </div>
+                </div>
+              </NavigationHistoryProvider>
+            </WindowLayoutProvider>
+          </ProfileActionsProvider>
+        </AboutBaasProvider>
       </UISettingsProvider>
     </ThemeProvider>
   );

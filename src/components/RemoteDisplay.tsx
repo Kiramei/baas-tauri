@@ -493,8 +493,8 @@ export const RemoteDisplay: React.FC<RemoteDisplayProps> = ({
   };
 
   const titleNode = (
-    <div className="flex mb-2 w-full">
-      <h2 className="text-lg font-medium text-foreground">{t("remote.emulator")}</h2>
+    <div className="flex min-w-0 flex-1 items-center">
+      <h2 className="modal-title">{t("remote.emulator")}</h2>
       <div className="flex grow">
         <SlideOutButton width={400} className="ml-4" icon={<List className="h-5 w-5" />}>
           <div className="flex grow">

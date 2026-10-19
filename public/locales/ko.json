@@ -7,6 +7,9 @@
     "forward": "앞으로",
     "maximize": "최대화",
     "minimize": "최소화",
+    "modeBaasDescription": "일일 임무를 자동으로 처리합니다.",
+    "modeInDevelopment": "개발 중입니다. 기대해 주세요.",
+    "modeRaidDescription": "총력전 전투를 지원합니다.",
     "restore": "복원",
     "windowControls": "창 컨트롤"
   },
@@ -55,7 +58,7 @@
     "export": "로그 내보내기",
     "scroll": {
       "$self": "자동 스크롤",
-      "detail": "로그 텍스트 상자를 자동으로 스크롤합니다"
+      "detail": "최신 로그 따라가기"
     }
   },
   "task": {
@@ -80,8 +83,59 @@
     }
   },
   "settings": {
-    "feature": "기능 설정",
-    "general": "일반 설정",
+    "categories": "설정 카테고리",
+    "descriptions": {
+      "assets": "홈 화면에 게임 자원을 표시합니다.",
+      "idleAutoUpdate": "모든 프로필이 유휴 상태이면 스크립트를 자동으로 업데이트합니다.",
+      "language": "앱에서 사용할 표시 언어를 선택합니다.",
+      "lowPerformanceMode": "애니메이션과 시각 효과를 줄여 인터페이스의 처리 부하를 낮춥니다.",
+      "minimizeToTray": "최소화된 창을 시스템 트레이에 숨기고 백그라운드에서 계속 실행합니다.",
+      "safeStream": "WebSocket으로 전송하는 원격 미리보기 데이터를 암호화합니다.",
+      "systemNotifications": "작업 상태가 변경되거나 서비스 연결이 끊기면 시스템 알림을 표시합니다."
+    },
+    "feature": "기능",
+    "general": "일반",
+    "groups": {
+      "connection": "통신 및 원격 제어",
+      "desktop": "데스크톱 동작",
+      "display": "화면 및 효과",
+      "preferences": "환경설정"
+    },
+    "noResults": "일치하는 설정이 없습니다",
+    "search": "설정 검색",
+    "sections": {
+      "appearance": "모양",
+      "general": "일반",
+      "logs": "로그",
+      "runtime": "연결 및 실행",
+      "shortcuts": "단축키",
+      "updates": "업데이트"
+    },
+    "shortcuts": {
+      "application": "앱 단축키",
+      "binding": "키 조합",
+      "clear": "단축키 지우기",
+      "conflict": "이미 “{{shortcut}}”에 사용 중입니다.",
+      "defaultBinding": "기본값: {{binding}}",
+      "disabled": "미지정",
+      "escapeDescription": "기록 취소·대화상자 닫기·설치 취소.",
+      "global": "전역 작업 단축키",
+      "globalDescription": "BAAS가 백그라운드에 있어도 스케줄러를 조작합니다.",
+      "instructions": "키보드 아이콘으로 기록하고 비워서 사용을 중지합니다.",
+      "native": "텍스트 편집",
+      "nativeDescription": "시스템 기본 단축키로 별도 설정이 필요 없습니다.",
+      "nativeTextDescription": "입력 중이거나 텍스트를 선택했을 때 사용합니다.",
+      "profileDescription": "어느 창에서든 이 프로필의 스케줄러를 시작·정지합니다.",
+      "profileRun": "프로필 시작·정지",
+      "record": "단축키 기록",
+      "recordHint": "키 조합 입력, Esc로 취소",
+      "recording": "기록 중",
+      "recordMainKey": "일반 키를 하나 더 누르세요…",
+      "resetAll": "앱 단축키 초기화",
+      "resetButton": "기본값 복원",
+      "resetDescription": "앱 단축키를 초기화하고 프로필 전역 단축키는 유지합니다.",
+      "stopRecording": "기록 중지"
+    },
     "systemLogs": {
       "allLevels": "全部级别",
       "allSources": "全部来源",
@@ -103,8 +157,7 @@
       "title": "系统日志"
     },
     "ui": {
-      "$self": "UI 설정",
-      "assets": "자산 세부 정보 표시",
+      "assets": "게임 재화 표시",
       "backgroundImage": "배경 이미지",
       "backgroundImageChoose": "배경 선택",
       "backgroundImageEmpty": "설정된 배경 이미지 없음",
@@ -115,11 +168,11 @@
       "backgroundImageSelected": "배경 이미지가 설정되었습니다",
       "backgroundImageTooLarge": "배경 이미지는 5MB 이하여야 합니다.",
       "enableBAComet": "BAComet 켜기",
-      "enableSafeStream": "보안 스트림",
+      "enableSafeStream": "원격 영상 암호화",
       "enableSystemNotifications": "시스템 알림 활성화",
       "idleAutoUpdate": "유휴 상태에서 스크립트 자동 업데이트",
-      "lowPerformanceMode": "저성능 모드",
-      "player": "플레이어",
+      "lowPerformanceMode": "저사양 모드",
+      "player": "영상 디코더",
       "themeColor": "테마 색상",
       "themeColorInvalid": "#RRGGBB 형식의 테마 색상을 입력하세요.",
       "themeColorReset": "테마 색상 초기화"
@@ -150,13 +203,9 @@
   "version": {
     "checkError": "버전 정보를 가져오는 데 실패했습니다",
     "fetching": "가져오는 중...",
-    "info": "버전 정보",
     "local": "현재 버전",
     "remote": "최신 버전",
     "tapToTest": "업데이트 확인",
-    "tauriLocal": "클라이언트 현재",
-    "tauriRemote": "클라이언트 최신",
-    "tauriStatus": "클라이언트 상태",
     "testing": "테스트 중..."
   },
   "profile": {
@@ -185,55 +234,57 @@
     "nameExists": "이름이 이미 있습니다"
   },
   "description": {
-    "arena": "아레나 자동화",
+    "arena": "상대 및 도전 횟수",
     "artifact": {
-      "$self": "제조 설정",
+      "$self": "재료 및 노드 우선순위",
       "useTicket": "제조 티켓 사용"
     },
     "cafe": {
-      "$self": "카페 초대와 보상",
+      "$self": "학생 초대·상호작용·보상 수령",
       "patRounds": "횟수가 높을수록 놓칠 확률이 줄어듭니다"
     },
     "commonShop": {
-      "refresh": "자동으로 상점 새로고침"
+      "refresh": "구매 후 새로고침 횟수입니다. 0은 새로고침하지 않습니다."
     },
     "dailySweep": "일일 스테이지와 소탕",
-    "drill": "종합전술시험 설정",
+    "drill": "부대 및 시험 난이도",
     "emulator": "에뮬레이터 경로와 실행",
-    "finalRestrictionRls": "편성 방식과 클리어 편성 복사를 설정",
+    "finalRestrictionRls": "편성 선택 및 클리어 편성 복사",
     "getEmulator": "에뮬레이터 선택",
     "other": {
       "$self": "기타 설정",
-      "fhx": "검열 해제를 시도합니다 (중국 서버 전용)"
+      "fhx": "중국 서버 원본 일러스트 복원"
     },
     "push": "푸시 설정",
-    "schedule": "일일 일정",
+    "schedule": "스케쥴 지역 및 학생",
     "script": "스크립트 설정",
     "server": "서버와 연결",
     "settings": {
       "updateSuccess": "설정이 성공적으로 업데이트되었습니다."
     },
-    "shop": "구매 우선순위",
-    "stage": {
-      "$self": "자동 스테이지",
-      "hard": "하드 임무 설정도 위와 같습니다. 참고: 최대 3회, 쉼표는 영문 쉼표 사용. 일본/글로벌 서버는 'max' 입력 가능.",
-      "normal": "일반 임무 및 횟수 (예: \"1-1-1,1-2-3\"은 1-1 임무 1회, 그 다음 1-2 임무 3회)"
-    },
+    "shop": "구매할 상품",
+    "stage": "자동 스테이지",
     "tactical": "총력전 설정",
     "team": "편성 설정",
     "whitelist": "정리 조건과 친구 화이트리스트 설정"
   },
   "installer": {
     "advanced": "고급 설정",
+    "advancedHint": "언어, 모양, 업데이트 채널 및 연결 방식.",
+    "autoEnter": "설치 후 자동으로 열기",
+    "autoEnterHint": "끄면 설치 로그가 유지되며, “홈 열기”를 클릭하면 계속 진행합니다.",
+    "completed": "설치 완료",
+    "directoryHint": "실행 환경과 스크립트 파일이 이 폴더에 설치됩니다.",
+    "enter": "홈 열기",
+    "entering": "여는 중…",
     "exit": "설치 취소",
+    "logs": "설치 로그",
+    "noOutput": "아직 터미널 출력이 없습니다.",
+    "portableHint": "포터블 모드는 앱이 있는 폴더를 사용합니다.",
+    "preparing": "터미널 준비 중…",
     "setting": "설치 설정",
     "start": "설치 시작",
-    "subtitle": {
-      "stage1": "설치 구성",
-      "stage2": "환경을 설정하는 중입니다. 몇 분 정도 걸릴 수 있습니다."
-    },
     "title": {
-      "$self": "Blue Archive Auto Script에 오신 것을 환영합니다",
       "wizard": "설치 마법사"
     }
   },
@@ -254,38 +305,22 @@
     "validateKeySubtitle": "키 검증",
     "verifyingServerIdentity": "서버 ID 검증 중..."
   },
-  "wiki": {
-    "category": {
-      "all": "모두",
-      "architecture": "아키텍처",
-      "configuration": "구성 관리",
-      "environment": "환경 설정",
-      "formation": "편성 전략",
-      "getting-started": "시작하기",
-      "operations": "운영",
-      "support": "지원 및 피드백"
-    },
-    "subtitle": "BAAS 자동화 플랫폼을 위한 표준화된 가이드 및 운영 매뉴얼.",
-    "title": "위키 문서",
-    "web": {
-      "failed": "웹 Wiki 로드 실패",
-      "loading": "웹 Wiki 로드 중...",
-      "openBrowser": "브라우저에서 열기",
-      "title": "웹 Wiki"
-    }
-  },
   "scheduler": {
     "activeTasks": "활성 작업",
     "dailyReset": "일일 초기화 시간",
-    "detailConfig": "작업 상세 스케줄 설정",
+    "detailConfig": "작업 일정",
+    "disableAll": "모두 비활성화",
     "disabledRange": "비활성화 시간대",
+    "enableAll": "모두 활성화",
     "eventName": "작업 이름",
     "inactiveTasks": "비활성 작업",
     "interval": "간격 (초)",
     "nextTick": "다음 실행 시간",
+    "noResults": "일치하는 작업이 없습니다",
     "postTask": "후행 작업",
     "preTask": "선행 작업",
     "priority": "우선순위",
+    "resetTimes": "작업 시간 초기화",
     "search": "작업 검색",
     "selector": "작업 선택기",
     "sortByTime": "시간순 정렬",
@@ -293,29 +328,29 @@
   },
   "stage": {
     "$self": "스테이지",
-    "attrTable": "스테이지 속성 참조표",
-    "challenge": "챌린지 임무 클리어",
+    "attrTable": "스테이지 속성",
+    "challenge": "챌린지",
     "currentEvent": "현재 이벤트",
     "dailyTab": "임무 소탕",
     "eventTab": "이벤트 스테이지",
-    "exploreTab": "메인 스토리",
-    "hardLabel": "하드 임무 일일 소탕",
+    "exploreTab": "임무",
+    "hardLabel": "하드 임무",
     "hardTask": "하드 임무",
-    "manualBoss": "수동 보스전",
-    "mission": "미션 임무 클리어",
+    "manualBoss": "보스전 수동 조작",
+    "mission": "퀘스트",
     "noEvent": "현재 이벤트 없음",
     "noHardTask": "하드 임무가 설정되지 않았습니다!",
     "noNormalTask": "일반 임무가 설정되지 않았습니다!",
-    "normalLabel": "일반 임무 일일 소탕",
+    "normalLabel": "일반 임무",
     "normalTask": "일반 임무",
     "selectStudent": "학생 선택",
     "story": {
-      "$self": "스토리 임무 클리어",
-      "group": "서클 스토리 진행",
-      "main": "메인 스토리 진행",
-      "mini": "미니 스토리 진행"
+      "$self": "스토리",
+      "group": "그룹 스토리",
+      "main": "메인 스토리",
+      "mini": "미니 스토리"
     },
-    "sweepTab": "소탕 세부 정보",
+    "sweepTab": "기타 소탕",
     "taskTriggered": "할당된 작업: {{task}}",
     "taskTriggerStart": "작업이 할당되었습니다"
   },
@@ -342,24 +377,24 @@
     "starredPosition": "즐겨찾기 학생 위치",
     "useInvitation": "초대권 사용"
   },
-  "dailySweep": "일일",
+  "dailySweep": "일일 소탕",
   "schedule": {
-    "$self": "일정",
+    "$self": "스케쥴",
     "advanced": "상급",
-    "normal": "보통",
+    "normal": "중급",
     "primary": "초급",
     "superior": "최상급"
   },
   "shop": "상점",
   "arena": {
-    "$self": "아레나",
-    "higherLevel": "상대방이 당신보다 높은 레벨",
-    "maxRefreshTimes": "최대 새로고침 횟수",
-    "opponentNo": "상대 번호"
+    "$self": "전술 대회",
+    "higherLevel": "상대 레벨 차이",
+    "maxRefreshTimes": "새로고침 한도",
+    "opponentNo": "상대 위치"
   },
   "server": {
     "$self": "서버",
-    "adbIP": "ADB IP 주소",
+    "adbIP": "ADB 주소",
     "adbPort": "ADB 포트",
     "cn": {
       "bilibili": "빌리빌리 서버",
@@ -378,10 +413,10 @@
   "emulator": {
     "$self": "에뮬레이터",
     "address": "에뮬레이터 경로",
-    "instanceCount": "멀티 인스턴스 에뮬레이터 번호",
-    "multiInstance": "에뮬레이터 멀티 인스턴스",
+    "instanceCount": "인스턴스 번호",
+    "multiInstance": "멀티 인스턴스 사용",
     "multiType": "에뮬레이터 종류",
-    "openOnLaunch": "스크립트 실행 시 에뮬레이터 열기",
+    "openOnLaunch": "에뮬레이터 자동 실행",
     "types": {
       "bluestacksCn": "BlueStacks CN",
       "bluestacksGlobal": "BlueStacks Global",
@@ -392,7 +427,7 @@
       "xiaoyaoNat": "MEmu (NAT)",
       "yeshen": "NoxPlayer"
     },
-    "waitTime": "에뮬레이터 시작 대기 시간 (초)"
+    "waitTime": "실행 대기(초)"
   },
   "push": {
     "$self": "푸시",
@@ -409,7 +444,7 @@
     "$self": "종합전술시험",
     "difficulty": "시험 난이도",
     "outPartyNo": "부대 번호",
-    "useAllAfterSweep": "출격 후 모든 시험 티켓 사용"
+    "useAllAfterSweep": "출격 후 남은 횟수 소탕"
   },
   "artifact": {
     "$self": "제조",
@@ -417,36 +452,36 @@
     "blue": "파란색",
     "createTime": "제조 횟수",
     "default": "기본값",
-    "global": "전역 설정",
+    "global": "기본 설정",
     "gold": "금색",
-    "goldPurple": "금색/보라색",
-    "materialSelect": "재료 선택",
-    "phase1": "1단계",
+    "goldPurple": "금색·보라색",
+    "materialSelect": "투입 재료",
+    "phase1": "1차 노드",
     "phase2": {
-      "$self": "2단계",
-      "recommend": "학생 기반 추천"
+      "$self": "2차 노드",
+      "recommend": "학생별 추천"
     },
-    "phase3": "3단계",
-    "phaseCount": "제조 단계",
+    "phase3": "3차 노드",
+    "phaseCount": "제조 단계 수",
     "priority": "우선순위",
     "purple": "보라색",
     "selectStudent": "학생 선택",
     "white": "흰색",
-    "whiteBlue": "흰색/파란색"
+    "whiteBlue": "흰색·파란색"
   },
   "whitelist": "친구 정리",
   "script": {
     "$self": "스크립트",
-    "autostart": "스크립트 실행 시 자동 시작",
-    "controlMethod": "제어 방식",
+    "autostart": "작업 자동 시작",
+    "controlMethod": "조작 방식",
     "doNothing": "아무것도 안 함",
-    "exitBaas": "블루 아카이브 종료",
-    "exitBoth": "블루 아카이브 및 에뮬레이터 종료",
+    "exitBaas": "BAAS 종료",
+    "exitBoth": "BAAS 및 에뮬레이터 종료",
     "exitEmu": "에뮬레이터 종료",
-    "screenshotInterval": "스크린샷 간격 (초)",
-    "screenshotMethod": "스크린샷 방식",
+    "screenshotInterval": "캡처 간격(초)",
+    "screenshotMethod": "캡처 방식",
     "shutdown": "컴퓨터 종료",
-    "then": "작업 완료 후 작업"
+    "then": "작업 완료 후"
   },
   "tactical": {
     "$self": "총력전",
@@ -460,24 +495,23 @@
     "side": "사이드바 속성별"
   },
   "lesson": {
-    "enableFavorStudent": "즐겨찾기 학생 우선",
+    "enableFavorStudent": "즐겨찾기 우선",
     "favorStudent": "즐겨찾기 학생",
-    "region": "스케쥴 지역",
-    "relationshipFirst": "호감도 높은 학생 우선",
-    "times": "스케쥴 횟수"
+    "region": "지역",
+    "relationshipFirst": "인연 상승 우선",
+    "times": "횟수"
   },
   "sweep": {
-    "activityNumber": "이벤트 스테이지 소탕 스테이지",
-    "activityTimes": "이벤트 스테이지 소탕 횟수",
-    "purchaseLesson": "스케쥴 티켓 구매 횟수",
-    "purchaseRewarded": "현상수배 티켓 구매 횟수",
-    "purchaseScrimmage": "학원 교류회 티켓 구매 횟수",
-    "rewarded": "현상수배 소탕 횟수",
-    "rewardedHint": "게임 내 지역 순서대로 입력하세요({{count}}개 지역). 0 이상의 정수 또는 max를 사용할 수 있으며, 0은 건너뜁니다.",
+    "activityNumber": "이벤트 스테이지",
+    "activityTimes": "이벤트 소탕",
+    "purchaseLesson": "스케쥴 티켓 구매",
+    "purchaseRewarded": "현상수배 티켓 구매",
+    "purchaseScrimmage": "학원교류회 티켓 구매",
+    "rewarded": "현상수배",
     "rewardedInvalid": "0 이상의 정수 또는 max를 입력하세요.",
     "rewardedRegion": "지역 {{number}}",
-    "scrimmage": "학원 교류회 소탕 횟수",
-    "special": "특별의뢰 소탕 횟수"
+    "scrimmage": "학원교류회",
+    "special": "특별의뢰"
   },
   "remote": {
     "advanced": "고급 설정",
@@ -521,12 +555,12 @@
     "burst": "폭발",
     "coin": {
       "arena": "전술 코인",
-      "commission": "교류회 코인"
+      "commission": "현상수배 코인"
     },
     "credits": "크레딧 포인트",
     "keystone": {
       "$self": "기동석",
-      "piece": "조각"
+      "piece": "기동석 조각"
     },
     "mystic": "신비",
     "pass": "패스",
@@ -537,39 +571,39 @@
   },
   "eventName": {
     "activitySweep": "이벤트 소탕",
-    "arena": "전술 대항전",
+    "arena": "전술 대회",
     "cafeReward": "카페",
     "clearSpecialTaskPower": "특별의뢰",
     "collectDailyFreePower": "무료 AP 수령",
     "collectDailyPower": "일일 AP 수령",
     "collectReward": "보상 수령",
     "commonShop": "상점 구매",
-    "create": "자동 제조",
+    "create": "제조",
     "dailyGameActivity": "일일 미니게임",
     "friend": "친구 정리",
     "group": "서클 AP 수령",
-    "hardTask": "하드 임무 AP 소모",
-    "jointFiringDrill": "합동 화력 시험",
+    "hardTask": "하드 임무 소탕",
+    "jointFiringDrill": "종합전술시험",
     "lesson": "스케쥴",
     "mail": "우편함 확인",
     "momoTalk": "자동 모모톡",
-    "no1CafeInvite": "1호점 카페 초대",
-    "no2CafeInvite": "2호점 카페 초대",
-    "normalTask": "일반 임무 AP 소모",
+    "no1CafeInvite": "카페 1호점 초대",
+    "no2CafeInvite": "카페 2호점 초대",
+    "normalTask": "일반 임무 소탕",
     "pass": "패스 보상 수령",
     "restart": "오전 4시에 재시작",
     "rewardedTask": "현상수배",
-    "scrimmage": "학원 교류회",
+    "scrimmage": "학원교류회",
     "startExploreActivityChallenge": "이벤트 챌린지",
     "startExploreActivityMission": "이벤트 미션",
     "startExploreActivityStory": "이벤트 스토리",
-    "startFhx": "FHX",
+    "startFhx": "원본 일러스트 복원",
     "startGroupStory": "그룹 스토리",
-    "startHardTask": "하드 스테이지",
+    "startHardTask": "하드 임무",
     "startMainStory": "메인 스토리",
     "startMiniStory": "미니 스토리",
-    "startNormalTask": "노멀 스테이지",
-    "tacticalChallengeShop": "전술 대항전 상점 구매",
+    "startNormalTask": "일반 임무",
+    "tacticalChallengeShop": "전술 대회 상점 구매",
     "totalAssault": "총력전",
     "unknown": "알 수 없는 작업"
   },
@@ -640,8 +674,20 @@
     "noData": "ADB 데이터 없음",
     "title": "ADB 감지 패널"
   },
+  "applicationShortcutHelp": {
+    "back": "이전 페이지나 프로필로 돌아갑니다.",
+    "forward": "다음 페이지나 프로필로 이동합니다.",
+    "fullscreen": "전체 화면을 켜거나 끕니다.",
+    "redo": "취소한 설정 변경을 다시 실행합니다.",
+    "resetZoom": "화면 배율을 100%로 되돌립니다.",
+    "settings": "앱 설정을 엽니다.",
+    "sidebar": "프로필 사이드바를 접거나 펼칩니다. 설정에서는 항상 열립니다.",
+    "undo": "최근 설정 변경을 취소합니다. 검색창에서는 텍스트를 되돌립니다.",
+    "zoomIn": "화면을 확대합니다.",
+    "zoomOut": "화면을 축소합니다."
+  },
   "commonShop": {
-    "refreshTimes": "상점 새로고침 횟수",
+    "refreshTimes": "새로고침 횟수",
     "title": "일반 상점"
   },
   "configAdd": {
@@ -651,45 +697,210 @@
     "selectServer": "서버를 선택하세요",
     "serverRequired": "서버를 지정해야 합니다"
   },
+  "configuration": {
+    "categories": "설정 분류",
+    "history": "변경 기록",
+    "noResults": "검색 결과 없음",
+    "search": "설정 검색"
+  },
+  "configurationCounts": {
+    "activityEntry": "이벤트 스테이지 {{number}}",
+    "activityHint": "AP 비율은 현재 AP 기준입니다.",
+    "all": "모든 횟수",
+    "allActivity": "전체 AP 균등 분배",
+    "amount": "횟수",
+    "bountyClassroom": "교실",
+    "bountyOverpass": "고가도로",
+    "bountyRailroad": "사막 기찻길",
+    "countHint": "위에서부터 실행하며 횟수가 소진되면 중지합니다.",
+    "fixed": "횟수 지정",
+    "legacyHint": "기존 설정을 유지합니다. 초기화하면 다시 설정할 수 있습니다.",
+    "legacyTitle": "저장된 설정",
+    "maximumPurchases": "구매 한도",
+    "mode": "소탕 방식",
+    "percent": "AP 비율(%)",
+    "replace": "초기화",
+    "scrimmageGehenna": "게헨나",
+    "scrimmageMillennium": "밀레니엄",
+    "scrimmageTrinity": "트리니티",
+    "share": "AP 비율",
+    "skip": "실행 안 함",
+    "specialDefense": "거점 방어",
+    "specialRetrieval": "물건 회수"
+  },
+  "configurationDifficulties": {
+    "extreme": "Extreme",
+    "hard": "Hard",
+    "hardcore": "Hardcore",
+    "insane": "Insane",
+    "normal": "Normal",
+    "torment": "Torment",
+    "veryHard": "Very Hard"
+  },
+  "configurationHelp": {
+    "adbAddress": "보통 127.0.0.1입니다. 기기 시리얼을 사용하려면 여기에 입력하고 포트를 비우세요.",
+    "adbPort": "포트는 0~65535이며 자동 감지도 가능합니다. 주소가 비어 있으면 시리얼을 입력할 수 있습니다.",
+    "arenaLevel": "내 계정과 상대의 허용 레벨 차이입니다. -89~89를 지원합니다.",
+    "arenaOpponent": "목록의 1·2·3번째 상대 중 선택합니다.",
+    "arenaRefresh": "적절한 상대를 찾을 때 목록을 새로고침할 최대 횟수입니다.",
+    "artifactCreateTimes": "작업당 1~10회 제조합니다.",
+    "artifactMaterialRule": "이 노드에 투입할 재료 희귀도입니다.",
+    "artifactPhases": "제조할 노드 수를 선택하고 각 우선순위를 설정합니다.",
+    "artifactRecommendedPriority": "학생을 선택하면 2차 노드 추천 순서를 적용합니다.",
+    "artifactUseTicket": "제조 가속 티켓으로 대기 시간을 줄입니다.",
+    "cafeCollectReward": "카페에 쌓인 수익을 수령합니다.",
+    "cafeDuplicateInvite": "이미 초대한 학생을 다시 초대할 수 있습니다.",
+    "cafeExchangeStudent": "같은 학생의 다른 의상 버전도 초대합니다.",
+    "cafeInviteMode": "인연 랭크·즐겨찾기 위치·이름으로 선택합니다.",
+    "cafePatNormal": "일반 상호작용",
+    "cafePatStyle": "카페 학생과 상호작용하는 방식입니다.",
+    "cafeSecondCafe": "카페 2호점과 초대 설정을 사용합니다.",
+    "cafeStarredPosition": "즐겨찾기 목록의 1~5번째 학생을 선택합니다.",
+    "cafeStudents": "초대할 학생을 추가하세요. ×로 삭제합니다.",
+    "cafeUseInvitation": "초대권으로 학생을 초대합니다.",
+    "controlMethod": "기기나 에뮬레이터에서 지원하는 조작 방식을 선택하세요.",
+    "drillDifficulty": "출격 순서대로 각 부대의 난이도를 설정합니다.",
+    "drillFormation": "출격 순서대로 프리셋 부대 번호를 선택합니다.",
+    "drillSweep": "지정한 전투 후 남은 횟수를 소탕합니다.",
+    "emulatorInstance": "실행할 개수가 아닌 멀티 인스턴스 관리자의 번호입니다.",
+    "emulatorLaunch": "스크립트 시작 시 이 에뮬레이터를 엽니다.",
+    "emulatorMulti": "멀티 인스턴스 관리자로 지정한 인스턴스를 실행합니다.",
+    "emulatorPath": "에뮬레이터 실행 파일을 선택하세요.",
+    "emulatorWait": "실행 후 지정한 초만큼 기다린 뒤 연결합니다.",
+    "finalMethod": "현재 편성을 사용하거나 클리어 기록에서 복사합니다.",
+    "finalRefresh": "사용할 편성을 찾을 때 클리어 기록을 새로고침할 최대 횟수입니다.",
+    "finalUnavailable": "복사할 편성에서 사용 불가 학생을 0~10명까지 허용합니다.",
+    "friendCode": "이 서버의 친구 코드를 입력하고 추가하세요.",
+    "friendLevel": "정리할 레벨 기준입니다. -1은 사용 안 함입니다.",
+    "friendLogin": "정리할 미접속 일수입니다. -1은 사용 안 함입니다.",
+    "friendRank": "지난 총력전 순위 기준입니다. -1은 사용 안 함입니다.",
+    "friendWhitelist": "목록의 친구는 정리하지 않습니다. ×로 보호를 해제합니다.",
+    "hardSweepPlan": "스테이지와 횟수를 정하거나 학생의 엘레프가 나오는 모든 스테이지를 추가합니다.",
+    "lessonFavorEnabled": "즐겨찾기의 학생을 우선합니다.",
+    "lessonFavorOrder": "왼쪽부터 우선합니다. 이름을 드래그해 순서를 바꾸세요.",
+    "lessonRegionTable": "스케쥴 지역",
+    "lessonRegionTableHint": "허용 등급과 횟수를 설정하세요. 0은 건너뜁니다.",
+    "lessonRelationshipFirst": "인연 포인트를 얻을 수 있는 학생이 많은 장소를 우선합니다.",
+    "manualBoss": "스테이지 진행 중 보스전을 직접 조작합니다.",
+    "normalSweepPlan": "선택한 스테이지를 목록 순서대로 소탕합니다.",
+    "pushCompletion": "이 프로필의 모든 작업이 끝나면 알립니다.",
+    "pushError": "작업 오류 시 아래 서비스로 알립니다.",
+    "pushJson": "JSON 알림 설정입니다. 사용하지 않으면 비워 두세요.",
+    "pushServerchan": "ServerChan 설정입니다. 사용하지 않으면 비워 두세요.",
+    "screenshotInterval": "캡처 간격입니다. 최소 0.1초입니다.",
+    "screenshotMethod": "기기에서 지원하는 캡처 방식을 선택하세요.",
+    "scriptAutostart": "스크립트 시작 시 이 프로필의 작업을 실행합니다.",
+    "scriptThen": "모든 작업 완료 후 실행할 동작입니다.",
+    "server": "이 프로필의 서버입니다. 다른 서버는 새 프로필을 만드세요.",
+    "sweepPurchaseLesson": "스케쥴 티켓 구매 횟수입니다. 0은 구매하지 않습니다.",
+    "sweepPurchaseRewarded": "현상수배 티켓 구매 횟수입니다. 0은 구매하지 않습니다.",
+    "sweepPurchaseScrimmage": "학원교류회 티켓 구매 횟수입니다. 0은 구매하지 않습니다.",
+    "sweepTicketsTitle": "티켓 구매",
+    "tacticalDifficulty": "총력전 도전 난이도입니다.",
+    "teamMethod": "프리셋·사이드바 속성·사이드바 순서로 부대를 선택합니다.",
+    "teamPreset": "게임 프리셋 순서에 맞춰 각 칸의 속성을 설정합니다.",
+    "teamSide": "사이드바 순서대로 부대 속성을 설정합니다."
+  },
+  "configurationMethods": {
+    "adbControl": "ADB로 터치와 스와이프를 보냅니다.",
+    "adbScreenshot": "ADB로 기기 화면을 캡처합니다.",
+    "mssScreenshot": "Windows 게임 창의 화면 영역을 캡처합니다.",
+    "nemuControl": "Nemu 인터페이스를 사용합니다. 경로와 인스턴스가 일치해야 합니다.",
+    "nemuScreenshot": "Nemu로 캡처합니다. 경로와 인스턴스가 일치해야 합니다.",
+    "pyautoguiControl": "시스템 마우스를 사용하여 실제 포인터가 움직입니다.",
+    "pyautoguiScreenshot": "화면에 표시된 Windows 게임 창을 캡처합니다.",
+    "scrcpyControl": "scrcpy 연결로 터치 조작을 보냅니다.",
+    "scrcpyScreenshot": "scrcpy 영상 스트림에서 캡처합니다.",
+    "uiautomator2Control": "기기의 uiautomator2 서비스로 조작합니다.",
+    "uiautomator2Screenshot": "기기의 uiautomator2 서비스로 캡처합니다."
+  },
+  "edit": {
+    "actionFailed": "편집 작업에 실패했습니다. 클립보드 권한을 확인하고 다시 시도해 주세요.",
+    "cut": "잘라내기",
+    "redo": "다시 실행",
+    "selectAll": "모두 선택",
+    "unavailable": "현재 선택 항목에서는 이 작업을 사용할 수 없습니다.",
+    "undo": "실행 취소"
+  },
   "export": {
     "log": {
       "folderSelect": "로그 내보내기 위치 선택"
     }
   },
+  "file": {
+    "openConfigFolder": "설정 폴더 열기",
+    "openConfigFolderFailed": "설정 폴더를 열 수 없습니다."
+  },
   "finalRestrictionRls": {
-    "$self": "제한 해제 결전",
+    "$self": "제약해제결전",
     "copyClearFormation": "클리어 편성 복사",
     "copyClearUnavailableHint": "“클리어 편성 복사”를 선택하면 설정할 수 있습니다.",
     "formationMethod": "편성 방식",
-    "maxRefreshCount": "클리어 편성 최대 새로고침 횟수",
-    "maxUnavailableStudentCount": "사용 불가 학생 최대 수",
+    "maxRefreshCount": "편성 새로고침 한도",
+    "maxUnavailableStudentCount": "사용 불가 학생 한도",
     "useCurrentFormation": "현재 편성 사용"
   },
   "friend": {
     "add": "추가",
     "addFailed": "추가 실패",
     "alreadyExists": "친구가 이미 존재합니다",
-    "disabledThresholdHint": "-1을 입력하면 해당 조건이 비활성화됩니다.",
     "empty": "친구 화이트리스트가 비어 있습니다",
     "filters": "정리 조건",
     "invalidFormatCN": "CN 코드는 숫자와 소문자",
     "invalidFormatGlobal": "Global 코드는 대문자",
     "invalidLength": "잘못된 친구 코드 길이",
-    "lastLoginDays": "마지막 로그인 일수 임계값",
-    "lastTotalAssaultRankLimit": "이전 총력전 순위 임계값",
-    "levelLimit": "친구 레벨 임계값",
+    "lastLoginDays": "미접속 일수",
+    "lastTotalAssaultRankLimit": "지난 총력전 순위",
+    "levelLimit": "레벨 기준",
     "placeholder": "친구 코드 입력",
     "whitelist": "친구 화이트리스트"
+  },
+  "friendlyBounty": {
+    "activityStageOption": "스테이지 {{number}}",
+    "activityStageSaved": "스테이지 {{number}}(저장됨)"
+  },
+  "friendlyPriority": {
+    "addChapter": "지역 추가",
+    "chapter": "지역",
+    "chapterLabel": "지역 {{chapter}}",
+    "emptyExplore": "추가된 지역이 없습니다.",
+    "emptyLegacy": "저장된 빈 항목",
+    "emptyPriority": "설정된 우선 노드가 없습니다.",
+    "keyboardHint": "Space로 선택, 방향키로 이동, Enter로 확인, Esc로 취소.",
+    "legacyValue": "유지된 이전 설정. 삭제 후 다시 선택 가능",
+    "mission": "스테이지",
+    "missionA": "스테이지 A",
+    "missionLabel": "스테이지 {{mission}}",
+    "moveDown": "아래로",
+    "moveUp": "위로",
+    "noResults": "일치하는 노드가 없습니다",
+    "position": "{{item}}, {{total}}개 중 {{position}}번째",
+    "reorderHint": "손잡이를 드래그해 정렬합니다. 위일수록 우선합니다.",
+    "reorderItem": "{{item}} 순서 변경",
+    "searchNodes": "노드 검색",
+    "selectNodes": "노드 선택",
+    "wholeChapter": "지역 전체"
   },
   "heartbeat": {
     "connected": "서비스에 연결되었습니다",
     "connecting": "서비스에 연결 중..."
+  },
+  "help": {
+    "documentation": "문서",
+    "openFailed": "문서를 열 수 없습니다. 다시 시도해 주세요.",
+    "title": "도움말"
   },
   "home": {
     "preparing": "준비 중"
   },
   "label": {
     "installDir": "설치 디렉터리"
+  },
+  "menu": {
+    "bar": "앱 메뉴",
+    "edit": "편집",
+    "file": "파일",
+    "view": "보기"
   },
   "placeholder": {
     "config": {
@@ -698,22 +909,34 @@
     "nobinding": "바인딩 없음",
     "profileName": "여기에 프로필 이름을 입력하세요"
   },
-  "select": {
-    "placeholder": "선택"
-  },
   "student": {
     "add": "학생 추가",
     "search": "학생 검색"
   },
-  "switch": {
-    "off": "꺼짐",
-    "on": "켜짐"
+  "sweepPlan": {
+    "add": "스테이지 추가",
+    "chapter": "지역",
+    "count": "소탕 횟수",
+    "countMode": "횟수 설정",
+    "down": "아래로",
+    "empty": "추가된 스테이지가 없습니다.",
+    "emptyEntry": "빈 항목",
+    "fixedCount": "횟수 지정",
+    "invalidChapter": "이 서버에서 제공하는 지역을 선택하세요.",
+    "invalidCount": "0 이상의 정수를 입력하세요.",
+    "invalidFormat": "저장된 항목이 불완전하거나 지원하지 않는 형식입니다.",
+    "invalidMission": "이 모드에서 제공하는 스테이지를 선택하세요.",
+    "maximum": "최대 횟수",
+    "maxUnsupported": "중국 서버 하드 임무는 횟수를 지정해야 합니다.",
+    "mission": "스테이지",
+    "remove": "스테이지 삭제",
+    "repair": "원래 값을 유지합니다. 삭제 후 다시 추가하여 수정하세요.",
+    "row": "항목 {{number}}",
+    "unsaved": "잘못된 항목을 수정하거나 삭제하면 자동 저장됩니다.",
+    "up": "위로"
   },
   "tacticalShop": {
-    "title": "전술 대항전 상점"
-  },
-  "title": {
-    "wiki": "문서"
+    "title": "전술 대회 상점"
   },
   "toast": {
     "dateUpdated": "날짜가 업데이트됨",
@@ -729,8 +952,8 @@
     "zoom": "UI 확대/축소 설정"
   },
   "updateChannel": {
-    "dev": "Development",
-    "stable": "Stable"
+    "dev": "개발 버전",
+    "stable": "안정 버전"
   },
   "updateMethod": {
     "baasCdn": "BAAS CDN",
@@ -745,6 +968,14 @@
     "githubProxyV6": "GitHub v6 Proxy",
     "mirrorc": "MirrorC",
     "sevencdn": "SevenCDN"
+  },
+  "view": {
+    "fullscreen": "전체 화면",
+    "fullscreenFailed": "전체 화면 모드를 전환할 수 없습니다.",
+    "resetZoom": "확대/축소 초기화",
+    "sidebar": "사이드바 표시",
+    "zoomIn": "확대",
+    "zoomOut": "축소"
   },
   "workflow": {
     "arrange": "자동 정렬",

@@ -1,29 +1,21 @@
-import React, { useState, useMemo } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import React, { useMemo, useState } from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/Textarea";
-import { useTranslation } from "react-i18next";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+  ConfigurationSelect,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import { PriorityListEditor } from "@/components/configuration/PriorityListEditor";
+import StudentSelectorModal from "@/components/StudentSelectorModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import StudentSelectorModal from "@/components/StudentSelectorModal.tsx";
-import { serverMap } from "@/shared/GlobalUtilities.ts";
-import { DynamicConfig } from "@/types/dynamic";
-import CButton from "@/components/ui/CButton.tsx";
+import { serverMap } from "@/shared/GlobalUtilities";
 import { artifactPhaseKey } from "@/shared/I18nKeys";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
-type ArtifactConfigProps = {
-  onClose: () => void;
-  profileId: string;
-};
-
+type ArtifactConfigProps = { onClose: () => void; profileId: string };
 type Draft = {
   use_acceleration_ticket: boolean;
   createTime: string | number;
@@ -34,260 +26,195 @@ type Draft = {
   createPriority_phase1: string[];
   createPriority_phase2: string[];
   createPriority_phase3: string[];
-  // Configuration overrides for each crafting phase.
-  phases: {
-    method: string;
-    priority: string;
-  }[];
 };
+const priorityList = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.map(String)
+    : typeof value === "string"
+      ? value
+          .split(">")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+const serialize = (draft: Draft) =>
+  draft.createTime === "" ||
+  !Number.isInteger(Number(draft.createTime)) ||
+  Number(draft.createTime) < 1 ||
+  Number(draft.createTime) > 10
+    ? null
+    : { ...draft, createTime: String(Number(draft.createTime)) };
 
-/** Renders the artifact config component. */
-const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ onClose, profileId }) => {
-  const { t } = useTranslation();
-
+/** Crafting behavior and material priorities are edited inline and saved automatically. */
+const ArtifactConfig: React.FC<ArtifactConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
-  const modify = useWebSocketStore((state) => state.modify);
-
-  /** Hydrate the form with the latest server-side values. */
-  const ext = useMemo(() => {
-    return {
-      use_acceleration_ticket: settings.use_acceleration_ticket,
-      createTime: settings.createTime,
-      create_phase: settings.create_phase,
-      create_phase_1_select_item_rule: settings.create_phase_1_select_item_rule,
-      create_phase_2_select_item_rule: settings.create_phase_2_select_item_rule,
-      create_phase_3_select_item_rule: settings.create_phase_3_select_item_rule,
-      createPriority_phase1: settings.createPriority_phase1,
-      createPriority_phase2: settings.createPriority_phase2,
-      createPriority_phase3: settings.createPriority_phase3,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-  const [baseline] = useState<Draft>(ext);
-
-  /** Track whether the user has modified the draft state. */
-  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
-
-  /** Persist only the fields that have diverged from the server baseline. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
+  const staticConfig = useWebSocketStore((state) => state.staticStore);
+  const ext = useMemo<Draft>(
+    () => ({
+      use_acceleration_ticket: settings.use_acceleration_ticket ?? false,
+      createTime: settings.createTime ?? "1",
+      create_phase: settings.create_phase ?? 1,
+      create_phase_1_select_item_rule: settings.create_phase_1_select_item_rule ?? "default",
+      create_phase_2_select_item_rule: settings.create_phase_2_select_item_rule ?? "primary_normal",
+      create_phase_3_select_item_rule:
+        settings.create_phase_3_select_item_rule ?? "advanced_superior",
+      createPriority_phase1: priorityList(settings.createPriority_phase1),
+      createPriority_phase2: priorityList(settings.createPriority_phase2),
+      createPriority_phase3: priorityList(settings.createPriority_phase3),
+    }),
+    [settings]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId, "artifact", ext, { serialize });
+  const [tab, setTab] = useState("global");
+  const [studentSelector, setStudentSelector] = useState(false);
+  const methods: Record<number, { value: string; label: string }[]> = {
+    1: [{ value: "default", label: t("artifact.default") }],
+    2: [
+      { value: "primary", label: t("artifact.white") },
+      { value: "normal", label: t("artifact.blue") },
+      { value: "primary_normal", label: t("artifact.whiteBlue") },
+      { value: "advanced", label: t("artifact.gold") },
+      { value: "superior", label: t("artifact.purple") },
+      { value: "advanced_superior", label: t("artifact.goldPurple") },
+      { value: "primary_normal_advanced_superior", label: t("artifact.all") },
+    ],
+    3: [
+      { value: "advanced", label: t("artifact.gold") },
+      { value: "superior", label: t("artifact.purple") },
+      { value: "advanced_superior", label: t("artifact.goldPurple") },
+    ],
   };
-
   return (
-    <div className="space-y-4">
-      <Tabs defaultValue="global" className="w-full">
-        <TabsList className="w-full">
+    <div className="space-y-6">
+      <Tabs
+        value={tab !== "global" && Number(tab.slice(5)) > draft.create_phase ? "global" : tab}
+        onValueChange={setTab}
+      >
+        <TabsList className="flex w-full">
           <TabsTrigger value="global">{t("artifact.global")}</TabsTrigger>
-          {Array.from({ length: draft.create_phase }).map((_, i) => (
-            <TabsTrigger key={i} value={`phase${i + 1}`}>
-              {t(artifactPhaseKey(i + 1))}
+          {Array.from({ length: draft.create_phase }, (_, index) => (
+            <TabsTrigger key={index} value={`phase${index + 1}`}>
+              {t(artifactPhaseKey(index + 1))}
             </TabsTrigger>
           ))}
         </TabsList>
-
-        {/* Global configuration */}
         <TabsContent value="global">
-          <div className="flex flex-col justify-between gap-4 mt-4">
-            <SwitchButton
+          <ConfigurationGroup title={t("artifact.global")}>
+            <ConfigurationToggle
               label={t("description.artifact.useTicket")}
+              description={t("configurationHelp.artifactUseTicket")}
               checked={draft.use_acceleration_ticket}
-              onChange={(v) => setDraft((d) => ({ ...d, use_acceleration_ticket: v }))}
-            />
-
-            <FormInput
-              id="createTime"
-              label={t("artifact.createTime")}
-              type="number"
-              value={draft.createTime}
-              onChange={(e) => setDraft((d) => ({ ...d, createTime: e.target.value }))}
-              min="1"
-              max="10"
-            />
-
-            <FormSelect
-              label={t("artifact.phaseCount")}
-              value={draft.create_phase.toString()}
-              onChange={(v) =>
-                setDraft((d) => ({
-                  ...d,
-                  create_phase: Number(v),
-                }))
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, use_acceleration_ticket: value }))
               }
-              options={[1, 2, 3].map((p) => ({
-                value: p.toString(),
-                label: p.toString(),
-              }))}
             />
-          </div>
+            <ConfigurationInput
+              label={t("artifact.createTime")}
+              description={t("configurationHelp.artifactCreateTimes")}
+              type="number"
+              min={1}
+              max={10}
+              value={draft.createTime}
+              aria-invalid={
+                draft.createTime !== "" &&
+                (!Number.isInteger(Number(draft.createTime)) ||
+                  Number(draft.createTime) < 1 ||
+                  Number(draft.createTime) > 10)
+              }
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, createTime: event.target.value }))
+              }
+            />
+            <ConfigurationSelect
+              label={t("artifact.phaseCount")}
+              description={t("configurationHelp.artifactPhases")}
+              value={String(draft.create_phase)}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, create_phase: Number(value) }))
+              }
+              options={[1, 2, 3].map((value) => ({ value: String(value), label: String(value) }))}
+            />
+          </ConfigurationGroup>
         </TabsContent>
-
-        {/* Phase-specific configuration */}
-        {Array.from({ length: draft.create_phase }, (_, i) => i).map((i) => (
-          <TabsContent key={i} value={`phase${i + 1}`}>
-            <ArtifactPhaseConfig
-              phase={i + 1}
-              draft={draft}
-              settings={settings}
-              setDraft={setDraft}
-            />
-          </TabsContent>
-        ))}
+        {Array.from({ length: draft.create_phase }, (_, index) => (index + 1) as 1 | 2 | 3).map(
+          (phase) => {
+            const methodKey = `create_phase_${phase}_select_item_rule` as const;
+            const priorityKey = `createPriority_phase${phase}` as const;
+            return (
+              <TabsContent key={phase} value={`phase${phase}`}>
+                <ConfigurationGroup title={t(artifactPhaseKey(phase))}>
+                  <ConfigurationSelect
+                    label={t("artifact.materialSelect")}
+                    description={t("configurationHelp.artifactMaterialRule")}
+                    value={draft[methodKey]}
+                    onChange={(value) =>
+                      setDraft((current) => ({ ...current, [methodKey]: value }))
+                    }
+                    options={methods[phase]}
+                  />
+                  {phase === 2 && (
+                    <ConfigurationRow
+                      label={t("artifact.phase2.recommend")}
+                      description={t("configurationHelp.artifactRecommendedPriority")}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setStudentSelector(true)}
+                        className="rounded-lg bg-secondary px-3 py-2 text-sm hover:bg-secondary/70"
+                      >
+                        {t("artifact.selectStudent")}
+                      </button>
+                    </ConfigurationRow>
+                  )}
+                  <ConfigurationRow
+                    label={t("artifact.priority")}
+                    description={t("friendlyPriority.reorderHint")}
+                    className="configuration-row-stacked"
+                  >
+                    <PriorityListEditor
+                      ariaLabel={t("artifact.priority")}
+                      value={draft[priorityKey]}
+                      options={
+                        staticConfig.create_default_priority?.[serverMap[settings.server]]?.[
+                          `phase${phase}`
+                        ] ?? []
+                      }
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          [priorityKey]: value,
+                        }))
+                      }
+                    />
+                  </ConfigurationRow>
+                </ConfigurationGroup>
+              </TabsContent>
+            );
+          }
+        )}
       </Tabs>
-
-      {/* Save action */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-/* ---------- Phase Configuration ---------- */
-type ArtifactPhaseConfigProps = {
-  phase: number;
-  draft: Draft;
-  settings: Partial<DynamicConfig>;
-  setDraft: React.Dispatch<React.SetStateAction<Draft>>;
-};
-
-/** Renders the artifact phase config component. */
-const ArtifactPhaseConfig: React.FC<ArtifactPhaseConfigProps> = ({
-  settings,
-  phase,
-  draft,
-  setDraft,
-}) => {
-  const { t } = useTranslation();
-  const [openStudentModal, setOpenStudentModal] = useState(false);
-
-  const phaseMethods: Record<number, Record<string, string>> = {
-    1: { default: t("artifact.default") },
-    2: {
-      primary: t("artifact.white"),
-      normal: t("artifact.blue"),
-      primary_normal: t("artifact.whiteBlue"),
-      advanced: t("artifact.gold"),
-      superior: t("artifact.purple"),
-      advanced_superior: t("artifact.goldPurple"),
-      primary_normal_advanced_superior: t("artifact.all"),
-    },
-    3: {
-      advanced: t("artifact.gold"),
-      superior: t("artifact.purple"),
-      advanced_superior: t("artifact.goldPurple"),
-    },
-  };
-
-  const staticConfig = useWebSocketStore((state) => state.staticStore);
-
-  const getPhase2RecommendedPriority = (name: string): string[] => {
-    const indexes = staticConfig.create_phase2_recommended_priority[name];
-    const originPriority =
-      staticConfig.create_default_priority[serverMap[settings.server!]]["phase2"];
-    const resPriority = indexes.map((i: any) => originPriority[i]);
-
-    originPriority.forEach((_: any, i: number) => {
-      if (!indexes.includes(i)) {
-        resPriority.push(originPriority[i]);
-      }
-    });
-    return resPriority;
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Material selection */}
-      <div>
-        <label className="block mb-1">{t("artifact.materialSelect")}</label>
-        <Select
-          value={draft[`create_phase_${phase}_select_item_rule` as keyof Draft] as string}
-          onValueChange={(val) =>
-            setDraft((d) => {
-              return { ...d, [`create_phase_${phase}_select_item_rule`]: val };
-            })
-          }
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(phaseMethods[phase]).map(([key, label]) => (
-              <SelectItem key={key} value={key}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Recommended priority (phase 2 only) */}
-      {phase === 2 && (
-        <div>
-          <label className="block mb-1">{t("artifact.phase2.recommend")}</label>
-          <CButton
-            className="w-full"
-            variant={"secondary"}
-            onClick={() => setOpenStudentModal(true)}
-          >
-            {t("artifact.selectStudent")}
-          </CButton>
-        </div>
-      )}
-
-      {/* Crafting priority */}
-      <div>
-        <label className="block mb-1">{t("artifact.priority")}</label>
-        <Textarea
-          value={
-            (draft[`createPriority_phase${phase}` as keyof Draft] as string[]).join(" > ") || ""
-          }
-          onChange={(e) =>
-            setDraft((d) => {
-              return {
-                ...d,
-                [`createPriority_phase${phase}`]: e.target.value.split(">").map((s) => s.trim()),
-              };
-            })
-          }
-          placeholder="A > B > C"
-          className="min-h-[120px]"
-        />
-      </div>
       <StudentSelectorModal
-        isOpen={openStudentModal}
-        onClose={function (): void {
-          setOpenStudentModal(false);
-        }}
-        allStudents={Object.keys(staticConfig.create_phase2_recommended_priority)}
+        isOpen={studentSelector}
+        onClose={() => setStudentSelector(false)}
+        allStudents={Object.keys(staticConfig.create_phase2_recommended_priority ?? {})}
         selected={[]}
-        onChange={function (list: string[]): void {
-          const priority = getPhase2RecommendedPriority(list[0]);
-          setDraft((d) => ({ ...d, createPriority_phase2: priority }));
-          setOpenStudentModal(false);
+        onChange={(students) => {
+          const name = students[0];
+          if (!name) return;
+          const indexes: number[] = staticConfig.create_phase2_recommended_priority?.[name] ?? [];
+          const original: string[] =
+            staticConfig.create_default_priority?.[serverMap[settings.server]]?.phase2 ?? [];
+          const priority = [
+            ...indexes
+              .filter((index) => index >= 0 && index < original.length)
+              .map((index) => original[index]),
+            ...original.filter((_, index) => !indexes.includes(index)),
+          ];
+          setDraft((current) => ({ ...current, createPriority_phase2: priority }));
+          setStudentSelector(false);
         }}
       />
     </div>
   );
 };
-
 export default ArtifactConfig;

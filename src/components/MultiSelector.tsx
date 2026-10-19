@@ -3,7 +3,7 @@ import { Plus, X } from "lucide-react";
 import React, { useDeferredValue, useMemo, useState } from "react";
 import { cn } from "@/shared/cn";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -67,9 +67,11 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      translateName(s.toString()).toString().toLowerCase().includes(deferredQuery.toLowerCase())
+      (translatePrefix === "eventName" ? t(eventNameKey(s.toString())) : s.toString())
+        .toLowerCase()
+        .includes(deferredQuery.toLowerCase())
     );
-  }, [alternatives, deferredQuery]);
+  }, [alternatives, deferredQuery, translatePrefix, t]);
 
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
@@ -81,19 +83,20 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-[1200]">
-      <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+      <div data-modal-backdrop="" className="fixed inset-0 bg-black/40" aria-hidden="true" />
       <div
+        data-modal-backdrop=""
         className="fixed inset-0 flex items-center justify-center p-4"
         style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
       >
         <DialogPanel
-          className="w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-[var(--popover-shadow)]"
+          className="modal-surface w-full max-w-3xl overflow-y-auto overscroll-contain"
           style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
         >
-          <div className="flex justify-between items-center mb-4">
-            <DialogTitle className="text-lg font-semibold">{t("scheduler.selector")}</DialogTitle>
-            <button onClick={onClose}>
-              <X className="w-5 h-5 text-muted-foreground" />
+          <div className="modal-header">
+            <DialogTitle className="modal-title">{t("scheduler.selector")}</DialogTitle>
+            <button onClick={onClose} aria-label={t("common.close")} className="modal-close">
+              <X className="size-4" />
             </button>
           </div>
 

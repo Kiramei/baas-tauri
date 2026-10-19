@@ -16,7 +16,7 @@ type MenuState = {
 };
 
 const menuClass =
-  "fixed z-[9999] w-[208px] max-w-[calc(100vw-16px)] select-none rounded-[8px] border border-[var(--menu-border)] bg-[var(--menu-background)] p-[6px] text-foreground shadow-[var(--menu-shadow)] backdrop-blur-xl backdrop-saturate-125";
+  "fixed z-[9999] w-[208px] max-w-[calc(100vw-16px)] select-none rounded-[8px] border-none bg-[var(--menu-background)] p-[6px] text-foreground shadow-[var(--menu-shadow)] backdrop-blur-xl backdrop-saturate-125";
 
 const itemClass =
   "flex h-7 w-full cursor-default items-center justify-between gap-4 rounded-[4px] px-3 text-left text-[13px] leading-5 outline-none hover:bg-[var(--menu-hover)] focus-visible:bg-[var(--menu-hover)] disabled:pointer-events-none disabled:opacity-40";

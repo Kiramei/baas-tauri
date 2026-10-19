@@ -1,0 +1,245 @@
+.app-page-scroll[data-page="scheduler"] {
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+}
+
+.scheduler-task-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  min-height: 54px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scheduler-task-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.scheduler-task-counts > svg {
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.scheduler-enabled-count {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.scheduler-count-divider {
+  opacity: 0.5;
+}
+
+.scheduler-task-bulk-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.scheduler-task-bulk-actions > button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  white-space: nowrap;
+  transition:
+    color 150ms,
+    background-color 150ms;
+}
+
+.scheduler-task-bulk-actions > button:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.scheduler-task-bulk-actions > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.scheduler-task-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.scheduler-task-rows {
+  margin: 0;
+  /* The scroll track and switch hit area supply the trailing inset. */
+  padding: 6px 4px 8px 8px;
+  list-style: none;
+}
+
+.scheduler-task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content 76px;
+  align-items: center;
+  gap: 4px 16px;
+  min-height: 52px;
+  padding: 8px 0 8px 8px;
+  border-radius: 8px;
+  color: var(--foreground);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.scheduler-task-row:hover {
+  background: var(--surface-secondary);
+}
+
+.scheduler-task-row[data-enabled="false"] {
+  color: var(--muted-foreground);
+}
+
+.scheduler-task-row[data-starts-inactive="true"] {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.scheduler-task-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.scheduler-task-row[data-enabled="false"] .scheduler-task-name {
+  font-weight: 400;
+}
+
+.scheduler-task-time {
+  min-width: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scheduler-task-time > div {
+  height: 30px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: var(--surface-secondary);
+}
+
+.scheduler-task-time input,
+.scheduler-task-time > div > span {
+  height: 28px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.scheduler-task-time input {
+  min-width: 0;
+}
+
+.scheduler-task-row[data-enabled="false"] .scheduler-task-time {
+  opacity: 0.7;
+}
+
+.scheduler-task-row[data-enabled="false"] .scheduler-task-time:focus-within {
+  opacity: 1;
+}
+
+.scheduler-task-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.scheduler-task-edit,
+.scheduler-task-toggle {
+  display: inline-flex;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    color 150ms,
+    background-color 150ms;
+}
+
+.scheduler-task-edit {
+  width: 32px;
+}
+
+.scheduler-task-toggle {
+  width: 40px;
+}
+
+.scheduler-task-edit:hover,
+.scheduler-task-toggle:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.scheduler-task-edit:focus-visible,
+.scheduler-task-toggle:focus-visible,
+.scheduler-task-bulk-actions > button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.scheduler-task-empty {
+  display: flex;
+  min-height: 140px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 639px) {
+  .scheduler-task-toolbar {
+    gap: 8px;
+  }
+
+  .scheduler-task-list-header {
+    padding: 10px 12px;
+  }
+
+  .scheduler-task-rows {
+    padding: 4px 0 6px 4px;
+  }
+
+  .scheduler-task-row {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    gap: 4px 8px;
+    padding: 8px 0 8px 8px;
+  }
+
+  .scheduler-task-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .scheduler-task-time {
+    display: none;
+  }
+}

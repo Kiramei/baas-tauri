@@ -1,6 +1,6 @@
 import { IconTooltip } from "@/components/ui/Tooltip";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
@@ -35,7 +35,7 @@ const ANDROID_GAME_PACKAGES: Record<string, string> = {
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
  */
 const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const scrollToEnd = useUISetting((settings) => settings.scrollToEnd);
   const assetsDisplay = useUISetting((settings) => settings.assetsDisplay);
   const setUiSettings = useSetUISettings();
@@ -289,7 +289,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               onClick={scriptRunning ? stopScript : startScript}
               aria-label={scriptRunning ? t("common.stop") : t("common.start")}
               variant={scriptRunning ? "danger" : "primary"}
-              className="ml-2 h-[34px] gap-1.5 rounded-lg px-3.5 py-0 text-xs"
+              className="ml-2 h-8.5 gap-1.5 rounded-lg px-3.5 py-0 text-xs"
               disabled={androidVirtualDisplayBusy}
             >
               {scriptRunning ? (
@@ -359,9 +359,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
 
       {/* Logs form the main workspace; controls stay quiet until they are needed. */}
       <section
-        className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-[var(--log-surface)] shadow-[var(--log-card-shadow)] ${isAndroid ? "min-h-0" : "min-h-64"}`}
+        className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-(--log-surface) shadow-(--log-card-shadow) ${isAndroid ? "min-h-0" : "min-h-64"}`}
       >
-        <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5">
+        <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5 border-b border-b-(--workspace-divider)">
           <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
             <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
             {t("log")}
@@ -378,10 +378,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
                 onClick={() => setUiSettings((state) => ({ ...state, scrollToEnd: !scrollToEnd }))}
                 aria-label={t("log.scroll")}
                 aria-pressed={scrollToEnd}
-                className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
+                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
               >
                 <ArrowDownToLine className="h-3.5 w-3.5" strokeWidth={1.6} />
-                <span className="hidden sm:inline">{t("log.scroll")}</span>
               </button>
             </IconTooltip>
             <IconTooltip content={t("log.export")}>
@@ -396,7 +395,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             </IconTooltip>
           </div>
         </div>
-        <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden pb-3 pt-1">
+        <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden py-2 px-2">
           {remoteAvailable && remoteVisible && activeConfigId && (
             <RemoteDisplay profileId={activeConfigId} />
           )}

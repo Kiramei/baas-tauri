@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useMemo, useRef } from "react";
 import type { LogItem } from "@/types/app";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
 import { List } from "react-window";
 import { type ListImperativeAPI, type RowComponentProps, useDynamicRowHeight } from "react-window";
 import { Logs } from "lucide-react";
+import { getLogLevelColor } from "@/shared/LogPresentation";
 import { useTranslation } from "react-i18next";
+import { IconTooltip } from "@/components/ui/Tooltip";
+import { tokenizeScriptLog } from "@/shared/ScriptLogHighlight";
+import "./script-log-highlight.css";
 
 interface LoggerProps {
   logs: LogItem[];
@@ -15,78 +19,40 @@ interface LoggerProps {
 
 const LOG_ROW_LINE_HEIGHT = 20;
 
-const getLevelColor = (level: string) => {
-  switch (level) {
-    case "INFO":
-      return "text-muted-foreground";
-    case "WARNING":
-      return "text-amber-600 dark:text-amber-400";
-    case "ERROR":
-      return "text-red-600 dark:text-red-400";
-    case "CRITICAL":
-      return "text-violet-600 dark:text-violet-400";
-    default:
-      return "text-muted-foreground/60";
-  }
-};
-
-const getMessageStyle = (level: string) => {
-  switch (level) {
-    case "INFO":
-      return "text-foreground font-normal border-l-[3px] border-gray-400";
-    case "WARNING":
-      return "text-amber-700 dark:text-amber-300 font-bold border-l-[5px] border-amber-500";
-    case "ERROR":
-      return "text-red-600 dark:text-red-300 font-bold border-l-[5px] border-red-500";
-    case "CRITICAL":
-      return "text-violet-700 dark:text-violet-300 font-bold border-l-[5px] border-violet-500";
-    default:
-      return "text-foreground font-normal border-l-[3px] border-gray-400";
-  }
-};
-
-const getLogLevelDisplay = (level: string) => {
-  switch (level) {
-    case "INFO":
-      return "INFO";
-    case "WARNING":
-      return "WARN";
-    case "ERROR":
-      return "FAIL";
-    case "CRITICAL":
-      return "CRIT";
-    default:
-      return "DBUG";
-  }
-};
-
 /** Renders the row component. */
 const Row = ({ index, logs, style }: RowComponentProps<{ logs: LogItem[] }>) => {
   const log: LogItem = logs[index];
+  const tokens = useMemo(() => tokenizeScriptLog(log.message), [log.message]);
   return (
     <div
-      style={style}
-      className="flex cursor-text items-start px-2 font-mono text-[12px] leading-5"
+      style={{ ...style, width: "max-content", minWidth: "100%" }}
+      className="flex cursor-text items-start gap-2 pr-2 font-mono text-[12px] leading-5 hover:bg-foreground/[0.035]"
     >
+      <IconTooltip content={log.level} side="right">
+        <span
+          role="img"
+          aria-label={log.level}
+          data-log-level={log.level}
+          className="w-[3px] shrink-0 self-stretch"
+          style={{ backgroundColor: getLogLevelColor(log.level) }}
+        />
+      </IconTooltip>
       {/* Time */}
       <span className="hidden min-w-[88px] shrink-0 whitespace-nowrap tabular-nums text-muted-foreground sm:block">
         {formatIsoToReadableTime(log.time)}
       </span>
 
-      {/* Level */}
-      <span
-        className={`mr-2 flex w-3 shrink-0 justify-end font-bold sm:min-w-11 ${getLevelColor(log.level)}`}
-      >
-        {/* Show only the first letter on small screens and the full label on larger screens. */}
-        <span className="block sm:hidden">{getLogLevelDisplay(log.level).trim().charAt(0)}</span>
-        <span className="hidden sm:block">{getLogLevelDisplay(log.level)}</span>
-      </span>
-
       {/* Message */}
-      <div
-        className={`min-w-0 flex-1 whitespace-pre-wrap wrap-break-word pl-2 ${getMessageStyle(log.level)}`}
-      >
-        {log.message}
+      <div className="script-log-message shrink-0 whitespace-pre font-normal text-foreground">
+        {tokens.map((token, tokenIndex) =>
+          token.kind === "plain" ? (
+            token.text
+          ) : (
+            <span key={tokenIndex} className={`script-log-token-${token.kind}`}>
+              {token.text}
+            </span>
+          )
+        )}
       </div>
     </div>
   );
@@ -108,6 +74,7 @@ const Logger: React.FC<LoggerProps> = ({ logs = [], scrollToEnd = false }) => {
     <div className="allow-select-text relative h-full min-h-0 w-full overflow-hidden text-foreground">
       {logs.length > 0 ? (
         <List
+          style={{ overflowX: "auto" }}
           listRef={listRef}
           rowComponent={Row}
           rowCount={logs.length}

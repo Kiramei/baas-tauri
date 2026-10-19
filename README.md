@@ -71,7 +71,7 @@ flowchart LR
 | 🗓️ Scheduler     | Enable tasks, edit next run time, search, sort, set intervals, daily reset windows, pre-tasks, and post-tasks.                                     |
 | 🧩 Configuration | Configure server, emulator, script, stages, sweeps, teams, cafe, lessons, shop, crafting, combat, maintenance, push, and more.                     |
 | 🎛️ Settings      | Tune theme, language, background, UI scale, remote decoder, safe stream, low performance mode, update channel, source, MirrorC CDK, and SHA tests. |
-| 📚 Docs          | Load the Fumadocs documentation site inside the app Wiki page or detach it into a normal Tauri window.                                             |
+| 📚 Docs          | Open the documentation site in your system's default browser from Help → Documentation.                                                            |
 
 ## 🖼️ Screenshots
 
@@ -204,11 +204,11 @@ baas-tauri/
 `-- .github/workflows/      # release and documentation deployment workflows
 ```
 
-## 📖 Wiki Behavior
+## 📖 Documentation
 
-The app no longer uses the old local Wiki as the primary documentation surface. The Wiki page loads the web documentation site by default.
+Choose **Help → Documentation** in the desktop titlebar to open the documentation site in your system's default browser.
 
-The Docs page can open the same site in your system's default browser. The embedded documentation remains available in the app.
+The app no longer embeds a Wiki page. The standalone Fumadocs site remains in `docs/` and retains its existing deployment workflow.
 
 ## License
 
