@@ -492,6 +492,7 @@ def _ensure_android_support_files(root):
         pass
     _apply_bundled_android_overlay(root)
     _patch_android_ocr_module_injection(root)
+    _patch_android_ocr_process_abi(root)
     _reuse_android_ocr_prebuild(root)
     _patch_android_ocr_session_readiness(root)
     _patch_android_cafe_swipe_timing(root)
@@ -643,6 +644,22 @@ def _patch_android_ocr_session_readiness(root):
         "        _original_task_name = task_name\n"
         "        if task_name in _TASK_ALIAS:\n",
     )
+
+
+def _patch_android_ocr_process_abi(root):
+    # Some emulators report an ARM kernel while loading x86_64 app libraries.
+    for relative in (
+        "service/android_ocr_client.py",
+        "service/android_ocr_installer.py",
+        "core/ocr/baas_ocr_client/server_installer.py",
+    ):
+        _replace_once(
+            root / relative, "BAAS_ANDROID_OCR_PROCESS_ABI_V1",
+            '    arch = platform.machine().lower()\n    if arch in {"aarch64", "arm64"}:\n',
+            "    # BAAS_ANDROID_OCR_PROCESS_ABI_V1\n"
+            "    from android_backend.process_abi import machine\n"
+            '    arch = machine()\n    if arch in {"aarch64", "arm64"}:\n',
+        )
 
 
 def _reuse_android_ocr_prebuild(root):
