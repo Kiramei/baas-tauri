@@ -97,6 +97,15 @@ text. The installer capture applies temporary inline blur and checks the
 computed filter, including low-effects mode and visible tooltip commands.
 Restore the temporary styles even if capture fails.
 
+Two legacy images have local Gaussian blur baked into their PNG pixels. Run
+`node docs/scripts/blur-private-media.mjs` from the repository root to verify
+their recorded output hashes; it skips already processed files and refuses
+unknown source hashes. The source/region plan is in the script, and
+`evidence/legacy-media-blur.json` records dimensions, source/output hashes,
+changed-pixel counts, zero changes outside the regions and visual review.
+Original unblurred media is not copied into public output. Changes require
+fresh visual review and OCR; changing a hash alone cannot clear a finding.
+
 `scripts/capture-installer.mjs 19235 failed en` captures the deliberately missing
 entrypoint scenario in a disposable backend. The `completed` scenario reuses an
 existing backend and custom Python. Neither proves a fresh download or managed

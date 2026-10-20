@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-20T05:42:29.8313060Z",
+  "checkedAt": "2026-10-20T07:01:37.0231737Z",
   "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
   "imageFiles": 343,
   "decodedFrames": 351,
   "decodingFailures": 0,
   "unresolvedPatternFindings": 0,
-  "inventorySha256": "d86216ec9e4974c3bad27cd1ad427fe56030efb14ac941544f58885a4caa3aae",
+  "inventorySha256": "213f46684396bc7329f8c1d31d394c4c44a8ace871e28d2f32174ebaeba9f21b",
   "reviewedFindings": [
     {
       "file": "media/desktop/en/config-emulator.png",
@@ -20,19 +20,24 @@
       "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
     }
   ],
-  "publicationReviewComplete": false,
-  "pendingVisualFindings": [
+  "reviewedRedactions": [
     {
       "file": "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png",
-      "sha256": "63687ea8697e1699c19c8b02c6b095949a0da672f1f292a9193bc2f74bda9757",
-      "category": "legacy-game-nickname"
+      "sha256": "026b63a3c95e886f4521e8dc5b0800ef9c9799633f2db9aa2029d90613be45b0",
+      "category": "legacy-game-nickname",
+      "method": "Local Gaussian blur, visually reviewed; region and pixel checks in legacy-media-blur.json.",
+      "regions": 1
     },
     {
       "file": "backend-assets/auto_fight/cvat_ai_guide1.png",
-      "sha256": "d62368a01839956743bdbd75a3791646396bd2a3779103705ff13bc3b6288f13",
-      "category": "legacy-shared-account-and-job-identifiers"
+      "sha256": "ae19eb2b6dbd2ceb511c6bac99da7ec0a37171c1864fa46735ab09a6a8cb98a3",
+      "category": "legacy-shared-account-and-job-identifiers",
+      "method": "Local Gaussian blur, visually reviewed; region and pixel checks in legacy-media-blur.json.",
+      "regions": 6
     }
   ],
-  "redaction": "New installer captures use local 12px blur before writing PNGs. The capture checks computed blur styles, including low-effects mode and visible node tooltips. Unblurred installer captures and OCR text are excluded from published assets.",
+  "publicationReviewComplete": false,
+  "pendingVisualFindings": [],
+  "redaction": "New installer captures use local 12px blur before writing PNGs, including low-effects mode and visible tooltips. Two legacy images use Gaussian blur baked into their PNG pixels; original/output hashes, regions, pixel checks and visual review are recorded separately. Unblurred captures and OCR text are excluded from published assets.",
   "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review."
 }

@@ -45,7 +45,7 @@ checks. This is not the final documentation delivery.
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
 | Search/links/media/build                             | 289 browser cases; 74 exported HTML pages checked; 75-route build                                                                                             | Recheck after future edits and final deployment                                                                          |
-| Media/content privacy                                | 14 installer captures use local blur; all 343 raster files/351 frames checked with local OCR; obsolete sensitive assets removed; inventory-bound report/tests | Further manual review for names, QR codes, private hosts and changed media                                               |
+| Media/content privacy                                | 14 installer captures use local blur; two legacy images use baked-in Gaussian blur; 343 raster files/351 frames checked with local OCR; inventory-bound report/tests | Further manual review for names, QR codes, private hosts and changed media                                           |
 | Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
 ## Configuration Checkpoint
@@ -191,12 +191,22 @@ not proof that all names, QR codes, private hosts or illegible text are absent.
 
 A later visual spot check found a game nickname in the legacy windowed/16:9
 image and shared-account/job identifiers in an unreferenced legacy CVAT image.
-They are recorded as pending visual findings in the privacy report; the overall
-publication privacy review is explicitly incomplete. The OCR patterns did not
-detect these names. The user has been asked to choose deterministic local blur
-or recapture for old screenshots. Do not interpret zero OCR-pattern findings as
-zero remaining visual findings, and do not merge/deploy this checkpoint as a
-completed privacy review.
+Both images now use local Gaussian blur baked into the PNG pixels: one nickname
+region (sigma 16) and six account/job regions (sigma 20). The files retain their
+original dimensions. `scripts/blur-private-media.mjs` refuses unknown source
+hashes, skips matching processed files and checks that every region changed
+while every decoded RGBA pixel outside those regions is unchanged.
+`evidence/legacy-media-blur.json` binds the source/output hashes, rectangle plan,
+pixel checks and native-size visual review. No generated UI or opaque masking
+was introduced. The known visual findings are resolved only by matching reviewed
+redaction evidence; an arbitrary image hash change cannot clear them.
+
+The repeated local OCR pass again decoded all 343 files/351 frames without
+failure. The two known legacy findings are resolved. The overall publication
+privacy review remains incomplete: OCR missed these names previously, and the
+remaining media still needs manual review. Do not interpret zero OCR-pattern
+findings as proof of complete anonymization or merge/deploy this checkpoint as
+a completed privacy review.
 
 The all-route smoke test exposed literal strong-markup delimiters in two Chinese
 paragraphs. Both were fixed and the complete 289-case suite then passed.

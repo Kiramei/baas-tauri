@@ -5,6 +5,8 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import captures from "../public/media/desktop/installer-manifest.json";
 import privacyReview from "../evidence/privacy-review.json";
+import legacyBlur from "../evidence/legacy-media-blur.json";
+import { plans as legacyBlurPlans } from "../scripts/blur-private-media.mjs";
 
 const root = new URL("../../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
@@ -89,6 +91,24 @@ test("privacy review covers the current image inventory without publishing OCR t
   for (const finding of privacyReview.reviewedFindings) {
     expect(digest(readFileSync(new URL(finding.file, directory)))).toBe(finding.sha256);
     expect(finding.category).toBe("generic-path-placeholder");
+  }
+  expect(privacyReview.pendingVisualFindings).toHaveLength(0);
+  expect(privacyReview.reviewedRedactions).toHaveLength(2);
+  expect(privacyReview.publicationReviewComplete).toBe(false);
+  expect(legacyBlur.files).toHaveLength(legacyBlurPlans.length);
+  for (const plan of legacyBlurPlans) {
+    const record = legacyBlur.files.find((file) => file.file === plan.file)!;
+    expect(record).toMatchObject(plan);
+    expect(record.sha256).toBe(digest(readFileSync(new URL(record.file, directory))));
+    expect(record.sha256).not.toBe(record.sourceSha256);
+    expect(record.outsideChangedPixels).toBe(0);
+    expect(record.changedPixelsByRegion).toHaveLength(record.regions.length);
+    expect(record.changedPixelsByRegion.every((count) => count > 0)).toBe(true);
+    expect(record.visualReview?.checkedAt).toBeTruthy();
+    expect(record.visualReview?.result).toBeTruthy();
+    expect(privacyReview.reviewedRedactions.find((file) => file.file === record.file)?.sha256).toBe(
+      record.sha256
+    );
   }
 });
 

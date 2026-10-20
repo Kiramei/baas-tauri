@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,7 +34,7 @@ const genericPathExamples = new Map([
     "49d968c9f0a16d0274f3123567d61ebf9e3640feb79d14ae8907f21446af96a9",
   ],
 ]);
-const pendingVisualFindings = [
+const knownVisualFindings = [
   {
     file: "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png",
     sha256: "63687ea8697e1699c19c8b02c6b095949a0da672f1f292a9193bc2f74bda9757",
@@ -46,6 +46,10 @@ const pendingVisualFindings = [
     category: "legacy-shared-account-and-job-identifiers",
   },
 ];
+const blurEvidencePath = path.join(root, "docs/evidence/legacy-media-blur.json");
+const blurEvidence = existsSync(blurEvidencePath)
+  ? JSON.parse(readFileSync(blurEvidencePath, "utf8"))
+  : { files: [] };
 const files = readdirSync(publicRoot, { recursive: true })
   .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file))
   .map((file) => file.replaceAll("\\", "/"))
@@ -85,6 +89,34 @@ assert.deepEqual(
   "Potential private text requires visual review; raw OCR remains in the ignored cache"
 );
 inventory.sort((left, right) => left.file.localeCompare(right.file));
+const pendingVisualFindings = [];
+const reviewedRedactions = [];
+for (const finding of knownVisualFindings) {
+  const current = inventory.find((file) => file.file === finding.file);
+  if (!current) continue;
+  const redaction = blurEvidence.files.find(
+    (file) =>
+      file.file === finding.file &&
+      file.sourceSha256 === finding.sha256 &&
+      file.sha256 === current.sha256 &&
+      file.outsideChangedPixels === 0 &&
+      file.visualReview?.checkedAt &&
+      file.visualReview?.result
+  );
+  if (redaction) {
+    reviewedRedactions.push({
+      file: current.file,
+      sha256: current.sha256,
+      category: finding.category,
+      method:
+        "Local Gaussian blur, visually reviewed; region and pixel checks in legacy-media-blur.json.",
+      regions: redaction.regions.length,
+    });
+  } else {
+    // An arbitrary image edit must not silently clear a known privacy finding.
+    pendingVisualFindings.push({ ...finding, sha256: current.sha256 });
+  }
+}
 const report = {
   checkedAt: scan.checkedAt,
   method:
@@ -95,12 +127,11 @@ const report = {
   unresolvedPatternFindings: 0,
   inventorySha256: digest(JSON.stringify(inventory)),
   reviewedFindings,
+  reviewedRedactions,
   publicationReviewComplete: false,
-  pendingVisualFindings: pendingVisualFindings.filter((finding) =>
-    inventory.some((file) => file.file === finding.file && file.sha256 === finding.sha256)
-  ),
+  pendingVisualFindings,
   redaction:
-    "New installer captures use local 12px blur before writing PNGs. The capture checks computed blur styles, including low-effects mode and visible node tooltips. Unblurred installer captures and OCR text are excluded from published assets.",
+    "New installer captures use local 12px blur before writing PNGs, including low-effects mode and visible tooltips. Two legacy images use Gaussian blur baked into their PNG pixels; original/output hashes, regions, pixel checks and visual review are recorded separately. Unblurred captures and OCR text are excluded from published assets.",
   limits:
     "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review.",
 };
@@ -113,6 +144,8 @@ console.log(
     imageFiles: report.imageFiles,
     decodedFrames: frames,
     reviewedFindings: reviewedFindings.length,
+    reviewedRedactions: reviewedRedactions.length,
+    pendingVisualFindings: pendingVisualFindings.length,
     unresolvedPatternFindings: 0,
   })
 );
