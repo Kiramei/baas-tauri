@@ -651,31 +651,45 @@ new changes), and its outside-region pixel tests still pass.
 
 ## Android Native Repair Checkpoint
 
-The isolated branch contains `20e01805` (native WebView system-bar insets) and
+The isolated branch contains `20e01805` (native WebView system-bar insets),
 `361c7006` (trusted-display preference, shell fallback, game-task recovery and
-per-display rotation lock). Shared desktop/Android branches remain unchanged.
+per-display rotation lock), and `35ec1d21` (continuous preview, focus recovery
+and frame-health reporting). Shared desktop/Android branches remain unchanged.
 The final x86_64 validation APK is
-`6b2705bc7cdd32c5d68c9360040073bf645573f7d98c73a6aba6fa9e755c2678`.
+`2ebd266c149b16844aa0a93f20ebbebb211e782eec5d011f33f612af6166afed`.
+The earlier `6b2705bc` checkpoint remains in private cache.
 
 On API 35 / WebView 110, light/dark views, profile editing and resume retain
-native WebView bounds `[0,36,720,1280]`. Fifteen native JVM tests pass. The
+native WebView bounds `[0,36,720,1280]`. Twenty-four native JVM tests and the
+device-executed C++ frame-content test pass. All 229 frontend tests, TypeScript
+checking and the seven-locale check pass. The
 MuMu input-method window has zero height, so real onscreen-keyboard resize is
 unverified. The capture overlay remains aligned below the status bar.
 
 MAA-Meow at `aa9193f9a11eb1f1cfa71ed5fb917487cb94f3de` was inspected for
 virtual-display flag fallback, rotation and task drift handling. Actual shell
 UID 2000 creates the fallback display when `ADD_TRUSTED_DISPLAY` is denied.
-The game task is recovered onto that display. A display-targeted diagnostic
-gesture enables correctly oriented 1280x720 startup frames. Takeover moves the
-same task back to display 0, cancels recovery and closes the owned display.
-Profiles/events are restored and the game is stopped. No public media changes.
+The game task is recovered onto that display. On the untrusted API 35 path,
+focus recovery targets a temporary BAAS-owned window by UID, removes it, then
+focuses the existing game task. Its input cannot target the game UID. Supported
+trusted displays request independent focus. Stable preview surfaces are not
+rebound on every poll, and reconnection can replay the latest acquired image.
+Black or non-advancing frames no longer receive a Live status.
 
-This remains a **partial native repair**. Cold Unity initialization on this
-untrusted display still waits for input focus, and SDK transitions can lose
-focus again. Full game-task completion, unattended reliability and other
-devices are unverified. Overlay actions were dispatched through production
-event handlers; physical native-button taps were not tested. Private frames,
-logs, source hashes and the detailed checkpoint stay in ignored cache.
+The final APK cold-starts into the animated title without diagnostic game taps.
+After profile menus, editing, page changes and Home/resume, a three-minute
+independent sample records about 30 captured and presented frames per second.
+All 12 physical-screen preview crops differ, with at least 70% of RGB channels
+changing between consecutive samples. Physical native restart and takeover
+buttons pass: restart creates a new display/process, while takeover preserves
+the game process, moves its task to display 0 and closes the owned display.
+The post-restart 30-second sample also measures about 30 FPS.
+
+Profiles/events are restored and the test game is stopped. Shizuku remains in
+ADB mode, without Root. No public media changes. Full automation-task completion,
+unattended operation alongside other foreground apps, other devices and Root
+mode remain unverified. Private frames, logs, source hashes and the detailed
+continuous-preview checkpoint stay in ignored cache.
 
 ## Runtime Handles
 
