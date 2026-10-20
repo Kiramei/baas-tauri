@@ -1,0 +1,253 @@
+{
+  "checkedAt": "2026-10-20T15:04:06.115Z",
+  "cases": 24,
+  "failures": 0,
+  "testedSources": {
+    "docs/scripts/check-search-recovery.mjs": "cb57a554899124df92bf7f0f47f777d052a7641390f92450ac69f078c9f5fc62",
+    "docs/components/FlexSearchDialog.tsx": "3bf83b71da96d2dd39148c5577e89dc25242af8793fb3f7856c4556c88314db9",
+    "docs/lib/search-index.ts": "acfd61c1f359674906aec57cae58d091362a130e8cc25bf8d043e4925c81d222"
+  },
+  "searchIndexSha256": "5a60ed13d1fbbf322a164101657d04e5f29f1de628a95a36e50fdb8712ec78e0",
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    }
+  ]
+}

@@ -75,6 +75,9 @@ test("bilingual Android instructions distinguish frame health, task stopping and
     expect(guide).toContain(media.sourceRevision);
     expect(guide).toContain("ELF");
     expect(guide).toContain("dlopen");
+    expect(guide).toContain("system_server");
+    expect(guide).toContain("DeadSystemException");
+    expect(guide).toContain(locale === "zh" ? "预览稳定性尚未确认修复" : "preview stability remains unresolved");
     for (const label of locale === "zh"
       ? ["等待画面", "黑屏", "画面未更新", "实时", "连接异常", "不会等待后端确认", "不会重新启动调度"]
       : ["Waiting for frames", "Black screen", "No frame updates", "Live", "Preview error", "without waiting for backend confirmation", "does not restart the scheduler"])

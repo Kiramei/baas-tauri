@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T14:14:35.229Z",
+  "checkedAt": "2026-10-20T15:05:58.223Z",
   "cases": 20,
   "diagramChecks": 16,
   "failures": 0,
@@ -10,7 +10,7 @@
     "docs/content/docs/en/reference/backend-service.mdx": "33c23e1ace0af965f0a238592e21bbee663300e7096ade6f2dbb174483cd114d",
     "docs/content/docs/en/reference/cli-service.mdx": "c67f080e41c978edf3fcad1dee35131398b2962c7642473221b8eb00299bd095"
   },
-  "searchIndexSha256": "d4412783c5b2186a68ac387ba5e62f48a47522ad413ac82f5819d9779c81b223",
+  "searchIndexSha256": "5a60ed13d1fbbf322a164101657d04e5f29f1de628a95a36e50fdb8712ec78e0",
   "results": [
     {
       "kind": "render",

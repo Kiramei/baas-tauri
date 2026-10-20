@@ -46,10 +46,10 @@ capture privacy checks. This is not the final documentation delivery.
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
-| Android runs beyond installation                     | Native preview/focus and physical controls verified; two isolated restart-navigation workers return naturally using native capture/input and real OCR        | Business-task completion, unattended operation with other foreground apps, other devices and final integration          |
+| Android runs beyond installation                     | Historical preview/focus/control and isolated restart-navigation checks passed; the latest cold start stalled and Android's system process crashed          | Resolve current preview failure, then verify business tasks, unattended foreground-app switching, other devices and final integration |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 36 content routes: 288 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
-| Search/links/media/build                             | 425 browser cases, including 128 device-chart combinations; 76 exported HTML pages; 77-route build                                                            | Recheck after future edits and final deployment                                                                          |
+| Search/links/media/build                             | 425 general browser cases plus 24 search-failure recovery cases; 76 exported HTML pages; 77-route build                                                        | Recheck after future edits and final deployment                                                                          |
 | Media/content privacy                                | 14 blurred installer captures, two legacy blur repairs and six blurred native game assets; 442 raster files/576 frames checked with local OCR               | Further manual review for names, QR codes, private hosts and changed media                                               |
 | Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
@@ -858,7 +858,7 @@ replay passes 96 scenarios and 864 step checks; Service/CLI checks pass 20 cases
 
 ## Verification Scope
 
-`bun test docs/tests`: 62 tests / 9,148 assertions, including Service/CLI provenance, crypto boundary and diagram/search checks,
+`bun test docs/tests`: 69 tests / 9,266 assertions, including search-cache failure recovery, source-bound browser recovery, Service/CLI provenance, crypto boundary and diagram/search checks,
 Android game-placement failure/cleanup contracts,
 backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
@@ -877,7 +877,40 @@ override as browser smoke checks when Playwright is not installed locally.
 
 Every requirement still listed as remaining is unachieved.
 
-Normal bilingual search and navigation now pass. Transient index-download error
-recovery still needs a separate check: `loadSearchIndexes` currently retains a
-rejected promise in its cache. A successful normal-path search does not cover
-that failure/retry behavior.
+## Search Failure Recovery
+
+The previous index loader retained rejected promises. A focused reproduction
+passed the shared-successful-cache case and failed all five retry/isolation
+cases. The old exported browser build also failed to show an error after an
+injected HTTP 503 response. The loader now evicts failed downloads/imports,
+retains successful and in-flight downloads, and the dialog exposes localized
+failure and retry controls. Retry supports the same query through its icon or
+Enter, as well as an edited query. It does not silently turn a download error
+into empty search results.
+
+The recovery browser suite covers HTTP 503, a network abort and invalid JSON in
+both languages, themes and viewport sizes. It verifies closing/reopening the
+dialog, the three retry paths, a fresh download after failure, reuse after
+success, empty results and navigation to the correct localized page. Captured
+error states wait for dialog animations and check viewport bounds. Source and
+exported-index digests are retained in `evidence/search-recovery.json`.
+
+## Android Preview Failure Reopened
+
+A new cold start of the isolated `8e38508f` / `f225eea9...` APK on 2026-10-20
+stalled on the game's opening image. Android's `system_server` then crashed
+with SIGSEGV in `TaskUtils.shouldIgnoreDesktopHomeOcclusion`; the game reported
+`DeadSystemException`. The exact trigger is unknown. This contradicts any
+claim that the earlier short checks prove stable game rendering. The bilingual
+guide now records the unresolved failure and the distinction from historical
+successful checks.
+
+Android recovered automatically; no emulator restart or Root change was issued.
+Shizuku is disconnected. Restarting its shared ADB service awaits the user's
+answer, so further device benchmarks and game validation have not been run.
+The current profile/event state matches the immediate pre-test baseline exactly;
+the game and fixture are stopped and no game display remains. Raw captures,
+crash logs and the restoration record are private in
+`.cache/android-native-fix/preview-stall-*`. The shared checkouts remain untouched.
+The unfinished Android-local measurement harness is still uncommitted and has
+not been used to publish performance claims.
