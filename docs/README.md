@@ -278,3 +278,36 @@ After capturing, repeat the whole-public privacy scan and summary. Run
 `scripts/check-conditional-docs.mjs` against the built preview for all 56 page/
 locale/theme/viewport combinations and eight play/stop checks; screenshots stay
 in ignored cache, with safe result metadata in `evidence/`.
+
+## Backend Reference and Recognition Replay
+
+The bilingual backend-development guide follows the service path, including
+startup/task injections, session initialization, cooperative stop, the core
+recognition loop, coordinate/OCR boundaries and top-level configuration
+migration. Direct legacy `main.py` examples can run game tasks; use the service
+entry point for development and separate data from a live instance.
+
+`scripts/replay-backend-recognition.py BACKEND` reads the pinned Git revision and
+compares every audited file with its Git object, normalizing CRLF only. It
+extracts the unmodified `co_detect`, `match_img_feature` and exception ASTs,
+without importing device modules. Deterministic capture, matcher, loading,
+popup, clock and click adapters record twelve branch scenarios. These are not
+real-frame recognition, device input or performance samples. Do not convert
+the fake clock values into latency claims.
+
+The output is `public/developer/recognition-replay.json`; its replay-script
+hash and source hashes prevent accidental source drift. The UI uses these
+recorded events, not a second JavaScript implementation of the recognizer.
+`scripts/check-recognition-replay.mjs` exercises all scenarios and every step
+across both languages, themes and viewport sizes; review the cached screenshots.
+
+For an isolated backend test run, export the pinned commit into a new ignored
+cache directory. Never run its mutable tests in another task's checkout. Run
+the service suite, core task-retry test and OCR tests there, retaining JUnit in
+cache. Optional `--tested-source SNAPSHOT --junit REPORT` arguments to the replay
+publisher verify audited and tested snapshot files against Git and create
+`evidence/backend-development-validation.json`. The JUnit digest, counts and
+skip reasons are published, without raw logs or local paths. Package metadata
+is collected afterward using the configured test interpreter; a null package
+version means that distribution's metadata is unavailable. This does not prove
+a fresh install or all supported Python/platform combinations.

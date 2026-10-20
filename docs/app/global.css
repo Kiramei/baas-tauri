@@ -41,6 +41,84 @@
   border-radius: 4px;
 }
 
+.baas-recognition {
+  margin-block: 24px;
+  min-width: 0;
+  border-block: 1px solid var(--color-fd-border);
+  padding-block: 16px;
+  font-size: 14px;
+}
+.baas-recognition figcaption { font-weight: 600; margin-bottom: 12px; }
+.baas-recognition-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.baas-recognition-toolbar select {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  padding: 6px;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+}
+.baas-recognition-buttons { display: flex; gap: 4px; }
+.baas-recognition-buttons button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+}
+.baas-recognition-buttons button:disabled { opacity: 0.35; }
+.baas-recognition-buttons button:focus-visible,
+.baas-recognition-toolbar select:focus-visible,
+.baas-recognition-progress input:focus-visible { outline: 2px solid var(--color-fd-primary); outline-offset: 2px; }
+.baas-recognition-progress { display: grid; grid-template-columns: auto minmax(80px, 1fr); align-items: center; gap: 12px; margin-block: 12px; }
+.baas-recognition-progress label { min-width: 90px; font-variant-numeric: tabular-nums; }
+.baas-recognition-progress input { width: 100%; accent-color: var(--color-fd-primary); }
+.baas-recognition-current {
+  display: flex;
+  align-content: start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-height: 96px;
+  padding: 12px 0;
+  border-block: 1px solid var(--color-fd-border);
+}
+.baas-recognition-current strong,
+.baas-recognition-current code,
+.baas-recognition-summary code { overflow-wrap: anywhere; min-width: 0; }
+.baas-recognition-current strong { font-size: 14px; }
+.baas-recognition-match { display: inline-flex; align-items: center; gap: 4px; }
+.baas-recognition-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-block: 12px; font-variant-numeric: tabular-nums; }
+.baas-recognition-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 300px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.baas-recognition-events li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  margin: 0;
+  border-left: 3px solid transparent;
+}
+.baas-recognition-events li[aria-current] {
+  background: var(--color-fd-accent);
+  border-left-color: var(--color-fd-primary);
+}
+.baas-recognition-events code { overflow-wrap: anywhere; font-size: 12px; }
+.baas-recognition-number { font-variant-numeric: tabular-nums; color: var(--color-fd-muted-foreground); }
+.baas-recognition-events [data-kind="click"] { border-left-color: #d97706; }
+.baas-recognition-events [data-kind="return"] { border-left-color: #16a34a; }
+.baas-recognition-events [data-kind="exception"] { border-left-color: #dc2626; }
+
 .baas-benchmark {
   margin-block: 24px;
   font-variant-numeric: tabular-nums;

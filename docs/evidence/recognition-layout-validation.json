@@ -1,0 +1,785 @@
+{
+  "checkedAt": "2026-10-20T09:06:16.521Z",
+  "recognitionReplaySha256": "3ebdfb25b9aea0c0ba5370de3f08fdb3df5ed856389cd4aba8ac87d8ae89e1c8",
+  "testedSources": {
+    "docs/components/RecognitionReplay.tsx": "f4ed9962def5688f6f2f22f9a7f12b91c092cc7e63eb58760004acf3c6d3310d",
+    "docs/app/global.css": "16abdc064f4dcf303b515130f2741a6653834845eef93a1dec8611a6b5d143e1",
+    "docs/mdx-components.tsx": "ee47a5f896c2fe35bed7352267beb2893b7139e4f6b639c78210c884bfa4d2f8",
+    "docs/content/docs/en/reference/backend-development.mdx": "22cf8b5c6c58bd8e0c9ad65d18c19ec01cd43ba958d0a4879f32356a6f7baa66",
+    "docs/content/docs/zh/reference/backend-development.mdx": "9922b45f63a9314da0bef16f527159fdbe4f5d8c2053d873b04025ba6c778619"
+  },
+  "cases": 96,
+  "stepChecks": 864,
+  "failures": 0,
+  "pageErrors": [],
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "end-first",
+      "steps": 4,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "rgb-first",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "image-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "repeat-suppressed",
+      "steps": 15,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "popup-fallback",
+      "steps": 11,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "tentative-limit",
+      "steps": 20,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "timeout",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "stopped",
+      "steps": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "template-end",
+      "steps": 5,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "negative-action",
+      "steps": 9,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "wrong-package",
+      "steps": 10,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "scenario": "cached-first",
+      "steps": 3,
+      "passed": true
+    }
+  ]
+}

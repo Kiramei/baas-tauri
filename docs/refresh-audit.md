@@ -33,20 +33,20 @@ capture privacy checks. This is not the final documentation delivery.
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | No external landing page                             | SiteHome removed; root/docs enter internal localized docs                                                                                                     | Final deployment checks                                                                                                  |
 | Environment language, English fallback, saved choice | Focused locale/link tests; browser entry, denied-storage and manual-persistence cases pass                                                                    | Deployment prefix behavior                                                                                               |
-| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows and expanded architecture in both languages          | Repair and remaining developer pages                                                                                     |
+| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows, architecture and rewritten backend guide in both languages | Repair and remaining developer coverage                                                                              |
 | Every current desktop UI detail                      | Manual configuration/workspace/installer audit; compiler-AST coverage of 79 draft fields, nine immediate commands, settings labels and shortcut IDs           | Remaining surfaces; conditional capture/interaction and platform execution review                                        |
-| Fresh light screenshots                              | 126 desktop + 48 freshly rebuilt Android captures, manifests, two real GIFs; real nonblank remote-preview frames verified                                     | Conditional selectors/dialogs, live game; replace other old references                                                   |
+| Fresh light screenshots                              | 126 + 46 desktop and 48 + 44 Android PNG captures, manifests, four real GIFs; nonblank remote-preview frames verified                                          | Remaining conditional surfaces, live game; replace other old references                                                  |
 | Necessary GIFs                                       | Actual automatic-save/undo recordings with reader-controlled playback                                                                                         | Assess graph, structured-editor and game motion                                                                          |
 | Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                    |
-| Developer principles                                 | Architecture explains ownership, drafts/ACKs, graphs, framing/batching, recovery and Android process separation                                               | Auth/protocol, updater, recognition/backend and native implementation depth                                              |
-| Interactive explanations                             | Working p50/p95 chart controls, GIF playback and localized diagram zoom/reset with a scrollable viewport                                                      | Assess further useful diagrams/components                                                                                |
+| Developer principles                                 | Architecture plus backend startup/injection, sessions, recognition/coordinates/OCR, migration and logging; twelve production-function branch replays          | Auth/protocol, updater, remaining backend/native depth and actual device integration                                     |
+| Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
 | Android runs beyond installation                     | First-run download/auth/config sync, native Shizuku permission, x86_64 display and native control overlay                                                     | Healthy game frame, input, task completion, takeover/restart and background lifecycle                                    |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
 | Search/links/media/build                             | 417 browser cases, including 128 device-chart combinations; 74 exported HTML pages; 75-route build                                                            | Recheck after future edits and final deployment                                                                          |
-| Media/content privacy                                | 14 blurred installer captures; two legacy Gaussian-blur repairs; 344 raster files/352 frames checked with local OCR; inventory-bound report/tests            | Further manual review for names, QR codes, private hosts and changed media                                               |
+| Media/content privacy                                | 14 blurred installer captures; two legacy Gaussian-blur repairs; 436 raster files/452 frames checked with local OCR; inventory-bound report/tests            | Further manual review for names, QR codes, private hosts and changed media                                               |
 | Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
 ## Configuration Checkpoint
@@ -510,6 +510,48 @@ establish real-game execution, Android lifecycle reliability, PC capture or
 large-payload transport performance. Other conditional/developer coverage still
 requires systematic reconciliation against source.
 
+## Backend Principles Checkpoint
+
+The backend-development pages replace the legacy Conda/Python-3.9.21 setup and
+three-node overview with the service entry point, dependencies, initialization
+gates, startup/task injections, session/worker ownership, scheduler ordering,
+retry/stop limits, recognition branch precedence, coordinates, capture throttle,
+OCR, migration and logger contracts. Source links target the audited backend
+commit. They distinguish command acceptance from completion and record known
+limitations: missing-OCR override, cooperative-stop timeout, `None` return
+ambiguity, non-recursive migration and live-object versus saved-config state.
+
+`public/developer/recognition-replay.json` comes from the actual `co_detect` and
+`match_img_feature` ASTs with deterministic adapters, not a hand-written second
+recognition implementation. Twelve cases cover end/reaction precedence, image
+fallback, repeated-action suppression, popup handoff, tentative threshold,
+timeout, stopped state, tuple return, negative coordinates, wrong package and
+cached first frame. No screenshot engine, device input or real timing is used.
+Both guides explicitly state these limits. The publisher verifies 37 source
+files against Git; its own SHA is bound to the output.
+
+An independent Git archive was tested, without changing shared source or live
+configuration. The service suite, task-retry test and OCR tests collected 416
+cases: 415 passed and one Unix-socket case was skipped on Windows. The safe
+report `evidence/backend-development-validation.json` binds JUnit/replay hashes,
+source/test snapshot hashes and post-run package metadata. There was no fresh
+dependency installation, live-device execution or Linux validation. The CLI
+help was checked only in the disposable snapshot. Five deprecation warnings
+remain in the cache log; this docs pass does not repair them.
+
+The final recognition UI check passes 96 scenario/locale/theme/viewport cases
+and 864 individual step assertions. Arrow buttons, slider keyboard endpoints,
+disabled states, reset, trace-row scrolling, nonempty code labels and document
+overflow are checked. Sixteen cached screenshots cover tuple results and
+suppressed actions. The report binds the data, component, CSS and reader-source
+hashes. One earlier concurrent-browser diagram wait timed out; the isolated
+final run passed, without establishing that timeout's cause.
+
+The current six-case search probe checks both existing Android port references
+and newly indexed backend content. `co_detect` finds the backend guide in both
+languages; Chinese migration and English cooperative-stop queries navigate to
+the same localized guide. Results remain in `evidence/new-content-search.json`.
+
 ## Runtime Handles
 
 - Preview: `http://127.0.0.1:4173/`, static server serves `docs/out`.
@@ -532,7 +574,7 @@ requires systematic reconciliation against source.
 
 ## Verification Scope
 
-`bun test tests`: 36 tests, including native conditional capture/source/restore,
+`bun test tests`: 40 tests, including backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
 complete bilingual TOML, privacy inventory, reader prose, native statistics,
 ordering/output equivalence, device measurement/source/restore checks and

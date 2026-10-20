@@ -6,6 +6,7 @@ import { BenchmarkChart } from "@/components/BenchmarkChart";
 import { NativeTransportBenchmark } from "@/components/NativeTransportBenchmark";
 import { DeviceBenchmark } from "@/components/DeviceBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
+import { RecognitionReplay } from "@/components/RecognitionReplay";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -16,6 +17,7 @@ export const mdxComponents = {
   NativeTransportBenchmark,
   DeviceBenchmark,
   MotionDemo,
+  RecognitionReplay,
 };
 
 /** Coordinates the use mdxcomponents hook behavior. */
