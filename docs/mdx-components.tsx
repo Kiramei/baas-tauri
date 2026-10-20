@@ -3,6 +3,7 @@ import { DocHomeIcon } from "@/components/DocHomeIcon";
 import { Mermaid } from "@/components/Mermaid";
 import { ReleaseDownloadPanel } from "@/components/ReleaseDownloadPanel";
 import { BenchmarkChart } from "@/components/BenchmarkChart";
+import { NativeTransportBenchmark } from "@/components/NativeTransportBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
 
 export const mdxComponents = {
@@ -11,6 +12,7 @@ export const mdxComponents = {
   Mermaid,
   ReleaseDownloadPanel,
   BenchmarkChart,
+  NativeTransportBenchmark,
   MotionDemo,
 };
 

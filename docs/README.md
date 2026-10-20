@@ -120,3 +120,69 @@ placeholders are allowed by exact image hash. Changed media needs a new scan
 and review; OCR can miss names, QR codes, private hosts and illegible text.
 Tests reject stale inventory evidence and private local workspace paths in
 published JSON/MDX. These checks do not certify complete anonymization.
+
+## Native Transport Benchmark
+
+`scripts/measure-native-transport.mjs CDP_PORT DISPOSABLE_PORTABLE_ROOT` measures
+the running release app's existing production store, discovered from the cached
+entry-module exports. It does not load a second store, modify app source or run
+game tasks. Before running, verify the runtime ownership, executable provenance,
+single disabled demo profile and completed app synchronization. It restarts the
+owned backend for each mode and restores the original mode in `finally`.
+It must not be used against shared/user installations.
+
+The six mode permutations produce 18 rounds, 300 measurements and 50 warm-ups
+per mode/round, with one outstanding status request. All production callbacks
+have the same empty result; their 44-byte JSON size excludes the wire envelope.
+Individual timestamps and blocks have different boundaries. The observed
+WebView clock quantum is recorded; native startup/switching is separate from
+request timing. Background host activity is not controlled by the harness.
+
+`node docs/scripts/publish-native-benchmark.mjs` validates the local record and
+writes the sanitized public dataset. Inspect the record before publication.
+The validator/tests recompute statistics from every raw sample and reject missing
+samples, failed attempts, changed response sizes or incomplete restoration.
+Source and executable hashes stay with the result. This experiment is a small
+production RPC comparison, not screenshot/input/game performance or a general
+carrier-throughput ranking. Those measurements remain separate work.
+
+The measurement snapshots its harness/statistics SHA-256 before sampling.
+Publication compares those stored hashes with the current files and rejects
+drift. Preserve an older record before rerunning a changed harness; do not bind
+new source hashes to old samples during publication.
+
+## Device Capture Probe
+
+`scripts/probe-device-capture.mjs` uses a temporary tagged canvas in the owned
+Android demo WebView and the unmodified desktop Python capture adapters. Its
+arguments are CDP port, disposable backend root, Python executable, ADB serial
+and MuMu launcher. The preflight checks the forwarded WebView PID's actual
+package, foreground app and installed APK hash. Tauri's configured identifier
+can differ from the Gradle application ID; do not use it alone as package proof.
+
+The probe sends no input. Fixture ownership prevents cleanup from removing
+another run's overlay. Normal cleanup and a ten-minute expiry remove the canvas.
+`scripts/check-device-fixture.mjs` separately tests trusted/untrusted pointer
+behavior, target bounds and underlay restoration in a desktop browser. Its
+results are not Android input latency. Python array validation tests run with:
+
+```powershell
+python -m unittest discover -s docs/tests -p test_device_capture_probe.py -v
+```
+
+The first two probe runs returned correct tagged 720x1280 frames from ADB,
+Scrcpy and Nemu. Stock uiautomator2 reached the Android BAAS local bridge at
+device port 7912 and received 403 instead of an image. The unauthenticated
+version marker and direct-device TCP diagnostic identify that service, including
+when the host HTTP proxy is bypassed. Do not remove authentication, extract
+tokens, stop another task's agent or classify this as an Android-version limit.
+Use a separate target/service owner before a comparative uiautomator2 run.
+
+`scripts/diagnose-device-service.py SERIAL PACKAGE` emits safe service metadata;
+write its output to `.cache/docs-benchmarks/device-service-diagnostic.json`.
+`scripts/publish-device-probe.mjs` preserves source/environment and compatibility
+findings in `evidence/` while omitting single initialization/capture timings.
+Original outputs and diagnostic logs remain in ignored `.cache/`. They must not
+be ranked as steady-state capture results. The bundled Scrcpy adapter writes
+its standard jar under `/data/local/tmp` and owns a fixed abstract socket; the
+probe refuses an already occupied socket and closes its own session afterward.

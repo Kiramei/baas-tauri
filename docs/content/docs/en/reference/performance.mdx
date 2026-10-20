@@ -5,6 +5,24 @@ description: Reproducible measurements, raw samples, hardware, measurement bound
 
 Performance belongs to a measured stage. Encoding a request, transferring it between processes, updating a store, rendering a WebView and recognizing a game frame are separate workloads. A faster result in one does not establish an equivalent improvement in total task time.
 
+## Native Client Connections
+
+<NativeTransportBenchmark locale="en" />
+
+Frontend and backend run on the same host. WebSocket uses loopback, without a LAN or WAN path.
+
+The [complete raw record](/benchmarks/native-transport-current.json) includes 5,400 measurements, 18 transport switches, block timings, failures, versions and source-file digests. The client is a native Windows x64 release build at frontend revision `be186c5`, with backend `d0a86a0`. The host used a Ryzen 9 9950X, 32 logical CPUs, 31 GiB memory, Python 3.11.9 and WebView2/Edge 155.
+
+The workload calls the production store's `trigger("status")` with no running backend tasks. All three business channels are initialized. Every callback returns `command=status`, `status=ok`, `data={}`: exactly 44 UTF-8 JSON bytes after the store removes the transport envelope and timestamp. This is not encrypted wire size. The experiment covers all six permutations of the three modes. Each mode receives 50 warm-ups and 300 recorded calls per round, with one outstanding request; warm-up starts one second after transport switching and synchronization finish.
+
+Individual timing runs inside the WebView from request preparation to production callback entry. WebSocket includes the product's actual authenticated encrypted communication. Pipe and shared memory include their Rust/Python carrier and Tauri/WebView bridge. CDP schedules each round but is outside individual measurements. Switching, initialization, painting and game execution are also outside the individual round trip.
+
+Shared memory still crosses the native WebView bridge; carrier-level advantages do not determine this small-request result. The plotted values describe this workload, without ranking large-image throughput or every platform.
+
+The observed minimum nonzero `performance.now()` increment was approximately **0.1 ms**, so the chart shows one decimal place. Block timings measure 50 consecutive calls together and divide by the call count, including callback validation and loop overhead. This reduces individual clock quantization but has a different scope from callback-entry timings. p50/p95 use index `floor(n * p)` without outlier removal. The record's separate readiness timings include stopping the previous mode, process restart, authentication and data synchronization with warm caches. They are not cold-start measurements and are excluded from the chart.
+
+The harness started no concurrent build or other benchmark; other host activity was uncontrolled. This is a descriptive single-host/session result without confidence intervals. Observing zero failures does not establish long-term reliability.
+
 ## Current Frontend Measurements
 
 <BenchmarkChart locale="en" />
@@ -25,7 +43,16 @@ bun docs/scripts/measure-frontend.ts
 
 This overwrites `docs/public/benchmarks/frontend-current.json` with a new run. Keep both the raw record and the explanatory text aligned when publishing different hardware or runtime results. A single machine and a single run do not support statistical claims about every user's environment; these measurements have no confidence interval.
 
-## What These Charts Exclude
+The native connection experiment uses `docs/scripts/measure-native-transport.mjs`. Prepare a disposable portable copy matching the executable SHA-256 in `installer-manifest.json`, with exactly one demo profile and all 26 tasks disabled. Enable local CDP for that copy's WebView2, enter Home and finish synchronization, then run:
+
+```powershell
+node docs/scripts/measure-native-transport.mjs 19235 "D:/BAAS-benchmark"
+node docs/scripts/publish-native-benchmark.mjs
+```
+
+The harness checks that CDP's storage directory matches the supplied root before restarting its managed backend. Do not target an everyday or shared installation. Measurements first go to ignored `.cache/docs-benchmarks/native-transport.json`; the harness attempts to restore the original mode afterward. Publication rejects incomplete or unrestored runs, missing samples, unequal responses and summaries that cannot be recomputed. Playwright and an actual native WebView are required. Different builds, platforms or workloads need separate version/environment records.
+
+## Frontend Measurement Boundaries
 
 - OS pipe or shared-memory transfer, cross-process scheduling and Rust/Python handling.
 - Tauri-to-WebView IPC, browser painting and actual React commit time.
@@ -33,6 +60,26 @@ This overwrites `docs/public/benchmarks/frontend-current.json` with a new run. K
 - Network and updater download latency, cold startup, mobile thermal throttling and battery use.
 
 Do not add these timings together or label their ratio as an application or game speedup. For real user-facing comparisons, use the same task, game state, payload, logging level, versions and hardware. Record warm/cold conditions separately, retain failures and verify equivalent output before comparing latency.
+
+## Screenshot and Input Boundaries
+
+Scripts also apply coordinate scaling, random offsets, capture intervals and recognition. These backend adapter paths have different workloads from the status command above.
+
+| Path                    | Work inside the measurement                                                                                    | Output checks                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| ADB screenshot          | `screencap -p`, PNG transfer and OpenCV decoding                                                               | Nonempty image, correct dimensions/colors and intended device                                                 |
+| uiautomator2 screenshot | Device capture, communication, PIL/NumPy conversion and RGB→BGR                                                | Retain failures/retries as well as successful array returns                                                   |
+| Scrcpy screenshot       | New-frame wait and image copy after stream startup; encoding, transfer and decoding continue in the background | `last_frame_time` must follow call start; also verify the visible frame sequence                              |
+| Nemu screenshot         | MuMu native IPC, resolution query, pixel retrieval, channel conversion and vertical flip                       | Equivalent region, orientation, channels and visible frame sequence                                           |
+| MSS / PyAutoGUI         | Window activation, region update, capture, crop/color conversion                                               | Check occlusion, HDR, DPI, coordinates and final dimensions; a PC window and emulator are different workloads |
+
+`Screenshot.screenshot()` additionally waits for the configured interval, clamping values below 0.3 seconds to 0.3 seconds. The interval starts after the previous capture completes. A lower-level adapter timing excludes that wait and cannot establish the same script polling frequency.
+
+Input has at least three endpoints: API return, device receipt and the expected visible change. Current ADB clicks add a 50 ms sleep when the call took less than 50 ms; Scrcpy clicks include a 50 ms sleep; Nemu clicks include 15 ms after touch-down and 35 ms after touch-up. A comparison of production methods must retain these behaviors.
+
+For non-Nemu methods, `Baas_thread.click()` starts a thread and returns immediately by default; `wait_over=True` waits for it. The Nemu branch is synchronous. Default `click()` return times therefore do not form a comparable cross-method ranking. Click count, `rate`, `duration`, scaling and approximately ±5 pixels of random offset also change the workload. Visible-response timing needs the same input start and the expected target state, rather than an arbitrary animation change.
+
+Current Nemu swipes schedule an interpolated path with per-step waits; their `duration` parameter is not used to generate the path, so actual gesture duration needs verification. Android's `android_local` uses the embedded runtime and authenticated local bridge, a different implementation from the standard desktop uiautomator2 library. See the [Android port-ownership guidance](../guide/android#sharing-a-device-with-desktop-uiautomator2).
 
 ## Transport Evidence
 

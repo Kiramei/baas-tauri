@@ -100,6 +100,28 @@
   background: #5eead4;
 }
 
+.baas-transport-benchmark .baas-benchmark-row {
+  grid-template-columns: 86px minmax(0, 1fr) 76px;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="websocket"] {
+  background: #0f766e;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="pipe"] {
+  background: #b45309;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="shm"] {
+  background: #be185d;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="websocket"] {
+  background: #5eead4;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="pipe"] {
+  background: #fbbf24;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="shm"] {
+  background: #f9a8d4;
+}
+
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 video.baas-screenshot {

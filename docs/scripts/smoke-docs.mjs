@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +18,9 @@ assert.deepEqual(contentRoutes("zh"), routes, "Localized documentation route set
 const output = path.join(root, ".cache/docs-smoke");
 mkdirSync(output, { recursive: true });
 const origin = process.argv[2] || "http://127.0.0.1:4173";
+const nativeBenchmark = JSON.parse(
+  readFileSync(path.join(root, "docs/public/benchmarks/native-transport-current.json"), "utf8")
+);
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const results = [];
 try {
@@ -147,7 +150,8 @@ try {
             route.startsWith("features/") ||
             route === "guide/android" ||
             route === "guide/install" ||
-            route === "reference/setup-toml"
+            route === "reference/setup-toml" ||
+            route === "reference/performance"
           ) {
             assert.ok(
               !(await page.locator("body").innerText()).includes("**"),
@@ -179,13 +183,36 @@ try {
             assert.ok(media.width <= viewport.width);
           }
           if (route === "reference/performance") {
-            const outputs = await page.locator(".baas-benchmark output").allTextContents();
-            await page.getByRole("button", { name: "p95", exact: true }).click();
-            assert.notDeepEqual(
-              await page.locator(".baas-benchmark output").allTextContents(),
-              outputs
+            for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark"]) {
+              const chart = page.locator(selector);
+              const outputs = await chart.locator("output").allTextContents();
+              await chart.getByRole("button", { name: "p95", exact: true }).click();
+              assert.notDeepEqual(await chart.locator("output").allTextContents(), outputs);
+              await chart.getByRole("button", { name: "p50", exact: true }).click();
+              assert.deepEqual(await chart.locator("output").allTextContents(), outputs);
+            }
+            const nativeChart = page.locator(".baas-transport-benchmark");
+            assert.deepEqual(
+              await nativeChart.locator("output").allTextContents(),
+              nativeBenchmark.results.map((result) => result.p50Ms.toFixed(1) + " ms")
             );
-            await page.getByRole("button", { name: "p50", exact: true }).click();
+            const tracks = await nativeChart
+              .locator(".baas-benchmark-track")
+              .evaluateAll((elements) =>
+                elements.map((element) => ({
+                  track: element.getBoundingClientRect().width,
+                  bar: element.firstElementChild.getBoundingClientRect().width,
+                }))
+              );
+            const maximum = Math.max(...nativeBenchmark.results.map((result) => result.p50Ms));
+            for (const [index, track] of tracks.entries()) {
+              assert.ok(Math.abs(track.track - tracks[0].track) < 1);
+              assert.ok(
+                Math.abs(
+                  track.bar / (track.track - 1) - nativeBenchmark.results[index].p50Ms / maximum
+                ) < 0.01
+              );
+            }
           }
           if (route === "guide/configuration") {
             await page

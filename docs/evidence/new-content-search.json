@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-20T06:40:20.630Z",
+  "results": [
+    {
+      "locale": "zh",
+      "query": "7912",
+      "expectedRoute": "guide/android",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "query": "7912",
+      "expectedRoute": "guide/android",
+      "passed": true
+    }
+  ]
+}

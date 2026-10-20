@@ -12,7 +12,7 @@ export function BenchmarkChart({ locale }: { locale: "zh" | "en" }) {
     after: result.raw[metric],
   }));
   return (
-    <figure className="baas-benchmark">
+    <figure className="baas-benchmark baas-encoding-benchmark">
       <figcaption>
         {zh
           ? "二进制请求编码耗时（毫秒，越低越好）"

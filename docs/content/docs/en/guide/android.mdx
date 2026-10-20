@@ -60,7 +60,7 @@ Install Shizuku separately from its [official download page](https://shizuku.rik
 
 Both scheduler start and background-game start check current permission. Granting permission does not silently resume an earlier blocked command. Stopping the scheduler is a separate operation and must remain possible during permission failures.
 
-**Use the startup command displayed by your installed Shizuku version.** Older instructions use an external `start.sh`; [v13.6.0](https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0) changed the startup command to an installed native executable. Do not paste another device's package-install path. Our emulator test used the command shown by its Shizuku manager and granted access through the native dialog.
+**Use the startup command displayed by your installed Shizuku version.** Older instructions use an external `start.sh`; [v13.6.0](https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0) changed the startup command to an installed native executable. Do not paste another device's package-install path.
 
 ## Background Game and Preview
 
@@ -116,6 +116,12 @@ Backend updates use the app's configured source and show progress/output. Preser
 | Shizuku unavailable   | Installed/running/granted are three separate states                                             |
 | Live but blank/splash | Actual game task/display, native capture errors and ABI compatibility                           |
 | Backend disconnect    | Service/process logs and background restrictions, not only notification visibility              |
+
+### Sharing a Device with Desktop uiautomator2
+
+Android BAAS's local-device bridge listens on `127.0.0.1:7912` **on the Android device**. Its `/version` returns `baas-shizuku-display-1`. It serves the embedded runtime, requires a private token and has a different API from standard atx-agent. A normal desktop uiautomator2 client forwarding to the same device port can receive HTTP 403 followed by a `PIL.Image.open` decode error.
+
+Check which service owns that port. Do not disable bridge authentication or put the app's private token into a normal atx-agent client. To switch to desktop uiautomator2, stop tasks first, stop the Android BAAS process through system app information, verify the listener is released and then prepare standard atx-agent. Backgrounding its UI does not stop its service. Resolve the other service's port ownership before switching back to Android BAAS. Stopping a process interrupts that client's active background work.
 
 ## Emulator ABI Compatibility
 

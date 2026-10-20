@@ -2,8 +2,9 @@
 
 This ledger preserves the full requested scope. **The refresh is not complete.**
 The current checkpoint updates bilingual feature configuration, settings,
-profiles, runtime, updates, installation/setup and Android provenance. It also
-removes reader-facing authoring notes and adds blur-based capture privacy
+profiles, runtime, updates, installation/setup and Android provenance. It adds
+an actual native connection benchmark and tagged device-capture compatibility
+probes, removes reader-facing authoring notes and adds blur-based capture privacy
 checks. This is not the final documentation delivery.
 
 ## Sources and Isolation
@@ -27,25 +28,25 @@ checks. This is not the final documentation delivery.
 
 ## Requirement Audit
 
-| Requirement                                          | Current evidence                                                                                                                                              | Remaining work                                                                                                             |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| No external landing page                             | SiteHome removed; root/docs enter internal localized docs                                                                                                     | Final deployment checks                                                                                                    |
-| Environment language, English fallback, saved choice | Focused locale/link tests; browser entry, denied-storage and manual-persistence cases pass                                                                    | Deployment prefix behavior                                                                                                 |
-| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows and expanded architecture in both languages          | Repair and remaining developer pages                                                                                       |
-| Every current desktop UI detail                      | Manual configuration/workspace/installer audit; compiler-AST coverage of 79 draft fields, nine immediate commands, settings labels and shortcut IDs           | Remaining surfaces; conditional capture/interaction and platform execution review                                          |
-| Fresh light screenshots                              | 126 desktop + 48 freshly rebuilt Android captures, manifests, two real GIFs; real nonblank remote-preview frames verified                                     | Conditional selectors/dialogs, live game; replace other old references                                                     |
-| Necessary GIFs                                       | Actual automatic-save/undo recordings with reader-controlled playback                                                                                         | Assess graph, structured-editor and game motion                                                                            |
-| Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                      |
-| Developer principles                                 | Architecture explains ownership, drafts/ACKs, graphs, framing/batching, recovery and Android process separation                                               | Auth/protocol, updater, recognition/backend and native implementation depth                                                |
-| Interactive explanations                             | Working p50/p95 chart controls, GIF playback and localized diagram zoom/reset with a scrollable viewport                                                      | Assess further useful diagrams/components                                                                                  |
-| Rigorous benchmark charts                            | Fresh encoding/store samples, raw data, environment, commands and bounded claims                                                                              | Compare actual connection transports, script control, capture methods and critical stages; no microbenchmark extrapolation |
-| APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                        |
-| Android runs beyond installation                     | First-run download/auth/config sync, native Shizuku permission, x86_64 display and native control overlay                                                     | Healthy game frame, input, task completion, takeover/restart and background lifecycle                                      |
-| Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                               |
-| Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                         |
-| Search/links/media/build                             | 289 browser cases; 74 exported HTML pages checked; 75-route build                                                                                             | Recheck after future edits and final deployment                                                                            |
-| Media/content privacy                                | 14 installer captures use local blur; all 343 raster files/351 frames checked with local OCR; obsolete sensitive assets removed; inventory-bound report/tests | Further manual review for names, QR codes, private hosts and changed media                                                 |
-| Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                     |
+| Requirement                                          | Current evidence                                                                                                                                              | Remaining work                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| No external landing page                             | SiteHome removed; root/docs enter internal localized docs                                                                                                     | Final deployment checks                                                                                                  |
+| Environment language, English fallback, saved choice | Focused locale/link tests; browser entry, denied-storage and manual-persistence cases pass                                                                    | Deployment prefix behavior                                                                                               |
+| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows and expanded architecture in both languages          | Repair and remaining developer pages                                                                                     |
+| Every current desktop UI detail                      | Manual configuration/workspace/installer audit; compiler-AST coverage of 79 draft fields, nine immediate commands, settings labels and shortcut IDs           | Remaining surfaces; conditional capture/interaction and platform execution review                                        |
+| Fresh light screenshots                              | 126 desktop + 48 freshly rebuilt Android captures, manifests, two real GIFs; real nonblank remote-preview frames verified                                     | Conditional selectors/dialogs, live game; replace other old references                                                   |
+| Necessary GIFs                                       | Actual automatic-save/undo recordings with reader-controlled playback                                                                                         | Assess graph, structured-editor and game motion                                                                          |
+| Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                    |
+| Developer principles                                 | Architecture explains ownership, drafts/ACKs, graphs, framing/batching, recovery and Android process separation                                               | Auth/protocol, updater, recognition/backend and native implementation depth                                              |
+| Interactive explanations                             | Working p50/p95 chart controls, GIF playback and localized diagram zoom/reset with a scrollable viewport                                                      | Assess further useful diagrams/components                                                                                |
+| Rigorous benchmark charts                            | Encoding/store samples plus 5,400 actual Windows native RPC samples across encrypted WebSocket/Pipe/SHM; raw data, hashes, shared-axis charts and limits      | Full script control/capture comparisons, large payloads, other platforms and critical stages; no small-RPC extrapolation |
+| APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
+| Android runs beyond installation                     | First-run download/auth/config sync, native Shizuku permission, x86_64 display and native control overlay                                                     | Healthy game frame, input, task completion, takeover/restart and background lifecycle                                    |
+| Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
+| Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
+| Search/links/media/build                             | 289 browser cases; 74 exported HTML pages checked; 75-route build                                                                                             | Recheck after future edits and final deployment                                                                          |
+| Media/content privacy                                | 14 installer captures use local blur; all 343 raster files/351 frames checked with local OCR; obsolete sensitive assets removed; inventory-bound report/tests | Further manual review for names, QR codes, private hosts and changed media                                               |
+| Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
 ## Configuration Checkpoint
 
@@ -211,8 +212,9 @@ and initially inspected. Carrier-only WS excludes product encryption and uses
 minimal carrier clients; it must not be conflated with the encrypted product UI
 path. Some UI samples have millisecond/zero timer quantization. Historical live
 game records contain device/config identifiers and must not be copied into
-published raw datasets without sanitization. No new broad measurements have
-been published in this checkpoint.
+published raw datasets without sanitization. The actual Windows native RPC
+comparison below is now published; capture/control and the other required
+performance stages remain incomplete.
 
 Further measurements need controlled environments and output equivalence,
 sanitized raw samples, warm/cold boundaries, versions, timer resolution,
@@ -221,6 +223,111 @@ capture comparisons must check freshness, dimensions, content and acquire/
 transfer/decode boundaries. Unsupported platform/method combinations need
 explicit reasons. OCR/matching, startup/update cache, framing/encryption,
 logging and rendering are additional candidates, not completed benchmarks.
+
+## Native RPC Measurement
+
+`scripts/measure-native-transport.mjs` attaches to the isolated release WebView,
+imports its already cached entry module and finds the existing production store.
+It does not load a second fixture store or change application source. Before
+restarting a backend it checks the executable SHA-256, CDP storage-root ownership,
+one disabled 26-task demo profile and idle runtime state. The first preflight
+mistook the backend's logs directory for a second profile; the guard was fixed
+to count actual event-bearing profile directories before any measured run.
+
+The completed run contains all six permutations of WebSocket/Pipe/SHM: 18 mode
+blocks, each with 50 warm-ups and 300 sequential measured requests. That is 900
+warm-ups plus 5,400 measured read-only status calls, with no observed warm-up or
+measured failures. Every callback is the same empty status object (44 bytes of
+callback JSON after the store removes the wire envelope/timestamp). WebSocket
+uses the actual product SecureWebSocket encryption; both native modes use their
+actual Rust/Python and raw WebView bridge path. The network is same-host loopback,
+not LAN/WAN. CDP scheduling is outside individual timers.
+
+The Windows x64 release executable/source matches the installer provenance.
+Backend is d0a86a0; Python 3.11.9, WebView2/Edge 155, Ryzen 9 9950X, 32 logical
+CPUs and 31 GiB. The observed WebView timer quantum is approximately 0.1 ms.
+Single-call p50/p95: WebSocket 0.3/0.4 ms, Pipe 0.7/0.9 ms, SHM 0.8/1.0 ms.
+The 36 fifty-call block means per mode include callback validation/loop overhead
+and are separately labelled. This small empty-response workload is not a carrier
+throughput or image/game ranking. No confidence interval or cross-host claim is
+made; other host activity was uncontrolled.
+
+Raw samples, ordering, readiness and source/executable/harness hashes are in
+`public/benchmarks/native-transport-current.json`. Publication and tests recompute
+statistics and reject incomplete restoration, unequal replies, hidden failures,
+missing samples and edited summaries. Native startup/switch readiness remains
+separate and includes the previous mode's stop, warm-cache restart, authentication
+and sync. The original SHM mode was restored and data synchronization completed.
+No task was started. The new shared-axis chart, independent p50/p95 controls,
+rendered values and proportional bar widths pass the eight locale/theme/viewport
+combinations. Desktop dark and mobile light were visually reviewed.
+
+The initial full run is preserved in ignored
+`.cache/docs-benchmarks/native-transport-initial.json`. Review found that harness
+hashes must be captured at sampling startup, not supplied by the publisher later.
+That collection/check was moved to the correct boundary and all 18 blocks were
+repeated with unchanged timing-loop logic. The final source-bound repeat is the
+published run and is not pooled with the initial record. Both runs observed zero
+request failures and the same medians at the chart's 0.1 ms precision. Tests
+explicitly reject missing provenance and changed harness hashes.
+
+The source audit additionally found the screenshot interval floor of 0.3 seconds,
+Scrcpy's new-decoded-frame wait, adapter color/region conversion, fixed input
+waits, default asynchronous non-Nemu `Baas_thread.click`, and Nemu swipe's unused
+duration parameter. Both performance guides explain these timing boundaries.
+
+## Device Capture Compatibility Probe
+
+The existing x86_64 APK hash was rechecked on-device. CDP's forwarded PID/cmdline
+and the actual foreground package both match the owned docs app. Tauri's default
+identifier differs from the Gradle override; the first identity-only preflight
+rejected that mismatch before creating a fixture, and the stronger package/PID/
+APK checks were added. No user or shared APK was changed.
+
+Two real probe passes injected a temporary frame-tag/color canvas into that
+owned WebView. ADB, bundled Scrcpy and Nemu returned the expected tagged 720x1280
+three-channel frames with correct color calibration. The observed Nemu output
+was BGR despite ambiguous SDK/conversion naming, demonstrating why output checks
+are necessary. The stock desktop uiautomator2 wrapper exhausted its image decode
+retries and returned None in both passes. These are one-frame compatibility
+probes, not steady-state performance data; initialization/first-call times remain
+in the ignored local record and were omitted from committed compatibility evidence.
+
+The failure is a verified service mismatch, not an established Android 15 limit:
+device port 7912 belongs to Android BAAS's authenticated local bridge. Direct
+device TCP GET /version returns `baas-shizuku-display-1`; unauthenticated
+/screenshot/0 returns HTTP 403 JSON rather than an image. A child-only NO_PROXY
+test and direct ADB socket test returned the same result, ruling out the host
+HTTP proxy as its cause. Source confirms the private-token boundary and different
+API. No token was read/sent and no authentication was disabled. The bilingual
+Android guide now explains port ownership and safe client switching.
+
+`evidence/device-capture-probe.json` preserves the sanitized findings and source/
+runtime/package digests. A separate desktop fixture test checks trusted versus
+synthetic input, target bounds, token bounds, overlay ownership and underlay
+restoration; its eight checks are not Android input latency. Four Python tests
+exercise frame validation, channel detection and stale/black/malformed rejection.
+The real Android overlay was removed after both probes; Documentation Demo still
+shows 0/26 tasks enabled. The probe sent no input and closed its own Scrcpy/Nemu
+sessions. The production Scrcpy adapter uses its standard /data/local/tmp jar;
+the probe has a preflight guard against an occupied fixed socket. Do not delete another job's agent
+or session as cleanup.
+
+`evidence/benchmark-post-state.json` records the actual restored native SHM/auth/
+sync/idle state, all 26 desktop demo tasks off and no Android overlay with 0/26
+tasks enabled. A subsequent device socket check found no fixed Scrcpy listener.
+The temporary desktop store-reference global was removed. Two additional body
+search checks for 7912 navigate to the new Android guide section in both locales;
+their evidence is separate from the 289-case full page suite.
+
+Next capture/control measurements need an independent target that does not own
+the BAAS bridge port. A minimal standalone Android benchmark activity can supply
+frame markers and harmless touch feedback while only the owned docs APK is
+temporarily stopped; check/restore service ownership and the original app after
+testing. Reuse the existing toolchain (AGP 8.11.0 / Gradle 8.14.3) and keep all
+target sources under docs/. Do not substitute a token-injected BAAS bridge for
+standard desktop uiautomator2. Retain the separate Android-local/Shizuku path and
+the unresolved real game/lifecycle requirements.
 
 ## Fresh Android Evidence
 
@@ -259,8 +366,10 @@ logging and rendering are additional candidates, not completed benchmarks.
    current source; extend the audited install/settings/profile/runtime/update pages as
    further native and backend execution evidence becomes available.
 3. Expand backend/recognition/auth/updater/native developer principles; review
-   existing measured evidence, then measure connection/control/capture and other
-   critical stages with sanitized raw samples and controlled boundaries.
+   existing measured evidence; extend the actual small-RPC experiment to relevant
+   payloads/platforms, then measure control/capture and other critical stages with
+   sanitized raw samples and controlled boundaries. First isolate the device
+   target from the Android BAAS local bridge described above.
 4. Finish the Android game display/Unity transition investigation, then verify
    real input, a low-risk supervised task, takeover/restart and service/activity
    cleanup. Do not test friend deletion, paid purchases or uncensoring.
@@ -276,9 +385,10 @@ logging and rendering are additional candidates, not completed benchmarks.
 - The earlier desktop PID 39168 was exited through the real process command;
   CDP 19230 is offline. Installer validation uses
   `../.codex_tmp/docs-installer-20261020`, native PID 41496, CDP 19235.
-  Revalidate before reuse. Its backend entrypoint was restored after the
-  deliberately failing scenario; final state is completed Chinese installer
-  with automatic entry off and logs retained.
+  Revalidate before reuse. Its backend entrypoint is restored. The native RPC
+  experiment entered Home and restored SHM with authentication/data ready;
+  all 26 demo tasks remain disabled. The temporary benchmark global only held
+  the existing store reference, without modifying production methods.
 - Device: `127.0.0.1:16384`.
 - Fresh x86_64 WebView PID was 6147, forwarded on 19233. Re-discover after restart.
 - Earlier `.dev` and ARM64 `.docs` validation apps were stopped to avoid
@@ -289,9 +399,11 @@ logging and rendering are additional candidates, not completed benchmarks.
 
 ## Verification Scope
 
-`bun test tests`: 20 tests / 657 assertions, including field-shape/document,
-complete bilingual TOML, privacy inventory and reader-prose checks. These are
-docs checks, not a substitute for application tests.
+`bun test tests`: 25 tests / 708 assertions, including field-shape/document,
+complete bilingual TOML, privacy inventory, reader prose, native statistics,
+ordering/output equivalence and probe-scope checks. Four Python frame-validation
+tests and eight desktop fixture checks also pass. These are docs/benchmark
+harness checks, not a substitute for application or real game tests.
 
 `bun run build`: 75 routes. Static link scan: 74 index HTML pages, excluding the
 separate not-found route. Browser suite: 289 cases (280 render combinations for

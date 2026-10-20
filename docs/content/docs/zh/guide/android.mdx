@@ -60,7 +60,7 @@ Android 客户端维护在 `android-dev`，与桌面 `dev` 分开。APK 内嵌�
 
 启动调度和启动后台游戏都会检查当前权限。授权后不会暗中续执行之前被阻止的命令；停止调度是独立操作，权限失效时仍应能够停止。
 
-**使用当前安装的 Shizuku 界面提供的启动指令。** 旧说明使用外部 `start.sh`，[v13.6.0](https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0) 已改用安装目录内的原生可执行文件。不要复制另一设备的安装路径。本次模拟器测试使用管理器实际显示的命令，并通过原生弹窗授权。
+**使用当前安装的 Shizuku 界面提供的启动指令。** 旧说明使用外部 `start.sh`，[v13.6.0](https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0) 已改用安装目录内的原生可执行文件。不要复制另一设备的安装路径。
 
 ## 后台游戏与预览
 
@@ -116,6 +116,12 @@ Python 由独立后端服务持有，不由 Activity 持有；WebView 重载或 
 | Shizuku 不可用     | 安装、运行、授权三个独立状态                           |
 | Live 但黑屏/启动图 | 实际游戏任务与显示归属、原生采集错误、ABI 兼容         |
 | 后端断连           | 服务/进程日志及后台限制，不仅看通知是否显示            |
+
+### 与电脑端 uiautomator2 共用设备
+
+Android BAAS 的本机设备桥接监听**设备自身**的 `127.0.0.1:7912`，`/version` 返回 `baas-shizuku-display-1`。它供内嵌运行时使用，受私有令牌保护，接口也与标准 atx-agent 不同。电脑端普通 uiautomator2 经 ADB 转发访问同一端口时，可能收到 HTTP 403，继而报 `PIL.Image.open` 无法识别图片。
+
+这类错误先检查端口对应的服务。不要关闭桥接认证或把应用私有令牌填入普通 atx-agent 客户端。需要切换到电脑端 uiautomator2 时，先停止任务，再通过系统应用信息停止 Android BAAS 的进程，确认原监听释放后准备标准 atx-agent；仅把界面切到后台不会停止其服务。反向切回 Android BAAS 前，同样处理另一服务的端口占用。停止进程会中断该客户端当前的后台任务。
 
 ## 模拟器 ABI 兼容
 
