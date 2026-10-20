@@ -10,8 +10,9 @@ import { useTheme } from "@/context/ThemeProvider";
 import { useWindowLayout } from "@/context/WindowLayoutProvider";
 import { useNavigationHistory } from "@/context/NavigationHistoryProvider";
 import TitlebarMenus from "@/components/layout/TitlebarMenus";
+import { useNativeWindowControls } from "@/shared/useNativeWindowControls";
 
-/** The native frame stays in place on platforms without our custom Windows frame. */
+/** Windows and Linux share app chrome; decorated platforms keep their native frame. */
 export default function WindowTitlebar() {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -26,6 +27,8 @@ export default function WindowTitlebar() {
     setFullscreen,
   } = useWindowLayout();
   const navigation = useNavigationHistory();
+  const nativeControls = useNativeWindowControls();
+  const titlebarHeight = Math.max(44, nativeControls.height);
   const [maximized, setMaximized] = useState(false);
   const [focused, setFocused] = useState(true);
   const dragRegionRef = useRef<HTMLDivElement>(null);
@@ -84,7 +87,7 @@ export default function WindowTitlebar() {
     const previousValue = rootStyle.getPropertyValue(property);
     const previousPriority = rootStyle.getPropertyPriority(property);
     // Body portals need the same workspace boundary as the App flex layout.
-    rootStyle.setProperty(property, "44px");
+    rootStyle.setProperty(property, `${titlebarHeight}px`);
     const windowsMaterial = navigator.userAgent.includes("Windows");
     if (windowsMaterial) document.documentElement.dataset.windowMaterial = "acrylic";
     return () => {
@@ -92,7 +95,7 @@ export default function WindowTitlebar() {
       else rootStyle.removeProperty(property);
       if (windowsMaterial) delete document.documentElement.dataset.windowMaterial;
     };
-  }, [customFrame]);
+  }, [customFrame, titlebarHeight]);
 
   useEffect(() => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return;
@@ -157,11 +160,19 @@ export default function WindowTitlebar() {
   return (
     <header
       className="relative z-[1000] flex h-8 w-full shrink-0 select-none items-start pb-2 pt-1 text-[var(--foreground)]"
-      style={{ boxSizing: "content-box" }}
+      style={{ boxSizing: "content-box", height: titlebarHeight - 12 }}
       aria-label={t("app.windowControls")}
       data-window-titlebar=""
       data-focused={focused}
     >
+      {nativeControls.available && nativeControls.startWidth > 0 && (
+        <div
+          className="h-8 shrink-0"
+          style={{ width: nativeControls.startWidth }}
+          data-native-window-controls="start"
+          aria-hidden="true"
+        />
+      )}
       <div className="flex h-8 shrink-0 items-center gap-0.5 px-2">
         <IconTooltip content={t("app.back")} side="bottom">
           <button
@@ -211,7 +222,15 @@ export default function WindowTitlebar() {
         data-tauri-drag-region={fullscreen ? undefined : ""}
         className="h-8 min-w-0 flex-1"
       />
-      {!fullscreen && (
+      {!fullscreen && nativeControls.available && (
+        <div
+          className="h-8 shrink-0"
+          style={{ width: nativeControls.endWidth }}
+          data-native-window-controls="end"
+          aria-hidden="true"
+        />
+      )}
+      {!fullscreen && !nativeControls.available && (
         <div className="-mt-1 flex h-[35px] shrink-0 items-stretch" data-window-caption-controls="">
           <IconTooltip content={t("app.minimize")} side="bottom">
             <button
