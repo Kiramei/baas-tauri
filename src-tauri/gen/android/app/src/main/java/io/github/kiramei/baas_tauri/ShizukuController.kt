@@ -45,11 +45,10 @@ object ShizukuController {
     )
       .daemon(true)
       .processNameSuffix("baas_shizuku")
-      // Bump both values whenever the persistent user-service implementation changes.
-      // Shizuku may otherwise reconnect to the pre-update process and keep the old
-      // capture Surface alive even after the application APK has been replaced.
+      // Keep the identity stable so a version bump replaces the previous service.
+      // Bump the version whenever its implementation or Binder contract changes.
       .tag("baas-game-service-v36")
-      .version(36)
+      .version(37)
   }
 
   fun initialize(context: Context) {
