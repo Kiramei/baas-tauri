@@ -212,6 +212,20 @@ object ShizukuController {
     return callService(context) { it.frameCount() to it.previewFrameCount() }
   }
 
+  fun previewFocusDisplayId(context: Context): Int = callService(context) { it.previewFocusDisplayId }
+
+  fun hasVisibleFrame(context: Context): Boolean {
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).hasVisibleFrame()
+    return callService(context) { it.hasVisibleFrame() }
+  }
+
+  fun focusPreviewWindow(context: Context, displayId: Int): Boolean =
+    callService(context) { it.focusPreviewWindow(displayId) }
+
+  fun focusGameTask(context: Context, displayId: Int) {
+    callService(context) { it.focusGameTask(displayId) }
+  }
+
   fun currentGamePackage(context: Context): String {
     if (virtualDisplayId(context) < 0) return ""
     if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).currentPackage()

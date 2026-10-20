@@ -24,6 +24,7 @@ import java.io.File
 @TauriPlugin
 class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   private val nativePreview = NativeGamePreview(activity)
+  private val previewProgress = PreviewFrameProgress()
 
   @Command
   fun setSystemBars(invoke: Invoke) {
@@ -52,19 +53,29 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
     val args = invoke.getArgs()
     val enabled = args.optBoolean("enabled", false)
     val result = JSObject()
+    var frameState = PreviewFrameState.WAITING
     if (enabled) {
-      runCatching { ShizukuController.nativeFrameCounts(activity) }.onSuccess { (captured, presented) ->
+      runCatching {
+        val (captured, presented) = ShizukuController.nativeFrameCounts(activity)
         result.put("capturedFrames", captured)
         result.put("presentedFrames", presented)
-        result.put("ready", presented > 0)
-      }.onFailure { result.put("error", it.message); result.put("ready", false) }
+        frameState = previewProgress.update(captured, presented, ShizukuController.hasVisibleFrame(activity), android.os.SystemClock.uptimeMillis())
+        result.put("ready", frameState == PreviewFrameState.LIVE)
+        result.put("frameState", frameState.name.lowercase())
+        result.put("focusDisplayId", ShizukuController.previewFocusDisplayId(activity))
+      }.onFailure {
+        frameState = PreviewFrameState.WAITING
+        result.put("error", it.message)
+        result.put("ready", false)
+        result.put("frameState", "waiting")
+      }
     }
     activity.runOnUiThread {
       try {
         nativePreview.update(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
           args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0), enabled,
-          args.optDouble("clipTop", 0.0), args.optDouble("clipBottom", 0.0))
-        nativePreview.setStatus(result.optBoolean("ready", false), result.optString("error").takeIf { it.isNotEmpty() })
+          args.optDouble("clipTop", 0.0), args.optDouble("clipBottom", 0.0), result.optInt("focusDisplayId", -1))
+        nativePreview.setStatus(frameState, result.optString("error").takeIf { it.isNotEmpty() }, args.optString("language", "en"))
         invoke.resolve(result)
       } catch (error: Exception) { invoke.reject(error.message, error) }
     }

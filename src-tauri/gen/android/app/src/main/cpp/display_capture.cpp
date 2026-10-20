@@ -16,9 +16,10 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include "frame_content.h"
 
 namespace {
-struct Frame { int width, height; std::vector<uint8_t> rgba; };
+struct Frame { int width, height; std::vector<uint8_t> rgba; bool hasContent = false; };
 std::mutex mutex;
 std::condition_variable changed;
 std::array<std::shared_ptr<Frame>, 3> frames;
@@ -27,7 +28,7 @@ AImageReader* reader = nullptr;
 AImage* pendingImage = nullptr;
 ANativeWindow* pendingWindow = nullptr;
 ANativeWindow* assignedWindow = nullptr; // Identity only; owned by the pending slot or renderer.
-bool windowChanged = false, running = false, previewEnabled = false;
+bool windowChanged = false, running = false;
 std::thread renderer;
 std::atomic<int64_t> captured{0}, presented{0};
 
@@ -118,6 +119,7 @@ struct EglRenderer {
 
 void renderLoop() {
   EglRenderer egl;
+  AImage* currentImage = nullptr;
   while (true) {
     AImage* image = nullptr; ANativeWindow* window = nullptr; bool update = false;
     {
@@ -131,8 +133,15 @@ void renderLoop() {
     if (update && !egl.attach(window) && window) {
       __android_log_print(ANDROID_LOG_ERROR, "BaasNativeCapture", "Could not attach EGL preview surface");
     }
-    if (image) { egl.draw(image); AImage_delete(image); }
+    if (image) {
+      if (currentImage) AImage_delete(currentImage);
+      currentImage = image;
+    }
+    // Retain one acquired image so a new preview surface can show a static game
+    // immediately, without waiting for the producer to submit another frame.
+    if (currentImage && (image || update)) egl.draw(currentImage);
   }
+  if (currentImage) AImage_delete(currentImage);
 }
 
 void available(void*, AImageReader* source) {
@@ -151,21 +160,21 @@ void available(void*, AImageReader* source) {
           memcpy(frame->rgba.data() + size_t(row) * frame->width * 4,
             static_cast<uint8_t*>(pixels) + size_t(row) * description.stride * 4, size_t(frame->width) * 4);
         }
-        AHardwareBuffer_unlock(buffer, nullptr); latest = frame; captured.fetch_add(1); break;
+        AHardwareBuffer_unlock(buffer, nullptr);
+        frame->hasContent = hasFrameContent(frame->rgba.data(), size_t(frame->width) * frame->height);
+        latest = frame; captured.fetch_add(1); break;
       }
     }
   }
-  if (previewEnabled) {
-    if (pendingImage) AImage_delete(pendingImage);
-    pendingImage = image; changed.notify_one();
-  } else AImage_delete(image);
+  if (pendingImage) AImage_delete(pendingImage);
+  pendingImage = image; changed.notify_one();
 }
 
 void stopCapture() {
   AImageReader* old;
   {
     std::lock_guard<std::mutex> lock(mutex);
-    running = false; previewEnabled = false; old = reader; reader = nullptr;
+    running = false; old = reader; reader = nullptr;
     assignedWindow = nullptr;
     if (pendingImage) { AImage_delete(pendingImage); pendingImage = nullptr; }
     if (pendingWindow) { ANativeWindow_release(pendingWindow); pendingWindow = nullptr; }
@@ -213,8 +222,7 @@ Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_setPreviewSurface(JNIEnv
   if (window == assignedWindow) { if (window) ANativeWindow_release(window); return; }
   assignedWindow = window;
   if (pendingWindow) ANativeWindow_release(pendingWindow);
-  pendingWindow = window; windowChanged = true; previewEnabled = window != nullptr;
-  if (pendingImage) { AImage_delete(pendingImage); pendingImage = nullptr; }
+  pendingWindow = window; windowChanged = true;
   changed.notify_one();
 }
 
@@ -222,6 +230,12 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_frameCount(JNIEnv*, jobject) { return captured.load(); }
 extern "C" JNIEXPORT jlong JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_previewFrameCount(JNIEnv*, jobject) { return presented.load(); }
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_hasVisibleFrame(JNIEnv*, jobject) {
+  std::lock_guard<std::mutex> lock(mutex);
+  return latest && latest->hasContent;
+}
 
 extern "C" JNIEXPORT jobject JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_captureBitmap(JNIEnv* env, jobject) {

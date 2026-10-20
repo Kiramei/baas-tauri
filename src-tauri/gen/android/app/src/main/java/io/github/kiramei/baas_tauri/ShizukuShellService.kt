@@ -109,7 +109,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
       (1 shl 6) or
       (1 shl 8)
     val display = try {
-      PrivilegedExecution.createShellDisplay(flags) { requestedFlags ->
+      PrivilegedExecution.createShellDisplay(flags, android.os.Build.VERSION.SDK_INT) { requestedFlags ->
         manager.createVirtualDisplay(
           "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, requestedFlags,
         ) ?: throw IllegalStateException("Android rejected the BAAS virtual display")
@@ -225,7 +225,40 @@ class ShizukuShellService : IShizukuShellService.Stub {
 
   override fun frameCount(): Long = privileged { NativeDisplayCapture.frameCount() }
   override fun previewFrameCount(): Long = privileged { NativeDisplayCapture.previewFrameCount() }
+  override fun hasVisibleFrame(): Boolean = privileged { NativeDisplayCapture.hasVisibleFrame() }
   override fun currentPackage(): String = privileged { activePackage }
+  override fun getPreviewFocusDisplayId(): Int = privileged {
+    synchronized(displayLock) {
+      val display = virtualDisplay?.display
+      if (Process.myUid() != Process.SHELL_UID || android.os.Build.VERSION.SDK_INT < 33 ||
+        display == null || display.flags and (1 shl 7) != 0 || activePackage.isBlank()) return@synchronized -1
+      checkGamePlacement()
+      if (GameTaskTransfer.needsPreviewFocus(activePackage, display.displayId)) display.displayId else -1
+    }
+  }
+
+  override fun focusPreviewWindow(displayId: Int): Boolean = privileged {
+    synchronized(displayLock) {
+      checkPreviewFocusSession(displayId)
+      val ownerUid = checkNotNull(context).packageManager.getApplicationInfo(BuildConfig.APPLICATION_ID, 0).uid
+      DisplayInput.focusOwnedWindow(displayId, ownerUid)
+    }
+  }
+
+  override fun focusGameTask(displayId: Int) = privileged {
+    synchronized(displayLock) {
+      checkPreviewFocusSession(displayId)
+      GameTaskTransfer.focus(activePackage, displayId)
+    }
+  }
+
+  private fun checkPreviewFocusSession(displayId: Int) {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplay?.display?.displayId == displayId && activePackage.isNotBlank()) {
+      "The background game session changed during focus recovery"
+    }
+    checkGamePlacement()
+  }
   override fun moveGameToDisplay(packageName: String, displayId: Int) = privileged {
     synchronized(displayLock) {
       privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }

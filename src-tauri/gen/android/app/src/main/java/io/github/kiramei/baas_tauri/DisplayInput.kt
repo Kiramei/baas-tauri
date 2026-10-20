@@ -17,6 +17,32 @@ object DisplayInput {
     InputEvent::class.java.getDeclaredMethod("setDisplayId", Int::class.javaPrimitiveType).apply { isAccessible = true }
   }
 
+  /** Only the BAAS-owned Presentation may receive this focus handshake. */
+  @Synchronized fun focusOwnedWindow(displayId: Int, ownerUid: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    require(ownerUid >= 10000)
+    val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, "input")
+    val input = Class.forName("android.hardware.input.IInputManager\$Stub")
+      .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
+    val targeted = input.javaClass.getMethod("injectInputEventToTarget", InputEvent::class.java,
+      Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+    val downAt = SystemClock.uptimeMillis()
+    fun send(action: Int): Boolean {
+      val event = MotionEvent.obtain(downAt, SystemClock.uptimeMillis(), action, 64f, 64f, 0)
+      try {
+        event.source = InputDevice.SOURCE_TOUCHSCREEN
+        setDisplay.invoke(event, displayId)
+        return targeted.invoke(input, event, 2, ownerUid) as Boolean
+      } finally { event.recycle() }
+    }
+    if (!send(MotionEvent.ACTION_DOWN)) return false
+    var cancelled = false
+    try {
+      cancelled = send(MotionEvent.ACTION_CANCEL)
+      return cancelled
+    } finally { if (!cancelled) runCatching { send(MotionEvent.ACTION_CANCEL) } }
+  }
+
   @Synchronized fun key(displayId: Int, keyCode: Int): Boolean {
     if (displayId < 0) return false
     val now = SystemClock.uptimeMillis()

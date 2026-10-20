@@ -7,6 +7,26 @@ import android.os.Build
 object GameTaskTransfer {
   internal data class Location(val taskId: Int, val displayId: Int, val packageName: String?)
 
+  fun needsPreviewFocus(packageName: String, displayId: Int): Boolean {
+    val manager = taskManager()
+    val focused = manager.javaClass.getMethod("getFocusedRootTaskInfo").invoke(manager)?.let(::location)
+    return needsPreviewFocus(packageName, displayId, locations(manager), focused)
+  }
+
+  internal fun needsPreviewFocus(packageName: String, displayId: Int, tasks: List<Location>, focused: Location?): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    return packageName.isNotBlank() && tasks.any { it.displayId == displayId && it.packageName == packageName } &&
+      (focused?.displayId != displayId || focused.packageName != packageName)
+  }
+
+  fun focus(packageName: String, displayId: Int) {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    val manager = taskManager()
+    val task = locations(manager).firstOrNull { it.displayId == displayId && it.packageName == packageName }
+      ?: throw IllegalStateException("The selected game is no longer on its background display")
+    manager.javaClass.getMethod("setFocusedTask", Int::class.javaPrimitiveType).invoke(manager, task.taskId)
+  }
+
   fun keepOnDisplay(packageName: String, displayId: Int) {
     val manager = taskManager()
     reconcile(packageName, displayId, { locations(manager) }) { taskId, target ->
@@ -55,12 +75,14 @@ object GameTaskTransfer {
     val modern = Build.VERSION.SDK_INT >= 31
     val listName = if (modern) "getAllRootTaskInfos" else "getAllStackInfos"
     val tasks = manager.javaClass.getMethod(listName).invoke(manager) as List<*>
-    return tasks.filterNotNull().map { info ->
-      val display = info.javaClass.getField("displayId").getInt(info)
-      val top = info.javaClass.getField("topActivity").get(info) as? ComponentName
-      val id = info.javaClass.getField(if (modern) "taskId" else "stackId").getInt(info)
-      Location(id, display, top?.packageName)
-    }
+    return tasks.filterNotNull().map(::location)
+  }
+
+  private fun location(info: Any): Location {
+    val display = info.javaClass.getField("displayId").getInt(info)
+    val top = info.javaClass.getField("topActivity").get(info) as? ComponentName
+    val id = info.javaClass.getField(if (Build.VERSION.SDK_INT >= 31) "taskId" else "stackId").getInt(info)
+    return Location(id, display, top?.packageName)
   }
 
   private fun moveTask(manager: Any, taskId: Int, toDisplay: Int) {

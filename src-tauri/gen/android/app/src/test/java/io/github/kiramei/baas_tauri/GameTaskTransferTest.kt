@@ -1,11 +1,33 @@
 package io.github.kiramei.baas_tauri
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
 class GameTaskTransferTest {
   private val game = "example.game"
+
+  @Test fun previewRecoversOnlyAnExistingSelectedGame() {
+    val target = GameTaskTransfer.Location(2, 9, game)
+    val host = GameTaskTransfer.Location(1, 0, "example.baas")
+    assertTrue(GameTaskTransfer.needsPreviewFocus(game, 9, listOf(target, host), host))
+    assertTrue(GameTaskTransfer.needsPreviewFocus(game, 9, listOf(target), null))
+    assertFalse(GameTaskTransfer.needsPreviewFocus(game, 9, listOf(target), target))
+    assertFalse(GameTaskTransfer.needsPreviewFocus(game, 9, listOf(host), host))
+    assertFalse(GameTaskTransfer.needsPreviewFocus("", 9, listOf(target), host))
+    assertFalse(GameTaskTransfer.needsPreviewFocus(game, 9, listOf(target.copy(displayId = 0)), host))
+  }
+
+  @Test fun previewFocusNeverTargetsThePhysicalDisplay() {
+    for (display in listOf(0, -1)) {
+      try {
+        GameTaskTransfer.needsPreviewFocus(game, display, emptyList(), null)
+        fail("A physical or missing display must be rejected")
+      } catch (_: IllegalStateException) { }
+    }
+  }
 
   @Test fun onlyReparentsSelectedGameTasksThatDrifted() {
     var tasks = listOf(

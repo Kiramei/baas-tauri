@@ -37,7 +37,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   virtualDisplayBusy,
   onToggleVirtualDisplay,
 }) => {
-  const { t } = useAppTranslation();
+  const { t, language } = useAppTranslation();
   const [games, setGames] = useState<AndroidInstalledGame[]>([]);
   const [shizukuGranted, setShizukuGranted] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
@@ -129,6 +129,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       const enabled = Boolean(selectedGame && virtualDisplayActive && shizukuGranted && !blocked);
       const request = {
         enabled,
+        language,
         x: bounds?.x ?? 0,
         y: bounds?.y ?? 0,
         width: bounds?.width ?? 0,
@@ -200,7 +201,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
         void updateNativePreview({ enabled: false }).catch(console.warn);
       }
     };
-  }, [selectedGame, shizukuGranted, virtualDisplayActive]);
+  }, [language, selectedGame, shizukuGranted, virtualDisplayActive]);
 
   const startBackgroundDisplay = async () => {
     if (virtualDisplayBusy) return;
@@ -302,8 +303,8 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
 
       {virtualDisplayActive && (
         <div className="pointer-events-none absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-semibold text-white">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
-          {t("android.game.live")}
+          <span className={`h-2 w-2 rounded-full ${previewReady ? "bg-emerald-400" : "bg-slate-400"}`} />
+          {previewReady ? t("android.game.live") : t("android.start.displayNotReady")}
         </div>
       )}
     </section>

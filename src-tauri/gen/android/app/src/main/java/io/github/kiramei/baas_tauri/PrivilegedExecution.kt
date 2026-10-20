@@ -3,12 +3,13 @@ package io.github.kiramei.baas_tauri
 /** Policies shared by the Binder service and its isolated display process. */
 internal object PrivilegedExecution {
   /** Prefer a trusted display; some Android builds deny that capability to shell. */
-  fun trustedDisplayFlags(flags: Int): Int = flags or (1 shl 10)
+  fun trustedDisplayFlags(flags: Int, sdk: Int = 0): Int = flags or (1 shl 10) or
+    (if (sdk >= 34) (1 shl 14) or (1 shl 16) else 0)
 
-  fun <T> createShellDisplay(flags: Int, create: (Int) -> T): T = try {
-    create(trustedDisplayFlags(flags))
+  fun <T> createShellDisplay(flags: Int, sdk: Int = 0, create: (Int) -> T): T = try {
+    create(trustedDisplayFlags(flags, sdk))
   } catch (_: SecurityException) {
-    create(flags and (1 shl 10).inv())
+    create(flags and ((1 shl 10) or (1 shl 14) or (1 shl 16)).inv())
   }
 
   fun systemCommand(

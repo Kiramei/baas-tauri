@@ -44,6 +44,7 @@ object PrivilegedDisplayMain {
         }
         override fun frameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.frameCount() }
         override fun previewFrameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.previewFrameCount() }
+        override fun hasVisibleFrame(): Boolean = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.hasVisibleFrame() }
         override fun currentPackage(): String = PrivilegedExecution.binderResult { authorize(); activePackage }
         override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
           authorize()
@@ -171,7 +172,7 @@ object PrivilegedDisplayMain {
       (1 shl 6) or (1 shl 8) or (1 shl 11) or (1 shl 12)
     val display = try {
       manager.createVirtualDisplay(
-        "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, PrivilegedExecution.trustedDisplayFlags(flags),
+        "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, PrivilegedExecution.trustedDisplayFlags(flags, android.os.Build.VERSION.SDK_INT),
       ) ?: throw IllegalStateException("Android rejected the privileged virtual display")
     } catch (error: Throwable) {
       runCatching { NativeDisplayCapture.stop() }

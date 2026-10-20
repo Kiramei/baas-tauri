@@ -24,5 +24,9 @@ interface IShizukuShellService {
   void moveGameToDisplay(String packageName, int displayId) = 19;
   void disableOwnNotifications(int appUid) = 20;
     boolean pinch(boolean inward, int percent, int durationMs) = 18;
+    int getPreviewFocusDisplayId() = 21;
+    boolean focusPreviewWindow(int displayId) = 22;
+    void focusGameTask(int displayId) = 23;
+    boolean hasVisibleFrame() = 24;
     void destroy() = 16777114;
 }

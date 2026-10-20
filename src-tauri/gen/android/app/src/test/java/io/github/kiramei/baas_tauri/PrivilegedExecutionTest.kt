@@ -9,6 +9,23 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class PrivilegedExecutionTest {
+  @Test fun independentFocusIsRequestedOnlyOnSupportedAndroidVersions() {
+    assertEquals(1355, PrivilegedExecution.trustedDisplayFlags(331, 33))
+    for (sdk in listOf(34, 35, 36)) {
+      assertEquals(83275, PrivilegedExecution.trustedDisplayFlags(331, sdk))
+    }
+  }
+
+  @Test fun deniedTrustedDisplayDoesNotKeepPrivilegedFocusFlags() {
+    val requested = mutableListOf<Int>()
+    PrivilegedExecution.createShellDisplay(331, 35) {
+      requested.add(it)
+      if (requested.size == 1) throw SecurityException("denied")
+      7
+    }
+    assertEquals(listOf(83275, 331), requested)
+  }
+
   @Test fun trustedDisplayPreservesOtherFlags() {
     for (flags in listOf(0, 331, 6479)) {
       val trusted = PrivilegedExecution.trustedDisplayFlags(flags)
