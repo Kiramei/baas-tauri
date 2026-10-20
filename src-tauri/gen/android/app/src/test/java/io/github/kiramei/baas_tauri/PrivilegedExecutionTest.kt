@@ -9,6 +9,52 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class PrivilegedExecutionTest {
+  @Test fun trustedDisplayPreservesOtherFlags() {
+    for (flags in listOf(0, 331, 6479)) {
+      val trusted = PrivilegedExecution.trustedDisplayFlags(flags)
+      assertTrue(trusted and (1 shl 10) != 0)
+      assertEquals(flags, trusted and (1 shl 10).inv())
+      assertEquals(trusted, PrivilegedExecution.trustedDisplayFlags(trusted))
+    }
+  }
+
+  @Test fun shellRetriesWithoutTrustedFlagOnlyForPermissionDenial() {
+    val requests = mutableListOf<Int>()
+    val result = PrivilegedExecution.createShellDisplay(331) { flags ->
+      requests.add(flags)
+      if (flags and (1 shl 10) != 0) throw SecurityException("ADD_TRUSTED_DISPLAY")
+      "display"
+    }
+    assertEquals("display", result)
+    assertEquals(listOf(1355, 331), requests)
+  }
+
+  @Test fun successfulTrustedCreationDoesNotCreateAnotherDisplay() {
+    var calls = 0
+    assertEquals(17, PrivilegedExecution.createShellDisplay(331) { calls++; 17 })
+    assertEquals(1, calls)
+  }
+
+  @Test fun nonPermissionFailuresAreNotRetried() {
+    var calls = 0
+    try {
+      PrivilegedExecution.createShellDisplay<Int>(331) { calls++; throw IllegalArgumentException("invalid surface") }
+      fail("Invalid surface must fail")
+    } catch (_: IllegalArgumentException) {
+      assertEquals(1, calls)
+    }
+  }
+
+  @Test fun fallbackPermissionDenialIsReported() {
+    var calls = 0
+    try {
+      PrivilegedExecution.createShellDisplay<Int>(331) { calls++; throw SecurityException("denied") }
+      fail("Both attempts denied")
+    } catch (_: SecurityException) {
+      assertEquals(2, calls)
+    }
+  }
+
   @Test fun resolvesDeviceSuInsteadOfAssumingSystemBin() {
     val command = PrivilegedExecution.systemCommand(listOf("/system/bin/app_process", "a b"),
       "/system/bin:/product/bin") { it == "/product/bin/su" }

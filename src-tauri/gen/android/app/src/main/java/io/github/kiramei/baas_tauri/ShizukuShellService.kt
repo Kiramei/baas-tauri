@@ -14,6 +14,8 @@ import android.os.Process
 import androidx.annotation.Keep
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 /** Shell/root process which owns the virtual display, frame capture and input channel. */
 @Keep
@@ -25,6 +27,9 @@ class ShizukuShellService : IShizukuShellService.Stub {
   private var displayHeight = 0
   @Volatile private var activePackage = ""
   private var privilegedBridge: PrivilegedDisplayBridge? = null
+  private val placementExecutor = Executors.newSingleThreadScheduledExecutor()
+  private var placementCheck: ScheduledFuture<*>? = null
+  private var placementError: Throwable? = null
 
   constructor()
 
@@ -103,22 +108,23 @@ class ShizukuShellService : IShizukuShellService.Stub {
       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
       (1 shl 6) or
       (1 shl 8)
-    val display = manager.createVirtualDisplay(
-      "BAAS Game",
-      safeWidth,
-      safeHeight,
-      safeDensity,
-      captureSurface,
-      flags,
-    ) ?: run {
+    val display = try {
+      PrivilegedExecution.createShellDisplay(flags) { requestedFlags ->
+        manager.createVirtualDisplay(
+          "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, requestedFlags,
+        ) ?: throw IllegalStateException("Android rejected the BAAS virtual display")
+      }
+    } catch (error: Throwable) {
+      runCatching { NativeDisplayCapture.stop() }
+      throw error
+    } finally {
       captureSurface.release()
-      NativeDisplayCapture.stop()
-      throw IllegalStateException("Android rejected the BAAS virtual display")
     }
-    captureSurface.release()
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
+    lockDisplayRotation(display.display.displayId)
+    android.util.Log.i("BaasGameDisplay", "Created display ${display.display.displayId}, effective flags=${display.display.flags}, uid=${Process.myUid()}")
       PrivilegedExecution.virtualDisplayId(display.display.displayId)
     }
   }
@@ -171,6 +177,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     format: Bitmap.CompressFormat,
     quality: Int,
   ): ParcelFileDescriptor = synchronized(displayLock) {
+    checkGamePlacement()
     val bytes = privilegedBridge?.let { bridge ->
       val encoded = bridge.request(command)
       if (encoded.isEmpty()) ByteArray(0)
@@ -197,11 +204,17 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
     val displayId = getVirtualDisplayId()
     if (displayId <= 0) return@privileged false
-    DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs)
+    synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs)
+    }
   }
 
   override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = privileged {
-    DisplayInput.pinch(getVirtualDisplayId(), displayWidth, displayHeight, inward, percent, durationMs)
+    synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.pinch(getVirtualDisplayId(), displayWidth, displayHeight, inward, percent, durationMs)
+    }
   }
 
   override fun setPreviewSurface(surface: android.view.Surface?) = privileged {
@@ -214,10 +227,13 @@ class ShizukuShellService : IShizukuShellService.Stub {
   override fun previewFrameCount(): Long = privileged { NativeDisplayCapture.previewFrameCount() }
   override fun currentPackage(): String = privileged { activePackage }
   override fun moveGameToDisplay(packageName: String, displayId: Int) = privileged {
-    privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }
-    check(packageName == activePackage) { "The selected game is not active" }
-    GameTaskTransfer.move(packageName, getVirtualDisplayId(), displayId)
-    activePackage = ""
+    synchronized(displayLock) {
+      privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }
+      check(packageName == activePackage) { "The selected game is not active" }
+      GameTaskTransfer.move(packageName, getVirtualDisplayId(), displayId)
+      stopPlacementCheck()
+      activePackage = ""
+    }
   }
   override fun reconnectNativeEndpoint() = privileged {
     privilegedBridge?.request("PUBLISH")
@@ -225,7 +241,10 @@ class ShizukuShellService : IShizukuShellService.Stub {
   }
   override fun keyEvent(keyCode: Int): Boolean = privileged {
     privilegedBridge?.let { return@privileged it.request("KEY $keyCode").toBoolean() }
-    DisplayInput.key(getVirtualDisplayId(), keyCode)
+    synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.key(getVirtualDisplayId(), keyCode)
+    }
   }
 
   /** Launch through ActivityManager's binder, matching MAA-Meow's primary path. */
@@ -278,11 +297,57 @@ class ShizukuShellService : IShizukuShellService.Stub {
       options.toBundle(),
       -2,
     ) as Int
-    (result >= 0).also { if (it) activePackage = packageName }
+    val started = result >= 0
+    if (started) synchronized(displayLock) {
+      check(getVirtualDisplayId() == displayId) { "The game display was closed while launching" }
+      activePackage = packageName
+      startPlacementCheck(packageName, displayId)
+    }
+    started
   }
 
+  private fun startPlacementCheck(packageName: String, displayId: Int) {
+    stopPlacementCheck()
+    // Splash/SDK Activities can create a new task on display 0 after launch returns.
+    placementCheck = placementExecutor.scheduleWithFixedDelay({ synchronized(displayLock) {
+      if (activePackage == packageName && virtualDisplay?.display?.displayId == displayId) {
+        try {
+          GameTaskTransfer.keepOnDisplay(packageName, displayId)
+          placementError = null
+        } catch (error: Throwable) {
+          if (placementError == null) android.util.Log.w("BaasGameDisplay", "Unable to keep the game on its display", error)
+          placementError = error
+        }
+      }
+    } }, 0L, 500L, TimeUnit.MILLISECONDS)
+  }
+
+  private fun lockDisplayRotation(displayId: Int) {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    runCatching {
+      val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
+        .invoke(null, "window")
+      val manager = Class.forName("android.view.IWindowManager\$Stub")
+        .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
+      val methods = manager.javaClass.methods.filter { it.name == "freezeDisplayRotation" }
+      val method = methods.firstOrNull { it.parameterCount == 3 } ?: methods.first { it.parameterCount == 2 }
+      val arguments: Array<Any> = if (method.parameterCount == 3) arrayOf(displayId, 0, "BAAS Game") else arrayOf(displayId, 0)
+      method.invoke(manager, *arguments)
+    }.onFailure { android.util.Log.w("BaasGameDisplay", "Unable to lock only the game display rotation", it) }
+  }
+
+  private fun checkGamePlacement() {
+    placementError?.let { throw IllegalStateException("The game left its background display and could not be moved back", it) }
+  }
+
+  private fun stopPlacementCheck() {
+    placementCheck?.cancel(false)
+    placementCheck = null
+    placementError = null
+  }
 
   private fun stopVirtualDisplayLocked() {
+    stopPlacementCheck()
     closeVideoStreamLocked(restoreCaptureSurface = false)
     virtualDisplay?.release()
     if (Process.myUid() != Process.ROOT_UID) NativeDisplayCapture.stop()
@@ -300,6 +365,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     privilegedBridge?.close()
     privilegedBridge = null
     stopVirtualDisplay()
+    placementExecutor.shutdownNow()
     System.exit(0)
   }
 

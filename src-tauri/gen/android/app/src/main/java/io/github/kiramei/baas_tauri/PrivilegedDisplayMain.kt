@@ -168,11 +168,17 @@ object PrivilegedDisplayMain {
       DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
-      (1 shl 6) or (1 shl 8) or (1 shl 10) or (1 shl 11) or (1 shl 12)
-    val display = manager.createVirtualDisplay(
-      "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, flags,
-    ) ?: run { NativeDisplayCapture.stop(); throw IllegalStateException("Android rejected the privileged virtual display") }
-    captureSurface.release()
+      (1 shl 6) or (1 shl 8) or (1 shl 11) or (1 shl 12)
+    val display = try {
+      manager.createVirtualDisplay(
+        "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, PrivilegedExecution.trustedDisplayFlags(flags),
+      ) ?: throw IllegalStateException("Android rejected the privileged virtual display")
+    } catch (error: Throwable) {
+      runCatching { NativeDisplayCapture.stop() }
+      throw error
+    } finally {
+      captureSurface.release()
+    }
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
