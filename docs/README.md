@@ -311,3 +311,38 @@ skip reasons are published, without raw logs or local paths. Package metadata
 is collected afterward using the configured test interpreter; a null package
 version means that distribution's metadata is unavailable. This does not prove
 a fresh install or all supported Python/platform combinations.
+
+## Android Game Placement Probe
+
+`scripts/probe-android-game.mjs start|snapshot|close LABEL` targets only the
+hash-verified documentation x86 APK and Bilibili game on serial
+`127.0.0.1:16384`, with its owned WebView forwarded on 19233. Keep the owned
+BAAS Activity foreground when attaching CDP. All schedulers must be idle,
+autostart off and all 26 Documentation Demo events disabled. Start also refuses
+an existing display, running game or prior baseline in the same cache run.
+
+Set `ANDROID_GAME_PROBE_RUN` to a new lowercase identifier for each independent
+run. Start backs up configuration/events before clicking the actual Home game
+play button. It deliberately leaves the display running for inspection. It does
+not start a scheduler, inject game input, change Shizuku mode or clear game
+data. Always restore before leaving the session: bring this owned BAAS Activity
+back, return the game started by this probe to its initially stopped state,
+then run close with the same run identifier. Never stop another game's or
+another client's process to satisfy a precondition.
+
+Close dispatches the production native-overlay event handler and invokes
+idempotent native cleanup; this is not proof of physically tapping a native
+button. It restores the four local-connection fields, compares every profile
+and event against the baseline, checks the idle Home button and verifies the
+game is stopped. Raw screenshots, profile backups and system dumps remain in
+ignored `.cache/android-game-session/`; they are not publication assets.
+
+`scripts/summarize-android-game.mjs RUN ANDROID_SOURCE` validates the captured
+placement denial, actual Activity display, display flags, PNG digest/pixels,
+unchanged capture harness, pinned source files and restoration. It emits only
+allowlisted metadata in `evidence/android-game-validation.json`. Android version
+properties are checked afterward and labeled as post-run observations. The
+current result is a failed shell-mode game-display placement, not successful
+Android automation, a fixed APK or a performance result. Changing the capture
+script requires a new run. The suspected trusted-display cause remains a
+hypothesis until a repaired build is tested.

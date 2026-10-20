@@ -3,7 +3,7 @@ title: Android Client
 description: Fresh installation, first-run backend download, Shizuku authorization, local game display, workspaces and verified limitations.
 ---
 
-The Android client is maintained on `android-dev`, separately from desktop `dev`. The APK embeds the frontend, Python runtime, bootstrap/adapters and service. **It does not bundle the complete backend repository or a Shizuku installer.** First launch downloads the configured backend into the app's private storage.
+The APK includes Python; first launch also downloads the backend. Automation requires a separately installed, running Shizuku service with BAAS authorization.
 
 ## Install and Prepare
 
@@ -77,6 +77,14 @@ The native preview is **read-only**. Tapping it opens three native icons:
 Do not tap the preview expecting a game button to receive input. Take over for manual operation. Menus/dialogs hide the native preview to prevent it covering controls; returning to a visible Home restores its preview ownership. Switching to another page hides the view, not necessarily the background game or Python service.
 
 A Live badge proves a display state, **not** a healthy logged-in game, valid input or task success. Check the actual frame and game activity before scheduling.
+
+### Game Returns to the Main Display or Preview Stalls
+
+One cold launch on MuMu Android 15, using the x86_64 build, Shizuku in shell mode and Bilibili game version 3.0.2, created the background display successfully. Android then refused to place the game's Unity Activity on that display and launched it on the main display. The preview showed the splash screen and later went black. Game input and task execution remain unverified for this combination.
+
+If this happens, stop the scheduler and close the background display. Check system logs for `Not allow to launch ... on display`. Bitrate, screenshot intervals and reinstalling the game do not resolve a display-placement permission failure.
+
+Developers can compare `adb shell dumpsys activity activities` with `adb shell dumpsys display`: locate the actual game Activity and check whether its intended display has `FLAG_TRUSTED`. [Android 15's placement checks](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java) restrict ordinary applications launching activities on untrusted displays. A successful privileged launch of the first page does not establish that subsequent game pages can remain there. This is a diagnostic lead, not evidence that every Android device has the same problem.
 
 ## Configuration, Tasks and Settings
 

@@ -213,13 +213,17 @@ Recommendations:
 
 ## Android Client Problems
 
-v0.0.7 added the Android client. If Android cannot start, script toggles fail, or the backend keeps restarting:
+Check the stage where the failure occurs:
 
-- Confirm the APK is current and Android allows the app to be installed and run.
-- Start Shizuku, authorize BAAS, and enable the background game display. Accessibility is not required.
-- Keep the foreground service notification alive; if the system kills the app, backend and scripts stop.
-- If the notification script toggle does not work, open the app, confirm the backend has started, then retry from the notification.
-- If the UI does not recover after an Android backend update, close and reopen the app.
+| Symptom | Check and action |
+| ------- | ---------------- |
+| APK installation fails | Check CPU ABI, Android version, installation permission and existing package signatures; clearing app data does not resolve a signature conflict |
+| Initial preparation or update fails | Expand the failed stage, preserve terminal output, and check the download source, network and app-private storage |
+| Game start is blocked | Check Shizuku installation, running state and BAAS authorization separately; local control does not require Accessibility |
+| Live but frozen splash, black preview or game on the main display | Stop the scheduler and close the background display; locate the game Activity and inspect `Not allow to launch ... on display` logs; see [background-game diagnostics](../guide/android#game-returns-to-the-main-display-or-preview-stalls) |
+| Background disconnect or interrupted tasks | Check the dedicated backend service, process logs and background restrictions; BAAS attempts to suppress its own notifications, so notification visibility alone is not a health check |
+
+This version has no notification task Start/Stop buttons. Use the central bottom control inside the app for the scheduler. Home's separate game-area play button starts only the background game. Successful game launch does not establish successful task execution.
 
 ## Transport and System Log Problems
 

@@ -557,6 +557,44 @@ newlines initially changed at Git normalization and invalidated raw hashes;
 the publisher, regenerated replay/validation data and presentation evidence
 were corrected together. Tests reject CR bytes in these generated JSON files.
 
+## Android Game Placement Checkpoint
+
+Two owned Home background-game cold launches reproduced the Bilibili Unity
+Activity leaving its intended virtual display for display 0. The second run
+is hash-bound to `scripts/probe-android-game.mjs`; the first was exploratory.
+`evidence/android-game-validation.json` records the failed placement, two
+corresponding Android denial lines, an untrusted virtual display and a
+1280x720 completely black captured frame. Seven Android source files were
+verified against the pinned Git revision. Shell package output does not list
+`ADD_TRUSTED_DISPLAY`; no permission was granted or Shizuku mode changed.
+
+The shell display path omits the trusted flag while the separate root/system
+path includes it. Android 15 source supports the placement-permission diagnosis,
+but no repaired APK has been built or tested. No source change was made in the
+shared or isolated Android checkout. The request to include a client repair in
+an independent branch is awaiting the user's scope choice.
+
+Both runs kept every scheduler idle and all documentation tasks disabled. No
+game input, login, purchases or game-data clearing occurred. The owned virtual
+display is closed, the game started by this probe is stopped, all profiles and
+events match their backups, and the frontend Home play state is restored. Close
+was dispatched through the production overlay event handler by the probe; it
+does not validate a physical native close-button tap. Raw screenshots, private
+profile backups and full system logs stay in ignored cache. Zero public media
+files were added.
+
+The Android guides now describe the observed combination and read-only
+diagnostic commands. Both troubleshooting pages remove stale Accessibility and
+notification task-toggle instructions. Real game input/tasks, native takeover/
+restart and long-running lifecycle reliability remain unverified.
+
+The rebuilt export passes all 417 browser cases and 74-page static link checks.
+Eight additional source-bound checks follow the localized troubleshooting links
+to the new diagnostic heading across both languages, themes and viewport sizes;
+the cached mobile/desktop views were reviewed. No public raster asset changed.
+The legacy local Gaussian-blur verifier remains idempotent (two files, zero
+new changes), and its outside-region pixel tests still pass.
+
 ## Runtime Handles
 
 - Preview: `http://127.0.0.1:4173/`, static server serves `docs/out`.
@@ -579,7 +617,8 @@ were corrected together. Tests reject CR bytes in these generated JSON files.
 
 ## Verification Scope
 
-`bun test tests`: 40 tests, including backend-source/replay contracts and native conditional capture/source/restore,
+`bun test tests`: 43 tests, including Android game-placement failure/cleanup contracts,
+backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
 complete bilingual TOML, privacy inventory, reader prose, native statistics,
 ordering/output equivalence, device measurement/source/restore checks and

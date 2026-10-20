@@ -3,7 +3,7 @@ title: Android 客户端
 description: 安装、首次后端下载、Shizuku 授权、本机游戏显示、任务与后台运行。
 ---
 
-Android 客户端维护在 `android-dev`，与桌面 `dev` 分开。APK 内嵌前端、Python 运行时、启动适配代码和服务，**不内置完整后端仓库，也不内置 Shizuku 安装器**。首次启动会将配置来源的后端下载到应用私有目录。
+APK 内含 Python 运行时，首次启动还需下载后端。自动化控制依赖单独安装、启动并授权的 Shizuku。
 
 ## 安装与准备
 
@@ -77,6 +77,14 @@ Android 客户端维护在 `android-dev`，与桌面 `dev` 分开。APK 内嵌�
 点击预览里的游戏按钮不会直接发送游戏输入；需要手动操作时使用接管。菜单和弹窗出现时会隐藏原生预览，避免覆盖界面控件；回到可见首页后恢复预览归属。切到其他页面隐藏的是视图，不一定停止后台游戏或 Python 服务。
 
 Live 只说明显示状态，**不能证明**游戏已登录、输入有效或任务成功。加入调度前核对真实画面及游戏所在显示。
+
+### 游戏跳回主屏或预览停在启动图
+
+MuMu Android 15、x86_64 构建、Shizuku shell 模式与 B 服游戏 3.0.2 的一次冷启动中，后台显示创建成功，但游戏的 Unity Activity 被系统拒绝放到该显示，随后出现在主屏；预览先显示启动图，之后变黑。这一组合尚未通过游戏输入和任务验证。
+
+遇到相同现象，先停止调度并关闭后台显示，检查系统日志中是否出现 `Not allow to launch ... on display`。提高码率、缩短截图间隔或重新安装游戏都不能解决显示放置权限的问题。
+
+开发者可对照 `adb shell dumpsys activity activities` 和 `adb shell dumpsys display`，确认实际游戏 Activity 所在显示，以及虚拟屏是否带 `FLAG_TRUSTED`。[Android 15 的显示放置检查](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java)会限制普通应用在非可信显示上启动 Activity；BAAS 通过特权服务启动第一个页面成功，也不足以保证游戏后续页面能留在同一显示。该检查是排查线索，不能据此认定所有 Android 设备都有相同问题。
 
 ## 配置、任务与设置
 
