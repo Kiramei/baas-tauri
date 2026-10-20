@@ -3,18 +3,46 @@ title: Android Client
 description: Install the Android APK, start the bundled backend, configure permissions, use notification script toggles, and troubleshoot common problems.
 ---
 
-Starting from v0.0.7, BAAS Tauri ships a native Android client. It bundles the frontend UI, Python backend runtime, updater, Shizuku installer, and foreground service into one APK for Android-local automation and testing.
+The Android client is maintained on `android-dev`. It bundles the frontend UI, Python backend runtime, updater, Shizuku installer, and foreground service into one APK for Android-local automation. Desktop `dev` and `android-dev` are separate source baselines; do not assume every desktop control is present on mobile.
+
+## Profiles and Workspaces
+
+The bottom navigation opens Home, Tasks, Configuration and Settings. The central play/stop button controls the selected profile's scheduler. It is separate from launching a background game display. The profile strip and add-profile icon are at the top; new profiles require a name and game server. Choose the server matching the installed game package.
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/home.png"
+  alt="Current native Android home in light mode with profile strip and bottom navigation"
+/>
+
+Configuration uses search and a category selector above the inline editor. Changes save automatically, with undo/redo arrows beside the heading. [Editing Configuration](./configuration) explains the shared draft behavior. The desktop emulator category is absent on Android; Script also hides the desktop screenshot and control selectors. Android local automation uses `android_local` internally.
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/config-cafe.png"
+  alt="Android inline Cafe editor with category selector and configuration history"
+/>
+
+Tasks uses the single-list scheduler, per-task enable switches, next-run controls and task detail dialog. The same bulk actions apply to the full task list even while search hides rows. Configure resource-consuming tasks before enabling them. [Scheduler and Workflow](./scheduler) describes task relationships and timing.
+
+Settings has a compact category selector for General, Appearance, Shortcuts, Connection & runtime, Updates and Logs. Language and theme changes affect the app; the documentation language/theme remains independent. System Back dismisses an open overlay first and participates in the application's page navigation rather than being equivalent to stopping the backend.
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/settings-appearance.png"
+  alt="Android appearance settings with light, dark and system themes"
+/>
 
 ## Scope
 
 Android and desktop clients serve different use cases:
 
-| Scenario | Recommendation |
-| --- | --- |
-| Daily desktop emulator hosting | Prefer the Windows / macOS / Linux desktop client |
-| Local Android device or Android environment | Use the Android APK |
+| Scenario                                         | Recommendation                                          |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| Daily desktop emulator hosting                   | Prefer the Windows / macOS / Linux desktop client       |
+| Local Android device or Android environment      | Use the Android APK                                     |
 | Need to inspect backend logs and update progress | Android shows startup terminal and update logs directly |
-| Need long-running background behavior | Keep the foreground service notification alive |
+| Need long-running background behavior            | Keep the foreground service notification alive          |
 
 ## Install the APK
 
@@ -32,12 +60,12 @@ On first launch, the app prepares the bundled backend runtime. This can take a w
 
 ## Required Permissions
 
-| Permission / State | Purpose | Symptom When Missing |
-| --- | --- | --- |
-| Shizuku running and authorized | Creates the background game display and injects input | Game preview and controls are unavailable |
-| Foreground service notification | Keeps backend and scripts alive | Backend disconnects after running for a while |
-| Network access | Updates and resource synchronization | Update or backend preparation fails |
-| Storage / file access | Stores runtime, logs, and profiles | Config or logs cannot be written |
+| Permission / State              | Purpose                                               | Symptom When Missing                          |
+| ------------------------------- | ----------------------------------------------------- | --------------------------------------------- |
+| Shizuku running and authorized  | Creates the background game display and injects input | Game preview and controls are unavailable     |
+| Foreground service notification | Keeps backend and scripts alive                       | Backend disconnects after running for a while |
+| Network access                  | Updates and resource synchronization                  | Update or backend preparation fails           |
+| Storage / file access           | Stores runtime, logs, and profiles                    | Config or logs cannot be written              |
 
 Android background restrictions vary by system version. If scripts stop frequently, check battery optimization, background restrictions, and notification permissions.
 
@@ -75,12 +103,12 @@ If update fails:
 
 ## Common Problems
 
-| Problem | Action |
-| --- | --- |
-| APK cannot install | Check Android version, CPU architecture, and unknown-source install permission |
-| Backend keeps preparing | Wait for terminal output; preserve startup logs if it fails |
-| Script cannot click | Check Shizuku state and the background game display |
+| Problem                   | Action                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| APK cannot install        | Check Android version, CPU architecture, and unknown-source install permission           |
+| Backend keeps preparing   | Wait for terminal output; preserve startup logs if it fails                              |
+| Script cannot click       | Check Shizuku state and the background game display                                      |
 | Disconnects after a while | Check foreground service notification, battery optimization, and background restrictions |
-| Old state after update | Restart the app, then confirm version and update logs |
+| Old state after update    | Restart the app, then confirm version and update logs                                    |
 
 For centralized troubleshooting, see [Troubleshooting](../reference/troubleshooting#android-client-problems).

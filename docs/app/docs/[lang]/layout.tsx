@@ -3,6 +3,7 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 import { normalizeLocale, type Locale } from "@/lib/i18n";
 import { LanguageMenu } from "@/components/LanguageMenu";
+import { DocumentLanguage } from "@/components/DocumentLanguage";
 
 type LayoutProps = {
   children: ReactNode;
@@ -32,6 +33,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         footer: <LanguageMenu key="baas-sidebar-language-menu" locale={locale as Locale} />,
       }}
     >
+      <DocumentLanguage locale={locale} />
       {children}
     </DocsLayout>
   );

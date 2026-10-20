@@ -1,284 +1,40 @@
 ---
-title: BAAS Docs
-description: Documentation for the BAAS Tauri desktop client, scheduler, feature configuration, remote emulator display, updater, and web Wiki.
+title: BAAS Documentation
+description: Install BAAS, configure the current desktop or Android workspace, schedule tasks and understand the implementation.
 ---
 
-<div className="baas-doc-home">
-  <section className="baas-doc-intro">
-    <div className="baas-brand-lockup">
-      <img src="/baas-icon.png" alt="BAAS icon" />
-      <span>Blue Archive Auto Script</span>
-    </div>
-    <h2>Quick Start</h2>
-    <div className="baas-doc-intro-text">
-      BAAS Tauri is the BAAS desktop workbench. The desktop client coordinates profiles,
-      scheduling, logs, remote display, updates, and documentation, while the backend handles ADB,
-      screenshots, recognition, task execution, and state synchronization.
-    </div>
-    <div className="baas-doc-actions">
-      <a href="./guide/install">Install</a>
-      <a href="./guide/android">Android Client</a>
-      <a href="./guide/interface">Interface</a>
-      <a href="./guide/scheduler">Scheduler</a>
-    </div>
-  </section>
+BAAS runs automation through a client, a managed backend and a device connection. This documentation follows the current `dev` desktop workspace; Android-specific behavior is documented separately from `android-dev`.
 
-<Cards className="baas-doc-focus-cards">
-  <Card
-    icon={<DocHomeIcon name="install" />}
-    title="First Run"
-    href="./guide/install"
-    description="Download the client, start the backend, initialize the key, and validate the first connection."
-  />
-  <Card
-    icon={<DocHomeIcon name="emulator" />}
-    title="Android Client"
-    href="./guide/android"
-    description="Install the APK, authorize bundled Shizuku, keep the foreground service, and use notification script toggles."
-  />
-  <Card
-    icon={<DocHomeIcon name="interface" />}
-    title="Understand the UI"
-    href="./guide/interface"
-    description="Learn the home page, sidebar, profiles, logs, remote display, and context menu."
-  />
-  <Card
-    icon={<DocHomeIcon name="scheduler" />}
-    title="Automate Safely"
-    href="./guide/scheduler"
-    description="Configure task state, next run time, prerequisites, and low-risk validation order."
-  />
-  <Card
-    icon={<DocHomeIcon name="settings" />}
-    title="Feature Configuration"
-    href="./features/server"
-    description="Server, emulator, script, stages, sweeps, cafe, shop, crafting, and combat are documented separately."
-  />
-</Cards>
+## Get Started
 
-  <Callout type="info" title="Start Here">
-    BAAS is split into orchestration and execution: the desktop client coordinates, while the backend
-    performs device control and automation. When something goes wrong, inspect profiles, scheduler
-    state, ADB, recognition, and logs first.
-  </Callout>
-</div>
+1. [Install the client and connect the backend](./guide/install).
+2. [Understand the workspace](./guide/interface) and select or create a [profile](./features/profile).
+3. Configure the [server](./features/server), [device](./features/emulator) and [script methods](./features/script).
+4. [Edit task behavior](./guide/configuration), then [enable and schedule tasks](./guide/scheduler).
+5. Start a small set of tasks and inspect [runtime state and logs](./features/home-runtime).
+
+For local Android automation, begin with [Android Client](./guide/android).
+
+## Common Tasks
+
+| Task                                | Documentation                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| Cafe, invitations and affection     | [Cafe](./features/cafe)                                                                |
+| Lessons, shops and crafting         | [Lessons](./features/lesson), [Shop](./features/shop), [Crafting](./features/crafting) |
+| AP plans and stage progression      | [Sweeps](./features/sweeps), [Stages](./features/stages), [Teams](./features/team)     |
+| Arena and combat events             | [Combat](./features/combat)                                                            |
+| Notifications and helper actions    | [Maintenance](./features/maintenance)                                                  |
+| Theme, language, shortcuts and logs | [System Settings](./features/system)                                                   |
+| Versions and upgrade                | [Updates](./features/update), [Release History](./reference/release-history)           |
+| A failure or unexpected result      | [Troubleshooting](./reference/troubleshooting)                                         |
+| Implementation and measurement      | [Development](./reference/development), [Benchmarks](./reference/performance)          |
+
+## Downloads
 
 <div id="download" />
 
 <ReleaseDownloadPanel locale="en" />
 
-<details className="baas-macos-note baas-macos-note-compact">
-  <summary>⚠️ macOS Requires Manual Approval</summary>
-  <div>
-    <div>
-      BAAS Tauri macOS packages are not Apple-notarized. If macOS says the developer cannot be
-      verified, the app is damaged, or the app should be moved to Trash, confirm that the file came
-      from official GitHub Releases first, then follow the macOS notes in{" "}
-      <a href="./guide/install#download-the-desktop-installer">Installation and Connection</a>.
-    </div>
-  </div>
-</details>
+## Language and Appearance
 
-## Interface Preview
-
-<figure className="baas-doc-hero-shot baas-doc-hero-shot-compact">
-  <img
-    src="/en/home-dark-logs.png"
-    alt="BAAS Tauri home page with navigation, profile controls, task status, logs, and remote emulator controls"
-  />
-  <figcaption>
-    BAAS Tauri Home: navigation, profile shortcuts, task status, logs, and run controls.
-  </figcaption>
-</figure>
-
-<div className="baas-home-strip">
-  <div>
-    <strong>🧭 Entry Points</strong>Home, Scheduler, Configuration, Settings, and Docs.
-  </div>
-  <div>
-    <strong>🧩 Profiles</strong>Separate accounts, servers, emulators, and strategies.
-  </div>
-  <div>
-    <strong>🧪 Validation</strong>Start with low-risk tasks before resource-spending tasks.
-  </div>
-  <div>
-    <strong>📚 Languages</strong>Only Chinese and English are maintained.
-  </div>
-</div>
-
-## Reading Path
-
-| Scenario              | Read First                                     | Confirm                                          |
-| --------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| First installation    | [Installation and Connection](./guide/install) | Backend started, key accepted, service connected |
-| Android client        | [Android Client](./guide/android)              | APK, permissions, foreground service, toggle     |
-| First main-window use | [Interface Overview](./guide/interface)        | Profiles, logs, remote display, sidebar          |
-| Daily automation      | [Scheduler](./guide/scheduler)                 | Enabled tasks, next run time, dependencies       |
-| Feature setup         | Individual feature pages below                 | Resource cost and validation method              |
-| Something broke       | [Troubleshooting](./reference/troubleshooting) | Logs, screenshots, profile, server, emulator     |
-| Release changes       | [Release History](./reference/release-history) | Affected areas and upgrade notes                 |
-
-## Feature Configuration
-
-<div className="baas-feature-grid">
-  <a href="./features/profile">
-    <strong>
-      <DocHomeIcon name="profile" />
-      Profiles
-    </strong>
-    <span>Create, copy, import, export, and remove profiles.</span>
-  </a>
-  <a href="./features/home-runtime">
-    <strong>
-      <DocHomeIcon name="runtime" />
-      Home Runtime
-    </strong>
-    <span>Start, stop, queue, logs, assets, and remote display.</span>
-  </a>
-  <a href="./features/server">
-    <strong>
-      <DocHomeIcon name="server" />
-      Server
-    </strong>
-    <span>CN, Global, JP, and server-specific behavior.</span>
-  </a>
-  <a href="./features/emulator">
-    <strong>
-      <DocHomeIcon name="emulator" />
-      Emulator
-    </strong>
-    <span>Executable path, launch delay, multi-instance, and ADB.</span>
-  </a>
-  <a href="./features/script">
-    <strong>
-      <DocHomeIcon name="script" />
-      Script
-    </strong>
-    <span>Backend launch options, screenshot method, and control method.</span>
-  </a>
-  <a href="./features/pc-platform">
-    <strong>
-      <DocHomeIcon name="pc" />
-      PC Client
-    </strong>
-    <span>Steam Global, JP PC, HDR, window ratio, and desktop control.</span>
-  </a>
-  <a href="./features/stages">
-    <strong>
-      <DocHomeIcon name="stages" />
-      Stages
-    </strong>
-    <span>Normal, hard, story, and event stages.</span>
-  </a>
-  <a href="./features/sweeps">
-    <strong>
-      <DocHomeIcon name="sweeps" />
-      Sweeps
-    </strong>
-    <span>Daily maps, commissions, scrimmage, events, and tickets.</span>
-  </a>
-  <a href="./features/team">
-    <strong>
-      <DocHomeIcon name="team" />
-      Teams
-    </strong>
-    <span>Sidebar order, preset teams, and attack-type teams.</span>
-  </a>
-  <a href="./features/cafe">
-    <strong>
-      <DocHomeIcon name="cafe" />
-      Cafe
-    </strong>
-    <span>Invite students, collect rewards, and handle cafe actions.</span>
-  </a>
-  <a href="./features/lesson">
-    <strong>
-      <DocHomeIcon name="lesson" />
-      Lessons
-    </strong>
-    <span>Areas, tickets, priority, and lesson sweep strategy.</span>
-  </a>
-  <a href="./features/shop">
-    <strong>
-      <DocHomeIcon name="shop" />
-      Shop
-    </strong>
-    <span>Normal, arena, raid, expert permit, and other shops.</span>
-  </a>
-  <a href="./features/crafting">
-    <strong>
-      <DocHomeIcon name="crafting" />
-      Crafting
-    </strong>
-    <span>Node choices, material input, and result collection.</span>
-  </a>
-  <a href="./features/combat">
-    <strong>
-      <DocHomeIcon name="combat" />
-      Combat
-    </strong>
-    <span>Arena, Total Assault, Joint Drill, and high-risk combat tasks.</span>
-  </a>
-  <a href="./features/maintenance">
-    <strong>
-      <DocHomeIcon name="maintenance" />
-      Maintenance
-    </strong>
-    <span>Friends, notifications, launch game, rewards, and helper tasks.</span>
-  </a>
-  <a href="./features/system">
-    <strong>
-      <DocHomeIcon name="system" />
-      System Settings
-    </strong>
-    <span>Theme, language, zoom, background, remote display, and hotkeys.</span>
-  </a>
-  <a href="./features/update">
-    <strong>
-      <DocHomeIcon name="update" />
-      Updates
-    </strong>
-    <span>Backend updates, client updates, mirrors, channels, and SHA tests.</span>
-  </a>
-  <a href="./reference/setup-toml">
-    <strong>
-      <DocHomeIcon name="settings" />
-      Installer Config
-    </strong>
-    <span>setup.toml, MirrorC CDK, update sources, and backend install options.</span>
-  </a>
-  <a href="./reference/backend-service">
-    <strong>
-      <DocHomeIcon name="backend" />
-      Backend Service
-    </strong>
-    <span>HTTP, WebSocket, auth, config sync, and remote-display interfaces.</span>
-  </a>
-  <a href="./reference/auto-fight-dev">
-    <strong>
-      <DocHomeIcon name="autoFight" />
-      Auto Fight Dev
-    </strong>
-    <span>Workflows, state machines, template matching, OCR, and assets.</span>
-  </a>
-</div>
-
-## Maintenance Model
-
-The old local Wiki is no longer the primary documentation surface. The canonical source is `baas-tauri/docs`, generated by Fumadocs. The Tauri Docs page loads this web documentation site by default and can detach it into a standalone "Wiki Documentation" window.
-
-## Runtime Relationship
-
-```mermaid
-flowchart LR
-  User["User / Profile"] --> Client["BAAS Tauri Desktop"]
-  Client --> Home["Home Controls"]
-  Client --> Scheduler["Scheduler"]
-  Client --> Config["Independent Feature Config"]
-  Client --> Docs["Web Docs / Wiki"]
-  Scheduler --> Backend["BAAS Backend Service"]
-  Config --> Backend
-  Backend --> ADB["ADB / Emulator"]
-  Backend --> Game["Blue Archive Client"]
-  Backend --> Client
-```
+The entry page uses your saved documentation language choice, then browser language preferences; the fallback is English. Choose Chinese or English from the sidebar language menu. The documentation supports light and dark themes independently of the application. Application demonstrations use light mode.

@@ -1,0 +1,357 @@
+{
+  "capturedAt": "2026-10-20T03:27:04.814Z",
+  "device": "MuMu Android emulator, 720x1280",
+  "applicationId": "io.github.kiramei.baas_tauri.dev",
+  "apkSha256": "94E0565429B262C83762ABCF7B303CA0380577DBAD8CB45B4FD5751964D8E578",
+  "expectedSourceRevision": "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78",
+  "provenance": "Existing arm64Debug artifact in clean android-dev worktree; not rebuilt in this documentation pass. Native installed WebView captures, no synthetic frontend fixture.",
+  "verified": [
+    "ARM64 APK installation",
+    "cold launch and backend health",
+    "configuration edit persisted across WebView reload, original demo value restored",
+    "navigation",
+    "language/theme switches"
+  ],
+  "notYetVerified": [
+    "game task execution",
+    "fresh build provenance"
+  ],
+  "shots": [
+    {
+      "file": "media/android/en/home.png",
+      "locale": "en",
+      "state": "home",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-cafe.png",
+      "locale": "en",
+      "state": "config-cafe",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-schedule.png",
+      "locale": "en",
+      "state": "config-schedule",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-shop.png",
+      "locale": "en",
+      "state": "config-shop",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-artifact.png",
+      "locale": "en",
+      "state": "config-artifact",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-arena.png",
+      "locale": "en",
+      "state": "config-arena",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-dailySweep.png",
+      "locale": "en",
+      "state": "config-dailySweep",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-tactical.png",
+      "locale": "en",
+      "state": "config-tactical",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-finalRestrictionRls.png",
+      "locale": "en",
+      "state": "config-finalRestrictionRls",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-drill.png",
+      "locale": "en",
+      "state": "config-drill",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-whitelist.png",
+      "locale": "en",
+      "state": "config-whitelist",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-server.png",
+      "locale": "en",
+      "state": "config-server",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-script.png",
+      "locale": "en",
+      "state": "config-script",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-stage.png",
+      "locale": "en",
+      "state": "config-stage",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-team.png",
+      "locale": "en",
+      "state": "config-team",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-push.png",
+      "locale": "en",
+      "state": "config-push",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/config-other.png",
+      "locale": "en",
+      "state": "config-other",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-general.png",
+      "locale": "en",
+      "state": "settings-general",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-appearance.png",
+      "locale": "en",
+      "state": "settings-appearance",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-shortcuts.png",
+      "locale": "en",
+      "state": "settings-shortcuts",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-runtime.png",
+      "locale": "en",
+      "state": "settings-runtime",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-updates.png",
+      "locale": "en",
+      "state": "settings-updates",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/settings-logs.png",
+      "locale": "en",
+      "state": "settings-logs",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/en/scheduler.png",
+      "locale": "en",
+      "state": "scheduler",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/home.png",
+      "locale": "zh",
+      "state": "home",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-cafe.png",
+      "locale": "zh",
+      "state": "config-cafe",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-schedule.png",
+      "locale": "zh",
+      "state": "config-schedule",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-shop.png",
+      "locale": "zh",
+      "state": "config-shop",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-artifact.png",
+      "locale": "zh",
+      "state": "config-artifact",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-arena.png",
+      "locale": "zh",
+      "state": "config-arena",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-dailySweep.png",
+      "locale": "zh",
+      "state": "config-dailySweep",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-tactical.png",
+      "locale": "zh",
+      "state": "config-tactical",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-finalRestrictionRls.png",
+      "locale": "zh",
+      "state": "config-finalRestrictionRls",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-drill.png",
+      "locale": "zh",
+      "state": "config-drill",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-whitelist.png",
+      "locale": "zh",
+      "state": "config-whitelist",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-server.png",
+      "locale": "zh",
+      "state": "config-server",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-script.png",
+      "locale": "zh",
+      "state": "config-script",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-stage.png",
+      "locale": "zh",
+      "state": "config-stage",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-team.png",
+      "locale": "zh",
+      "state": "config-team",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-push.png",
+      "locale": "zh",
+      "state": "config-push",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/config-other.png",
+      "locale": "zh",
+      "state": "config-other",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-general.png",
+      "locale": "zh",
+      "state": "settings-general",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-appearance.png",
+      "locale": "zh",
+      "state": "settings-appearance",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-shortcuts.png",
+      "locale": "zh",
+      "state": "settings-shortcuts",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-runtime.png",
+      "locale": "zh",
+      "state": "settings-runtime",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-updates.png",
+      "locale": "zh",
+      "state": "settings-updates",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/settings-logs.png",
+      "locale": "zh",
+      "state": "settings-logs",
+      "native": true,
+      "theme": "light"
+    },
+    {
+      "file": "media/android/zh/scheduler.png",
+      "locale": "zh",
+      "state": "scheduler",
+      "native": true,
+      "theme": "light"
+    }
+  ]
+}

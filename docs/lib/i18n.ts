@@ -1,8 +1,10 @@
 import { defineI18n } from "fumadocs-core/i18n";
+import { isLocale, type Locale } from "./locale";
+export type { Locale } from "./locale";
 
 export const i18n = defineI18n({
   languages: ["zh", "en"],
-  defaultLanguage: "zh",
+  defaultLanguage: "en",
   fallbackLanguage: "en",
   hideLocale: "never",
   parser: "dir",
@@ -13,11 +15,9 @@ export const locales = [
   { locale: "en", name: "English" },
 ] as const;
 
-export type Locale = (typeof locales)[number]["locale"];
-
 /** Returns the normalize locale result. */
 export function normalizeLocale(value: string | undefined): Locale {
-  return value === "en" ? "en" : "zh";
+  return isLocale(value) ? value : "en";
 }
 
 /** Handles the switch locale path workflow. */

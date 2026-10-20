@@ -9,6 +9,8 @@
     "backend-service",
     "backend-development",
     "auto-fight-dev",
+    "performance",
+    "client-architecture",
     "development"
   ]
 }

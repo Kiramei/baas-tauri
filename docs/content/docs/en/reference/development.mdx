@@ -5,6 +5,8 @@ description: Tauri client structure, backend bridge, Fumadocs site, screenshot m
 
 This page is for maintainers. BAAS Tauri user documentation is now maintained under `baas-tauri/docs`. Still-relevant content from the old `baas-dev/docs` should be migrated here instead of maintaining two user-facing documentation surfaces.
 
+Read [Client Architecture and State](./client-architecture) for the principles behind draft persistence, acknowledgments, scheduler relationship ownership, connection generations and Android process boundaries. [Performance and Benchmarks](./performance) provides reproducible samples and their measurement limits.
+
 ## Client Structure
 
 Main directories:
@@ -14,12 +16,12 @@ baas-tauri/
 ├─ src/                    # React client
 ├─ src-tauri/              # Tauri 2 Rust shell, commands, windows
 ├─ public/locales/         # Application UI strings
-├─ public/docs/            # Legacy local docs, English/Chinese compatibility only
+├─ crates/                 # Shared native updater, terminal and integration crates
 ├─ docs/                   # Fumadocs web documentation site
 └─ .github/workflows/      # Release and documentation deployment workflows
 ```
 
-The frontend uses React, Vite, Tailwind CSS, Zustand, i18next, lucide-react, and Tauri 2. The backend synchronizes status, configuration, events, logs, versions, and trigger commands over WebSocket.
+The frontend uses React, Vite, Tailwind CSS, Zustand, i18next, lucide-react, and Tauri 2. The synchronized store carries status, configuration, events, logs, versions and commands through the selected native adapter or authenticated WebSocket.
 
 ## Documentation Site Structure
 
@@ -44,7 +46,7 @@ docs/public/en
 
 Routes:
 
-- `/docs` redirects to `/docs/zh`.
+- `/` and `/docs` enter internal documentation using a saved reader choice, then supported browser language preferences, with English as fallback.
 - Chinese docs use `/docs/zh/...`.
 - English docs use `/docs/en/...`.
 - Non-Chinese in-app languages should fall back to English.

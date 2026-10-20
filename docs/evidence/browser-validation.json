@@ -1,0 +1,507 @@
+{
+  "checkedAt": "2026-10-20T03:35:33.766Z",
+  "origin": "http://127.0.0.1:4173",
+  "results": [
+    {
+      "kind": "entry-language",
+      "language": "zh-CN",
+      "expected": "zh",
+      "entry": "/",
+      "passed": true
+    },
+    {
+      "kind": "entry-language",
+      "language": "en-US",
+      "expected": "en",
+      "entry": "/docs/",
+      "passed": true
+    },
+    {
+      "kind": "entry-language",
+      "language": "ja-JP",
+      "expected": "en",
+      "entry": "/",
+      "passed": true
+    },
+    {
+      "kind": "entry-language",
+      "language": "en-US",
+      "preference": "zh",
+      "expected": "zh",
+      "entry": "/docs/",
+      "passed": true
+    },
+    {
+      "kind": "entry-language",
+      "language": "zh-CN",
+      "preference": "en",
+      "expected": "en",
+      "entry": "/",
+      "passed": true
+    },
+    {
+      "kind": "entry-language",
+      "language": "zh-CN",
+      "denied": true,
+      "expected": "zh",
+      "entry": "/",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "query": "automatic saving",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "query": "自动保存",
+      "passed": true
+    },
+    {
+      "kind": "manual-language-persistence",
+      "passed": true
+    }
+  ]
+}

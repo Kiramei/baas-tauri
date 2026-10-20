@@ -5,6 +5,8 @@ description: Tauri 客户端结构、后端通信、Fumadocs 文档站、截图�
 
 这个页面面向维护者。BAAS Tauri 的用户文档现在集中维护在 `baas-tauri/docs`，旧 `baas-dev/docs` 的仍适用内容需要逐步吸收到这里，而不是继续维护两套用户入口。
 
+工作区草稿持久化、延迟确认、调度关系归属、连接代次与 Android 进程边界的原理见[客户端架构与状态](./client-architecture)；可复现实验、原始样本与测量限制见[性能与基准测试](./performance)。
+
 ## 客户端结构
 
 主要目录：
@@ -14,12 +16,12 @@ baas-tauri/
 ├─ src/                    # React 客户端
 ├─ src-tauri/              # Tauri 2 Rust 外壳、命令和窗口能力
 ├─ public/locales/         # 应用 UI 文案
-├─ public/docs/            # 旧本地文档，仅保留中英文兼容内容
+├─ crates/                 # 原生更新器、终端与集成公共 crate
 ├─ docs/                   # Fumadocs 网页文档站
 └─ .github/workflows/      # 发布和文档部署工作流
 ```
 
-前端主要使用 React、Vite、Tailwind CSS、Zustand、i18next、lucide-react 和 Tauri 2。后端通过 WebSocket 同步状态、配置、事件、日志、版本和触发命令。
+前端主要使用 React、Vite、Tailwind CSS、Zustand、i18next、lucide-react 和 Tauri 2。同步状态仓库通过选中的原生适配器或已认证 WebSocket 传递状态、配置、事件、日志、版本和触发命令。
 
 ## 文档站结构
 
@@ -44,7 +46,7 @@ docs/public/en
 
 路由规则：
 
-- `/docs` 重定向到 `/docs/zh`。
+- `/` 与 `/docs` 直接进入内部文档，先使用保存的读者选择，再匹配浏览器语言，无法匹配时使用英文。
 - 中文文档位于 `/docs/zh/...`。
 - 英文文档位于 `/docs/en/...`。
 - 非中文语言在应用内应回退英文。

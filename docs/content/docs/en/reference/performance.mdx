@@ -1,0 +1,41 @@
+---
+title: Performance and Benchmarks
+description: Reproducible measurements, raw samples, hardware, measurement boundaries, and interpretation of frontend and transport performance.
+---
+
+Performance belongs to a measured stage. Encoding a request, transferring it between processes, updating a store, rendering a WebView and recognizing a game frame are separate workloads. A faster result in one does not establish an equivalent improvement in total task time.
+
+## Current Frontend Measurements
+
+<BenchmarkChart locale="en" />
+
+The chart is generated from [the complete measurement record](/benchmarks/frontend-current.json). It includes the exact source revision, UTC timestamp, environment and every sample, rather than only a selected average. The run used Windows x64, an AMD Ryzen 9 9950X, 32 logical CPUs, 31 GiB reported system memory and Bun 1.3.14. No concurrent application build was running during this measurement.
+
+Each encoding sample constructs one request from a repeating byte pattern. The JSON baseline converts bytes to a number array and serializes the request; the raw method invokes the production `encodeBinaryRequest` envelope encoder. Payloads are 1 KiB, 64 KiB and 1 MiB. Each method receives five warm-ups and 100 recorded samples. Order alternates each round. The p50/p95 select zero-based sorted index `floor(n * p)`, capped at `n - 1`. No explicit garbage collection or outlier removal is performed. Sub-microsecond differences are sensitive to clock granularity and runtime noise.
+
+The log comparison uses 10,000 identical input rows and 15 rounds. It asserts that the per-row and batched implementations produce equal per-scope and global logs. Store notification counts describe those operations, not React commits. The test alternates method order and records all round durations. The synthetic baseline models the former per-row update; it is not an old application binary tested end to end.
+
+## Reproduce
+
+From the repository root with the pinned dependencies installed:
+
+```powershell
+bun docs/scripts/measure-frontend.ts
+```
+
+This overwrites `docs/public/benchmarks/frontend-current.json` with a new run. Keep both the raw record and the explanatory text aligned when publishing different hardware or runtime results. A single machine and a single run do not support statistical claims about every user's environment; these measurements have no confidence interval.
+
+## What These Charts Exclude
+
+- OS pipe or shared-memory transfer, cross-process scheduling and Rust/Python handling.
+- Tauri-to-WebView IPC, browser painting and actual React commit time.
+- Game screenshot acquisition, video decoding, OCR, image matching and input dispatch.
+- Network and updater download latency, cold startup, mobile thermal throttling and battery use.
+
+Do not add these timings together or label their ratio as an application or game speedup. For real user-facing comparisons, use the same task, game state, payload, logging level, versions and hardware. Record warm/cold conditions separately, retain failures and verify equivalent output before comparing latency.
+
+## Transport Evidence
+
+The checked-in `benchmarks/shm-native-cross-process-windows.json` records a Rust/Python shared-memory test, excluding WebView and game. Its 1 KiB roundtrip uses 100 iterations (p50 0.1076 ms, p95 0.1629 ms); its 1 MiB throughput test uses 20 iterations and counts roundtrip bytes. These historical results have different measurement boundaries from the chart above and must not be combined into a single ranking.
+
+`docs/shared-memory-live-validation-2026-10-16.md` and `benchmarks/live-game-*.json` retain the historical real-game checks. Their versions and scenarios remain part of the evidence; they do not automatically prove behavior or performance on a newer client or Android device. A native IPC throughput result is not a game FPS result.
