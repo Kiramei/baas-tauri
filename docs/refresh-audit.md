@@ -38,7 +38,7 @@ capture privacy checks. This is not the final documentation delivery.
 | Fresh light screenshots                              | 126 + 46 desktop and 48 + 44 Android PNG captures, manifests, four real GIFs; nonblank remote-preview frames verified                                          | Remaining conditional surfaces, live game; replace other old references                                                  |
 | Necessary GIFs                                       | Actual automatic-save/undo recordings with reader-controlled playback                                                                                         | Assess graph, structured-editor and game motion                                                                          |
 | Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                    |
-| Developer principles                                 | Architecture plus backend startup/injection, sessions, recognition/coordinates/OCR, migration and logging; twelve production-function branch replays          | Auth/protocol, updater, remaining backend/native depth and actual device integration                                     |
+| Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI boundaries; production replays and 20 real-crypto cross-language cases    | Updater, remaining backend/native depth, TLS/deployment and actual device integration                                    |
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
@@ -557,6 +557,59 @@ newlines initially changed at Git normalization and invalidated raw hashes;
 the publisher, regenerated replay/validation data and presentation evidence
 were corrected together. Tests reject CR bytes in these generated JSON files.
 
+## Service and CLI Contract Checkpoint
+
+The bilingual Service pages now explain control identity/password/remember
+flows, per-channel resume/SecretStream, credential persistence/expiry, Origin
+versus CORS, HTTP loopback trust, sync acknowledgment/conflict, Trigger binary/
+progress ordering, remote plaintext-output boundaries and local IPC framing.
+CLI pages remove the obsolete generic dependency setup and incorrect PDM
+invocation, cover all eight current options/environment defaults and explain
+that importing the legacy example immediately runs resource-consuming tasks.
+Help still initializes diagnostics and performs PID cleanup; it is not free of
+filesystem effects and is exercised only in a disposable working directory.
+
+The source audit identifies two deployment/security limitations without changing
+application code: the default signing seed is a shared public constant, and
+password revocation does not make the server close every existing business
+stream. The real client store closes its connections on the control notice,
+but an uncooperative peer need not do so. The pages do not claim a full security
+audit or safe public deployment from application-layer encryption alone.
+
+`evidence/service-protocol-validation.json` records 20 actual browser/Python
+interoperability cases: production X25519/Ed25519, full Argon2id parameters,
+HKDF/ChaCha/SecretStream, password/remember/logout, sparse configuration patch
+ack/push/conflict, epoch revocation and the still-open-stream limitation. The
+fixture uses actual auth, HTTP, Provider/Sync and ConfigManager code, with
+deterministic status/log queues and no ServiceContext/device/game startup.
+It verifies 69 backend and four client source hashes against pinned Git content,
+binds harness/bundle hashes, and proves that run's browser/server closed and its
+private auth/config directory was removed. It is not a timing benchmark.
+
+The first Bun-driven browser attempt stalled before password initialization;
+its owned processes were stopped and its exploratory cache was not published.
+An initial Node fixture omitted ConfigManager loop setup; that failed attempt
+closed cleanly. The corrected Node/Playwright run passed all 20 cases. Earlier
+exploratory cache files may remain ignored, and are not covered by the final
+run's temporary-directory cleanup claim.
+
+The focused existing backend contract suite collected 44 tests: 43 passed and
+one Unix-socket test skipped on Windows. Three deprecation warnings remain in
+the private test output. `evidence/service-contract-tests.json` binds JUnit and
+seven test-source hashes and keeps deterministic unit-test adapters distinct
+from the real browser crypto run. Actual CLI help and mutually-exclusive IPC
+option rejection returned 0 and 2 respectively, without starting a server or
+legacy game tasks; three CLI source files are verified separately.
+
+`evidence/service-layout-validation.json` has 16 page/locale/theme/viewport cases,
+16 diagram zoom/reset checks and four localized search navigations. The cached
+Chinese mobile/English desktop diagrams were reviewed. No public raster asset
+was added or changed. Ten existing frontend KDF/protocol/factory/recovery-delay
+unit tests also pass. The rebuilt site passes all 417 full browser cases and
+the 74-page static-link scan. Updater details, broader source/UI reconciliation, real
+Android game operation, larger/other benchmarks, manual privacy and final
+Linux/Pages deployment remain incomplete.
+
 ## Android Game Placement Checkpoint
 
 Two owned Home background-game cold launches reproduced the Bilibili Unity
@@ -617,7 +670,8 @@ new changes), and its outside-region pixel tests still pass.
 
 ## Verification Scope
 
-`bun test tests`: 43 tests, including Android game-placement failure/cleanup contracts,
+`bun test tests`: 48 tests, including Service/CLI provenance, crypto boundary and diagram/search checks,
+Android game-placement failure/cleanup contracts,
 backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
 complete bilingual TOML, privacy inventory, reader prose, native statistics,

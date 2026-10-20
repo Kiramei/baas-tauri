@@ -1,77 +1,88 @@
 ---
 title: CLI and Service Mode
-description: Backend command-line execution, long-running service mode, use cases, and relationship with the Tauri client.
+description: Service arguments, environment overrides, local IPC, legacy task-script risks and shutdown behavior.
 ---
 
-The BAAS backend can be started by the Tauri installer or run directly from the command line for development, server workflows, or macOS/Linux source setups. The old `baas-dev/docs` CLI material is preserved here as advanced usage and development reference.
+The Tauri installer manages its backend. Manual startup is for source development, isolated testing and independent service deployment. Do not start another process against a live client's ports, configuration directory or device.
 
-## Two Runtime Modes
+## Choose an Entry
 
-| Mode                 | Behavior                                          | Use Case                                                |
-| -------------------- | ------------------------------------------------- | ------------------------------------------------------- |
-| One-shot CLI         | Runs tasks listed in a script, then exits         | cron, launchd, temporary batch jobs                     |
-| Long-running Service | Starts the backend service and built-in scheduler | Tauri client, unattended service, development debugging |
+| Entry | Behavior |
+| ----- | -------- |
+| `main.service.py` | Start HTTP/WebSocket and configured local Pipe/shared memory; service commands control scheduling |
+| `cli.example.py` | Initialize legacy `Main` and device workers, then run the tasks listed in the script |
+| `main.py` | Legacy main-program entry, not a read-only service diagnostic |
 
-```mermaid
-flowchart LR
-  Config["Profile"] --> CLI["CLI script"]
-  Config --> Service["Service runtime"]
-  CLI --> Tasks["Run tasks sequentially and exit"]
-  Service --> Scheduler["Built-in scheduler"]
-  Scheduler --> Tasks
-```
+Both legacy entries can operate the game. Use Service to test connectivity/authentication, with autostart and tasks disabled. Do not execute the CLI example as a dependency check.
 
-## One-shot CLI
+## Prepare an Environment
 
-The legacy backend CLI workflow copies an example script and edits the target profile and task list:
+Create a virtual environment in an independent backend checkout and install Service dependencies:
 
 ```bash
-cp cli.example.py cli.your_account.py
-pdm run cli.your_account.py
+python -m venv .venv
+python -m pip install -e ".[service]"
 ```
 
-This mode does not stay resident, so it fits system schedulers. On macOS with conda:
+The second command requires the activated environment's Python; alternatively use its full interpreter path. Project metadata declares Python `>=3.9`, but pinned dependencies and platform constraints still restrict installable combinations. This does not establish support for every newer Python version. [Backend Development](./backend-development) covers the installer's platform dependency lists and OCR. Old instructions fixing Python 3.9.21 and installing generic `requirements.txt` do not describe the current Service dependency split.
+
+## Start Service
 
 ```bash
-conda run -n baas --live-stream pdm run cli.your_account.py
+python main.service.py --host 127.0.0.1 --port 8190 --log-level info
 ```
 
-## Service Mode
+| Argument | Default and purpose |
+| -------- | ------------------- |
+| `--host` | `BAAS_SERVICE_HOST`, otherwise `0.0.0.0`; explicitly choose `127.0.0.1` for local development |
+| `--port` | `BAAS_SERVICE_PORT`, otherwise `8190` |
+| `--log-level` | `info`; Uvicorn logging level |
+| `--reload` | Development reload; avoid real tasks and shared runtime directories |
+| `--pipe-name` | Enable the named local Pipe; mutually exclusive with `--shm-name` |
+| `--shm-name` | Open a managed shared-memory session; mutually exclusive with `--pipe-name` |
+| `--ocr-update-check` | Explicitly enable the startup OCR update check |
+| `--no-ocr-update-check` | Skip that check, without disabling OCR or accepting missing models |
 
-Service mode starts a resident backend and exposes HTTP/WebSocket interfaces for the Tauri client or other control surfaces.
+`BAAS_SERVICE_OCR_UPDATE_CHECK` defaults to enabled. Values `0`, `false`, `no` and `off` disable it; command-line flags override the environment default. Supplying a Pipe/shared-memory argument clears the other local-transport environment variable. Enabling both only through the environment causes startup rejection in the service lifespan.
+
+The client creates and owns local IPC sessions; inventing an endpoint name does not create a usable peer. WebUI still uses authenticated WebSocket. See [local transport boundaries](./backend-service#local-pipe-and-shared-memory).
+
+The script writes `.pid` in its working directory and attempts to remove it on exit. Do not share that file between processes. Ctrl+C requests shutdown, but cleanup and cooperative task stopping can take time. A removed PID file does not establish successful task completion.
+
+### Inspect the Entry Only
 
 ```bash
-python main.service.py --host 0.0.0.0 --port 8190 --log-level info
+python main.service.py --help
 ```
 
-Supported flags:
+Help lists the current build's arguments without starting Service or game tasks. The script still initializes diagnostic logging and runs exit cleanup, so use an isolated directory to avoid touching another process's `.pid`. `GET /health` can inspect a listening service but does not establish authentication, configuration, OCR and device readiness together.
 
-| Flag          | Purpose            |
-| ------------- | ------------------ |
-| `--host`      | Listen address     |
-| `--port`      | Listen port        |
-| `--reload`    | Development reload |
-| `--log-level` | Logging level      |
+`--host 0.0.0.0` listens on all interfaces. Before remote deployment, initialize the password and configure matching private signing/public frontend keys, HTTPS/WSS, network restrictions and appropriate proxy paths. See [control authentication](./backend-service#control-authentication).
 
-## Relationship with the Tauri Client
+## Legacy CLI Example
 
-The Tauri client primarily uses Service mode. The client owns profile UI, scheduler UI, logs, remote display, and command triggers; the backend service owns auth, config sync, task execution, and emulator control.
+Read `cli.example.py` before changing its profile directory and task lists in your isolated copy. To execute a reviewed script, use `python cli.local.py`, or `pdm run python cli.local.py` with PDM.
 
-Normal users do not need to start `main.service.py` manually. Direct startup is useful when:
+The current example creates `Main(ocr_needed=["en-us", "zh-cn"])`, `ConfigSet(config_dir="default_config")` and `Baas_thread`, attaches OCR and initializes data. `asyncio.gather()` then schedules two coroutine groups:
 
-- Debugging Tauri-to-backend connection failures.
-- Capturing full backend terminal logs.
-- Running from source on macOS/Linux.
-- Developing WebSocket, auth, remote display, or config-sync features.
+| Group | Work |
+| ----- | ---- |
+| Regular tasks | The script's restart, Cafe, Lessons, rewards, club, mail, both shops, crafting, bounty and other listed tasks |
+| Arena | Five Arena tasks, with a 60-second wait after each of the first four |
 
-## Environment Summary
+Device tasks run through `asyncio.to_thread()`. A shared `threading.Lock` serializes `baas.solve()`, so concurrent coroutines do not mean simultaneous device input. These lists/waits are independent of Service scheduler timing and pre/post-task relationships.
 
-The legacy docs recommended conda or venv for Python setup. A source backend environment usually starts with:
+The file calls `asyncio.run(main())` at top level: **importing it also executes tasks**. It includes resource-consuming shop operations and is not a side-effect-free library or health probe. The example does not demonstrate a complete exception-recovery/device-cleanup protocol. Scheduled deployment also needs reentry prevention, exit-code handling, timeouts, credentials and private-log handling.
+
+## Validate and Diagnose
+
+Run in an isolated checkout:
 
 ```bash
-conda create -n baas_env python=3.9.21
-conda activate baas_env
-pip install -r requirements.txt
+python -m compileall -q service
+python -m pytest tests/service
 ```
 
-On Linux/macOS, use the backend repository's current requirements file, such as `requirements-linux.txt`, when applicable. Tauri users should prefer the installer-managed environment.
+Tests create temporary configuration/authentication data. Do not run them inside a directory serving a live client. A successful command proves only its checked scope; network deployment, packaged platforms, OCR models and actual game tasks require separate validation.
+
+For a connected service with no work, check authentication/initialization gates, enabled profile tasks, scheduler state and logs. If scheduling stopped but the process remains, check whether the service should remain resident. Scheduler Stop does not shut down Service. [Backend Development](./backend-development) explains execution boundaries.

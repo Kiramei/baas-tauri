@@ -346,3 +346,42 @@ current result is a failed shell-mode game-display placement, not successful
 Android automation, a fixed APK or a performance result. Changing the capture
 script requires a new run. The suspected trusted-display cause remains a
 hypothesis until a repaired build is tested.
+
+## Service Protocol Reference
+
+The Service/CLI guides describe control authentication, business resume,
+Cookie/session expiry, patch acknowledgment/conflict, binary ordering, local
+framing and deployment boundaries. The fixed public signing seed and existing
+business-stream behavior after password revocation are documented limitations,
+not claims that this refresh repaired application security.
+
+Run `node docs/scripts/probe-service-protocol.mjs BACKEND_GIT SNAPSHOT PYTHON`
+from the repository root. The snapshot must be under ignored `.cache/` and match
+the pinned backend. Bun only bundles the existing client module; Node drives
+Playwright. The Python fixture binds an ephemeral loopback port, creates its own
+temporary auth/config directory and uses production auth, HTTP remember/logout,
+Provider, Sync and ConfigManager code. Runtime status/log queues are deterministic
+adapters. It excludes Trigger, Remote, Android and system-log routes and never
+starts ServiceContext, OCR, device adapters or game tasks.
+
+Twenty browser cases exercise actual production crypto without replacing KDFs,
+the default matching pin, login/remember/logout and config conflicts. One case
+deliberately ignores client revocation handling to verify the current existing-
+stream limitation. The report verifies 69 backend and four client source hashes,
+binds both harnesses and the browser bundle, and checks graceful fixture exit
+and removal of that run's private directory. Credentials and raw diagnostics
+stay out of committed evidence. Earlier stalled/incomplete attempts are not
+accepted; their exploratory files may remain in ignored cache.
+
+`scripts/summarize-service-contracts.py BACKEND_GIT SNAPSHOT JUNIT` verifies the
+seven focused backend contract test files and publishes their counts, skip and
+JUnit hash. It also runs only `main.service.py --help` and mutually-exclusive
+option rejection in a separate ignored directory. It never imports or runs
+`cli.example.py`. Several backend unit tests mock KDFs, unlike the independent
+browser interoperability cases. Neither proves TLS deployment, fresh dependency
+installation, complete native recovery or actual game execution.
+
+After building, `scripts/check-service-docs.mjs` checks both pages in all eight
+locale/theme/viewport combinations, 16 diagram zoom/reset interactions and four
+localized search navigations. Cached screenshots are for review; no new public
+media is generated. Rebuild/recheck after changing these pages or the renderer.

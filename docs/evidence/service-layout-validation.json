@@ -1,0 +1,172 @@
+{
+  "checkedAt": "2026-10-20T10:04:13.937Z",
+  "cases": 20,
+  "diagramChecks": 16,
+  "failures": 0,
+  "testedSources": {
+    "docs/scripts/check-service-docs.mjs": "3fb07ff1b419d429e2aff7933ddc8d93f39b4567feaf5051ec78184e3c5e6277",
+    "docs/content/docs/zh/reference/backend-service.mdx": "02e6c305408411192e987e94954d8e6b011e7578ab4b714be5d3595b5b1d285b",
+    "docs/content/docs/zh/reference/cli-service.mdx": "f7dcdb9c19aed75203f5a615e1726ae8d858af35854164193ab55594294d867d",
+    "docs/content/docs/en/reference/backend-service.mdx": "33c23e1ace0af965f0a238592e21bbee663300e7096ade6f2dbb174483cd114d",
+    "docs/content/docs/en/reference/cli-service.mdx": "c67f080e41c978edf3fcad1dee35131398b2962c7642473221b8eb00299bd095"
+  },
+  "searchIndexSha256": "2abf3dd0a32eae7af925ad1357f7d7bc91cd035a97b6a6c9cc85a46aac9d92a0",
+  "results": [
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "query": "resume_unavailable",
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "query": "cli.example.py",
+      "route": "cli-service",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "query": "resume_unavailable",
+      "route": "backend-service",
+      "passed": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "query": "cli.example.py",
+      "route": "cli-service",
+      "passed": true
+    }
+  ]
+}
