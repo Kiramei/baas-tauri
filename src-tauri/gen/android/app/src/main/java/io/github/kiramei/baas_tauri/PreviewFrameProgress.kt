@@ -3,16 +3,37 @@ package io.github.kiramei.baas_tauri
 internal enum class PreviewFrameState { WAITING, BLACK, STILL, LIVE }
 
 internal class PreviewFrameProgress {
+  private var previousCaptured: Long? = null
   private var previousPresented: Long? = null
-  private var advancedAt: Long? = null
+  private var previousDisplayed: Long? = null
+  private var capturedAt: Long? = null
+  private var presentedAt: Long? = null
+  private var displayedAt: Long? = null
 
-  @Synchronized fun update(captured: Long, presented: Long, hasContent: Boolean, now: Long): PreviewFrameState {
-    val previous = previousPresented
-    if (previous == null || presented < previous) advancedAt = null
-    else if (presented > previous) advancedAt = now
+  @Synchronized fun reset() {
+    previousCaptured = null
+    previousPresented = null
+    previousDisplayed = null
+    capturedAt = null
+    presentedAt = null
+    displayedAt = null
+  }
+
+  @Synchronized fun update(captured: Long, presented: Long, displayed: Long, hasContent: Boolean, now: Long): PreviewFrameState {
+    if (previousCaptured?.let { captured < it } == true ||
+      previousPresented?.let { presented < it } == true ||
+      previousDisplayed?.let { displayed < it } == true) reset()
+    if (previousCaptured?.let { captured > it } == true) capturedAt = now
+    if (previousPresented?.let { presented > it } == true) presentedAt = now
+    if (previousDisplayed?.let { displayed > it } == true) displayedAt = now
+    previousCaptured = captured
     previousPresented = presented
-    if (captured <= 0 || presented <= 0) return PreviewFrameState.WAITING
+    previousDisplayed = displayed
+    if (captured <= 0 || presented <= 0 || displayed <= 0) return PreviewFrameState.WAITING
     if (!hasContent) return PreviewFrameState.BLACK
-    return if (advancedAt?.let { now - it < 2000 } == true) PreviewFrameState.LIVE else PreviewFrameState.STILL
+    // A successful GPU swap does not establish that TextureView consumed it.
+    return if (listOf(capturedAt, presentedAt, displayedAt).all { it != null && now - it < 2000 }) {
+      PreviewFrameState.LIVE
+    } else PreviewFrameState.STILL
   }
 }

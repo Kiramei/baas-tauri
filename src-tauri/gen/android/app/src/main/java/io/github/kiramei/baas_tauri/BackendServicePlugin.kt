@@ -53,21 +53,21 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
     val args = invoke.getArgs()
     val enabled = args.optBoolean("enabled", false)
     val result = JSObject()
-    var frameState = PreviewFrameState.WAITING
+    var captured = 0L
+    var presented = 0L
+    var hasContent = false
     if (enabled) {
       runCatching {
-        val (captured, presented) = ShizukuController.nativeFrameCounts(activity)
+        val counts = ShizukuController.nativeFrameCounts(activity)
+        captured = counts.first
+        presented = counts.second
         result.put("capturedFrames", captured)
+        // Kept for compatibility: this counts successful EGL swaps, not display updates.
         result.put("presentedFrames", presented)
-        frameState = previewProgress.update(captured, presented, ShizukuController.hasVisibleFrame(activity), android.os.SystemClock.uptimeMillis())
-        result.put("ready", frameState == PreviewFrameState.LIVE)
-        result.put("frameState", frameState.name.lowercase())
+        hasContent = ShizukuController.hasVisibleFrame(activity)
         result.put("focusDisplayId", ShizukuController.previewFocusDisplayId(activity))
       }.onFailure {
-        frameState = PreviewFrameState.WAITING
-        result.put("error", it.message)
-        result.put("ready", false)
-        result.put("frameState", "waiting")
+        result.put("error", it.message ?: it.javaClass.simpleName)
       }
     }
     activity.runOnUiThread {
@@ -75,6 +75,16 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         nativePreview.update(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
           args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0), enabled,
           args.optDouble("clipTop", 0.0), args.optDouble("clipBottom", 0.0), result.optInt("focusDisplayId", -1))
+        val displayed = nativePreview.displayedFrameCount()
+        result.put("displayedFrames", displayed)
+        val frameState = if (enabled && !result.has("error")) {
+          previewProgress.update(captured, presented, displayed, hasContent, android.os.SystemClock.uptimeMillis())
+        } else {
+          previewProgress.reset()
+          PreviewFrameState.WAITING
+        }
+        result.put("ready", frameState == PreviewFrameState.LIVE)
+        result.put("frameState", frameState.name.lowercase())
         nativePreview.setStatus(frameState, result.optString("error").takeIf { it.isNotEmpty() }, args.optString("language", "en"))
         invoke.resolve(result)
       } catch (error: Exception) { invoke.reject(error.message, error) }
