@@ -552,6 +552,11 @@ and newly indexed backend content. `co_detect` finds the backend guide in both
 languages; Chinese migration and English cooperative-stop queries navigate to
 the same localized guide. Results remain in `evidence/new-content-search.json`.
 
+The replay publisher writes UTF-8 bytes with LF explicitly. Windows text-mode
+newlines initially changed at Git normalization and invalidated raw hashes;
+the publisher, regenerated replay/validation data and presentation evidence
+were corrected together. Tests reject CR bytes in these generated JSON files.
+
 ## Runtime Handles
 
 - Preview: `http://127.0.0.1:4173/`, static server serves `docs/out`.

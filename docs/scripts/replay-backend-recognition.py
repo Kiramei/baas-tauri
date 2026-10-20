@@ -227,7 +227,7 @@ def publish_validation(root, backend, snapshot, junit, source_records, replay_fi
               "junitSha256": sha(junit.read_bytes()), "recognitionReplaySha256": sha(replay_file.read_bytes()),
               "collected": len(tests), "passed": len(tests) - len(skipped), "failed": len(failures), "skipped": skipped,
               "verifiedSnapshotFiles": files, "auditedSourceFiles": len(source_records)}
-    (root / "docs/evidence/backend-development-validation.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (root / "docs/evidence/backend-development-validation.json").write_bytes((json.dumps(report, indent=2) + "\n").encode("utf-8"))
 
 
 def main():
@@ -245,7 +245,7 @@ def main():
               "sources": source_records, "cases": cases}
     destination = root / "docs/public/developer/recognition-replay.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    destination.write_bytes((json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     if bool(args.tested_source) != bool(args.junit):
         parser.error("--tested-source and --junit are required together")
     if args.junit:

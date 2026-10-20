@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T08:55:52.899869+00:00",
+  "checkedAt": "2026-10-20T09:12:24.954353+00:00",
   "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
   "scope": "Backend service suite, core task retry and OCR tests in a separate Git archive; test doubles and temporary state, not real-game execution or a fresh dependency installation",
   "pythonVersion": "3.11.9",
@@ -16,7 +16,7 @@
     "uiautomator2": "2.16.23"
   },
   "junitSha256": "2bcd6960279e0d9961c164e0a9022765417b5b5cf45bb0bdd146639f29a9b8ef",
-  "recognitionReplaySha256": "3ebdfb25b9aea0c0ba5370de3f08fdb3df5ed856389cd4aba8ac87d8ae89e1c8",
+  "recognitionReplaySha256": "b02b82484949f686c74bee2901d876232853354e54860671a7ab05519623e494",
   "collected": 416,
   "passed": 415,
   "failed": 0,

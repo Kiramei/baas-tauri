@@ -11,6 +11,8 @@ const digest = (value: Buffer) => createHash("sha256").update(value).digest("hex
 const scenario = (id: string) => replay.cases.find((item) => item.id === id)!;
 
 test("recognition examples retain production-source and isolated-test provenance", () => {
+  for (const file of ["docs/public/developer/recognition-replay.json", "docs/evidence/backend-development-validation.json"])
+    expect(read(file).includes(13)).toBe(false);
   expect(replay.backendRevision).toBe("d0a86a089068766ff53682b501b90bee99857a71");
   expect(replay.scriptSha256).toBe(digest(Buffer.from(read("docs/scripts/replay-backend-recognition.py").toString("utf8").replaceAll("\r\n", "\n"))));
   expect(replay.sources).toHaveLength(37);

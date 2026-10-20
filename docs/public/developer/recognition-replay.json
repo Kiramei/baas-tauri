@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-20T08:55:50.234390+00:00",
+  "generatedAt": "2026-10-20T09:12:22.305520+00:00",
   "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
-  "scriptSha256": "8fbbccb920e38224b73c74312661c0920e53c1862849d8b03f7c27f7efcafde7",
+  "scriptSha256": "626c1086e4109c73c4ef4db7bccbded9488a2b998680ff98e7dc21fb72aec6bc",
   "method": "Unmodified production co_detect and match_img_feature AST compiled without module imports; deterministic matcher, frame, clock, popup and input adapters. No image recognition engine, real device, game, network or timing measurement.",
   "sources": [
     {
