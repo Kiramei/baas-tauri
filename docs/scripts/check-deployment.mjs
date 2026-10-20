@@ -41,6 +41,8 @@ const sourceFiles = [
   "docs/lib/remark-doc-links.mjs",
   "docs/components/LocaleEntry.tsx",
   "docs/components/LanguageMenu.tsx",
+  "docs/components/DocumentationLink.tsx",
+  "docs/mdx-components.tsx",
   "docs/scripts/static-export-server.mjs",
   "docs/scripts/normalize-static-export.mjs",
   "docs/package.json",
@@ -154,6 +156,23 @@ try {
               ...invalid.map((failure) => ({ locale, theme, mobile, route, ...failure }))
             );
             cases.push({ kind: "render", locale, theme, mobile, route });
+            if (route === "reference/performance") {
+              const assetPath = basePath + "/benchmarks/native-transport-current.json";
+              const responsePromise = page.waitForResponse(
+                (response) =>
+                  new URL(response.url()).pathname === assetPath &&
+                  response.request().isNavigationRequest()
+              );
+              await page.locator(`a[href='${assetPath}']`).click();
+              const response = await responsePromise;
+              await page.waitForURL((url) => url.pathname === assetPath);
+              assert.equal(response.status(), 200);
+              assert.equal(
+                hash(await response.body()),
+                hash(readFileSync(path.join(out, "benchmarks/native-transport-current.json")))
+              );
+              cases.push({ kind: "raw-record-link", locale, theme, mobile });
+            }
             if (route === "guide/android") {
               const demo = page.locator(".baas-android-game-demo"),
                 image = demo.locator("img");

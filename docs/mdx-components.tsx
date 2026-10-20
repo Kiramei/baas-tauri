@@ -8,9 +8,11 @@ import { DeviceBenchmark } from "@/components/DeviceBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
 import { AndroidGameDemo } from "@/components/AndroidGameDemo";
 import { RecognitionReplay } from "@/components/RecognitionReplay";
+import { DocumentationLink } from "@/components/DocumentationLink";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
+  a: DocumentationLink,
   DocHomeIcon,
   Mermaid,
   ReleaseDownloadPanel,

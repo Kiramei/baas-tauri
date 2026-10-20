@@ -937,10 +937,11 @@ routes / 587 segments and added 217 missing files; focused tests cover
 idempotence, existing correct output and rejection paths.
 
 `check-deployment.mjs` uses a strict temporary loopback server with no SPA
-fallback or filename aliases. Its 326 cases cover all 36 content routes in both
+fallback or filename aliases. Its 334 cases cover all 36 content routes in both
 languages/themes/viewports, real font loading, image decoding/framing, GIF pixel
 changes, zoom, retained client-side navigation, search, language switching and
-entry language/query/hash behavior. Origin-only preconnect hints are excluded
+entry language/query/hash behavior and byte-identical raw-record navigation.
+Origin-only preconnect hints are excluded
 from path validation. The first post-asset-fix check still failed on segment
 prefetch paths; this failure is retained rather than treated as a pass.
 
@@ -951,3 +952,10 @@ has no deployment job or Pages-write permission. Final root/prefix and Linux
 results remain unproven until their actual runs finish. The existing 4173
 preview continues serving `out`; alternate prefix exports use an ignored
 `DOCS_EXPORT_DIR` without replacing it.
+
+The first fully normalized root export exposed an additional 404: the framework
+prefetched a public benchmark JSON file as a document route. `DocumentationLink`
+now renders local public assets as prefixed native anchors, leaving actual docs,
+entry, fragment and external links to the framework. The new routing tests cover
+root/nested prefixes, queries/fragments and dot-segment normalization. The
+strict suite opens a raw record and compares its received bytes to the export.
