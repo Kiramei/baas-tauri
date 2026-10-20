@@ -1,43 +1,80 @@
 ---
 title: Crafting
-description: Crafting tickets, crafting count, crafting stage, material color, student recommendation, and priority.
+description: Global crafting limits, every stage's material options, priority editing and the student gift recommendation operation.
 ---
 
-Crafting consumes tickets and materials, so it is a high-risk resource setting. Run it alone once and inspect stage, color, and priority in logs.
+Open **Configuration → Crafting**. Global controls choose the number of crafts
+and stages. Stage tabs configure material rules and node priorities independently.
+Edits save automatically; the Crafting scheduler task must be enabled separately.
 
 <img
   className="baas-screenshot"
-  src="/en/crafting-global-three-stages.png"
-  alt="Crafting global settings with ticket use, crafting count, and stage count"
+  src="/media/desktop/en/config-artifact.png"
+  alt="Current crafting global controls for acceleration tickets, count and stages"
 />
 
-## Stages and Materials
+## Global Controls
+
+| Control              | Values and effect                                                                                  | Exported field            |
+| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------- |
+| Acceleration tickets | Allow ticket use in the crafting flow; it does not create tickets                                  | `use_acceleration_ticket` |
+| Crafting count       | Integer 1–10; empty, fractional or out-of-range drafts are not saved. Exported as a numeric string | `createTime`              |
+| Stage count          | 1, 2 or 3; displays the corresponding stage tabs                                                   | `create_phase`            |
+
+Reducing stage count hides later tabs rather than deleting their stored rules.
+If the open stage becomes unavailable, the editor returns to Global.
+More stages can consume additional materials; a larger crafting count is not
+a promise of enough crafting slots, tickets or materials.
+
+## Material Options by Stage
+
+| Stage | Available material rule values                                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Default only (`default`)                                                                                                                                                                          |
+| 2     | White (`primary`), blue (`normal`), white/blue (`primary_normal`), gold (`advanced`), purple (`superior`), gold/purple (`advanced_superior`), all four tiers (`primary_normal_advanced_superior`) |
+| 3     | Gold (`advanced`), purple (`superior`), gold/purple (`advanced_superior`)                                                                                                                         |
+
+The fields are `create_phase_1_select_item_rule`,
+`create_phase_2_select_item_rule` and `create_phase_3_select_item_rule`.
+Stage one does not offer every color, and stage three does not offer the
+stage-two full set.
 
 <img
   className="baas-screenshot"
-  src="/en/crafting-second-stage-student-recommendation.png"
-  alt="Crafting stage settings with material choice, student recommendation, selected student, and priority"
+  src="/media/desktop/en/config-artifact-tab-2.png"
+  alt="Current stage-one material and node-priority editor"
 />
 
-<img
-  className="baas-screenshot"
-  src="/en/crafting-material-dropdown.png"
-  alt="Crafting material dropdown with color and combination options"
-/>
+## Node Priorities
 
-| Material Choice              | Description                |
-| ---------------------------- | -------------------------- |
-| Default                      | Use default priority       |
-| White / Blue / Gold / Purple | Prefer one color           |
-| White-blue / Gold-purple     | Choose within a color pair |
-| All                          | No color restriction       |
+Each stage owns `createPriority_phase1`, `createPriority_phase2` or
+`createPriority_phase3`. Options come from backend data for the game server.
+Use Add to open the searchable node list, select/unselect a node, and use the
+remove icon to remove an entry. Higher entries have higher priority.
 
-## Target Student Gifts
+Drag the handle to reorder. For keyboard reordering, focus a handle, press
+Space/Enter to pick it up, use Up/Down or Home/End, then Space/Enter to commit;
+Escape cancels the unfinished move. A pointer release commits the drag.
+Existing unknown or legacy node labels remain visible rather than silently
+being discarded. An empty list is not a guarantee that the backend will avoid
+all material use; confirm the resulting task behavior before scheduling it.
 
-Legacy crafting guidance: stage-two crafting is the reliable place to target gifts preferred by a specific student. Set crafting stage to at least two, then use student recommendation or the recommended-priority shortcut in stage-two settings.
+## Student Recommendation
 
-| Goal                           | Recommendation                                                    |
-| ------------------------------ | ----------------------------------------------------------------- |
-| Get gifts for a target student | Use stage-two student recommendation                              |
-| Save materials                 | Lower crafting count first and inspect logs/node choices          |
-| Avoid accidental spending      | Do not enable stage-three crafting until the strategy is verified |
+This action exists on **stage two**, so choose at least two stages first.
+Select Student opens the backend's recommendation names. Picking one student
+replaces the stage-two priority list: recommended entries move to the front,
+then the remaining default entries follow. It does not merge an arbitrary
+custom priority list or configure a permanent selected-student field.
+
+The selector closes after a choice. Review the resulting node order before
+running; use configuration Undo if the replacement was unintended. This is a
+node preference, not a guarantee of a specific gift drop or a gift being sent
+to that student.
+
+## First Execution
+
+Keep the count small, verify acceleration permission, stage count, each
+stage's allowed materials and priorities, then run Crafting alone. Inspect
+material deductions, chosen nodes, completed slots and task logs. Choose
+higher stages only when their additional material cost is intended.

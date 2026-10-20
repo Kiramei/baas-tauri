@@ -1,59 +1,58 @@
 ---
 title: Script
-description: Screenshot interval, autostart, completion action, screenshot method, and control method.
+description: Screenshot cadence, legacy autostart, completion actions, backend capture/control choices and Android-local behavior.
 ---
 
-Script settings decide how the backend screenshots, clicks, and handles the environment after tasks finish.
+Open **Configuration → Script**. These per-profile settings save automatically; they are separate from the application's Connection & runtime settings and the live-preview encoder.
 
 <img
   className="baas-screenshot"
-  src="/en/script-runtime-settings.png"
-  alt="Script settings dialog with screenshot interval, autostart, completion action, screenshot method, and control method"
+  src="/media/desktop/en/config-script.png"
+  alt="Current Script editor with autostart, completion action, screenshot interval and backend method choices"
 />
 
-| Option                     | Description                                                   |
-| -------------------------- | ------------------------------------------------------------- |
-| Screenshot interval        | Shorter reacts faster but costs more resources                |
-| Autostart on script launch | Start scheduling when the script launches                     |
-| Completion action          | Do nothing, exit BAAS, exit emulator, exit both, or shut down |
-| Screenshot method          | Affects capture stability                                     |
-| Control method             | Affects click, drag, and input behavior                       |
+## Startup and Completion
 
-If recognition fails or clicks do not work, check 16:9 aspect ratio, HDR, screenshot method, control method, and emulator foreground state.
+| Control           | Saved field | Meaning / limitation                                                                                |
+| ----------------- | ----------- | --------------------------------------------------------------------------------------------------- |
+| Autostart         | `autostart` | Stores the legacy backend/launcher startup flag; it is not an operating-system startup registration |
+| Completion action | `then`      | Do nothing, exit BAAS, exit emulator, exit both, or shut down the host                              |
 
-## Recommended Baseline
+In the audited Tauri client, no startup consumer of `autostart` was found outside the configuration editor. Do not rely on this switch alone for unattended app-launch scheduling; verify the actual backend/launcher behavior.
 
-Legacy BAAS docs repeatedly emphasize that recognition depends on stable images. Start from conservative game/emulator settings before optimizing for speed.
+Completion values retain the backend strings `无动作`, `退出 Baas`, `退出 模拟器`, `退出 Baas 和 模拟器` and `关机`, even in an English UI. The audited backend applies `then` when its scheduler considers the next wait long enough, not after each individual task.
 
-| Item | Recommended Value | Reason |
-| --- | --- | --- |
-| Emulator resolution | `1280x720` or equivalent 16:9 | More stable templates and coordinates |
-| FPS | 60 | Avoid delayed page-transition checks |
-| Accelerated rendering mode | Compatible | Reduces screenshot anomalies |
-| Post-processing / Anti-aliasing | ON | Keeps images close to template assets |
-| Combat letterboxing | OFF | Avoids combat screenshot ratio and coordinate shifts |
-| Memorial lobby | Prefer disabled | Some dynamic lobbies interfere with home recognition |
+**Shutdown and exit commands affect the real environment.** Keep Do nothing while testing. A saved completion action is not a confirmation preview, and Android must not be assumed to implement desktop emulator/host shutdown identically.
 
-Do not use translation patches that modify game images. Template matching depends on original UI images, and patched buttons, text, or icons may no longer match.
+## Screenshot Interval
+
+`screenshot_interval` is the backend recognition capture interval, in seconds. It must be finite and at least `0.1`; blank, nonnumeric or smaller values block the section's draft commit. The input uses a 0.1 step.
+
+It is not the game FPS, the display preview FPS, a video bitrate or an end-to-end reaction-time guarantee. Reducing it increases requested capture frequency, but processing, transport and game transitions still determine actual behavior. See [Performance](../reference/performance) for bounded measurements rather than assuming a fixed speedup.
 
 ## Screenshot and Control Methods
 
-Legacy backend guidance remains useful for troubleshooting:
+The two dropdowns use the connected backend's supported lists. A saved unknown method is preserved as a visible choice; its presence does not prove availability.
 
-| Item       | Option                            | Notes                                                      |
-| ---------- | --------------------------------- | ---------------------------------------------------------- |
-| Screenshot | `nemu`                            | Fast and lossless for MuMu 12 when the environment matches |
-| Screenshot | `scrcpy`                          | Fast, but not lossless                                     |
-| Screenshot | `adb` / `uiautomator2`            | Conservative and stable, but slower                        |
-| Screenshot | `mss` / `pyautogui`               | PC-client window capture                                   |
-| Control    | `adb` / `uiautomator2` / `scrcpy` | ADB emulator control                                       |
-| Control    | `nemu`                            | Low-latency MuMu 12 control                                |
-| Control    | `pyautogui`                       | Desktop mouse control for PC client                        |
+| Method       | Capture / control context                                                       |
+| ------------ | ------------------------------------------------------------------------------- |
+| ADB          | Device capture and input over ADB                                               |
+| Nemu         | MuMu-specific capture/control integration; requires a matching environment      |
+| uiautomator2 | Device automation connection; backend and device setup must agree               |
+| scrcpy       | Device video/control integration; video decoding can affect recognition quality |
+| MSS          | Desktop screen capture; not a device input method                               |
+| PyAutoGUI    | Desktop screen capture/mouse input; window placement and focus matter           |
 
-If logs repeatedly show `tentative click` but the page does not change, check MuMu background keep-alive, game settings, control method, and window focus.
+Saved fields are `screenshot_method` and `control_method`. The help below each selector changes with the selected method. Not every method appears in both lists or on every backend/platform. Set a compatible pair, then verify actual screenshots and clicks; changing only the dropdown is not a driver installation.
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/faq/log_continuous_tentative_click.png"
-  alt="Example log repeatedly outputting tentative click"
-/>
+If logs repeat `tentative click` without progress, inspect the actual game image, active window/device, control method and overlays. Do not keep increasing click frequency when the coordinates or recognition image are wrong.
+
+## Recognition Baseline
+
+The historical backend guide uses a stable 16:9 image, commonly `1280×720`, 60 FPS, compatible rendering, post-processing/anti-aliasing enabled and combat letterboxing disabled. These are recognition setup references, **not this documentation's performance benchmark**. Verify the current game's available settings rather than assuming the labels are universal.
+
+Dynamic memorial lobbies, HDR/color transforms, overlays and translation patches that alter buttons/text can make screenshots differ from recognition templates. Restore an unmodified, clearly visible game UI before diagnosing task logic.
+
+## Android
+
+Android hides the screenshot/control dropdowns and uses `android_local` internally. Its editor saves common fields without overwriting the desktop method fields. Local capture/input requires the running, authorized Shizuku service and the correct profile/game display; it is not desktop ADB selection. See [Android Client](../guide/android).

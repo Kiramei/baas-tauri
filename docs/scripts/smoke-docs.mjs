@@ -59,6 +59,18 @@ try {
           "guide/android",
           "reference/performance",
           "reference/client-architecture",
+          "features/cafe",
+          "features/lesson",
+          "features/shop",
+          "features/crafting",
+          "features/combat",
+          "features/sweeps",
+          "features/stages",
+          "features/team",
+          "features/maintenance",
+          "features/server",
+          "features/emulator",
+          "features/script",
         ]) {
           const response = await page.goto(`${origin}/docs/${locale}/${route}/`);
           assert.equal(response.status(), 200);
@@ -67,6 +79,12 @@ try {
             theme === "dark"
           );
           await page.locator("h1").waitFor();
+          if (route.startsWith("features/") || route === "guide/android") {
+            assert.ok(
+              !(await page.locator("body").innerText()).includes("**"),
+              `Unparsed strong markup: ${locale}/${route}`
+            );
+          }
           await page.waitForFunction(() =>
             Array.from(document.querySelectorAll("img.baas-screenshot")).every(
               (image) => image.complete && image.naturalWidth > 0

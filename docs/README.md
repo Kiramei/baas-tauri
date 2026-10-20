@@ -58,11 +58,15 @@ review screenshots are written under `.cache/docs-smoke`.
 
 `scripts/capture-desktop.mjs` targets the isolated native release WebView on
 loopback DevTools port 19230. `scripts/capture-android.mjs` targets the installed
-Android WebView forwarded to port 19231 and requires a selected
-`Documentation Demo` profile. These are native app captures with real backends,
+Android WebView forwarded to a supplied port and requires a selected
+`Documentation Demo` profile. Pass verified installed-APK provenance as the
+second argument, for example
+`node docs/scripts/capture-android.mjs 19233 docs/evidence/android-x86-provenance.json`.
+These are native app captures with real backends,
 not frontend fixture renders. Review the profile and script assumptions before
 using them on another environment. Capture manifests distinguish verified
-installation/navigation from unverified game execution and build provenance.
+installation/navigation from unverified game execution. The current ARM64 ABI
+failure and fresh matching x86_64 build are recorded separately under `evidence/`.
 
 `scripts/record-workspace.mjs` records a real configuration toggle and undo;
 `scripts/encode-demo.py` requires Pillow to encode those frames. The website

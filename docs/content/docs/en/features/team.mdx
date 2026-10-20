@@ -1,80 +1,78 @@
 ---
 title: Teams
-description: Sidebar order, preset teams, sidebar attribute teams, and attack-type team settings.
+description: Formation-method switching, conditional attribute grids, preset coordinates and backend fallback rules.
 ---
 
-Team settings decide how combat tasks choose teams. Wrong team selection can fail combat, time out, or stall automation.
+Open **Configuration → Formation**. Edits save automatically. This category describes which **existing in-game team** the backend should choose; it does not assign students, create a preset or verify combat strength.
 
 <img
   className="baas-screenshot"
-  src="/en/team-method-settings.png"
-  alt="Team configuration basic page choosing sidebar order, preset team, or attribute-based team"
+  src="/media/desktop/en/config-team.png"
+  alt="Current Formation editor in sidebar-attribute mode with its per-position selectors"
 />
 
-| Method            | Best For                         |
-| ----------------- | -------------------------------- |
-| Sidebar order     | Stable account and team order    |
-| Preset team       | Teams already maintained in game |
-| Sidebar attribute | Switching by enemy armor type    |
+## Choose a Method
 
-## Attribute Teams
+| Method                | Stored value | Behavior                                                            |
+| --------------------- | ------------ | ------------------------------------------------------------------- |
+| By preset             | `preset`     | Select from the in-game preset groups/slots by declared attack type |
+| By sidebar attributes | `side`       | Select existing sidebar positions by declared attack type           |
+| By sidebar order      | `order`      | Use sidebar teams 1, 2, 3, 4 in route order                         |
 
-<img
-  className="baas-screenshot"
-  src="/en/team-attribute-settings.png"
-  alt="Attribute-based team settings for Burst, Pierce, Mystic, Shock, and unused slots"
-/>
+The method saves as `choose_team_method`. Preset mode shows only `preset_team_attribute`; sidebar-attribute mode shows only `side_team_attribute`; order mode hides both grids. Switching modes **retains** the hidden values.
 
-Use attribute teams for stages, event challenges, or accounts with uneven team strength. Validate with a low-risk stage after changes.
+## Attribute Grids
 
-## Team Selection Logic
+Each slot offers Explosive (`burst`), Piercing (`pierce`), Mystic (`mystic`), Sonic (`shock`) and Unused (`Unused`). The localized game terminology may differ. Choose the team's actual attack role, not the enemy armor label. Unused removes the slot from attribute-based candidates; it does not delete that team in game.
 
-| Method            | Rule                                                        | Notes                                                        |
-| ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| Preset team       | Select by in-game presets and required attack type          | Do not rename presets; avoid student conflicts between teams |
-| Sidebar attribute | Select Burst, Pierce, Mystic, or Shock teams by enemy armor | Prioritize the boss team's advantage                         |
-| Sidebar order     | Select sidebar teams 1, 2, 3, 4 in order                    | Good when you manually arranged teams for the target stage   |
+Numbered groups and their slot order must match the game. In the audited backend, preset matrix row `i` and column `j` map to preset group `i+1`, slot `j+1`; sidebar slots use their sidebar number. The editor renders the arrays already in the profile, so do not assume every profile has a fixed two-by-four or five-by-four grid. It offers no grid-size editing.
 
-The legacy docs recommend sidebar order for some normal/hard stage workflows when you already arranged teams in game. For example, normal area 20 commonly uses team 1 Burst and team 2 Pierce; hard stages may require a third team.
+Keep the game's preset numbering recognizable, avoid conflicting students between teams that must deploy together, and provide enough usable teams for multi-team routes. Changing a declaration does not change the actual students.
 
-When using preset teams, the in-game preset grid should map to Burst, Pierce, Mystic, Shock, and unused slots. Do not freely rename presets. If there are not enough teams for the required attack type or students conflict between teams, BAAS may fail to choose a preset team and fall back to sidebar order.
+## Backend Selection and Fallbacks
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/config/employ_team_method.png"
-  alt="Legacy BAAS team-selection method setting"
-/>
+The route requests attack types; candidate positions are collected in matrix order. The audited backend tries another available type when the requested type is exhausted, following this cycle:
 
-## Area Attack-Type Reference
+```text
+burst → mystic → shock → pierce → burst
+```
 
-The legacy area table can help arrange normal/hard stage teams. Newer areas should follow the current backend configuration.
+This is a fallback, not a guarantee of favorable damage. When the **total** declared candidates are fewer than the route's required teams, it logs insufficient presets and falls back to sidebar order. Thus an apparently valid grid can still deploy a different team than expected.
 
-| Area | Common Types |
-| --- | --- |
-| 30 | Mystic, Pierce |
-| 29 | Shock, Pierce |
-| 28 | Burst, Shock |
-| 27 | Pierce, Burst |
-| 26 | Mystic, Burst |
-| 25 | Shock, Pierce |
-| 24 | Shock, Burst |
-| 23 | Burst, Pierce |
-| 22 | Pierce, Mystic |
-| 21 | Mystic, Burst |
-| 20 | Burst, Pierce |
-| 19 | Pierce, Mystic |
-| 18 | Mystic, Burst |
-| 17 | Burst, Pierce |
-| 16 | Pierce, Mystic |
-| 15 | Mystic, Mystic |
-| 14 | Burst, Mystic |
-| 13 | Pierce, Pierce |
-| 12 | Mystic, Burst |
-| 11 | Pierce, Mystic |
-| 10 | Burst, Mystic |
-| 9 | Burst, Pierce |
-| 8 | Pierce, Pierce |
-| 7 | Burst, Burst |
-| 6 | Pierce, Pierce |
-| 5 | Burst |
-| 4 | Pierce |
+Order mode assumes you already arranged the correct teams in game. For example, the historical normal chapter 20 setup uses team 1 Explosive and team 2 Piercing; a hard route can need a third team. Check the current route rather than applying one arrangement globally.
+
+After a change, supervise a supported stage and confirm the deployed teams in game and logs. Check [Stages](./stages) for immediate commands and [Combat](./combat) for task-specific selectors.
+
+## Historical Area Reference
+
+The following legacy guide table is retained as an arrangement aid, not a fresh combat validation or a guarantee of required team count. Current backend route data and the actual stage take precedence.
+
+| Area | Common Types   |
+| ---- | -------------- |
+| 30   | Mystic, Pierce |
+| 29   | Shock, Pierce  |
+| 28   | Burst, Shock   |
+| 27   | Pierce, Burst  |
+| 26   | Mystic, Burst  |
+| 25   | Shock, Pierce  |
+| 24   | Shock, Burst   |
+| 23   | Burst, Pierce  |
+| 22   | Pierce, Mystic |
+| 21   | Mystic, Burst  |
+| 20   | Burst, Pierce  |
+| 19   | Pierce, Mystic |
+| 18   | Mystic, Burst  |
+| 17   | Burst, Pierce  |
+| 16   | Pierce, Mystic |
+| 15   | Mystic, Mystic |
+| 14   | Burst, Mystic  |
+| 13   | Pierce, Pierce |
+| 12   | Mystic, Burst  |
+| 11   | Pierce, Mystic |
+| 10   | Burst, Mystic  |
+| 9    | Burst, Pierce  |
+| 8    | Pierce, Pierce |
+| 7    | Burst, Burst   |
+| 6    | Pierce, Pierce |
+| 5    | Burst          |
+| 4    | Pierce         |

@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T03:35:33.766Z",
+  "checkedAt": "2026-10-20T04:20:18.632Z",
   "origin": "http://127.0.0.1:4173",
   "results": [
     {
@@ -107,6 +107,138 @@
       "locale": "en",
       "theme": "light",
       "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
         "width": 390,
         "height": 844
       },
@@ -160,6 +292,138 @@
     {
       "kind": "render",
       "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
       "theme": "dark",
       "viewport": {
         "width": 1440,
@@ -217,6 +481,138 @@
       "locale": "en",
       "theme": "dark",
       "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
         "width": 390,
         "height": 844
       },
@@ -269,6 +665,138 @@
     },
     {
       "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
       "locale": "zh",
       "theme": "light",
       "viewport": {
@@ -327,6 +855,138 @@
       "locale": "zh",
       "theme": "light",
       "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
         "width": 390,
         "height": 844
       },
@@ -380,6 +1040,138 @@
     {
       "kind": "render",
       "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
       "theme": "dark",
       "viewport": {
         "width": 1440,
@@ -437,6 +1229,138 @@
       "locale": "zh",
       "theme": "dark",
       "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
         "width": 390,
         "height": 844
       },
@@ -485,6 +1409,138 @@
         "height": 844
       },
       "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/cafe",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/crafting",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/combat",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/emulator",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
       "passed": true
     },
     {

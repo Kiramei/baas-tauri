@@ -7,6 +7,17 @@ import { CONFIGURATION_SECTIONS } from "../../src/shared/ConfigurationSections.t
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const provenanceFile = process.argv[3];
+if (!provenanceFile) throw new Error("Pass a verified APK provenance JSON file after the CDP port");
+const provenance = JSON.parse(readFileSync(path.resolve(provenanceFile), "utf8"));
+if (
+  !provenance.applicationId ||
+  !/^[a-f0-9]{64}$/i.test(provenance.apkSha256 || "") ||
+  !/^[a-f0-9]{40}$/i.test(provenance.sourceRevision || "")
+)
+  throw new Error(
+    "Provenance must identify the installed package, APK SHA-256 and source revision"
+  );
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${process.argv[2] || "19231"}`, {
   noDefaults: true,
 });
@@ -105,6 +116,8 @@ try {
       .getByRole("group", { name: t("common.theme"), exact: true })
       .getByRole("button", { name: t("common.theme.light"), exact: true })
       .click();
+    const assets = page.getByRole("switch", { name: t("settings.ui.assets"), exact: true });
+    if ((await assets.getAttribute("aria-checked")) === "true") await assets.click();
     await page
       .getByRole("button", { name: t("nav.home"), exact: true })
       .filter({ visible: true })
@@ -119,6 +132,8 @@ try {
         .getByRole("combobox", { name: t("configuration.categories"), exact: true })
         .click();
       await page.getByRole("option", { name: t(section.title), exact: true }).click();
+      const tabs = page.locator(".configuration-detail").getByRole("tab").filter({ visible: true });
+      if (await tabs.count()) await tabs.first().click();
       await capture(`config-${section.id}`);
     }
     for (const section of ["general", "appearance", "shortcuts", "runtime", "updates", "logs"]) {
@@ -133,7 +148,7 @@ try {
   }
   writeFileSync(
     path.join(repo, "docs/public/media/android/manifest.json"),
-    `${JSON.stringify({ capturedAt: new Date().toISOString(), device: "MuMu Android emulator, 720x1280", applicationId: "io.github.kiramei.baas_tauri.dev", apkSha256: "94E0565429B262C83762ABCF7B303CA0380577DBAD8CB45B4FD5751964D8E578", expectedSourceRevision: "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78", provenance: "Existing arm64Debug artifact in clean android-dev worktree; not rebuilt in this documentation pass. Native installed WebView captures, no synthetic frontend fixture.", verified: ["ARM64 APK installation", "cold launch and backend health", "configuration edit persisted across WebView reload, original demo value restored", "navigation", "language/theme switches"], notYetVerified: ["game task execution", "fresh build provenance"], shots }, null, 2)}\n`
+    `${JSON.stringify({ ...provenance, capturedAt: new Date().toISOString(), captureMethod: "Installed native Android WebView via CDP; game TextureView overlays require separate full-device screenshots", presentation: "Light theme and Home resource display disabled through actual Appearance controls; no image compositing or application source changes", captureVerified: ["configuration edit persisted across WebView reload, original demo value restored", "navigation", "language/theme switches"], shots }, null, 2)}\n`
   );
 } finally {
   await browser.close();
