@@ -123,7 +123,12 @@ class ShizukuShellService : IShizukuShellService.Stub {
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
-    lockDisplayRotation(display.display.displayId)
+    try {
+      lockDisplayRotation(display.display.displayId)
+    } catch (error: Throwable) {
+      stopVirtualDisplayLocked()
+      throw error
+    }
     android.util.Log.i("BaasGameDisplay", "Created display ${display.display.displayId}, effective flags=${display.display.flags}, uid=${Process.myUid()}")
       PrivilegedExecution.virtualDisplayId(display.display.displayId)
     }
@@ -363,17 +368,13 @@ class ShizukuShellService : IShizukuShellService.Stub {
   }
 
   private fun lockDisplayRotation(displayId: Int) {
-    PrivilegedExecution.virtualDisplayId(displayId)
-    runCatching {
-      val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
-        .invoke(null, "window")
-      val manager = Class.forName("android.view.IWindowManager\$Stub")
-        .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
-      val methods = manager.javaClass.methods.filter { it.name == "freezeDisplayRotation" }
-      val method = methods.firstOrNull { it.parameterCount == 3 } ?: methods.first { it.parameterCount == 2 }
-      val arguments: Array<Any> = if (method.parameterCount == 3) arrayOf(displayId, 0, "BAAS Game") else arrayOf(displayId, 0)
-      method.invoke(manager, *arguments)
-    }.onFailure { android.util.Log.w("BaasGameDisplay", "Unable to lock only the game display rotation", it) }
+    val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
+      .invoke(null, "window")
+    val manager = checkNotNull(Class.forName("android.view.IWindowManager\$Stub")
+      .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)) {
+      "Android window manager is unavailable"
+    }
+    GameDisplayRotation.configure(manager, displayId) { Thread.sleep(25L) }
   }
 
   private fun checkGamePlacement() {

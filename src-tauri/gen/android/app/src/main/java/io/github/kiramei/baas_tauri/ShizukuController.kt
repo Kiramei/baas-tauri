@@ -48,7 +48,7 @@ object ShizukuController {
       // Keep the identity stable so a version bump replaces the previous service.
       // Bump the version whenever its implementation or Binder contract changes.
       .tag("baas-game-service-v36")
-      .version(37)
+      .version(38)
   }
 
   fun initialize(context: Context) {
