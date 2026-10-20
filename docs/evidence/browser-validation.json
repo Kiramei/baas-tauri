@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T04:55:10.987Z",
+  "checkedAt": "2026-10-20T05:47:04.377Z",
   "origin": "http://127.0.0.1:4173",
   "results": [
     {
@@ -55,51 +55,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/android",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "reference/performance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -121,18 +77,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -154,106 +99,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -275,6 +121,127 @@
         "width": 1440,
         "height": 960
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
       "route": "features/update",
       "passed": true
     },
@@ -283,30 +250,8 @@
       "locale": "en",
       "theme": "light",
       "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
       },
       "route": "guide/android",
       "passed": true
@@ -316,10 +261,175 @@
       "locale": "en",
       "theme": "light",
       "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -330,7 +440,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -352,18 +462,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -385,106 +484,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -506,38 +506,137 @@
         "width": 390,
         "height": 844
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "route": "features/update",
       "passed": true
     },
     {
       "kind": "render",
       "locale": "en",
-      "theme": "dark",
+      "theme": "light",
       "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
       },
       "route": "guide/android",
       "passed": true
@@ -545,12 +644,177 @@
     {
       "kind": "render",
       "locale": "en",
-      "theme": "dark",
+      "theme": "light",
       "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -561,7 +825,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -583,18 +847,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -616,106 +869,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -737,6 +891,127 @@
         "width": 1440,
         "height": 960
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
       "route": "features/update",
       "passed": true
     },
@@ -745,30 +1020,8 @@
       "locale": "en",
       "theme": "dark",
       "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
       },
       "route": "guide/android",
       "passed": true
@@ -778,10 +1031,175 @@
       "locale": "en",
       "theme": "dark",
       "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -792,7 +1210,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -814,18 +1232,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -847,106 +1254,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "en",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -968,51 +1276,315 @@
         "width": 390,
         "height": 844
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "route": "features/update",
       "passed": true
     },
     {
       "kind": "render",
-      "locale": "zh",
-      "theme": "light",
+      "locale": "en",
+      "theme": "dark",
       "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
       },
       "route": "guide/android",
       "passed": true
     },
     {
       "kind": "render",
-      "locale": "zh",
-      "theme": "light",
+      "locale": "en",
+      "theme": "dark",
       "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -1023,7 +1595,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -1045,18 +1617,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -1078,106 +1639,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -1199,6 +1661,127 @@
         "width": 1440,
         "height": 960
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
       "route": "features/update",
       "passed": true
     },
@@ -1207,30 +1790,8 @@
       "locale": "zh",
       "theme": "light",
       "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
       },
       "route": "guide/android",
       "passed": true
@@ -1240,10 +1801,175 @@
       "locale": "zh",
       "theme": "light",
       "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -1254,7 +1980,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -1276,18 +2002,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -1309,106 +2024,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -1430,38 +2046,137 @@
         "width": 390,
         "height": 844
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "route": "features/update",
       "passed": true
     },
     {
       "kind": "render",
       "locale": "zh",
-      "theme": "dark",
+      "theme": "light",
       "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
       },
       "route": "guide/android",
       "passed": true
@@ -1469,12 +2184,177 @@
     {
       "kind": "render",
       "locale": "zh",
-      "theme": "dark",
+      "theme": "light",
       "viewport": {
-        "width": 1440,
-        "height": 960
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -1485,7 +2365,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -1507,18 +2387,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -1540,106 +2409,7 @@
         "width": 1440,
         "height": 960
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 1440,
-        "height": 960
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -1661,6 +2431,127 @@
         "width": 1440,
         "height": 960
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
       "route": "features/update",
       "passed": true
     },
@@ -1669,30 +2560,8 @@
       "locale": "zh",
       "theme": "dark",
       "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/interface",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "guide/configuration",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
       },
       "route": "guide/android",
       "passed": true
@@ -1702,10 +2571,175 @@
       "locale": "zh",
       "theme": "dark",
       "viewport": {
-        "width": 390,
-        "height": 844
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
       },
       "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {
@@ -1716,7 +2750,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "reference/client-architecture",
+      "route": "",
       "passed": true
     },
     {
@@ -1738,18 +2772,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/lesson",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/shop",
+      "route": "features/combat",
       "passed": true
     },
     {
@@ -1771,106 +2794,7 @@
         "width": 390,
         "height": 844
       },
-      "route": "features/combat",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/sweeps",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/stages",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/team",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/maintenance",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/server",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
       "route": "features/emulator",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/script",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/system",
-      "passed": true
-    },
-    {
-      "kind": "render",
-      "locale": "zh",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "route": "features/profile",
       "passed": true
     },
     {
@@ -1892,7 +2816,315 @@
         "width": 390,
         "height": 844
       },
+      "route": "features/lesson",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/maintenance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/pc-platform",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/profile",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/script",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/server",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/shop",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/stages",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/sweeps",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/system",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "features/team",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "route": "features/update",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/android",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/configuration",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/install",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/interface",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/scheduler",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "guide/wiki",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/auto-fight-dev",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/backend-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/cli-service",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/client-architecture",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/performance",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/release-history",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/report-uninstall",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/setup-toml",
+      "passed": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "route": "reference/troubleshooting",
       "passed": true
     },
     {

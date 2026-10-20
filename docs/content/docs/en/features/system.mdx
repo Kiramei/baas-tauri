@@ -37,7 +37,7 @@ The last three are desktop/native controls. The audited Android General page sho
 
 | Control            | Operation                                                                                               |
 | ------------------ | ------------------------------------------------------------------------------------------------------- |
-| Theme              | Light, Dark or System; `theme`. System follows the OS; screenshot examples deliberately use Light       |
+| Theme              | Light, Dark or System; `theme`. System follows the OS                                                   |
 | Accent color       | Picker, hue/area controls, supported eyedropper, eight presets, hex input and Reset; `themeColor`       |
 | Background image   | Choose or remove a locally stored image; `backgroundImageBase64`                                        |
 | Background opacity | Slider 0–60%, step 1%; `backgroundImageOpacity`. Zero hides the image without removing its stored bytes |
@@ -55,7 +55,7 @@ The outer hex field accepts exactly `#RRGGBB`; blur or Enter commits it. Invalid
 
 Backgrounds accept PNG, JPG/JPEG, WebP or GIF, at most **5 MiB**. Native clients read a selected file; WebUI uses the browser's file selector. Cancel leaves the current image unchanged. Bytes are embedded in local settings, not uploaded as a public documentation asset. Remove is disabled without an image and removes it immediately without a confirmation dialog.
 
-The Android initial-zoom migration uses 80% once; it is not a permanent lock preventing changes. Documentation site theme/zoom is independent of all these controls.
+The Android initial-zoom migration sets 80% once. Later changes use the same UI scale control.
 
 ## Shortcuts
 

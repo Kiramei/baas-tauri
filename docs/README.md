@@ -87,3 +87,36 @@ Reproduce the frontend microbenchmarks with
 `bun docs/scripts/measure-frontend.ts` from the repository root. Preserve the raw
 record, source revision, environment and scope. Do not interpret encoding/store
 preparation measurements as game or full-application speedups.
+
+## Media Privacy Checks
+
+Use demo data with empty credentials. Sensitive image fields use local blur.
+Keep capture notes and validation limits in manifests and this audit, outside
+reader-facing instructions. Do not publish original unblurred captures or OCR
+text. The installer capture applies temporary inline blur and checks the
+computed filter, including low-effects mode and visible tooltip commands.
+Restore the temporary styles even if capture fails.
+
+`scripts/capture-installer.mjs 19235 failed en` captures the deliberately missing
+entrypoint scenario in a disposable backend. The `completed` scenario reuses an
+existing backend and custom Python. Neither proves a fresh download or managed
+dependency installation. Review the runtime and locale before calling it; it
+must never remove files from a shared backend. The script does not prepare the
+failure itself or start task execution.
+
+From the repository root, Windows OCR can inspect every raster image/GIF frame
+locally without uploading media:
+
+```powershell
+powershell.exe -NoProfile -File docs/scripts/audit-media-privacy.ps1 -Root docs/public -Output .cache/docs-privacy/all-public-ocr.json
+node docs/scripts/summarize-media-privacy.mjs
+```
+
+The first command requires the Windows Simplified Chinese OCR language pack.
+Its raw OCR text stays in ignored `.cache/`. The second checks image hashes and
+inventory freshness, then saves only counts, a digest and reviewed findings to
+`evidence/privacy-review.json`. Two visually reviewed generic emulator-path
+placeholders are allowed by exact image hash. Changed media needs a new scan
+and review; OCR can miss names, QR codes, private hosts and illegible text.
+Tests reject stale inventory evidence and private local workspace paths in
+published JSON/MDX. These checks do not certify complete anonymization.

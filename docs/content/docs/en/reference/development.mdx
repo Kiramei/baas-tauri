@@ -1,9 +1,7 @@
 ---
 title: Development and Documentation Maintenance
-description: Tauri client structure, backend bridge, Fumadocs site, screenshot maintenance, and GitHub Pages deployment.
+description: Tauri client structure, backend bridge, local documentation builds, and GitHub Pages deployment.
 ---
-
-This page is for maintainers. BAAS Tauri user documentation is now maintained under `baas-tauri/docs`. Still-relevant content from the old `baas-dev/docs` should be migrated here instead of maintaining two user-facing documentation surfaces.
 
 Read [Client Architecture and State](./client-architecture) for the principles behind draft persistence, acknowledgments, scheduler relationship ownership, connection generations and Android process boundaries. [Performance and Benchmarks](./performance) provides reproducible samples and their measurement limits.
 
@@ -46,27 +44,9 @@ docs/public/en
 
 Routes:
 
-- `/` and `/docs` enter internal documentation using a saved reader choice, then supported browser language preferences, with English as fallback.
 - Chinese docs use `/docs/zh/...`.
 - English docs use `/docs/en/...`.
 - Non-Chinese in-app languages should fall back to English.
-
-## Screenshot Maintenance
-
-Screenshots come from the current BAAS Tauri interface. Chinese docs use `docs/public/cn`; English docs use `docs/public/en`.
-
-Rules:
-
-- Home screenshots are only for home, logs, and runtime state.
-- Installer screenshots are only for installation.
-- Cafe screenshots are only for cafe.
-- Shop screenshots are only for shop.
-- Crafting screenshots are only for crafting.
-- Server, script, and emulator screenshots are only for connection and script setup.
-- Stage, sweep, and team screenshots are only for those features.
-- Settings, update, hotkey, and remote display screenshots are only for system settings.
-
-Do not insert unrelated screenshots just to make a page look illustrated.
 
 ## Local Development
 

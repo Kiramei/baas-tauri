@@ -35,7 +35,7 @@ The Home keyboard icon opens native desktop [global profile shortcuts](./system#
 
 ## Resources and Task Logs
 
-The optional resource strip shows backend-reported AP, currencies, crafting materials and pass information. Missing/unreceived values can be blank or unavailable; a displayed value is not a fresh game OCR check on every frame. Appearance's `assetsDisplay` switch hides the strip without deleting account data. These captures use it off.
+The optional resource strip shows backend-reported AP, currencies, crafting materials and pass information. Missing/unreceived values can be blank or unavailable; a displayed value is not a fresh game OCR check on every frame. Appearance's `assetsDisplay` switch hides the strip without deleting account data.
 
 The log workspace shows the selected profile's received task-log buffer, with timestamp/level/message and a count when nonempty. The downward-arrow button toggles automatic scrolling (`scrollToEnd`, shared with Settings → Logs). Turn it off to read earlier lines; it does not pause incoming logs or stop tasks.
 
@@ -101,7 +101,3 @@ Video number fields use integer parsing but do not provide complete finite/range
 Clipboard commands and Show Status act directly. Video size/FPS/I-frame/bitrate edits require **Save and Apply**. The audited immediate apply path reads the prior settings snapshot; after saving, toggle the Home preview off/on to establish a player with the new stored values. Closing only the enlarged dialog does not rebuild it.
 
 Decoder and encrypted-stream settings are under [Connection & runtime](./system#connection-and-runtime). They also require reopening the preview to take effect. Preview encryption is not a replacement for verifying which device is controlled.
-
-## Verification Boundary
-
-The new screenshots came from the real native desktop client mirroring MuMu's Android BAAS interface. Decoded video dimensions and nonblank pixel samples were checked in both UI languages. No power, clipboard, game touch or video-setting command was submitted during capture. This proves the preview/capture path for that setup, not game-task success or every remote-input function.

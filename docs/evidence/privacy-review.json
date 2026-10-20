@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-10-20T05:42:29.8313060Z",
+  "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
+  "imageFiles": 343,
+  "decodedFrames": 351,
+  "decodingFailures": 0,
+  "unresolvedPatternFindings": 0,
+  "inventorySha256": "d86216ec9e4974c3bad27cd1ad427fe56030efb14ac941544f58885a4caa3aae",
+  "reviewedFindings": [
+    {
+      "file": "media/desktop/en/config-emulator.png",
+      "sha256": "ecfb5c1b1d63fcf650d44aa02a80cfa9f17ca2fa314bb461fadc714055af0855",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/zh/config-emulator.png",
+      "sha256": "49d968c9f0a16d0274f3123567d61ebf9e3640feb79d14ae8907f21446af96a9",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    }
+  ],
+  "publicationReviewComplete": false,
+  "pendingVisualFindings": [
+    {
+      "file": "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png",
+      "sha256": "63687ea8697e1699c19c8b02c6b095949a0da672f1f292a9193bc2f74bda9757",
+      "category": "legacy-game-nickname"
+    },
+    {
+      "file": "backend-assets/auto_fight/cvat_ai_guide1.png",
+      "sha256": "d62368a01839956743bdbd75a3791646396bd2a3779103705ff13bc3b6288f13",
+      "category": "legacy-shared-account-and-job-identifiers"
+    }
+  ],
+  "redaction": "New installer captures use local 12px blur before writing PNGs. The capture checks computed blur styles, including low-effects mode and visible node tooltips. Unblurred installer captures and OCR text are excluded from published assets.",
+  "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review."
+}

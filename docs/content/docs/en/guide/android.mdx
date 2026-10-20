@@ -96,13 +96,13 @@ Tasks contains the shared single-list scheduler, per-task switches, timing/detai
   alt="Fresh Android Appearance settings with light, dark and system theme controls"
 />
 
-Settings has General, Appearance, Shortcuts, Connection & runtime, Updates and Logs. App theme/language and documentation theme/language are independent. Application appearance can hide Home's resource strip; captures use that real setting where needed.
+Settings has General, Appearance, Shortcuts, Connection & runtime, Updates and Logs. The Appearance resource switch controls Home's resource strip.
 
 ## Lifecycle and Notifications
 
 Python is owned by the dedicated backend service, not the Activity. WebView reloads and Activity recreation reconnect instead of starting another Python owner. System Back dismisses overlays/navigation first, then can background the Activity; it is not the scheduler Stop command.
 
-The audited foreground service uses a low-priority ongoing notification that opens the app. **This version has no notification Start/Stop task actions.** Its Shizuku setup also attempts to suppress BAAS notifications, so drawer visibility alone is not a reliable health check. Use in-app connection/run state and system logs. Background restrictions can still terminate work; do not treat a successful short test as a long-running reliability guarantee.
+The foreground service uses a low-priority ongoing notification that opens the app. **This version has no notification Start/Stop task actions.** Its Shizuku setup also attempts to suppress BAAS notifications, so drawer visibility alone is not a reliable health check. Use in-app connection/run state and system logs. Background restrictions can still terminate work; do not treat a successful short test as a long-running reliability guarantee.
 
 ## Updates and Diagnostics
 
@@ -117,10 +117,8 @@ Backend updates use the app's configured source and show progress/output. Preser
 | Live but blank/splash | Actual game task/display, native capture errors and ABI compatibility                           |
 | Backend disconnect    | Service/process logs and background restrictions, not only notification visibility              |
 
-## This Refresh's Verification Boundary
+## Emulator ABI Compatibility
 
-Fresh ARM64 and x86_64 debug APKs were built from `android-dev` revision `5ca0ac7c`, installed and cold-started in MuMu. First-run backend preparation, authentication, configuration persistence, navigation, light theme and both UI languages were verified.
-
-The emulator advertises ARM64 translation, but its Shizuku service is x86_64. The ARM64 native capture library failed to load there (`EM_AARCH64` versus `EM_X86_64`). The existing x86_64 build path created a display and opened native controls without app-source changes, but the Bilibili game remained at its startup image/changed display ownership. **Real game input, successful task completion and full takeover/restart/lifecycle validation remain unverified.** Installation alone must not be reported as end-to-end support.
+Some x86_64 emulators can install ARM64 apps while Shizuku's user service still runs in an x86_64 process. Loading an ARM64 capture library then fails with an `EM_AARCH64` / `EM_X86_64` mismatch. Use a build matching that process architecture. For a game stuck on its splash screen, also inspect the game Activity's display ownership and native capture logs.
 
 See [Troubleshooting](../reference/troubleshooting#android-client-problems) for broader diagnostics.

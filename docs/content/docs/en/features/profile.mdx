@@ -69,6 +69,6 @@ Desktop/WebUI also accept dropped ZIP archives over the application. Non-ZIP fil
 
 Delete opens a named confirmation. Cancel, close or clicking outside leaves the profile intact. A middle-click on a profile also opens this confirmation; it is not an innocent selection shortcut.
 
-The last profile's deletion is disabled. Confirming another profile sends `remove_config` to remove the corresponding backend profile; this is not reversible through configuration Undo. Export needed data and stop that profile first. If deleting the selected profile, selection moves to a nearby remaining one. Profile deletion is not a command to delete the game account, but losing configuration is still destructive.
+The last profile's deletion is disabled. Confirming another profile sends `remove_config` to remove the corresponding backend profile; this is not reversible through configuration Undo. Export needed data and stop that profile first. If deleting the selected profile, selection moves to a nearby remaining one. Profile deletion removes backend configuration; the game account remains intact.
 
 See [Home Runtime](./home-runtime) for start/stop/logs and [Scheduler](../guide/scheduler) for enabled tasks and timing.

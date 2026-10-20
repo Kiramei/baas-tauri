@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const contentRoutes = (locale) =>
+  readdirSync(path.join(root, "docs/content/docs", locale), { recursive: true })
+    .filter((file) => file.endsWith(".mdx"))
+    .map((file) => file.slice(0, -4).replaceAll("\\", "/"))
+    .map((route) => (route === "index" ? "" : route))
+    .sort();
+const routes = contentRoutes("en");
+assert.deepEqual(contentRoutes("zh"), routes, "Localized documentation route sets must match");
 const output = path.join(root, ".cache/docs-smoke");
 mkdirSync(output, { recursive: true });
 const origin = process.argv[2] || "http://127.0.0.1:4173";
@@ -53,36 +61,24 @@ try {
         const page = await context.newPage();
         const errors = [];
         page.on("pageerror", (error) => errors.push(String(error)));
-        for (const route of [
-          "guide/interface",
-          "guide/configuration",
-          "guide/android",
-          "reference/performance",
-          "reference/client-architecture",
-          "features/cafe",
-          "features/lesson",
-          "features/shop",
-          "features/crafting",
-          "features/combat",
-          "features/sweeps",
-          "features/stages",
-          "features/team",
-          "features/maintenance",
-          "features/server",
-          "features/emulator",
-          "features/script",
-          "features/system",
-          "features/profile",
-          "features/home-runtime",
-          "features/update",
-        ]) {
-          const response = await page.goto(`${origin}/docs/${locale}/${route}/`);
+        for (const route of routes) {
+          const response = await page.goto(`${origin}/docs/${locale}/${route ? route + "/" : ""}`);
           assert.equal(response.status(), 200);
           await page.waitForFunction(
             (dark) => document.documentElement.classList.contains("dark") === dark,
             theme === "dark"
           );
           await page.locator("h1").waitFor();
+          await page.waitForFunction(
+            () =>
+              document.querySelectorAll(".baas-mermaid").length ===
+              document.querySelectorAll(".baas-mermaid-content > svg").length
+          );
+          assert.equal(await page.locator(".baas-mermaid-error").count(), 0);
+          const article = await page.locator("body").innerText();
+          assert.ok(
+            !/本套文档以当前|文档入口优先|This documentation follows the current/.test(article)
+          );
           if (route === "reference/client-architecture") {
             await page.waitForFunction(
               () => document.querySelectorAll(".baas-mermaid-content > svg").length === 2
@@ -147,7 +143,12 @@ try {
               );
             }
           }
-          if (route.startsWith("features/") || route === "guide/android") {
+          if (
+            route.startsWith("features/") ||
+            route === "guide/android" ||
+            route === "guide/install" ||
+            route === "reference/setup-toml"
+          ) {
             assert.ok(
               !(await page.locator("body").innerText()).includes("**"),
               `Unparsed strong markup: ${locale}/${route}`
@@ -206,7 +207,7 @@ try {
           await page.screenshot({
             path: path.join(
               output,
-              `${locale}-${theme}-${viewport.width}-${route.replaceAll("/", "-")}.png`
+              `${locale}-${theme}-${viewport.width}-${route.replaceAll("/", "-") || "index"}.png`
             ),
           });
           results.push({ kind: "render", locale, theme, viewport, route, passed: true });
