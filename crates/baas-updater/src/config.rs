@@ -24,11 +24,11 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 pub enum BackendTransport {
     /// Encrypted loopback WebSocket transport.
     Websocket,
-    /// Windows shared-memory transport owned by the Tauri process.
-    #[cfg_attr(windows, default)]
+    /// Windows/Linux shared-memory transport owned by the Tauri process.
+    #[cfg_attr(any(windows, target_os = "linux"), default)]
     Shm,
-    /// Legacy native transport retained on non-Windows platforms.
-    #[cfg_attr(not(windows), default)]
+    /// Native pipe transport retained on other platforms and as an explicit choice.
+    #[cfg_attr(not(any(windows, target_os = "linux")), default)]
     Pipe,
 }
 
@@ -38,9 +38,9 @@ impl BackendTransport {
         match value {
             "websocket" => Ok(Self::Websocket),
             "pipe" => Ok(Self::Pipe),
-            "shm" if cfg!(windows) => Ok(Self::Shm),
+            "shm" if cfg!(any(windows, target_os = "linux")) => Ok(Self::Shm),
             "shm" => Err(UpdaterError::Config(
-                "shared-memory transport is currently available on Windows only".to_string(),
+                "shared-memory transport is available on Windows and Linux desktop".to_string(),
             )),
             _ => Err(UpdaterError::Config(format!(
                 "unsupported backend transport: {value}"
@@ -449,15 +449,16 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
     Ok(config)
 }
 
-/// Migrates existing Windows pipe preferences once while retaining explicit test choices.
+/// Migrates legacy pipe preferences on supported platforms, retaining explicit choices.
 fn migrate_transport(config: &mut UpdaterConfig) {
-    if cfg!(windows)
+    if cfg!(any(windows, target_os = "linux"))
         && config.general.transport_version == 0
         && config.general.transport == BackendTransport::Pipe
     {
         config.general.transport = BackendTransport::Shm;
     }
-    if !cfg!(windows) && config.general.transport == BackendTransport::Shm {
+    if !cfg!(any(windows, target_os = "linux")) && config.general.transport == BackendTransport::Shm
+    {
         config.general.transport = BackendTransport::Pipe;
     }
     config.general.transport_version = config.general.transport_version.max(1);
@@ -520,17 +521,20 @@ mod tests {
     }
 
     #[test]
-    fn shared_memory_preference_is_portable_to_non_windows_config_readers() {
+    fn shared_memory_preference_follows_platform_support() {
         let config = migrate_toml("[general]\ntransport = 'shm'\ntransport_version = 1\n").unwrap();
         assert_eq!(
             config.general.transport,
-            if cfg!(windows) {
+            if cfg!(any(windows, target_os = "linux")) {
                 BackendTransport::Shm
             } else {
                 BackendTransport::Pipe
             }
         );
-        assert_eq!(BackendTransport::parse("shm").is_ok(), cfg!(windows));
+        assert_eq!(
+            BackendTransport::parse("shm").is_ok(),
+            cfg!(any(windows, target_os = "linux"))
+        );
     }
 
     /// Handles the default config uses stable channel and default runtime workflow.

@@ -1,6 +1,22 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "identifier": "io.github.kiramei.baas-tauri",
+  "app": {
+    "windows": [
+      {
+        "title": "BlueArchiveAutoScript",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 684,
+        "devtools": true,
+        "visible": true,
+        "theme": null,
+        "decorations": false
+      }
+    ]
+  },
   "bundle": {
     "active": true,
     "targets": ["deb", "rpm"],

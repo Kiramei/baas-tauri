@@ -16,11 +16,12 @@ mod commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
 mod notifier_commands;
+mod native_window_controls;
 mod pipe_commands;
 mod shm_commands;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 mod shm_native;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 mod shm_protocol;
 mod system_logs;
 #[cfg(windows)]
@@ -46,6 +47,9 @@ use crate::mobile_commands::{
     updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::notifier_commands::baas_notify;
+use crate::native_window_controls::{
+    native_window_controls_set_blocked, native_window_controls_state,
+};
 use crate::file_commands::open_backend_config_folder;
 use crate::pipe_commands::{
     backend_pipe_close, backend_pipe_close_all, backend_pipe_open, backend_pipe_send_bytes,
@@ -99,6 +103,8 @@ pub fn run() {
         .plugin(baas_notifier::init_plugin())
         .invoke_handler(tauri::generate_handler![
             baas_notify,
+            native_window_controls_state,
+            native_window_controls_set_blocked,
             splash_off,
             set_backend_locale,
             open_backend_config_folder,
@@ -173,6 +179,7 @@ pub fn run() {
             let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
             app.manage(log_state);
             system_log("INFO", "lifecycle", "Desktop setup started");
+            native_window_controls::initialize(app.handle());
             #[cfg(windows)]
             window_material::initialize(app.handle());
             configure_portable_working_dir().map_err(std::io::Error::other)?;
