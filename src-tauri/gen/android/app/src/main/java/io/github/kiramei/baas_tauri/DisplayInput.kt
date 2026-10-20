@@ -78,6 +78,8 @@ object DisplayInput {
           if (elapsed >= duration) break
           SystemClock.sleep(8)
         } while (true)
+      } else {
+        SystemClock.sleep(duration.toLong())
       }
       released = send(MotionEvent.ACTION_UP, x2.toFloat(), y2.toFloat(), 0)
       return released

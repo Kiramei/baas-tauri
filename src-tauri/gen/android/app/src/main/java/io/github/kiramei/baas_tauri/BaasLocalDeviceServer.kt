@@ -189,7 +189,7 @@ object BaasLocalDeviceServer {
           throw IllegalStateException("The Shizuku virtual display has not produced a frame yet")
         }
         "click" -> requireGesture(
-          ShizukuController.gesture(context, params.getInt(0), params.getInt(1), params.getInt(0), params.getInt(1), 1)
+          ShizukuController.gesture(context, params.getInt(0), params.getInt(1), params.getInt(0), params.getInt(1), 50)
         )
         "swipe" -> requireGesture(
           ShizukuController.gesture(
