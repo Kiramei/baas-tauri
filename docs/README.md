@@ -90,6 +90,11 @@ deployment-aware asset paths. See the official [basePath](https://nextjs.org/doc
 and [assetPrefix](https://nextjs.org/docs/app/api-reference/config/next-config-js/assetPrefix)
 references for that distinction.
 
+`DocumentationLink` renders local public files as ordinary prefixed anchors.
+This prevents raw benchmark records from being prefetched as document routes.
+Document, entry, fragment and external links retain the framework's navigation
+behavior.
+
 The build also checks every prerendered page's segment manifest against Next's
 canonical static-export filenames. Next 16.2.9 can emit nested segment paths on
 Windows while its client requests dotted filenames. `normalize-static-export.mjs`

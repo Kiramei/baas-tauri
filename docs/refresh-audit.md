@@ -36,12 +36,12 @@ capture privacy checks. This is not the final documentation delivery.
 | Requirement                                          | Current evidence                                                                                                                                              | Remaining work                                                                                                           |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | No external landing page                             | SiteHome removed; root/docs enter internal localized docs                                                                                                     | Final deployment checks                                                                                                  |
-| Environment language, English fallback, saved choice | Focused locale/link tests; browser entry, denied-storage and manual-persistence cases pass                                                                    | Deployment prefix behavior                                                                                               |
+| Environment language, English fallback, saved choice | Focused tests and browser entry/storage/persistence cases; root/prefix checks on Windows and Linux preserve language, query and hash                          | Final live deployment                                                                                                    |
 | Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows, architecture, backend and updater guides; localized search/TOC/theme/sidebar/image controls | Remaining reader review and developer coverage                                                                       |
 | Every current desktop UI detail                      | Manual configuration/workspace/installer audit; compiler-AST coverage of 79 draft fields, nine immediate commands, settings labels and shortcut IDs           | Remaining surfaces; conditional capture/interaction and platform execution review                                        |
 | Fresh light screenshots                              | 172 desktop and 96 Android PNG captures, manifests, six real GIFs; native game preview and controls now illustrated                                           | Remaining surfaces and old references                                                                                   |
 | Necessary GIFs                                       | Native automatic-save/undo media and two continuous game-preview recordings with reader-controlled playback                                                  | Assess graph and structured-editor motion                                                                               |
-| Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                    |
+| Rounded/shadowed media                               | 8px radius/shadow checks across all content routes, root/prefix exports, Windows and Linux                                                                    | Final live deployment and remaining manual review                                                                         |
 | Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI and updater ownership/activation/overlay/cancellation/integrity; production replays and 20 real-crypto cases | Remaining backend/native depth, TLS/deployment and device integration                                                   |
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
@@ -49,7 +49,7 @@ capture privacy checks. This is not the final documentation delivery.
 | Android runs beyond installation                     | Historical preview/focus/control and isolated restart-navigation checks passed; the latest cold start stalled and Android's system process crashed          | Resolve current preview failure, then verify business tasks, unattended foreground-app switching, other devices and final integration |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 36 content routes: 288 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
-| Search/links/media/build                             | 425 general browser cases plus 24 search-failure recovery cases; 76 exported HTML pages; 77-route build                                                        | Recheck after future edits and final deployment                                                                          |
+| Search/links/media/build                             | General/search checks plus 1,336 strict export cases across four OS/prefix variants; 76 exported HTML pages; 77-route build                                    | Recheck after future edits and final live deployment                                                                     |
 | Media/content privacy                                | 14 blurred installer captures, two legacy blur repairs and six blurred native game assets; 442 raster files/576 frames checked with local OCR               | Further manual review for names, QR codes, private hosts and changed media                                               |
 | Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
@@ -853,13 +853,13 @@ replay passes 96 scenarios and 864 step checks; Service/CLI checks pass 20 cases
 - Earlier `.dev` and ARM64 `.docs` validation apps were stopped to avoid
   conflicting backend ports. No game scheduler was started during this pass.
 - Android/desktop resource-label overlap is an app-source issue, not fixed here.
-- Windows Next 16's segment-prefetch nested/dotted-path mismatch has been
-  reproduced and a manifest-bound output normalization added. Linux and strict
-  root/prefix checks are being revalidated; see the deployment checkpoint below.
+- Windows Next 16's segment-prefetch nested/dotted-path mismatch is corrected by
+  manifest-bound output normalization. Strict root/prefix checks pass on Windows
+  and Linux; live Pages deployment is not claimed.
 
 ## Verification Scope
 
-`bun test docs/tests`: 80 tests / 9,336 assertions, including export-path normalization and strict-host checks, search-cache failure recovery, source-bound browser recovery, Service/CLI provenance, crypto boundary and diagram/search checks,
+`bun test docs/tests`: 95 tests / 9,360 assertions, including public-asset links, export-path normalization and strict-host checks, search-cache failure recovery, source-bound browser recovery, Service/CLI provenance, crypto boundary and diagram/search checks,
 Android game-placement failure/cleanup contracts,
 backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
@@ -948,8 +948,8 @@ prefetch paths; this failure is retained rather than treated as a pass.
 `Validate Documentation Export` is a separate read-only workflow for docs
 branches/PRs. Its two Linux jobs build root and `/baas-tauri` exports and run the
 same strict checks with pinned Playwright. It uploads validation evidence and
-has no deployment job or Pages-write permission. Final root/prefix and Linux
-results remain unproven until their actual runs finish. The existing 4173
+has no deployment job or Pages-write permission. Root/prefix checks now pass on
+Windows and Linux. The existing 4173
 preview continues serving `out`; alternate prefix exports use an ignored
 `DOCS_EXPORT_DIR` without replacing it.
 
@@ -959,3 +959,20 @@ now renders local public assets as prefixed native anchors, leaving actual docs,
 entry, fragment and external links to the framework. The new routing tests cover
 root/nested prefixes, queries/fragments and dot-segment normalization. The
 strict suite opens a raw record and compares its received bytes to the export.
+
+The second Linux run, [39449930514](https://github.com/Kiramei/baas-tauri/actions/runs/39449930514),
+passed both jobs at `4bf911f1170eb6683a2e1ac437df4ab08769e7a4`. All four completed
+reports have 334 cases, zero failures and identical source digests. Their source
+files were compared both with the current checkout and the immutable tested Git
+revision. `evidence/deployment-validation.json` retains report digests, grouped
+counts, artifact identities and the earlier failed Linux run. This proves static
+export behavior under the strict host; it does not claim a live Pages deployment
+or successful game rendering.
+
+The latest root checks also passed 24 search-recovery cases, updater/Android
+presentation checks, 96 recognition scenarios / 864 steps, 76 exported-page link
+checks and 425 general smoke cases. One smoke attempt using the long-lived 4173
+preview stopped with browser `ERR_ADDRESS_IN_USE`. Its cause was not established;
+the complete rerun passed on a temporary strict host without restarting 4173.
+No emulator operation, application-media capture or performance sampling was
+performed during this deployment checkpoint.
