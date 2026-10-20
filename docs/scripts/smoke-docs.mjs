@@ -21,6 +21,9 @@ const origin = process.argv[2] || "http://127.0.0.1:4173";
 const nativeBenchmark = JSON.parse(
   readFileSync(path.join(root, "docs/public/benchmarks/native-transport-current.json"), "utf8")
 );
+const deviceBenchmark = JSON.parse(
+  readFileSync(path.join(root, "docs/evidence/device-summary.json"), "utf8")
+);
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const results = [];
 try {
@@ -183,6 +186,82 @@ try {
             assert.ok(media.width <= viewport.width);
           }
           if (route === "reference/performance") {
+            for (const kind of ["capture", "control"]) {
+              const chart = page.locator(".baas-device-" + kind);
+              const scenarios =
+                kind === "capture" ? ["static", "animated"] : ["click", "swipe", "long_click"];
+              for (const scenario of scenarios) {
+                await chart.locator("select").selectOption(scenario);
+                for (const endpoint of kind === "capture" ? ["api"] : ["api", "visible"]) {
+                  if (kind === "control")
+                    await chart
+                      .getByRole("button", {
+                        name:
+                          endpoint === "api"
+                            ? locale === "zh"
+                              ? "接口返回"
+                              : "API return"
+                            : locale === "zh"
+                              ? "画面确认"
+                              : "Visible response",
+                        exact: true,
+                      })
+                      .click();
+                  for (const metric of ["p50Ms", "p95Ms"]) {
+                    await chart
+                      .getByRole("button", {
+                        name: metric === "p50Ms" ? "p50" : "p95",
+                        exact: true,
+                      })
+                      .click();
+                    const rows = deviceBenchmark.results[kind].filter(
+                      (row) => row.scenario === scenario
+                    );
+                    assert.deepEqual(
+                      await chart.locator("output").allTextContents(),
+                      rows.map((row) => row[endpoint][metric].toFixed(1) + " ms")
+                    );
+                    const tracks = await chart
+                      .locator(".baas-benchmark-track")
+                      .evaluateAll((elements) =>
+                        elements.map((element) => ({
+                          track: element.getBoundingClientRect().width,
+                          bar: element.firstElementChild.getBoundingClientRect().width,
+                        }))
+                      );
+                    const maximum = Math.max(...rows.map((row) => row[endpoint][metric]));
+                    for (const [index, track] of tracks.entries()) {
+                      assert.ok(Math.abs(track.track - tracks[0].track) < 1);
+                      assert.ok(
+                        Math.abs(
+                          track.bar / (track.track - 1) - rows[index][endpoint][metric] / maximum
+                        ) < 0.012
+                      );
+                    }
+                    results.push({
+                      kind: "device-chart",
+                      locale,
+                      theme,
+                      viewport,
+                      chart: kind,
+                      scenario,
+                      endpoint,
+                      metric,
+                      passed: true,
+                    });
+                  }
+                }
+              }
+              await chart.locator("select").selectOption(kind === "capture" ? "static" : "click");
+              await chart.getByRole("button", { name: "p50", exact: true }).click();
+              if (kind === "control")
+                await chart
+                  .getByRole("button", {
+                    name: locale === "zh" ? "接口返回" : "API return",
+                    exact: true,
+                  })
+                  .click();
+            }
             for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark"]) {
               const chart = page.locator(selector);
               const outputs = await chart.locator("output").allTextContents();

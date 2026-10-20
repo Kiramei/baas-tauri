@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T07:05:28.466Z",
+  "checkedAt": "2026-10-20T07:56:39.684Z",
   "origin": "http://127.0.0.1:4173",
   "results": [
     {
@@ -378,6 +378,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "en",
       "theme": "light",
@@ -763,6 +987,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "en",
       "theme": "light",
@@ -1148,6 +1596,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "en",
       "theme": "dark",
@@ -1533,6 +2205,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "en",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "en",
       "theme": "dark",
@@ -1918,6 +2814,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "zh",
       "theme": "light",
@@ -2303,6 +3423,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "zh",
       "theme": "light",
@@ -2688,6 +4032,230 @@
       "passed": true
     },
     {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
       "kind": "render",
       "locale": "zh",
       "theme": "dark",
@@ -3070,6 +4638,230 @@
         "height": 844
       },
       "route": "reference/development",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "static",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "capture",
+      "scenario": "animated",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "swipe",
+      "endpoint": "visible",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "api",
+      "metric": "p95Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p50Ms",
+      "passed": true
+    },
+    {
+      "kind": "device-chart",
+      "locale": "zh",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "chart": "control",
+      "scenario": "long_click",
+      "endpoint": "visible",
+      "metric": "p95Ms",
       "passed": true
     },
     {

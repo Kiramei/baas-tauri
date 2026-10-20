@@ -122,6 +122,66 @@
   background: #f9a8d4;
 }
 
+.baas-device-benchmark .baas-benchmark-row {
+  grid-template-columns: 100px minmax(0, 1fr) 76px;
+}
+.baas-device-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block: 12px;
+  font-size: 13px;
+}
+.baas-device-controls select {
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  color: var(--color-fd-foreground);
+  background: var(--color-fd-background);
+}
+.baas-device-controls .baas-chart-controls {
+  margin-block: 0;
+}
+.baas-benchmark-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.baas-device-benchmark table {
+  font-size: 13px;
+}
+.baas-device-benchmark caption {
+  padding-block: 12px;
+  text-align: left;
+  color: var(--color-fd-muted-foreground);
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="adb"] {
+  background: #0f766e;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="uiautomator2"] {
+  background: #0369a1;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="scrcpy"] {
+  background: #be185d;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="nemu"] {
+  background: #a16207;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="adb"] {
+  background: #5eead4;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="uiautomator2"] {
+  background: #7dd3fc;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="scrcpy"] {
+  background: #f9a8d4;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="nemu"] {
+  background: #facc15;
+}
+
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 video.baas-screenshot {

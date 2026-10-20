@@ -23,6 +23,44 @@ The observed minimum nonzero `performance.now()` increment was approximately **0
 
 The harness started no concurrent build or other benchmark; other host activity was uncontrolled. This is a descriptive single-host/session result without confidence intervals. Observing zero failures does not establish long-term reliability.
 
+## Screenshot Adapters
+
+<DeviceBenchmark locale="en" kind="capture" />
+
+These measurements call the desktop backend's production ADB, uiautomator2, Scrcpy and Nemu adapters at revision `d0a86a0`. The target is a separate native Android application on MuMu 15, Android 15/API 35, with a fixed 1280x720 landscape surface. It contains no game or account data. Both scenes redraw a frame counter; the animated scene also moves a tiled background behind the controls. A fixed texture pane remains identical in both scenes.
+
+<img
+  className="baas-screenshot"
+  src="/benchmarks/device-target.png"
+  alt="Independent native device-benchmark target with frame barcodes, input counters and a texture pane; not the BAAS interface or a game"
+/>
+
+The [complete device record](/benchmarks/device-current.json) retains **800 measured screenshot calls and 576 measured input calls**, plus all **304 warm-ups**, source/APK hashes, versions and restoration checks. Python is 3.11.9, OpenCV 4.8.1.78, NumPy 1.26.4, PyAV 12.0.0, adbutils 2.2.1 and uiautomator2 2.16.23. These are one Windows host/emulator session, without confidence intervals or controlled background load. No application build ran alongside sampling.
+
+Each scene uses four counterbalanced rounds: every method occupies each order position once, and each directed pair of methods occurs once as consecutive blocks. A block has five warm-ups and 25 recorded calls. Initialization, target-state preparation, foreground checks, validation and quality calculations are outside individual API timing. Warm-ups and failed calls remain in the record; latency quantiles use validated successful calls, without removing outliers. All methods capture the same visible scene and dimensions.
+
+uiautomator2 uses a standard atx-agent 0.10.0 service with the installed 2.3.3 instrumentation server already running. Its screenshot request is proxied to that server. This is the [agent's documented implementation path](https://github.com/openatx/atx-agent/blob/0.10.0/httpserver.go#L1021-L1060), separate from BAAS Android's authenticated local bridge. Automatic library repair/reinstallation is disabled to protect the shared emulator; recovery performance is outside this experiment.
+
+Scrcpy retains the production H.264 software encoder, 8 Mbps bitrate and full resolution. Its API waits for a newly decoded frame after the call begins and copies that array; encoding and decoding run in the background. Nemu returns MuMu's current display pixels without an equivalent new-frame wait. Repeated decoded frame counters are reported separately: a quick return can deliver the same rendered frame again.
+
+Repeated-frame counts describe this unthrottled harness cadence, including the time between calls for checks. They are not a measured duplicate rate under the production script's minimum 0.3-second interval.
+
+MSE compares a fixed 260x210 texture region at `(940, 390)` against an ADB PNG reference in each block, after channel-order calibration. Zero means identical pixels in that region; H.264 is lossy. This regional check does not establish equal whole-frame fidelity, capture age, game-recognition accuracy or game FPS. The adapters also exclude the script-level minimum 0.3-second screenshot interval described below.
+
+## Input Adapters
+
+<DeviceBenchmark locale="en" kind="control" />
+
+Each action has four counterbalanced rounds, three warm-ups and 12 measured calls per block: **48 recorded calls per method/action**. Clicks target `(500, 500)`. Swipes move from `(300, 500)` to `(700, 500)` with a requested 300 ms duration; long presses request 300 ms at the click position. Production sleeps and Nemu's random swipe path remain intact.
+
+**API return** ends when the synchronous adapter call returns. **Visible response** ends when a common Scrcpy observer first decodes the expected input-counter increment. Both start immediately before the adapter call, using the same host `perf_counter_ns` clock. The observer polls immutable decoded frames every millisecond and includes barcode-decoding time. This endpoint includes target rendering, video encoding, transfer and decoding; it does not isolate device input dispatch. The same observer stays running for all four methods.
+
+The target records actual touch-down/up duration and travel, and the observer's decoded duration must match that state. This exposes different tap semantics and verifies gesture delivery. A visible result can arrive before API return when the adapter has a post-input sleep. Nemu's swipe implementation ignores the requested duration, so its measured gesture must be interpreted with the received duration and travel rather than as an equal-duration speedup.
+
+In this emulator session, uiautomator2's requested 300 ms swipes and long presses produced median received durations close to **2,000 ms**. The cause was not isolated. Nemu's swipe travel was 390–399 px rather than the requested 400 px; validation allows at most 10 px of endpoint-distance error. Intermediate trajectory shape is not checked. These are comparisons of the same adapter request, with different physical gesture results, not an equal-gesture speed ranking.
+
+The high-level asynchronous script click wrapper is excluded. No game task, OCR or reward-completion check runs in this target. These results do not establish Android-local/Shizuku performance, PC-window capture performance, real-device battery behavior or task completion time.
+
 ## Current Frontend Measurements
 
 <BenchmarkChart locale="en" />

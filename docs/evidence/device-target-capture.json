@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-10-20T07:44:42.650365+00:00",
+  "scope": "Untimed ADB PNG of the independent benchmark target, not the BAAS interface or a game",
+  "file": "benchmarks/device-target.png",
+  "sha256": "337fd0464781d28e2931181377cfdd9ff058091aac77f388880d2dab56a1351c",
+  "targetApkSha256": "5f3a15b775ce374be3797a5ca62f182ad698d2ef8ba7dfd402fe335e0308e085",
+  "frame": {
+    "token": 9012,
+    "inputs": 0,
+    "frame": 23,
+    "durationMs": 0,
+    "channelOrder": "BGR",
+    "colorMeanAbsoluteError": 0.0
+  },
+  "dimensions": [
+    1280,
+    720
+  ],
+  "privacy": "Generated test counters and deterministic texture only; no account, game or host-path content",
+  "demoRestored": true
+}

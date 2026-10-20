@@ -4,6 +4,7 @@ import { Mermaid } from "@/components/Mermaid";
 import { ReleaseDownloadPanel } from "@/components/ReleaseDownloadPanel";
 import { BenchmarkChart } from "@/components/BenchmarkChart";
 import { NativeTransportBenchmark } from "@/components/NativeTransportBenchmark";
+import { DeviceBenchmark } from "@/components/DeviceBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
 
 export const mdxComponents = {
@@ -13,6 +14,7 @@ export const mdxComponents = {
   ReleaseDownloadPanel,
   BenchmarkChart,
   NativeTransportBenchmark,
+  DeviceBenchmark,
   MotionDemo,
 };
 

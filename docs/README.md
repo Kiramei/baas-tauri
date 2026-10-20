@@ -153,7 +153,8 @@ The validator/tests recompute statistics from every raw sample and reject missin
 samples, failed attempts, changed response sizes or incomplete restoration.
 Source and executable hashes stay with the result. This experiment is a small
 production RPC comparison, not screenshot/input/game performance or a general
-carrier-throughput ranking. Those measurements remain separate work.
+carrier-throughput ranking. Device measurements are reported independently
+below; larger-payload transport comparisons remain outstanding.
 
 The measurement snapshots its harness/statistics SHA-256 before sampling.
 Publication compares those stored hashes with the current files and rejects
@@ -195,3 +196,47 @@ Original outputs and diagnostic logs remain in ignored `.cache/`. They must not
 be ranked as steady-state capture results. The bundled Scrcpy adapter writes
 its standard jar under `/data/local/tmp` and owns a fixed abstract socket; the
 probe refuses an already occupied socket and closes its own session afterward.
+
+## Device Performance Measurement
+
+The independent native target is in `benchmarks/device-target/`; its README
+describes the surface, build and ownership checks. `scripts/measure-device.py`
+uses the actual production desktop adapters and writes raw diagnostics into
+ignored `.cache/`. It starts a standard atx-agent 0.10.0 (386 on this emulator)
+and the existing uiautomator 2.3.3 test service, without replacing installed APKs.
+The target is separate from the owned BAAS Android application.
+
+Required arguments are `--backend`, `--serial`, `--emulator`, `--apk`, `--output`
+and optionally `--cdp-port` (19233). Paths to the Python environment and
+Playwright must already be available. The backend must match its recorded
+revision. Run without `--measure` for tagged-frame/click probes only; add
+`--measure` for the balanced 32 capture and 48 input blocks. Never use normal
+profiles or a device with another automation service running.
+
+Capture calls exclude initialization, validation and the script screenshot
+interval. Control calls preserve production sleeps and use a common decoded
+Scrcpy observer. Foreground and target-state checks happen outside timing.
+Warm-ups, failed attempts, frame counters, region MSE, received press duration
+and travel remain in the record. The observer's own decoding samples are also
+retained. There is no game-success claim.
+
+After a complete restored run:
+
+```powershell
+node docs/scripts/publish-device-benchmark.mjs .cache/docs-benchmarks/device-measurement-second.json ../backend-source ../benchmark-runtime
+```
+
+The publisher verifies sample counts/order, source/target hashes, exact pinned
+Git content (normalizing Python CRLF), input results and restoration. It emits
+sanitized raw data at `public/benchmarks/device-current.json` and a compact
+hash-bound `evidence/device-summary.json` for the interactive charts. The client
+bundle does not import every raw sample. Editing the measurement harness or
+demo inspector after sampling requires a new run, not new provenance for old
+samples.
+
+`scripts/record-device-environment.ps1 -NemuSdkPath PATH_TO_SDK_DLL` records a
+separate post-run CPU/memory/Windows inventory and SDK digest. The public
+`benchmarks/device-environment-audit.json` is bound to the raw record hash and
+excludes host paths and machine identifiers. Its timestamp is explicit: the SDK
+digest was collected after sampling, and missing PE version fields stay null.
+File timestamps alone are not proof of unchanged binaries during the run.
