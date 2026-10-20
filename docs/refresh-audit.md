@@ -20,9 +20,10 @@ capture privacy checks. This is not the final documentation delivery.
 - Docs checkout: `../baas-tauri-docs`, branch `docs/dev-refresh`.
 - Git cannot create `dev/docs` while `dev` exists. No shared branch was
   renamed/reset; the main checkout remains on its existing fix branch.
-- All tracked edits are confined to `docs/`. Native desktop capture uses
+- Docs-checkout edits are confined to `docs/`. Native desktop capture uses
   `../.codex_tmp/docs-refresh`. Fresh Android builds use a separate checkout,
-  `../baas-docs-android-validation`, branch `docs/android-validation`.
+  `../baas-docs-android-validation`. Baseline captures used `docs/android-validation`;
+  the isolated native repair now uses `fix/android-trusted-display-and-insets`.
   The existing `android-dev` checkout was not edited.
 - Captures show actual native Tauri/WebView UI with isolated demo profiles,
   not frontend fixtures. They do not prove successful game-task execution.
@@ -624,8 +625,8 @@ verified against the pinned Git revision. Shell package output does not list
 The shell display path omits the trusted flag while the separate root/system
 path includes it. Android 15 source supports the placement-permission diagnosis,
 but no repaired APK has been built or tested. No source change was made in the
-shared or isolated Android checkout. The request to include a client repair in
-an independent branch is awaiting the user's scope choice.
+shared or isolated Android checkout at that checkpoint. The subsequent isolated
+repair is recorded below; these baseline failure measurements remain unchanged.
 
 Both runs kept every scheduler idle and all documentation tasks disabled. No
 game input, login, purchases or game-data clearing occurred. The owned virtual
@@ -647,6 +648,34 @@ to the new diagnostic heading across both languages, themes and viewport sizes;
 the cached mobile/desktop views were reviewed. No public raster asset changed.
 The legacy local Gaussian-blur verifier remains idempotent (two files, zero
 new changes), and its outside-region pixel tests still pass.
+
+## Android Native Repair Checkpoint
+
+The isolated branch contains `20e01805` (native WebView system-bar insets) and
+`361c7006` (trusted-display preference, shell fallback, game-task recovery and
+per-display rotation lock). Shared desktop/Android branches remain unchanged.
+The final x86_64 validation APK is
+`6b2705bc7cdd32c5d68c9360040073bf645573f7d98c73a6aba6fa9e755c2678`.
+
+On API 35 / WebView 110, light/dark views, profile editing and resume retain
+native WebView bounds `[0,36,720,1280]`. Fifteen native JVM tests pass. The
+MuMu input-method window has zero height, so real onscreen-keyboard resize is
+unverified. The capture overlay remains aligned below the status bar.
+
+MAA-Meow at `aa9193f9a11eb1f1cfa71ed5fb917487cb94f3de` was inspected for
+virtual-display flag fallback, rotation and task drift handling. Actual shell
+UID 2000 creates the fallback display when `ADD_TRUSTED_DISPLAY` is denied.
+The game task is recovered onto that display. A display-targeted diagnostic
+gesture enables correctly oriented 1280x720 startup frames. Takeover moves the
+same task back to display 0, cancels recovery and closes the owned display.
+Profiles/events are restored and the game is stopped. No public media changes.
+
+This remains a **partial native repair**. Cold Unity initialization on this
+untrusted display still waits for input focus, and SDK transitions can lose
+focus again. Full game-task completion, unattended reliability and other
+devices are unverified. Overlay actions were dispatched through production
+event handlers; physical native-button taps were not tested. Private frames,
+logs, source hashes and the detailed checkpoint stay in ignored cache.
 
 ## Runtime Handles
 
