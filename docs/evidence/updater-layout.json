@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T15:05:24.324Z",
+  "checkedAt": "2026-10-20T15:24:08.559Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
@@ -7,7 +7,7 @@
     "docs/components/DocsProvider.tsx": "5c538f203ae37e2d8df7e5e338632160df3c534e976a82df830b7cc9121b3e36",
     "docs/components/FlexSearchDialog.tsx": "3bf83b71da96d2dd39148c5577e89dc25242af8793fb3f7856c4556c88314db9",
     "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
-    "docs/app/layout.tsx": "9d66f8521b77021deff1306241fe1d1aea46386e55b4d5f0237a44f33d78b1e1",
+    "docs/app/layout.tsx": "dcda4f0f44a1acb00608b60380c5f3d693cee014eac190309f4bd4aa990f0880",
     "docs/lib/locale.ts": "63bd5a6a7841218a063847bbe1ff4afbdf94d3eed49d1c01277d371b4a9fe1eb",
     "docs/lib/ui-translations.ts": "cc7c87abbb0e31c1cf8467d608b3ef81dc141a6d034483ec64938011f9f03448",
     "docs/content/docs/zh/reference/updater-internals.mdx": "6497cd133e4549c1785ba3e5c7a30db2e63e35fddecd749b4bf7fd82935c1c16",

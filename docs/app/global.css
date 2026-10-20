@@ -301,20 +301,20 @@ html[data-theme="dark"] {
 
 @font-face {
   font-family: "Blueaka";
-  src: url("/fonts/Blueaka-Subset.woff2") format("woff2");
+  src: url("../public/fonts/Blueaka-Subset.woff2") format("woff2");
   font-display: swap;
   font-weight: 400 800;
 }
 
 html {
   font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 body {
   min-height: 100vh;
   font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif !important;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 html {
@@ -394,7 +394,7 @@ input[type="checkbox"],
 input[type="radio"],
 input[type="submit"],
 .cursor-pointer {
-  cursor: url("/cursors/link.cur"), pointer !important;
+  cursor: url("../public/cursors/link.cur"), pointer !important;
 }
 
 input,
@@ -404,7 +404,7 @@ code,
 [contenteditable="true"],
 .cursor-text {
   cursor:
-    url("/cursors/text_static_blue.cur") 7 16,
+    url("../public/cursors/text_static_blue.cur") 7 16,
     text;
 }
 
@@ -421,7 +421,7 @@ html[data-theme="dark"] code,
 html[data-theme="dark"] [contenteditable="true"],
 html[data-theme="dark"] .cursor-text {
   cursor:
-    url("/cursors/text_static_white.cur") 7 16,
+    url("../public/cursors/text_static_white.cur") 7 16,
     text;
 }
 
@@ -430,12 +430,12 @@ input:disabled,
 select:disabled,
 textarea:disabled,
 [aria-disabled="true"] {
-  cursor: url("/cursors/block.cur"), not-allowed !important;
+  cursor: url("../public/cursors/block.cur"), not-allowed !important;
 }
 
 .cursor-grab,
 [draggable="true"] {
-  cursor: url("/cursors/move.cur"), grab;
+  cursor: url("../public/cursors/move.cur"), grab;
 }
 
 .baas-doc-nav-brand {
@@ -853,7 +853,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-site-section-head p {
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 .baas-site-preview img {
-  cursor: url("/cursors/alternativeselect.cur"), zoom-in;
+  cursor: url("../public/cursors/alternativeselect.cur"), zoom-in;
 }
 
 .baas-image-zoom-open {
@@ -869,7 +869,7 @@ img.baas-screenshot,
   background: rgb(2 6 23 / 82%);
   padding: clamp(16px, 3vw, 36px);
   backdrop-filter: blur(10px);
-  cursor: url("/cursors/link.cur"), zoom-out;
+  cursor: url("../public/cursors/link.cur"), zoom-out;
 }
 
 .baas-image-zoom figure {
@@ -878,7 +878,7 @@ img.baas-screenshot,
   max-height: 92vh;
   gap: 10px;
   margin: 0;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 .baas-image-zoom img {
@@ -909,7 +909,7 @@ img.baas-screenshot,
   border-radius: 999px;
   background: rgb(15 23 42 / 78%);
   color: white;
-  cursor: url("/cursors/link.cur"), pointer;
+  cursor: url("../public/cursors/link.cur"), pointer;
 }
 
 .baas-image-zoom-close:hover {
@@ -1461,7 +1461,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 .baas-macos-note summary {
   display: flex;
   min-height: 46px;
-  cursor: url("/cursors/link.cur"), pointer;
+  cursor: url("../public/cursors/link.cur"), pointer;
   list-style: none;
   align-items: center;
   justify-content: space-between;

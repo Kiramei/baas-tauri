@@ -56,6 +56,48 @@ Browser tools require Playwright and a local Microsoft Edge installation.
 particular machine's dependency path is hard-coded in the scripts. Evidence and
 review screenshots are written under `.cache/docs-smoke`.
 
+### Static Deployment Checks
+
+`scripts/check-deployment.mjs` starts its own loopback-only static host, with no
+SPA fallback or special route-file aliases. It checks every content route in
+both languages, themes and viewport sizes, plus font loading, screenshot
+framing, GIF playback, image zoom, client navigation, search, language switching
+and entry query/hash preservation. Missing resources and reload fallback fail
+the check.
+
+To export a prefixed copy without replacing the existing `out` preview, run
+from `docs/` in PowerShell:
+
+```powershell
+$env:NEXT_PUBLIC_BASE_PATH = "/baas-tauri"
+$env:DOCS_EXPORT_DIR = ".cache/deployment-prefixed"
+bun run build
+node scripts/check-deployment.mjs --out docs/.cache/deployment-prefixed --base-path /baas-tauri
+Remove-Item Env:NEXT_PUBLIC_BASE_PATH, Env:DOCS_EXPORT_DIR
+```
+
+`--out` is relative to the repository root. The script supports
+`--channel chromium` for a Playwright-managed browser. Its reports and screenshots
+are stored in the ignored repository `.cache/deployment/` directory. The
+`Validate Documentation Export` workflow runs root and prefixed exports on Linux
+for documentation branches and pull requests. It has read-only repository
+permissions and uploads test evidence without deploying Pages.
+
+Navigation links are resolved to unprefixed app routes because Next Link adds
+`basePath`. Media URLs and metadata icons include the prefix explicitly. Font
+and cursor URLs are relative CSS dependencies, so the bundler emits their
+deployment-aware asset paths. See the official [basePath](https://nextjs.org/docs/app/api-reference/config/next-config-js/basePath)
+and [assetPrefix](https://nextjs.org/docs/app/api-reference/config/next-config-js/assetPrefix)
+references for that distinction.
+
+The build also checks every prerendered page's segment manifest against Next's
+canonical static-export filenames. Next 16.2.9 can emit nested segment paths on
+Windows while its client requests dotted filenames. `normalize-static-export.mjs`
+adds missing canonical files directly from the corresponding build payloads,
+without altering their bytes or overwriting conflicting output. Already-correct
+exports are unchanged. Missing sources, unsafe paths and conflicting payloads
+fail the build. The strict host applies no filename aliases to conceal errors.
+
 `scripts/capture-desktop.mjs` targets the isolated native release WebView on
 loopback DevTools port 19230. `scripts/capture-android.mjs` targets the installed
 Android WebView forwarded to a supplied port and requires a selected

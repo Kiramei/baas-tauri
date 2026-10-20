@@ -853,12 +853,13 @@ replay passes 96 scenarios and 864 step checks; Service/CLI checks pass 20 cases
 - Earlier `.dev` and ARM64 `.docs` validation apps were stopped to avoid
   conflicting backend ports. No game scheduler was started during this pass.
 - Android/desktop resource-label overlap is an app-source issue, not fixed here.
-- Windows Next 16 export still has a segment-prefetch nested/dotted-path mismatch:
-  normal navigation passes, but Linux/Pages output requires verification.
+- Windows Next 16's segment-prefetch nested/dotted-path mismatch has been
+  reproduced and a manifest-bound output normalization added. Linux and strict
+  root/prefix checks are being revalidated; see the deployment checkpoint below.
 
 ## Verification Scope
 
-`bun test docs/tests`: 69 tests / 9,266 assertions, including search-cache failure recovery, source-bound browser recovery, Service/CLI provenance, crypto boundary and diagram/search checks,
+`bun test docs/tests`: 80 tests / 9,336 assertions, including export-path normalization and strict-host checks, search-cache failure recovery, source-bound browser recovery, Service/CLI provenance, crypto boundary and diagram/search checks,
 Android game-placement failure/cleanup contracts,
 backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
@@ -914,3 +915,39 @@ crash logs and the restoration record are private in
 `.cache/android-native-fix/preview-stall-*`. The shared checkouts remain untouched.
 The unfinished Android-local measurement harness is still uncommitted and has
 not been used to publish performance claims.
+
+## Static Deployment Checkpoint
+
+The first strict `/baas-tauri` export check reported 1,957 failures: unprefixed
+icons/fonts/cursors, failed icon decoding, double-prefixed MDX links and missing
+segment-prefetch files. Counts include repeated observations across routes and
+display combinations, not 1,957 distinct broken resources. The fixes prefix
+metadata/navigation icons, bundle relative CSS font/cursor dependencies and
+leave MDX navigation prefixes to Next Link while retaining explicit media paths.
+
+Next 16.2.9's exporter derives a segment path from platform-native `path.relative`
+then passes it to a filename function that replaces only forward slashes. On
+Windows this emits nested filenames while the browser requests dotted names.
+The new build step reads the prerender/segment manifests, uses Next's own
+filename encoder and adds only missing canonical files from their exact source
+payloads. It compares existing files byte-for-byte and rejects unsafe paths,
+missing source files and payload conflicts before adding output. It does not
+rewrite Next or change RSC payload contents. The first root pass checked 74
+routes / 587 segments and added 217 missing files; focused tests cover
+idempotence, existing correct output and rejection paths.
+
+`check-deployment.mjs` uses a strict temporary loopback server with no SPA
+fallback or filename aliases. Its 326 cases cover all 36 content routes in both
+languages/themes/viewports, real font loading, image decoding/framing, GIF pixel
+changes, zoom, retained client-side navigation, search, language switching and
+entry language/query/hash behavior. Origin-only preconnect hints are excluded
+from path validation. The first post-asset-fix check still failed on segment
+prefetch paths; this failure is retained rather than treated as a pass.
+
+`Validate Documentation Export` is a separate read-only workflow for docs
+branches/PRs. Its two Linux jobs build root and `/baas-tauri` exports and run the
+same strict checks with pinned Playwright. It uploads validation evidence and
+has no deployment job or Pages-write permission. Final root/prefix and Linux
+results remain unproven until their actual runs finish. The existing 4173
+preview continues serving `out`; alternate prefix exports use an ignored
+`DOCS_EXPORT_DIR` without replacing it.

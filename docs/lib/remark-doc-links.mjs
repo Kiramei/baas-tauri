@@ -24,15 +24,16 @@ export function remarkDocLinks() {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
     const prefixAsset = (value) =>
       value.startsWith("/") && !value.startsWith("//") ? `${basePath}${value}` : value;
+    // Fumadocs anchors use Next Link, which applies basePath; media URLs need it explicitly.
     function visit(node) {
       if (node.type === "link" || node.type === "definition")
-        node.url = resolveDocLink(node.url, sourcePath, basePath);
+        node.url = resolveDocLink(node.url, sourcePath);
       if (node.type === "image") node.url = prefixAsset(node.url);
       if (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") {
         for (const attribute of node.attributes ?? []) {
           if (attribute.type !== "mdxJsxAttribute" || typeof attribute.value !== "string") continue;
           if (node.name === "a" && attribute.name === "href")
-            attribute.value = resolveDocLink(attribute.value, sourcePath, basePath);
+            attribute.value = resolveDocLink(attribute.value, sourcePath);
           if (
             ["img", "video", "source"].includes(node.name) &&
             ["src", "poster"].includes(attribute.name)
