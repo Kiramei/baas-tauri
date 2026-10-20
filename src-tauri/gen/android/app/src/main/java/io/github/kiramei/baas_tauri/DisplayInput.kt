@@ -58,9 +58,14 @@ object DisplayInput {
     require(displayId >= 0)
     val downAt = SystemClock.uptimeMillis()
     fun send(action: Int, x: Float, y: Float, mode: Int): Boolean {
-      val event = MotionEvent.obtain(downAt, SystemClock.uptimeMillis(), action, x, y, 0)
+      val pointer = MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER }
+      val position = MotionEvent.PointerCoords().apply {
+        this.x = x; this.y = y; size = 1f
+        pressure = if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) 0f else 1f
+      }
+      val event = MotionEvent.obtain(downAt, SystemClock.uptimeMillis(), action, 1,
+        arrayOf(pointer), arrayOf(position), 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
       try {
-        event.source = InputDevice.SOURCE_TOUCHSCREEN
         setDisplay.invoke(event, displayId)
         return inject.invoke(manager, event, mode) as Boolean
       } finally { event.recycle() }
