@@ -9,7 +9,12 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnAttach
+import androidx.core.view.updateLayoutParams
 import java.io.File
 
 class MainActivity : TauriActivity() {
@@ -21,6 +26,7 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
     super.onCreate(savedInstanceState)
+    WindowCompat.setDecorFitsSystemWindows(window, false)
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     applySystemBars(systemBarBackground, systemBarDarkIcons)
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -54,12 +60,37 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     android.util.Log.i("BAASStartup", "webview_created uptime=${android.os.SystemClock.uptimeMillis()}")
     super.onWebViewCreate(webView)
+    applyWebViewInsets(webView)
     webView.setBackgroundColor(systemBarBackground)
     webView.settings.setSupportZoom(false)
     webView.settings.builtInZoomControls = false
     webView.settings.displayZoomControls = false
     loadDebugDevUrl(webView)
     scheduleDebugDevUrlLoads(webView)
+  }
+
+  private fun applyWebViewInsets(webView: WebView) {
+    webView.doOnAttach {
+      val content = findViewById<View>(android.R.id.content)
+      val margins = webView.layoutParams as ViewGroup.MarginLayoutParams
+      val left = margins.leftMargin
+      val top = margins.topMargin
+      val right = margins.rightMargin
+      val bottom = margins.bottomMargin
+      ViewCompat.setOnApplyWindowInsetsListener(content) { _, windowInsets ->
+        val types = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        val bars = windowInsets.getInsets(types)
+        // Keep the content parent unpadded: native preview coordinates already include the WebView offset.
+        webView.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+          leftMargin = left + bars.left
+          topMargin = top + bars.top
+          rightMargin = right + bars.right
+          bottomMargin = bottom + bars.bottom
+        }
+        WindowInsetsCompat.Builder(windowInsets).setInsets(types, Insets.NONE).build()
+      }
+      ViewCompat.requestApplyInsets(content)
+    }
   }
 
   override fun onPause() {
@@ -89,6 +120,7 @@ class MainActivity : TauriActivity() {
       isAppearanceLightStatusBars = darkIcons
       isAppearanceLightNavigationBars = darkIcons
     }
+    findViewById<View>(android.R.id.content)?.setBackgroundColor(backgroundColor)
     findWebView(window.decorView)?.setBackgroundColor(backgroundColor)
   }
 
