@@ -25,6 +25,12 @@ description: 制造全局限制、各阶段全部材料选项、优先级编辑�
 当前打开的阶段变为不可用时，编辑器返回全局。
 更多阶段可能消耗额外材料；提高制造次数不代表空位、票券和材料一定足够。
 
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-invalid-count.png"
+  alt="制造次数超出 1–10 时显示校验提示，原有已保存值保持不变"
+/>
+
 ## 各阶段材料选项
 
 | 阶段   | 可用材料规则                                                                                                                                                               |
@@ -39,8 +45,14 @@ description: 制造全局限制、各阶段全部材料选项、优先级编辑�
 
 <img
   className="baas-screenshot"
-  src="/media/desktop/zh/config-artifact-tab-2.png"
-  alt="当前一阶段制造的材料规则与节点优先级编辑器"
+  src="/media/desktop/zh/conditional-craft-phase2-materials.png"
+  alt="二阶段制造展开的七种材料规则"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-phase3-materials.png"
+  alt="三阶段制造仅提供金、紫和金紫材料规则"
 />
 
 ## 节点优先级
@@ -53,8 +65,17 @@ description: 制造全局限制、各阶段全部材料选项、优先级编辑�
 拖动把手可以排序。键盘排序时先聚焦把手，按 Space 或 Enter 拿起，
 用上下方向键或 Home、End 移动，再按 Space 或 Enter 提交；
 Escape 取消未完成的移动，鼠标释放则提交拖动。
+移动预览尚未保存；提交后才更新配置，可用撤销恢复原顺序。
 未知或旧格式节点标签会保留显示，不会悄悄丢弃。
 空列表不保证后端完全不投入材料，应先确认实际任务行为再调度。
+
+<MotionDemo locale="zh" variant="priority" />
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-node-picker.png"
+  alt="制造节点选择器中的搜索与选择状态"
+/>
 
 ## 学生推荐
 
@@ -62,6 +83,12 @@ Escape 取消未完成的移动，鼠标释放则提交拖动。
 选择学生会打开后端提供的推荐名称；选中一位学生后，
 二阶段优先级列表会被替换为推荐节点在前、其他默认节点在后的顺序。
 它不会合并任意自定义列表，也不保存一个永久“目标学生”字段。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-recommendation.png"
+  alt="二阶段制造按学生名称查找推荐节点顺序"
+/>
 
 选中后选择器关闭，运行前先核对生成的节点顺序。
 替换不符合预期时可使用配置撤销。这只是节点偏好，

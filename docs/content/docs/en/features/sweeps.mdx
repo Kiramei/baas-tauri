@@ -33,9 +33,21 @@ Exports retain comma-separated `chapter-mission-count` tokens: for example `15-3
 
 The editor preserves unrecognized legacy rows and displays their original value and an error. Opening a plan does not rewrite it. Repair/remove invalid entries before expecting an edited plan to commit; temporary invalid input remains local.
 
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-sweep-invalid-count.png"
+  alt="An empty sweep count shows an error while the saved three-sweep plan stays unchanged"
+/>
+
 ### Find Hard Stages by Student
 
 Choose the student helper and search/select a name. The selector closes and appends all backend-listed hard stages associated with that student, using three sweeps per newly added stage. Existing stage counts and order remain unchanged, duplicate chapter/mission pairs are not appended, and unknown legacy entries are preserved. Student names come from the backend's server data and may not match the UI language. This does not guarantee the stage is unlocked or that an Eleph drops.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-sweep-student-stages.png"
+  alt="Hard stages added by student choice, each with a default count of three"
+/>
 
 ## Positional Sweep Counts
 
@@ -54,6 +66,15 @@ Choose the student helper and search/select a name. The selector closes and appe
 Use the mode selector for **Skip** (`0`), a **fixed count**, or **all available** (`max`). Fixed counts are whole numbers; bounty also accepts zero. `max` does not create tickets or AP.
 
 Older three-region JP bounty configurations retain the first three values and display zero for the two added regions. A value that cannot be represented by the structured count editor is shown intact with an explicit replacement command. Replacement resets that count group to zeros; it is not a harmless formatting operation. Legacy negative positional counts may display as Skip without being rewritten until edited.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-sweep-legacy-count.png"
+  alt="Unsupported saved scrimmage counts remain intact beside an explicit Reset command"
+/>
+
+Configuration Undo can restore a deleted legacy plan row or reset count string.
+Check the whole group before replacing it; the reset zeros skip that group.
 
 ## Event Sweeps
 

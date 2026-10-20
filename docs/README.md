@@ -240,3 +240,41 @@ separate post-run CPU/memory/Windows inventory and SDK digest. The public
 excludes host paths and machine identifiers. Its timestamp is explicit: the SDK
 digest was collected after sampling, and missing PE version fields stay null.
 File timestamps alone are not proof of unchanged binaries during the run.
+
+## Conditional Configuration Capture
+
+`scripts/capture-conditional-config.mjs PLATFORM CDP_PORT DISPOSABLE_BACKEND PYTHON [ADB_SERIAL]`
+uses the existing authenticated native store and the real UI. The desktop demo
+must be named `Schale Demo`; Android uses `Documentation Demo`. All 26 demo
+tasks must be disabled, every scheduler idle and all profiles' autostart off.
+The script checks the portable runtime/executable or installed APK and forwarded
+WebView ownership before changing the demo. Never pass a normal runtime.
+
+Backups stay in ignored `.cache/docs-conditional/`. Only the listed demo fields
+are patched through the production `modify` API, waiting for provider data.
+The script captures both UI languages in light mode, exercises conditional
+tabs, selectors, validation and history, then restores the original fields,
+compares other profiles and verifies unchanged demo events. `finally` attempts
+restoration even after a failed assertion. A report is publishable only with
+`scenariosCompleted`, `restored`, ownership and comparison checks all true.
+
+Each locale starts with a fresh WebView history, since the UI intentionally
+retains local drafts across category navigation. Reload may show the owned
+desktop installer's completed screen; the script enters Home only after its
+normal completion. Android reloads emitted transient stale Tauri callback
+errors in this run; subsequent authentication, configuration ACKs and restore
+checks passed. These errors are not claimed fixed by this docs work.
+
+The `conditional-*` screenshots include deliberately invalid `legacy-plan`,
+`legacy-count` and `250-9` examples. No Execute/Start control is used. Crops show
+the native visible panel/modal; Android uses the native viewport. Sensitive
+path/IPC/credential fields receive local blur before PNG encoding. The priority
+GIFs use 21 captured source frames at 160 ms playback intervals; the encoder
+coalesces repeated still frames. They demonstrate interaction, not latency.
+
+The platform manifests bind every image/GIF and the capture script to SHA-256.
+Changing the script requires recapture, not rebinding an old result to new code.
+After capturing, repeat the whole-public privacy scan and summary. Run
+`scripts/check-conditional-docs.mjs` against the built preview for all 56 page/
+locale/theme/viewport combinations and eight play/stop checks; screenshots stay
+in ignored cache, with safe result metadata in `evidence/`.

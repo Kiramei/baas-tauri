@@ -466,6 +466,50 @@ version fields; its digest is collected after sampling and is labelled that way.
 The library timestamp predates the run, but timestamps alone do not prove binary
 immutability. No host path, machine identifier or account data is published.
 
+## Conditional Configuration Checkpoint
+
+The real desktop and Android builds now have 90 additional native PNGs and two
+desktop priority-reorder GIFs across English and Chinese. The complete platform
+manifests are `public/media/{desktop,android}/conditional-manifest.json`.
+They bind source revisions, executable/APK and capture-script hashes, per-asset
+hashes, 22 verified behavior checks per platform, and successful restoration of
+all 27 listed demo fields. Other profiles and demo event data compare unchanged.
+
+Covered states: Cafe named/starred invitation, five favorite positions, second
+Cafe conditional tab and undo/redo; student filtering, empty results and filter
+retention; crafting stage counts, all phase-2/3 material rules, one-shot student
+recommendation replacement, searchable node picker, keyboard reorder preview/
+cancel/commit/undo and invalid count; formation preset/order visibility; Lesson
+student-list visibility and retained order; sweep student-stage append/dedup,
+empty-count local validation, unknown plan/count preservation, explicit reset/
+delete with undo; exploration's retained out-of-range and unknown old rows.
+
+Six bilingual feature guides and the Android guide use these images. The
+controlled MotionDemo priority variant starts with a still image and can return
+to it. Invalid example plans are explicitly marked as unsuitable for execution.
+No scheduler, game input, purchase or friend-deletion task was started.
+
+`evidence/conditional-layout-validation.json` records 56 passing page/locale/
+theme/viewport cases and eight stable-size GIF play/stop checks, with zero page
+errors. These checks are separate from the full 417-case browser suite. Both
+platform manifests are hash-bound to this layout result. Native demo state was
+rechecked afterward: authenticated/ready, zero running sessions or autostart,
+documentation tasks still 0/26, and the other Android profile remains 22/26.
+
+The capture harness initially hit selector visibility and retained-draft issues;
+incomplete attempts were not accepted as evidence. Both final runs completed
+and restored their state. Each locale starts with fresh native WebView history.
+Android reloads still emitted transient stale Tauri callback errors; successful
+reconnection does not establish that this application issue is fixed.
+
+The repeated full-public scan decodes 436 raster files / 452 frames with zero
+decoding failures, unresolved pattern findings or pending known visual findings.
+The two legacy local Gaussian-blur repairs still pass region/pixel checks.
+Full manual publication privacy review remains incomplete. This pass does not
+establish real-game execution, Android lifecycle reliability, PC capture or
+large-payload transport performance. Other conditional/developer coverage still
+requires systematic reconciliation against source.
+
 ## Runtime Handles
 
 - Preview: `http://127.0.0.1:4173/`, static server serves `docs/out`.
@@ -488,7 +532,8 @@ immutability. No host path, machine identifier or account data is published.
 
 ## Verification Scope
 
-`bun test tests`: 32 tests, including field-shape/document,
+`bun test tests`: 36 tests, including native conditional capture/source/restore,
+field-shape/document,
 complete bilingual TOML, privacy inventory, reader prose, native statistics,
 ordering/output equivalence, device measurement/source/restore checks and
 probe-scope checks. Ten Python frame/HTTP/ownership/observer tests and eight

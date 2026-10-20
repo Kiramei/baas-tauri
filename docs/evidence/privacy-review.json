@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-20T07:46:39.2253429Z",
+  "checkedAt": "2026-10-20T08:32:53.3192880Z",
   "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
-  "imageFiles": 344,
-  "decodedFrames": 352,
+  "imageFiles": 436,
+  "decodedFrames": 452,
   "decodingFailures": 0,
   "unresolvedPatternFindings": 0,
-  "inventorySha256": "84c8f0ba1c9d9cbaa086df9fbf272c3413de115feb6056158b430f36b373b1c9",
+  "inventorySha256": "037243fc2058b688c888abba5680fa4b943ac6508b150fe046303836398ac14e",
   "reviewedFindings": [
     {
       "file": "media/desktop/en/config-emulator.png",

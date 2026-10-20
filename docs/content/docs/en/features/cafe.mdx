@@ -31,8 +31,8 @@ Each Cafe has an independent invitation mode, starred position and named-student
 
 <img
   className="baas-screenshot"
-  src="/media/desktop/en/config-cafe-tab-2.png"
-  alt="Cafe 1 invitation strategy in the current inline editor"
+  src="/media/desktop/en/conditional-cafe-named.png"
+  alt="Cafe 1 invitation by name with students in selection order"
 />
 
 | Mode              | Behavior                                             | Conditional control                          |
@@ -57,9 +57,25 @@ names for a CN profile.
 
 Click a student to add it; click a selected student again to remove it. New
 selections append to the preference list. The chip's remove icon also removes
-that entry. The selector has a close button, not a separate Save/Cancel
-transaction: selections update the automatically saved draft as you click.
+that entry. Selections update the automatically saved draft as you click;
+closing the selector does not undo them.
 To put a target first, build the list in the desired order.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-cafe-student-search.png"
+  alt="Student-name search with a selected name highlighted"
+/>
+
+Closing and reopening the selector within this category keeps the search text.
+No matches leaves an empty list; clear the search to show all candidates again.
+Filtering does not remove students already selected.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-cafe-starred.png"
+  alt="The five starred-student positions for Cafe 2"
+/>
 
 ## Schedule and Check
 

@@ -26,6 +26,12 @@ If the open stage becomes unavailable, the editor returns to Global.
 More stages can consume additional materials; a larger crafting count is not
 a promise of enough crafting slots, tickets or materials.
 
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-craft-invalid-count.png"
+  alt="An out-of-range crafting count shows validation while the saved value remains unchanged"
+/>
+
 ## Material Options by Stage
 
 | Stage | Available material rule values                                                                                                                                                                    |
@@ -41,8 +47,14 @@ stage-two full set.
 
 <img
   className="baas-screenshot"
-  src="/media/desktop/en/config-artifact-tab-2.png"
-  alt="Current stage-one material and node-priority editor"
+  src="/media/desktop/en/conditional-craft-phase2-materials.png"
+  alt="The seven material rules available for stage two"
+/>
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-craft-phase3-materials.png"
+  alt="Stage three offers gold, purple and gold plus purple"
 />
 
 ## Node Priorities
@@ -55,9 +67,18 @@ remove icon to remove an entry. Higher entries have higher priority.
 Drag the handle to reorder. For keyboard reordering, focus a handle, press
 Space/Enter to pick it up, use Up/Down or Home/End, then Space/Enter to commit;
 Escape cancels the unfinished move. A pointer release commits the drag.
+The move preview is not saved until committed; Undo restores the original order.
 Existing unknown or legacy node labels remain visible rather than silently
 being discarded. An empty list is not a guarantee that the backend will avoid
 all material use; confirm the resulting task behavior before scheduling it.
+
+<MotionDemo locale="en" variant="priority" />
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-craft-node-picker.png"
+  alt="Searchable crafting-node picker with selection states"
+/>
 
 ## Student Recommendation
 
@@ -66,6 +87,12 @@ Select Student opens the backend's recommendation names. Picking one student
 replaces the stage-two priority list: recommended entries move to the front,
 then the remaining default entries follow. It does not merge an arbitrary
 custom priority list or configure a permanent selected-student field.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-craft-recommendation.png"
+  alt="Find a student's recommended stage-two node order"
+/>
 
 The selector closes after a choice. Review the resulting node order before
 running; use configuration Undo if the replacement was unintended. This is a

@@ -1,0 +1,468 @@
+{
+  "checkedAt": "2026-10-20T08:37:54.179Z",
+  "cases": 56,
+  "failed": 0,
+  "pageErrors": [],
+  "captureManifestSha256": {
+    "desktop": "9c6d29eb6c012fcbeb35a07e846f5abfa4af3058cec1e20f33f4118566c78415",
+    "android": "93ee3b9b32da87f06c5dd9005a20c94f56514035fdf089fe3d6f913dd7c74bcb"
+  },
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "cafe",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "crafting",
+      "images": 6,
+      "animation": "starts still; play/stop returns to still; dimensions stable",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "lesson",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "sweeps",
+      "images": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "stages",
+      "images": 1,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "team",
+      "images": 2,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "page": "android",
+      "images": 2,
+      "passed": true
+    }
+  ]
+}

@@ -82,11 +82,25 @@ Live 只说明显示状态，**不能证明**游戏已登录、输入有效或�
 
 <img
   className="baas-screenshot baas-mobile-screenshot"
-  src="/media/android/zh/config-cafe.png"
-  alt="新构建 Android 咖啡厅内联编辑器：分类选择、撤销与重做"
+  src="/media/android/zh/conditional-cafe-named.png"
+  alt="Android 咖啡厅按名称邀请：分类选择、学生标签与撤销重做"
 />
 
 配置页顶部有搜索和分类选择器，有效修改自动保存，标题旁可撤销/重做。非法草稿和历史规则见[编辑配置](./configuration)。Android 不提供桌面“模拟器”分类；脚本隐藏桌面截图/控制选择器，内部使用 `android_local`。
+
+| 设置 | 操作 |
+| ---- | ---- |
+| [咖啡厅](../features/cafe) | 按名称邀请时显示学生列表；收藏邀请提供位置 1–5 |
+| [日程](../features/lesson) | 启用偏好学生后显示可排序列表，关闭后保留选择 |
+| [制造](../features/crafting) | 阶段数决定可见标签；二阶段提供学生推荐与七种材料规则 |
+| [编队](../features/team) | 方式决定显示哪张属性表，侧栏顺序方式隐藏两张表 |
+| [扫荡](../features/sweeps) | 按行编辑关卡和次数；学生辅助选择追加对应困难关卡 |
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/zh/conditional-craft-phase2-materials.png"
+  alt="Android 二阶段制造展开的材料规则菜单"
+/>
 
 任务页使用共用的单列表调度器，包含任务开关、时间/详情和工作流视图。搜索隐藏部分行时，批量操作仍影响完整列表；先确认消费与删除风险。时间和依赖规则见[任务调度](./scheduler)。
 

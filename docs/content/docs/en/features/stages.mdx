@@ -23,6 +23,16 @@ Use **Add chapter**, then choose a chapter and either the whole chapter or an in
 
 Up/down icons move a row; the trash icon deletes it. Changing chapter keeps a compatible mission, otherwise resets it to whole chapter. Existing values outside the normal choices can remain visible, and unrecognized legacy entries display their raw text. Inspecting them does not repair or validate them; remove or replace stale entries before execution.
 
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-explore-legacy-plan.png"
+  alt="Saved values outside the normal range and an unknown raw legacy row remain visible"
+/>
+
+The pictured `250-9` and `legacy-plan` demonstrate legacy-value retention and
+must not be executed. Configuration Undo can restore a deleted row. After
+repairing the plan, check its chapters, missions and formation before running.
+
 ### Storage Format
 
 | Target             | Example   | Meaning                                  |
