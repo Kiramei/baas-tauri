@@ -232,6 +232,13 @@ object ShizukuController {
     return callService(context) { it.currentPackage() }
   }
 
+  /** Actual display contents; session ownership may remain set after a game exits. */
+  fun topGamePackage(context: Context): String {
+    if (virtualDisplayId(context) < 0) return ""
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).topPackage()
+    return callService(context) { it.topPackage() }
+  }
+
   fun keyEvent(context: Context, code: Int): Boolean = callService(context) { it.keyEvent(code) }
 
   @Synchronized private fun nativeEndpoint(context: Context): INativeDisplayEndpoint {

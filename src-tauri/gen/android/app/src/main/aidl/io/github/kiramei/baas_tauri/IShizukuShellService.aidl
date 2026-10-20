@@ -28,5 +28,6 @@ interface IShizukuShellService {
     boolean focusPreviewWindow(int displayId) = 22;
     void focusGameTask(int displayId) = 23;
     boolean hasVisibleFrame() = 24;
+    String topPackage() = 25;
     void destroy() = 16777114;
 }

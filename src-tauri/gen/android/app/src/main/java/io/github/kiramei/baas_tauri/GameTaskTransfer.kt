@@ -7,6 +7,16 @@ import android.os.Build
 object GameTaskTransfer {
   internal data class Location(val taskId: Int, val displayId: Int, val packageName: String?)
 
+  fun topPackage(displayId: Int): String {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    return topPackage(displayId, locations(taskManager()))
+  }
+
+  internal fun topPackage(displayId: Int, tasks: List<Location>): String {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    return tasks.firstOrNull { it.displayId == displayId && !it.packageName.isNullOrBlank() }?.packageName.orEmpty()
+  }
+
   fun needsPreviewFocus(packageName: String, displayId: Int): Boolean {
     val manager = taskManager()
     val focused = manager.javaClass.getMethod("getFocusedRootTaskInfo").invoke(manager)?.let(::location)

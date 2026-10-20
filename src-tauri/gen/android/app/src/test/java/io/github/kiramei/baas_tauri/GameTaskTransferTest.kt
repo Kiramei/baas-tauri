@@ -9,6 +9,32 @@ import org.junit.Test
 class GameTaskTransferTest {
   private val game = "example.game"
 
+  @Test fun currentApplicationNeverFallsBackToAnotherDisplay() {
+    val tasks = listOf(GameTaskTransfer.Location(1, 0, game), GameTaskTransfer.Location(2, 8, "example.other"))
+    assertEquals("", GameTaskTransfer.topPackage(9, tasks))
+    assertEquals("", GameTaskTransfer.topPackage(9, emptyList()))
+  }
+
+  @Test fun currentApplicationUsesTheTopNonemptyTaskOnItsDisplay() {
+    val tasks = listOf(GameTaskTransfer.Location(1, 0, game), GameTaskTransfer.Location(2, 9, null),
+      GameTaskTransfer.Location(3, 9, "example.dialog"), GameTaskTransfer.Location(4, 9, game))
+    assertEquals("example.dialog", GameTaskTransfer.topPackage(9, tasks))
+    assertEquals(game, GameTaskTransfer.topPackage(9, tasks.filter { it.taskId != 3 }))
+  }
+
+  @Test fun currentApplicationRejectsPhysicalOrMissingDisplay() {
+    for (display in listOf(0, -1)) {
+      try {
+        GameTaskTransfer.topPackage(display, emptyList())
+        fail("Must not inspect the physical display")
+      } catch (_: IllegalStateException) { }
+      try {
+        GameTaskTransfer.topPackage(display)
+        fail("Must validate before contacting Android services")
+      } catch (_: IllegalStateException) { }
+    }
+  }
+
   @Test fun previewRecoversOnlyAnExistingSelectedGame() {
     val target = GameTaskTransfer.Location(2, 9, game)
     val host = GameTaskTransfer.Location(1, 0, "example.baas")

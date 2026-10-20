@@ -9,4 +9,5 @@ interface INativeDisplayEndpoint {
     boolean gesture(int x1, int y1, int x2, int y2, int durationMs);
     boolean pinch(boolean inward, int percent, int durationMs);
     boolean hasVisibleFrame();
+    String topPackage();
 }

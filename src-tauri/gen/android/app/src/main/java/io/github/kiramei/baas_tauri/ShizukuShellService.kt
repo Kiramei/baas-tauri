@@ -227,6 +227,13 @@ class ShizukuShellService : IShizukuShellService.Stub {
   override fun previewFrameCount(): Long = privileged { NativeDisplayCapture.previewFrameCount() }
   override fun hasVisibleFrame(): Boolean = privileged { NativeDisplayCapture.hasVisibleFrame() }
   override fun currentPackage(): String = privileged { activePackage }
+  override fun topPackage(): String = privileged {
+    synchronized(displayLock) {
+      val displayId = virtualDisplay?.display?.displayId ?: return@synchronized ""
+      checkGamePlacement()
+      GameTaskTransfer.topPackage(displayId)
+    }
+  }
   override fun getPreviewFocusDisplayId(): Int = privileged {
     synchronized(displayLock) {
       val display = virtualDisplay?.display

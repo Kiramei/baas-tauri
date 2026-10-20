@@ -46,6 +46,13 @@ object PrivilegedDisplayMain {
         override fun previewFrameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.previewFrameCount() }
         override fun hasVisibleFrame(): Boolean = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.hasVisibleFrame() }
         override fun currentPackage(): String = PrivilegedExecution.binderResult { authorize(); activePackage }
+        override fun topPackage(): String = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            virtualDisplay?.display?.displayId?.let { GameTaskTransfer.topPackage(it) }.orEmpty()
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
         override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
           authorize()
           DisplayInput.gesture(virtualDisplay?.display?.displayId ?: -1, x1, y1, x2, y2, durationMs)

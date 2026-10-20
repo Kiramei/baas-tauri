@@ -227,7 +227,7 @@ object BaasLocalDeviceServer {
     val size = ShizukuController.virtualDisplaySize(context)
     val (captured, presented) = ShizukuController.nativeFrameCounts(context)
     return JSONObject()
-      .put("currentPackageName", ShizukuController.currentGamePackage(context))
+      .put("currentPackageName", ShizukuController.topGamePackage(context))
       .put("displayWidth", size[0])
       .put("displayHeight", size[1])
       .put("display", JSONObject().put("width", size[0]).put("height", size[1]))
