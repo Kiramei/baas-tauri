@@ -68,6 +68,16 @@ using them on another environment. Capture manifests distinguish verified
 installation/navigation from unverified game execution. The current ARM64 ABI
 failure and fresh matching x86_64 build are recorded separately under `evidence/`.
 
+`scripts/capture-workspaces.mjs 19230` records actual profile/settings/log dialogs
+in the isolated desktop demo without confirming destructive operations or saving
+new hotkeys. The actual global shortcut recorder temporarily suspends/restores
+existing OS registrations. `scripts/capture-remote.mjs 19230` records a real
+desktop remote-preview connection to the emulator, then closes it; preview pixel
+probes demonstrate decoded UI frames, not game execution or remote-input success.
+Their manifests list the actions taken and validation limits. The compiler-API
+test for `evidence/workspaces-coverage.json` checks settings/shortcut/command
+coverage, not backend behavior or the semantic accuracy of every paragraph.
+
 `scripts/record-workspace.mjs` records a real configuration toggle and undo;
 `scripts/encode-demo.py` requires Pillow to encode those frames. The website
 starts on a still frame and lets readers start/stop the GIF. Published app

@@ -66,6 +66,47 @@ WebSocket requires an authenticated session bundle. Native local adapters go thr
 
 The [benchmark page](./performance) measures encoding and state preparation separately. Its raw samples cannot be used to claim a corresponding game FPS or task-completion improvement.
 
+## Preferences Are Not Profile Transactions
+
+`UISettingsProvider.tsx` owns one client store with narrow subscriptions and a 150 ms persistence batch. A presentation change notifies subscribers immediately, then writes durable client preferences; page-hide/detach flushes pending data. It is not the 300 ms serialized profile-draft/history mechanism. Transport and update setup additionally cross a native/backend boundary, so their apparent location in Settings does not make them purely cosmetic.
+
+Saving conventions follow the operation's owner: inline application bindings commit valid input, global OS hotkeys stage a modal draft until registration succeeds, and remote video parameters have an explicit apply command. The current remote apply closure reads the previous preference snapshot; remounting the preview establishes a player with the new values. Moving its existing canvas between thumbnail and modal does not recreate the connection. A rendered control, persisted preference and successful device command are three different facts.
+
+## Profile Archives and Identity
+
+| Command         | Identity / storage behavior                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `add_config`    | Backend creates a new profile ID; the UI waits for initialized data before selection                        |
+| `copy_config`   | Copies the directory to a new ID and generates a unique `_copy` name                                        |
+| `export_config` | Returns a binary ZIP of all profile-directory files, not a client-settings backup                           |
+| `import_config` | Extracts a new ID, initializes supported defaults, then removes existing directories with the imported name |
+| `remove_config` | Removes the backend profile, outside editor Undo history                                                    |
+
+The inspected backend importer rejects invalid ZIP/JSON, parent traversal and absolute path entries, and accepts `config.json` at the archive root or one common leading directory. These checks are not an atomic replacement transaction or a guarantee against every malicious archive. In particular, same-name replacement has no extra frontend overwrite confirmation. Multiple imports run sequentially; a later failure does not undo earlier imports. Tests for future changes should cover naming collisions, partial extraction/initialization failures, running-session ownership and recovery, not only a successful upload toast. See [Profiles](../features/profile) before operating on real data.
+
+## Idle Update as a Recovery Protocol
+
+`IdleBackendUpdater.tsx` and `IdleUpdateState.ts` distinguish an idle scheduler from a stopped one. Readiness requires synchronized profiles and backend status. No current task/queue can be compatible with a running continuous scheduler, but a running single-task session is excluded. A stable idle window prevents the temporarily empty startup queue being mistaken for permission to update.
+
+```mermaid
+flowchart TD
+  Ready["All profiles ready and stably idle"] --> Save["Durably save root and running/stopped flags"]
+  Save --> Stop["Stop all tasks"]
+  Stop --> Update["Update and restart/reload"]
+  Update --> Restore["After sync: validate checkpoint and restore each state"]
+  Restore --> Clear["Clear checkpoint only after successful restoration"]
+  Stop -->|"failure"| Recover["Restore previous states and clear checkpoint"]
+  Update -->|"failure"| Recover
+```
+
+A failed checkpoint write must leave scripts untouched. The checkpoint carries a schema and backend-root identity so recovery does not resume unrelated profiles. Stopped flags are restored as well as running flags, preventing defaults from starting previously stopped work. A valid pending recovery is handled even if the user has since disabled automatic updates; that switch governs new attempts, not erasing recovery obligations. This is scheduler-state restoration, not resumption of a battle at an exact instruction/frame, and not a distributed transaction across the game and filesystem.
+
+## Diagnostic Snapshot Boundaries
+
+Task-log batching preserves received rows; system diagnostics impose a separate retention policy. `SystemLogService.ts` collects frontend/native/Python sources, merges and deduplicates them, sorts by timestamp and retains at most 4,000 rows. The frontend memory buffer is 1,500 and message text can be truncated at 24,000 characters. Source failure is reported alongside remaining data rather than proving that source produced no errors.
+
+The system viewer filters the collected snapshot for copy/export, whereas Clear targets all configured diagnostic sources after confirmation. Auto-refresh and follow-tail have separate state. Keep these distinctions in bug reports: a filtered export is neither the full backend log filesystem nor proof of complete event delivery. [System Settings](../features/system#logs) documents the user controls.
+
 ## Android Process and Display Lifecycle
 
 Android adds Kotlin/Java native services and an embedded Python runtime. `MainActivity.kt` starts UI/device integration and schedules the foreground service; the dedicated `:baas_backend` process owns Python and backend ports. Recreating the activity or reloading the WebView should reconnect to that service, not create another Python owner.

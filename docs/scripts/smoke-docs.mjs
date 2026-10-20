@@ -71,6 +71,10 @@ try {
           "features/server",
           "features/emulator",
           "features/script",
+          "features/system",
+          "features/profile",
+          "features/home-runtime",
+          "features/update",
         ]) {
           const response = await page.goto(`${origin}/docs/${locale}/${route}/`);
           assert.equal(response.status(), 200);
@@ -79,6 +83,70 @@ try {
             theme === "dark"
           );
           await page.locator("h1").waitFor();
+          if (route === "reference/client-architecture") {
+            await page.waitForFunction(
+              () => document.querySelectorAll(".baas-mermaid-content > svg").length === 2
+            );
+            assert.equal(await page.locator(".baas-mermaid-error").count(), 0);
+            for (const diagram of await page.locator(".baas-mermaid").all()) {
+              const chart = diagram.locator(".baas-mermaid-content > svg");
+              const initialWidth = await chart.evaluate(
+                (element) => element.getBoundingClientRect().width
+              );
+              assert.ok(initialWidth > 0);
+              const zoomIn = diagram.getByRole("button", {
+                name: locale === "zh" ? "放大图表" : "Zoom in diagram",
+                exact: true,
+              });
+              const zoomOut = diagram.getByRole("button", {
+                name: locale === "zh" ? "缩小图表" : "Zoom out diagram",
+                exact: true,
+              });
+              const reset = diagram.getByRole("button", {
+                name: locale === "zh" ? "重置图表缩放" : "Reset diagram zoom",
+                exact: true,
+              });
+              assert.ok(await zoomOut.isDisabled());
+              assert.ok(await reset.isDisabled());
+              await zoomIn.click();
+              assert.equal(await diagram.locator("output").innerText(), "150%");
+              const zoomedWidth = await chart.evaluate(
+                (element) => element.getBoundingClientRect().width
+              );
+              assert.ok(Math.abs(zoomedWidth / initialWidth - 1.5) < 0.01);
+              await zoomOut.click();
+              assert.equal(await diagram.locator("output").innerText(), "100%");
+              for (let step = 0; step < 14; step++) await zoomIn.click();
+              assert.equal(await diagram.locator("output").innerText(), "800%");
+              assert.ok(await zoomIn.isDisabled());
+              const maxWidth = await chart.evaluate(
+                (element) => element.getBoundingClientRect().width
+              );
+              assert.ok(Math.abs(maxWidth / initialWidth - 8) < 0.01);
+              const overflow = await diagram
+                .locator(".baas-mermaid-viewport")
+                .evaluate((element) => {
+                  element.scrollLeft = element.clientWidth;
+                  return {
+                    internal: element.scrollWidth > element.clientWidth,
+                    scroll: element.scrollLeft,
+                    page:
+                      document.documentElement.scrollWidth >
+                      document.documentElement.clientWidth + 1,
+                  };
+                });
+              assert.ok(overflow.internal && overflow.scroll > 0);
+              assert.equal(overflow.page, false);
+              await reset.click();
+              assert.equal(await diagram.locator("output").innerText(), "100%");
+              assert.equal(
+                await diagram
+                  .locator(".baas-mermaid-viewport")
+                  .evaluate((element) => element.scrollLeft),
+                0
+              );
+            }
+          }
           if (route.startsWith("features/") || route === "guide/android") {
             assert.ok(
               !(await page.locator("body").innerText()).includes("**"),

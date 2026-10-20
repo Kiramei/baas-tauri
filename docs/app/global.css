@@ -777,6 +777,66 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
   height: auto;
 }
 
+.baas-mermaid-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.baas-mermaid-tools button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--color-fd-foreground);
+  cursor: pointer;
+}
+
+.baas-mermaid-tools button:hover:not(:disabled) {
+  background: var(--color-fd-accent);
+}
+
+.baas-mermaid-tools button:focus-visible,
+.baas-mermaid-viewport:focus-visible {
+  outline: 2px solid var(--color-fd-primary);
+  outline-offset: 2px;
+}
+
+.baas-mermaid-tools button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.baas-mermaid-tools svg {
+  width: 16px;
+  height: 16px;
+}
+
+.baas-mermaid-tools output {
+  width: 48px;
+  flex: 0 0 48px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.baas-mermaid-viewport {
+  max-width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.baas-mermaid-content > svg {
+  display: block;
+  width: 100%;
+  /* Mermaid's intrinsic inline max-width must not cap the selected zoom. */
+  max-width: none !important;
+}
+
 .baas-mermaid-error {
   overflow-x: auto;
   border: 1px solid rgb(248 113 113 / 35%);

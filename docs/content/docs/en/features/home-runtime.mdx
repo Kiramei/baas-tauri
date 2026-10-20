@@ -1,35 +1,107 @@
 ---
 title: Home Runtime
-description: Home status cards, start and stop, queue, logs, assets, and remote display.
+description: Selected-profile start/stop, actual queue state, task-log export, live desktop remote controls and their current limitations.
 ---
 
-Home is the control console for the active profile. It shows runtime state, next task, queue, logs, remote display, and quick actions.
+Home is the control surface for the selected profile. Check its name and server before starting. Selecting another profile changes the view; it does not automatically stop an existing scheduler.
 
 <img
   className="baas-screenshot"
-  src="/en/home-dark-logs.png"
-  alt="Home console showing current task, next task, queue, logs, and start/stop controls"
+  src="/media/desktop/en/details-home.png"
+  alt="Current native light-mode Home with selected profile, scheduler command and log workspace"
 />
 
-| Area         | Purpose                            | Troubleshooting                            |
-| ------------ | ---------------------------------- | ------------------------------------------ |
-| Running task | Current backend task               | If stuck, check whether logs continue      |
-| Next task    | Scheduler's next planned task      | Check enabled state if unexpected          |
-| Queue        | Waiting tasks                      | Empty queue usually means no runnable task |
-| Start/Stop   | Control scheduler for this profile | Stop prevents further scheduled runs       |
-| Export logs  | Export profile logs                | Include this when reporting issues         |
+## Start, Stop and Queue
 
-## Remote Display
+| Control / state    | Meaning                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| Start              | Sends `start_scheduler` for this profile, using its enabled tasks and current settings  |
+| Stop               | Sends `stop_scheduler` for this profile; it is not a rollback of completed game actions |
+| Running task       | Backend `current_task`, not simply whether the scheduler is enabled                     |
+| Upcoming chain     | Backend `waiting_tasks` in queue order, not a list of every future scheduled task       |
+| Task overview icon | Opens the numbered queue in a popover; also works when the compact line truncates       |
+
+A scheduler can be running while waiting with no current task. An empty queue does not prove all tasks are disabled or that none will become due later. Read the button state and [Scheduler](../guide/scheduler) timing together.
+
+Stop is a request: confirm the resulting backend state and logs before changing devices, replacing files or issuing another high-impact task. It does not reverse purchases, friend deletion, reward collection or a stage already entered. Closing a preview is not the desktop scheduler Stop command.
 
 <img
   className="baas-screenshot"
-  src="/en/home-dark-remote-display.png"
-  alt="Home page with remote emulator thumbnail displayed next to logs"
+  src="/media/desktop/en/details-task-overview.png"
+  alt="Current task-overview popover, captured with the demo queue empty"
 />
 
-Remote display helps observe where the script is, but task reliability still depends on server, ADB, screenshot method, control method, and feature configuration.
+The Home keyboard icon opens native desktop [global profile shortcuts](./system#global-profile-shortcuts). Those target named profiles, not necessarily the currently selected one. Android has a separate background-game play area and central scheduler command; see [Android Client](../guide/android).
 
-<Callout type="warn" title="First Run">
-  Enable one low-risk task first. After logs, remote display, and resource changes look correct,
-  gradually add sweeps, shop, crafting, arena, and other high-impact tasks.
-</Callout>
+## Resources and Task Logs
+
+The optional resource strip shows backend-reported AP, currencies, crafting materials and pass information. Missing/unreceived values can be blank or unavailable; a displayed value is not a fresh game OCR check on every frame. Appearance's `assetsDisplay` switch hides the strip without deleting account data. These captures use it off.
+
+The log workspace shows the selected profile's received task-log buffer, with timestamp/level/message and a count when nonempty. The downward-arrow button toggles automatic scrolling (`scrollToEnd`, shared with Settings → Logs). Turn it off to read earlier lines; it does not pause incoming logs or stop tasks.
+
+Export Logs serializes the currently received profile buffer to `logs-{profile-id}-{timestamp}.txt`. Native clients show a save dialog; WebUI downloads through the browser. This is not a complete filesystem archive and does not include every other profile's logs. Empty Home does not establish the absence of native/startup errors: [System Logs](./system#logs) is a separate diagnostic viewer/export. Review secrets and account/device data before sharing either.
+
+## Desktop Remote Preview
+
+The webcam icon toggles a connection to the emulator/device configured by this profile. Starting the preview is separate from starting the scheduler. Confirm [ADB](./server) first; choosing a profile with the wrong device can show/control the wrong environment.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-remote-preview.png"
+  alt="Real desktop remote preview mirroring the documentation Android app in MuMu, not a completed game task"
+/>
+
+Wait for an actual frame, not only connection state. Click the connected thumbnail to open the enlarged view; close its dialog to return the same player to the thumbnail. The camera toggle off/on destroys/recreates the connection. Repeated Connecting, black frames and a frozen image need decoder/device/service investigation, not repeated scheduler starts.
+
+Explicitly turn the camera toggle off when finished; merely changing the visible page/profile is not a reliable way to close a player owned by a cached Home page.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-remote-enlarged.png"
+  alt="Enlarged native remote viewer showing an actual emulator frame"
+/>
+
+### Device Controls
+
+The enlarged view accepts pointer/touch gestures and has a slide-out toolbar. Its controls send actual device input, so avoid interacting during automation.
+
+| Icon                     | Effect                                                                    |
+| ------------------------ | ------------------------------------------------------------------------- |
+| Power                    | Device power-key event, not merely hide preview                           |
+| Volume down / up         | Change device volume                                                      |
+| Back / Home / app switch | Android navigation key events                                             |
+| Camera                   | Save a decoded frame as PNG; no image is saved if the player has no frame |
+| Keyboard toggle          | Enable/disable forwarding supported keyboard events to the device         |
+
+The desktop viewer is interactive; this differs from Android's **read-only** embedded preview. Do not assume hovering/tapping is harmless once in the enlarged desktop view.
+
+### Advanced Settings
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-remote-advanced.png"
+  alt="Current remote advanced controls for clipboard, dimensions, FPS, I-frame interval, bitrate and status"
+/>
+
+| Control                        | Stored setting / default                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| Clipboard text + Set Clipboard | Send typed text to the device; not just edit a local note                                   |
+| Get Clipboard                  | Request device clipboard, fill this text field and attempt copying it to the host clipboard |
+| First size field               | `remoteSettings.maxWidth`, default `1280`                                                   |
+| Second size field              | `remoteSettings.maxHeight`, default `720`                                                   |
+| Maximum frame rate             | `remoteSettings.maxFPS`, default `60`                                                       |
+| I-frame interval               | Encoder `remoteSettings.iFrameRate`, default `10`; not the recognition screenshot interval  |
+| Bitrate                        | Encoder `remoteSettings.bitRate`, default `7340032`                                         |
+| Show Status                    | `remoteSettings.showStatus`; input traffic and input/dropped/decoded rates plus averages    |
+
+**Current label issue:** the audited English/Chinese translations call the first size field “Maximum Height” although it binds `maxWidth`, and the second “Maximum Width” although it binds `maxHeight`. Use the field/key mapping above when diagnosing dimensions.
+
+Video number fields use integer parsing but do not provide complete finite/range validation. Do not leave them blank or use invalid values to discover backend limits. These are requested encoder bounds, not guaranteed display/game FPS or evidence of performance gains.
+
+Clipboard commands and Show Status act directly. Video size/FPS/I-frame/bitrate edits require **Save and Apply**. The audited immediate apply path reads the prior settings snapshot; after saving, toggle the Home preview off/on to establish a player with the new stored values. Closing only the enlarged dialog does not rebuild it.
+
+Decoder and encrypted-stream settings are under [Connection & runtime](./system#connection-and-runtime). They also require reopening the preview to take effect. Preview encryption is not a replacement for verifying which device is controlled.
+
+## Verification Boundary
+
+The new screenshots came from the real native desktop client mirroring MuMu's Android BAAS interface. Decoded video dimensions and nonblank pixel samples were checked in both UI languages. No power, clipboard, game touch or video-setting command was submitted during capture. This proves the preview/capture path for that setup, not game-task success or every remote-input function.

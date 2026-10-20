@@ -1,49 +1,74 @@
 ---
 title: Profiles
-description: Create, copy, import, export, delete, and name BAAS profiles.
+description: Profile selection/order, create and rename validation, immediate copying, ZIP import/export and deletion confirmation.
 ---
 
-A profile is the runtime boundary in BAAS. Server, ADB port, emulator path, script behavior, task configuration, and scheduler state all belong to the active profile.
+A profile owns its server/device/task configuration and scheduler state. It is not an isolated copy of client appearance or shared backend update settings. Always check the selected name before a spending/deletion task.
+
+## Select and Arrange
+
+Desktop shows profiles in the sidebar; narrow windows/Android use a horizontal strip. Click a profile to select it. Long names truncate visually; hover/focus reveals the action slot. A running indicator belongs to that profile, not necessarily the selected one.
+
+Drag profiles to reorder vertically on desktop or horizontally in the strip. Order is stored locally in `tabOrder`; it is not task priority or an exported account order. Changing selection does not itself stop another profile's scheduler. Android additionally restricts conflicting game runs because its display is shared.
+
+Open the ellipsis/menu icon, right-click the profile, or use the keyboard context-menu key/Shift+F10 when focused. Up/Down/Home/End navigate menu items; Escape/Tab closes and returns focus.
 
 <img
   className="baas-screenshot"
-  src="/en/profile-actions-menu.png"
-  alt="Profile menu with edit, copy profile, export profile, and delete"
+  src="/media/desktop/en/details-profile-menu.png"
+  alt="Current profile action menu beside the selected isolated profile"
 />
 
-| Action         | Purpose                       | Note                                             |
-| -------------- | ----------------------------- | ------------------------------------------------ |
-| Edit           | Rename the profile            | Include server and emulator instance in the name |
-| Copy profile   | Create a similar profile      | Recheck ADB port after copying                   |
-| Export profile | Package the profile as `.zip` | Avoid publishing private configuration           |
-| Delete         | Remove the profile            | The last profile cannot be deleted               |
+## Create
 
-## Create and Import
+Choose the add-profile icon. The dialog proposes an unused default name; enter a meaningful name and choose a game server. Create is an explicit submission, not automatic saving.
 
 <img
   className="baas-screenshot"
-  src="/en/profile-create-import-dialog.png"
-  alt="New profile dialog with import archive, profile name, and game server"
+  src="/media/desktop/en/details-profile-create.png"
+  alt="Current create-profile dialog with archive import, name and required server selection"
 />
 
-Use names such as `Bilibili-MuMu-1`, `Global-LD-2`, or `JP-PC`. Import requires the client to be connected and authenticated.
+Validation trims name edges, rejects empty/duplicate names and requires a server instead of the placeholder. Matching names are compared exactly after trimming; do not depend on case differences to distinguish accounts. Failed submission keeps the dialog open with an error; busy submission/import disables repeated actions. Cancel/closing discards this dialog's edits.
 
-### Create Profile [step]
+After the backend creates and synchronizes the profile, the client selects it. New profiles can inherit **enabled default tasks**. Stop/check the scheduler and configure device, purchases, sweeps, combat and friends before pressing Start. On desktop verify [Server/ADB](./server), [Emulator](./emulator) and [Script](./script); on Android verify the [regional game package and Shizuku](../guide/android).
 
-Create a profile with a name that clearly identifies the account, server, and emulator instance.
+## Edit and Copy
 
-### Select Server [step]
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-profile-edit.png"
+  alt="Edit-profile dialog with editable name and locked game server"
+/>
 
-Choose the server that matches the actual game client, so later tasks use the correct entry points and recognition assets.
+Edit renames the existing profile, with the same trimming/duplicate checks and an explicit Save. The game server is disabled: create another profile for another server/package. Rename retains the profile ID; it does not make a new account or reset all task state.
 
-### Set ADB [step]
+**Copy Profile executes immediately**, without a separate name/options dialog. The audited backend copies the profile directory and gives it a unique `_copy`, `_copy2`, etc. name. The client selects it after synchronization. It is not another emulator instance. Inspect the copied device serial, instance ID, tasks and sensitive push settings before running; do not assume copied task enablement or timing is safe.
 
-Configure ADB IP, port, and emulator instance, then confirm that this profile connects to the correct device.
+## Export and Import
 
-### Configure Tasks [step]
+Export Profile requests the selected profile archive from the backend and saves a `.zip`. Native clients use a save dialog; cancelling the file selection does not remove the profile. The audited backend includes all files under that profile directory. This is not a backup of the whole backend, installed game, client UI settings or the game account/session.
 
-Open feature configuration and scheduler pages. Start with low-risk tasks, then gradually add sweeps, shop, and combat tasks.
+Archives can contain private configuration such as endpoints, push keys, friend codes and device paths. Inspect them before sharing; export is not automatic redaction.
 
-### Export Backup [step]
+**Same-name replacement warning:** the audited importer creates a new ID, then deletes existing profile directories with the imported `name`. There is no additional overwrite confirmation in this UI. Stop affected schedulers and export their current data before importing; rename the archive's configuration deliberately if you need a separate profile instead of replacement.
 
-After the profile is stable, export a `.zip` backup. Before migrating, reproducing issues, or sharing it, check whether it contains private information.
+Import Profile Archive appears in the Create dialog and the app's file actions. The ZIP must contain valid `config.json` with a nonempty `name`, either at its root or inside one common top-level directory. The backend rejects invalid ZIP/JSON and unsafe path entries and fills supported defaults. This is not a reason to trust unknown archives.
+
+Choose one `.zip`, wait for backend validation/synchronization, then check the newly selected profile. Import requires a connected/authenticated backend. An imported filename or success notification is not proof that a game/device is connected.
+
+Desktop/WebUI also accept dropped ZIP archives over the application. Non-ZIP files are not imported. Multiple ZIPs are processed sequentially; a later failure does not roll back an archive already imported. The overlay prevents parallel import batches; wait for completion rather than dropping again. Native file-drop support depends on the host.
+
+## Delete
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-profile-delete-confirmation.png"
+  alt="Current destructive profile confirmation, captured without deleting any profile"
+/>
+
+Delete opens a named confirmation. Cancel, close or clicking outside leaves the profile intact. A middle-click on a profile also opens this confirmation; it is not an innocent selection shortcut.
+
+The last profile's deletion is disabled. Confirming another profile sends `remove_config` to remove the corresponding backend profile; this is not reversible through configuration Undo. Export needed data and stop that profile first. If deleting the selected profile, selection moves to a nearby remaining one. Profile deletion is not a command to delete the game account, but losing configuration is still destructive.
+
+See [Home Runtime](./home-runtime) for start/stop/logs and [Scheduler](../guide/scheduler) for enabled tasks and timing.
