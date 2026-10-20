@@ -1,0 +1,33 @@
+{
+  "backendExitDetectedMs": 8.173606,
+  "binarySizesVerified": [
+    0,
+    1,
+    65522,
+    65523,
+    65532,
+    65533,
+    4194427,
+    8388625,
+    67108864
+  ],
+  "freshGenerationVerified": true,
+  "jsonBytesVerified": 100012,
+  "latency1KiB": {
+    "iterations": 100,
+    "p50Ms": 1.351696,
+    "p95Ms": 1.7584899999999999,
+    "p99Ms": 29.404944
+  },
+  "platform": "linux",
+  "resourceCleanupVerified": true,
+  "resourcesUnlinkedAfterReady": true,
+  "scope": "Rust/Python cross-process native shared memory; excludes WebView and game",
+  "stopWakeupMs": 30.070189,
+  "streamReopenVerified": true,
+  "throughput1MiB": {
+    "iterations": 20,
+    "roundtripMiBs": 218.70474042087451,
+    "seconds": 0.182894984
+  }
+}
