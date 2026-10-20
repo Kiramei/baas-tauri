@@ -161,11 +161,24 @@ try {
               `Unparsed strong markup: ${locale}/${route}`
             );
           }
-          await page.waitForFunction(() =>
-            Array.from(document.querySelectorAll("img.baas-screenshot")).every(
-              (image) => image.complete && image.naturalWidth > 0
-            )
-          );
+          const scrollY = await page.evaluate(() => window.scrollY);
+          try {
+            // Visit lazy images as a reader would; do not force eager loading in the page under test.
+            for (const image of await page.locator("img.baas-screenshot").all()) {
+              await image.scrollIntoViewIfNeeded();
+              await image.evaluate(async image => { await image.decode(); });
+            }
+            await page.waitForFunction(() =>
+              Array.from(document.querySelectorAll("img.baas-screenshot")).every(
+                (image) => image.complete && image.naturalWidth > 0
+              )
+            );
+          } catch (error) {
+            console.error(JSON.stringify({ locale, theme, route, viewport, images: await page.locator("img.baas-screenshot")
+              .evaluateAll(images => images.map(image => ({ src: image.getAttribute("src"), complete: image.complete, width: image.naturalWidth }))) }));
+            throw error;
+          }
+          await page.evaluate(y => window.scrollTo(0, y), scrollY);
           const layout = await page.evaluate(() => ({
             width: document.documentElement.clientWidth,
             scrollWidth: document.documentElement.scrollWidth,

@@ -7,7 +7,7 @@ The APK includes Python; first launch also downloads the backend. Automation req
 
 ## Install and Prepare
 
-Download a trusted Android build from the project's [Releases](https://github.com/Kiramei/baas-tauri/releases). Match the device's real architecture, not only the game's architecture. Allow installation from the chosen browser/file manager if Android asks. The audited build requires Android 7.0/API 24 or newer; that minimum does not guarantee a particular device's privileged display compatibility.
+Download a trusted Android build from the project's [Releases](https://github.com/Kiramei/baas-tauri/releases). Match the device's real architecture, not only the game's architecture. Allow installation from the chosen browser/file manager if Android asks. The APK declares a minimum of Android 7.0/API 24; native game capture requires Android 8.0/API 26 or newer. Meeting these versions still requires checking the device's privileged-display support.
 
 Keep network access available on first launch. The startup page exposes five stages:
 
@@ -66,23 +66,47 @@ Both scheduler start and background-game start check current permission. Grantin
 
 After authorization, choose the matching profile and tap the play icon on Home's game area. BAAS creates its local background display and launches that package. This display is shared: another running profile can block a conflicting start. A restored display is not automatically trusted as belonging to the current profile.
 
+<AndroidGameDemo locale="en" />
+
 The native preview is **read-only**. Tapping it opens three native icons:
 
-| Icon action | Intended behavior                                                                                       |
+| Icon action | Behavior                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
-| Close       | End the BAAS background display; not the same as stopping the scheduler                                 |
+| Close       | Request a scheduler stop, release the background display and end its game process                        |
 | Take over   | Move the existing game task to the main display for manual operation, then release the embedded session |
-| Restart     | Close the current background session and prepare the selected game again                                |
+| Restart     | Close the session, create a display and launch the selected game again; does not restart the scheduler   |
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/game-controls.png"
+  alt="Native preview controls: Close, Take over and Restart from left to right"
+/>
 
 Do not tap the preview expecting a game button to receive input. Take over for manual operation. Menus/dialogs hide the native preview to prevent it covering controls; returning to a visible Home restores its preview ownership. Switching to another page hides the view, not necessarily the background game or Python service.
 
-A Live badge proves a display state, **not** a healthy logged-in game, valid input or task success. Check the actual frame and game activity before scheduling.
+The close path sends a stop request without waiting for backend confirmation. Before taking over, restarting or closing, use the bottom Stop control and check the runtime state and logs, then operate the game session. That Stop control alone leaves the game display open. Take over preserves the existing game process for manual operation.
+
+### Preview States
+
+The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) distinguishes these states. An older build's single Live badge does not provide the same checks.
+
+| State | Meaning and check |
+| ----- | ----------------- |
+| Waiting for frames | Capture and presentation have not both produced frames; allow cold loading, then check Shizuku and the game process |
+| Black screen | Frames exist but captured content remains black; locate the game on its intended display and inspect capture errors |
+| No frame updates | New presentation has not been confirmed, or its count has not advanced for about two seconds; return Home and dismiss menus covering the preview before checking again |
+| Live | Presentation count recently advanced and captured content contains non-black pixels |
+| Preview error | A native connection or preview call failed; check authorization, service state and the error log again |
+
+Live describes the image path. It does not establish a logged-in account, effective input or task completion. Verify task results in logs and in the game. Repeatedly reading the same cached PNG does not constitute new game frames.
 
 ### Game Returns to the Main Display or Preview Stalls
 
-One cold launch on MuMu Android 15, using the x86_64 build, Shizuku in shell mode and Bilibili game version 3.0.2, created the background display successfully. Android then refused to place the game's Unity Activity on that display and launched it on the main display. The preview showed the splash screen and later went black. Game input and task execution remain unverified for this combination.
+An older build on MuMu Android 15, x86_64, Shizuku ADB mode and Bilibili game version 3.0.2 created the background display, but Android refused to place the game's Unity Activity there. It moved to the main display and the preview later went black. The repair build adds task placement recovery, focus recovery and frame-state checks. Sustained preview and startup navigation using native screenshots, recognition and input have passed on that emulator. This does not cover every business task, other phones or unattended long-running operation.
 
-If this happens, stop the scheduler and close the background display. Check system logs for `Not allow to launch ... on display`. Bitrate, screenshot intervals and reinstalling the game do not resolve a display-placement permission failure.
+If this happens, stop the scheduler and close the background display. Check system logs for `Not allow to launch ... on display`, confirm whether the APK includes the repair and create a new game session after updating. Bitrate, screenshot intervals and reinstalling the game do not resolve a display-placement permission failure. Shizuku ADB mode passed these checks on the emulator; Root is not a universal requirement for local control.
+
+Sideways content, a half-filled preview or large black margins after a cold start also require checking the virtual display's orientation policy. The [follow-up rotation fix](https://github.com/Kiramei/baas-tauri/commit/8e38508f160a29d784125970c2dad00d3c9e347d) waits for Android to register the display before locking rotation, and prevents splash screens from applying a portrait rotation transform to the landscape display. After installing an APK containing this fix, close the old session and start the game again. The phone's main-display rotation setting can stay unchanged.
 
 Developers can compare `adb shell dumpsys activity activities` with `adb shell dumpsys display`: locate the actual game Activity and check whether its intended display has `FLAG_TRUSTED`. [Android 15's placement checks](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java) restrict ordinary applications launching activities on untrusted displays. A successful privileged launch of the first page does not establish that subsequent game pages can remain there. This is a diagnostic lead, not evidence that every Android device has the same problem.
 
@@ -128,6 +152,8 @@ The foreground service uses a low-priority ongoing notification that opens the a
 
 ## Updates and Diagnostics
 
+Android's manual backend-update entry does not wait for every task to stop. Check each profile's runtime state and stop tasks first. The current command defers service restart; successful file synchronization, WebView reload and new Python code taking effect require separate confirmation. To restart the backend process after successful synchronization, stop all tasks, close the background game display, then **Force stop BAAS** from its app-info screen in Android settings. Reopen it and check the backend version, logs and a supervised run. Back or swiping away the Activity can leave the service running. Some service files still come from the APK-matched overlay and are not replaced by updating the backend repository. [Updater Internals](../reference/updater-internals) explains the workflow and limitations.
+
 Backend updates use the app's configured source and show progress/output. Preserve startup, system and update logs on failure. A failed request, authentication failure and game-recognition failure are different layers; changing screenshot intervals does not repair a download.
 
 | Symptom               | Check                                                                                           |
@@ -136,7 +162,8 @@ Backend updates use the app's configured source and show progress/output. Preser
 | Preparation fails     | Stage terminal, network/source and app-private storage                                          |
 | Missing game          | Selected profile's exact regional package                                                       |
 | Shizuku unavailable   | Installed/running/granted are three separate states                                             |
-| Live but blank/splash | Actual game task/display, native capture errors and ABI compatibility                           |
+| Black screen, No frame updates or an older Live badge stuck at splash | Actual game Activity/display placement, repair build, native capture errors and ABI compatibility |
+| OCR initialization fails | Inspect the actual library/model error; a connected UI does not establish OCR readiness |
 | Backend disconnect    | Service/process logs and background restrictions, not only notification visibility              |
 
 ### Sharing a Device with Desktop uiautomator2
@@ -148,5 +175,7 @@ Check which service owns that port. Do not disable bridge authentication or put 
 ## Emulator ABI Compatibility
 
 Some x86_64 emulators can install ARM64 apps while Shizuku's user service still runs in an x86_64 process. Loading an ARM64 capture library then fails with an `EM_AARCH64` / `EM_X86_64` mismatch. Use a build matching that process architecture. For a game stuck on its splash screen, also inspect the game Activity's display ownership and native capture logs.
+
+An emulator's `uname -m` can also report ARM while the APK's Python loads x86_64 libraries. Selecting ARM64 OCR libraries then fails at `dlopen`. The repair build selects OCR from the embedded interpreter library's ELF architecture. Preserve the target-library and expected-architecture details in the error; the kernel's reported architecture alone is insufficient to choose an OCR package. Task startup still checks that OCR initialization completed.
 
 See [Troubleshooting](../reference/troubleshooting#android-client-problems) for broader diagnostics.

@@ -6,6 +6,7 @@ import { BenchmarkChart } from "@/components/BenchmarkChart";
 import { NativeTransportBenchmark } from "@/components/NativeTransportBenchmark";
 import { DeviceBenchmark } from "@/components/DeviceBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
+import { AndroidGameDemo } from "@/components/AndroidGameDemo";
 import { RecognitionReplay } from "@/components/RecognitionReplay";
 
 export const mdxComponents = {
@@ -17,6 +18,7 @@ export const mdxComponents = {
   NativeTransportBenchmark,
   DeviceBenchmark,
   MotionDemo,
+  AndroidGameDemo,
   RecognitionReplay,
 };
 

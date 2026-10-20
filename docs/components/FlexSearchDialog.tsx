@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { localeFromPathname } from "@/lib/locale";
 import Search from "flexsearch";
 import type { Document as FlexSearchDocument } from "flexsearch";
 import { createContentHighlighter } from "fumadocs-core/search";
@@ -50,14 +51,6 @@ type ExportedSearchData =
     };
 
 const searchCache = new Map<string, Promise<Map<string, FlexSearchDocument<SearchDocument>>>>();
-
-function localeFromPathname(pathname: string | null) {
-  const segments = pathname?.split("/").filter(Boolean) ?? [];
-  const docsIndex = segments.indexOf("docs");
-  const locale = docsIndex >= 0 ? segments[docsIndex + 1] : undefined;
-
-  return locale === "en" ? "en" : "zh";
-}
 
 function createDocument(locale: string) {
   return new Search.Document<SearchDocument>({

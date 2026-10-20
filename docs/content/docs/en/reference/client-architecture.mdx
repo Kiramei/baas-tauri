@@ -84,6 +84,14 @@ Saving conventions follow the operation's owner: inline application bindings com
 
 The inspected backend importer rejects invalid ZIP/JSON, parent traversal and absolute path entries, and accepts `config.json` at the archive root or one common leading directory. These checks are not an atomic replacement transaction or a guarantee against every malicious archive. In particular, same-name replacement has no extra frontend overwrite confirmation. Multiple imports run sequentially; a later failure does not undo earlier imports. Tests for future changes should cover naming collisions, partial extraction/initialization failures, running-session ownership and recovery, not only a successful upload toast. See [Profiles](../features/profile) before operating on real data.
 
+## Updater and Backend Process Ownership
+
+Desktop `UpdaterTermManager` owns workflow threads and Git/UV child processes by session. `environ.rs` launches the backend detached and records its PID in `.baas-updater/backend.pid` under the backend root. `BackendProcessManager` tracks those roots for cleanup. Workflow completion/cancellation and backend survival have separate owners. Cleanup at startup, before updates and on exit depends on PID files and command-line checks; it provides no OS-level exclusive ownership across client instances.
+
+Android's `AndroidUpdaterTermManager` synchronizes repositories on disk; embedded Python belongs to the separate `:baas_backend` service process. Manual sidebar updating branches and returns before `stopAllTasks`. After synchronization, `updater_reset_backend_auth_and_restart` returns `restarted: false` and `restart_deferred: true`; a WebView reload reconnects to the existing service without replacing loaded Python. The idle path saves state and stops tasks first but retains the same deferred-restart boundary. See [Updater Internals](./updater-internals) for stages, cancellation limits, non-atomic replacement and recovery.
+
+The service can also enable APK-matched `backend-service-overlay` files ahead of parts of the installed `service` package. A process restart still requires checking module origins; one repository SHA does not describe every running service file.
+
 ## Idle Update as a Recovery Protocol
 
 `IdleBackendUpdater.tsx` and `IdleUpdateState.ts` distinguish an idle scheduler from a stopped one. Readiness requires synchronized profiles and backend status. No current task/queue can be compatible with a running continuous scheduler, but a running single-task session is excluded. A stable idle window prevents the temporarily empty startup queue being mistaken for permission to update.
@@ -100,6 +108,8 @@ flowchart TD
 ```
 
 A failed checkpoint write must leave scripts untouched. The checkpoint carries a schema and backend-root identity so recovery does not resume unrelated profiles. Stopped flags are restored as well as running flags, preventing defaults from starting previously stopped work. A valid pending recovery is handled even if the user has since disabled automatic updates; that switch governs new attempts, not erasing recovery obligations. This is scheduler-state restoration, not resumption of a battle at an exact instruction/frame, and not a distributed transaction across the game and filesystem.
+
+The diagram's restart/reload step depends on the platform entry point; Android can currently reload only the WebView. Successful restoration confirms scheduler commands completed, without establishing that a new service process loaded updated code. The checkpoint contains no old code for rollback.
 
 ## Diagnostic Snapshot Boundaries
 

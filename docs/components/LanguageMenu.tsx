@@ -13,7 +13,7 @@ export function LanguageMenu({ locale }: { locale: Locale }) {
 
   return (
     <details className="baas-language-menu baas-sidebar-language-menu">
-      <summary aria-label="Choose language">
+      <summary aria-label={locale === "zh" ? "选择语言" : "Choose language"}>
         <Languages aria-hidden="true" />
         <span>{activeName}</span>
       </summary>

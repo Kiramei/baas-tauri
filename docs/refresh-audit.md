@@ -5,13 +5,16 @@ The current checkpoint updates bilingual feature configuration, settings,
 profiles, runtime, updates, installation/setup and Android provenance. It adds
 an actual native connection benchmark and tagged device-capture compatibility
 probes, 800 native-target screenshot measurements and 576 verified input
-measurements. It removes reader-facing authoring notes and adds blur-based
+measurements. It adds native Android game media, updater internals and localized
+documentation controls, removes reader-facing authoring notes and adds blur-based
 capture privacy checks. This is not the final documentation delivery.
 
 ## Sources and Isolation
 
 - Desktop: `origin/dev` at `be186c524ab9f7a91c41582aec3a5fef06614751`.
 - Android: `origin/android-dev` at `5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78`.
+- Both remote branch tips were rechecked with `git ls-remote` during this checkpoint.
+  The isolated Android repair is now `8e38508f160a29d784125970c2dad00d3c9e347d`.
 - Backend code audit: `baas-dev` at
   `d0a86a089068766ff53682b501b90bee99857a71`. The fresh Android first run
   downloads the configured `master` archive; the new friend-filter omission
@@ -34,20 +37,20 @@ capture privacy checks. This is not the final documentation delivery.
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | No external landing page                             | SiteHome removed; root/docs enter internal localized docs                                                                                                     | Final deployment checks                                                                                                  |
 | Environment language, English fallback, saved choice | Focused locale/link tests; browser entry, denied-storage and manual-persistence cases pass                                                                    | Deployment prefix behavior                                                                                               |
-| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows, architecture and rewritten backend guide in both languages | Repair and remaining developer coverage                                                                              |
+| Chinese/English parity                               | All 17 configuration categories, six settings categories, profile/runtime/update/install/setup workflows, architecture, backend and updater guides; localized search/TOC/theme/sidebar/image controls | Remaining reader review and developer coverage                                                                       |
 | Every current desktop UI detail                      | Manual configuration/workspace/installer audit; compiler-AST coverage of 79 draft fields, nine immediate commands, settings labels and shortcut IDs           | Remaining surfaces; conditional capture/interaction and platform execution review                                        |
-| Fresh light screenshots                              | 126 + 46 desktop and 48 + 44 Android PNG captures, manifests, four real GIFs; nonblank remote-preview frames verified                                          | Remaining conditional surfaces, live game; replace other old references                                                  |
-| Necessary GIFs                                       | Actual automatic-save/undo recordings with reader-controlled playback                                                                                         | Assess graph, structured-editor and game motion                                                                          |
+| Fresh light screenshots                              | 172 desktop and 96 Android PNG captures, manifests, six real GIFs; native game preview and controls now illustrated                                           | Remaining surfaces and old references                                                                                   |
+| Necessary GIFs                                       | Native automatic-save/undo media and two continuous game-preview recordings with reader-controlled playback                                                  | Assess graph and structured-editor motion                                                                               |
 | Rounded/shadowed media                               | 8px radius/shadow and layout checks pass in tested theme/viewport combinations                                                                                | Remaining pages and deployment prefix                                                                                    |
-| Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI boundaries; production replays and 20 real-crypto cross-language cases    | Updater, remaining backend/native depth, TLS/deployment and actual device integration                                    |
+| Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI and updater ownership/activation/overlay/cancellation/integrity; production replays and 20 real-crypto cases | Remaining backend/native depth, TLS/deployment and device integration                                                   |
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
 | Android runs beyond installation                     | Native preview/focus and physical controls verified; two isolated restart-navigation workers return naturally using native capture/input and real OCR        | Business-task completion, unattended operation with other foreground apps, other devices and final integration          |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
-| Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
-| Search/links/media/build                             | 417 browser cases, including 128 device-chart combinations; 74 exported HTML pages; 75-route build                                                            | Recheck after future edits and final deployment                                                                          |
-| Media/content privacy                                | 14 blurred installer captures; two legacy Gaussian-blur repairs; 436 raster files/452 frames checked with local OCR; inventory-bound report/tests            | Further manual review for names, QR codes, private hosts and changed media                                               |
+| Docs mobile/light/dark                               | All 36 content routes: 288 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
+| Search/links/media/build                             | 425 browser cases, including 128 device-chart combinations; 76 exported HTML pages; 77-route build                                                            | Recheck after future edits and final deployment                                                                          |
+| Media/content privacy                                | 14 blurred installer captures, two legacy blur repairs and six blurred native game assets; 442 raster files/576 frames checked with local OCR               | Further manual review for names, QR codes, private hosts and changed media                                               |
 | Final review/delivery                                | Verified incremental checkpoint only                                                                                                                          | Finish full scope, final review and PR                                                                                   |
 
 ## Configuration Checkpoint
@@ -755,6 +758,84 @@ tokens remain outside published assets. Business automation, unattended operatio
 beside other foreground apps, other devices, Root and onscreen-keyboard resize
 remain unverified. The full documentation refresh is still incomplete.
 
+## Android Cold-Start and Numbered-Frame Checkpoint
+
+The independent repair now includes `8e38508f`, which waits for WindowManager
+to register the owned display, verifies the display-scoped rotation lock and
+prevents splash-screen fixed-rotation transforms. Failed setup releases the
+display/capture; there is no fallback to changing the physical display. The
+Shizuku service identity is unchanged and its version is raised to 38.
+Thirty-one native JVM tests pass, including four new rotation-policy cases.
+The installed x86_64 APK SHA-256 is
+`f225eea908752bdb3471ba7b4bc744e721b540ed4c6c7fe8ceb0f11ac4f31672`.
+
+Three game cold starts create distinct displays. The first two steady samples
+record about 30 captured/presented frames per second for 30 seconds; the third
+records 29.999 for 119.836 seconds with 55 distinct two-second image samples.
+Visual review confirms full-width, correctly oriented game content. These
+counters do not measure game-content FPS.
+
+A separate synthetic numbered target is launched after the owned game is
+stopped. Every one of 359 physical-screen video frames decodes a changing source
+frame ID, with the expected target token and zero inputs. Over 11.960 seconds,
+the source-frame-change rate is 29.933/s, maximum gap 67.1ms and p95 gap 33.8ms.
+This checks preview presentation on the emulator's 30Hz physical display, not
+game throughput or a comparison of capture/control methods. An earlier
+pixel-change-threshold heuristic is explicitly discarded because gradual
+animation can be counted as static. Raw footage and the hash-bound checkpoint
+remain private. All demo configurations/events are restored, the fixture and
+game are stopped, and the shared Shizuku server remains unchanged in ADB mode.
+
+## Native Game Media and Updater Documentation
+
+Four light PNGs and two four-second GIFs now illustrate the Android game preview
+and native controls in both app languages. They were physically recorded using
+the earlier `e3ed51d7` / `c345b036...` APK; they have not been relabelled as the
+later rotation-fix build. The GIFs contain 60 frames at 15 FPS. Local Pillow
+Gaussian blur is applied before GIF scaling/palette encoding. PNGs preserve
+every decoded pixel outside the account-identifier region. The six assets and
+all 124 frames are hash-matched to the local OCR review. The complete public
+inventory has 442 raster files / 576 decoded frames and zero unresolved pattern
+findings. The report still leaves full publication review incomplete.
+
+The publisher resolves the recording's immutable Git commit rather than
+requiring that historical commit to stay checked out. Its manifest is written
+with LF bytes to preserve hashes after Git normalization. Re-publication retains
+an existing visual review only when every asset hash is identical; all six
+current assets meet that condition.
+
+`AndroidGameDemo` starts on a static poster and loads motion only on request.
+Eight locale/theme/viewport cases verify actual changing browser pixels,
+play/stop, fixed dimensions, rounded corners/shadows, image zoom and localized
+close/Escape behavior. Troubleshooting anchors and two search queries navigate
+to the Android guide. Instructions now distinguish scheduler stop from closing,
+takeover and restart, explain frame states and OCR ABI selection, and include
+the follow-up cold-start direction repair. The declared API 24 installation
+minimum is distinguished from native capture's API 26 requirement.
+
+The bilingual updater reference adds an interactive workflow diagram and covers
+source ranking, SHA-setting projection, detached process ownership, manual/idle
+stop ordering, delayed Android activation, APK-matched service overlays,
+replacement, cancellation, integrity and recovery. Seventeen implementation
+files match their pinned Git content; all 56 cited source links have valid line
+ranges. This is source inspection. No updater was executed against the shared
+checkouts or emulator to validate these descriptions.
+
+Android's manual repository update skips its common `stopAllTasks` path. Its
+post-sync command ensures the service exists but does not restart Python.
+Even a process restart can use APK-matched `backend-service-overlay` files ahead
+of external service files. The reader guide therefore describes stopping all
+tasks, closing the display and force-stopping/reopening the app after successful
+sync, while checking module origins and client version as well as repository SHA.
+
+Documentation framework labels now follow the route language, including search,
+empty results, TOC, anchor/code copy, sidebar and theme controls. Image-preview
+close controls are localized too. Framework and search path parsing share the
+same English fallback. Eight updater browser cases cover both languages,
+themes and viewports, search navigation, empty results, diagram zoom/reset,
+theme changes and client-side language switching. The existing recognition
+replay passes 96 scenarios and 864 step checks; Service/CLI checks pass 20 cases.
+
 ## Runtime Handles
 
 - Preview: `http://127.0.0.1:4173/`, static server serves `docs/out`.
@@ -777,22 +858,26 @@ remain unverified. The full documentation refresh is still incomplete.
 
 ## Verification Scope
 
-`bun test tests`: 48 tests, including Service/CLI provenance, crypto boundary and diagram/search checks,
+`bun test docs/tests`: 62 tests / 9,148 assertions, including Service/CLI provenance, crypto boundary and diagram/search checks,
 Android game-placement failure/cleanup contracts,
 backend-source/replay contracts and native conditional capture/source/restore,
 field-shape/document,
 complete bilingual TOML, privacy inventory, reader prose, native statistics,
 ordering/output equivalence, device measurement/source/restore checks and
-probe-scope checks. Ten Python frame/HTTP/ownership/observer tests and eight
+probe-scope checks, native media and updater/source/UI contracts. Twelve Python frame/HTTP/ownership/observer/blur tests and eight
 earlier desktop fixture checks also pass. These are docs/benchmark
 harness checks, not a substitute for application or real game tests.
 
-`bun run build`: 75 routes. Static link scan: 74 index HTML pages, excluding the
-separate not-found route. Browser suite: 417 cases (280 render combinations for
-all 35 content routes, nine entry/search/language checks and 128 device-chart
+`bun run build`: 77 routes. Static link scan: 76 index HTML pages. Browser suite:
+425 cases (288 render combinations for all 36 content routes, nine entry/search/language checks and 128 device-chart
 scenario/endpoint/quantile checks), including both architecture diagrams and zoom
 interactions. Static links, anchors and media have zero reported failures. The
 static-link command needs the same optional `PLAYWRIGHT_MODULE` environment
 override as browser smoke checks when Playwright is not installed locally.
 
 Every requirement still listed as remaining is unachieved.
+
+Normal bilingual search and navigation now pass. Transient index-download error
+recovery still needs a separate check: `loadSearchIndexes` currently retains a
+rejected promise in its cache. A successful normal-path search does not cover
+that failure/retry behavior.

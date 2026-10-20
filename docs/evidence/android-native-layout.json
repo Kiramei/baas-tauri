@@ -1,0 +1,143 @@
+{
+  "checkedAt": "2026-10-20T14:24:22.421Z",
+  "cases": 8,
+  "failures": 0,
+  "mediaManifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
+  "sourceRevision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+  "testedSources": {
+    "docs/content/docs/zh/guide/android.mdx": "88bc92fb8b87948c691c5d25e1a705f5ecf00690ff98c0b84c8a606989bd4fbd",
+    "docs/content/docs/zh/reference/troubleshooting.mdx": "8a5d1cd50a515b33211f3b4c99daa441a7a3fe7e21315d21b0b8e030b06ade09",
+    "docs/content/docs/en/guide/android.mdx": "4383ce94bb7ef10a1488f8b8fd9a79503cbdbccddb694b122c6390ec2659cf17",
+    "docs/content/docs/en/reference/troubleshooting.mdx": "25e49bdb645a095db85a19b7f2e4ea07468efd6eb45dd20fd8a7ab1e7edeb20b",
+    "docs/components/AndroidGameDemo.tsx": "43ba360b12f40f02fd9ed0592a30c1e1a431b4a65211901ca135860d200f8c67",
+    "docs/components/ImageZoom.tsx": "4c2772ac94e31551a0cc939cf4766a97befbfb97541bef6f61b54ce7997d5e40",
+    "docs/app/global.css": "63eb4334c3344f0787c114efb4349ad637879e499da6bbb8849880f0d6072fdf",
+    "docs/mdx-components.tsx": "c2d4f664d5c23bd70263a76fab7586b90ff388828682020ee2beb6ebc40b5700"
+  },
+  "results": [
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "nativePosterLoaded": true,
+      "nativeControlsLoaded": true,
+      "motionFramesDiffer": true,
+      "playbackStops": true,
+      "stableDimensions": true,
+      "roundedAndShadowed": true,
+      "imageZoomOpenClose": true,
+      "pageErrors": [],
+      "passed": true
+    }
+  ],
+  "searches": [
+    {
+      "locale": "zh",
+      "query": "画面未更新",
+      "foundAndroidGuide": true
+    },
+    {
+      "locale": "en",
+      "query": "No frame updates",
+      "foundAndroidGuide": true
+    }
+  ]
+}

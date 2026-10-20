@@ -21,6 +21,7 @@ const patterns = [
     /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|baas-shm-/i,
   ],
   ["long-numeric-identifier", /\b\d{12,}\b/],
+  ["game-account-identifier", /\bUID\s*[:：=]?\s*(?:\d[\s-]*){7,}\b/i],
   ["email-address", /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i],
   ["credential-assignment", /\b(?:password|token|secret|api_key|cdk)\s*[=:]\s*\S+/i],
 ];
@@ -131,10 +132,26 @@ const report = {
   publicationReviewComplete: false,
   pendingVisualFindings,
   redaction:
-    "New installer captures use local 12px blur before writing PNGs, including low-effects mode and visible tooltips. Two legacy images use Gaussian blur baked into their PNG pixels; original/output hashes, regions, pixel checks and visual review are recorded separately. Unblurred captures and OCR text are excluded from published assets.",
+    "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",
   limits:
     "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review.",
 };
+const nativeMediaPath = path.join(root, "docs/evidence/android-native-media.json");
+if (existsSync(nativeMediaPath)) {
+  const nativeMedia = JSON.parse(readFileSync(nativeMediaPath, "utf8"));
+  assert.equal(nativeMedia.visualReview?.checked, true, "Review the native game media before publication");
+  assert.equal(nativeMedia.sessionRestored, true);
+  assert.equal(nativeMedia.privacy.pngOutsideChangedPixels, 0);
+  for (const file of nativeMedia.files)
+    assert.equal(inventory.find(item => item.file === file.file)?.sha256, file.sha256, "Native media review is stale");
+  report.nativeGameMedia = {
+    manifestSha256: digest(readFileSync(nativeMediaPath)),
+    reviewedFiles: nativeMedia.files.length,
+    reviewedFrames: nativeMedia.files.reduce((sum, file) => sum + (file.frames ?? 1), 0),
+    pngOutsideChangedPixels: 0,
+    method: nativeMedia.privacy.method,
+  };
+}
 writeFileSync(
   path.join(root, "docs/evidence/privacy-review.json"),
   JSON.stringify(report, null, 2) + "\n"

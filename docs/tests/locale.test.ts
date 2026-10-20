@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectLocale } from "../lib/locale";
+import { detectLocale, localeFromPathname } from "../lib/locale";
 
 describe("documentation entry language", () => {
   test.each([
@@ -15,4 +15,16 @@ describe("documentation entry language", () => {
   ])("preference %p, environment %p -> %s", (preference, languages, expected) => {
     expect(detectLocale(preference, languages as string[])).toBe(expected);
   });
+});
+
+test.each([
+  ["/docs/zh/guide/android/", "zh"],
+  ["/docs/en/reference/updater-internals/", "en"],
+  ["/baas/docs/zh/", "zh"],
+  ["/docs/ja/", "en"],
+  ["/docs/", "en"],
+  ["/", "en"],
+  [null, "en"],
+])("framework and search language for %p -> %s", (pathname, expected) => {
+  expect(localeFromPathname(pathname)).toBe(expected);
 });

@@ -24,6 +24,16 @@
   width: min(100%, 360px);
 }
 
+.baas-android-game-demo {
+  width: min(100%, 360px);
+}
+.baas-android-game-demo img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+}
+
 .baas-motion-demo figcaption {
   display: flex;
   align-items: center;

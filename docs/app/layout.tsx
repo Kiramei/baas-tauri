@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { RootProvider } from "fumadocs-ui/provider/next";
-import { FlexSearchDialog } from "@/components/FlexSearchDialog";
+import { DocsProvider } from "@/components/DocsProvider";
 import { ImageZoom } from "@/components/ImageZoom";
 import "fumadocs-ui/style.css";
 import "./global.css";
@@ -23,10 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <RootProvider search={{ SearchDialog: FlexSearchDialog }}>
+        <DocsProvider>
           {children}
           <ImageZoom />
-        </RootProvider>
+        </DocsProvider>
       </body>
     </html>
   );

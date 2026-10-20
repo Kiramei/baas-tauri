@@ -1,0 +1,578 @@
+{
+  "checkedAt": "2026-10-20T14:13:39.224Z",
+  "verificationKind": "code inspection and pinned Git-content comparison",
+  "runtimeUpdateExecuted": false,
+  "sources": [
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/app.rs",
+      "sha256": "bcbee43758f8d25d6e6f3a889883909d3d7dd17aac16f5d45f7fca7f0ab63b61",
+      "lines": 295,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/workflow.rs",
+      "sha256": "2aaa891bc87589db9d188bd5b1647030ab21aa3853c40c51fc22081459d3eaf3",
+      "lines": 2454,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/environ.rs",
+      "sha256": "f6caccef26e6fd50b7f911f1a2344cbd4d083d02f9951a99458d74f51dba4da3",
+      "lines": 1654,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/repo.rs",
+      "sha256": "8a5cda58b41b9237bf8f45877dc1d4a9d4d7e802fb038a1c54beee95069899d2",
+      "lines": 2668,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/mirrorc.rs",
+      "sha256": "e0cdfd86f16c099bfe05a3c36ca65a7dd4a338804099c247b98ee04a50f7c413",
+      "lines": 928,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "crates/baas-updater/src/constants.rs",
+      "sha256": "8b764f7d6d9495b69cd1da8586518e9ff32119b058b578e0b8bcd82419186954",
+      "lines": 90,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "src-tauri/src/commands.rs",
+      "sha256": "8eb60d17de985e7e2c401ff631ff9a22299aa04e83294e36de21eaac01d8303d",
+      "lines": 2190,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "desktop",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+      "file": "src-tauri/src/lib.rs",
+      "sha256": "db42b8ec7065fb5c3f66b28c86bdbcdfb0eb902c6d8486d3eed6399af7d32631",
+      "lines": 258,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "crates/baas-updater/src/android.rs",
+      "sha256": "3c057fb480e3e2d09d3af5569b8f43391b78c632f5be0b6c179ae2a6db1b61d5",
+      "lines": 1345,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src/components/layout/Sidebar.tsx",
+      "sha256": "bbdd85243d33868f08d90a5c2a6a85632436476b75e01ce75e1eae6736b5342b",
+      "lines": 833,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src-tauri/src/mobile_commands.rs",
+      "sha256": "1d75fff063e562c5e8f1a285afeab3cd40908a2b8e424285b939fd2f30b4c9aa",
+      "lines": 3439,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt",
+      "sha256": "fdba64062e753e186cfda3c39621c679f8628689fb1ac06a53bc693407234fd3",
+      "lines": 383,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py",
+      "sha256": "20ca975d32384423329a2b95058de1afbb0ddf5680c94967e2c20dff52197fec",
+      "lines": 3240,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src/components/IdleBackendUpdater.tsx",
+      "sha256": "73663c14444e360a8798c19ed0cf35cfa07eea5d8a1179cd385caca6f35db010",
+      "lines": 187,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src/shared/IdleUpdateState.ts",
+      "sha256": "18de133d56a64e6a58adc821b041c067f7ac6172239960e77c43a82336124feb",
+      "lines": 76,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "android",
+      "repository": "Kiramei/baas-tauri",
+      "revision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
+      "file": "src/context/TauriSelfUpdateProvider.tsx",
+      "sha256": "9f7926898168f5e09e5b5b37b7aeb35a17fbcb5c638978ed6d3fe0581d13bc72",
+      "lines": 128,
+      "gitContentVerified": true
+    },
+    {
+      "scope": "backend",
+      "repository": "Kiramei/baas-dev",
+      "revision": "d0a86a089068766ff53682b501b90bee99857a71",
+      "file": "service/conf/manager.py",
+      "sha256": "f51721bc8bf30005de5dddcdda4c2263f2250e2bea9fb43a1339e1bf6d4e6211",
+      "lines": 582,
+      "gitContentVerified": true
+    }
+  ],
+  "sourceReferences": [
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L526-L731",
+      "scope": "desktop",
+      "startLine": 526,
+      "endLine": 731
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/app.rs#L223-L279",
+      "scope": "desktop",
+      "startLine": 223,
+      "endLine": 279
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L258-L441",
+      "scope": "desktop",
+      "startLine": 258,
+      "endLine": 441
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L1237-L1289",
+      "scope": "desktop",
+      "startLine": 1237,
+      "endLine": 1289
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/environ.rs#L630-L717",
+      "scope": "desktop",
+      "startLine": 630,
+      "endLine": 717
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1018-L1140",
+      "scope": "desktop",
+      "startLine": 1018,
+      "endLine": 1140
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1997-L2067",
+      "scope": "desktop",
+      "startLine": 1997,
+      "endLine": 2067
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/lib.rs#L193-L244",
+      "scope": "desktop",
+      "startLine": 193,
+      "endLine": 244
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/repo.rs#L29-L160",
+      "scope": "desktop",
+      "startLine": 29,
+      "endLine": 160
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/repo.rs#L340-L454",
+      "scope": "desktop",
+      "startLine": 340,
+      "endLine": 454
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1256-L1286",
+      "scope": "desktop",
+      "startLine": 1256,
+      "endLine": 1286
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/mirrorc.rs#L235-L345",
+      "scope": "desktop",
+      "startLine": 235,
+      "endLine": 345
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/mirrorc.rs#L389-L488",
+      "scope": "desktop",
+      "startLine": 389,
+      "endLine": 488
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L439-L745",
+      "scope": "android",
+      "startLine": 439,
+      "endLine": 745
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L988-L1092",
+      "scope": "android",
+      "startLine": 988,
+      "endLine": 1092
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L251-L307",
+      "scope": "android",
+      "startLine": 251,
+      "endLine": 307
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/components/layout/Sidebar.tsx#L202-L290",
+      "scope": "android",
+      "startLine": 202,
+      "endLine": 290
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/src/mobile_commands.rs#L2789-L2837",
+      "scope": "android",
+      "startLine": 2789,
+      "endLine": 2837
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L199-L241",
+      "scope": "android",
+      "startLine": 199,
+      "endLine": 241
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L304-L324",
+      "scope": "android",
+      "startLine": 304,
+      "endLine": 324
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L783-L829",
+      "scope": "android",
+      "startLine": 783,
+      "endLine": 829
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/src/mobile_commands.rs#L2538-L2672",
+      "scope": "android",
+      "startLine": 2538,
+      "endLine": 2672
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt#L312-L342",
+      "scope": "android",
+      "startLine": 312,
+      "endLine": 342
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/components/IdleBackendUpdater.tsx#L43-L183",
+      "scope": "android",
+      "startLine": 43,
+      "endLine": 183
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/shared/IdleUpdateState.ts#L44-L74",
+      "scope": "android",
+      "startLine": 44,
+      "endLine": 74
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/context/TauriSelfUpdateProvider.tsx#L28-L102",
+      "scope": "android",
+      "startLine": 28,
+      "endLine": 102
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/conf/manager.py#L113-L124",
+      "scope": "backend",
+      "startLine": 113,
+      "endLine": 124
+    },
+    {
+      "page": "docs/content/docs/zh/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/conf/manager.py#L212-L233",
+      "scope": "backend",
+      "startLine": 212,
+      "endLine": 233
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L783-L829",
+      "scope": "android",
+      "startLine": 783,
+      "endLine": 829
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L526-L731",
+      "scope": "desktop",
+      "startLine": 526,
+      "endLine": 731
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/app.rs#L223-L279",
+      "scope": "desktop",
+      "startLine": 223,
+      "endLine": 279
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L258-L441",
+      "scope": "desktop",
+      "startLine": 258,
+      "endLine": 441
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/workflow.rs#L1237-L1289",
+      "scope": "desktop",
+      "startLine": 1237,
+      "endLine": 1289
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/environ.rs#L630-L717",
+      "scope": "desktop",
+      "startLine": 630,
+      "endLine": 717
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1018-L1140",
+      "scope": "desktop",
+      "startLine": 1018,
+      "endLine": 1140
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1997-L2067",
+      "scope": "desktop",
+      "startLine": 1997,
+      "endLine": 2067
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/lib.rs#L193-L244",
+      "scope": "desktop",
+      "startLine": 193,
+      "endLine": 244
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/repo.rs#L29-L160",
+      "scope": "desktop",
+      "startLine": 29,
+      "endLine": 160
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/repo.rs#L340-L454",
+      "scope": "desktop",
+      "startLine": 340,
+      "endLine": 454
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src-tauri/src/commands.rs#L1256-L1286",
+      "scope": "desktop",
+      "startLine": 1256,
+      "endLine": 1286
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/mirrorc.rs#L235-L345",
+      "scope": "desktop",
+      "startLine": 235,
+      "endLine": 345
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/crates/baas-updater/src/mirrorc.rs#L389-L488",
+      "scope": "desktop",
+      "startLine": 389,
+      "endLine": 488
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L439-L745",
+      "scope": "android",
+      "startLine": 439,
+      "endLine": 745
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L988-L1092",
+      "scope": "android",
+      "startLine": 988,
+      "endLine": 1092
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/crates/baas-updater/src/android.rs#L251-L307",
+      "scope": "android",
+      "startLine": 251,
+      "endLine": 307
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/components/layout/Sidebar.tsx#L202-L290",
+      "scope": "android",
+      "startLine": 202,
+      "endLine": 290
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/src/mobile_commands.rs#L2789-L2837",
+      "scope": "android",
+      "startLine": 2789,
+      "endLine": 2837
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L199-L241",
+      "scope": "android",
+      "startLine": 199,
+      "endLine": 241
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py#L304-L324",
+      "scope": "android",
+      "startLine": 304,
+      "endLine": 324
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/src/mobile_commands.rs#L2538-L2672",
+      "scope": "android",
+      "startLine": 2538,
+      "endLine": 2672
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt#L312-L342",
+      "scope": "android",
+      "startLine": 312,
+      "endLine": 342
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/components/IdleBackendUpdater.tsx#L43-L183",
+      "scope": "android",
+      "startLine": 43,
+      "endLine": 183
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/shared/IdleUpdateState.ts#L44-L74",
+      "scope": "android",
+      "startLine": 44,
+      "endLine": 74
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-tauri/blob/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19/src/context/TauriSelfUpdateProvider.tsx#L28-L102",
+      "scope": "android",
+      "startLine": 28,
+      "endLine": 102
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/conf/manager.py#L113-L124",
+      "scope": "backend",
+      "startLine": 113,
+      "endLine": 124
+    },
+    {
+      "page": "docs/content/docs/en/reference/updater-internals.mdx",
+      "url": "https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/conf/manager.py#L212-L233",
+      "scope": "backend",
+      "startLine": 212,
+      "endLine": 233
+    }
+  ],
+  "testedPages": {
+    "docs/content/docs/zh/reference/updater-internals.mdx": "6497cd133e4549c1785ba3e5c7a30db2e63e35fddecd749b4bf7fd82935c1c16",
+    "docs/content/docs/zh/features/update.mdx": "70d118b8d3931b58a247cf81e853657579734ef61225903b13f3dddf59352b95",
+    "docs/content/docs/zh/reference/client-architecture.mdx": "738114f3e2bb0ead293cea8b3add45ee7312603952b5890765b03cf9e35babdf",
+    "docs/content/docs/en/reference/updater-internals.mdx": "3844fcdc378d83f0f4582cb55504ddbbba53f4ad1689e7b228569553666790ab",
+    "docs/content/docs/en/features/update.mdx": "3ef6451ef5b52e94d7b80dca56c8e9deca30e4acb0f7cd6b2b2403eecb72661b",
+    "docs/content/docs/en/reference/client-architecture.mdx": "ebfea2403d550c90ec64ac63d510a04240407397d74c1f63ad8b4551cf6f83f4"
+  },
+  "inspectedBehavior": [
+    "manual-stop ordering",
+    "idle stop and recovery",
+    "detached backend ownership",
+    "source ranking and SHA projection",
+    "desktop Git ancestry guard",
+    "Android certificate callback and hard reset",
+    "MirrorC archive integrity checks",
+    "Android deferred service restart and APK-matched service overlay",
+    "APK signature verification and installer handoff",
+    "non-atomic replacement and cancellation limitations"
+  ],
+  "limitations": [
+    "No updater was executed against the shared workspaces or device",
+    "Source comparison does not establish successful runtime recovery"
+  ]
+}

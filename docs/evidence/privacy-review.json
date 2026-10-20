@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-20T08:32:53.3192880Z",
+  "checkedAt": "2026-10-20T13:10:18.1467148Z",
   "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
-  "imageFiles": 436,
-  "decodedFrames": 452,
+  "imageFiles": 442,
+  "decodedFrames": 576,
   "decodingFailures": 0,
   "unresolvedPatternFindings": 0,
-  "inventorySha256": "037243fc2058b688c888abba5680fa4b943ac6508b150fe046303836398ac14e",
+  "inventorySha256": "8773f0badb58b6419cc58c1a4126fb2a786c0922f2d6f247ed128e9bb9438b25",
   "reviewedFindings": [
     {
       "file": "media/desktop/en/config-emulator.png",
@@ -38,6 +38,13 @@
   ],
   "publicationReviewComplete": false,
   "pendingVisualFindings": [],
-  "redaction": "New installer captures use local 12px blur before writing PNGs, including low-effects mode and visible tooltips. Two legacy images use Gaussian blur baked into their PNG pixels; original/output hashes, regions, pixel checks and visual review are recorded separately. Unblurred captures and OCR text are excluded from published assets.",
-  "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review."
+  "redaction": "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",
+  "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review.",
+  "nativeGameMedia": {
+    "manifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
+    "reviewedFiles": 6,
+    "reviewedFrames": 124,
+    "pngOutsideChangedPixels": 0,
+    "method": "Local Pillow Gaussian blur before PNG publication and before GIF resizing/palette encoding"
+  }
 }
