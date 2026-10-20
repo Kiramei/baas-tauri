@@ -43,7 +43,7 @@ capture privacy checks. This is not the final documentation delivery.
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
 | Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
-| Android runs beyond installation                     | First-run download/auth/config sync, native Shizuku permission, x86_64 display and native control overlay                                                     | Healthy game frame, input, task completion, takeover/restart and background lifecycle                                    |
+| Android runs beyond installation                     | Native preview/focus and physical controls verified; two isolated restart-navigation workers return naturally using native capture/input and real OCR        | Business-task completion, unattended operation with other foreground apps, other devices and final integration          |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 35 content routes: 280 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
 | Search/links/media/build                             | 417 browser cases, including 128 device-chart combinations; 74 exported HTML pages; 75-route build                                                            | Recheck after future edits and final deployment                                                                          |
@@ -655,7 +655,7 @@ The isolated branch contains `20e01805` (native WebView system-bar insets),
 `361c7006` (trusted-display preference, shell fallback, game-task recovery and
 per-display rotation lock), and `35ec1d21` (continuous preview, focus recovery
 and frame-health reporting). Shared desktop/Android branches remain unchanged.
-The final x86_64 validation APK is
+This preview checkpoint's x86_64 validation APK is
 `2ebd266c149b16844aa0a93f20ebbebb211e782eec5d011f33f612af6166afed`.
 The earlier `6b2705bc` checkpoint remains in private cache.
 
@@ -690,6 +690,70 @@ ADB mode, without Root. No public media changes. Full automation-task completion
 unattended operation alongside other foreground apps, other devices and Root
 mode remain unverified. Private frames, logs, source hashes and the detailed
 continuous-preview checkpoint stay in ignored cache.
+
+## Android Runtime Execution Checkpoint
+
+The independent repair branch now includes `d164fb3b` (actual application on
+the owned display), `c708a03a` (OCR process ABI), `87441d39` (tap duration),
+`05901fb2` (no physical-display package fallback), and `3929434e` (explicit
+finger type and released pressure). Shared development checkouts are untouched.
+
+The runtime-validation APK at `3929434e` has SHA-256
+`908baec598364843aff22143171e0cd16e3d4b6b0c9ef6964f8d1517387278a1`.
+Two separately launched `solve/restart` workers use the installed Python
+runtime, authenticated local bridge, Shizuku ADB UID 2000, native screenshots,
+image recognition and game input. Each starts with the owned game stopped on
+an already allocated virtual display. They return naturally in 34.927 and
+37.655 seconds after logging a matched `main_page` feature; neither run needs
+manual game input or a stop command. All 26 business-event switches stay off.
+These are startup/navigation checks, not business-task completion or a timing
+benchmark. A detector return also does not prove every modal has been dismissed.
+
+After profile menus, edit cancellation, Scheduler/Home and physical Home/resume,
+the same game process/display remain active. A 29.713-second independent sample
+records 891 captured and 891 presented frames, about 29.987 FPS, and 15 distinct
+sampled game images. Twelve physical-screen preview crops are all different;
+the smallest consecutive RGB-channel change ratio is 67.30%. This checks the
+rendered preview as well as counters. Thirteen changed source files match Git
+content; the private runtime checkpoint binds their hashes, both worker records,
+frame samples, pixels, tests and restoration.
+
+Earlier failures remain separate: OCR first selected ARM64 libraries in the
+x86_64 app because the emulator reports an ARM kernel; a corrected process-ABI
+selection passes actual English/Chinese OCR self-tests. Two earlier navigation
+attempts time out at the title, and a separate 300ms held-input diagnostic enters
+the game. One intermediate 50ms run succeeds but its repeat times out. Neither
+that isolated success nor the assisted diagnostic is used as the final two-run
+proof. The final single-finger event metadata repair precedes both accepted runs.
+
+`e3ed51d7` retains the existing Shizuku service identity and raises its protocol
+version to 37, so upgrading can replace the old service. Its installed APK is
+`c345b0368a402947622faa109276b79653c4eeeb84b8c8555042f914b6597511`.
+This commit changes only service-version selection/comments; the two navigation
+measurements above remain tied to their original APK, not relabelled as new runs.
+The owned user-service process is automatically replaced after APK installation
+and rebinding; the shared Shizuku server remains running. No manual server restart or Root is
+used. The identity/version behavior follows the
+[Shizuku service manager](https://github.com/RikkaApps/Shizuku-API/blob/master/server-shared/src/main/java/rikka/shizuku/server/UserServiceManager.java).
+After the same lifecycle checks, this upgrade APK records 889 captured and
+presented frames in 29.645 seconds, about 29.988 FPS, with 15 distinct sampled
+images. Its 12 physical preview crops are all different, with at least 68.54%
+of RGB channels changing between consecutive crops. A separate private upgrade
+checkpoint binds this APK/source and restoration to the preceding runtime proof;
+every other implementation file is hash-identical.
+
+Twenty-seven native JVM tests pass. The Android Python suite has 36 passes and
+one explicit skip for an externally supplied update-dialog image fixture; the
+device C++ frame-content test also passes. All 48 documentation tests still pass
+with 8,488 assertions. Reader pages and public media are unchanged in this pass;
+the earlier build/browser evidence has not been presented as a fresh run.
+
+The owned demo's connection fields and initialization-normalized defaults are
+restored against its original backup; other profiles and every event array match
+their backups. Raw game images, account identifiers, complete logs and bridge
+tokens remain outside published assets. Business automation, unattended operation
+beside other foreground apps, other devices, Root and onscreen-keyboard resize
+remain unverified. The full documentation refresh is still incomplete.
 
 ## Runtime Handles
 
