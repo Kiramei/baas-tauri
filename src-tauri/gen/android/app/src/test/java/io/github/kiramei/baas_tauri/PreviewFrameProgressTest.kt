@@ -4,6 +4,31 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PreviewFrameProgressTest {
+  @Test fun textureRedrawsWithoutANewBufferDoNotCountAsDisplayedFrames() {
+    val frames = PreviewDisplayedFrames()
+    frames.record(1000)
+    repeat(20) { frames.record(1000) }
+    assertEquals(1L, frames.count)
+    frames.record(2000)
+    assertEquals(2L, frames.count)
+  }
+
+  @Test fun anUninitializedTextureDoesNotCountAsAFrame() {
+    val frames = PreviewDisplayedFrames()
+    frames.record(0)
+    frames.record(-1)
+    assertEquals(0L, frames.count)
+  }
+
+  @Test fun aNewTextureResetsTheObservedBufferSequence() {
+    val frames = PreviewDisplayedFrames()
+    frames.record(1000)
+    frames.reset()
+    assertEquals(0L, frames.count)
+    frames.record(1000)
+    assertEquals(1L, frames.count)
+  }
+
   @Test fun oldCountersDoNotEstablishLiveness() {
     assertEquals(PreviewFrameState.STILL, PreviewFrameProgress().update(100, 90, 80, true, 1000))
   }

@@ -2,6 +2,20 @@ package io.github.kiramei.baas_tauri
 
 internal enum class PreviewFrameState { WAITING, BLACK, STILL, LIVE }
 
+internal class PreviewDisplayedFrames {
+  var count = 0L
+    private set
+  private var timestamp: Long? = null
+
+  fun reset() { count = 0; timestamp = null }
+
+  fun record(next: Long) {
+    if (next <= 0 || next == timestamp) return
+    timestamp = next
+    count++
+  }
+}
+
 internal class PreviewFrameProgress {
   private var previousCaptured: Long? = null
   private var previousPresented: Long? = null

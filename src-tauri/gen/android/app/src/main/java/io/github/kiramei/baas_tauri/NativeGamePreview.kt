@@ -52,10 +52,10 @@ class NativeGamePreview(private val activity: Activity) {
   private var focusing = false
   private var lastFocusAttempt = -2000L
   private var previewLanguage = "en"
-  private var displayedFrames = 0L
+  private val displayedFrames = PreviewDisplayedFrames()
 
   // Read on the UI thread, alongside TextureView's consumer callback.
-  internal fun displayedFrameCount(): Long = displayedFrames
+  internal fun displayedFrameCount(): Long = displayedFrames.count
 
   init { current = this }
 
@@ -83,13 +83,13 @@ class NativeGamePreview(private val activity: Activity) {
     texture = view
     view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
       override fun onSurfaceTextureAvailable(value: SurfaceTexture, width: Int, height: Int) {
-        displayedFrames = 0
+        displayedFrames.reset()
         surface = Surface(value)
         attach()
       }
       override fun onSurfaceTextureSizeChanged(value: SurfaceTexture, width: Int, height: Int) = Unit
       override fun onSurfaceTextureUpdated(value: SurfaceTexture) {
-        if (visible && !paused && attachedSurface != null) displayedFrames++
+        if (visible && !paused && attachedSurface != null) displayedFrames.record(value.timestamp)
       }
       override fun onSurfaceTextureDestroyed(value: SurfaceTexture): Boolean {
         detach()
