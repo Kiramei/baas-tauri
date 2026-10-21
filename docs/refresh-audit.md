@@ -4,8 +4,9 @@ This ledger preserves the full requested scope. **The refresh is not complete.**
 The current checkpoint updates bilingual feature configuration, settings,
 profiles, runtime, updates, installation/setup and Android provenance. It adds
 actual native status-RPC and larger-config synchronization benchmarks, plus tagged device-capture compatibility
-probes, 800 native-target screenshot measurements and 576 verified input
-measurements. It adds native Android game media, updater internals and localized
+probes, 800 desktop-adapter screenshot measurements and 576 verified input
+measurements, plus 400 Android-local screenshots and 216 Android-local inputs.
+It adds native Android game media, updater internals and localized
 documentation controls, removes reader-facing authoring notes and adds blur-based
 capture privacy checks. This is not the final documentation delivery.
 
@@ -45,7 +46,7 @@ capture privacy checks. This is not the final documentation delivery.
 | Rounded/shadowed media                               | 8px radius/shadow checks across all content routes, root/prefix exports, Windows and Linux                                                                    | Final live deployment and remaining manual review                                                                         |
 | Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI and updater ownership/activation/overlay/cancellation/integrity; production replays and 20 real-crypto cases | Remaining backend/native depth, TLS/deployment and device integration                                                   |
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
-| Rigorous benchmark charts                            | 5,400 native RPC and 5,400 large-config sync samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, binary-image transport, real-game effects and other critical stages                |
+| Rigorous benchmark charts                            | 5,400 native RPC and 5,400 large-config sync samples; desktop adapters: 800 screenshots / 576 inputs; Android-local: 400 screenshots / 216 inputs; raw data, hashes, shared axes, quality/gesture checks | PC-window paths, binary-image transport, other devices, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
 | Android runs beyond installation                     | Current ADB-mode repair passed 112 seconds of title preview, distinct-buffer counts and a 450-frame physical recording; earlier cold-start stall/system crash and SDK display escapes remain unresolved | Resolve startup/placement instability, then verify business tasks, unattended foreground-app switching, other devices and final integration |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
@@ -1089,3 +1090,66 @@ orders. That harness still pins an earlier APK and has not run on the device;
 these tests supply no Android performance measurements. The shared `dev` and
 `android-dev` tips remain unchanged. No Pages deployment or final PR was made,
 and the full remaining scope above is still open.
+
+## Android Local Measurement Checkpoint
+
+The current installed `36f08fd3` / `b1324e14...` APK completed a formal embedded
+Python run with 400 screenshot calls, 216 input calls and 86 retained warm-ups.
+The worker ran in the verified `:baas_backend` process, using the unchanged
+production AndroidLocalScreenshot and Control implementations. Screenshots cover
+both direct adapter calls and the production 0.3-second script wrapper; input
+covers click, swipe and long press. Frame/state tags, calibration colors, the
+static texture ROI, exact input-counter increments and received gestures were
+validated outside the relevant timing boundary.
+
+The user explicitly allowed closing the current game for this measurement.
+One active scheduler was stopped after capturing its configuration and event
+selections. The resulting baseline matches those original selections; tasks
+remain stopped rather than silently resuming account work. All measured input
+went to the separately identified account-free fixture. The game was only
+started to prepare the production display path, then stopped before fixture
+input. No Root or shared Shizuku restart occurred; system and shared-server
+process identities stayed unchanged.
+
+Two earlier probes remain failures: a too-strict light-theme precondition and
+a WebView startup reload invalidating the cached Store reference. The reload
+failure also interrupted automatic cleanup. The exact original entrypoint was
+restored from its verified private backup, measurement files were removed and
+config/event/UI preferences were independently restored before retrying.
+The harness now rediscovers the authenticated Store and restores disk ownership
+before waiting for a reloading WebView. A subsequent 8-capture / 3-input probe
+and the full formal run completed with every restoration check true.
+
+The publisher verifies all measured harness hashes, five native Git objects,
+the APK bytes and fixture sources. Pillow metadata is read from the verified
+APK's nested requirements archive. Actual downloaded backend fingerprints are
+recorded without assigning an unverified full Git revision. Public data excludes
+device serials, process identities, tokens, user configs and private tracebacks.
+All 616 formal calls and 86 warm-ups are retained; the interactive component
+imports only a digest-bound compact summary.
+
+The screenshot-confirmation input endpoint starts its PNG observation only
+after API return. It includes that sequential observer and is not the earliest
+visible response or the same endpoint as the desktop video observer. Zero ROI
+MSE, zero observed repeat counters and zero failures do not establish game FPS,
+game/business-task success, other-device behavior or long-term stability.
+PC-window paths, binary-image transport and the full remaining requirements
+remain unachieved.
+
+## Mixed Chinese Search Correction
+
+The unchanged updater empty-search test reproduced a false positive after the
+numeric benchmark paragraphs were added. FlexSearch's CJK encoder split Latin
+identifiers and numbers into individual characters; the impossible query
+`zz_unmatched_updater_search_49375` matched a performance paragraph. The same
+failure reproduced on an independent strict static host, with no browser error.
+
+The shared encoder now retains individual Han characters but keeps technical
+Latin identifiers and numbers as terms, with repeated-letter and numeric
+splitting disabled. Both the build-time exporter and static client use that
+same encoder. Export/import regression cases cover Chinese, mixed queries,
+case-insensitive identifiers, identifier substrings, numeric versions and
+unrelated queries. Existing browser queries and empty-result assertions remain
+unchanged. Recovery/updater evidence also binds the encoder and exporter source.
+The earlier unrelated preview-server chunk-load timeout is retained separately;
+it was not used to explain away the reproducible false positive.

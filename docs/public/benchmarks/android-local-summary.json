@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "recordSha256": "b10d06ee14a9c7e453a19c0890e83b59630fb733303e8f5c06b850c9cfff7510",
+  "capture": [
+    {
+      "scenario": "static",
+      "method": "adapter",
+      "count": 100,
+      "p50Ms": 33.756085,
+      "p95Ms": 35.264312,
+      "minimumMs": 32.575075,
+      "maximumMs": 36.317245,
+      "meanMs": 33.873265090000004,
+      "zeroSamples": 0,
+      "repeatedFrames": 0,
+      "maximumTextureMse": 0,
+      "failures": 0
+    },
+    {
+      "scenario": "static",
+      "method": "script",
+      "count": 100,
+      "p50Ms": 330.455689,
+      "p95Ms": 331.858764,
+      "minimumMs": 325.960437,
+      "maximumMs": 333.375702,
+      "meanMs": 330.4669413399999,
+      "zeroSamples": 0,
+      "repeatedFrames": 0,
+      "maximumTextureMse": 0,
+      "failures": 0
+    },
+    {
+      "scenario": "animated",
+      "method": "adapter",
+      "count": 100,
+      "p50Ms": 37.14969,
+      "p95Ms": 38.846741,
+      "minimumMs": 36.054617,
+      "maximumMs": 39.712859,
+      "meanMs": 37.29005202000002,
+      "zeroSamples": 0,
+      "repeatedFrames": 0,
+      "maximumTextureMse": 0,
+      "failures": 0
+    },
+    {
+      "scenario": "animated",
+      "method": "script",
+      "count": 100,
+      "p50Ms": 333.999972,
+      "p95Ms": 336.120271,
+      "minimumMs": 332.04612,
+      "maximumMs": 338.166146,
+      "meanMs": 334.12851788,
+      "zeroSamples": 0,
+      "repeatedFrames": 0,
+      "maximumTextureMse": 0,
+      "failures": 0
+    }
+  ],
+  "control": [
+    {
+      "scenario": "click",
+      "api": {
+        "count": 72,
+        "p50Ms": 52.657544,
+        "p95Ms": 53.063561,
+        "minimumMs": 52.411178,
+        "maximumMs": 53.20708,
+        "meanMs": 52.69813520833334,
+        "zeroSamples": 0
+      },
+      "confirmed": {
+        "count": 72,
+        "p50Ms": 156.988578,
+        "p95Ms": 162.031552,
+        "minimumMs": 127.32545,
+        "maximumMs": 169.360614,
+        "meanMs": 156.42404198611115,
+        "zeroSamples": 0
+      },
+      "hold": {
+        "count": 72,
+        "p50Ms": 51,
+        "p95Ms": 51,
+        "minimumMs": 50,
+        "maximumMs": 51,
+        "meanMs": 50.763888888888886,
+        "zeroSamples": 0
+      },
+      "travelPixels": {
+        "minimum": 0,
+        "p50": 0,
+        "maximum": 0
+      },
+      "failures": 0
+    },
+    {
+      "scenario": "swipe",
+      "api": {
+        "count": 72,
+        "p50Ms": 308.043803,
+        "p95Ms": 309.198343,
+        "minimumMs": 307.171613,
+        "maximumMs": 309.699854,
+        "meanMs": 308.0770050416667,
+        "zeroSamples": 0
+      },
+      "confirmed": {
+        "count": 72,
+        "p50Ms": 413.270135,
+        "p95Ms": 417.317692,
+        "minimumMs": 377.74778,
+        "maximumMs": 418.696757,
+        "meanMs": 412.65970620833355,
+        "zeroSamples": 0
+      },
+      "hold": {
+        "count": 72,
+        "p50Ms": 306,
+        "p95Ms": 307,
+        "minimumMs": 305,
+        "maximumMs": 308,
+        "meanMs": 306.2916666666667,
+        "zeroSamples": 0
+      },
+      "travelPixels": {
+        "minimum": 400,
+        "p50": 400,
+        "maximum": 400
+      },
+      "failures": 0
+    },
+    {
+      "scenario": "long_click",
+      "api": {
+        "count": 72,
+        "p50Ms": 308.066891,
+        "p95Ms": 309.144787,
+        "minimumMs": 307.292535,
+        "maximumMs": 310.532457,
+        "meanMs": 308.1750899722222,
+        "zeroSamples": 0
+      },
+      "confirmed": {
+        "count": 72,
+        "p50Ms": 413.172928,
+        "p95Ms": 417.564184,
+        "minimumMs": 378.712768,
+        "maximumMs": 449.018058,
+        "meanMs": 412.3909965416667,
+        "zeroSamples": 0
+      },
+      "hold": {
+        "count": 72,
+        "p50Ms": 306,
+        "p95Ms": 308,
+        "minimumMs": 305,
+        "maximumMs": 309,
+        "meanMs": 306.5,
+        "zeroSamples": 0
+      },
+      "travelPixels": {
+        "minimum": 0,
+        "p50": 0,
+        "maximum": 0
+      },
+      "failures": 0
+    }
+  ]
+}

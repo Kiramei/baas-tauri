@@ -1,11 +1,14 @@
 {
-  "checkedAt": "2026-10-21T03:26:37.676Z",
+  "checkedAt": "2026-10-21T04:40:57.198Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
-    "docs/scripts/check-updater-docs.mjs": "6f62b8f2d0e4aa4f99474000e481371aba41ce50fbce94870533dffc45c75a5c",
+    "docs/scripts/check-updater-docs.mjs": "cfb9c6b8b6fffe424584524d4d60207f990f192a50f520164bdcc1c49d8fb23d",
     "docs/components/DocsProvider.tsx": "5c538f203ae37e2d8df7e5e338632160df3c534e976a82df830b7cc9121b3e36",
     "docs/components/FlexSearchDialog.tsx": "3bf83b71da96d2dd39148c5577e89dc25242af8793fb3f7856c4556c88314db9",
+    "docs/lib/search-index.ts": "ab74a03709a3d808c54155dc54873e2a802c1b4b218698a933594ad090c628d0",
+    "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
+    "docs/app/search-index.json/route.ts": "641e7c40bc4193815ccf6277da7290a95d95f448b307ae9c462252f995a784f0",
     "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
     "docs/app/layout.tsx": "dcda4f0f44a1acb00608b60380c5f3d693cee014eac190309f4bd4aa990f0880",
     "docs/lib/locale.ts": "63bd5a6a7841218a063847bbe1ff4afbdf94d3eed49d1c01277d371b4a9fe1eb",
@@ -13,7 +16,7 @@
     "docs/content/docs/zh/reference/updater-internals.mdx": "6497cd133e4549c1785ba3e5c7a30db2e63e35fddecd749b4bf7fd82935c1c16",
     "docs/content/docs/en/reference/updater-internals.mdx": "3844fcdc378d83f0f4582cb55504ddbbba53f4ad1689e7b228569553666790ab"
   },
-  "searchIndexSha256": "57881e039e535049c1b5fdf6117875141ba6a96b72003734e98fd619f975c889",
+  "searchIndexSha256": "bef31a5bab40153764bd4e5f7c8d9af41e847d7ce1ff25e7efdbbb2642ba1890",
   "results": [
     {
       "locale": "zh",

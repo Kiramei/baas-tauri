@@ -1,5 +1,6 @@
 import Search from "flexsearch";
 import type { Document as FlexSearchDocument } from "flexsearch";
+import { chineseSearchEncoder } from "./search-encoding";
 
 export type SearchDocument = {
   id: string;
@@ -20,7 +21,7 @@ const searchCache = new Map<string, Promise<Map<string, FlexSearchDocument<Searc
 function importDocument(raw: Record<string, string>, locale: string) {
   const document = new Search.Document<SearchDocument>({
     tokenize: "full",
-    encoder: locale === "zh" ? Search.Charset.CJK : undefined,
+    encoder: locale === "zh" ? chineseSearchEncoder : undefined,
     document: { id: "id", index: ["content"], tag: ["tags"], store: true },
   });
   for (const [key, value] of Object.entries(raw)) document.import(key, value);

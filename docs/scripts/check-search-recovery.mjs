@@ -172,6 +172,8 @@ const files = [
   "docs/scripts/check-search-recovery.mjs",
   "docs/components/FlexSearchDialog.tsx",
   "docs/lib/search-index.ts",
+  "docs/lib/search-encoding.ts",
+  "docs/app/search-index.json/route.ts",
 ];
 const sha = (file) =>
   createHash("sha256")

@@ -77,6 +77,32 @@ In this emulator session, uiautomator2's requested 300 ms swipes and long presse
 
 The high-level asynchronous script click wrapper is excluded. No game task, OCR or reward-completion check runs in this target. These results do not establish Android-local/Shizuku performance, PC-window capture performance, real-device battery behavior or task completion time.
 
+## Android Local Screenshots
+
+<AndroidLocalBenchmark locale="en" kind="capture" />
+
+The [complete local record](/benchmarks/android-local-current.json) contains **400 measured screenshots, 216 measured inputs and 86 warm-ups**. Sampling ran inside the actual `:baas_backend` process of BAAS APK `36f08fd3`, on MuMu with Android 15/API 35, x86_64, embedded Python 3.9.20 and NumPy 1.26.2. The verified APK contains Pillow 11.0.0. Shizuku ran as ADB UID 2000 without Root. The target was the separate native fixture above at landscape 1280x720; all business tasks were disabled and no input was sent to the game.
+
+The adapter scope calls production `AndroidLocalScreenshot.screenshot()`, including token-file reading, loopback HTTP/JSON-RPC, Shizuku capture, PNG/Base64, Pillow decoding and the BGR array copy. The script scope calls production `Screenshot.screenshot()` and also includes its **0.3-second interval after the previous script screenshot completes**. Both use the same underlying implementation at different call layers; their timing ratio is not a speed difference between connection methods.
+
+Each scene and scope has ten blocks, with two warm-ups and ten measured calls per block. Scene order and scope order alternate; each scope occupies each position five times per scene. Device guards, scene changes, barcode verification and texture MSE are outside API timing. Raw samples retain the gap since the previous script screenshot completed, separating throttle waiting from capture work.
+
+Every image is checked for its state tag, dimensions, BGR calibration colors and frame counter. The static 260x210 texture region had zero MSE throughout, with no consecutive repeated counters. These checks cover that region and this call cadence, not whole-image equivalence, arbitrary game scenes or other devices. The script medians of approximately 330–334 ms include throttle waiting and cannot be converted into game FPS.
+
+## Android Local Input
+
+<AndroidLocalBenchmark locale="en" kind="control" />
+
+The production `Control` wrapper calls `AndroidLocalControl`. The local bridge requests an approximately 50 ms press for clicks. Swipes run from `(300, 490)` to `(700, 490)`; presses stay at one point. Both request 300 ms. Six permutations rotate across 24 blocks, with three calls per operation per block, producing 72 measurements per operation plus two warm-ups each.
+
+API return and screenshot confirmation share the same on-device monotonic start immediately before the call. **Screenshot confirmation starts sequential PNG capture and barcode decoding only after the input API returns, waiting for exactly one additional input count.** It includes that observation work. This endpoint is not the first changed frame, isolated input-dispatch latency or an endpoint equivalent to the desktop continuous-video observer. Reading the fixture's state file is outside timing and verifies actual press duration and travel.
+
+Median received press duration was 51 ms for clicks and 306 ms for both swipes and presses; all measured swipes travelled 400 px. Validation allows a 20 px swipe endpoint error and at most 3 px movement for clicks/presses; intermediate trajectory shape is not checked. Production waits remain included, and an earlier API return does not establish task completion.
+
+The record retains every sample, warm-up, installed backend-file fingerprint, APK/harness hash and restoration check. Five native/adapter source files match the APK's recorded Git revision. Actual downloaded backend files have separate fingerprints; no complete Git revision is inferred from the archive. Production methods were unchanged. A temporary startup entry ran the measurement thread in the embedded process and was restored afterward.
+
+These are descriptive results from one emulator session, without confidence intervals. No concurrent build or other benchmark ran during sampling; unrelated host load was uncontrolled. Zero failures, fixture input delivery and successful screenshots do not establish stable game startup, business-task success, other-phone behavior or long-running reliability. These results are not combined with the desktop adapters into a universal ranking.
+
 ## Current Frontend Measurements
 
 <BenchmarkChart locale="en" />
@@ -114,6 +140,16 @@ node docs/scripts/publish-native-payload.mjs ".cache/docs-benchmarks/native-payl
 ```
 
 The harness writes timestamped records containing all warm-ups, measured samples and failures, with original files in the matching `-baseline` directory. `--probe` runs a small preflight that cannot be published as a full comparison. Publication rejects incomplete restoration, missing samples, unequal decoded sizes, changed hashes or backend-source mismatches.
+
+The Android local experiment requires the exact pinned APK, an isolated demo and the native fixture, with schedulers, game and updater idle. It temporarily restarts that owned app and adds a measurement entry to its downloaded backend. Do not target everyday data or interrupt an active session without permission.
+
+```powershell
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation" --probe
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation"
+node docs/scripts/publish-android-local.mjs ".cache/android-local-benchmark/<run-id>" "D:/BAAS-android-validation"
+```
+
+Review the preflight and its restoration before a formal run. Each run retains a separate directory. Publication rejects probes, incomplete restoration, missing samples, unequal results and changed measured sources. If recovery fails, inspect the original-entrypoint backup and temporary directory before another run can overwrite evidence.
 
 ## Frontend Measurement Boundaries
 

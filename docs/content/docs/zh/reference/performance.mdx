@@ -77,6 +77,32 @@ MSE 在校准通道顺序后，对比每块中 `(940, 390)` 开始的 260x210 �
 
 本组计时不含脚本上层的异步点击包装，也没有执行游戏任务、OCR 或领奖完成检查。结果不能推算 Android 本地/Shizuku、PC 窗口截图、真机耗电或完整任务耗时。
 
+## Android 本机截图
+
+<AndroidLocalBenchmark locale="zh" kind="capture" />
+
+[本机完整记录](/benchmarks/android-local-current.json)包含 **400 次正式截图、216 次正式输入和 86 次预热**。采样在 BAAS APK `36f08fd3` 的实际 `:baas_backend` 进程中进行，环境为 MuMu、Android 15/API 35、x86_64、内嵌 Python 3.9.20 和 NumPy 1.26.2；核验过的 APK 内含 Pillow 11.0.0。Shizuku 以 ADB 的 UID 2000 运行，未启用 Root。目标为上面的独立测试程序，横屏 1280x720；业务任务全部关闭，没有向游戏发送输入。
+
+底层范围调用生产 `AndroidLocalScreenshot.screenshot()`，包含令牌文件读取、本机 HTTP/JSON-RPC、Shizuku 采集、PNG/Base64、Pillow 解码和 BGR 数组复制。脚本范围调用生产 `Screenshot.screenshot()`，另含从上次脚本截图完成后计算的 **0.3 秒间隔**。两者使用相同的底层实现，属于两个调用层级，不能把耗时之比描述成两种连接方式的速度差。
+
+每个画面、每个层级各测 10 块，每块预热 2 次、正式记录 10 次。静态/运动场景与两个调用层级的先后顺序交替；每种层级在各场景的两个位置各出现五次。采样前的设备检查、场景切换、条码校验与纹理 MSE 均在计时之外。原始数据保留脚本调用前距上次截图完成的间隔，便于区分节流等待与采集成本。
+
+逐次验证画面标签、尺寸、BGR 校准颜色和帧编号。260x210 静态纹理区域的 MSE 均为 0，未观察到连续重复编号；这些结果只适用于该区域和本次调用节奏，不能证明整幅画面、任意游戏场景或其他设备也有相同结果。图中脚本层约 330–334 ms 的中位数包含节流等待，不能据此计算游戏帧率。
+
+## Android 本机输入
+
+<AndroidLocalBenchmark locale="zh" kind="control" />
+
+测试通过生产 `Control` 包装调用 `AndroidLocalControl`。点击由本机桥接请求约 50 ms 的按压；滑动从 `(300, 490)` 到 `(700, 490)`，长按保持同一点，两者请求 300 ms。三个操作按六种排列轮换 24 块，每块每种操作 3 次，合计各 72 次正式样本；每种操作另有 2 次预热。
+
+接口返回和截图确认都从调用前同一个设备端单调时钟开始。**截图确认在输入接口返回后才开始顺序取 PNG、解码条码，直到看到输入计数恰好增加一次**，还包含该观察过程的耗时。因此它是这条确认流程的终点，不能作为第一帧变化时刻、单独的输入分发延迟，或与电脑端连续视频观察器等价的计时终点。目标程序的状态文件读取在计时之外，用于核对按压时长和位移。
+
+目标收到的按压时长中位数为点击 51 ms、滑动和长按各 306 ms；本次滑动位移均为 400 px。校验允许滑动端点误差 20 px，点击/长按最多移动 3 px，不检查中间轨迹。耗时图保留生产等待，不把较早的接口返回当成任务完成。
+
+记录保存全部原始样本、预热、实际后端文件摘要、APK 和测量脚本摘要以及恢复检查。APK 的五个原生/适配器源码文件与对应 Git 提交一致；下载后端的实际文件单独以摘要标识，没有从归档推断完整 Git 版本。生产方法未替换，临时启动入口只在内嵌进程中运行测量线程，结束后已恢复。
+
+这是单个模拟器会话的描述性结果，没有置信区间。测量期间没有并行构建或其他基准测试，主机其他负载未受控制。零失败、测试程序输入到达和截图成功，均不能替代游戏启动稳定性、业务任务、其他手机或长期后台运行的验收；本组结果也不与前面的桌面适配器合成统一排名。
+
 ## 当前前端测量
 
 <BenchmarkChart locale="zh" />
@@ -114,6 +140,16 @@ node docs/scripts/publish-native-payload.mjs ".cache/docs-benchmarks/native-payl
 ```
 
 测量脚本输出带时间戳的记录，保留全部预热、正式样本和失败；基线备份留在同名的 `-baseline` 目录。`--probe` 仅做小规模预跑，其结果不能发布为完整比较。发布器拒绝未恢复、样本缺失、内容大小不一致、摘要变化或后端源码不匹配的记录。
+
+Android 本机实验需要与脚本固定的 APK、独立演示配置和测试程序匹配，且调度、游戏和更新均处于空闲状态。它会临时重启专用应用并在其下载后端加入测量入口，不能指向日常数据或未经允许中断正在运行的会话。
+
+```powershell
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation" --probe
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation"
+node docs/scripts/publish-android-local.mjs ".cache/android-local-benchmark/<run-id>" "D:/BAAS-android-validation"
+```
+
+先审阅预跑及其恢复结果，再做正式测量。脚本保留独立运行目录，发布器拒绝预跑、未恢复、样本缺失、结果不等价或测量源码变化的记录。恢复检查失败时，先检查原始入口备份和临时目录，不要继续运行另一轮覆盖现场。
 
 ## 前端测量边界
 

@@ -15,6 +15,7 @@ on:
       - "!docs/evidence/search-recovery.json"
       - "!docs/evidence/updater-layout.json"
       - "!docs/evidence/native-payload-layout.json"
+      - "!docs/evidence/android-local-layout.json"
       - ".github/workflows/docs-validation.yml"
   pull_request:
     paths:
@@ -57,7 +58,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/docs-browser" --no-audit --no-fund playwright@1.62.1
           "$RUNNER_TEMP/docs-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Check paths and strict static host
-        run: bun test docs/tests/doc-links.test.ts docs/tests/locale.test.ts docs/tests/public-asset-links.test.ts docs/tests/static-export-server.test.ts docs/tests/static-export-normalization.test.ts docs/tests/native-payload.test.ts
+        run: bun test docs/tests/doc-links.test.ts docs/tests/locale.test.ts docs/tests/public-asset-links.test.ts docs/tests/static-export-server.test.ts docs/tests/static-export-normalization.test.ts docs/tests/native-payload.test.ts docs/tests/android-local.test.ts docs/tests/search-encoding.test.ts docs/tests/search-index.test.ts
       - name: Build static export
         working-directory: docs
         env:
@@ -73,6 +74,11 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
           DOCS_BASE_PATH: ${{ matrix.base_path }}
         run: node docs/scripts/check-native-payload.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+      - name: Check Android local benchmark controls
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+          DOCS_BASE_PATH: ${{ matrix.base_path }}
+        run: node docs/scripts/check-android-local.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
       - name: Upload validation evidence
         if: always()
         uses: actions/upload-artifact@v4

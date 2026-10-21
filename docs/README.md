@@ -250,6 +250,53 @@ and `--channel` support the Linux/root/prefix matrix without a routing fallback.
 Its report binds source, data and exported HTML hashes. Source changes require
 rerunning browser checks, not hand-editing the recorded digests.
 
+## Android Local Benchmark
+
+`scripts/measure-android-local.mjs --serial DEVICE --native-root CHECKOUT`
+requires the exact isolated APK/source revision pinned in that harness, the
+installed native fixture, an idle authenticated demo with all 26 events off,
+no existing game/fixture process and no active display/updater workflow. It
+refuses a leftover measurement directory instead of overwriting instrumentation.
+Obtain permission before interrupting any current game/scheduler session.
+
+The harness temporarily disables idle updates and adds a startup hook only to
+the owned downloaded backend's `service/__init__.py`. The worker runs production
+adapters in the real embedded Python process, without replacing their methods.
+The game is launched only to prepare the production display path, then stopped;
+all input targets the account-free native fixture. The small `--probe` run is
+separate from the 400 screenshot / 216 input formal run and cannot be published.
+
+The first probes retained a theme precondition failure and a WebView-reload
+failure. The latter required explicit private entrypoint/state recovery before
+retrying. Startup now rediscovers the authenticated Store after reload; cleanup
+restores the owned disk entrypoint before waiting for a WebView, then reconnects
+to close the display and restore configs/events/UI preferences. Failed reports
+remain separate. Never relabel them as successful samples or leave a hook active.
+
+Publication from the repository root:
+
+```powershell
+node docs/scripts/publish-android-local.mjs RAW_RUN_DIRECTORY NATIVE_CHECKOUT
+node docs/scripts/check-android-local.mjs
+```
+
+The publisher verifies normalized measured harness hashes, five native Git
+objects, the built APK bytes, target sources and embedded worker identity.
+The APK's nested requirements archive supplies the Pillow metadata/version.
+Downloaded backend fingerprints remain distinct from the APK source revision;
+publication does not invent a backend Git revision for an archive installation.
+The full sanitized record retains all 616 formal calls and 86 warm-ups, while
+the client imports only its hash-bound compact summary. Temporary tokens, host
+paths, process identities, user configs and raw traceback text stay private.
+
+The browser check owns a strict temporary server and validates 64 control states
+and eight byte-identical raw-record links across both languages/themes/viewports.
+`--export-dir`, `--base-path` and `--channel` support the root/prefix CI matrix.
+The Python offline tests cover decoding, texture arithmetic, timing endpoints,
+gesture checks and probe/formal counts. None of this establishes game-task
+acceptance or cross-device performance. App preferences may remain dark for
+non-media measurements; published application captures still use light mode.
+
 ## Device Capture Probe
 
 `scripts/probe-device-capture.mjs` uses a temporary tagged canvas in the owned

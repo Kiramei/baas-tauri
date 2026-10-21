@@ -99,6 +99,7 @@ try {
   }
 } finally { await browser.close(); }
 const files = ["docs/scripts/check-updater-docs.mjs", "docs/components/DocsProvider.tsx", "docs/components/FlexSearchDialog.tsx",
+  "docs/lib/search-index.ts", "docs/lib/search-encoding.ts", "docs/app/search-index.json/route.ts",
   "docs/components/LanguageMenu.tsx", "docs/app/layout.tsx", "docs/lib/locale.ts", "docs/lib/ui-translations.ts",
   ...["zh", "en"].map(locale => `docs/content/docs/${locale}/reference/updater-internals.mdx`)];
 const sha = file => createHash("sha256").update(readFileSync(path.join(root, file)).toString().replaceAll("\r\n", "\n")).digest("hex");

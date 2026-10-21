@@ -5,6 +5,7 @@ import { ReleaseDownloadPanel } from "@/components/ReleaseDownloadPanel";
 import { BenchmarkChart } from "@/components/BenchmarkChart";
 import { NativeTransportBenchmark } from "@/components/NativeTransportBenchmark";
 import { NativePayloadBenchmark } from "@/components/NativePayloadBenchmark";
+import { AndroidLocalBenchmark } from "@/components/AndroidLocalBenchmark";
 import { DeviceBenchmark } from "@/components/DeviceBenchmark";
 import { MotionDemo } from "@/components/MotionDemo";
 import { AndroidGameDemo } from "@/components/AndroidGameDemo";
@@ -20,6 +21,7 @@ export const mdxComponents = {
   BenchmarkChart,
   NativeTransportBenchmark,
   NativePayloadBenchmark,
+  AndroidLocalBenchmark,
   DeviceBenchmark,
   MotionDemo,
   AndroidGameDemo,

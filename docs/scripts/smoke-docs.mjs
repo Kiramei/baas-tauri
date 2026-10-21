@@ -275,7 +275,7 @@ try {
                   })
                   .click();
             }
-            for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark:not(.baas-payload-benchmark)", ".baas-payload-benchmark"]) {
+            for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark:not(.baas-payload-benchmark)", ".baas-payload-benchmark", ".baas-android-local-capture", ".baas-android-local-control"]) {
               const chart = page.locator(selector);
               const outputs = await chart.locator("output").allTextContents();
               await chart.getByRole("button", { name: "p95", exact: true }).click();
