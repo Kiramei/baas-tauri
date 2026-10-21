@@ -39,16 +39,19 @@ object ShizukuController {
   private var bindingLatch: CountDownLatch? = null
   private var bindingAttempt = 0
 
-  private val userServiceArgs by lazy {
-    Shizuku.UserServiceArgs(
+  private var cachedUserServiceArgs: Shizuku.UserServiceArgs? = null
+
+  private fun userServiceArgs(context: Context): Shizuku.UserServiceArgs = synchronized(lock) {
+    cachedUserServiceArgs ?: Shizuku.UserServiceArgs(
       ComponentName(BuildConfig.APPLICATION_ID, ShizukuShellService::class.java.name)
     )
       .daemon(true)
       .processNameSuffix("baas_shizuku")
-      // Keep the identity stable so a version bump replaces the previous service.
-      // Bump the version whenever its implementation or Binder contract changes.
+      // The tag stays stable; each APK install must replace a daemon whose
+      // class loader and native-library paths still point at the removed APK.
       .tag("baas-game-service-v36")
-      .version(38)
+      .version(PrivilegedExecution.userServiceVersion(39, context.applicationInfo.sourceDir))
+      .also { cachedUserServiceArgs = it }
   }
 
   fun initialize(context: Context) {
@@ -129,13 +132,14 @@ object ShizukuController {
       bindingLatch = latch
       serviceConnection = connection
       bindingAttempt += 1
-      Shizuku.bindUserService(userServiceArgs, connection)
+      val args = userServiceArgs(context)
+      Shizuku.bindUserService(args, connection)
       if (bindingAttempt <= 2) {
         Handler(Looper.getMainLooper()).postDelayed({
           synchronized(lock) {
             if (service == null && serviceConnection === connection) {
               Log.w("BaasShizuku", "Replacing an unresponsive user service binding")
-              runCatching { Shizuku.unbindUserService(userServiceArgs, connection, true) }
+              runCatching { Shizuku.unbindUserService(args, connection, true) }
               serviceConnection = null
               bindingLatch = null
               latch.countDown()
@@ -347,7 +351,7 @@ object ShizukuController {
         }
       }
       serviceConnection = connection
-      Shizuku.bindUserService(userServiceArgs, connection)
+      Shizuku.bindUserService(userServiceArgs(context), connection)
       if (!latch.await(12, TimeUnit.SECONDS)) {
         throw IllegalStateException("Timed out connecting to the Shizuku user service")
       }
@@ -389,7 +393,9 @@ object ShizukuController {
     serviceConnection = null
     bindingLatch = null
     if (connection != null) {
-      runCatching { Shizuku.unbindUserService(userServiceArgs, connection, true) }
+      cachedUserServiceArgs?.let { args ->
+        runCatching { Shizuku.unbindUserService(args, connection, true) }
+      }
     }
   }
 }

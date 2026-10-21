@@ -9,6 +9,15 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class PrivilegedExecutionTest {
+  @Test fun eachApkInstallationReplacesThePreviousUserService() {
+    val first = PrivilegedExecution.userServiceVersion(39, "/data/app/first/base.apk")
+    assertTrue(first > 0)
+    assertEquals(first, PrivilegedExecution.userServiceVersion(39, "/data/app/first/base.apk"))
+    assertTrue(first != PrivilegedExecution.userServiceVersion(39, "/data/app/second/base.apk"))
+    assertTrue(first != PrivilegedExecution.userServiceVersion(40, "/data/app/first/base.apk"))
+    assertTrue(first != 38)
+  }
+
   @Test fun independentFocusIsRequestedOnlyOnSupportedAndroidVersions() {
     assertEquals(1355, PrivilegedExecution.trustedDisplayFlags(331, 33))
     for (sdk in listOf(34, 35, 36)) {

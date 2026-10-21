@@ -2,6 +2,11 @@ package io.github.kiramei.baas_tauri
 
 /** Policies shared by the Binder service and its isolated display process. */
 internal object PrivilegedExecution {
+  fun userServiceVersion(implementation: Int, apkPath: String): Int {
+    require(implementation > 0 && apkPath.isNotBlank())
+    return ("$implementation:$apkPath".hashCode() and Int.MAX_VALUE).coerceAtLeast(1)
+  }
+
   /** Prefer a trusted display; some Android builds deny that capability to shell. */
   fun trustedDisplayFlags(flags: Int, sdk: Int = 0): Int = flags or (1 shl 10) or
     (if (sdk >= 34) (1 shl 14) or (1 shl 16) else 0)
