@@ -963,9 +963,9 @@ strict suite opens a raw record and compares its received bytes to the export.
 
 The second Linux run, [39449930514](https://github.com/Kiramei/baas-tauri/actions/runs/39449930514),
 passed both jobs at `4bf911f1170eb6683a2e1ac437df4ab08769e7a4`. All four completed
-reports have 334 cases, zero failures and identical source digests. Their source
-files were compared both with the current checkout and the immutable tested Git
-revision. `evidence/deployment-validation.json` retains report digests, grouped
+reports have 334 cases, zero failures and identical source digests. At that
+checkpoint, the report source files matched its checkout and the immutable tested
+Git revision. `evidence/deployment-validation.json` retains report digests, grouped
 counts, artifact identities and the earlier failed Linux run. This proves static
 export behavior under the strict host; it does not claim a live Pages deployment
 or successful game rendering.
@@ -1063,3 +1063,29 @@ acceptance. Three empty crafting-priority fields normalized by backend startup
 were restored to their exact pre-update values; configs and events then matched
 the immediate pre-install baseline. The game/display stayed closed, and shared
 source checkouts were unchanged. No new public media was added.
+
+## Large Config Deployment Verification
+
+Commit `24bc369fd16c33ab06c12308587c16618ce4683a` was pushed to the documentation
+branch. Linux run
+[39541366251](https://github.com/Kiramei/baas-tauri/actions/runs/39541366251)
+completed both root and `/baas-tauri` jobs successfully. Its downloaded artifacts
+were inspected alongside both Windows reports. All four source maps match the
+tested Git objects and the current source files after CRLF/LF normalization.
+
+The four strict deployment reports contain 1,336 cases with zero failures.
+The separate payload reports add 192 verified control states and 32 native
+raw-record navigations, with identical data/summary hashes across platforms and
+prefixes. These counts remain separate in `evidence/deployment-validation.json`.
+The evidence records report digests, GitHub artifact identities and
+GitHub-reported artifact digests without claiming a locally rehashed ZIP.
+The root preview at port 4173 serves the exact published benchmark bytes;
+the alternate prefixed export did not replace that preview.
+
+All 101 documentation tests passed with 9,507 assertions. Five offline Python
+tests for the unfinished Android-local worker also passed, covering frame/color
+decoding, texture arithmetic, timing endpoints, gesture validation and balanced
+orders. That harness still pins an earlier APK and has not run on the device;
+these tests supply no Android performance measurements. The shared `dev` and
+`android-dev` tips remain unchanged. No Pages deployment or final PR was made,
+and the full remaining scope above is still open.
