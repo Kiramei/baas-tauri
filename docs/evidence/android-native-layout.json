@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T15:37:39.427Z",
+  "checkedAt": "2026-10-21T03:20:08.380Z",
   "cases": 8,
   "failures": 0,
   "mediaManifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
@@ -11,8 +11,8 @@
     "docs/content/docs/en/reference/troubleshooting.mdx": "25e49bdb645a095db85a19b7f2e4ea07468efd6eb45dd20fd8a7ab1e7edeb20b",
     "docs/components/AndroidGameDemo.tsx": "43ba360b12f40f02fd9ed0592a30c1e1a431b4a65211901ca135860d200f8c67",
     "docs/components/ImageZoom.tsx": "4c2772ac94e31551a0cc939cf4766a97befbfb97541bef6f61b54ce7997d5e40",
-    "docs/app/global.css": "9a5a6f5c60848f3355309cac43710cb7a32276b34b000af824e10fe79f9a66c8",
-    "docs/mdx-components.tsx": "3a29c334b728f33b66742f010485ba05bbc1db2348d6490462dc17a76c0c4925"
+    "docs/app/global.css": "30e5faf057cf46033aa821ac9eecc952bd526a459e005b39ec8dc94e7945c1c9",
+    "docs/mdx-components.tsx": "acc507f016cfa91beac1a367981e1d70934136ad0bfc521b23ded3a4fc246a6b"
   },
   "results": [
     {

@@ -3,7 +3,7 @@
 This ledger preserves the full requested scope. **The refresh is not complete.**
 The current checkpoint updates bilingual feature configuration, settings,
 profiles, runtime, updates, installation/setup and Android provenance. It adds
-an actual native connection benchmark and tagged device-capture compatibility
+actual native status-RPC and larger-config synchronization benchmarks, plus tagged device-capture compatibility
 probes, 800 native-target screenshot measurements and 576 verified input
 measurements. It adds native Android game media, updater internals and localized
 documentation controls, removes reader-facing authoring notes and adds blur-based
@@ -14,7 +14,7 @@ capture privacy checks. This is not the final documentation delivery.
 - Desktop: `origin/dev` at `be186c524ab9f7a91c41582aec3a5fef06614751`.
 - Android: `origin/android-dev` at `5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78`.
 - Both remote branch tips were rechecked with `git ls-remote` during this checkpoint.
-  The isolated Android repair is now `8e38508f160a29d784125970c2dad00d3c9e347d`.
+  The isolated Android repair is now `36f08fd3` (preview checkpoint `128983b8`).
 - Backend code audit: `baas-dev` at
   `d0a86a089068766ff53682b501b90bee99857a71`. The fresh Android first run
   downloads the configured `master` archive; the new friend-filter omission
@@ -23,7 +23,8 @@ capture privacy checks. This is not the final documentation delivery.
 - Docs checkout: `../baas-tauri-docs`, branch `docs/dev-refresh`.
 - Git cannot create `dev/docs` while `dev` exists. No shared branch was
   renamed/reset; the main checkout remains on its existing fix branch.
-- Docs-checkout edits are confined to `docs/`. Native desktop capture uses
+- Docs-checkout edits are confined to `docs/` and its read-only validation workflow
+  `.github/workflows/docs-validation.yml`. Native desktop capture uses
   `../.codex_tmp/docs-refresh`. Fresh Android builds use a separate checkout,
   `../baas-docs-android-validation`. Baseline captures used `docs/android-validation`;
   the isolated native repair now uses `fix/android-trusted-display-and-insets`.
@@ -44,9 +45,9 @@ capture privacy checks. This is not the final documentation delivery.
 | Rounded/shadowed media                               | 8px radius/shadow checks across all content routes, root/prefix exports, Windows and Linux                                                                    | Final live deployment and remaining manual review                                                                         |
 | Developer principles                                 | Architecture, backend lifecycle/recognition, Service auth/resume/conflict/framing, CLI and updater ownership/activation/overlay/cancellation/integrity; production replays and 20 real-crypto cases | Remaining backend/native depth, TLS/deployment and device integration                                                   |
 | Interactive explanations                             | Working benchmark controls, GIF playback, localized diagram zoom/reset and an evidence-driven recognition trace stepper                                      | Assess further useful diagrams/components                                                                                |
-| Rigorous benchmark charts                            | 5,400 native RPC samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, larger transport payloads, real-game effects and other critical stages                |
+| Rigorous benchmark charts                            | 5,400 native RPC and 5,400 large-config sync samples; 800 screenshot and 576 input samples across four production desktop adapters; raw data, hashes, shared axes, quality/gesture checks | PC-window and Android-local paths, binary-image transport, real-game effects and other critical stages                |
 | APK installed                                        | Fresh pinned-source ARM64 and x86_64 APKs built/installed, hashes and commands recorded                                                                       | Release/real ARM device coverage is not established                                                                      |
-| Android runs beyond installation                     | Historical preview/focus/control and isolated restart-navigation checks passed; the latest cold start stalled and Android's system process crashed          | Resolve current preview failure, then verify business tasks, unattended foreground-app switching, other devices and final integration |
+| Android runs beyond installation                     | Current ADB-mode repair passed 112 seconds of title preview, distinct-buffer counts and a 450-frame physical recording; earlier cold-start stall/system crash and SDK display escapes remain unresolved | Resolve startup/placement instability, then verify business tasks, unattended foreground-app switching, other devices and final integration |
 | Android operation explained                          | Rewritten first-run, exact regional packages, authorization states, read-only preview, shared run slot, lifecycle and notification limitations                | Finish game validation and reconcile remaining settings/update/error details                                             |
 | Docs mobile/light/dark                               | All 36 content routes: 288 render cases across two languages, two themes and two viewport sizes                                                               | Manual semantic/visual review and final deployment                                                                       |
 | Search/links/media/build                             | General/search checks plus 1,336 strict export cases across four OS/prefix variants; 76 exported HTML pages; 77-route build                                    | Recheck after future edits and final live deployment                                                                     |
@@ -976,3 +977,89 @@ preview stopped with browser `ERR_ADDRESS_IN_USE`. Its cause was not established
 the complete rerun passed on a temporary strict host without restarting 4173.
 No emulator operation, application-media capture or performance sampling was
 performed during this deployment checkpoint.
+
+## Large Config Benchmark Checkpoint
+
+The production native sync path now has 5,400 measured full-config pulls and
+1,080 retained warm-ups across WebSocket, Pipe and SHM, with synthetic ASCII
+fields of 1 KiB, 64 KiB and 1 MiB. Six transport permutations and rotating size
+order balance positions. Every reply is validated in full after its Store
+notification is timed. Any unsolicited config reference update fails the block;
+the production protocol has no pull-request ID. This idle, single-request test
+does not establish concurrent-request behavior or binary-image throughput.
+
+The first private SHM probe failed restoration because the release Store's
+remove handler only refreshed the config list. The corrected harness explicitly
+pulls the config around cleanup. Its second probe and the formal run restored
+the exact config/event bytes, production Store content and original SHM mode.
+The failed probe remains separate in ignored cache and is not part of the chart.
+
+`public/benchmarks/native-payload-current.json` retains every sample, block mean,
+source hash and restoration check. Publication verified all ten recorded runtime
+files against backend commit `d0a86a0`, comparing source text after CRLF/LF
+normalization, and rechecked the release executable. The publisher refuses
+changed measured sources rather than replacing their recorded digests. The
+interactive client imports a separate compact summary bound to the raw record.
+
+Both reader languages explain the exact clock endpoint, decoded JSON sizes,
+full-content checks, distinct block-mean scope, timer resolution and inference
+limits. Root-export browser checks passed all 48 size/metric/language/theme/
+viewport combinations plus eight byte-identical native record navigations.
+The Android media and recognition presentation checks were rerun against the
+shared stylesheet/MDX changes; search-recovery and updater checks were rerun
+against the regenerated search index. The general browser suite passed 425
+cases on an owned temporary strict host. The Linux validation workflow now also
+executes the large-config data tests and interactive browser matrix.
+
+PC-window capture/input, Android-local measurement, binary-image transport,
+real-game effects, other critical stages, final reader/privacy review and live
+deployment remain open. The unfinished Android-local harness is still outside
+this checkpoint and uncommitted.
+
+## Android Preview Service Follow-Up
+
+The preview checkpoint used `128983b8cb1317d01ec5f76022ecad3f766892f8`;
+its x86_64 APK SHA-256 was
+`2dc71138540405022d7797f7ef79d2cd2521a52720bb7a7bcaf3a8478e11b8d9`.
+After explicit permission, the shared Shizuku ADB service was restarted once as
+UID 2000; Root stayed disabled and the Android system process did not restart.
+APK upgrades exposed an old BAAS user-service class loader pointing at a removed
+installation. The service version now includes the APK installation path, so
+Shizuku replaces only BAAS's own daemon after an upgrade. Native capture loaded
+successfully afterward without another shared-service restart.
+
+The preview health check now requires capture, successful GPU submission and
+TextureView consumer progress. It counts distinct positive buffer timestamps,
+not repeated redraw callbacks. All 39 native unit tests passed. The final passive
+title-screen observation ran for 111.6 seconds; a 15-second physical display
+recording retained 450 frames and visibly changing game content. UID blur was
+applied locally with Gaussian filtering, with frame count and timestamps
+preserved. The recording remains private diagnostic evidence rather than a new
+public documentation asset or FPS benchmark.
+
+Cold-start loading blackouts, SDK activities briefly launching on display 0 and
+the earlier MuMu window-manager crash remain unresolved. Task recovery returned
+SDK tasks to the virtual display in this observation; that does not prove all
+startup paths are stable. No business task or game input was run. Configs and
+events were compared with the exact baseline, the game/display were closed and
+the owned orphan daemon from the earlier system crash was removed. Shared source
+checkouts and their branches were untouched. Full Android game acceptance is
+still false.
+
+## Android Stop Icon Follow-Up
+
+`36f08fd3` adds the missing destructive-foreground theme token and its white
+value. The focused Tailwind compilation test failed before the fix and passed
+afterward; all 230 frontend tests passed. The Android frontend, embedded Rust
+assets and x86_64 APK were rebuilt. After explicit permission to interrupt the
+open preview, the owned test app was updated to APK SHA-256
+`b1324e14ffda8e5a4a92f726232fdf29f8af7b5021f85f0f1cb8e09097dde321`.
+
+Browser checks cover 24 stop-control states and six unchanged start-control
+states. The installed WebView's stylesheet matches the built bytes; a hidden
+clone of the actual idle button confirms white stop-icon fill and stroke in
+both themes without launching tasks. This is a color check, not fresh game
+acceptance. Three empty crafting-priority fields normalized by backend startup
+were restored to their exact pre-update values; configs and events then matched
+the immediate pre-install baseline. The game/display stayed closed, and shared
+source checkouts were unchanged. No new public media was added.

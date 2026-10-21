@@ -237,10 +237,12 @@
   overflow-x: auto;
   max-width: 100%;
 }
-.baas-device-benchmark table {
+.baas-device-benchmark table,
+.baas-payload-benchmark table {
   font-size: 13px;
 }
-.baas-device-benchmark caption {
+.baas-device-benchmark caption,
+.baas-payload-benchmark caption {
   padding-block: 12px;
   text-align: left;
   color: var(--color-fd-muted-foreground);

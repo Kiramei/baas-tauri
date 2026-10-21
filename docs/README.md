@@ -200,13 +200,55 @@ The validator/tests recompute statistics from every raw sample and reject missin
 samples, failed attempts, changed response sizes or incomplete restoration.
 Source and executable hashes stay with the result. This experiment is a small
 production RPC comparison, not screenshot/input/game performance or a general
-carrier-throughput ranking. Device measurements are reported independently
-below; larger-payload transport comparisons remain outstanding.
+carrier-throughput ranking. Device measurements and the larger JSON workload
+are reported independently below. Binary-image transport remains unmeasured.
 
 The measurement snapshots its harness/statistics SHA-256 before sampling.
 Publication compares those stored hashes with the current files and rejects
 drift. Preserve an older record before rerunning a changed harness; do not bind
 new source hashes to old samples during publication.
+
+## Large Config Synchronization Benchmark
+
+`scripts/measure-native-payload.mjs CDP_PORT DISPOSABLE_PORTABLE_ROOT` uses the
+same ownership/executable/idle-demo guards, then calls the existing production
+sync Store. It temporarily adds synthetic ASCII fields, retaining a byte-exact
+private config/event backup. Every full snapshot must equal the expected config.
+One pull is outstanding; unexpected config updates abort the block. Production
+pulls have no echoed request ID, so the idle-channel assumption is part of the
+measurement boundary, not a concurrency guarantee.
+
+The formal run contains 54 blocks: six balanced transport orders, three modes
+and three rotating payload sizes. Each block has 20 warm-ups and 100 measured
+requests. Notification timing and 20-call block timing have different endpoints.
+The latter includes full-content validation; neither is a game or image test.
+The `--probe` option exercises the path with a small sample set and cannot pass
+the publication gate as a formal comparison.
+
+The first private probe exposed a release Store cleanup detail: a remove push
+refreshes the config list without deleting fields in its cached config. Cleanup
+now pulls a full snapshot before and after removing synthetic fields. The failed
+probe remains separate; a corrected preflight and formal run restored the exact
+config/event bytes, Store content and original SHM mode. Do not reclassify failed
+probes as formal samples.
+
+From the repository root, publication takes the raw timestamped record, the same
+portable runtime and a backend Git checkout:
+
+```powershell
+node docs/scripts/publish-native-payload.mjs RAW_REPORT PORTABLE_ROOT BACKEND_GIT_CHECKOUT
+node docs/scripts/check-native-payload.mjs
+```
+
+The publisher checks measured harness hashes, executable provenance and every
+recorded runtime source against Git objects, with CRLF/LF normalization. It
+writes the full public record plus a hash-bound compact chart summary, so the
+client does not embed all raw samples. The browser check owns a temporary strict
+static host and verifies 48 control states plus eight native raw-record links
+across both languages, themes and viewport sizes. `--base-path`, `--export-dir`
+and `--channel` support the Linux/root/prefix matrix without a routing fallback.
+Its report binds source, data and exported HTML hashes. Source changes require
+rerunning browser checks, not hand-editing the recorded digests.
 
 ## Device Capture Probe
 

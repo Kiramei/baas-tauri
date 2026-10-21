@@ -23,6 +23,22 @@ The observed minimum nonzero `performance.now()` increment was approximately **0
 
 The harness started no concurrent build or other benchmark; other host activity was uncontrolled. This is a descriptive single-host/session result without confidence intervals. Observing zero failures does not establish long-term reliability.
 
+## Large Config Synchronization
+
+<NativePayloadBenchmark locale="en" />
+
+The [complete raw record](/benchmarks/native-payload-current.json) retains another **5,400 measured requests and 1,080 warm-ups**, using the same native Windows release client `be186c5`, backend `d0a86a0` and loopback path. Publication checks all ten recorded backend implementation files against both their measured runtime hashes and the recorded Git revision.
+
+The workload uses production `pull(config)` on the sync channel. A temporary repeating ASCII field contains 1 KiB, 64 KiB or 1 MiB; the backend returns the entire demo config. The decoded full config occupies **11,259, 75,771 or 1,058,811 UTF-8 bytes** as compact JSON. Every reply is checked against the complete expected content. Field size is neither encrypted wire size nor a binary screenshot workload.
+
+Each mode/size combination has six rounds, each with 20 warm-ups and 100 measurements, with one outstanding request. Transport order covers all six permutations; payload sizes rotate so that every size occupies each of the three order positions twice. Config writes, transport restart, authentication and initial synchronization are untimed. Each prepared block settles for one second before warm-up. Cleanup removes the synthetic fields and checks the Store, config and task files, and original transport mode.
+
+An individual measurement starts inside the WebView immediately before production `store.send` and ends at the first production `configStore` reference update for that config. It includes the backend's cached-snapshot deepcopy, JSON, actual carrier, authenticated WebSocket encryption, applicable Rust/WebView bridging and synchronous subscribers preceding this observer. CDP, full-content validation and React painting after notification are outside that endpoint. The separate 20-call block means also include content validation and loop overhead, so their scope differs from individual notification latency.
+
+The production pull protocol does not echo a request ID. This experiment permits one outstanding pull, no concurrent config writes and no running business tasks; any extra config update outside a request fails its block. No failures or unexpected updates occurred. That does not establish concurrent-sync behavior, long-term reliability or other-host performance. The observed timer step is about 0.1 ms, without outlier removal or forced GC. These are descriptive single-host/session results without confidence intervals.
+
+This workload and endpoint differ from the earlier `trigger("status")` experiment. Subtracting their results does not isolate data-copy cost. Image encoding, recognition, game execution and LAN/WAN performance remain outside this test.
+
 ## Screenshot Adapters
 
 <DeviceBenchmark locale="en" kind="capture" />
@@ -89,6 +105,15 @@ node docs/scripts/publish-native-benchmark.mjs
 ```
 
 The harness checks that CDP's storage directory matches the supplied root before restarting its managed backend. Do not target an everyday or shared installation. Measurements first go to ignored `.cache/docs-benchmarks/native-transport.json`; the harness attempts to restore the original mode afterward. Publication rejects incomplete or unrestored runs, missing samples, unequal responses and summaries that cannot be recomputed. Playwright and an actual native WebView are required. Different builds, platforms or workloads need separate version/environment records.
+
+Large-config synchronization has its own harness and also requires a disposable portable copy with an accessible real native WebView. Publication additionally needs a Git checkout containing the recorded backend revision; that checkout is read-only during verification.
+
+```powershell
+node docs/scripts/measure-native-payload.mjs 19235 "D:/BAAS-benchmark"
+node docs/scripts/publish-native-payload.mjs ".cache/docs-benchmarks/native-payload-<timestamp>.json" "D:/BAAS-benchmark" "D:/BAAS-backend"
+```
+
+The harness writes timestamped records containing all warm-ups, measured samples and failures, with original files in the matching `-baseline` directory. `--probe` runs a small preflight that cannot be published as a full comparison. Publication rejects incomplete restoration, missing samples, unequal decoded sizes, changed hashes or backend-source mismatches.
 
 ## Frontend Measurement Boundaries
 

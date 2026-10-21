@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T15:36:49.319Z",
+  "checkedAt": "2026-10-21T03:24:49.241Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
@@ -7,7 +7,7 @@
     "docs/components/FlexSearchDialog.tsx": "3bf83b71da96d2dd39148c5577e89dc25242af8793fb3f7856c4556c88314db9",
     "docs/lib/search-index.ts": "acfd61c1f359674906aec57cae58d091362a130e8cc25bf8d043e4925c81d222"
   },
-  "searchIndexSha256": "98dadc22182442b4d26026747735dc996f390abcac43375256f30f4f6af81f8f",
+  "searchIndexSha256": "57881e039e535049c1b5fdf6117875141ba6a96b72003734e98fd619f975c889",
   "results": [
     {
       "locale": "en",

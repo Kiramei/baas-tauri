@@ -275,7 +275,7 @@ try {
                   })
                   .click();
             }
-            for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark"]) {
+            for (const selector of [".baas-encoding-benchmark", ".baas-transport-benchmark:not(.baas-payload-benchmark)", ".baas-payload-benchmark"]) {
               const chart = page.locator(selector);
               const outputs = await chart.locator("output").allTextContents();
               await chart.getByRole("button", { name: "p95", exact: true }).click();
@@ -283,7 +283,7 @@ try {
               await chart.getByRole("button", { name: "p50", exact: true }).click();
               assert.deepEqual(await chart.locator("output").allTextContents(), outputs);
             }
-            const nativeChart = page.locator(".baas-transport-benchmark");
+            const nativeChart = page.locator(".baas-transport-benchmark:not(.baas-payload-benchmark)");
             assert.deepEqual(
               await nativeChart.locator("output").allTextContents(),
               nativeBenchmark.results.map((result) => result.p50Ms.toFixed(1) + " ms")
