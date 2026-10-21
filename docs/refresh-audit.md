@@ -1153,3 +1153,41 @@ unrelated queries. Existing browser queries and empty-result assertions remain
 unchanged. Recovery/updater evidence also binds the encoder and exporter source.
 The earlier unrelated preview-server chunk-load timeout is retained separately;
 it was not used to explain away the reproducible false positive.
+
+## Android Local Deployment Verification
+
+Commit `437cde931c77ac9d54732862b6735d35ced3e6a1` passed both Windows exports.
+The first Linux run, `39545996256`, passed the prefix job but timed out in the
+root job after clicking a Chinese search result. No page error or failed
+resource request was recorded. The failure artifact and screenshot remain
+separate; its trigger has not been established.
+
+Local CPU-throttled checks completed 20 current-index pointer rounds, 20
+synthetic long-list pointer rounds and 20 synthetic long-list keyboard rounds
+without reproducing that timeout. These are browser diagnostic fixtures, not
+native application captures. With no product, assertion or timeout change, one
+bounded full rerun,
+[39547598569](https://github.com/Kiramei/baas-tauri/actions/runs/39547598569),
+passed both Linux jobs at the same commit. Passing the rerun does not establish
+the original trigger as fixed.
+
+Downloaded reports were compared with both the current source files and tested
+Git objects. Seventeen deployment source bindings now include the index loader,
+shared mixed encoder and exporter. Four strict reports contain 1,336 successful
+cases. Separate chart reports retain 192 large-config and 256 Android-local
+control states, plus 32 raw-record navigations for each dataset. Data and compact
+summary hashes agree across platforms and deployment prefixes. The aggregate
+retains the earlier current-source failure and its unresolved status.
+
+All 107 documentation tests passed with 9,581 assertions, alongside six offline
+Android-worker tests. Current-root search recovery passed 24 cases, updater UI
+passed eight, recognition passed 96 scenarios / 864 steps, the general suite
+passed 425 cases and the static-link scan checked 76 HTML pages. The owned
+measurement entrypoint/directory and config/event/UI preferences were restored;
+the game and fixture were stopped. Shared source branches stayed unchanged.
+
+The existing preview serves both current raw datasets byte-for-byte. No new
+application media, live Pages deployment or final PR was produced. Before live
+rollout, changed-encoder/index cache coherence still needs review; the static
+search URL is not versioned. The unresolved CI timeout and all other remaining
+requirements remain open.
