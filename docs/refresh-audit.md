@@ -1262,3 +1262,20 @@ closing the context. The navigation assertion, click and timeout are unchanged;
 no application handler was modified. The instrumented local Windows prefix
 suite passed all 334 cases, without reproducing the CI symptom. Instrumentation
 can affect timing and a later pass must not be reported as a product fix.
+
+The instrumented harness at `51a423f8` passed both Linux jobs in
+[39554485945](https://github.com/Kiramei/baas-tauri/actions/runs/39554485945).
+Downloaded reports were compared with current source digests: each prefix
+passed 334 navigation/media cases, 48 large-config controls, 64 Android-local
+controls and eight raw-record links per dataset. No application-handler change
+occurred between the failed and passing runs. The earlier failure remains
+unresolved; the historical deployment aggregate at `437cde93` was not relabeled
+as evidence for this revision.
+
+A separate local diagnostic used the real prefixed index, dark desktop mode,
+four-times CPU throttling and an 80 ms pointer hold. All 30 rounds navigated,
+without reproducing the CI symptom. Its private report digest is
+`c85220c11f295617f9015b20e73c90424dbfe1874db39ec16762096724eba2de`.
+These diagnostic rounds and CI checks did not operate the emulator or add
+performance samples. No live Pages deployment, default-branch merge or final
+PR was produced. The active documentation goal remains incomplete.
