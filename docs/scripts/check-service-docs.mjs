@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readSearchArtifact } from "./read-search-artifact.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const base = process.argv[2] || "http://127.0.0.1:4173";
@@ -73,6 +74,8 @@ const sha = (file) => createHash("sha256").update(readFileSync(path.join(root, f
 const files = ["docs/scripts/check-service-docs.mjs", ...["zh", "en"].flatMap((locale) =>
   ["backend-service", "cli-service"].map((route) => `docs/content/docs/${locale}/reference/${route}.mdx`))];
 const report = { checkedAt: new Date().toISOString(), cases: results.length, diagramChecks, failures: 0,
-  testedSources: Object.fromEntries(files.map((file) => [file, sha(file)])), searchIndexSha256: sha("docs/out/search-index.json"), results };
+  testedSources: Object.fromEntries(files.map((file) => [file, sha(file)])),
+  searchIndexPath: readSearchArtifact(path.join(root, "docs/out")).relativePath,
+  searchIndexSha256: readSearchArtifact(path.join(root, "docs/out")).sha256, results };
 writeFileSync(path.join(root, "docs/evidence/service-layout-validation.json"), JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify({ cases: report.cases, diagramChecks, failures: 0 }));

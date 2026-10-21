@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DocsProvider } from "@/components/DocsProvider";
 import { ImageZoom } from "@/components/ImageZoom";
+import { getSearchArtifact } from "@/lib/build-search-index";
 import "fumadocs-ui/style.css";
 import "./global.css";
 
@@ -20,11 +21,16 @@ export const metadata: Metadata = {
 };
 
 /** Renders the root layout component. */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const artifact = await getSearchArtifact();
+  const searchIndex = { revision: artifact.revision, url: `${basePath}/search-index/${artifact.filename}` };
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="baas-search-index" content={searchIndex.url} />
+      </head>
       <body>
-        <DocsProvider>
+        <DocsProvider searchIndex={searchIndex}>
           {children}
           <ImageZoom />
         </DocsProvider>

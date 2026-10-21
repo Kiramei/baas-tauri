@@ -448,6 +448,42 @@ is collected afterward using the configured test interpreter; a null package
 version means that distribution's metadata is unavailable. This does not prove
 a fresh install or all supported Python/platform combinations.
 
+## Search Artifact Coherence
+
+The root layout and static JSON route share `getSearchArtifact()`. Each export
+publishes one `search-index/<revision>.json`; its content address includes the
+serialized indexes and a format descriptor covering the Chinese encoder.
+The page passes that revision/URL to its dialog and exposes the URL in the
+`baas-search-index` meta tag. The unversioned `search-index.json` endpoint is
+removed so old clients cannot import a new encoder's data through that address.
+
+The client checks the envelope revision and format before importing chunks.
+This is deployment/cache coordination, not a signature or an adversarial
+content-integrity guarantee. Successful imports are shared by URL and expected
+revision. Failed imports are evicted; fresh downloads use `no-store`. A missing
+or mismatched artifact offers an explicit document reload, while transient
+network/JSON errors retain the existing retry controls. Reload preserves the
+document URL and persisted language/theme. An already open older client can
+require a full page reload after deployment.
+
+After building, `check-search-cache.mjs` owns a strict local static host and
+checks 24 locale/theme/viewport/scenario combinations. The old-address and
+old-revision fixtures have long-lived cache headers; repeated fetches must
+produce one HTTP request each, proving browser caching is active. Current-page
+queries must use their own artifact and exclude the old marker. Separate 404
+and wrong-revision responses must recover through the localized reload button
+or Enter, with exactly one new download after reload. These controlled failures
+do not reproduce historical clients' JavaScript or establish the cause of the
+separate intermittent result-click timeout.
+
+Run it with `--out OUT --base-path PREFIX --channel msedge` for a local export;
+the Linux matrix uses Chromium. `--report docs/evidence/search-cache-validation.json`
+publishes the root report; every run also retains its report/screenshots under
+ignored deployment cache. `read-search-artifact.mjs` validates the filename,
+payload revision and recomputed content digest. Existing recovery/updater/service
+checks now bind the actual versioned file. Deployment checks verify every page's
+meta URL and reject an accidentally retained unversioned endpoint.
+
 ## Android Preview Source and Browser Checks
 
 The bilingual Android guide and client architecture distinguish capture, EGL

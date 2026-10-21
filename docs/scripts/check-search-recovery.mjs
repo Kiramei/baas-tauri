@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readSearchArtifact } from "./read-search-artifact.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const base = (process.argv[2] || "http://127.0.0.1:4173").replace(/\/$/, "");
@@ -46,7 +47,7 @@ try {
             errors = [];
           let requests = 0;
           page.on("pageerror", (error) => errors.push(String(error)));
-          await context.route("**/search-index.json", async (route) => {
+          await context.route(/\/search-index\/[a-f0-9]{64}\.json$/, async (route) => {
             requests++;
             if (requests > 1) {
               await route.continue();
@@ -173,7 +174,13 @@ const files = [
   "docs/components/FlexSearchDialog.tsx",
   "docs/lib/search-index.ts",
   "docs/lib/search-encoding.ts",
-  "docs/app/search-index.json/route.ts",
+  "docs/lib/search-contract.ts",
+  "docs/lib/search-artifact.server.ts",
+  "docs/lib/build-search-index.ts",
+  "docs/components/DocsProvider.tsx",
+  "docs/app/layout.tsx",
+  "docs/app/search-index/[file]/route.ts",
+  "docs/scripts/read-search-artifact.mjs",
 ];
 const sha = (file) =>
   createHash("sha256")
@@ -187,9 +194,8 @@ writeFileSync(
       cases: results.length,
       failures: 0,
       testedSources: Object.fromEntries(files.map((file) => [file, sha(file)])),
-      searchIndexSha256: createHash("sha256")
-        .update(readFileSync(path.join(root, "docs/out/search-index.json")))
-        .digest("hex"),
+      searchIndexPath: readSearchArtifact(path.join(root, "docs/out")).relativePath,
+      searchIndexSha256: readSearchArtifact(path.join(root, "docs/out")).sha256,
       results,
     },
     null,

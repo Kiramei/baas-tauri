@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import Search from "flexsearch";
 import { chineseSearchEncoder } from "../lib/search-encoding";
 import { loadSearchIndexes, type SearchDocument } from "../lib/search-index";
+import { createSearchArtifact } from "../lib/search-artifact.server";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
@@ -35,9 +36,9 @@ test("mixed Chinese content preserves identifiers and numeric terms after export
   await server.export((key, value) => {
     raw[key] = value;
   });
-  globalThis.fetch = (async () =>
-    Response.json({ type: "i18n", raw: { zh: raw } })) as typeof fetch;
-  const index = (await loadSearchIndexes("https://docs.invalid/mixed-encoding.json")).get("zh")!;
+  const artifact = createSearchArtifact({ type: "i18n", raw: { zh: raw } });
+  globalThis.fetch = (async () => new Response(artifact.json)) as typeof fetch;
+  const index = (await loadSearchIndexes({ url: "https://docs.invalid/" + artifact.filename, revision: artifact.revision })).get("zh")!;
   for (const query of [
     "截图",
     "脚本",

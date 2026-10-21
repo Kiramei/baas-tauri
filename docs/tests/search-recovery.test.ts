@@ -13,7 +13,8 @@ test("search recovery is verified against the current client and exported index"
   for (const [file, expected] of Object.entries(report.testedSources)) {
     expect(sha(read(file).toString().replaceAll("\r\n", "\n"))).toBe(expected);
   }
-  expect(report.searchIndexSha256).toBe(sha(read("docs/out/search-index.json")));
+  expect(report.searchIndexPath).toMatch(/^search-index\/[a-f0-9]{64}\.json$/);
+  expect(report.searchIndexSha256).toBe(sha(read("docs/out/" + report.searchIndexPath)));
   const combinations = new Set<string>();
   const retryMethods = new Set<string>();
   for (const result of report.results) {

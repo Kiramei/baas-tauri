@@ -1,15 +1,22 @@
 {
-  "checkedAt": "2026-10-21T05:53:25.344Z",
+  "checkedAt": "2026-10-21T06:49:32.735Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
-    "docs/scripts/check-search-recovery.mjs": "401d629f282d543c2d28dfcdb5448dc93b82d8930b8b6b06fa7143bd96dc2587",
-    "docs/components/FlexSearchDialog.tsx": "3bf83b71da96d2dd39148c5577e89dc25242af8793fb3f7856c4556c88314db9",
-    "docs/lib/search-index.ts": "ab74a03709a3d808c54155dc54873e2a802c1b4b218698a933594ad090c628d0",
+    "docs/scripts/check-search-recovery.mjs": "f83a5d097610f8f49ad8b09c9960a4cf9b3eb6505b72cedc445dfa38d98605ee",
+    "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
+    "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
-    "docs/app/search-index.json/route.ts": "641e7c40bc4193815ccf6277da7290a95d95f448b307ae9c462252f995a784f0"
+    "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
+    "docs/lib/search-artifact.server.ts": "b73ef64b7b1217030f608547cd3362b2f692744cad6cc017d775d777e76b6467",
+    "docs/lib/build-search-index.ts": "445648a8138806d26c77d619b7284b1f8aa876cfdf610d08b26fd9546113f638",
+    "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
+    "docs/app/layout.tsx": "007e53e4803b4559878f20329d8a934c65d539261bbcb55c2fefb492df32f600",
+    "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
+    "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d"
   },
-  "searchIndexSha256": "cdf8d95c8384cf0b6443d1dbb02d1c8fe12fa6f556c8c8363286bd3750174557",
+  "searchIndexPath": "search-index/cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6.json",
+  "searchIndexSha256": "e890904fdd24d3a3ac3a602fc61c904a71879d0bc1733d77f639b993e83a2cf8",
   "results": [
     {
       "locale": "en",

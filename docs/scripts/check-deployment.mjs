@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { createExportServer } from "./static-export-server.mjs";
+import { readSearchArtifact } from "./read-search-artifact.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const { values } = parseArgs({
@@ -20,6 +21,7 @@ const { values } = parseArgs({
 });
 const out = path.resolve(root, values.out),
   basePath = values["base-path"];
+const searchIndex = readSearchArtifact(out);
 const cache = path.join(
   root,
   ".cache/deployment",
@@ -41,7 +43,13 @@ const sourceFiles = [
   "docs/lib/remark-doc-links.mjs",
   "docs/lib/search-index.ts",
   "docs/lib/search-encoding.ts",
-  "docs/app/search-index.json/route.ts",
+  "docs/lib/search-contract.ts",
+  "docs/lib/search-artifact.server.ts",
+  "docs/lib/build-search-index.ts",
+  "docs/app/search-index/[file]/route.ts",
+  "docs/components/DocsProvider.tsx",
+  "docs/components/FlexSearchDialog.tsx",
+  "docs/scripts/read-search-artifact.mjs",
   "docs/components/LocaleEntry.tsx",
   "docs/components/LanguageMenu.tsx",
   "docs/components/DocumentationLink.tsx",
@@ -95,6 +103,8 @@ try {
             const pathname = `/docs/${locale}/${route ? route + "/" : ""}`;
             assert.equal((await page.goto(site + pathname)).status(), 200);
             await page.locator("h1").waitFor();
+            assert.equal(await page.locator('meta[name="baas-search-index"]').getAttribute("content"),
+              `${basePath}/${searchIndex.relativePath}`);
             await page.waitForFunction(
               (dark) => document.documentElement.classList.contains("dark") === dark,
               theme === "dark"
@@ -328,6 +338,9 @@ try {
         await context.close();
       }
     }
+  assert.equal((await fetch(site + "/search-index.json")).status, 404,
+    "The unversioned endpoint must not serve a new index to an old client");
+  cases.push({ kind: "search-artifact", revision: searchIndex.revision });
   const cssFiles = readdirSync(path.join(out, "_next/static/chunks")).filter((file) =>
     file.endsWith(".css")
   );
@@ -353,7 +366,9 @@ try {
     cases,
     caseCount: cases.length,
     failures,
-    searchIndexSha256: hash(readFileSync(path.join(out, "search-index.json"))),
+    searchIndexPath: searchIndex.relativePath,
+    searchIndexRevision: searchIndex.revision,
+    searchIndexSha256: searchIndex.sha256,
   };
   await writeFile(path.join(cache, "results.json"), JSON.stringify(report, null, 2) + "\n");
   if (values.report)

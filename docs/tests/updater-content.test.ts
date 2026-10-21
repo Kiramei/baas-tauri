@@ -61,7 +61,8 @@ test("updater diagrams, localized framework UI, search and language switching pa
   expect(layout.failures).toBe(0);
   expect(layout.results).toHaveLength(8);
   for (const [file, expected] of Object.entries(layout.testedSources)) expect(sha(read(file))).toBe(expected);
-  expect(layout.searchIndexSha256).toBe(sha(read("docs/out/search-index.json")));
+  expect(layout.searchIndexPath).toMatch(/^search-index\/[a-f0-9]{64}\.json$/);
+  expect(layout.searchIndexSha256).toBe(sha(read("docs/out/" + layout.searchIndexPath)));
   const combinations = new Set<string>();
   for (const result of layout.results) {
     for (const field of ["searchNavigated", "emptySearchTranslated", "frameworkLabelsTranslated", "clientLanguageSwitch",

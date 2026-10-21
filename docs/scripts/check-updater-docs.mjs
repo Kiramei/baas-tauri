@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readSearchArtifact } from "./read-search-artifact.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const base = process.argv[2] || "http://127.0.0.1:4173";
@@ -99,11 +100,14 @@ try {
   }
 } finally { await browser.close(); }
 const files = ["docs/scripts/check-updater-docs.mjs", "docs/components/DocsProvider.tsx", "docs/components/FlexSearchDialog.tsx",
-  "docs/lib/search-index.ts", "docs/lib/search-encoding.ts", "docs/app/search-index.json/route.ts",
+  "docs/lib/search-index.ts", "docs/lib/search-encoding.ts", "docs/lib/search-contract.ts",
+  "docs/lib/search-artifact.server.ts", "docs/lib/build-search-index.ts", "docs/app/search-index/[file]/route.ts",
+  "docs/scripts/read-search-artifact.mjs",
   "docs/components/LanguageMenu.tsx", "docs/app/layout.tsx", "docs/lib/locale.ts", "docs/lib/ui-translations.ts",
   ...["zh", "en"].map(locale => `docs/content/docs/${locale}/reference/updater-internals.mdx`)];
 const sha = file => createHash("sha256").update(readFileSync(path.join(root, file)).toString().replaceAll("\r\n", "\n")).digest("hex");
 writeFileSync(path.join(root, "docs/evidence/updater-layout.json"), JSON.stringify({ checkedAt: new Date().toISOString(),
   cases: results.length, failures: 0, testedSources: Object.fromEntries(files.map(file => [file, sha(file)])),
-  searchIndexSha256: createHash("sha256").update(readFileSync(path.join(root, "docs/out/search-index.json"))).digest("hex"), results }, null, 2) + "\n");
+  searchIndexPath: readSearchArtifact(path.join(root, "docs/out")).relativePath,
+  searchIndexSha256: readSearchArtifact(path.join(root, "docs/out")).sha256, results }, null, 2) + "\n");
 console.log(JSON.stringify({ cases: results.length, failures: 0 }));

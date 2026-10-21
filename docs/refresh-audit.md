@@ -1279,3 +1279,43 @@ without reproducing the CI symptom. Its private report digest is
 These diagnostic rounds and CI checks did not operate the emulator or add
 performance samples. No live Pages deployment, default-branch merge or final
 PR was produced. The active documentation goal remains incomplete.
+
+## Content-Addressed Search Index Checkpoint
+
+The unversioned search endpoint is removed. A shared server builder creates a
+content-addressed JSON artifact from the serialized index data and an encoder
+format descriptor. Static pages carry the same revision/URL through the root
+provider and a meta tag. The client checks the envelope before importing it,
+separates cache entries by URL and expected revision, and avoids the browser
+HTTP cache when downloading. This coordinates deployment versions; it is not
+an adversarial signature or a client-side cryptographic integrity check.
+
+Missing or mismatched artifacts now offer a localized explicit page reload,
+including Enter from the input. Network, HTTP 503, invalid JSON and invalid
+chunk data retain retry behavior and failure eviction. The legacy endpoint
+does not hand newly encoded data to an older client; existing older JavaScript
+may require a manual full-page refresh after the transition.
+
+Both Windows exports built 77 routes and produced the same current artifact
+revision `cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6`.
+Each passed 24 real-browser cache/reload cases and 335 strict deployment cases.
+The cache negative control primes both an old content address and the legacy
+address with long-lived HTTP headers; repeated fetches produce one request
+each, confirming actual browser-cache use without Playwright routing. Current
+queries still use the page's own artifact. Separate wrong-revision and 404
+responses recover through button or Enter reload with a fresh download.
+
+The root suite also passed 24 transient search-recovery cases, eight updater
+cases, 20 service cases with 16 diagram interactions, eight Android-media cases,
+eight Android diagnostics, eight preview diagrams and two Android search
+navigations. General smoke passed 425 cases and links passed 76 pages. All 120
+documentation tests passed with 9,929 assertions. The current preview serves
+the exact versioned JSON bytes and returns 404 for the legacy URL.
+
+The Linux matrix now includes the cache cases for both deployment paths.
+The public cache report is the root run; the prefix run is retained privately.
+Only documentation application code, tests and maintenance records changed.
+No emulator, game, scheduler, Shizuku service or shared development checkout
+was modified. No new public application media or performance samples were
+created. The separate intermittent result-click failure remains unresolved,
+alongside Android startup/preview stability and the full remaining scope.

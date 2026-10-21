@@ -1,16 +1,17 @@
 {
-  "checkedAt": "2026-10-20T15:05:58.223Z",
+  "checkedAt": "2026-10-21T06:50:13.018Z",
   "cases": 20,
   "diagramChecks": 16,
   "failures": 0,
   "testedSources": {
-    "docs/scripts/check-service-docs.mjs": "3fb07ff1b419d429e2aff7933ddc8d93f39b4567feaf5051ec78184e3c5e6277",
+    "docs/scripts/check-service-docs.mjs": "645a641fcf8fba9cf407e22e4f59a7dfed2ed01ac3bdd9d2cd4a25ca9f8c8ef2",
     "docs/content/docs/zh/reference/backend-service.mdx": "02e6c305408411192e987e94954d8e6b011e7578ab4b714be5d3595b5b1d285b",
     "docs/content/docs/zh/reference/cli-service.mdx": "f7dcdb9c19aed75203f5a615e1726ae8d858af35854164193ab55594294d867d",
     "docs/content/docs/en/reference/backend-service.mdx": "33c23e1ace0af965f0a238592e21bbee663300e7096ade6f2dbb174483cd114d",
     "docs/content/docs/en/reference/cli-service.mdx": "c67f080e41c978edf3fcad1dee35131398b2962c7642473221b8eb00299bd095"
   },
-  "searchIndexSha256": "5a60ed13d1fbbf322a164101657d04e5f29f1de628a95a36e50fdb8712ec78e0",
+  "searchIndexPath": "search-index/cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6.json",
+  "searchIndexSha256": "e890904fdd24d3a3ac3a602fc61c904a71879d0bc1733d77f639b993e83a2cf8",
   "results": [
     {
       "kind": "render",

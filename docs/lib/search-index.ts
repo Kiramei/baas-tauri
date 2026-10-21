@@ -1,6 +1,7 @@
 import Search from "flexsearch";
 import type { Document as FlexSearchDocument } from "flexsearch";
 import { chineseSearchEncoder } from "./search-encoding";
+import { parseSearchPayload, SearchIndexChangedError, type SearchIndexReference } from "./search-contract";
 
 export type SearchDocument = {
   id: string;
@@ -11,10 +12,6 @@ export type SearchDocument = {
   tags: string[];
   url: string;
 };
-
-type ExportedSearchData =
-  | { type: "default"; raw: Record<string, string> }
-  | { type: "i18n"; raw: Record<string, Record<string, string>> };
 
 const searchCache = new Map<string, Promise<Map<string, FlexSearchDocument<SearchDocument>>>>();
 
@@ -28,14 +25,16 @@ function importDocument(raw: Record<string, string>, locale: string) {
   return document;
 }
 
-export function loadSearchIndexes(from: string) {
-  const cached = searchCache.get(from);
+export function loadSearchIndexes(reference: SearchIndexReference) {
+  const key = JSON.stringify([reference.url, reference.revision]);
+  const cached = searchCache.get(key);
   if (cached) return cached;
 
-  const loaded = fetch(from)
+  const loaded = fetch(reference.url, { cache: "no-store" })
     .then(async (res) => {
-      if (!res.ok) throw new Error(`Failed to fetch exported search indexes from ${from}.`);
-      const data = (await res.json()) as ExportedSearchData;
+      if (res.status === 404) throw new SearchIndexChangedError();
+      if (!res.ok) throw new Error(`Failed to fetch exported search indexes from ${reference.url}.`);
+      const data = parseSearchPayload(await res.json(), reference.revision);
       const indexes = new Map<string, FlexSearchDocument<SearchDocument>>();
       if (data.type === "i18n") {
         for (const [locale, raw] of Object.entries(data.raw)) {
@@ -47,10 +46,10 @@ export function loadSearchIndexes(from: string) {
       return indexes;
     })
     .catch((error: unknown) => {
-      if (searchCache.get(from) === loaded) searchCache.delete(from);
+      if (searchCache.get(key) === loaded) searchCache.delete(key);
       throw error;
     });
 
-  searchCache.set(from, loaded);
+  searchCache.set(key, loaded);
   return loaded;
 }

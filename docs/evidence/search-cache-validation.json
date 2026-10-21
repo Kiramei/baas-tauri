@@ -1,0 +1,411 @@
+{
+  "checkedAt": "2026-10-21T06:45:05.546Z",
+  "platform": "win32",
+  "basePath": "",
+  "scope": "Real browser HTTP cache, stale-revision rejection and reload recovery; no game or emulator operated",
+  "cases": 24,
+  "failures": 0,
+  "searchIndexPath": "search-index/cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6.json",
+  "searchIndexRevision": "cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6",
+  "searchIndexSha256": "e890904fdd24d3a3ac3a602fc61c904a71879d0bc1733d77f639b993e83a2cf8",
+  "testedSources": {
+    "docs/scripts/check-search-cache.mjs": "ce161a7839e7d09adc2922bb6f15da4768ffa6467b1fb68c1f5479300a031b99",
+    "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
+    "docs/scripts/static-export-server.mjs": "f5a38b114121acd15f22d7d62eb197897237144e09b56f02940a4b1716305f2f",
+    "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
+    "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
+    "docs/lib/search-artifact.server.ts": "b73ef64b7b1217030f608547cd3362b2f692744cad6cc017d775d777e76b6467",
+    "docs/lib/build-search-index.ts": "445648a8138806d26c77d619b7284b1f8aa876cfdf610d08b26fd9546113f638",
+    "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
+    "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
+    "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
+    "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
+    "docs/app/layout.tsx": "007e53e4803b4559878f20329d8a934c65d539261bbcb55c2fefb492df32f600"
+  },
+  "results": [
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "revision",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "revision",
+      "recovery": "enter-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "revision",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "revision",
+      "recovery": "enter-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "revision",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "revision",
+      "recovery": "enter-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "revision",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "cached-old",
+      "recovery": "none",
+      "requests": {
+        "current": 1,
+        "old": 1,
+        "legacy": 1
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "missing",
+      "recovery": "button-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "revision",
+      "recovery": "enter-reload",
+      "requests": {
+        "current": 2,
+        "old": 0,
+        "legacy": 0
+      },
+      "currentResultsFound": true,
+      "oldMarkerAbsent": true,
+      "pageErrors": [],
+      "passed": true
+    }
+  ]
+}

@@ -13,6 +13,7 @@ on:
       - "!docs/evidence/android-native-layout.json"
       - "!docs/evidence/recognition-layout-validation.json"
       - "!docs/evidence/search-recovery.json"
+      - "!docs/evidence/search-cache-validation.json"
       - "!docs/evidence/updater-layout.json"
       - "!docs/evidence/native-payload-layout.json"
       - "!docs/evidence/android-local-layout.json"
@@ -58,7 +59,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/docs-browser" --no-audit --no-fund playwright@1.62.1
           "$RUNNER_TEMP/docs-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Check paths and strict static host
-        run: bun test docs/tests/doc-links.test.ts docs/tests/locale.test.ts docs/tests/public-asset-links.test.ts docs/tests/static-export-server.test.ts docs/tests/static-export-normalization.test.ts docs/tests/native-payload.test.ts docs/tests/android-local.test.ts docs/tests/search-encoding.test.ts docs/tests/search-index.test.ts
+        run: bun test docs/tests/doc-links.test.ts docs/tests/locale.test.ts docs/tests/public-asset-links.test.ts docs/tests/static-export-server.test.ts docs/tests/static-export-normalization.test.ts docs/tests/native-payload.test.ts docs/tests/android-local.test.ts docs/tests/search-encoding.test.ts docs/tests/search-index.test.ts docs/tests/search-artifact.test.ts docs/tests/search-cache.test.ts
       - name: Build static export
         working-directory: docs
         env:
@@ -69,6 +70,11 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
           DOCS_BASE_PATH: ${{ matrix.base_path }}
         run: node docs/scripts/check-deployment.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+      - name: Check search cache and reload recovery
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+          DOCS_BASE_PATH: ${{ matrix.base_path }}
+        run: node docs/scripts/check-search-cache.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
       - name: Check large-config benchmark controls
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { localeFromPathname } from "@/lib/locale";
 import { loadSearchIndexes, type SearchDocument } from "@/lib/search-index";
+import { SearchIndexChangedError, type SearchIndexReference } from "@/lib/search-contract";
 import { RotateCw } from "lucide-react";
 import { createContentHighlighter } from "fumadocs-core/search";
 import { useDocsSearch, type SearchClient } from "fumadocs-core/search/client";
@@ -22,19 +23,17 @@ import {
 import type { SearchLink, SharedProps } from "fumadocs-ui/contexts/search";
 
 type FlexSearchDialogProps = SharedProps & {
+  searchIndex: SearchIndexReference;
   links?: SearchLink[];
   delayMs?: number;
   footer?: ReactNode;
 };
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const searchIndexUrl = `${basePath}/search-index.json`;
-
-function createSearchClient(locale: string, retry: number): SearchClient {
+function createSearchClient(locale: string, retry: number, searchIndex: SearchIndexReference): SearchClient {
   return {
-    deps: [searchIndexUrl, locale, retry],
+    deps: [searchIndex.url, searchIndex.revision, locale, retry],
     async search(query) {
-      const indexes = await loadSearchIndexes(searchIndexUrl);
+      const indexes = await loadSearchIndexes(searchIndex);
       const index = indexes.get(locale) ?? indexes.get("");
       if (!index) return [];
 
@@ -82,17 +81,20 @@ function createSearchClient(locale: string, retry: number): SearchClient {
   };
 }
 
-export function FlexSearchDialog({ links = [], delayMs, footer, ...props }: FlexSearchDialogProps) {
+export function FlexSearchDialog({ searchIndex, links = [], delayMs, footer, ...props }: FlexSearchDialogProps) {
   const pathname = usePathname();
   const locale = localeFromPathname(pathname);
   const [retry, setRetry] = useState(0);
   const { search, setSearch, query } = useDocsSearch({
-    client: createSearchClient(locale, retry),
+    client: createSearchClient(locale, retry, searchIndex),
     delayMs,
   });
   const failed = Boolean(query.error) && search.length > 0;
-  const retryLabel = locale === "zh" ? "重新搜索" : "Retry search";
-  const retrySearch = () => setRetry((value) => value + 1);
+  const changed = query.error instanceof SearchIndexChangedError;
+  const retryLabel = changed
+    ? (locale === "zh" ? "重新加载文档" : "Reload documentation")
+    : (locale === "zh" ? "重新搜索" : "Retry search");
+  const retrySearch = () => changed ? window.location.reload() : setRetry((value) => value + 1);
 
   const defaultItems = useMemo(() => {
     if (links.length === 0) return null;
@@ -132,7 +134,9 @@ export function FlexSearchDialog({ links = [], delayMs, footer, ...props }: Flex
             className="flex items-center justify-between gap-3 p-4 text-sm text-fd-muted-foreground"
           >
             <span>
-              {locale === "zh" ? "搜索暂时不可用。" : "Search is temporarily unavailable."}
+              {changed
+                ? (locale === "zh" ? "此页的搜索索引已不可用。" : "The search index for this page is no longer available.")
+                : (locale === "zh" ? "搜索暂时不可用。" : "Search is temporarily unavailable.")}
             </span>
             <button
               type="button"
