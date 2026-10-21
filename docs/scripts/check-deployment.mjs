@@ -229,6 +229,21 @@ try {
             "Documentation navigation must not fall back to a full reload"
           );
           cases.push({ kind: "client-navigation", locale, theme, mobile });
+          await page.evaluate(() => {
+            window.__deploymentSearchEvents = [];
+            const record = (event) => {
+              const events = window.__deploymentSearchEvents;
+              if (events.length >= 200) return;
+              const target = event.target instanceof Element ? event.target.closest("button, input") : null;
+              events.push({ type: event.type, phase: event.eventPhase, at: performance.now(),
+                key: event.key, x: event.clientX, y: event.clientY, prevented: event.defaultPrevented,
+                target: target?.tagName, label: target?.textContent?.slice(0, 160), selected: target?.getAttribute("aria-selected") });
+            };
+            for (const type of ["pointermove", "pointerdown", "pointerup", "click", "keydown"]) {
+              document.addEventListener(type, record, { capture: true, passive: true });
+              document.addEventListener(type, record, { passive: true });
+            }
+          });
           await page.keyboard.press("Control+k");
           const dialog = page.getByRole("dialog", { name: label, exact: true });
           await dialog.locator("input").fill("restart_deferred");
@@ -270,6 +285,15 @@ try {
             path: path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}.png`),
           });
         } catch (error) {
+          await writeFile(path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}-interaction.json`),
+            JSON.stringify({ locale, theme, mobile, url: page.url(), pageErrors: errors,
+              search: await page.evaluate(() => ({ events: window.__deploymentSearchEvents ?? [],
+                dialogOpen: Boolean(document.querySelector("[role=dialog]")),
+                buttons: [...document.querySelectorAll("[role=dialog] button")].map(button => ({
+                  label: button.textContent?.slice(0, 160), selected: button.getAttribute("aria-selected"),
+                  rect: button.getBoundingClientRect().toJSON() })) })).catch(reason => ({ collectionError: String(reason) })),
+            }, null, 2) + "\n");
+          failures.push(...errors.map(message => ({ locale, theme, mobile, reason: "pageerror", message })));
           await page.screenshot({
             path: path.join(
               cache,

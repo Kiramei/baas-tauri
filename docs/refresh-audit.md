@@ -1233,3 +1233,32 @@ confirmed the game and fixture remained stopped and the system/Shizuku process
 identities remained unchanged. Shared development checkouts stayed clean.
 Game startup/preview stability, live search-cache coherence and the rest of
 the full remaining scope are still unresolved.
+
+## Preview History and Search Interaction Diagnostics
+
+A read-only retrospective of the 160-sample preview diagnostic started at
+`2026-10-21T02:53:49.076Z` retained one waiting, four still, twelve black and
+143 live observations over 111.617 seconds. The consumer counter remained
+unchanged across an observed 6.969-second startup interval, then advanced to
+2,653 by the final sample. This is sampled diagnostic history, not a new FPS
+benchmark or continuous game/business acceptance. Its private raw JSON digest
+is `9bc00ff0bb6d77cb4f5057fc2ea0dd443a7af53b3c4387f11448e58f96165a5b`;
+the historical report records restoration and no business tasks.
+
+At documentation commit `8f94c80b`, Linux run
+[39553184936](https://github.com/Kiramei/baas-tauri/actions/runs/39553184936)
+passed the root suite's 334 navigation/media cases, 48 large-config controls,
+64 Android-local controls and eight raw links per dataset. The prefix job
+timed out after clicking the Chinese `restart_deferred` search result in dark
+desktop mode. Its screenshot and failure artifact are retained separately.
+This repeats the earlier unresolved result-click symptom; it is not a green
+deployment checkpoint.
+
+The existing exception path did not persist that page's JavaScript errors or
+pointer event order, so an empty top-level failure list cannot establish their
+absence. The deployment harness now records bounded passive capture/bubble
+events and saves per-page errors, selected rows and post-failure geometry before
+closing the context. The navigation assertion, click and timeout are unchanged;
+no application handler was modified. The instrumented local Windows prefix
+suite passed all 334 cases, without reproducing the CI symptom. Instrumentation
+can affect timing and a later pass must not be reported as a product fix.
