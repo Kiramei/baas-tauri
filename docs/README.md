@@ -448,6 +448,28 @@ is collected afterward using the configured test interpreter; a null package
 version means that distribution's metadata is unavailable. This does not prove
 a fresh install or all supported Python/platform combinations.
 
+## Android Preview Source and Browser Checks
+
+The bilingual Android guide and client architecture distinguish capture, EGL
+submission and TextureView consumption. Source links use the measured APK's
+`36f08fd3` revision; the updater installer reference also uses this revision
+because preview changes shifted its lines. Run `audit-updater-source.mjs` to
+compare the referenced files with their pinned Git objects. The older updater
+references remain pinned separately where their files are unchanged.
+
+After building, run `check-android-docs.mjs BASE_URL` against the exported site.
+Alongside the existing media/diagnostic checks, it follows the guide's pipeline
+link in eight locale/theme/viewport combinations, verifies nine rendered nodes
+and all three counters, exercises zoom/reset and scrolling to the final node,
+and checks page overflow.
+`evidence/android-preview-layout.json` binds those checks to the diagram,
+guide, renderer and harness sources. These are documentation browser checks;
+they do not operate the emulator or measure native preview frame rate.
+
+The Android-local raw dataset still contains the original 400 capture and 216
+input calls. Source inspection and diagrams add no new timing samples and do
+not resolve the remaining game startup/preview stability failures.
+
 ## Android Game Placement Probe
 
 `scripts/probe-android-game.mjs start|snapshot|close LABEL` targets only the

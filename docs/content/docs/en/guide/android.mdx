@@ -88,17 +88,19 @@ The close path sends a stop request without waiting for backend confirmation. Be
 
 ### Preview States
 
-The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) distinguishes these states. An older build's single Live badge does not provide the same checks.
+The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) introduced the state labels. APKs containing the [consumer-progress check](https://github.com/Kiramei/baas-tauri/commit/532f785b) and [unique-buffer counter](https://github.com/Kiramei/baas-tauri/commit/128983b8) use the rules below. Earlier Live indicators can overstate frame progress.
 
 | State | Meaning and check |
 | ----- | ----------------- |
-| Waiting for frames | Capture and presentation have not both produced frames; allow cold loading, then check Shizuku and the game process |
+| Waiting for frames | At least one of capture, GPU submission or screen consumption has not received a frame; allow cold loading, then check Shizuku and the game process |
 | Black screen | Frames exist but captured content remains black; locate the game on its intended display and inspect capture errors |
-| No frame updates | New presentation has not been confirmed, or its count has not advanced for about two seconds; return Home and dismiss menus covering the preview before checking again |
-| Live | Presentation count recently advanced and captured content contains non-black pixels |
+| No frame updates | Progress has not been observed at all three stages, or any stage has stopped advancing for about two seconds; return Home and dismiss menus covering the preview before checking again |
+| Live | All three stages progressed within about two seconds, with nonblack captured content |
 | Preview error | A native connection or preview call failed; check authorization, service state and the error log again |
 
-Live describes the image path. It does not establish a logged-in account, effective input or task completion. Verify task results in logs and in the game. Repeatedly reading the same cached PNG does not constitute new game frames.
+Live describes the image path. It does not establish a logged-in account, effective input or task completion. Verify task results in logs and in the game. The screen-consumption counter records distinct positive `SurfaceTexture.timestamp` values; redrawing the same buffer does not increment it. Different buffers can still contain identical pixels. Repeatedly reading the same cached PNG does not constitute new game frames either.
+
+The [local performance measurements](../reference/performance#android-local-screenshots) time screenshot calls and input confirmation separately. Fast screenshot calls do not establish smooth preview playback. Use the [native preview pipeline](../reference/client-architecture#android-native-preview-and-capture) to locate a stalled stage.
 
 ### Game Returns to the Main Display or Preview Stalls
 

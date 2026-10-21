@@ -15,7 +15,7 @@ const read = file => readFileSync(path.join(root, file));
 const media = JSON.parse(read("docs/evidence/android-native-media.json"));
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
 const browser = await chromium.launch({ channel: "msedge", headless: true });
-const results = [], diagnostics = [], searches = [];
+const results = [], diagnostics = [], searches = [], pipelines = [];
 try {
   for (const locale of ["zh", "en"]) for (const theme of ["light", "dark"]) for (const mobile of [false, true]) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 960 } });
@@ -85,6 +85,33 @@ try {
       imageZoomOpenClose: true,
       pageErrors: errors, passed: true });
     diagnostics.push({ locale, theme, mobile, linkNavigated: true, headingFits: true, pageErrors: errors, passed: true });
+    await page.getByRole("link", { name: locale === "zh" ? "原生预览链路" : "native preview pipeline", exact: true }).click();
+    await page.waitForURL(url => url.pathname.endsWith(`/docs/${locale}/reference/client-architecture/`) && Boolean(url.hash));
+    const pipeline = page.locator(".baas-mermaid").filter({ hasText: "AImageReader / AHardwareBuffer" });
+    await pipeline.locator(".baas-mermaid-content > svg").waitFor({ state: "visible" });
+    await pipeline.scrollIntoViewIfNeeded();
+    assert.equal(await pipeline.locator("svg .node").count(), 9);
+    assert.equal(await page.locator(".baas-mermaid-error").count(), 0);
+    const content = pipeline.locator(".baas-mermaid-content");
+    const normalWidth = (await content.boundingBox()).width;
+    await pipeline.getByRole("button", { name: locale === "zh" ? "放大图表" : "Zoom in diagram", exact: true }).click();
+    assert.equal(await pipeline.locator("output").textContent(), "150%");
+    assert.ok(Math.abs((await content.boundingBox()).width / normalWidth - 1.5) < 0.02);
+    await pipeline.getByRole("button", { name: locale === "zh" ? "重置图表缩放" : "Reset diagram zoom", exact: true }).click();
+    assert.equal(await pipeline.locator("output").textContent(), "100%");
+    const viewport = pipeline.locator(".baas-mermaid-viewport");
+    const lastNode = pipeline.locator("svg .node").filter({ hasText: locale === "zh" ? "脚本截图与识别" : "Script capture and recognition" });
+    await lastNode.scrollIntoViewIfNeeded();
+    const visibleArea = await viewport.boundingBox(), lastBounds = await lastNode.boundingBox();
+    assert.ok(lastBounds.y >= visibleArea.y - 1 && lastBounds.y + lastBounds.height <= visibleArea.y + visibleArea.height + 1);
+    await viewport.evaluate(el => el.scrollTo({ left: 0, top: 0 }));
+    for (const counter of ["capturedFrames", "presentedFrames", "displayedFrames"])
+      assert.equal(await page.locator("table").getByText(counter, { exact: true }).count(), 1);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    assert.deepEqual(errors, []);
+    await pipeline.screenshot({ path: path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}-pipeline.png`) });
+    pipelines.push({ locale, theme, mobile, sourceLinkNavigated: true, nodes: 9,
+      zoomAndReset: true, lastNodeReachable: true, allCountersPresent: true, noPageOverflow: true, pageErrors: [...errors], passed: true });
     await context.close();
   }
   const context = await browser.newContext();
@@ -115,4 +142,10 @@ for (const file of ["docs/components/AndroidGameDemo.tsx", "docs/components/Imag
 writeFileSync(path.join(root, "docs/evidence/android-native-layout.json"), JSON.stringify({ checkedAt, cases: results.length,
   failures: 0, mediaManifestSha256: hash(read("docs/evidence/android-native-media.json")),
   sourceRevision: media.sourceRevision, testedSources: sources, results, searches }, null, 2) + "\n");
-console.log(JSON.stringify({ renderCases: results.length, diagnosticCases: diagnostics.length, searchCases: searches.length, failures: 0 }));
+const pipelineSources = ["docs/scripts/check-android-docs.mjs", "docs/components/Mermaid.tsx", "docs/mdx-components.tsx", "docs/app/global.css",
+  ...["zh", "en"].flatMap(locale => [`docs/content/docs/${locale}/guide/android.mdx`, `docs/content/docs/${locale}/reference/client-architecture.mdx`])];
+writeFileSync(path.join(root, "docs/evidence/android-preview-layout.json"), JSON.stringify({ checkedAt, cases: pipelines.length,
+  scope: "Documentation navigation, diagram rendering and zoom; no emulator or native preview operated",
+  failures: 0, testedSources: Object.fromEntries(pipelineSources.map(file => [file, hash(read(file).toString().replaceAll("\r\n", "\n"))])),
+  results: pipelines }, null, 2) + "\n");
+console.log(JSON.stringify({ renderCases: results.length, diagnosticCases: diagnostics.length, pipelineCases: pipelines.length, searchCases: searches.length, failures: 0 }));

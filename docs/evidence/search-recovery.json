@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T04:40:29.843Z",
+  "checkedAt": "2026-10-21T05:53:25.344Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
@@ -9,7 +9,7 @@
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
     "docs/app/search-index.json/route.ts": "641e7c40bc4193815ccf6277da7290a95d95f448b307ae9c462252f995a784f0"
   },
-  "searchIndexSha256": "bef31a5bab40153764bd4e5f7c8d9af41e847d7ce1ff25e7efdbbb2642ba1890",
+  "searchIndexSha256": "cdf8d95c8384cf0b6443d1dbb02d1c8fe12fa6f556c8c8363286bd3750174557",
   "results": [
     {
       "locale": "en",

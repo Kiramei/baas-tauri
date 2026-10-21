@@ -10,9 +10,9 @@ const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 test("updater documentation pins inspected sources without claiming a runtime update", () => {
   expect(audit.verificationKind).toContain("code inspection");
   expect(audit.runtimeUpdateExecuted).toBe(false);
-  expect(audit.sources).toHaveLength(17);
-  expect(audit.sourceReferences).toHaveLength(56);
-  expect(new Set(audit.sources.map(source => source.scope))).toEqual(new Set(["desktop", "android", "backend"]));
+  expect(audit.sources).toHaveLength(22);
+  expect(audit.sourceReferences).toHaveLength(66);
+  expect(new Set(audit.sources.map(source => source.scope))).toEqual(new Set(["desktop", "android", "android-preview", "backend"]));
   for (const source of audit.sources) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -48,7 +48,7 @@ test("both updater guides retain activation, cancellation, integrity and install
     const android = read(`docs/content/docs/${locale}/guide/android.mdx`);
     expect(update).toContain("updater-internals");
     expect(architecture).toContain("updater-internals");
-    expect((architecture.match(/```mermaid/g) || []).length).toBe(2);
+    expect((architecture.match(/```mermaid/g) || []).length).toBe(3);
     expect(android).toContain(locale === "zh" ? "强行停止 BAAS" : "Force stop BAAS");
     expect(android).toContain("API 26");
     expect(android).toContain("8e38508f160a29d784125970c2dad00d3c9e347d");

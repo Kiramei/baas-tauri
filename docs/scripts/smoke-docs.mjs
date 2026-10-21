@@ -87,7 +87,7 @@ try {
           );
           if (route === "reference/client-architecture") {
             await page.waitForFunction(
-              () => document.querySelectorAll(".baas-mermaid-content > svg").length === 2
+              () => document.querySelectorAll(".baas-mermaid-content > svg").length === 3
             );
             assert.equal(await page.locator(".baas-mermaid-error").count(), 0);
             for (const diagram of await page.locator(".baas-mermaid").all()) {

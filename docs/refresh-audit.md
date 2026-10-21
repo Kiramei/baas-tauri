@@ -1191,3 +1191,45 @@ application media, live Pages deployment or final PR was produced. Before live
 rollout, changed-encoder/index cache coherence still needs review; the static
 search URL is not versioned. The unresolved CI timeout and all other remaining
 requirements remain open.
+
+## Android Preview Documentation Checkpoint
+
+The Android guide now describes capture, EGL submission and TextureView
+consumption separately. Live requires progress at all three stages; the first
+positive sample alone is insufficient. Consumer counts use distinct positive
+SurfaceTexture timestamps, which do not establish changed pixels or game FPS.
+The architecture adds matching nine-node diagrams, counter diagnostics, the
+RGB-content threshold, the CPU-copy boundary and the independent PNG/HTTP/BGR
+screenshot path. All five implementation references in each language use the
+measured APK's `36f08fd3` revision.
+
+The source audit compared 22 files and 66 line-anchored references with pinned
+Git objects and current files. BackendServicePlugin's installer reference moved
+to `36f08fd3` and its shifted line range; its installer implementation is
+unchanged. Older updater references remain pinned where files still match.
+MAA-Meow's cached `aa9193f9a11eb1f1cfa71ed5fb917487cb94f3de` virtual-display
+fallback was inspected for comparison. No external code was copied and no
+native runtime change or additional permission was introduced here.
+
+Root and `/baas-tauri` Windows exports both built 77 routes. Each passed eight
+native-media cases, eight diagnostic cases, eight new pipeline cases and two
+search navigations. Pipeline checks cover every counter, nine rendered nodes,
+zoom/reset, scrolling to the last node and no page overflow. Screenshots were
+visually inspected in mobile light and desktop dark modes. The public pipeline
+report is the prefixed run; the root report is retained privately. These are
+documentation checks, not new device measurements.
+
+The root suite also passed 425 general cases, 24 search-recovery cases, eight
+updater cases and a 76-page static-link scan. The general architecture check
+now expects all three diagrams instead of the former two. All 109 documentation
+tests passed with 9,750 assertions. An initial alternate export path outside
+the Next project root was rejected; the successful prefixed export uses an
+ignored directory inside `docs/`, leaving the root preview intact.
+
+The original 400 capture / 216 input measurements and their 86 warm-ups were
+not changed or repeated. No game session, scheduler, Root mode, emulator restart
+or Shizuku restart was invoked in this checkpoint. Read-only process checks
+confirmed the game and fixture remained stopped and the system/Shizuku process
+identities remained unchanged. Shared development checkouts stayed clean.
+Game startup/preview stability, live search-cache coherence and the rest of
+the full remaining scope are still unresolved.

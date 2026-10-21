@@ -123,6 +123,38 @@ Android 增加 Kotlin/Java 原生服务与内嵌 Python。`MainActivity.kt` 启�
 
 游戏显示、截图和输入是另一条通过 Shizuku 协调的特权链路。本机自动化方式为 `android_local`，桌面 ADB/Nemu 选择器不代表这条路径。原生预览的暂停、恢复和销毁跟随 Activity 生命周期。后端 `/health` 响应证明服务就绪，不证明 Shizuku 已授权、游戏画面非空或任务已执行完成；这些阶段需要在安装后的设备上独立验证。
 
+## Android 原生预览与截图
+
+预览和脚本截图共用虚拟屏采集源，之后分成两条路径：
+
+```mermaid
+flowchart TD
+  Game["游戏 Activity / 虚拟屏"] --> Reader["AImageReader / AHardwareBuffer"]
+  Reader --> GPU["EGL 采样与 eglSwapBuffers"]
+  GPU --> Texture["TextureView / SurfaceTexture"]
+  Reader --> Copy["CPU RGBA 帧副本"]
+  Copy --> PNG["Bitmap / PNG / Base64"]
+  PNG --> RPC["带令牌的本机 HTTP JSON-RPC"]
+  RPC --> Python["Pillow 解码 / NumPy BGR 副本"]
+  Python --> Script["脚本截图与识别"]
+```
+
+以实测 APK 对应的[原生采集实现](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/cpp/display_capture.cpp#L95-L172)为准：预览从硬件缓冲区进入 EGL，不经过 PNG/Base64 或 WebView 视频解码器。但采集回调仍为截图维护 CPU 帧副本，因此不能把整个采集链路称为零复制。渲染器保留当前图像，替换预览 Surface 后可再次提交同一图像；一次成功的 GPU 提交并不证明新游戏帧已显示。
+
+[进度检查](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PreviewFrameProgress.kt#L5-L52)分别观察三个计数；消费端由 [TextureView 回调](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt#L91-L93)记录：
+
+| 计数 | 增长条件 | 单独不能证明 |
+| ---- | -------- | ------------ |
+| `capturedFrames` | 采集回调成功发布 CPU 帧副本 | GPU 已提交或屏幕已消费 |
+| `presentedFrames` | `eglSwapBuffers` 成功 | TextureView 已消费该缓冲区 |
+| `displayedFrames` | 可见、未暂停且已连接时，TextureView 回调收到不同的正时间戳 | 像素变化、游戏逻辑前进或任务成功 |
+
+三个计数都大于零后，按[内容检测阈值](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/cpp/frame_content.h#L6-L12)判断黑屏：至少一个像素的 RGB 通道大于 8 才算有内容。内容存在且三个计数各在最近约 2 秒内增长，才显示实时。首次观察到正计数不等于观察到增长。任一计数回退会重置进度历史，避免把旧 Surface/会话的进度用于新会话。静止游戏画面也可能被标为画面未更新，判断故障还要结合当时是否应有动画。
+
+采集计数前进而提交计数停止时，检查预览 Surface、EGL 和 Activity 生命周期；提交前进而消费停止时，检查 TextureView 可见性、连接与时间戳。三个计数都停止时，继续核对游戏 Activity 的显示归属、进程和采集错误。计数不能区分所有根因；不要据此自动重启游戏或扩大权限。
+
+[Python 适配器](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/python/android_backend/native_device.py#L16-L66)读取本机令牌，经设备回环桥接请求 PNG，解码成 BGR 数组。请求可返回最近缓存帧，不等待下一次游戏绘制。[截图基准](./performance#android-本机截图)包含这条调用路径；预览帧率、输入 API 返回和截图确认分别需要独立的计时终点。
+
 ## 修改验证
 
 共享契约应在边界验证，包括字段补丁序列化、关系归属与顺序、延迟确认、重连代次，以及停止和关闭行为。前端样例适合做视觉覆盖，但不能证明真实后端命令或游戏操作。原生截图、APK 安装、健康检查和实际任务执行各自证明不同事实，需要记录对应源码提交与测量范围。

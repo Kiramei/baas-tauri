@@ -123,6 +123,38 @@ Android adds Kotlin/Java native services and an embedded Python runtime. `MainAc
 
 Game display, capture and input are a separate privileged pipeline coordinated with Shizuku. The local automation method is `android_local`; desktop ADB/Nemu selectors do not describe this path. Native preview pause/resume/destruction follows activity lifecycle. The existence of a backend `/health` response proves service readiness, not Shizuku authorization, a nonblank game frame or a completed task. Verify those stages independently on the installed device.
 
+## Android Native Preview and Capture
+
+Preview and script screenshots share the virtual-display capture source, then follow separate paths:
+
+```mermaid
+flowchart TD
+  Game["Game Activity / virtual display"] --> Reader["AImageReader / AHardwareBuffer"]
+  Reader --> GPU["EGL sampling / eglSwapBuffers"]
+  GPU --> Texture["TextureView / SurfaceTexture"]
+  Reader --> Copy["CPU RGBA frame copy"]
+  Copy --> PNG["Bitmap / PNG / Base64"]
+  PNG --> RPC["Token-authenticated loopback HTTP JSON-RPC"]
+  RPC --> Python["Pillow decode / NumPy BGR copy"]
+  Python --> Script["Script capture and recognition"]
+```
+
+In the [native capture implementation](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/cpp/display_capture.cpp#L95-L172) used by the measured APK, preview samples hardware buffers through EGL without PNG/Base64 or a WebView video decoder. The capture callback still maintains CPU frame copies for screenshots, so the complete capture pipeline is not zero-copy. The renderer retains its current image and can submit it again after replacing the preview Surface. A successful GPU submission alone does not establish that a new game frame reached the screen.
+
+The [progress check](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PreviewFrameProgress.kt#L5-L52) observes three counters independently; the [TextureView callback](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt#L91-L93) records consumption:
+
+| Counter | Increments when | Alone does not establish |
+| ------- | --------------- | ------------------------ |
+| `capturedFrames` | The capture callback publishes a CPU frame copy | GPU submission or screen consumption |
+| `presentedFrames` | `eglSwapBuffers` succeeds | TextureView consumed that buffer |
+| `displayedFrames` | While visible, unpaused and attached, a TextureView callback reports a distinct positive timestamp | Changed pixels, advancing game logic or task completion |
+
+Once all three counters are positive, the [content threshold](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/cpp/frame_content.h#L6-L12) determines Black screen: at least one pixel must have an RGB channel greater than 8 to count as content. Live also requires each counter to have progressed within about two seconds. An initial positive observation does not count as observed progress. A counter decrease resets progress history, preventing progress from an old Surface/session from carrying over. A genuinely static game image can also produce No frame updates; consider whether animation was expected at that point.
+
+If capture advances but submission stops, inspect the preview Surface, EGL and activity lifecycle. If submission advances but consumption stops, inspect TextureView visibility, attachment and timestamps. If all three stop, also check the game Activity's display placement, process and capture errors. Counters cannot distinguish every root cause; they do not justify automatically restarting the game or broadening permissions.
+
+The [Python adapter](https://github.com/Kiramei/baas-tauri/blob/36f08fd35535dccf80b4c51c56da8d33b4201823/src-tauri/gen/android/app/src/main/python/android_backend/native_device.py#L16-L66) reads the local token, requests PNG through the device-loopback bridge and decodes it into a BGR array. A request can return the latest cached frame without waiting for the game to draw again. The [screenshot benchmark](./performance#android-local-screenshots) includes this call path. Preview frame rate, input API return and screenshot confirmation each require their own timing endpoint.
+
 ## Change Verification
 
 Changes to a shared contract need checks at its boundary: serialized field patches, ordered graph ownership, late acknowledgments, reconnect generations and shutdown/close behavior. A frontend fixture is useful for visual coverage but cannot prove a real backend command or game action. Native screenshots, APK installation, health checks and actual task execution each establish different facts; record their source revision and measurement scope.

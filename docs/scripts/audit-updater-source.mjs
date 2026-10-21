@@ -16,9 +16,16 @@ const groups = [
   { name: "android", repository: "Kiramei/baas-tauri", revision: "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
     root: process.argv[2] || path.resolve(root, "../baas-docs-android-validation"),
     files: ["crates/baas-updater/src/android.rs", "src/components/layout/Sidebar.tsx", "src-tauri/src/mobile_commands.rs",
-      "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt",
       "src-tauri/gen/android/app/src/main/python/android_backend/bootstrap.py", "src/components/IdleBackendUpdater.tsx",
       "src/shared/IdleUpdateState.ts", "src/context/TauriSelfUpdateProvider.tsx"] },
+  { name: "android-preview", repository: "Kiramei/baas-tauri", revision: "36f08fd35535dccf80b4c51c56da8d33b4201823",
+    root: process.argv[2] || path.resolve(root, "../baas-docs-android-validation"),
+    files: ["src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt",
+      "src-tauri/gen/android/app/src/main/cpp/display_capture.cpp",
+      "src-tauri/gen/android/app/src/main/cpp/frame_content.h",
+      "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PreviewFrameProgress.kt",
+      "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/NativeGamePreview.kt",
+      "src-tauri/gen/android/app/src/main/python/android_backend/native_device.py"] },
   { name: "backend", repository: "Kiramei/baas-dev", revision: "d0a86a089068766ff53682b501b90bee99857a71",
     root: process.argv[3] || path.resolve(root, "../baas-dev"), files: ["service/conf/manager.py"] },
 ];
@@ -55,7 +62,8 @@ const report = { checkedAt: new Date().toISOString(), verificationKind: "code in
   testedPages: Object.fromEntries(pages.map(file => [file, sha(canonical(readFileSync(path.join(root, file))))])),
   inspectedBehavior: ["manual-stop ordering", "idle stop and recovery", "detached backend ownership", "source ranking and SHA projection",
     "desktop Git ancestry guard", "Android certificate callback and hard reset", "MirrorC archive integrity checks",
-    "Android deferred service restart and APK-matched service overlay", "APK signature verification and installer handoff", "non-atomic replacement and cancellation limitations"],
+    "Android deferred service restart and APK-matched service overlay", "APK signature verification and installer handoff", "non-atomic replacement and cancellation limitations",
+    "architecture preview/capture branches and three-stage progress checks at the measured APK revision"],
   limitations: ["No updater was executed against the shared workspaces or device", "Source comparison does not establish successful runtime recovery"] };
 writeFileSync(path.join(root, "docs/evidence/updater-source-audit.json"), JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify({ sourceFiles: sources.length, references: references.length, pages: pages.length, runtimeUpdateExecuted: false }));
