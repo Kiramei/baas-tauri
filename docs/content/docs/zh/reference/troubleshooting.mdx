@@ -7,11 +7,11 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 ## 安装器卡住或失败
 
-安装器执行时会显示步骤图和 Installation Logs。
+安装器执行时会显示步骤图和日志，失败节点可展开查看命令输出。
 
 <img
   className="baas-screenshot"
-  src="/cn/installer-progress-log-dark.png"
+  src="/media/desktop/zh/installer-error.webp"
   alt="安装器日志页面，显示安装步骤和命令输出"
 />
 
@@ -69,7 +69,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/server-adb-settings.png"
+  src="/media/desktop/zh/config-server.webp"
   alt="服务器配置中的 ADB IP、ADB 端口和检测按钮"
 />
 
@@ -182,7 +182,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/remote-display-advanced-settings.png"
+  src="/media/desktop/zh/details-remote-advanced.webp"
   alt="远程模拟器高级设置，用于调整分辨率、帧率、比特率和剪切板"
 />
 
@@ -201,7 +201,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/settings-update-source-sha.png"
+  src="/media/desktop/zh/settings-updates.webp"
   alt="更新设置和 SHA 测试表格"
 />
 
@@ -252,7 +252,7 @@ http://localhost:3000/docs/en/
 如果图片不显示：
 
 - 新媒体位于 `docs/public/media`，基准资源位于 `docs/public/benchmarks`；旧资源还保留在 `cn`、`en` 和 `backend-assets` 下。
-- MDX 引用以 public 根目录为起点，例如 `/media/android/zh/game-preview.png`，不要把 `docs/public` 写入 URL。
+- MDX 引用以 public 根目录为起点，例如 `/media/android/zh/game-preview.webp`，不要把 `docs/public` 写入 URL。
 - GitHub Pages 部署时确认 `NEXT_PUBLIC_BASE_PATH` 已传入构建。
 
 ## 反馈问题需要提供

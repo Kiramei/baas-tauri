@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
+import { readPublishedMedia } from "../scripts/published-media.mjs";
 
 const root = new URL("../../", import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, root));
@@ -43,8 +44,7 @@ for (const platform of ["desktop", "android"]) {
       expect(checks.every((check: any) => check.passed)).toBe(true);
       for (const shot of shots) {
         expect(shot.file).toBe(`media/${platform}/${locale}/conditional-${shot.state}.png`);
-        const image = read("docs/public/" + shot.file);
-        expect(digest(image)).toBe(shot.sha256);
+        const { bytes: image } = readPublishedMedia(shot.file, shot.sha256);
         expect(await sharp(image).metadata()).toMatchObject({ width: shot.width, height: shot.height });
         expect(shot.width).toBeGreaterThan(200);
         expect(shot.height).toBeGreaterThan(100);
@@ -54,7 +54,7 @@ for (const platform of ["desktop", "android"]) {
     }
     expect(report.recordings).toHaveLength(platform === "desktop" ? 2 : 0);
     for (const recording of report.recordings) {
-      expect(digest(read("docs/public/" + recording.file))).toBe(recording.sha256);
+      expect(readPublishedMedia(recording.file, recording.sha256).record.frames).toBeGreaterThan(1);
       expect(recording.native).toBe(true);
       expect(recording.gameInputSent).toBe(false);
       expect(recording.frames).toBe(21);
@@ -75,15 +75,15 @@ test("bilingual feature pages include captured conditional states and a controll
   for (const locale of ["en", "zh"]) {
     for (const [page, states] of Object.entries(required)) {
       const content = read(`docs/content/docs/${locale}/features/${page}.mdx`).toString("utf8");
-      for (const state of states) expect(content).toContain(`/media/desktop/${locale}/conditional-${state}.png`);
+      for (const state of states) expect(content).toContain(`/media/desktop/${locale}/conditional-${state}.webp`);
     }
     expect(read(`docs/content/docs/${locale}/features/crafting.mdx`).toString("utf8"))
       .toContain(`<MotionDemo locale="${locale}" variant="priority" />`);
   }
   const motion = read("docs/components/MotionDemo.tsx").toString("utf8");
   expect(motion).toContain('useState(false)');
-  expect(motion).toContain('"configuration-undo.gif"');
-  expect(motion).toContain('"conditional-priority-reorder.gif"');
+  expect(motion).toContain('"configuration-undo.animated.webp"');
+  expect(motion).toContain('"conditional-priority-reorder.animated.webp"');
 });
 
 test("conditional-page layout results bind both capture manifests and all presentation combinations", () => {

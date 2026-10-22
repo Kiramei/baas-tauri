@@ -1,13 +1,13 @@
 {
-  "checkedAt": "2026-10-21T06:45:05.546Z",
+  "checkedAt": "2026-10-22T15:25:00.269Z",
   "platform": "win32",
   "basePath": "",
   "scope": "Real browser HTTP cache, stale-revision rejection and reload recovery; no game or emulator operated",
   "cases": 24,
   "failures": 0,
-  "searchIndexPath": "search-index/cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6.json",
-  "searchIndexRevision": "cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6",
-  "searchIndexSha256": "e890904fdd24d3a3ac3a602fc61c904a71879d0bc1733d77f639b993e83a2cf8",
+  "searchIndexPath": "search-index/c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b.json",
+  "searchIndexRevision": "c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b",
+  "searchIndexSha256": "0008f37fb35a98782d446c0bd98a62764708cf0864e9d71b7b6979dbc64a9636",
   "testedSources": {
     "docs/scripts/check-search-cache.mjs": "ce161a7839e7d09adc2922bb6f15da4768ffa6467b1fb68c1f5479300a031b99",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
@@ -20,7 +20,7 @@
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
     "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
-    "docs/app/layout.tsx": "007e53e4803b4559878f20329d8a934c65d539261bbcb55c2fefb492df32f600"
+    "docs/app/layout.tsx": "0c24b3944b3e3ad24a51d43793cb73083b819395b794e5c18191763839a44897"
   },
   "results": [
     {

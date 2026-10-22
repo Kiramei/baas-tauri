@@ -1319,3 +1319,62 @@ No emulator, game, scheduler, Shizuku service or shared development checkout
 was modified. No new public application media or performance samples were
 created. The separate intermittent result-click failure remains unresolved,
 alongside Android startup/preview stability and the full remaining scope.
+
+## WebP Publication And Android Handoff
+
+Android runtime investigation is on hold. The sanitized handoff is committed
+and pushed on the isolated native branch at `cb8162a3`; no Android runtime
+changes from that branch have been merged into `android-dev` or desktop `dev`.
+The handoff distinguishes measured fixture behavior from unresolved game
+startup, display placement and preview stability.
+
+The prior content-addressed search checkpoint at `85ce0d13` passed both Linux
+jobs in [39559373017](https://github.com/Kiramei/baas-tauri/actions/runs/39559373017).
+Downloaded reports confirmed 335 navigation/media cases, 24 cache/reload cases,
+48 payload controls, 64 Android-local controls and eight raw links per dataset
+for each deployment prefix. This does not resolve the earlier intermittent
+result-click symptom.
+
+Current resource cleanup removed 157 unused legacy files (48,898,415 bytes).
+Troubleshooting and PC settings now use current light-theme client captures.
+Nine referenced game/system examples and developer diagrams remain. Historical
+capture manifests retain their original filenames and digests.
+
+All 285 remaining raster files were converted locally to lossless WebP,
+including six controlled animations. Encoded size fell from 37,582,338 to
+17,404,866 bytes. Every visible decoded RGBA pixel, animation frame count,
+delay and loop count was checked against the input. Only 670 fully transparent
+icon pixels changed hidden RGB values; these do not change displayed content.
+The conversion strips embedded metadata and preserves existing blurred regions.
+`webp-publication.json` binds the input/output digests and pixel proof separately
+from original capture and benchmark records. Raw timing samples and measured
+harnesses were not changed or rerun.
+
+The new hash-matched local OCR pass decoded all 419 WebP frames without errors
+or unresolved pattern findings. The full pre-conversion contact-sheet inventory
+was visually reviewed, with legacy username-bearing unused assets removed.
+The retained game nickname blur and native-game media remain tied to their
+original Gaussian-blur evidence. OCR and contact sheets are review aids, not a
+guarantee against every possible sensitive detail; raw OCR stays private.
+
+The current root export built 77 routes and passed 124 tests / 13,688 assertions,
+425 smoke cases, 76 static-link pages, 335 strict deployment cases, 24 transient
+search cases, 24 cache/reload cases, 56 conditional-page cases, 96 recognition
+cases with 864 trace steps, eight updater cases and 20 service cases. Android
+reader checks passed eight media, eight diagnostic and eight preview-diagram
+cases plus two search navigations. The current payload/local chart checks
+passed 48/64 cases with eight raw links each. These are documentation/browser
+checks and did not operate the emulator.
+
+Branch/worktree cleanup decisions and preserved work are recorded separately
+in `repository-cleanup.md`. Unmerged native/platform work, private archives and
+another task's dirty React Native worktree remain intact. The old search-click
+intermittency and the broader previously recorded validation limits are not
+declared fixed by this resource migration.
+
+The current prefixed Windows export also passed 335 strict deployment cases,
+24 cache/reload cases, 48 payload controls and 64 Android-local controls, with
+eight raw-record links per dataset. Both exports contain only WebP raster
+assets and produce the same content-addressed index revision
+`c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b`.
+The 18 Python documentation/harness unit tests passed without device actions.

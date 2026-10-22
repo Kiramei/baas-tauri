@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { readPublishedMedia } from "./published-media.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const publicRoot = path.join(root, "docs/public");
@@ -105,6 +106,15 @@ async function main() {
   const prepared = [];
   for (const plan of plans) {
     const filename = path.join(publicRoot, plan.file);
+    if (!existsSync(filename)) {
+      const publication = JSON.parse(readFileSync(path.join(root, "docs/evidence/webp-publication.json"), "utf8"));
+      if (!publication.files.some(file => file.sourceFile === plan.file)) continue;
+      const recorded = previous?.files.find(file => file.file === plan.file);
+      assert.ok(recorded, "The published blur has no original review");
+      readPublishedMedia(plan.file, recorded.sha256);
+      prepared.push({ filename, record: recorded });
+      continue;
+    }
     const input = readFileSync(filename);
     const current = digest(input);
     const recorded = previous?.files.find((file) => file.file === plan.file);

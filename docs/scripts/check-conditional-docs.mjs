@@ -45,10 +45,10 @@ try {
             const demo = page.locator(".baas-motion-demo");
             await demo.scrollIntoViewIfNeeded();
             const image = demo.locator("img");
-            assert.ok((await image.getAttribute("src")).endsWith("conditional-craft-priority-still.png"));
+            assert.ok((await image.getAttribute("src")).endsWith("conditional-craft-priority-still.webp"));
             const before = await image.boundingBox();
             await demo.getByRole("button").click();
-            await page.waitForFunction((img) => img.complete && img.naturalWidth > 0 && img.src.endsWith(".gif"), await image.elementHandle());
+            await page.waitForFunction((img) => img.complete && img.naturalWidth > 0 && img.src.endsWith(".animated.webp"), await image.elementHandle());
             assert.equal(await demo.getByRole("button").getAttribute("aria-pressed"), "true");
             const after = await image.boundingBox();
             assert.ok(Math.abs(before.width - after.width) < 1 && Math.abs(before.height - after.height) < 1, "Animation changed image dimensions");
@@ -56,7 +56,7 @@ try {
             await page.screenshot({ path: path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}-playing.png`) });
             await demo.getByRole("button").click();
             assert.equal(await demo.getByRole("button").getAttribute("aria-pressed"), "false");
-            assert.ok((await image.getAttribute("src")).endsWith("conditional-craft-priority-still.png"));
+            assert.ok((await image.getAttribute("src")).endsWith("conditional-craft-priority-still.webp"));
             animation = "starts still; play/stop returns to still; dimensions stable";
           } else await images.first().scrollIntoViewIfNeeded();
           await page.screenshot({ path: path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}-${name}.png`) });

@@ -58,8 +58,8 @@ jobs:
           python -m pip install --disable-pip-version-check fonttools brotli
           npm install --prefix "$RUNNER_TEMP/docs-browser" --no-audit --no-fund playwright@1.62.1
           "$RUNNER_TEMP/docs-browser/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Check paths and strict static host
-        run: bun test docs/tests/doc-links.test.ts docs/tests/locale.test.ts docs/tests/public-asset-links.test.ts docs/tests/static-export-server.test.ts docs/tests/static-export-normalization.test.ts docs/tests/native-payload.test.ts docs/tests/android-local.test.ts docs/tests/search-encoding.test.ts docs/tests/search-index.test.ts docs/tests/search-artifact.test.ts docs/tests/search-cache.test.ts
+      - name: Check documentation contracts, WebP pixels and privacy provenance
+        run: bun test docs/tests
       - name: Build static export
         working-directory: docs
         env:

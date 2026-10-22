@@ -35,7 +35,7 @@ try {
     await figure.scrollIntoViewIfNeeded();
     const image = figure.locator("img");
     await image.evaluate(async el => { await el.decode(); });
-    assert.ok((await image.getAttribute("src")).endsWith(`/media/android/${locale}/game-preview.png`));
+    assert.ok((await image.getAttribute("src")).endsWith(`/media/android/${locale}/game-preview.webp`));
     const initial = await image.boundingBox();
     assert.ok(initial && initial.width > 200 && initial.width <= 360.5);
     const style = await image.evaluate(el => ({ radius: getComputedStyle(el).borderRadius, shadow: getComputedStyle(el).boxShadow }));
@@ -45,7 +45,7 @@ try {
     assert.equal(await play.getAttribute("aria-pressed"), "false");
     await play.click();
     await image.evaluate(async el => { await el.decode(); });
-    assert.ok((await image.getAttribute("src")).endsWith(`/media/android/${locale}/game-preview.gif`));
+    assert.ok((await image.getAttribute("src")).endsWith(`/media/android/${locale}/game-preview.animated.webp`));
     const frames = [];
     for (let index = 0; index < 3; index++) {
       await page.waitForTimeout(450);
@@ -55,12 +55,12 @@ try {
         width: Math.floor(meta.width * 678 / 720), height: Math.floor(meta.height * 381 / 1280) };
       frames.push(await sharp(screenshot).extract(region).removeAlpha().raw().toBuffer());
     }
-    assert.equal(new Set(frames.map(hash)).size, 3, "The browser must display changing GIF frames");
+    assert.equal(new Set(frames.map(hash)).size, 3, "The browser must display changing WebP frames");
     const stop = figure.getByRole("button", { name: locale === "zh" ? "停止演示" : "Stop demonstration", exact: true });
     assert.equal(await stop.getAttribute("aria-pressed"), "true");
     await stop.click();
     await image.evaluate(async el => { await el.decode(); });
-    assert.ok((await image.getAttribute("src")).endsWith(".png"));
+    assert.ok((await image.getAttribute("src")).endsWith("game-preview.webp"));
     const final = await image.boundingBox();
     assert.ok(Math.abs(initial.width - final.width) < 1 && Math.abs(initial.height - final.height) < 1);
     await image.click();
@@ -74,7 +74,7 @@ try {
     await page.keyboard.press("Escape");
     await zoom.waitFor({ state: "detached" });
     await page.screenshot({ path: path.join(cache, `${locale}-${theme}-${mobile ? "mobile" : "desktop"}-preview.png`) });
-    const controls = page.locator(`img[src$='/media/android/${locale}/game-controls.png']`);
+    const controls = page.locator(`img[src$='/media/android/${locale}/game-controls.webp']`);
     await controls.scrollIntoViewIfNeeded();
     await controls.evaluate(async el => { await el.decode(); });
     assert.equal(await controls.evaluate(el => el.naturalWidth), 720);

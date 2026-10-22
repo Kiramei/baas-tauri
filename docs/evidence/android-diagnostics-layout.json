@@ -1,12 +1,12 @@
 {
-  "checkedAt": "2026-10-21T06:50:43.359Z",
+  "checkedAt": "2026-10-22T15:19:36.806Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
-    "docs/content/docs/zh/guide/android.mdx": "b7e1622a6d5c6c93f00ed25e08df9c62dd56c1054a479d61e5f5167f19826044",
-    "docs/content/docs/zh/reference/troubleshooting.mdx": "8a5d1cd50a515b33211f3b4c99daa441a7a3fe7e21315d21b0b8e030b06ade09",
-    "docs/content/docs/en/guide/android.mdx": "509702fa3a40a76cc2b5096a2b0b5f23e544bff46b5db6256d4127ce153b15fb",
-    "docs/content/docs/en/reference/troubleshooting.mdx": "25e49bdb645a095db85a19b7f2e4ea07468efd6eb45dd20fd8a7ab1e7edeb20b"
+    "docs/content/docs/zh/guide/android.mdx": "2f115e6ef8268bbc08e90ace9c1d0f2b8b0593b77c303c3cf3b7226060b7834c",
+    "docs/content/docs/zh/reference/troubleshooting.mdx": "9c8e60b9aa7456bce1f43e8ffb21db9e2fa31d5a73d1ffeae13be580f8419eb0",
+    "docs/content/docs/en/guide/android.mdx": "92d03fce46e04aad79dcd7e466196fe94b340e810f98ae3bb09524ce2002da63",
+    "docs/content/docs/en/reference/troubleshooting.mdx": "1b9db275910fe81dcbf0c03c3eb030c35c3e7844d73cc55310972d54cca826c3"
   },
   "results": [
     {

@@ -25,7 +25,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       nav={{
         title: (
           <span className="baas-doc-nav-brand">
-            <img src={`${basePath}/baas-icon.png`} alt="" />
+            <img src={`${basePath}/baas-icon.webp`} alt="" />
             <span>{locale === "zh" ? "BAAS 文档" : "BAAS Docs"}</span>
           </span>
         ),

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readPublishedMedia } from "../scripts/published-media.mjs";
 import record from "../public/benchmarks/device-current.json";
 import summary from "../evidence/device-summary.json";
 import capture from "../evidence/device-target-capture.json";
@@ -39,7 +40,7 @@ test("device evidence is tied to the measured harness, target and pinned source 
   expect(Object.keys(record.sourceFiles)).toHaveLength(14);
   for (const [file, digest] of Object.entries(record.targetSourceFiles))
     expect(hash(readFileSync(new URL(file, root)))).toBe(digest);
-  expect(capture.sha256).toBe(hash(readFileSync(new URL("docs/public/" + capture.file, root))));
+  expect(readPublishedMedia(capture.file, capture.sha256).record.changedVisiblePixels).toBe(0);
   expect(capture.targetApkSha256).toBe(record.targetApkSha256);
   expect(capture.demoRestored).toBe(true);
   expect(capture.dimensions).toEqual([1280, 720]);

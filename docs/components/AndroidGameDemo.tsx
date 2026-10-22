@@ -12,7 +12,7 @@ export function AndroidGameDemo({ locale }: { locale: "zh" | "en" }) {
     <figure className="baas-motion-demo baas-android-game-demo">
       <img
         className="baas-screenshot"
-        src={`${base}/media/android/${locale}/game-preview.${playing ? "gif" : "png"}`}
+        src={`${base}/media/android/${locale}/game-preview${playing ? ".animated" : ""}.webp`}
         alt={zh ? "Android 首页原生游戏预览与实时状态" : "Native game preview and Live status on Android Home"}
         width={720}
         height={1280}

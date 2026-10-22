@@ -21,8 +21,8 @@ export function MotionDemo({
       : "Play demonstration";
   const base = process.env.NEXT_PUBLIC_BASE_PATH || "";
   const priority = variant === "priority";
-  const animated = priority ? "conditional-priority-reorder.gif" : "configuration-undo.gif";
-  const still = priority ? "conditional-craft-priority-still.png" : "config-cafe.png";
+  const animated = priority ? "conditional-priority-reorder.animated.webp" : "configuration-undo.animated.webp";
+  const still = priority ? "conditional-craft-priority-still.webp" : "config-cafe.webp";
   return (
     <figure className="baas-motion-demo">
       <img

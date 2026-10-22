@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   description:
     "Documentation for the BAAS Tauri desktop app and Blue Archive automation workflows.",
   icons: {
-    icon: `${basePath}/baas-icon.png`,
-    apple: `${basePath}/baas-icon.png`,
+    icon: `${basePath}/baas-icon.webp`,
+    apple: `${basePath}/baas-icon.webp`,
   },
 };
 

@@ -845,13 +845,6 @@ html:not(.dark):not([data-theme="dark"]) .baas-site-section-head p {
   overflow: hidden;
 }
 
-.baas-screenshot[src^="/cn/"],
-.baas-screenshot[src^="/en/"] {
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
-}
-
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 .baas-site-preview img {

@@ -314,7 +314,7 @@ try {
               })
               .click();
             await page.waitForFunction(() =>
-              document.querySelector(".baas-motion-demo img")?.getAttribute("src")?.endsWith(".gif")
+              document.querySelector(".baas-motion-demo img")?.getAttribute("src")?.endsWith(".animated.webp")
             );
             await page
               .getByRole("button", {

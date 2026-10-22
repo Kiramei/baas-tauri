@@ -6,6 +6,8 @@ import remarkParse from "remark-parse";
 import captures from "../public/media/desktop/installer-manifest.json";
 import privacyReview from "../evidence/privacy-review.json";
 import legacyBlur from "../evidence/legacy-media-blur.json";
+import { readPublishedMedia } from "../scripts/published-media.mjs";
+import publication from "../evidence/webp-publication.json";
 import { plans as legacyBlurPlans } from "../scripts/blur-private-media.mjs";
 
 const root = new URL("../../", import.meta.url);
@@ -63,7 +65,7 @@ test("installer capture inventory has both languages and explicit blur provenanc
     expect(shots).toHaveLength(7);
     for (const shot of shots) {
       expect(shot.privacy).toContain("12px blur");
-      expect(existsSync(new URL("docs/public/" + shot.file, root))).toBe(true);
+      expect(readPublishedMedia(shot.file).bytes.length).toBeGreaterThan(0);
     }
   }
   expect(JSON.stringify(captures)).not.toMatch(/WorkSpace|[A-Z]:\\Users\\/i);
@@ -85,6 +87,8 @@ test("privacy review covers the current image inventory without publishing OCR t
   expect(privacyReview.imageFiles).toBe(files.length);
   expect(privacyReview.decodedFrames).toBeGreaterThanOrEqual(files.length);
   expect(privacyReview.decodingFailures).toBe(0);
+  expect(privacyReview.webpPublication.manifestSha256).toBe(digest(readFileSync(new URL("docs/evidence/webp-publication.json", root))));
+  expect(privacyReview.webpPublication.files).toBe(files.length);
   expect(privacyReview.unresolvedPatternFindings).toBe(0);
   expect(privacyReview).not.toHaveProperty("frames");
   expect(privacyReview).not.toHaveProperty("text");
@@ -93,21 +97,27 @@ test("privacy review covers the current image inventory without publishing OCR t
     expect(finding.category).toBe("generic-path-placeholder");
   }
   expect(privacyReview.pendingVisualFindings).toHaveLength(0);
-  expect(privacyReview.reviewedRedactions).toHaveLength(2);
+  expect(privacyReview.reviewedRedactions).toHaveLength(1);
   expect(privacyReview.publicationReviewComplete).toBe(false);
   expect(legacyBlur.files).toHaveLength(legacyBlurPlans.length);
   for (const plan of legacyBlurPlans) {
     const record = legacyBlur.files.find((file) => file.file === plan.file)!;
     expect(record).toMatchObject(plan);
-    expect(record.sha256).toBe(digest(readFileSync(new URL(record.file, directory))));
+    const published = publication.files.find(file => file.sourceFile === record.file);
+    if (!published) {
+      expect(existsSync(new URL(record.file, directory))).toBe(false);
+      continue;
+    }
+    expect(published.sourceSha256).toBe(record.sha256);
+    expect(readPublishedMedia(record.file, record.sha256).record.sha256).toBe(published.sha256);
     expect(record.sha256).not.toBe(record.sourceSha256);
     expect(record.outsideChangedPixels).toBe(0);
     expect(record.changedPixelsByRegion).toHaveLength(record.regions.length);
     expect(record.changedPixelsByRegion.every((count) => count > 0)).toBe(true);
     expect(record.visualReview?.checkedAt).toBeTruthy();
     expect(record.visualReview?.result).toBeTruthy();
-    expect(privacyReview.reviewedRedactions.find((file) => file.file === record.file)?.sha256).toBe(
-      record.sha256
+    expect(privacyReview.reviewedRedactions.find((file) => file.file === published.file)?.sha256).toBe(
+      published.sha256
     );
   }
 });

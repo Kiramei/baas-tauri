@@ -13,6 +13,7 @@ const scan = JSON.parse(
   ).replace(/^\uFEFF/, "")
 );
 const digest = (value) => createHash("sha256").update(value).digest("hex");
+const publication = JSON.parse(readFileSync(path.join(root, "docs/evidence/webp-publication.json"), "utf8"));
 const patterns = [
   ["local-path", /\b[a-z]\s*:\s*[\\/]+/i],
   ["private-workspace", /WorkSpace|\.codex_tmp|\\Users\\/i],
@@ -73,7 +74,8 @@ for (const file of scan.files) {
   if (
     detected.length === 1 &&
     detected[0] === "local-path" &&
-    genericPathExamples.get(file.file) === sha256
+    publication.files.some(record => record.file === file.file && record.sha256 === sha256 &&
+      genericPathExamples.get(record.sourceFile) === record.sourceSha256 && record.changedVisiblePixels === 0)
   ) {
     reviewedFindings.push({
       file: file.file,
@@ -93,13 +95,14 @@ inventory.sort((left, right) => left.file.localeCompare(right.file));
 const pendingVisualFindings = [];
 const reviewedRedactions = [];
 for (const finding of knownVisualFindings) {
-  const current = inventory.find((file) => file.file === finding.file);
+  const published = publication.files.find(file => file.sourceFile === finding.file);
+  const current = inventory.find((file) => file.file === (published?.file ?? finding.file));
   if (!current) continue;
   const redaction = blurEvidence.files.find(
     (file) =>
       file.file === finding.file &&
       file.sourceSha256 === finding.sha256 &&
-      file.sha256 === current.sha256 &&
+      file.sha256 === (published?.sourceSha256 ?? current.sha256) &&
       file.outsideChangedPixels === 0 &&
       file.visualReview?.checkedAt &&
       file.visualReview?.result
@@ -131,6 +134,12 @@ const report = {
   reviewedRedactions,
   publicationReviewComplete: false,
   pendingVisualFindings,
+  webpPublication: {
+    manifestSha256: digest(readFileSync(path.join(root, "docs/evidence/webp-publication.json"))),
+    files: publication.files.length,
+    decodedFrames: publication.files.reduce((sum, file) => sum + file.frames, 0),
+    method: publication.method,
+  },
   redaction:
     "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",
   limits:
@@ -143,7 +152,12 @@ if (existsSync(nativeMediaPath)) {
   assert.equal(nativeMedia.sessionRestored, true);
   assert.equal(nativeMedia.privacy.pngOutsideChangedPixels, 0);
   for (const file of nativeMedia.files)
-    assert.equal(inventory.find(item => item.file === file.file)?.sha256, file.sha256, "Native media review is stale");
+    {
+      const published = publication.files.find(item => item.sourceFile === file.file);
+      assert.equal(published?.sourceSha256, file.sha256, "Native capture review is stale");
+      assert.equal(published.changedVisiblePixels, 0);
+      assert.equal(inventory.find(item => item.file === published.file)?.sha256, published.sha256, "Native publication review is stale");
+    }
   report.nativeGameMedia = {
     manifestSha256: digest(readFileSync(nativeMediaPath)),
     reviewedFiles: nativeMedia.files.length,

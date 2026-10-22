@@ -22,21 +22,21 @@ test.each(["", "/baas-tauri", "/nested/baas-tauri"])(
     if (!address || typeof address === "string") throw Error("Missing loopback port");
     const base = `http://127.0.0.1:${address.port}`;
     try {
-      const image = await fetch(base + prefix + "/baas-icon.png");
+      const image = await fetch(base + prefix + "/baas-icon.webp");
       expect(image.status).toBe(200);
-      expect(image.headers.get("content-type")).toBe("image/png");
+      expect(image.headers.get("content-type")).toBe("image/webp");
       expect((await image.arrayBuffer()).byteLength).toBeGreaterThan(100);
       expect((await fetch(base + prefix + "/missing-page/")).status).toBe(404);
       expect((await fetch(base + prefix + "/missing-resource.js")).status).toBe(404);
       expect((await fetch(base + prefix + "/missing-resource.txt")).status).toBe(404);
-      expect((await fetch(base + prefix + "/baas-icon.png", { method: "HEAD" })).status).toBe(200);
-      expect((await fetch(base + prefix + "/baas-icon.png", { method: "POST" })).status).toBe(405);
+      expect((await fetch(base + prefix + "/baas-icon.webp", { method: "HEAD" })).status).toBe(200);
+      expect((await fetch(base + prefix + "/baas-icon.webp", { method: "POST" })).status).toBe(405);
       expect((await fetch(base + prefix + "/%5c..%5cpackage.json")).status).toBe(400);
       expect((await fetch(base + prefix + "/%00")).status).toBe(400);
       expect((await fetch(base + prefix + "/%ZZ")).status).toBe(400);
       if (prefix) {
-        expect((await fetch(base + "/baas-icon.png")).status).toBe(404);
-        expect((await fetch(base + prefix + "-other/baas-icon.png")).status).toBe(404);
+        expect((await fetch(base + "/baas-icon.webp")).status).toBe(404);
+        expect((await fetch(base + prefix + "-other/baas-icon.webp")).status).toBe(404);
         const redirect = await fetch(base + prefix + "?lang=en", { redirect: "manual" });
         expect(redirect.status).toBe(308);
         expect(redirect.headers.get("location")).toBe(prefix + "/?lang=en");

@@ -5,6 +5,7 @@ import sharp from "sharp";
 import media from "../evidence/android-native-media.json";
 import privacy from "../evidence/privacy-review.json";
 import layout from "../evidence/android-native-layout.json";
+import { readPublishedMedia } from "../scripts/published-media.mjs";
 
 const hash = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
 const read = (file: string) => readFileSync(new URL("../../" + file, import.meta.url));
@@ -42,8 +43,7 @@ test("account blur is baked into both screenshots and every animated frame", asy
   expect(privacy.nativeGameMedia.reviewedFrames).toBe(124);
   const combinations = new Set<string>();
   for (const file of media.files) {
-    const bytes = read("docs/public/" + file.file);
-    expect(hash(bytes)).toBe(file.sha256);
+    const { bytes } = readPublishedMedia(file.file, file.sha256);
     expect(file.sha256).not.toBe(file.sourceSha256);
     combinations.add(file.locale + "/" + file.state);
     const metadata = await sharp(bytes).metadata();
@@ -71,7 +71,7 @@ test("bilingual Android instructions distinguish frame health, task stopping and
   for (const locale of ["zh", "en"]) {
     const guide = read(`docs/content/docs/${locale}/guide/android.mdx`).toString();
     expect(guide).toContain(`<AndroidGameDemo locale="${locale}" />`);
-    expect(guide).toContain(`/media/android/${locale}/game-controls.png`);
+    expect(guide).toContain(`/media/android/${locale}/game-controls.webp`);
     expect(guide).toContain(media.sourceRevision);
     expect(guide).toContain("ELF");
     expect(guide).toContain("dlopen");

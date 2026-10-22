@@ -17,8 +17,9 @@ Content:
 
 - `content/docs/zh`: Simplified Chinese documentation.
 - `content/docs/en`: English documentation.
-- `public/cn`: Chinese UI screenshots.
-- `public/en`: English UI screenshots.
+- `public/media/desktop/{zh,en}`: current desktop UI WebP captures.
+- `public/media/android/{zh,en}`: current Android UI WebP captures.
+- `public/backend-assets`: referenced game/system examples and developer diagrams.
 
 GitHub Pages deployment uses `.github/workflows/wiki-pages.yml`. The workflow passes `NEXT_PUBLIC_BASE_PATH` from `actions/configure-pages`, builds static output into `docs/out`, and uploads it to Pages.
 
@@ -144,13 +145,16 @@ text. The installer capture applies temporary inline blur and checks the
 computed filter, including low-effects mode and visible tooltip commands.
 Restore the temporary styles even if capture fails.
 
-Two legacy images have local Gaussian blur baked into their PNG pixels. Run
+The retained legacy game screenshot has local Gaussian blur baked into its
+pixels, preserved by lossless WebP publication. The older CVAT example was
+removed with other unused assets. Run
 `node docs/scripts/blur-private-media.mjs` from the repository root to verify
-their recorded output hashes; it skips already processed files and refuses
+the recorded blur/publication hashes; it skips already processed files and refuses
 unknown source hashes. The source/region plan is in the script, and
 `evidence/legacy-media-blur.json` records dimensions, source/output hashes,
 changed-pixel counts, zero changes outside the regions and visual review.
-Original unblurred media is not copied into public output. Changes require
+The original blur evidence retains both historical files; only referenced
+outputs are published. Unblurred media is not copied into public output. Changes require
 fresh visual review and OCR; changing a hash alone cannot clear a finding.
 
 `scripts/capture-installer.mjs 19235 failed en` captures the deliberately missing
@@ -165,7 +169,7 @@ locally without uploading media:
 
 ```powershell
 powershell.exe -NoProfile -File docs/scripts/audit-media-privacy.ps1 -Root docs/public -Output .cache/docs-privacy/all-public-ocr.json
-node docs/scripts/summarize-media-privacy.mjs
+node docs/scripts/summarize-media-privacy.mjs .cache/docs-privacy/all-public-ocr.json
 ```
 
 The first command requires the Windows Simplified Chinese OCR language pack.
@@ -176,6 +180,28 @@ placeholders are allowed by exact image hash. Changed media needs a new scan
 and review; OCR can miss names, QR codes, private hosts and illegible text.
 Tests reject stale inventory evidence and private local workspace paths in
 published JSON/MDX. These checks do not certify complete anonymization.
+
+## Published Media
+
+Published raster assets use WebP, including controlled animated WebP demos.
+`node docs/scripts/convert-public-media.mjs` verifies the full current inventory,
+encoded digests, visible RGBA digests, dimensions, frame delays and loop counts.
+`evidence/webp-publication.json` records the lossless publication transform.
+Fully transparent RGB differences are counted separately; visible pixels are
+unchanged, including existing Gaussian-blurred regions. Metadata is stripped.
+
+Capture manifests and benchmark records retain their original file names,
+source hashes, timestamps and implementation identities. They describe the
+original capture, not a fresh WebP capture. Use `scripts/published-media.mjs`
+to resolve a historical capture to the reviewed public encoding. Do not replace
+original source hashes with WebP hashes or relabel old performance samples.
+Raw originals remain outside the public output and Git's new files.
+
+Unused legacy client captures in `public/cn` and `public/en` have been removed.
+Troubleshooting and PC-client settings now use current light-theme captures.
+Only referenced game/system examples and developer diagrams remain under
+`backend-assets`. Recheck page references and browser rendering before removing
+another asset; filename age alone does not establish that it is unused.
 
 ## Native Transport Benchmark
 

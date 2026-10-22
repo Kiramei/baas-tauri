@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T06:50:00.438Z",
+  "checkedAt": "2026-10-22T15:17:37.616Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
@@ -14,14 +14,14 @@
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
     "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
-    "docs/app/layout.tsx": "007e53e4803b4559878f20329d8a934c65d539261bbcb55c2fefb492df32f600",
+    "docs/app/layout.tsx": "0c24b3944b3e3ad24a51d43793cb73083b819395b794e5c18191763839a44897",
     "docs/lib/locale.ts": "63bd5a6a7841218a063847bbe1ff4afbdf94d3eed49d1c01277d371b4a9fe1eb",
     "docs/lib/ui-translations.ts": "cc7c87abbb0e31c1cf8467d608b3ef81dc141a6d034483ec64938011f9f03448",
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3"
   },
-  "searchIndexPath": "search-index/cd3da63a65d27913af683dbb140b8e284b1130f1e81b8f2dc47dffc921b138b6.json",
-  "searchIndexSha256": "e890904fdd24d3a3ac3a602fc61c904a71879d0bc1733d77f639b993e83a2cf8",
+  "searchIndexPath": "search-index/c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b.json",
+  "searchIndexSha256": "0008f37fb35a98782d446c0bd98a62764708cf0864e9d71b7b6979dbc64a9636",
   "results": [
     {
       "locale": "zh",
