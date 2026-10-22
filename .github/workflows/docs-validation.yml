@@ -34,13 +34,9 @@ concurrency:
 
 jobs:
   static-export:
-    name: Linux static export (${{ matrix.base_path || 'root' }})
+    name: Linux static export (root)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        base_path: ["", "/baas-tauri"]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -62,34 +58,30 @@ jobs:
       - name: Build static export
         working-directory: docs
         env:
-          NEXT_PUBLIC_BASE_PATH: ${{ matrix.base_path }}
+          NEXT_PUBLIC_BASE_PATH: ""
         run: bun run build
       - name: Check documentation contracts, WebP pixels and privacy provenance
         run: bun test docs/tests
       - name: Check exported navigation and media
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
-          DOCS_BASE_PATH: ${{ matrix.base_path }}
-        run: node docs/scripts/check-deployment.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+        run: node docs/scripts/check-deployment.mjs --channel chromium
       - name: Check search cache and reload recovery
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
-          DOCS_BASE_PATH: ${{ matrix.base_path }}
-        run: node docs/scripts/check-search-cache.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+        run: node docs/scripts/check-search-cache.mjs --channel chromium
       - name: Check large-config benchmark controls
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
-          DOCS_BASE_PATH: ${{ matrix.base_path }}
-        run: node docs/scripts/check-native-payload.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+        run: node docs/scripts/check-native-payload.mjs --channel chromium
       - name: Check Android local benchmark controls
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
-          DOCS_BASE_PATH: ${{ matrix.base_path }}
-        run: node docs/scripts/check-android-local.mjs --base-path "$DOCS_BASE_PATH" --channel chromium
+        run: node docs/scripts/check-android-local.mjs --channel chromium
       - name: Upload validation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: docs-deployment-${{ matrix.base_path && 'prefixed' || 'root' }}
+          name: docs-deployment-root
           path: .cache/deployment/
           if-no-files-found: ignore

@@ -62,26 +62,15 @@ review screenshots are written under `.cache/docs-smoke`.
 `scripts/check-deployment.mjs` starts its own loopback-only static host, with no
 SPA fallback or special route-file aliases. It checks every content route in
 both languages, themes and viewport sizes, plus font loading, screenshot
-framing, GIF playback, image zoom, client navigation, search, language switching
+framing, animated WebP playback, image zoom, client navigation, search, language switching
 and entry query/hash preservation. Missing resources and reload fallback fail
 the check.
-
-To export a prefixed copy without replacing the existing `out` preview, run
-from `docs/` in PowerShell:
-
-```powershell
-$env:NEXT_PUBLIC_BASE_PATH = "/baas-tauri"
-$env:DOCS_EXPORT_DIR = ".cache/deployment-prefixed"
-bun run build
-node scripts/check-deployment.mjs --out docs/.cache/deployment-prefixed --base-path /baas-tauri
-Remove-Item Env:NEXT_PUBLIC_BASE_PATH, Env:DOCS_EXPORT_DIR
-```
 
 `--out` is relative to the repository root. The script supports
 `--channel chromium` for a Playwright-managed browser. Its reports and screenshots
 are stored in the ignored repository `.cache/deployment/` directory. The
-`Validate Documentation Export` workflow runs root and prefixed exports on Linux
-for documentation branches and pull requests. It has read-only repository
+`Validate Documentation Export` workflow checks the root-path export on Linux
+for pull requests and pushes to `dev` or `main`. It has read-only repository
 permissions and uploads test evidence without deploying Pages.
 
 Navigation links are resolved to unprefixed app routes because Next Link adds
@@ -317,7 +306,7 @@ paths, process identities, user configs and raw traceback text stay private.
 
 The browser check owns a strict temporary server and validates 64 control states
 and eight byte-identical raw-record links across both languages/themes/viewports.
-`--export-dir`, `--base-path` and `--channel` support the root/prefix CI matrix.
+`--export-dir`, `--base-path` and `--channel` select the export and browser to check.
 The Python offline tests cover decoding, texture arithmetic, timing endpoints,
 gesture checks and probe/formal counts. None of this establishes game-task
 acceptance or cross-device performance. App preferences may remain dark for
