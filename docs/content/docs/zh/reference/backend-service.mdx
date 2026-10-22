@@ -26,7 +26,7 @@ ASGI 入口为 `service.app:app`，`service.api.state.context` 延迟创建服�
 | `src/shared/SecureWebSocket.ts` | 客户端握手、密码证明和加密流 |
 | `src/transport/factory.ts` | 平台能力规范化和适配器选择 |
 
-下面的契约依据 [客户端实现](https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src/shared/SecureWebSocket.ts)和[后端实现](https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/api/security.py)。修改任一端时要同时检查另一端。
+下面的契约依据[客户端实现](https://github.com/Kiramei/baas-tauri/blob/55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d/src/shared/SecureWebSocket.ts)和[后端实现](https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/api/security.py)。原生宿主命令参数见[客户端原生 API](./client-api)。修改任一端时要同时检查另一端。
 
 ## HTTP 与权限边界
 

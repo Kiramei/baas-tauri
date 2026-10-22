@@ -1,0 +1,139 @@
+---
+title: Native Client API
+description: Tauri command names, argument shapes, transport ownership and desktop/Android differences.
+---
+
+The native host exposes commands through Tauri IPC. Application code calls them through `@/shared/TauriInvoke`; Provider, Sync, Trigger and Remote messages use `BackendConnection`. The WebUI has no native command host.
+
+The command registry is [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/lib.rs). Desktop implementations come from [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/commands.rs); Android selects [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/mobile_commands.rs). A registered name can still return an unsupported-platform error or a compatibility result.
+
+## Calling Convention
+
+Rust parameters such as `AppHandle`, `State` and `Webview` are supplied by Tauri. Callers send only application arguments. A Rust parameter named `request` stays inside `{ request: ... }`; its `#[serde(rename_all = "camelCase")]` fields use names such as `installPath`, `runtimePath` and `emitEvents`. Direct command arguments use names such as `onMessage` and `connectionId`.
+
+This read-only example uses the application's real invoke wrapper:
+
+```ts twoslash
+import { invoke } from "@/shared/TauriInvoke";
+
+type LogSnapshot = {
+  path: string;
+  entries: { source: string; message: string }[];
+  fileSize: number;
+};
+
+const snapshot = await invoke<LogSnapshot>("system_logs_snapshot", {
+  request: { limit: 100 },
+});
+snapshot.entries;
+```
+
+`LogSnapshot` selects fields used by the example. An `invoke<T>` type argument describes the expected result; it does not validate incoming JSON. Check the Rust request/result definitions when changing a command. `Result::Err` rejects the promise, while commands returning a report can resolve with failure fields. Inspect both paths.
+
+## Host and Window Commands
+
+| Command | Application arguments | Behavior |
+| ------- | --------------------- | -------- |
+| `baas_notify` | Notification payload | Delegates to the notification plugin; notification permission and delivery remain platform-dependent. |
+| `splash_off` | None | Shows/focuses the main window when present. |
+| `native_window_controls_state` | None | Reads native window-control state. |
+| `native_window_controls_set_blocked` | `{ blocked }` | Updates native window-control blocking. |
+| `set_backend_locale` | `{ lang }` | Updates desktop host/tray language; the mobile implementation is a no-op. |
+| `open_backend_config_folder` | None | Opens the managed backend configuration directory. |
+| `set_minimize_to_tray` | `{ enabled }` | Returns whether tray handling is available; mobile returns `false`. |
+| `shortcut_apply_bindings` | `{ bindings }` | Registers desktop global hotkeys; Android reports enabled bindings as rejected. |
+| `open_main_devtools` | None | Opens desktop WebView DevTools; Android is a no-op. |
+
+## Setup and Update Commands
+
+| Command | Application arguments | Behavior |
+| ------- | --------------------- | -------- |
+| `updater_get_storage_state` | None | Storage paths and portable state. |
+| `updater_get_startup_state` | None | Setup configuration and startup state. |
+| `updater_path_exists_non_empty` | `{ path }` | Desktop filesystem check; Android returns `false`. |
+| `updater_update_config` | `{ request }` | Partial setup update; fields include `baasRootPath`, `channel`, `runtimePath`, `noUpdate`, `gitBackend` and `transport`. |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | Validation report; Android returns an unsupported report. |
+| `tauri_client_check_update` | `{ request?: { currentVersion? } }` | Desktop updater metadata or Android package-update metadata. |
+| `tauri_client_download_and_install` | `{ onEvent }` | Download/install flow with a Tauri event channel; result handling differs by platform. |
+| `updater_check_version` | `{ request: { channel? } }` | Local/remote backend revision report. |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Multiple source probes; reports can complete out of order. |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Starts an updater terminal session. |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Requests cancellation; inspect the abort report and cleanup limits. |
+| `updater_terminal_snapshot` | None | Structured terminal restore data. |
+| `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |
+| `updater_reset_backend_auth_and_restart` | None | Destructive desktop auth reset/restart; Android currently returns `restarted: false` and `restart_deferred: true`. |
+
+Authentication reset, install/update and cancellation change stored or running state. They are not connectivity probes. See [Updater Internals](./updater-internals) for process ownership, non-atomic replacement and Android's deferred-restart behavior.
+
+## Transport Interface
+
+The type definitions in `src/transport/types.ts` are shared by the adapters:
+
+```ts twoslash
+import type {
+  BackendChannelName,
+  BackendTransportMode,
+} from "@/transport/types";
+
+const channel: BackendChannelName = "sync";
+const mode: BackendTransportMode = "shm";
+```
+
+`BackendConnection` provides `connect(onMessage, decodeJson?, decrypt?)`, `sendJson`, `sendBytes` and `close`, plus optional lifecycle callbacks. Its `readyState` alone does not establish synchronized data or a ready scheduler. The application factory normalizes platform capabilities before starting the backend or creating an adapter.
+
+| Runtime | Factory selection |
+| ------- | ----------------- |
+| Windows/Linux Tauri | Keeps explicit `pipe` or `websocket`; missing/invalid values default to `shm` when supported. An unavailable `shm` selection falls back to `pipe`. |
+| macOS Tauri | Keeps explicit `websocket`; other values, including a saved `pipe`, normalize to `shm`. |
+| Android Tauri | Supports `pipe` and `websocket`; missing/invalid values and `shm` normalize to `pipe`. |
+| WebUI | Always `websocket`; no native invoke calls. |
+
+`backend_transport_start({ mode })` persists/prepares the selected transport and returns `baseBackendAddr` and `baseBackendPort`. It can stop the managed desktop backend and close existing IPC connections. A transport switch must replace channel ownership and reject stale callbacks; see [Client Architecture](./client-architecture#transport-and-recovery).
+
+### Adapter Commands
+
+| Command | Application arguments / ownership |
+| ------- | --------------------------------- |
+| `backend_transport_start` | `{ mode }`; prepares the backend before adapters open business channels. |
+| `backend_pipe_open` | `{ channel, name, onMessage, batchFrames? }`; completes the `open` / `open_ok` handshake. |
+| `backend_pipe_send_json` | `{ channel, name, payload }`. |
+| `backend_pipe_send_bytes` | Raw `BPRQ` binary request; legacy JSON byte arrays remain a compatibility path. |
+| `backend_pipe_close` | `{ channel, name }`; closes one connection. |
+| `backend_pipe_close_all` | No arguments; closes the manager's connections. |
+| `backend_shm_open` | `{ channel, name, onMessage }`; returns a connection identity. |
+| `backend_shm_send_json` | `{ channel, name, connectionId, payload }`. |
+| `backend_shm_send_bytes` | Raw `BPRQ` body and `x-baas-connection-id` header. |
+| `backend_shm_close` | `{ channel, name, connectionId }`; preserves a replacement connection owned by another identity. |
+| `backend_shm_close_all` | No arguments; closes the shared-memory session. |
+
+These commands belong inside the transport adapters. Reuse their binary encoders and connection identity handling; sending a bare `Uint8Array` or omitting `connectionId` bypasses required framing/ownership. Pipe's `BPIP` frames, shared-memory sessions and WebSocket encryption have distinct formats. [Backend Service Interfaces](./backend-service#local-pipe-and-shared-memory) documents their wire boundaries.
+
+## Android Device Commands
+
+| Command | Purpose / platform boundary |
+| ------- | --------------------------- |
+| `android_prepare_scrcpy_virtual_display` | `{ request }`; desktop uses ADB, Android uses its native display service. The request structs differ. |
+| `android_cleanup_scrcpy_virtual_display` | Cleans up the selected display through the platform implementation. |
+| `android_scrcpy_virtual_display_status` | Reports display preparation/status, without proving a live frame. |
+| `android_list_games` | Lists Android game packages. |
+| `android_launch_game` | Launches a selected package. |
+| `android_game_preview` | Preview status/data through the Android implementation. |
+| `android_game_native_preview` | Controls the native preview Surface. |
+| `android_game_stream_info` | Reports stream connection information. |
+| `android_game_screenshot` | Requests an Android-local game screenshot. |
+| `android_game_gesture` | Submits an Android-local gesture request. |
+| `android_shizuku_status` | Reads Shizuku availability/authorization. |
+| `android_request_shizuku_permission` | Opens or requests Shizuku authorization; it does not grant permission automatically. |
+
+The game/Shizuku commands have desktop stubs that reject unsupported calls. Use the platform implementations' request structs; the desktop display request includes ADB serial/package fields, while Android carries device-session fields such as `configId`. A successful `/health`, invoke response or display ID does not establish moving game frames or completed automation. [Android](../guide/android) and [Native Preview](./client-architecture#android-native-preview-and-capture) describe those checks separately.
+
+## Diagnostic Commands
+
+| Command | Application arguments / result |
+| ------- | ------------------------------ |
+| `system_logs_snapshot` | `{ request?: { limit? } }`; defaults to 4000 entries and returns `path`, `entries`, `fileSize`. |
+| `system_logs_clear` | No arguments; clears native diagnostic storage. |
+| `system_logs_ingest_frontend` | `{ request: { entries } }`; accepts at most 250 entries per call. |
+
+The native snapshot is one source used by the combined system-log viewer. Clearing it does not clear every Python/frontend source.

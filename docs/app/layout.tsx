@@ -3,6 +3,7 @@ import { DocsProvider } from "@/components/DocsProvider";
 import { ImageZoom } from "@/components/ImageZoom";
 import { getSearchArtifact } from "@/lib/build-search-index";
 import "fumadocs-ui/style.css";
+import "fumadocs-twoslash/twoslash.css";
 import "./global.css";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";

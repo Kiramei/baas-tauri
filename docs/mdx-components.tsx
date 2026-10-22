@@ -1,4 +1,5 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
+import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui";
 import { DocHomeIcon } from "@/components/DocHomeIcon";
 import { Mermaid } from "@/components/Mermaid";
 import { ReleaseDownloadPanel } from "@/components/ReleaseDownloadPanel";
@@ -14,6 +15,9 @@ import { DocumentationLink } from "@/components/DocumentationLink";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
+  Popup,
+  PopupContent,
+  PopupTrigger,
   a: DocumentationLink,
   DocHomeIcon,
   Mermaid,

@@ -52,7 +52,7 @@ Layout positions use stable function identifiers and a separate backend/profile 
 
 ## Transport and Recovery
 
-The factory normalizes capabilities before opening channels. WebUI always uses WebSocket. Native Windows/Linux clients can use shared memory when supported; an unavailable shared-memory selection falls back to Pipe. Android does not select desktop shared memory. Explicit supported Pipe/WebSocket choices remain distinct.
+The factory normalizes capabilities before opening channels. WebUI always uses WebSocket. Native Windows/Linux clients can use shared memory when supported; an unavailable shared-memory selection falls back to Pipe. macOS keeps an explicit WebSocket choice and normalizes other values, including Pipe, to shared memory. Android supports Pipe/WebSocket and does not select desktop shared memory. [Native Client API](./client-api#transport-interface) lists the selection rules and command arguments.
 
 Changing transport or recovering a backend restart must replace connection ownership as a unit. Old callbacks can arrive after a new connection is created; generation checks prevent those messages from overwriting the new session. Pending log batches are flushed around disconnect/switch/recovery boundaries. A connected transport alone does not establish that authentication, initial state synchronization and runtime status are all ready.
 

@@ -13,6 +13,7 @@
     "flexsearch": "^0.8.212",
     "fumadocs-core": "^16.10.5",
     "fumadocs-mdx": "^15.0.12",
+    "fumadocs-twoslash": "3.2.1",
     "fumadocs-ui": "^16.10.5",
     "lucide-react": "^0.542.0",
     "mermaid": "^11.16.0",
@@ -26,6 +27,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "sharp": "0.34.5",
+    "twoslash": "0.3.9",
     "typescript": "~5.8.2"
   }
 }

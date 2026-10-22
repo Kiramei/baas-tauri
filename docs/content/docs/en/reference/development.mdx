@@ -5,6 +5,8 @@ description: Tauri client structure, backend bridge, local documentation builds,
 
 Read [Client Architecture and State](./client-architecture) for the principles behind draft persistence, acknowledgments, scheduler relationship ownership, connection generations and Android process boundaries. [Performance and Benchmarks](./performance) provides reproducible samples and their measurement limits.
 
+[Native Client API](./client-api) lists registered host commands, argument shapes and platform differences. Business messages and transport framing are covered by [Backend Service Interfaces](./backend-service).
+
 ## Client Structure
 
 Main directories:
@@ -38,8 +40,7 @@ docs/content/docs/zh
 docs/content/docs/en
 docs/lib/source.ts
 docs/lib/i18n.ts
-docs/public/cn
-docs/public/en
+docs/public/media
 ```
 
 Routes:
@@ -72,7 +73,7 @@ Static output is written to `docs/out`.
 
 `.github/workflows/wiki-pages.yml` builds and deploys the docs. It checks out the repository, configures Pages, installs Bun, runs `bun install --frozen-lockfile` in `docs`, passes `NEXT_PUBLIC_BASE_PATH`, builds, uploads `docs/out`, and deploys it.
 
-`NEXT_PUBLIC_BASE_PATH` matters because repository Pages is often not hosted at the domain root. Without it, routes and static assets may 404.
+The current custom-domain deployment uses the root path. `actions/configure-pages` supplies `NEXT_PUBLIC_BASE_PATH` to the build.
 
 ## Migrating from baas-dev/docs
 

@@ -10,7 +10,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 
 test("protocol interoperability preserves production source, actual crypto and cleanup boundaries", () => {
   expect(protocol.backendRevision).toBe("d0a86a089068766ff53682b501b90bee99857a71");
-  expect(protocol.clientRevision).toBe("be186c524ab9f7a91c41582aec3a5fef06614751");
+  expect(protocol.clientRevision).toBe("55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d");
   expect(protocol.backendSources).toHaveLength(69);
   expect(protocol.clientSources).toHaveLength(4);
   for (const source of [...protocol.backendSources, ...protocol.clientSources]) {

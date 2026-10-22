@@ -594,3 +594,27 @@ After building, `scripts/check-service-docs.mjs` checks both pages in all eight
 locale/theme/viewport combinations, 16 diagram zoom/reset interactions and four
 localized search navigations. Cached screenshots are for review; no new public
 media is generated. Rebuild/recheck after changing these pages or the renderer.
+
+## Native Client API and Typed Examples
+
+`reference/client-api` covers the host command registry and platform-specific
+argument/return boundaries. It links to the existing architecture, service and
+updater references rather than duplicating the archived API section.
+`client-api.test.ts` checks both languages against the current registry and runs
+Twoslash on examples importing the application's actual invoke wrapper and
+transport types, including a rejected invalid transport value.
+
+Twoslash 3.2.1 is compatible with the pinned Fumadocs 16.10.5 stack. Its compiler
+runs during the documentation build; popup UI is registered with the MDX
+components. No native command is executed when rendering a code example.
+After building, run `node docs/scripts/check-client-api.mjs`. It owns a strict
+temporary static host and checks both languages, themes and
+viewport sizes, pointer/touch/keyboard popups and search navigation. Screenshots
+remain in ignored `.cache/deployment/client-api`; the public report contains only source
+hashes, display combinations and check results.
+
+`audit-updater-source.mjs ANDROID_SOURCE BACKEND_SOURCE DESKTOP_SOURCE` can
+compare a disposable desktop source snapshot against the updater reference's
+pinned Git revision when the active client has advanced. Every snapshot file
+must still match its Git blob; this does not update the reference's source
+revision or execute an updater.

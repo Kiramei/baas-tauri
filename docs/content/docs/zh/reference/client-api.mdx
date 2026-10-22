@@ -1,0 +1,139 @@
+---
+title: 客户端原生 API
+description: Tauri 命令名称、参数结构、传输归属及桌面与 Android 的实现差异。
+---
+
+原生宿主通过 Tauri IPC 提供命令，应用代码使用 `@/shared/TauriInvoke` 调用。Provider、Sync、Trigger、Remote 业务消息经由 `BackendConnection` 发送。WebUI 没有原生命令宿主。
+
+命令注册表位于 [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/lib.rs)。桌面实现来自 [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/commands.rs)，Android 选择 [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/mobile_commands.rs)。命令已注册时，仍可能返回平台不支持错误或兼容性结果。
+
+## 调用约定
+
+`AppHandle`、`State`、`Webview` 等 Rust 参数由 Tauri 注入，调用方只传业务参数。Rust 参数名为 `request` 时，前端保留 `{ request: ... }` 这一层；带 `#[serde(rename_all = "camelCase")]` 的结构字段使用 `installPath`、`runtimePath`、`emitEvents` 等名称。命令的直接参数使用 `onMessage`、`connectionId` 等名称。
+
+以下只读示例直接使用应用的调用封装：
+
+```ts twoslash
+import { invoke } from "@/shared/TauriInvoke";
+
+type LogSnapshot = {
+  path: string;
+  entries: { source: string; message: string }[];
+  fileSize: number;
+};
+
+const snapshot = await invoke<LogSnapshot>("system_logs_snapshot", {
+  request: { limit: 100 },
+});
+snapshot.entries;
+```
+
+`LogSnapshot` 只列出示例使用的字段。`invoke<T>` 的类型参数描述预期返回值，不会校验传入的 JSON。修改命令时应核对 Rust 的请求和返回类型。`Result::Err` 会让 Promise 拒绝；直接返回报告的命令也可能成功返回带失败字段的对象，两种结果都需要检查。
+
+## 宿主与窗口命令
+
+| 命令 | 业务参数 | 行为 |
+| ---- | -------- | ---- |
+| `baas_notify` | 通知内容 | 交给通知插件处理，权限与送达情况取决于平台。 |
+| `splash_off` | 无 | 主窗口存在时显示并聚焦。 |
+| `native_window_controls_state` | 无 | 读取原生窗口控制状态。 |
+| `native_window_controls_set_blocked` | `{ blocked }` | 更新原生窗口控制的阻塞状态。 |
+| `set_backend_locale` | `{ lang }` | 更新桌面宿主与托盘语言；移动端实现为空操作。 |
+| `open_backend_config_folder` | 无 | 打开受管理后端的配置目录。 |
+| `set_minimize_to_tray` | `{ enabled }` | 返回托盘处理是否可用，移动端返回 `false`。 |
+| `shortcut_apply_bindings` | `{ bindings }` | 注册桌面全局快捷键，Android 将启用的绑定列入拒绝报告。 |
+| `open_main_devtools` | 无 | 打开桌面 WebView 开发工具，Android 为空操作。 |
+
+## 安装与更新命令
+
+| 命令 | 业务参数 | 行为 |
+| ---- | -------- | ---- |
+| `updater_get_storage_state` | 无 | 存储路径与便携模式状态。 |
+| `updater_get_startup_state` | 无 | 安装配置与启动状态。 |
+| `updater_path_exists_non_empty` | `{ path }` | 桌面文件系统检查，Android 返回 `false`。 |
+| `updater_update_config` | `{ request }` | 部分更新安装配置，字段包括 `baasRootPath`、`channel`、`runtimePath`、`noUpdate`、`gitBackend`、`transport`。 |
+| `updater_validate_mirrorc_cdk` | `{ request: { cdk, channel? } }` | 验证报告，Android 返回不支持报告。 |
+| `tauri_client_check_update` | `{ request?: { currentVersion? } }` | 桌面更新器元数据或 Android 安装包更新元数据。 |
+| `tauri_client_download_and_install` | `{ onEvent }` | 通过 Tauri 事件通道报告下载安装过程，各平台的返回处理不同。 |
+| `updater_check_version` | `{ request: { channel? } }` | 后端本地与远端版本报告。 |
+| `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 探测一个远端版本来源。 |
+| `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 探测多个来源，报告可能按完成顺序返回。 |
+| `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 启动更新器终端会话。 |
+| `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 请求取消，仍需检查取消报告与清理限制。 |
+| `updater_terminal_snapshot` | 无 | 返回用于恢复终端显示的结构化数据。 |
+| `updater_resize_term` | `{ rows, cols }` | 调整终端模型尺寸。 |
+| `updater_reset_backend_auth_and_restart` | 无 | 桌面执行有破坏性的认证重置与重启；Android 当前返回 `restarted: false`、`restart_deferred: true`。 |
+
+认证重置、安装更新和取消会改变存储或运行状态，不能用于探测连接。进程归属、非原子替换与 Android 延迟重启行为见[更新器内部机制](./updater-internals)。
+
+## 传输接口
+
+适配器共用 `src/transport/types.ts` 中的类型定义：
+
+```ts twoslash
+import type {
+  BackendChannelName,
+  BackendTransportMode,
+} from "@/transport/types";
+
+const channel: BackendChannelName = "sync";
+const mode: BackendTransportMode = "shm";
+```
+
+`BackendConnection` 提供 `connect(onMessage, decodeJson?, decrypt?)`、`sendJson`、`sendBytes`、`close` 及可选生命周期回调。单看 `readyState` 无法确认数据同步或调度器就绪。应用工厂先规范化平台能力，再启动后端或创建适配器。
+
+| 运行环境 | 工厂选择规则 |
+| -------- | ------------ |
+| Windows/Linux Tauri | 保留显式的 `pipe`、`websocket`；缺省或非法值在支持时使用 `shm`，不可用的 `shm` 选择回退到 `pipe`。 |
+| macOS Tauri | 保留显式的 `websocket`；其他值，包括已保存的 `pipe`，均规范化为 `shm`。 |
+| Android Tauri | 支持 `pipe`、`websocket`；缺省、非法值及 `shm` 均规范化为 `pipe`。 |
+| WebUI | 始终使用 `websocket`，不调用原生命令。 |
+
+`backend_transport_start({ mode })` 持久化并准备所选传输，返回 `baseBackendAddr` 和 `baseBackendPort`。它可能停止受管理的桌面后端并关闭现有 IPC 连接。切换传输时必须替换通道归属并拒绝旧回调，详见[客户端架构](./client-architecture#传输与恢复)。
+
+### 适配器命令
+
+| 命令 | 业务参数与归属 |
+| ---- | -------------- |
+| `backend_transport_start` | `{ mode }`，先准备后端，再由适配器打开业务通道。 |
+| `backend_pipe_open` | `{ channel, name, onMessage, batchFrames? }`，完成 `open` / `open_ok` 握手。 |
+| `backend_pipe_send_json` | `{ channel, name, payload }`。 |
+| `backend_pipe_send_bytes` | 原始 `BPRQ` 二进制请求；旧 JSON 字节数组仍作为兼容路径保留。 |
+| `backend_pipe_close` | `{ channel, name }`，关闭一个连接。 |
+| `backend_pipe_close_all` | 无参数，关闭管理器中的连接。 |
+| `backend_shm_open` | `{ channel, name, onMessage }`，返回连接身份。 |
+| `backend_shm_send_json` | `{ channel, name, connectionId, payload }`。 |
+| `backend_shm_send_bytes` | 原始 `BPRQ` 请求体，加上 `x-baas-connection-id` 请求头。 |
+| `backend_shm_close` | `{ channel, name, connectionId }`，保留由其他身份持有的新连接。 |
+| `backend_shm_close_all` | 无参数，关闭共享内存会话。 |
+
+这些命令应留在传输适配器中，复用现有二进制编码器和连接身份处理。直接发送裸 `Uint8Array` 或省略 `connectionId` 会缺少必要的封装与归属信息。Pipe 的 `BPIP` 帧、共享内存会话和 WebSocket 加密使用不同格式，线路边界见[后端服务接口](./backend-service#本机-pipe-与共享内存)。
+
+## Android 设备命令
+
+| 命令 | 用途与平台边界 |
+| ---- | -------------- |
+| `android_prepare_scrcpy_virtual_display` | `{ request }`，桌面走 ADB，Android 走原生显示服务；请求结构不同。 |
+| `android_cleanup_scrcpy_virtual_display` | 通过平台实现清理选定显示。 |
+| `android_scrcpy_virtual_display_status` | 返回显示准备状态，不能证明画面持续更新。 |
+| `android_list_games` | 列出 Android 游戏包。 |
+| `android_launch_game` | 启动选定包。 |
+| `android_game_preview` | 经 Android 实现获取预览状态或数据。 |
+| `android_game_native_preview` | 控制原生预览 Surface。 |
+| `android_game_stream_info` | 返回流连接信息。 |
+| `android_game_screenshot` | 请求 Android 本机游戏截图。 |
+| `android_game_gesture` | 提交 Android 本机手势请求。 |
+| `android_shizuku_status` | 读取 Shizuku 可用性与授权状态。 |
+| `android_request_shizuku_permission` | 打开或请求 Shizuku 授权，不会自动授予权限。 |
+
+游戏与 Shizuku 命令在桌面有拒绝不支持调用的占位实现。请求结构应以各平台源码为准：桌面显示请求包含 ADB 序列号与包名，Android 则带有 `configId` 等设备会话字段。`/health`、命令成功响应或显示 ID 都无法证明游戏画面正在变化或自动化已完成，分别检查这些阶段的方法见 [Android](../guide/android) 和[原生预览](./client-architecture#android-原生预览与截图)。
+
+## 诊断命令
+
+| 命令 | 业务参数与返回 |
+| ---- | -------------- |
+| `system_logs_snapshot` | `{ request?: { limit? } }`，缺省取 4000 条，返回 `path`、`entries`、`fileSize`。 |
+| `system_logs_clear` | 无参数，清理原生诊断存储。 |
+| `system_logs_ingest_frontend` | `{ request: { entries } }`，每次最多接收 250 条。 |
+
+原生快照只是系统日志聚合视图的一个来源，清理它不会清空所有 Python 与前端来源。

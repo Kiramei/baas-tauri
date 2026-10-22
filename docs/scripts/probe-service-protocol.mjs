@@ -15,7 +15,7 @@ assert.ok(path.resolve(snapshot).startsWith(path.join(root, ".cache") + path.sep
 const cache = path.join(root, ".cache/service-protocol");
 mkdirSync(cache, { recursive: true });
 const backendRevision = "d0a86a089068766ff53682b501b90bee99857a71";
-const clientRevision = "be186c524ab9f7a91c41582aec3a5fef06614751";
+const clientRevision = "55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d";
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const lf = (value) => value.toString("utf8").replaceAll("\r\n", "\n");
 const gitFile = (repo, rev, file) => execFileSync("git", ["-C", repo, "show", rev + ":" + file], { windowsHide: true, timeout: 15000 });
