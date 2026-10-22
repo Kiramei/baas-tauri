@@ -3,7 +3,8 @@ name: Validate Documentation Export
 on:
   push:
     branches:
-      - "docs/**"
+      - dev
+      - main
     paths:
       - "docs/**"
       - "!docs/refresh-audit.md"
