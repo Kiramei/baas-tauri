@@ -1,6 +1,6 @@
 # Repository Cleanup
 
-Updated: 2026-10-22. This maintenance record is outside the reader-facing site.
+Updated: 2026-10-23. This maintenance record is outside the reader-facing site.
 
 ## Preserved Work
 
@@ -52,6 +52,25 @@ IDE settings have backups. No broader recursive cleanup was attempted.
   though its PR is merged. Its ref remains until that difference is reviewed.
 - The primary checkout still uses the merged UI branch. Its local ref was kept
   to avoid switching another task's working directory during cleanup.
+
+## Subsequent Reconciliation
+
+The macOS integration in PR #46 was subsequently merged into `dev` at
+`55f11ec6`. The earlier conflict status above describes the initial cleanup
+checkpoint.
+
+Remote `docs/dev-refresh` was removed after its documentation changes were
+merged. Remote `feat/cpp-integration` was removed separately; its unique history
+is retained by the local `archive/feat-cpp-integration` ref. It has not been
+merged into the current application.
+
+Remote `archive/dev-docs-20260726` was removed. Its two unique documentation
+commits, `62de97e8` and `42cf003b`, were reviewed for PR #49. Useful API material
+was rewritten against the current command registry, and Twoslash was restored
+with real source imports. Obsolete transport defaults, fixed runtime-version
+claims and superseded test matrices were discarded. The local archive ref is
+scheduled for removal after PR #49 passes validation and merges. The verified
+private bundle preserves the original history.
 
 This list records decisions and limits, not a claim that every historical branch
 has been reconciled. Private raw captures, local configuration and credentials

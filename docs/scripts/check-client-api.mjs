@@ -94,6 +94,7 @@ try {
 }
 const files = ["docs/scripts/check-client-api.mjs", "docs/source.config.ts", "docs/next.config.mjs", "docs/mdx-components.tsx",
   "docs/app/layout.tsx", "docs/lib/source.ts", "docs/package.json", "src/shared/TauriInvoke.ts", "src/transport/types.ts",
+  "docs/lib/build-search-index.ts", "docs/lib/search-artifact.server.ts",
   "src/transport/factory.ts", "src-tauri/src/lib.rs", "src-tauri/src/commands.rs", "src-tauri/src/mobile_commands.rs",
   ".github/workflows/docs-validation.yml",
   ...["en", "zh"].map(locale => `docs/content/docs/${locale}/reference/client-api.mdx`)];

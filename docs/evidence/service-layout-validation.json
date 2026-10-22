@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T16:18:54.656Z",
+  "checkedAt": "2026-10-22T16:47:20.316Z",
   "cases": 20,
   "diagramChecks": 16,
   "failures": 0,
@@ -10,8 +10,8 @@
     "docs/content/docs/en/reference/backend-service.mdx": "bed30c2283b0a75532769452f91b69eea04e1bd792ddda801b7eec61eda03757",
     "docs/content/docs/en/reference/cli-service.mdx": "c67f080e41c978edf3fcad1dee35131398b2962c7642473221b8eb00299bd095"
   },
-  "searchIndexPath": "search-index/f51b3c92c103c674a981f8c7f51f623b32994d7d2c8345a9f11a75ac7c2b68ee.json",
-  "searchIndexSha256": "04f79037a4ed5264dfd4597b1f18e28253ead64c8781f60356b1ef25dc1f8a0c",
+  "searchIndexPath": "search-index/b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6.json",
+  "searchIndexSha256": "9516f748f394b1cf60acdc316dc35d44da32fb6230a15390ddc588e2438b02aa",
   "results": [
     {
       "kind": "render",

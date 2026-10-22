@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T16:21:08.020Z",
+  "checkedAt": "2026-10-22T16:45:21.162Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
@@ -8,15 +8,15 @@
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
     "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
-    "docs/lib/search-artifact.server.ts": "b73ef64b7b1217030f608547cd3362b2f692744cad6cc017d775d777e76b6467",
-    "docs/lib/build-search-index.ts": "445648a8138806d26c77d619b7284b1f8aa876cfdf610d08b26fd9546113f638",
+    "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
+    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
     "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
     "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d"
   },
-  "searchIndexPath": "search-index/f51b3c92c103c674a981f8c7f51f623b32994d7d2c8345a9f11a75ac7c2b68ee.json",
-  "searchIndexSha256": "04f79037a4ed5264dfd4597b1f18e28253ead64c8781f60356b1ef25dc1f8a0c",
+  "searchIndexPath": "search-index/b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6.json",
+  "searchIndexSha256": "9516f748f394b1cf60acdc316dc35d44da32fb6230a15390ddc588e2438b02aa",
   "results": [
     {
       "locale": "en",

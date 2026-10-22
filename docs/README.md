@@ -613,6 +613,11 @@ viewport sizes, pointer/touch/keyboard popups and search navigation. Screenshots
 remain in ignored `.cache/deployment/client-api`; the public report contains only source
 hashes, display combinations and check results.
 
+Search indexing sorts pages by URL before passing them to FlexSearch. This
+keeps the immutable index revision independent of filesystem enumeration order
+on Windows and Linux without changing sidebar order. `search-artifact.test.ts`
+checks reversed and interleaved page inputs against the same complete export.
+
 `audit-updater-source.mjs ANDROID_SOURCE BACKEND_SOURCE DESKTOP_SOURCE` can
 compare a disposable desktop source snapshot against the updater reference's
 pinned Git revision when the active client has advanced. Every snapshot file

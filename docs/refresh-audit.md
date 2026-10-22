@@ -1395,7 +1395,7 @@ browser renders popups without executing native commands. Tests also reject
 an invalid transport value. macOS factory behavior is documented separately
 from Windows/Linux and Android, matching the four current factory tests.
 
-The 79-route export passed 127 tests / 13,888 assertions, 78 static-link pages
+The 79-route export passed 128 tests / 13,894 assertions, 78 static-link pages
 and 343 strict deployment cases. Eight native-API display combinations passed
 32 pointer/touch/keyboard popup interactions and search navigation, with
 animation-complete screenshots and viewport bounds checked. Search recovery
@@ -1414,3 +1414,12 @@ No application/native implementation, public media or benchmark samples were
 changed. Android runtime work remains on hold. Private screenshots and raw
 fixture diagnostics remain excluded from publication. The existing search
 pointer-click intermittency is not declared fixed by this reference update.
+
+The first Linux checks exposed an index determinism defect: identical page
+content enumerated in a different order produced a different FlexSearch
+artifact. Search indexing now sorts pages by URL without reordering navigation.
+The regression test compares complete exports from reversed and interleaved
+inputs. The corrected Windows export is byte-identical to the downloaded Linux
+index, with revision
+`b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6`.
+Index-bound browser reports were rerun; no content-hash assertion was relaxed.
