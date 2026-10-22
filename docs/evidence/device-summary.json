@@ -1,0 +1,834 @@
+{
+  "schemaVersion": 1,
+  "rawRecordSha256": "9c350af3824f322bc366807ee668491db88862a4c8f054ce5f96a0e93ffd31ca",
+  "results": {
+    "capture": [
+      {
+        "scenario": "static",
+        "method": "adb",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 70.5131,
+          "p95Ms": 78.7878,
+          "minimumMs": 67.8202,
+          "maximumMs": 87.2602,
+          "meanMs": 71.33126500000002,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 71.39908399999999,
+          "p95Ms": 73.796472,
+          "minimumMs": 69.520556,
+          "maximumMs": 73.796472,
+          "meanMs": 71.331265,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "static",
+        "method": "uiautomator2",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 77.1454,
+          "p95Ms": 82.0302,
+          "minimumMs": 32.7817,
+          "maximumMs": 98.5223,
+          "meanMs": 76.517007,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 76.81608,
+          "p95Ms": 79.20547200000001,
+          "minimumMs": 74.61397199999999,
+          "maximumMs": 79.20547200000001,
+          "meanMs": 76.517007,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "static",
+        "method": "scrcpy",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 21.7714,
+          "p95Ms": 31.9414,
+          "minimumMs": 17.3728,
+          "maximumMs": 33.7533,
+          "meanMs": 22.59756199999999,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 22.552083999999994,
+          "p95Ms": 23.236012000000006,
+          "minimumMs": 22.144432,
+          "maximumMs": 23.236012000000006,
+          "meanMs": 22.597562,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 7.876393489837646,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "static",
+        "method": "nemu",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 3.9629,
+          "p95Ms": 5.0303,
+          "minimumMs": 3.3495,
+          "maximumMs": 5.4828,
+          "meanMs": 4.1162,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 4.139372000000001,
+          "p95Ms": 4.6127,
+          "minimumMs": 3.75366,
+          "maximumMs": 4.6127,
+          "meanMs": 4.1162,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 57
+      },
+      {
+        "scenario": "animated",
+        "method": "adb",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 73.2139,
+          "p95Ms": 77.7759,
+          "minimumMs": 69.5227,
+          "maximumMs": 102.1304,
+          "meanMs": 73.75887600000003,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 73.712244,
+          "p95Ms": 74.300792,
+          "minimumMs": 73.47142,
+          "maximumMs": 74.300792,
+          "meanMs": 73.758876,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "animated",
+        "method": "uiautomator2",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 77.914,
+          "p95Ms": 85.3579,
+          "minimumMs": 33.9276,
+          "maximumMs": 116.532,
+          "meanMs": 67.73874699999996,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 68.973628,
+          "p95Ms": 71.25118000000002,
+          "minimumMs": 63.428996000000005,
+          "maximumMs": 71.25118000000002,
+          "meanMs": 67.738747,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "animated",
+        "method": "scrcpy",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 22.5245,
+          "p95Ms": 33.0359,
+          "minimumMs": 12.1529,
+          "maximumMs": 34.2488,
+          "meanMs": 23.192309,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 23.282348000000002,
+          "p95Ms": 23.354779999999995,
+          "minimumMs": 23.013143999999997,
+          "maximumMs": 23.354779999999995,
+          "meanMs": 23.192308999999995,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 21.38896369934082,
+        "duplicateFrames": 0
+      },
+      {
+        "scenario": "animated",
+        "method": "nemu",
+        "attempted": 100,
+        "succeeded": 100,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 100,
+          "p50Ms": 3.7414,
+          "p95Ms": 4.6402,
+          "minimumMs": 3.2786,
+          "maximumMs": 5.4659,
+          "meanMs": 3.8570579999999994,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 3.9074480000000005,
+          "p95Ms": 4.04428,
+          "minimumMs": 3.683036,
+          "maximumMs": 4.04428,
+          "meanMs": 3.857058,
+          "zeroSamples": 0
+        },
+        "qualityMeanMse": 0,
+        "duplicateFrames": 60
+      }
+    ],
+    "control": [
+      {
+        "scenario": "click",
+        "method": "adb",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 60.7473,
+          "p95Ms": 61.9621,
+          "minimumMs": 59.9741,
+          "maximumMs": 62.2454,
+          "meanMs": 60.807468750000005,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 60.85506666666668,
+          "p95Ms": 60.93108333333334,
+          "minimumMs": 60.644466666666666,
+          "maximumMs": 60.93108333333334,
+          "meanMs": 60.807468750000005,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 104.1765,
+          "p95Ms": 116.1082,
+          "minimumMs": 90.8845,
+          "maximumMs": 117.6243,
+          "meanMs": 105.97681041666668,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "minimumMs": 0,
+          "maximumMs": 0,
+          "meanMs": 0,
+          "zeroSamples": 48
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "click",
+        "method": "uiautomator2",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 162.7133,
+          "p95Ms": 170.8413,
+          "minimumMs": 153.9533,
+          "maximumMs": 188.8394,
+          "meanMs": 163.04440416666668,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 163.92330833333335,
+          "p95Ms": 164.63506666666666,
+          "minimumMs": 161.50495833333335,
+          "maximumMs": 164.63506666666666,
+          "meanMs": 163.04440416666668,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 241.5115,
+          "p95Ms": 246.1256,
+          "minimumMs": 226.4835,
+          "maximumMs": 246.4458,
+          "meanMs": 239.6346291666667,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 125,
+          "p95Ms": 134,
+          "minimumMs": 117,
+          "maximumMs": 140,
+          "meanMs": 125.83333333333333,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "click",
+        "method": "scrcpy",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 50.31,
+          "p95Ms": 50.8611,
+          "minimumMs": 50.0871,
+          "maximumMs": 51.2814,
+          "meanMs": 50.37670416666666,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 50.386525000000006,
+          "p95Ms": 50.43054999999999,
+          "minimumMs": 50.326883333333335,
+          "maximumMs": 50.43054999999999,
+          "meanMs": 50.37670416666666,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 107.0505,
+          "p95Ms": 115.3975,
+          "minimumMs": 89.6221,
+          "maximumMs": 141.8302,
+          "meanMs": 106.53923124999999,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 0,
+          "p95Ms": 1,
+          "minimumMs": 0,
+          "maximumMs": 1,
+          "meanMs": 0.375,
+          "zeroSamples": 30
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "click",
+        "method": "nemu",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 51.3952,
+          "p95Ms": 52.4985,
+          "minimumMs": 50.8133,
+          "maximumMs": 52.9345,
+          "meanMs": 51.479456250000005,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 51.52674166666667,
+          "p95Ms": 51.562774999999995,
+          "minimumMs": 51.34996666666667,
+          "maximumMs": 51.562774999999995,
+          "meanMs": 51.47945625,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 107.351,
+          "p95Ms": 122.4926,
+          "minimumMs": 95.4148,
+          "maximumMs": 130.285,
+          "meanMs": 107.47204583333333,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 16,
+          "p95Ms": 17,
+          "minimumMs": 13,
+          "maximumMs": 17,
+          "meanMs": 15.729166666666666,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "swipe",
+        "method": "adb",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 328.8117,
+          "p95Ms": 334.9047,
+          "minimumMs": 319.8684,
+          "maximumMs": 336.3423,
+          "meanMs": 327.7282333333333,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 327.79242500000004,
+          "p95Ms": 329.261025,
+          "minimumMs": 326.243825,
+          "maximumMs": 329.261025,
+          "meanMs": 327.7282333333334,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 442.4904,
+          "p95Ms": 480.1382,
+          "minimumMs": 429.3786,
+          "maximumMs": 480.9848,
+          "meanMs": 447.2334645833333,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 318,
+          "p95Ms": 324,
+          "minimumMs": 309,
+          "maximumMs": 325,
+          "meanMs": 316.9375,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 400,
+          "p95": 400,
+          "minimum": 400,
+          "maximum": 400
+        }
+      },
+      {
+        "scenario": "swipe",
+        "method": "uiautomator2",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 2029.5108,
+          "p95Ms": 2034.9026,
+          "minimumMs": 2013.7392,
+          "maximumMs": 2037.2041,
+          "meanMs": 2027.7751666666663,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 2028.190775,
+          "p95Ms": 2030.3020833333333,
+          "minimumMs": 2025.2057249999998,
+          "maximumMs": 2030.3020833333333,
+          "meanMs": 2027.7751666666666,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 2113.6303,
+          "p95Ms": 2142.6424,
+          "minimumMs": 2086.5488,
+          "maximumMs": 2148.5804,
+          "meanMs": 2118.1640604166664,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 1995,
+          "p95Ms": 2000,
+          "minimumMs": 1978,
+          "maximumMs": 2003,
+          "meanMs": 1993.2291666666667,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 400,
+          "p95": 400,
+          "minimum": 400,
+          "maximum": 400
+        }
+      },
+      {
+        "scenario": "swipe",
+        "method": "scrcpy",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 307.4673,
+          "p95Ms": 309.5696,
+          "minimumMs": 300.7716,
+          "maximumMs": 310.857,
+          "meanMs": 307.1306833333333,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 307.55659166666663,
+          "p95Ms": 308.2274416666666,
+          "minimumMs": 306.26466666666664,
+          "maximumMs": 308.2274416666666,
+          "meanMs": 307.1306833333333,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 408.9522,
+          "p95Ms": 448.1481,
+          "minimumMs": 375.9493,
+          "maximumMs": 449.6126,
+          "meanMs": 413.6754249999999,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 307,
+          "p95Ms": 309,
+          "minimumMs": 300,
+          "maximumMs": 311,
+          "meanMs": 306.9791666666667,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 400,
+          "p95": 400,
+          "minimum": 400,
+          "maximum": 400
+        }
+      },
+      {
+        "scenario": "swipe",
+        "method": "nemu",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 305.5759,
+          "p95Ms": 308.3395,
+          "minimumMs": 294.0385,
+          "maximumMs": 309.3942,
+          "meanMs": 303.5626458333333,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 304.6447916666667,
+          "p95Ms": 305.2292166666666,
+          "minimumMs": 300.99445000000003,
+          "maximumMs": 305.2292166666666,
+          "meanMs": 303.56264583333336,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 349.7428,
+          "p95Ms": 383.6186,
+          "minimumMs": 328.1989,
+          "maximumMs": 403.896,
+          "meanMs": 355.9744354166667,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 254,
+          "p95Ms": 257,
+          "minimumMs": 243,
+          "maximumMs": 258,
+          "meanMs": 252.16666666666666,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 392,
+          "p95": 399,
+          "minimum": 390,
+          "maximum": 399
+        }
+      },
+      {
+        "scenario": "long_click",
+        "method": "adb",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 329.4008,
+          "p95Ms": 336.1286,
+          "minimumMs": 318.899,
+          "maximumMs": 364.9921,
+          "meanMs": 328.7960875,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 328.9221333333333,
+          "p95Ms": 330.75915,
+          "minimumMs": 327.4411,
+          "maximumMs": 330.75915,
+          "meanMs": 328.7960875,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 441.9634,
+          "p95Ms": 479.9395,
+          "minimumMs": 429.3579,
+          "maximumMs": 483.2174,
+          "meanMs": 447.53220416666665,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 319,
+          "p95Ms": 325,
+          "minimumMs": 308,
+          "maximumMs": 342,
+          "meanMs": 317.6666666666667,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "long_click",
+        "method": "uiautomator2",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 2028.8926,
+          "p95Ms": 2037.393,
+          "minimumMs": 2011.3597,
+          "maximumMs": 2058.5484,
+          "meanMs": 2028.5892875,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 2028.3767416666667,
+          "p95Ms": 2032.3395416666665,
+          "minimumMs": 2025.474783333333,
+          "maximumMs": 2032.3395416666665,
+          "meanMs": 2028.5892875,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 2109.8159,
+          "p95Ms": 2143.1522,
+          "minimumMs": 2090.4895,
+          "maximumMs": 2184.2288,
+          "meanMs": 2116.402945833333,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 1995,
+          "p95Ms": 2004,
+          "minimumMs": 1978,
+          "maximumMs": 2024,
+          "meanMs": 1994.2916666666667,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "long_click",
+        "method": "scrcpy",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 350.8044,
+          "p95Ms": 351.4728,
+          "minimumMs": 350.3065,
+          "maximumMs": 352.032,
+          "meanMs": 350.82415625000004,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 350.877775,
+          "p95Ms": 350.89689999999996,
+          "minimumMs": 350.6773083333333,
+          "maximumMs": 350.89689999999996,
+          "meanMs": 350.82415625,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 431.5775,
+          "p95Ms": 448.1156,
+          "minimumMs": 397.7911,
+          "maximumMs": 450.4154,
+          "meanMs": 422.61317083333324,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 301,
+          "p95Ms": 301,
+          "minimumMs": 299,
+          "maximumMs": 301,
+          "meanMs": 300.4583333333333,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      {
+        "scenario": "long_click",
+        "method": "nemu",
+        "attempted": 48,
+        "succeeded": 48,
+        "failed": 0,
+        "warmupFailed": 0,
+        "api": {
+          "count": 48,
+          "p50Ms": 351.6,
+          "p95Ms": 352.9577,
+          "minimumMs": 351.0409,
+          "maximumMs": 354.3322,
+          "meanMs": 351.76178541666667,
+          "zeroSamples": 0
+        },
+        "blockMeans": {
+          "count": 4,
+          "p50Ms": 351.8597833333333,
+          "p95Ms": 352.1259166666667,
+          "minimumMs": 351.52079999999995,
+          "maximumMs": 352.1259166666667,
+          "meanMs": 351.76178541666667,
+          "zeroSamples": 0
+        },
+        "visible": {
+          "count": 48,
+          "p50Ms": 428.1734,
+          "p95Ms": 447.1593,
+          "minimumMs": 394.3302,
+          "maximumMs": 450.9145,
+          "meanMs": 421.04198749999995,
+          "zeroSamples": 0
+        },
+        "pressDuration": {
+          "count": 48,
+          "p50Ms": 301,
+          "p95Ms": 302,
+          "minimumMs": 293,
+          "maximumMs": 303,
+          "meanMs": 300.75,
+          "zeroSamples": 0
+        },
+        "travelPixels": {
+          "p50": 0,
+          "p95": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      }
+    ]
+  }
+}

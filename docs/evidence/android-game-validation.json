@@ -1,0 +1,108 @@
+{
+  "checkedAt": "2026-10-20T09:31:06.532Z",
+  "sourceRevision": "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78",
+  "apkSha256": "cba686bc44dc5a46c842674da13fc23d2676505200dafab8bf7241377bcd1fc5",
+  "applicationId": "io.github.kiramei.baas_tauri.docs.x86",
+  "harnessSha256": "f284ce3c2596e05c69e65ddbb2b6206fad443296b8eb9a783fcd4c752923261b",
+  "publisherSha256": "0fc7904304abb1b4ee8daa9807364738d6fd45298e16d8368c1f7ae4c8939e86",
+  "environment": {
+    "device": "MuMu",
+    "android": "15",
+    "sdk": 35,
+    "appAbi": "x86_64",
+    "shizukuUid": 2000,
+    "game": "com.RoamingStar.BlueArchive.bilibili",
+    "gameVersion": "3.0.2",
+    "versionPropertiesCheckedAt": "2026-10-20T09:33:08.047Z",
+    "versionPropertyScope": "Post-run ADB getprop check; game version and shell display-owner UID come from the captured run"
+  },
+  "operation": "Actual Home background-game play button; all 26 documentation tasks disabled, every scheduler idle and profile autostart off",
+  "outcome": "failed-game-display-placement",
+  "observations": {
+    "observedAt": "2026-10-20T09:30:49.726Z",
+    "backgroundDisplay": {
+      "active": true,
+      "displayId": 27,
+      "mode": "shizuku"
+    },
+    "gameActivity": "com.RoamingStar.BlueArchive.bilibili/com.tech.sdk.bridge.TechSDKUnityPlayerActivity",
+    "gameActivityDisplays": [
+      0
+    ],
+    "placementDenialCount": 2,
+    "placementDenial": "Android refused the game Unity Activity on the intended background display",
+    "displayFlags": [
+      "FLAG_PRESENTATION",
+      "FLAG_OWN_CONTENT_ONLY",
+      "FLAG_DESTROY_CONTENT_ON_REMOVAL"
+    ],
+    "trustedDisplay": false,
+    "shellPackageListsAddTrustedDisplayPermission": false,
+    "nativeFrame": {
+      "sha256": "14940cd1957031d6968bf4119d40fc268aa21929c9c34622b2378472a6d3734d",
+      "width": 1280,
+      "height": 720,
+      "completelyBlack": true
+    }
+  },
+  "sources": [
+    {
+      "file": "src/pages/HomePage.tsx",
+      "sha256": "7737264460fc34219e9a70caa01385fcfff4d510005cab667b8b8a2c0263e7e8",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src/android/components/AndroidGamePanel.tsx",
+      "sha256": "2f85c54252e00fa1884315bb122f180313de5544b5ecfa67be8272e55af28399",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src-tauri/src/mobile_commands.rs",
+      "sha256": "1d75fff063e562c5e8f1a285afeab3cd40908a2b8e424285b939fd2f30b4c9aa",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/ShizukuShellService.kt",
+      "sha256": "0417a467a09df8254f6c77cb1a40eb1ed56f1277653f853ebc0333b3419e7e4a",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PrivilegedDisplayMain.kt",
+      "sha256": "5f5025bb749acf0a45c0924680079a08ac8b89271462dc80ad878b55f7b04ef4",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/GameTaskTransfer.kt",
+      "sha256": "bca0ad8efd86012bfe5dcf31d7e3662ad304eb74c3290680940151c277ad48bd",
+      "gitContentVerified": true
+    },
+    {
+      "file": "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/BackendServicePlugin.kt",
+      "sha256": "e88371f0184b6ef3591a5d8884585007b4f0648a98886d6fb8caab7f8524ddb4",
+      "gitContentVerified": true
+    }
+  ],
+  "diagnosis": {
+    "status": "source-supported hypothesis; no repaired APK tested",
+    "explanation": "The shell display path omits the trusted flag; Android restricts ordinary-app launches onto untrusted displays. The privileged initial launch does not validate later game Activity transitions.",
+    "reference": "https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java"
+  },
+  "restoration": {
+    "checkedAt": "2026-10-20T09:31:06.506Z",
+    "harnessSha256": "f284ce3c2596e05c69e65ddbb2b6206fad443296b8eb9a783fcd4c752923261b",
+    "fieldsRestored": true,
+    "profilesUnchanged": true,
+    "eventsUnchanged": true,
+    "displayInactive": true,
+    "homePlayVisible": true,
+    "gameStopped": true,
+    "cleanupPath": "production overlay event handler, dispatched by probe; idempotent native cleanup"
+  },
+  "gameInputSent": false,
+  "gameTasksStarted": false,
+  "gameLoginVerified": false,
+  "gameTaskCompletionVerified": false,
+  "nativeTakeoverRestartVerified": false,
+  "nativeCloseButtonTapped": false,
+  "scope": "One hash-bound cold launch; a prior exploratory launch reproduced the placement failure. Cleanup exercised the overlay event handler through the probe, not a physical native-button tap. No game data was cleared, no login performed and no Shizuku mode or permissions changed. Raw screenshots, profile backup and system dumps remain in ignored cache, not public media. This is not a timing benchmark or proof of failure on every Android device."
+}

@@ -1,41 +1,56 @@
 ---
-title: Server
-description: Game server, server-specific behavior, ADB address, and ADB detection.
+title: Server and ADB
+description: Immutable profile server selection, ADB address/serial validation, detection and Android differences.
 ---
 
-Server settings decide which recognition rules and task behavior BAAS uses. The selected server must match the actual game client.
+Open **Configuration → Server**. The selected game server determines package selection, recognition resources and server-specific behavior. It must match the actual game client.
 
 <img
   className="baas-screenshot"
-  src="/en/server-adb-settings.png"
-  alt="Server configuration dialog with game server, ADB IP, ADB port, and ADB detection"
+  src="/media/desktop/en/config-server.webp"
+  alt="Current Server editor with disabled server selector, ADB address and detection icon"
 />
 
-| Server      | Description                    |
-| ----------- | ------------------------------ |
-| CN official | Mainland China official client |
-| CN Bilibili | Bilibili client                |
-| Global      | Global client                  |
-| Global teen | Global teen client             |
-| JP          | Japanese client                |
-| KR ONE      | Korean ONE client              |
+## Game Server
 
-## ADB Detection
+The server selector is **disabled for an existing profile**. Choose the correct server when creating a profile; create another profile to use a different game package. Changing UI language does not change the game server.
 
-Local emulators commonly use `127.0.0.1`; multi-instance emulators usually use different ports. Run ADB detection and choose the online device.
+| Choice            | Game client             |
+| ----------------- | ----------------------- |
+| Official (CN)     | Mainland China official |
+| Bilibili (CN)     | Mainland China Bilibili |
+| Global            | Global                  |
+| Global (Teen)     | Global teen             |
+| Korea (ONE store) | Korean ONE store        |
+| Japan             | Japanese                |
 
-### Select Game Server [step]
+The saved field is `server`. An available choice does not guarantee that every current event or task is implemented for that server.
 
-Choose the server that matches the actual game client. A mismatch can affect recognition assets, feature entry points, and task behavior.
+## Address, Port or USB Serial
 
-### Set ADB IP [step]
+| Input                           | Client interpretation                                            |
+| ------------------------------- | ---------------------------------------------------------------- |
+| Both address and port populated | ADB `host:port`; the port must be an integer from `0` to `65535` |
+| Only one field populated        | A device/USB serial rather than a host/port pair                 |
+| Both empty                      | Invalid; this section does not commit                            |
 
-Local emulators usually use `127.0.0.1`. Use another address only for remote devices or special bridge setups.
+Leading/trailing whitespace is trimmed. Port zero passes client validation but is not evidence of a usable ADB endpoint. Local emulator addresses commonly use `127.0.0.1`; each running instance can have a different port. Use the actual emulator configuration, not a guessed port formula.
 
-### Set or Detect Port [step]
+Valid edits save automatically to `adbIP` and `adbPort`. They configure the game device, **not** the separate client-to-backend service connection in application Settings.
 
-Single-instance and multi-instance emulators can use different ports. Prefer ADB detection to confirm the online device before saving the port.
+## Detect ADB
 
-### Continue Emulator Configuration [step]
+1. Start the intended device/emulator and enable its ADB debugging.
+2. Open the detection icon beside the port.
+3. Choose **Detect ADB** inside the dialog. Merely opening the dialog does not scan.
+4. Wait for results, then select the intended address to fill the editor and close the dialog.
 
-After the device is detected, configure emulator and script settings. If no device is found, check emulator ADB, port, multi-instance mapping, and control method.
+An address containing a colon is split at its last colon into address and port; a serial without one fills the address and clears the port. Verify the result before starting a task.
+
+The empty-results message also appears before the first scan. During detection the button shows loading and is disabled. No results can mean the emulator is closed, debugging is disabled, the device is unauthorized/offline, or the backend's scan does not cover that endpoint. Confirm the exact serial with `adb devices` when diagnosing rather than treating any result as the correct instance.
+
+## Android
+
+The Android app selects a local installed game package from the profile server and uses Shizuku with `android_local`. Desktop ADB fields are not a substitute for Android authorization or a way to select another phone. Follow [Android Client](../guide/android) for the local-game setup.
+
+Continue with [Emulator](./emulator) and [Script](./script) for desktop launch and capture/control behavior.

@@ -1,0 +1,187 @@
+---
+title: Performance and Benchmarks
+description: Reproducible measurements, raw samples, hardware, measurement boundaries, and interpretation of frontend and transport performance.
+---
+
+Performance belongs to a measured stage. Encoding a request, transferring it between processes, updating a store, rendering a WebView and recognizing a game frame are separate workloads. A faster result in one does not establish an equivalent improvement in total task time.
+
+## Native Client Connections
+
+<NativeTransportBenchmark locale="en" />
+
+Frontend and backend run on the same host. WebSocket uses loopback, without a LAN or WAN path.
+
+The [complete raw record](/benchmarks/native-transport-current.json) includes 5,400 measurements, 18 transport switches, block timings, failures, versions and source-file digests. The client is a native Windows x64 release build at frontend revision `be186c5`, with backend `d0a86a0`. The host used a Ryzen 9 9950X, 32 logical CPUs, 31 GiB memory, Python 3.11.9 and WebView2/Edge 155.
+
+The workload calls the production store's `trigger("status")` with no running backend tasks. All three business channels are initialized. Every callback returns `command=status`, `status=ok`, `data={}`: exactly 44 UTF-8 JSON bytes after the store removes the transport envelope and timestamp. This is not encrypted wire size. The experiment covers all six permutations of the three modes. Each mode receives 50 warm-ups and 300 recorded calls per round, with one outstanding request; warm-up starts one second after transport switching and synchronization finish.
+
+Individual timing runs inside the WebView from request preparation to production callback entry. WebSocket includes the product's actual authenticated encrypted communication. Pipe and shared memory include their Rust/Python carrier and Tauri/WebView bridge. CDP schedules each round but is outside individual measurements. Switching, initialization, painting and game execution are also outside the individual round trip.
+
+Shared memory still crosses the native WebView bridge; carrier-level advantages do not determine this small-request result. The plotted values describe this workload, without ranking large-image throughput or every platform.
+
+The observed minimum nonzero `performance.now()` increment was approximately **0.1 ms**, so the chart shows one decimal place. Block timings measure 50 consecutive calls together and divide by the call count, including callback validation and loop overhead. This reduces individual clock quantization but has a different scope from callback-entry timings. p50/p95 use index `floor(n * p)` without outlier removal. The record's separate readiness timings include stopping the previous mode, process restart, authentication and data synchronization with warm caches. They are not cold-start measurements and are excluded from the chart.
+
+The harness started no concurrent build or other benchmark; other host activity was uncontrolled. This is a descriptive single-host/session result without confidence intervals. Observing zero failures does not establish long-term reliability.
+
+## Large Config Synchronization
+
+<NativePayloadBenchmark locale="en" />
+
+The [complete raw record](/benchmarks/native-payload-current.json) retains another **5,400 measured requests and 1,080 warm-ups**, using the same native Windows release client `be186c5`, backend `d0a86a0` and loopback path. Publication checks all ten recorded backend implementation files against both their measured runtime hashes and the recorded Git revision.
+
+The workload uses production `pull(config)` on the sync channel. A temporary repeating ASCII field contains 1 KiB, 64 KiB or 1 MiB; the backend returns the entire demo config. The decoded full config occupies **11,259, 75,771 or 1,058,811 UTF-8 bytes** as compact JSON. Every reply is checked against the complete expected content. Field size is neither encrypted wire size nor a binary screenshot workload.
+
+Each mode/size combination has six rounds, each with 20 warm-ups and 100 measurements, with one outstanding request. Transport order covers all six permutations; payload sizes rotate so that every size occupies each of the three order positions twice. Config writes, transport restart, authentication and initial synchronization are untimed. Each prepared block settles for one second before warm-up. Cleanup removes the synthetic fields and checks the Store, config and task files, and original transport mode.
+
+An individual measurement starts inside the WebView immediately before production `store.send` and ends at the first production `configStore` reference update for that config. It includes the backend's cached-snapshot deepcopy, JSON, actual carrier, authenticated WebSocket encryption, applicable Rust/WebView bridging and synchronous subscribers preceding this observer. CDP, full-content validation and React painting after notification are outside that endpoint. The separate 20-call block means also include content validation and loop overhead, so their scope differs from individual notification latency.
+
+The production pull protocol does not echo a request ID. This experiment permits one outstanding pull, no concurrent config writes and no running business tasks; any extra config update outside a request fails its block. No failures or unexpected updates occurred. That does not establish concurrent-sync behavior, long-term reliability or other-host performance. The observed timer step is about 0.1 ms, without outlier removal or forced GC. These are descriptive single-host/session results without confidence intervals.
+
+This workload and endpoint differ from the earlier `trigger("status")` experiment. Subtracting their results does not isolate data-copy cost. Image encoding, recognition, game execution and LAN/WAN performance remain outside this test.
+
+## Screenshot Adapters
+
+<DeviceBenchmark locale="en" kind="capture" />
+
+These measurements call the desktop backend's production ADB, uiautomator2, Scrcpy and Nemu adapters at revision `d0a86a0`. The target is a separate native Android application on MuMu 15, Android 15/API 35, with a fixed 1280x720 landscape surface. It contains no game or account data. Both scenes redraw a frame counter; the animated scene also moves a tiled background behind the controls. A fixed texture pane remains identical in both scenes.
+
+<img
+  className="baas-screenshot"
+  src="/benchmarks/device-target.webp"
+  alt="Independent native device-benchmark target with frame barcodes, input counters and a texture pane; not the BAAS interface or a game"
+/>
+
+The [complete device record](/benchmarks/device-current.json) retains **800 measured screenshot calls and 576 measured input calls**, plus all **304 warm-ups**, source/APK hashes, versions and restoration checks. Python is 3.11.9, OpenCV 4.8.1.78, NumPy 1.26.4, PyAV 12.0.0, adbutils 2.2.1 and uiautomator2 2.16.23. These are one Windows host/emulator session, without confidence intervals or controlled background load. No application build ran alongside sampling.
+
+Each scene uses four counterbalanced rounds: every method occupies each order position once, and each directed pair of methods occurs once as consecutive blocks. A block has five warm-ups and 25 recorded calls. Initialization, target-state preparation, foreground checks, validation and quality calculations are outside individual API timing. Warm-ups and failed calls remain in the record; latency quantiles use validated successful calls, without removing outliers. All methods capture the same visible scene and dimensions.
+
+uiautomator2 uses a standard atx-agent 0.10.0 service with the installed 2.3.3 instrumentation server already running. Its screenshot request is proxied to that server. This is the [agent's documented implementation path](https://github.com/openatx/atx-agent/blob/0.10.0/httpserver.go#L1021-L1060), separate from BAAS Android's authenticated local bridge. Automatic library repair/reinstallation is disabled to protect the shared emulator; recovery performance is outside this experiment.
+
+Scrcpy retains the production H.264 software encoder, 8 Mbps bitrate and full resolution. Its API waits for a newly decoded frame after the call begins and copies that array; encoding and decoding run in the background. Nemu returns MuMu's current display pixels without an equivalent new-frame wait. Repeated decoded frame counters are reported separately: a quick return can deliver the same rendered frame again.
+
+Repeated-frame counts describe this unthrottled harness cadence, including the time between calls for checks. They are not a measured duplicate rate under the production script's minimum 0.3-second interval.
+
+MSE compares a fixed 260x210 texture region at `(940, 390)` against an ADB PNG reference in each block, after channel-order calibration. Zero means identical pixels in that region; H.264 is lossy. This regional check does not establish equal whole-frame fidelity, capture age, game-recognition accuracy or game FPS. The adapters also exclude the script-level minimum 0.3-second screenshot interval described below.
+
+## Input Adapters
+
+<DeviceBenchmark locale="en" kind="control" />
+
+Each action has four counterbalanced rounds, three warm-ups and 12 measured calls per block: **48 recorded calls per method/action**. Clicks target `(500, 500)`. Swipes move from `(300, 500)` to `(700, 500)` with a requested 300 ms duration; long presses request 300 ms at the click position. Production sleeps and Nemu's random swipe path remain intact.
+
+**API return** ends when the synchronous adapter call returns. **Visible response** ends when a common Scrcpy observer first decodes the expected input-counter increment. Both start immediately before the adapter call, using the same host `perf_counter_ns` clock. The observer polls immutable decoded frames every millisecond and includes barcode-decoding time. This endpoint includes target rendering, video encoding, transfer and decoding; it does not isolate device input dispatch. The same observer stays running for all four methods.
+
+The target records actual touch-down/up duration and travel, and the observer's decoded duration must match that state. This exposes different tap semantics and verifies gesture delivery. A visible result can arrive before API return when the adapter has a post-input sleep. Nemu's swipe implementation ignores the requested duration, so its measured gesture must be interpreted with the received duration and travel rather than as an equal-duration speedup.
+
+In this emulator session, uiautomator2's requested 300 ms swipes and long presses produced median received durations close to **2,000 ms**. The cause was not isolated. Nemu's swipe travel was 390–399 px rather than the requested 400 px; validation allows at most 10 px of endpoint-distance error. Intermediate trajectory shape is not checked. These are comparisons of the same adapter request, with different physical gesture results, not an equal-gesture speed ranking.
+
+The high-level asynchronous script click wrapper is excluded. No game task, OCR or reward-completion check runs in this target. These results do not establish Android-local/Shizuku performance, PC-window capture performance, real-device battery behavior or task completion time.
+
+## Android Local Screenshots
+
+<AndroidLocalBenchmark locale="en" kind="capture" />
+
+The [complete local record](/benchmarks/android-local-current.json) contains **400 measured screenshots, 216 measured inputs and 86 warm-ups**. Sampling ran inside the actual `:baas_backend` process of BAAS APK `36f08fd3`, on MuMu with Android 15/API 35, x86_64, embedded Python 3.9.20 and NumPy 1.26.2. The verified APK contains Pillow 11.0.0. Shizuku ran as ADB UID 2000 without Root. The target was the separate native fixture above at landscape 1280x720; all business tasks were disabled and no input was sent to the game.
+
+The adapter scope calls production `AndroidLocalScreenshot.screenshot()`, including token-file reading, loopback HTTP/JSON-RPC, Shizuku capture, PNG/Base64, Pillow decoding and the BGR array copy. The script scope calls production `Screenshot.screenshot()` and also includes its **0.3-second interval after the previous script screenshot completes**. Both use the same underlying implementation at different call layers; their timing ratio is not a speed difference between connection methods.
+
+Each scene and scope has ten blocks, with two warm-ups and ten measured calls per block. Scene order and scope order alternate; each scope occupies each position five times per scene. Device guards, scene changes, barcode verification and texture MSE are outside API timing. Raw samples retain the gap since the previous script screenshot completed, separating throttle waiting from capture work.
+
+Every image is checked for its state tag, dimensions, BGR calibration colors and frame counter. The static 260x210 texture region had zero MSE throughout, with no consecutive repeated counters. These checks cover that region and this call cadence, not whole-image equivalence, arbitrary game scenes or other devices. The script medians of approximately 330–334 ms include throttle waiting and cannot be converted into game FPS.
+
+## Android Local Input
+
+<AndroidLocalBenchmark locale="en" kind="control" />
+
+The production `Control` wrapper calls `AndroidLocalControl`. The local bridge requests an approximately 50 ms press for clicks. Swipes run from `(300, 490)` to `(700, 490)`; presses stay at one point. Both request 300 ms. Six permutations rotate across 24 blocks, with three calls per operation per block, producing 72 measurements per operation plus two warm-ups each.
+
+API return and screenshot confirmation share the same on-device monotonic start immediately before the call. **Screenshot confirmation starts sequential PNG capture and barcode decoding only after the input API returns, waiting for exactly one additional input count.** It includes that observation work. This endpoint is not the first changed frame, isolated input-dispatch latency or an endpoint equivalent to the desktop continuous-video observer. Reading the fixture's state file is outside timing and verifies actual press duration and travel.
+
+Median received press duration was 51 ms for clicks and 306 ms for both swipes and presses; all measured swipes travelled 400 px. Validation allows a 20 px swipe endpoint error and at most 3 px movement for clicks/presses; intermediate trajectory shape is not checked. Production waits remain included, and an earlier API return does not establish task completion.
+
+The record retains every sample, warm-up, installed backend-file fingerprint, APK/harness hash and restoration check. Five native/adapter source files match the APK's recorded Git revision. Actual downloaded backend files have separate fingerprints; no complete Git revision is inferred from the archive. Production methods were unchanged. A temporary startup entry ran the measurement thread in the embedded process and was restored afterward.
+
+These are descriptive results from one emulator session, without confidence intervals. No concurrent build or other benchmark ran during sampling; unrelated host load was uncontrolled. Zero failures, fixture input delivery and successful screenshots do not establish stable game startup, business-task success, other-phone behavior or long-running reliability. These results are not combined with the desktop adapters into a universal ranking.
+
+## Current Frontend Measurements
+
+<BenchmarkChart locale="en" />
+
+The chart is generated from [the complete measurement record](/benchmarks/frontend-current.json). It includes the exact source revision, UTC timestamp, environment and every sample, rather than only a selected average. The run used Windows x64, an AMD Ryzen 9 9950X, 32 logical CPUs, 31 GiB reported system memory and Bun 1.3.14. No concurrent application build was running during this measurement.
+
+Each encoding sample constructs one request from a repeating byte pattern. The JSON baseline converts bytes to a number array and serializes the request; the raw method invokes the production `encodeBinaryRequest` envelope encoder. Payloads are 1 KiB, 64 KiB and 1 MiB. Each method receives five warm-ups and 100 recorded samples. Order alternates each round. The p50/p95 select zero-based sorted index `floor(n * p)`, capped at `n - 1`. No explicit garbage collection or outlier removal is performed. Sub-microsecond differences are sensitive to clock granularity and runtime noise.
+
+The log comparison uses 10,000 identical input rows and 15 rounds. It asserts that the per-row and batched implementations produce equal per-scope and global logs. Store notification counts describe those operations, not React commits. The test alternates method order and records all round durations. The synthetic baseline models the former per-row update; it is not an old application binary tested end to end.
+
+## Reproduce
+
+From the repository root with the pinned dependencies installed:
+
+```powershell
+bun docs/scripts/measure-frontend.ts
+```
+
+This overwrites `docs/public/benchmarks/frontend-current.json` with a new run. Keep both the raw record and the explanatory text aligned when publishing different hardware or runtime results. A single machine and a single run do not support statistical claims about every user's environment; these measurements have no confidence interval.
+
+The native connection experiment uses `docs/scripts/measure-native-transport.mjs`. Prepare a disposable portable copy matching the executable SHA-256 in `installer-manifest.json`, with exactly one demo profile and all 26 tasks disabled. Enable local CDP for that copy's WebView2, enter Home and finish synchronization, then run:
+
+```powershell
+node docs/scripts/measure-native-transport.mjs 19235 "D:/BAAS-benchmark"
+node docs/scripts/publish-native-benchmark.mjs
+```
+
+The harness checks that CDP's storage directory matches the supplied root before restarting its managed backend. Do not target an everyday or shared installation. Measurements first go to ignored `.cache/docs-benchmarks/native-transport.json`; the harness attempts to restore the original mode afterward. Publication rejects incomplete or unrestored runs, missing samples, unequal responses and summaries that cannot be recomputed. Playwright and an actual native WebView are required. Different builds, platforms or workloads need separate version/environment records.
+
+Large-config synchronization has its own harness and also requires a disposable portable copy with an accessible real native WebView. Publication additionally needs a Git checkout containing the recorded backend revision; that checkout is read-only during verification.
+
+```powershell
+node docs/scripts/measure-native-payload.mjs 19235 "D:/BAAS-benchmark"
+node docs/scripts/publish-native-payload.mjs ".cache/docs-benchmarks/native-payload-<timestamp>.json" "D:/BAAS-benchmark" "D:/BAAS-backend"
+```
+
+The harness writes timestamped records containing all warm-ups, measured samples and failures, with original files in the matching `-baseline` directory. `--probe` runs a small preflight that cannot be published as a full comparison. Publication rejects incomplete restoration, missing samples, unequal decoded sizes, changed hashes or backend-source mismatches.
+
+The Android local experiment requires the exact pinned APK, an isolated demo and the native fixture, with schedulers, game and updater idle. It temporarily restarts that owned app and adds a measurement entry to its downloaded backend. Do not target everyday data or interrupt an active session without permission.
+
+```powershell
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation" --probe
+node docs/scripts/measure-android-local.mjs --serial "DEVICE_SERIAL" --native-root "D:/BAAS-android-validation"
+node docs/scripts/publish-android-local.mjs ".cache/android-local-benchmark/<run-id>" "D:/BAAS-android-validation"
+```
+
+Review the preflight and its restoration before a formal run. Each run retains a separate directory. Publication rejects probes, incomplete restoration, missing samples, unequal results and changed measured sources. If recovery fails, inspect the original-entrypoint backup and temporary directory before another run can overwrite evidence.
+
+## Frontend Measurement Boundaries
+
+- OS pipe or shared-memory transfer, cross-process scheduling and Rust/Python handling.
+- Tauri-to-WebView IPC, browser painting and actual React commit time.
+- Game screenshot acquisition, video decoding, OCR, image matching and input dispatch.
+- Network and updater download latency, cold startup, mobile thermal throttling and battery use.
+
+Do not add these timings together or label their ratio as an application or game speedup. For real user-facing comparisons, use the same task, game state, payload, logging level, versions and hardware. Record warm/cold conditions separately, retain failures and verify equivalent output before comparing latency.
+
+## Screenshot and Input Boundaries
+
+Scripts also apply coordinate scaling, random offsets, capture intervals and recognition. These backend adapter paths have different workloads from the status command above.
+
+| Path                    | Work inside the measurement                                                                                    | Output checks                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| ADB screenshot          | `screencap -p`, PNG transfer and OpenCV decoding                                                               | Nonempty image, correct dimensions/colors and intended device                                                 |
+| uiautomator2 screenshot | Device capture, communication, PIL/NumPy conversion and RGB→BGR                                                | Retain failures/retries as well as successful array returns                                                   |
+| Scrcpy screenshot       | New-frame wait and image copy after stream startup; encoding, transfer and decoding continue in the background | `last_frame_time` must follow call start; also verify the visible frame sequence                              |
+| Nemu screenshot         | MuMu native IPC, resolution query, pixel retrieval, channel conversion and vertical flip                       | Equivalent region, orientation, channels and visible frame sequence                                           |
+| MSS / PyAutoGUI         | Window activation, region update, capture, crop/color conversion                                               | Check occlusion, HDR, DPI, coordinates and final dimensions; a PC window and emulator are different workloads |
+
+`Screenshot.screenshot()` additionally waits for the configured interval, clamping values below 0.3 seconds to 0.3 seconds. The interval starts after the previous capture completes. A lower-level adapter timing excludes that wait and cannot establish the same script polling frequency.
+
+Input has at least three endpoints: API return, device receipt and the expected visible change. Current ADB clicks add a 50 ms sleep when the call took less than 50 ms; Scrcpy clicks include a 50 ms sleep; Nemu clicks include 15 ms after touch-down and 35 ms after touch-up. A comparison of production methods must retain these behaviors.
+
+For non-Nemu methods, `Baas_thread.click()` starts a thread and returns immediately by default; `wait_over=True` waits for it. The Nemu branch is synchronous. Default `click()` return times therefore do not form a comparable cross-method ranking. Click count, `rate`, `duration`, scaling and approximately ±5 pixels of random offset also change the workload. Visible-response timing needs the same input start and the expected target state, rather than an arbitrary animation change.
+
+Current Nemu swipes schedule an interpolated path with per-step waits; their `duration` parameter is not used to generate the path, so actual gesture duration needs verification. Android's `android_local` uses the embedded runtime and authenticated local bridge, a different implementation from the standard desktop uiautomator2 library. See the [Android port-ownership guidance](../guide/android#sharing-a-device-with-desktop-uiautomator2).
+
+## Transport Evidence
+
+The checked-in `benchmarks/shm-native-cross-process-windows.json` records a Rust/Python shared-memory test, excluding WebView and game. Its 1 KiB roundtrip uses 100 iterations (p50 0.1076 ms, p95 0.1629 ms); its 1 MiB throughput test uses 20 iterations and counts roundtrip bytes. These historical results have different measurement boundaries from the chart above and must not be combined into a single ranking.
+
+`docs/shared-memory-live-validation-2026-10-16.md` and `benchmarks/live-game-*.json` retain the historical real-game checks. Their versions and scenarios remain part of the evidence; they do not automatically prove behavior or performance on a newer client or Android device. A native IPC throughput result is not a game FPS result.

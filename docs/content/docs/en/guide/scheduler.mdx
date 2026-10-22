@@ -1,88 +1,78 @@
 ---
-title: Scheduler
-description: Enable tasks, disable tasks, edit run times, sort, search, and configure task-level scheduling parameters.
+title: Scheduler and Workflow
+description: Task list switches, filtering and sorting, bulk operations, timing details, dependency ports and workflow persistence.
 ---
 
-The Scheduler decides which automation tasks run for the current profile and when they run. Configuration pages decide how a task behaves; the Scheduler decides whether it runs, when it runs, and how it depends on other tasks.
+Configuration controls how a task behaves; Scheduler controls whether and when it participates in the selected profile's automation. Starting or stopping a scheduler is a separate runtime action.
 
 <img
   className="baas-screenshot"
-  src="/en/scheduler-overview.png"
-  alt="Scheduler page with inactive tasks on the left, active tasks on the right, overview, search, and sorting controls"
+  src="/media/desktop/en/scheduler-list.webp"
+  alt="Current single-list scheduler with per-task switches, next-run controls, search and bulk action"
 />
-
-```mermaid
-flowchart LR
-  Inactive["Inactive Tasks"] -- "Enable with arrow" --> Active["Active Tasks"]
-  Active --> Queue["Waiting Queue"]
-  Queue --> Running["Running Task"]
-  Running --> Result{"Result"}
-  Result -->|Success| Next["Update next run time"]
-  Result -->|Failure| Logs["Write logs / trigger push"]
-  Next --> Active
-```
-
-## Layout
-
-The page contains:
-
-- Task overview: running task and waiting queue.
-- Search: filter tasks by name.
-- Sort selector: default order or time order.
-- Refresh button: set all next run times to now.
-- Inactive tasks: tasks not scheduled.
-- Active tasks: tasks included in the scheduler queue.
-
-## Enable and Disable
-
-Use row arrow buttons to move a task between inactive and active columns. Column header arrows move all tasks.
-
-Enable only tasks that are configured and valid for the current account. Cafe, mail, and reward collection are usually lower risk. Shop, sweeps, arena, events, and combat tasks may consume resources or attempts.
-
-## Next Run Time
-
-The date-time control on each row sets the task's next run time. The refresh button resets every task to now.
-
-Notes:
-
-- Detailed scheduling can also define interval, daily reset, disabled range, pre-task, and post-task.
-- Refreshing a completed task to now can make it run again soon.
-- Refreshing many high-cost tasks may consume AP, tickets, or challenge attempts in sequence.
-
-## Detailed Task Scheduling
-
-Click the gear button on a task row to open detailed scheduling.
-
-| Field          | Purpose                                | Common Use                                |
-| -------------- | -------------------------------------- | ----------------------------------------- |
-| Priority       | Used by default sorting                | Run low-risk daily tasks first            |
-| Interval       | Seconds before the task can run again  | Prevent frequent repeats                  |
-| Daily reset    | Daily reset point                      | Once-per-day tasks                        |
-| Disabled range | Time range where task will not trigger | Avoid maintenance or manual play          |
-| Pre-task       | Tasks that must finish first           | Collect AP before sweeps                  |
-| Post-task      | Tasks that follow this one             | Send push or collect rewards after sweeps |
 
 ## Task List
 
-The scheduler may include:
+The current UI uses one list. Enabled tasks come first and disabled tasks follow a divider. Default sorting uses ascending priority; time sorting uses ascending next-run time, within those groups. Equal sort values retain their existing order. The sort preference is remembered.
 
-- Daily basics: cafe, cafe invitations, lessons, shop, mail, rewards, group AP, pass rewards.
-- AP and sweeps: normal stages, hard stages, bounty, scrimmage, special task, activity sweep.
-- Stage and story: normal stage, hard stage, main story, mini story, group story, event story, event mission, event challenge.
-- Combat events: arena, tactical challenge shop, Total Assault, Joint Firing Drill, daily game activity.
-- Maintenance: MomoTalk, friend cleanup, crafting, free AP collection, daily AP collection, 4 AM restart, anti-harmony.
+Search matches the task's displayed name, backend event name and function identifier. The enabled/total counter describes the full profile, not just the visible search results. Clearing search restores the full list.
 
-## Recommended Enable Order
+| Control                  | Result                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| Row switch               | Enable or disable that task immediately                                                  |
+| Row date/time            | Set that task's next run time; the UI uses local display time and persists epoch seconds |
+| Row gear                 | Open the task's detailed scheduling dialog                                               |
+| Bulk enable/disable      | Enable all tasks, or disable all when all are enabled                                    |
+| Reset-times icon         | Set all tasks' next run times to now                                                     |
+| New-task policy selector | Choose on, off or backend-default state for newly added task definitions                 |
+| Workflow icon            | Open the full-screen graph editor                                                        |
 
-1. Cafe, mail, rewards.
-2. Lessons, shop, group AP.
-3. Normal/hard sweeps, bounty, scrimmage, special task.
-4. Crafting, MomoTalk, friend cleanup.
-5. Arena, Total Assault, Joint Drill, events, and stage pushing.
+Bulk enable/disable and reset-times apply to the entire profile's task list, including tasks hidden by search. They do not operate only on search results. Enabling a task does not validate its game configuration. Resetting times can make resource-consuming tasks eligible again.
 
-Run once and check logs after each step.
+## Runtime Status
 
-<Callout type="idea" title="A Full Queue Is Not Always Better">
-  Enabling every task at once makes failures hard to isolate. Add 2-3 tasks at a time, validate,
-  then expand.
-</Callout>
+The overview reports the backend's running task and queue. These are not derived from the order currently shown by the frontend. Disabling a task, editing its time or drawing a dependency does not itself send Stop. When changing an active workflow, stop it first if you need the current execution to finish before the change takes effect.
+
+## Detailed Scheduling
+
+The gear dialog stages its own edits. Save applies changed fields and closes the dialog; Cancel or closing it discards that dialog draft. This differs from the automatic-saving feature configuration workspace.
+
+| Field               | Meaning                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| Event name          | Read-only task identity/display name                                                |
+| Next run            | Earliest configured eligibility time, not a guarantee of exact wall-clock execution |
+| Priority            | Default ordering parameter; smaller values sort earlier                             |
+| Interval            | Seconds between eligible executions; enter a nonnegative value                      |
+| Daily reset         | One or more daily reset times                                                       |
+| Disabled time range | Time ranges during which the task is suppressed                                     |
+| Pre-task            | Ordered prerequisite tasks referenced by function identifier                        |
+| Post-task           | Ordered follow-up tasks referenced by function identifier                           |
+
+Time and dependency rules are evaluated by the backend scheduler. A queue, an unmet condition, the current task and failure handling can all affect actual execution time. A node positioned to the left is not by itself a scheduling rule.
+
+## Workflow Editor
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/scheduler-workflow.webp"
+  alt="Native workflow editor with task nodes, separate prerequisite and follow-up ports, layout, minimap and zoom controls"
+/>
+
+Each task has separate pre-task and post-task port rows. Connect an output on the right to an input of the same kind on the left.
+
+| Connection                            | Stored relationship              | Interpretation           |
+| ------------------------------------- | -------------------------------- | ------------------------ |
+| A right pre port to B left pre port   | A is appended to B's `pre_task`  | A is a prerequisite of B |
+| A right post port to B left post port | B is appended to A's `post_task` | B follows A              |
+
+The editor rejects a self-link, duplicate relationship of the same kind, a cycle, an unknown task and mismatched port types. Existing cycles and missing references loaded from configuration show a warning so they can be inspected.
+
+Select an edge to expose its delete/disconnect control, or use Disconnect in the toolbar. Removing an edge removes that relationship; it does not delete the task. The graph does not bind the Delete key to node deletion.
+
+Drag a node to move it. Use zoom, fit-to-view and the minimap to inspect a large graph. Arrange recomputes the layout and fits the graph into view. Position changes are remembered locally by backend identity and profile, separately from task configuration. Moving or arranging nodes does not change task priority or dependency order.
+
+Relationship changes and task switches patch the backend immediately. Closing the graph is not a cancel operation. Task detail dialogs opened from a node retain their separate Save/Cancel behavior.
+
+## First Run
+
+Start with a small group such as mail or reward collection after checking the correct server and device. Read each feature's settings before enabling shopping, sweeps, combat, friend cleanup or one-shot actions. These tasks can spend currency, AP, tickets or attempts, or modify account state. After each change, inspect the task result and logs before expanding the enabled set.

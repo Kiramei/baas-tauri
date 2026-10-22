@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build:fonts": "bun scripts/build-fonts.mjs",
-    "build:next": "next build",
-    "build": "bun run build:fonts && next build",
+    "build:next": "next build && node scripts/normalize-static-export.mjs",
+    "build": "bun run build:fonts && bun run build:next",
     "start": "next start"
   },
   "dependencies": {
@@ -25,6 +25,7 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
+    "sharp": "0.34.5",
     "typescript": "~5.8.2"
   }
 }

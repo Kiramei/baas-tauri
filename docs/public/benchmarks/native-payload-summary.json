@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "recordSha256": "aaff3a99b4075d86fe3038b47b2f58af2aeff587b27c4324d925b039c5b80703",
+  "results": [
+    {
+      "mode": "websocket",
+      "payloadBytes": 1024,
+      "count": 600,
+      "p50Ms": 0.9000000059604645,
+      "p95Ms": 1.0999999940395355,
+      "minimumMs": 0.7999999970197678,
+      "maximumMs": 10.5,
+      "meanMs": 0.97883333320419,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 1.3350000001490117,
+        "p95Ms": 1.9450000002980232,
+        "minimumMs": 1.2799999997019769,
+        "maximumMs": 1.9649999998509884,
+        "meanMs": 1.4010000000397367,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 11259
+    },
+    {
+      "mode": "pipe",
+      "payloadBytes": 1024,
+      "count": 600,
+      "p50Ms": 2.199999988079071,
+      "p95Ms": 2.4000000059604645,
+      "minimumMs": 1.8999999910593033,
+      "maximumMs": 16,
+      "meanMs": 2.230333333015442,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 2.625,
+        "p95Ms": 3.2599999994039535,
+        "minimumMs": 2.5150000005960464,
+        "maximumMs": 3.6099999994039536,
+        "meanMs": 2.678333333358168,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 11259
+    },
+    {
+      "mode": "shm",
+      "payloadBytes": 1024,
+      "count": 600,
+      "p50Ms": 2.2999999970197678,
+      "p95Ms": 2.5,
+      "minimumMs": 2,
+      "maximumMs": 10.099999994039536,
+      "meanMs": 2.3013333334277073,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 2.7149999998509884,
+        "p95Ms": 3.2550000004470347,
+        "minimumMs": 2.605000000447035,
+        "maximumMs": 3.389999999850988,
+        "meanMs": 2.7479999999950326,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 11259
+    },
+    {
+      "mode": "websocket",
+      "payloadBytes": 65536,
+      "count": 600,
+      "p50Ms": 3,
+      "p95Ms": 3.5,
+      "minimumMs": 2.6000000089406967,
+      "maximumMs": 6.799999997019768,
+      "meanMs": 3.0583333337306975,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 3.705000000447035,
+        "p95Ms": 4.039999999850989,
+        "minimumMs": 3.4899999998509883,
+        "maximumMs": 4.695000000298023,
+        "meanMs": 3.728333333358169,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 75771
+    },
+    {
+      "mode": "pipe",
+      "payloadBytes": 65536,
+      "count": 600,
+      "p50Ms": 2.9000000059604645,
+      "p95Ms": 3.5,
+      "minimumMs": 2.5999999940395355,
+      "maximumMs": 17.200000002980232,
+      "meanMs": 3.0560000005364416,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 3.575,
+        "p95Ms": 4.369999999552965,
+        "minimumMs": 3.3649999998509883,
+        "maximumMs": 4.8,
+        "meanMs": 3.7099999999751647,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 75771
+    },
+    {
+      "mode": "shm",
+      "payloadBytes": 65536,
+      "count": 600,
+      "p50Ms": 2.9000000059604645,
+      "p95Ms": 3.4000000059604645,
+      "minimumMs": 2.5999999940395355,
+      "maximumMs": 26.30000001192093,
+      "meanMs": 3.1049999999254942,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 3.55,
+        "p95Ms": 4.719999999552965,
+        "minimumMs": 3.4149999998509886,
+        "maximumMs": 4.914999999850989,
+        "meanMs": 3.745333333338301,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 75771
+    },
+    {
+      "mode": "websocket",
+      "payloadBytes": 1048576,
+      "count": 600,
+      "p50Ms": 41.70000000298023,
+      "p95Ms": 48.400000005960464,
+      "minimumMs": 34,
+      "maximumMs": 55.5,
+      "meanMs": 41.52450000017881,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 47.48999999985099,
+        "p95Ms": 48.65999999940395,
+        "minimumMs": 45.53000000044703,
+        "maximumMs": 49.514999999850986,
+        "meanMs": 47.41533333336313,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 1058811
+    },
+    {
+      "mode": "pipe",
+      "payloadBytes": 1048576,
+      "count": 600,
+      "p50Ms": 14.400000005960464,
+      "p95Ms": 15.600000008940697,
+      "minimumMs": 12.799999997019768,
+      "maximumMs": 27.900000005960464,
+      "meanMs": 14.495333333089947,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 19.7,
+        "p95Ms": 20.55,
+        "minimumMs": 18.719999999552964,
+        "maximumMs": 20.63999999985099,
+        "meanMs": 19.632499999975167,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 1058811
+    },
+    {
+      "mode": "shm",
+      "payloadBytes": 1048576,
+      "count": 600,
+      "p50Ms": 13.799999997019768,
+      "p95Ms": 15.799999997019768,
+      "minimumMs": 12.399999991059303,
+      "maximumMs": 24.700000002980232,
+      "meanMs": 14.052999999920527,
+      "zeroSamples": 0,
+      "blockMeans": {
+        "count": 30,
+        "p50Ms": 19.31000000014901,
+        "p95Ms": 21.85,
+        "minimumMs": 18.204999999701975,
+        "maximumMs": 22.23500000014901,
+        "meanMs": 19.32249999997516,
+        "zeroSamples": 0
+      },
+      "failedAttempts": 0,
+      "decodedConfigJsonBytes": 1058811
+    }
+  ]
+}

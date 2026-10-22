@@ -1,0 +1,48 @@
+---
+title: Editing Configuration
+description: Category search, tabs, automatic saving, validation, per-profile undo/redo and structured editors.
+---
+
+Open Configuration and select the intended profile before editing. The selected category appears inline; its heading also identifies the profile. These controls configure task behavior. Enable and schedule the task separately in [Scheduler](./scheduler).
+
+## Search and Categories
+
+Search matches translated category names, control labels, help text and tab names. Multiple words narrow the matching categories. Press Enter to open the first result. Matching content is highlighted inside the editor; clear the search to restore the complete category list. A search with no results does not erase the existing configuration.
+
+The feature group contains Cafe, Lessons, Shop, Crafting, Tactical Challenge, Daily sweeps, Total Assault, Final Restriction Release, Joint Firing Drill and Friend cleanup. General configuration contains Server, Script, Emulator, Stages, Teams, Push and Other. Tabs divide related modes without opening separate settings dialogs.
+
+## Automatic Saving and Validation
+
+Changes appear in the editor immediately. After approximately 300 ms without further edits to the same fields, valid changes are sent as a sparse configuration patch. Switching editors or hiding/leaving the page flushes pending valid changes. Opening an editor alone does not send its defaults to the backend.
+
+There is no blanket Cancel operation that restores the entire inline workspace. Use Undo to reverse an edit. Dialogs embedded within a feature can still have their own confirmation or cancellation; the scheduler detail dialog separately uses Save/Cancel.
+
+A temporarily empty or invalid number can remain visible as a draft. For example, Script's screenshot interval must be a finite number of at least 0.1 seconds. An invalid serialized draft is not sent. Complete the value and recheck it; do not assume navigation made an invalid value persistent. The automatic send also requires a working backend connection: after connection problems, confirm the synchronized value again.
+
+## Undo and Redo
+
+<MotionDemo locale="en" />
+
+The heading's arrow buttons and applicable Edit menu commands operate on the current profile's configuration history. Consecutive changes to the same field within the debounce window can be grouped into one step. A change in another category can be undone, and the workspace opens that category.
+
+- Undo restores the earlier draft and sends the corresponding valid earlier values.
+- Redo reapplies the undone change. Making a new edit discards the redo branch.
+- Each profile has its own history. Switching profiles does not apply one profile's edits to another.
+- The history is held in the current window, limited to 100 recorded steps; it is not retained as an audit log after restart.
+- Backend updates can replace a clean editor and invalidate that category's stale history. Delayed acknowledgments of the window's own edits should not roll back a newer local draft.
+
+Before a large migration or experiment, export the profile archive. Configuration history is not a replacement for backups.
+
+## Structured Editors
+
+| Editor           | Operation                                                                                | Check before running                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Sweep plan       | Add chapter/mission/count rows; choose fixed count or maximum where supported            | Correct server, target, AP and hard-stage attempt limit                        |
+| Sweep counts     | Skip, fixed, all or supported share modes instead of typing legacy packed strings        | Each region and purchase cap; activity allocations can spend all available AP  |
+| Explore plan     | Add chapters and missions or a whole chapter                                             | Required teams and unlocked stages                                             |
+| Priority list    | Select entries and reorder priority with its controls or supported drag/keyboard actions | Higher entries are attempted first; unavailable entries depend on backend data |
+| Shop selection   | Select individual items and refresh count                                                | Currency, refresh expense and selected item quantities                         |
+| Student selector | Search and select students for the specific feature                                      | Correct server roster, invitation mode and Cafe 1/Cafe 2                       |
+| Team grid        | Set attack type for side or preset positions                                             | Grid positions match the actual game's saved teams                             |
+
+These are representations of backend configuration, not previews of successful game actions. Feature pages explain each field and resource consequence.

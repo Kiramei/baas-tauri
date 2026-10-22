@@ -1,0 +1,1384 @@
+{
+  "generatedAt": "2026-10-20T09:12:22.305520+00:00",
+  "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "scriptSha256": "626c1086e4109c73c4ef4db7bccbded9488a2b998680ff98e7dc21fb72aec6bc",
+  "method": "Unmodified production co_detect and match_img_feature AST compiled without module imports; deterministic matcher, frame, clock, popup and input adapters. No image recognition engine, real device, game, network or timing measurement.",
+  "sources": [
+    {
+      "file": "pyproject.toml",
+      "sha256": "378d1cc76e2c7d6105929b390275ff16dafb37b27f07df4e25b8622987a0e1ca",
+      "gitContentVerified": true,
+      "symbols": {}
+    },
+    {
+      "file": "main.py",
+      "sha256": "6c91a0c8c41337b5158a3fbacf776e47497ce908711126e35a55731c9f465375",
+      "gitContentVerified": true,
+      "symbols": {
+        "Main": {
+          "line": 6,
+          "endLine": 115
+        }
+      }
+    },
+    {
+      "file": "main.service.py",
+      "sha256": "5ef5518d594116feeec383ce992549ffe849585bcaa5fde4c84ef57f44d4ffe6",
+      "gitContentVerified": true,
+      "symbols": {
+        "parse_args": {
+          "line": 30,
+          "endLine": 53
+        },
+        "main": {
+          "line": 56,
+          "endLine": 87
+        }
+      }
+    },
+    {
+      "file": "service/app.py",
+      "sha256": "39cd4af9a67a5096e1322b84b64e47ac9b76714627e40d4aeeae418fbdb5abee",
+      "gitContentVerified": true,
+      "symbols": {}
+    },
+    {
+      "file": "service/api/http.py",
+      "sha256": "f2cfc13de73cfd2a331949f4a04c510b2c0e47105cda402dcaa63b6bc73e9335",
+      "gitContentVerified": true,
+      "symbols": {
+        "health": {
+          "line": 59,
+          "endLine": 70
+        }
+      }
+    },
+    {
+      "file": "service/api/commands.py",
+      "sha256": "36c1b984f9ab892e75cec03acc503c1b708c7690d4ca3cd88000f18e4024bfb5",
+      "gitContentVerified": true,
+      "symbols": {
+        "execute_command": {
+          "line": 16,
+          "endLine": 142
+        }
+      }
+    },
+    {
+      "file": "service/api/state.py",
+      "sha256": "f1e5f128687aa018dbe36b9d63e8b330d9e4dcbbd11ec3be8dec666326f41518",
+      "gitContentVerified": true,
+      "symbols": {
+        "LazyServiceContext": {
+          "line": 11,
+          "endLine": 26
+        }
+      }
+    },
+    {
+      "file": "service/system_logging.py",
+      "sha256": "b258f33ada90dbeea6227a4f803fd9167616e013bafba23ba82dea649b978434",
+      "gitContentVerified": true,
+      "symbols": {
+        "configure_system_logging": {
+          "line": 59,
+          "endLine": 91
+        }
+      }
+    },
+    {
+      "file": "service/conf/resources.py",
+      "sha256": "c405478d5b472aab1192ef1520ef1d7fa992176337a1fd2dc0efaf62b1635015",
+      "gitContentVerified": true,
+      "symbols": {
+        "ResourcePathResolver": {
+          "line": 12,
+          "endLine": 28
+        }
+      }
+    },
+    {
+      "file": "service/context.py",
+      "sha256": "bcd0dc3758aaaf0761c99bd60269b08b05ff40fad064bf67016fbfb1af1b3302",
+      "gitContentVerified": true,
+      "symbols": {
+        "ServiceContext": {
+          "line": 49,
+          "endLine": 125
+        }
+      }
+    },
+    {
+      "file": "service/runtime.py",
+      "sha256": "2227d09db68e1517c201a76cf864165d6328845c2b10c80457815a459d960345",
+      "gitContentVerified": true,
+      "symbols": {
+        "run_blocking": {
+          "line": 68,
+          "endLine": 78
+        },
+        "ConfigSession": {
+          "line": 182,
+          "endLine": 191
+        },
+        "ServiceRuntime": {
+          "line": 194,
+          "endLine": 1006
+        }
+      }
+    },
+    {
+      "file": "service/injection.py",
+      "sha256": "2dd985d55f5ec7800085efa173f82f2a92bafb32b0602ff0906f987a5efdf573",
+      "gitContentVerified": true,
+      "symbols": {
+        "apply_startup_injections": {
+          "line": 615,
+          "endLine": 624
+        },
+        "apply_service_injections": {
+          "line": 627,
+          "endLine": 646
+        }
+      }
+    },
+    {
+      "file": "service/image_compat.py",
+      "sha256": "5fa3a60a7bb1a4572ea571781d8509461adf4bbfce24695cc69d635b361391e6",
+      "gitContentVerified": true,
+      "symbols": {
+        "install_popup_image_compat": {
+          "line": 202,
+          "endLine": 228
+        }
+      }
+    },
+    {
+      "file": "service/gesture_compat.py",
+      "sha256": "74eb85f350b72866e2629af12700db2cf0ce46ada2fb59f95fbc28023f27ebcc",
+      "gitContentVerified": true,
+      "symbols": {
+        "install_gesture_compat": {
+          "line": 10,
+          "endLine": 50
+        }
+      }
+    },
+    {
+      "file": "service/asset_compat.py",
+      "sha256": "925aca989fadd35d776df1430fa38240774a85aadb2bc29f6f26a565d1dfd8f6",
+      "gitContentVerified": true,
+      "symbols": {
+        "install_asset_compat": {
+          "line": 15,
+          "endLine": 68
+        }
+      }
+    },
+    {
+      "file": "service/android_local_device.py",
+      "sha256": "1bedba5de8976b1a79d35c3fea6ca54c369f94bbe0e0a4e2fdb37205967d807a",
+      "gitContentVerified": true,
+      "symbols": {
+        "AndroidLocalControl": {
+          "line": 19,
+          "endLine": 42
+        },
+        "AndroidLocalScreenshot": {
+          "line": 45,
+          "endLine": 54
+        }
+      }
+    },
+    {
+      "file": "service/android_ocr_client.py",
+      "sha256": "8f14847991b23054855df1fd4ed37755422d1ddfab54278e89b472a2c5d63799",
+      "gitContentVerified": true,
+      "symbols": {}
+    },
+    {
+      "file": "service/conf/initializer.py",
+      "sha256": "dfde6e0f930d5033d93442da0156c1bd786f6eecf3bbc61911db9d53e821e5b1",
+      "gitContentVerified": true,
+      "symbols": {
+        "ConfigInitializer": {
+          "line": 17,
+          "endLine": 143
+        }
+      }
+    },
+    {
+      "file": "service/conf/manager.py",
+      "sha256": "f51721bc8bf30005de5dddcdda4c2263f2250e2bea9fb43a1339e1bf6d4e6211",
+      "gitContentVerified": true,
+      "symbols": {
+        "ConfigManager": {
+          "line": 31,
+          "endLine": 581
+        }
+      }
+    },
+    {
+      "file": "service/channels/sync.py",
+      "sha256": "ccb477ab94fce2295426caae15bac41eac072302e2eaf1b358d5f364af502491",
+      "gitContentVerified": true,
+      "symbols": {
+        "SyncChannelHandler": {
+          "line": 15,
+          "endLine": 92
+        }
+      }
+    },
+    {
+      "file": "core/Baas_thread.py",
+      "sha256": "4c6f62e86cb974db54a726fe9ed9435cb3fd8a31c478ee01709d0f45edd9bb47",
+      "gitContentVerified": true,
+      "symbols": {
+        "Baas_thread": {
+          "line": 72,
+          "endLine": 1178
+        }
+      }
+    },
+    {
+      "file": "core/scheduler.py",
+      "sha256": "c53ac7dc1f7a292216d8810292e93661d7e00975c3d56ac5ec44d4c3d11f8578",
+      "gitContentVerified": true,
+      "symbols": {
+        "Scheduler": {
+          "line": 9,
+          "endLine": 183
+        }
+      }
+    },
+    {
+      "file": "core/picture.py",
+      "sha256": "12098e540bb61d4c2e14193a0d26536c6f347f9b130093373bc4969c00e3cf42",
+      "gitContentVerified": true,
+      "symbols": {
+        "co_detect": {
+          "line": 16,
+          "endLine": 165
+        },
+        "deal_with_pop_ups": {
+          "line": 168,
+          "endLine": 226
+        },
+        "match_img_feature": {
+          "line": 239,
+          "endLine": 254
+        }
+      }
+    },
+    {
+      "file": "core/image.py",
+      "sha256": "a544911abb06d27a653337cbaef76e424408e61a1c3e8ccb2543b2b908e457a1",
+      "gitContentVerified": true,
+      "symbols": {
+        "screenshot_cut": {
+          "line": 9,
+          "endLine": 14
+        },
+        "compare_image": {
+          "line": 22,
+          "endLine": 33
+        },
+        "search_in_area": {
+          "line": 40,
+          "endLine": 70
+        }
+      }
+    },
+    {
+      "file": "core/color.py",
+      "sha256": "3c7fdbc654ce89d5588bc016524b5c0f50a8f9f479bf1541928cbed2d29a36f6",
+      "gitContentVerified": true,
+      "symbols": {
+        "wait_loading": {
+          "line": 13,
+          "endLine": 21
+        },
+        "rgb_in_range": {
+          "line": 40,
+          "endLine": 55
+        },
+        "match_rgb_feature": {
+          "line": 58,
+          "endLine": 82
+        }
+      }
+    },
+    {
+      "file": "core/position.py",
+      "sha256": "aa18168b626af1ab7527b4a7defbfa7855176401a4af53ea704efcc8b5c850ea",
+      "gitContentVerified": true,
+      "symbols": {
+        "init_image_data": {
+          "line": 23,
+          "endLine": 84
+        },
+        "get_area": {
+          "line": 98,
+          "endLine": 104
+        }
+      }
+    },
+    {
+      "file": "core/ocr/ocr.py",
+      "sha256": "fa5c96d98f4003351eebcbe14a97f30e3d1f68c43891569b52dc95742b22d91b",
+      "gitContentVerified": true,
+      "symbols": {
+        "Baas_ocr": {
+          "line": 9,
+          "endLine": 261
+        }
+      }
+    },
+    {
+      "file": "core/device/Screenshot.py",
+      "sha256": "fabe8dcd930ec3a933e4b6c26d581bb173ca135e81dd7d86314c3cd8d4a694d9",
+      "gitContentVerified": true,
+      "symbols": {
+        "Screenshot": {
+          "line": 10,
+          "endLine": 70
+        }
+      }
+    },
+    {
+      "file": "core/config/default_config.py",
+      "sha256": "c761d50808ccedbb74a7339919cf324ccfd553ec870ba7fda10cb6f3f5483b87",
+      "gitContentVerified": true,
+      "symbols": {}
+    },
+    {
+      "file": "core/config/config_set.py",
+      "sha256": "8596a6e3140122fede580c1e2d93986e820da22cf81f2ee98d36aa8a08481f82",
+      "gitContentVerified": true,
+      "symbols": {
+        "ConfigSet": {
+          "line": 11,
+          "endLine": 135
+        }
+      }
+    },
+    {
+      "file": "core/config/generated_user_config.py",
+      "sha256": "3f734a86dcfde64e0dc24555103bda951369c331f802fd21e14497145990af81",
+      "gitContentVerified": true,
+      "symbols": {
+        "Config": {
+          "line": 7,
+          "endLine": 104
+        }
+      }
+    },
+    {
+      "file": "core/config/generated_static_config.py",
+      "sha256": "e7daa63d9c00927a09abde45e741291b8012bddc1c45270a57f3e403fc199b98",
+      "gitContentVerified": true,
+      "symbols": {
+        "StaticConfig": {
+          "line": 7,
+          "endLine": 32
+        }
+      }
+    },
+    {
+      "file": "core/utils.py",
+      "sha256": "b9a4542fbf7f98aa48ae4d4e4c30a71757c9eb8c5537cd146af39895629426c9",
+      "gitContentVerified": true,
+      "symbols": {
+        "Logger": {
+          "line": 41,
+          "endLine": 146
+        }
+      }
+    },
+    {
+      "file": "core/exception.py",
+      "sha256": "ff9d8a3e98d26fbd829d2d665ebeee12d04f8685a81e7168d0d503da0e00321b",
+      "gitContentVerified": true,
+      "symbols": {
+        "RequestHumanTakeOver": {
+          "line": 12,
+          "endLine": 21
+        },
+        "PackageIncorrect": {
+          "line": 24,
+          "endLine": 34
+        },
+        "FunctionCallTimeout": {
+          "line": 37,
+          "endLine": 47
+        }
+      }
+    },
+    {
+      "file": "develop_tools/generate_dataclass_code.py",
+      "sha256": "78c7ce0d29a4bc3efe9321aed2f960e623a91cdf0e73a0300839e3c2ea731740",
+      "gitContentVerified": true,
+      "symbols": {
+        "generate_dataclass_code": {
+          "line": 7,
+          "endLine": 23
+        }
+      }
+    },
+    {
+      "file": "deploy/service/requirements.service.windows.txt",
+      "sha256": "2e89fe12daaf62a699355357ffdd67740b7210d660e93cc6e3ae3ed2f4a87123",
+      "gitContentVerified": true,
+      "symbols": {}
+    },
+    {
+      "file": "deploy/service/requirements.service.linux.txt",
+      "sha256": "2e89fe12daaf62a699355357ffdd67740b7210d660e93cc6e3ae3ed2f4a87123",
+      "gitContentVerified": true,
+      "symbols": {}
+    }
+  ],
+  "cases": [
+    {
+      "id": "end-first",
+      "inputs": {
+        "frames": [
+          {
+            "rgb": {
+              "done": true,
+              "go_rgb": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 1,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 0,
+      "captures": 1,
+      "verified": true
+    },
+    {
+      "id": "rgb-first",
+      "inputs": {
+        "frames": [
+          {
+            "rgb": {
+              "go_rgb": true
+            },
+            "image": {
+              "go_image": true
+            }
+          },
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": true
+        },
+        {
+          "kind": "click",
+          "frame": 1,
+          "x": 100,
+          "y": 200
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 2,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 1,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "image-fallback",
+      "inputs": {
+        "frames": [
+          {
+            "image": {
+              "go_image": true
+            }
+          },
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": true
+        },
+        {
+          "kind": "click",
+          "frame": 1,
+          "x": 300,
+          "y": 400
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 2,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 1,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "repeat-suppressed",
+      "inputs": {
+        "frames": [
+          {
+            "rgb": {
+              "go_rgb": true
+            }
+          },
+          {
+            "rgb": {
+              "go_rgb": true
+            }
+          },
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": true
+        },
+        {
+          "kind": "click",
+          "frame": 1,
+          "x": 100,
+          "y": 200
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 2,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "go_rgb",
+          "matched": true
+        },
+        {
+          "kind": "capture",
+          "frame": 3
+        },
+        {
+          "kind": "loading",
+          "frame": 3
+        },
+        {
+          "kind": "rgb",
+          "frame": 3,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 3,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 1,
+      "captures": 3,
+      "verified": true
+    },
+    {
+      "id": "popup-fallback",
+      "inputs": {
+        "frames": [
+          {
+            "popup": true
+          },
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": false
+        },
+        {
+          "kind": "popup",
+          "frame": 1,
+          "matched": true
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 2,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 0,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "tentative-limit",
+      "inputs": {
+        "frames": [
+          {},
+          {},
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {
+          "tentative_click": true,
+          "max_fail_cnt": 1
+        },
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": false
+        },
+        {
+          "kind": "popup",
+          "frame": 1,
+          "matched": false
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 2,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 2,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": false
+        },
+        {
+          "kind": "popup",
+          "frame": 2,
+          "matched": false
+        },
+        {
+          "kind": "click",
+          "frame": 2,
+          "x": 1238,
+          "y": 45
+        },
+        {
+          "kind": "sleep",
+          "frame": 2,
+          "seconds": 1.5
+        },
+        {
+          "kind": "capture",
+          "frame": 3
+        },
+        {
+          "kind": "loading",
+          "frame": 3
+        },
+        {
+          "kind": "rgb",
+          "frame": 3,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 3,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 1,
+      "captures": 3,
+      "verified": true
+    },
+    {
+      "id": "timeout",
+      "inputs": {
+        "frames": [
+          {},
+          {}
+        ],
+        "options": {
+          "time_out": 1
+        },
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 2
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": false
+        },
+        {
+          "kind": "popup",
+          "frame": 1,
+          "matched": false
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "exception",
+          "frame": 2,
+          "value": "FunctionCallTimeout"
+        }
+      ],
+      "outcome": {
+        "kind": "exception",
+        "value": "FunctionCallTimeout"
+      },
+      "clickRequests": 0,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "stopped",
+      "inputs": {
+        "frames": [
+          {}
+        ],
+        "options": {},
+        "initiallyStopped": true,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "exception",
+          "frame": 0,
+          "value": "RequestHumanTakeOver"
+        }
+      ],
+      "outcome": {
+        "kind": "exception",
+        "value": "RequestHumanTakeOver"
+      },
+      "clickRequests": 0,
+      "captures": 0,
+      "verified": true
+    },
+    {
+      "id": "template-end",
+      "inputs": {
+        "frames": [
+          {
+            "image": {
+              "ready": true
+            },
+            "rgb": {
+              "go_rgb": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 1,
+          "value": [
+            "ready",
+            0.91,
+            12
+          ]
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": [
+          "ready",
+          0.91,
+          12
+        ]
+      },
+      "clickRequests": 0,
+      "captures": 1,
+      "verified": true
+    },
+    {
+      "id": "negative-action",
+      "inputs": {
+        "frames": [
+          {
+            "rgb": {
+              "go_rgb": true
+            }
+          },
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {},
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": true,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": true
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "loading",
+          "frame": 2
+        },
+        {
+          "kind": "rgb",
+          "frame": 2,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 2,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 0,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "wrong-package",
+      "inputs": {
+        "frames": [
+          {},
+          {}
+        ],
+        "options": {
+          "check_pkg_interval": 1
+        },
+        "initiallyStopped": false,
+        "androidPackageProbe": true,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 2
+      },
+      "events": [
+        {
+          "kind": "capture",
+          "frame": 1
+        },
+        {
+          "kind": "loading",
+          "frame": 1
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "done",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "ready",
+          "threshold": 0.91,
+          "rgbDiff": 12,
+          "matched": false
+        },
+        {
+          "kind": "rgb",
+          "frame": 1,
+          "name": "go_rgb",
+          "matched": false
+        },
+        {
+          "kind": "image",
+          "frame": 1,
+          "name": "go_image",
+          "threshold": 0.85,
+          "rgbDiff": 15,
+          "matched": false
+        },
+        {
+          "kind": "popup",
+          "frame": 1,
+          "matched": false
+        },
+        {
+          "kind": "capture",
+          "frame": 2
+        },
+        {
+          "kind": "package",
+          "frame": 2,
+          "expected": false
+        },
+        {
+          "kind": "exception",
+          "frame": 2,
+          "value": "PackageIncorrect"
+        }
+      ],
+      "outcome": {
+        "kind": "exception",
+        "value": "PackageIncorrect"
+      },
+      "clickRequests": 0,
+      "captures": 2,
+      "verified": true
+    },
+    {
+      "id": "cached-first",
+      "inputs": {
+        "frames": [
+          {
+            "rgb": {
+              "done": true
+            }
+          }
+        ],
+        "options": {
+          "skip_first_screenshot": true
+        },
+        "initiallyStopped": false,
+        "androidPackageProbe": false,
+        "negativeActionCoordinates": false,
+        "secondsPerCapture": 0.5
+      },
+      "events": [
+        {
+          "kind": "loading",
+          "frame": 0
+        },
+        {
+          "kind": "rgb",
+          "frame": 0,
+          "name": "done",
+          "matched": true
+        },
+        {
+          "kind": "return",
+          "frame": 0,
+          "value": "done"
+        }
+      ],
+      "outcome": {
+        "kind": "return",
+        "value": "done"
+      },
+      "clickRequests": 0,
+      "captures": 0,
+      "verified": true
+    }
+  ]
+}

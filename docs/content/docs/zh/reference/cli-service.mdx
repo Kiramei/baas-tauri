@@ -1,77 +1,88 @@
 ---
 title: CLI 与 Service 模式
-description: BAAS 后端的命令行运行、常驻服务模式、适用场景和与 Tauri 客户端的关系。
+description: 服务启动参数、环境覆盖、本机 IPC、旧任务脚本的执行风险与退出行为。
 ---
 
-BAAS 后端既可以由 Tauri 客户端安装器启动，也可以在开发、服务器或 macOS/Linux 场景下通过命令行运行。旧 `baas-dev/docs` 中的 CLI 文档主要面向后端源码使用者；迁移到这里后，定位为“高级用法和开发参考”。
+Tauri 安装器会管理后端。手动启动适用于源码开发、隔离测试和部署独立服务；不要同时启动第二个进程占用当前客户端的端口、配置目录或设备。
 
-## 两种运行模式
+## 选择入口
 
-| 模式             | 行为                                   | 适用场景                             |
-| ---------------- | -------------------------------------- | ------------------------------------ |
-| CLI 一次性模式   | 按脚本文件中的任务顺序执行，完成后退出 | cron、launchd、临时批处理            |
-| Service 常驻模式 | 启动长期运行的后端服务，使用内置调度器 | Tauri 客户端、无人值守服务、开发调试 |
+| 入口 | 行为 |
+| ---- | ---- |
+| `main.service.py` | 启动 HTTP/WebSocket 服务，按配置接入本机 Pipe 或共享内存，调度由服务命令控制 |
+| `cli.example.py` | 初始化旧版 `Main` 与设备线程，直接运行脚本内列出的任务 |
+| `main.py` | 旧版主程序入口，不是只读服务诊断命令 |
 
-```mermaid
-flowchart LR
-  Config["配置档"] --> CLI["CLI 脚本"]
-  Config --> Service["Service 常驻服务"]
-  CLI --> Tasks["按顺序执行任务后退出"]
-  Service --> Scheduler["内置调度器"]
-  Scheduler --> Tasks
-```
+`cli.example.py` 与 `main.py` 都可能操作游戏。验证网络或认证时使用 Service，先关闭自动启动和任务开关，不要执行 CLI 示例来测试依赖是否安装完整。
 
-## CLI 一次性模式
+## 环境准备
 
-旧后端 CLI 的使用方式是复制示例脚本，改成自己的配置档名称和任务列表：
+在独立后端检出目录创建虚拟环境，按项目的 Service 依赖安装：
 
 ```bash
-cp cli.example.py cli.your_account.py
-pdm run cli.your_account.py
+python -m venv .venv
+python -m pip install -e ".[service]"
 ```
 
-这种模式不会常驻内存，适合配合系统计划任务执行。macOS 下如果使用 conda 环境，可以用：
+第二条需使用已激活虚拟环境的 Python，或改成该环境解释器的完整路径。项目元数据声明 Python `>=3.9`，依赖版本和平台仍会限制可安装组合；这不是所有更高 Python 版本均经过验证的承诺。安装器使用的平台依赖列表及 OCR 要求见[后端开发](./backend-development)。旧文档固定 Python 3.9.21、安装通用 `requirements.txt` 的命令不适用于当前 Service 依赖划分。
+
+## 启动 Service
 
 ```bash
-conda run -n baas --live-stream pdm run cli.your_account.py
+python main.service.py --host 127.0.0.1 --port 8190 --log-level info
 ```
 
-## Service 模式
+| 参数 | 默认与作用 |
+| ---- | ---------- |
+| `--host` | `BAAS_SERVICE_HOST`，未设置为 `0.0.0.0`；本机开发显式指定 `127.0.0.1` |
+| `--port` | `BAAS_SERVICE_PORT`，未设置为 `8190` |
+| `--log-level` | 默认 `info`，控制 Uvicorn 日志等级 |
+| `--reload` | 开发重载；运行真实任务或共享目录时避免使用 |
+| `--pipe-name` | 启用指定本机 Pipe，互斥于 `--shm-name` |
+| `--shm-name` | 打开受管理共享内存会话，互斥于 `--pipe-name` |
+| `--ocr-update-check` | 显式启用启动时 OCR 更新检查 |
+| `--no-ocr-update-check` | 跳过更新检查；不等于禁用 OCR 或忽略缺失模型 |
 
-Service 模式会启动一个常驻后端，并暴露 HTTP/WebSocket 接口给 Tauri 客户端或其他控制端。
+`BAAS_SERVICE_OCR_UPDATE_CHECK` 默认启用；值为 `0`、`false`、`no`、`off` 时关闭，命令行标志覆盖环境默认。传入 Pipe/共享内存参数时会清除另一种本机传输的环境变量；如果只通过环境同时启用两者，服务生命周期会拒绝启动。
+
+本机 IPC 参数由客户端创建和管理，随意填写名字不会创建可用的对端会话。WebUI 仍使用已认证 WebSocket。参数/环境与安全边界见[服务接口](./backend-service#本机-pipe-与共享内存)。
+
+脚本在当前工作目录写 `.pid`，退出时尝试删除。不要让多个进程共用同一个工作目录的 `.pid`。Ctrl+C 请求服务关闭，资源释放和任务协作停止需要时间；不要把 PID 文件消失当成任务已经成功。
+
+### 只检查入口
 
 ```bash
-python main.service.py --host 0.0.0.0 --port 8190 --log-level info
+python main.service.py --help
 ```
 
-支持参数：
+帮助命令可查看实际构建支持的参数，不会启动 Service 或运行游戏任务。该脚本仍会初始化诊断日志并执行退出清理，因此也应在隔离目录运行，避免触及另一个进程的 `.pid` 文件。`GET /health` 可检查监听中的服务，但不能证明认证、配置、OCR 与设备全部就绪。
 
-| 参数          | 作用         |
-| ------------- | ------------ |
-| `--host`      | 监听地址     |
-| `--port`      | 监听端口     |
-| `--reload`    | 开发时热重载 |
-| `--log-level` | 日志等级     |
+`--host 0.0.0.0` 会监听所有网卡。独立远程部署前完成密码初始化，使用匹配的私有签名密钥与前端公钥、HTTPS/WSS、网络访问限制和适当代理路由；详见[控制认证](./backend-service#控制认证)。
 
-## 与 Tauri 客户端的关系
+## 旧 CLI 示例
 
-Tauri 客户端主要面向 Service 模式。客户端负责配置档、调度 UI、日志、远程画面和命令触发；后端 Service 负责认证、配置同步、任务执行和模拟器控制。
+先阅读 `cli.example.py`，再在自己的隔离副本中修改配置目录和任务列表。需要执行时，使用解释器运行脚本，例如 `python cli.local.py`；使用 PDM 时为 `pdm run python cli.local.py`。
 
-普通用户不需要手动启动 `main.service.py`。只有在下面场景才建议直接运行：
+当前示例创建 `Main(ocr_needed=["en-us", "zh-cn"])`、`ConfigSet(config_dir="default_config")` 和 `Baas_thread`，设置 OCR 并初始化数据，然后用 `asyncio.gather()` 并发安排两组协程：
 
-- 排查 Tauri 客户端无法连接后端。
-- 需要查看完整后端终端日志。
-- 在 macOS/Linux 上从源码运行。
-- 为开发 WebSocket、认证、远程画面或配置同步功能做调试。
+| 组 | 执行内容 |
+| -- | -------- |
+| 常规任务 | 重启、咖啡厅、课程、领奖、社团、邮件、两类商店、制造、悬赏等脚本内任务 |
+| 竞技场 | 五次竞技场任务，前四次之间各等待 60 秒 |
 
-## 环境准备摘要
+设备任务通过 `asyncio.to_thread()` 执行，示例的共享 `threading.Lock` 串行化 `baas.solve()`；协程并发不等于同时向设备输入。这里的顺序、等待与 Service 调度器的时间/前后置依赖无关。
 
-旧文档推荐使用 conda 或 venv 准备 Python 环境。后端源码运行通常需要：
+该文件在顶层调用 `asyncio.run(main())`，**导入它也会执行任务**。它包含商店等资源消费操作，不能当成无副作用的库或健康检查。示例没有展示完整的异常恢复与设备资源关闭协议；用于系统计划任务前，还需处理重入、退出码、超时、凭据和日志隐私。
+
+## 验证与排查
+
+在隔离检出中运行：
 
 ```bash
-conda create -n baas_env python=3.9.21
-conda activate baas_env
-pip install -r requirements.txt
+python -m compileall -q service
+python -m pytest tests/service
 ```
 
-Linux/macOS 环境按后端仓库实际 requirements 文件选择 `requirements-linux.txt` 或当前项目推荐命令。Tauri 用户优先使用安装器自动准备环境。
+测试会创建临时配置和认证数据，不能在正在服务真实客户端的目录中直接运行。命令返回成功只证明对应检查通过；网络部署、打包平台、OCR 模型和真实游戏任务仍需分别验证。
+
+服务已连接却没有任务时，先看认证与初始化门、配置档任务开关、调度状态和日志。调度已停止但进程还在时，检查服务本身是否仍应常驻；调度器停止不是关闭整个 Service。更多执行边界见[后端开发](./backend-development)。

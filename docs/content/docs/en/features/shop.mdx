@@ -1,25 +1,66 @@
 ---
 title: Shop
-description: Normal shop, arena shop, refresh count, and purchase priority.
+description: Normal and Tactical Challenge shops, item-position selection, prices, currencies, refresh limits and execution semantics.
 ---
 
-Shop automation spends credits, tactical coins, or other currencies. Confirm refresh counts and purchase priority before scheduling.
+Open **Configuration → Shop**. The two tabs edit independent shopping plans.
+Settings save automatically; enable the corresponding shop task separately in
+Scheduler. A selected item is a spending instruction, not a recommendation.
 
 <img
   className="baas-screenshot"
-  src="/en/shop-normal-settings.png"
-  alt="Normal shop configuration with refresh count and purchase priority"
+  src="/media/desktop/en/config-shop.webp"
+  alt="Current Normal Shop tab with refresh count and four-column selectable goods"
 />
 
-## Arena Shop
+## Items and Refreshes
+
+| Tab                     | Selected-item field         | Refresh-count field                |
+| ----------------------- | --------------------------- | ---------------------------------- |
+| Normal Shop             | `CommonShopList`            | `CommonShopRefreshTime`            |
+| Tactical Challenge Shop | `TacticalChallengeShopList` | `TacticalChallengeShopRefreshTime` |
+
+Click a goods tile to select it; click it again to clear it. The check mark and
+pressed state identify selection. Each tile shows the backend's item name,
+price and currency. Normal goods may spend credits or Pyroxene; tactical goods
+use tactical coins. The selected profile's server supplies the goods list, so
+UI language does not necessarily translate every item name.
+
+The four-column grid preserves in-game item positions. Selection is a positional
+0/1 list, not a ranked purchase-priority list or an arbitrary quantity input.
+Recheck the positions when changing game server, importing an old profile or
+updating shop definitions. An empty selection causes that shop task to return
+without buying; increasing refreshes does not add items to the selection.
 
 <img
   className="baas-screenshot"
-  src="/en/shop-arena-settings.png"
-  alt="Arena shop configuration with selectable shop items and selected AP item"
+  src="/media/desktop/en/config-shop-tab-2.webp"
+  alt="Tactical Challenge Shop selection and currency amounts in the current editor"
 />
 
-<Callout type="warn" title="Before Buying">
-  Test with low-value items first. Do not schedule shop tasks until refresh count, currency balance,
-  and targets are confirmed.
-</Callout>
+## Refresh Count and Cost
+
+The editor accepts integers 0–5 and clamps entered values; an empty draft is not
+saved. Zero means no refresh after the initial purchase pass, not “do not shop.”
+Each additional refresh can repeat the same selected purchases and consume its
+own refresh currency.
+
+The inspected Python backend caps **both** shop refresh counts at 3, even though
+the current UI accepts up to 5. Values 4 or 5 therefore do not establish four or
+five actual refreshes on that backend version. The normal-shop implementation
+uses Pyroxene refresh costs 40/60/80; the tactical-shop implementation uses
+10 coins per refresh. Treat the actual in-game confirmation and current backend
+as authoritative after a game update.
+
+The normal shop checks the currencies required for the selected goods, and the
+tactical shop checks tactical coins. Insufficient funds or unavailable purchases
+can end the task early; the configured count is an upper request, not a promise
+that every cycle will happen.
+
+## Verify a Plan
+
+Start with refresh count 0 and inspect every selected tile's currency. Run only
+the intended shop task, inspect bought items and balance changes in game/logs,
+then decide whether to increase refreshes. “Refreshes 0” can still spend
+Pyroxene if a selected initial-pass item costs Pyroxene. These two tabs do not
+provide configuration for every other in-game shop.

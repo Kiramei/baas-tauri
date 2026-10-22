@@ -1,0 +1,93 @@
+{
+  "processedAt": "2026-10-20T07:01:05.849Z",
+  "method": "Local Gaussian blur of reviewed pixel rectangles; no generated image content, opaque masks or CSS-only redaction. Raw decoded RGBA pixels outside these regions are unchanged.",
+  "sharpVersion": "0.34.5",
+  "files": [
+    {
+      "file": "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png",
+      "sourceSha256": "63687ea8697e1699c19c8b02c6b095949a0da672f1f292a9193bc2f74bda9757",
+      "width": 1280,
+      "height": 720,
+      "regions": [
+        {
+          "left": 76,
+          "top": 25,
+          "width": 181,
+          "height": 34,
+          "sigma": 16,
+          "category": "game-nickname"
+        }
+      ],
+      "sha256": "026b63a3c95e886f4521e8dc5b0800ef9c9799633f2db9aa2029d90613be45b0",
+      "changedPixelsByRegion": [4569],
+      "outsideChangedPixels": 0,
+      "visualReview": {
+        "checkedAt": "2026-10-20T07:02:02Z",
+        "result": "The game nickname is unreadable at native size; the window-mode and aspect-ratio controls and annotations remain legible."
+      }
+    },
+    {
+      "file": "backend-assets/auto_fight/cvat_ai_guide1.png",
+      "sourceSha256": "d62368a01839956743bdbd75a3791646396bd2a3779103705ff13bc3b6288f13",
+      "width": 2072,
+      "height": 736,
+      "regions": [
+        {
+          "left": 486,
+          "top": 255,
+          "width": 195,
+          "height": 77,
+          "sigma": 20,
+          "category": "job-identifier"
+        },
+        {
+          "left": 993,
+          "top": 255,
+          "width": 195,
+          "height": 77,
+          "sigma": 20,
+          "category": "job-identifier"
+        },
+        {
+          "left": 1484,
+          "top": 255,
+          "width": 195,
+          "height": 77,
+          "sigma": 20,
+          "category": "job-identifier"
+        },
+        {
+          "left": 636,
+          "top": 535,
+          "width": 318,
+          "height": 85,
+          "sigma": 20,
+          "category": "shared-account"
+        },
+        {
+          "left": 1138,
+          "top": 535,
+          "width": 302,
+          "height": 85,
+          "sigma": 20,
+          "category": "shared-account"
+        },
+        {
+          "left": 1628,
+          "top": 535,
+          "width": 310,
+          "height": 85,
+          "sigma": 20,
+          "category": "shared-account"
+        }
+      ],
+      "sha256": "ae19eb2b6dbd2ceb511c6bac99da7ec0a37171c1864fa46735ab09a6a8cb98a3",
+      "changedPixelsByRegion": [15007, 15015, 15013, 23970, 23406, 24086],
+      "outsideChangedPixels": 0,
+      "visualReview": {
+        "checkedAt": "2026-10-20T07:02:02Z",
+        "result": "All three job identifiers and shared-account fields are unreadable at native size; the jobs navigation, stage, frame-count and assignment labels remain legible."
+      }
+    }
+  ]
+}

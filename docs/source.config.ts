@@ -2,6 +2,7 @@ import { defineConfig, defineDocs, frontmatterSchema } from "fumadocs-mdx/config
 import { remarkMdxMermaid } from "fumadocs-core/mdx-plugins/remark-mdx-mermaid";
 import { remarkSteps } from "fumadocs-core/mdx-plugins/remark-steps";
 import { z } from "zod";
+import { remarkDocLinks } from "./lib/remark-doc-links.mjs";
 
 export const docs = defineDocs({
   dir: "content/docs",
@@ -14,7 +15,7 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
-    remarkPlugins: [remarkMdxMermaid, remarkSteps],
+    remarkPlugins: [remarkMdxMermaid, remarkSteps, remarkDocLinks],
     rehypeCodeOptions: {
       themes: {
         light: "github-light",

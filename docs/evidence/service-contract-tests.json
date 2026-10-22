@@ -1,0 +1,87 @@
+{
+  "checkedAt": "2026-10-20T10:03:12.055364+00:00",
+  "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "publisherSha256": "a3c87d87cdb248a7f475799fb65426824270326aa130197f1300a04e8611c377",
+  "junitSha256": "6f77464e5a384e0b9fbceb669f276ad943da7eefa66889cb91da1f5b9718e6e6",
+  "collected": 44,
+  "passed": 43,
+  "failed": 0,
+  "skipped": [
+    {
+      "test": "test_unix_pipe_channel_round_trip",
+      "reason": "Unix sockets are unavailable on Windows"
+    }
+  ],
+  "testSources": [
+    {
+      "file": "tests/service/test_auth_manager.py",
+      "sha256": "b64f385c2f764286c6ce3d8b75dec04ef5e30149bee5590f4703cd01a94c15a7",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_security_contract.py",
+      "sha256": "5f5cea59798a944cbb17cec3ee142e85963f7e5d83f5665dcb69d1f44311b89d",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_http_contract.py",
+      "sha256": "05dc4d1c506780eb99fae178a01d85b091cd48a74c2bba06bbf453c0a7e30ccf",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_ws_behaviors.py",
+      "sha256": "6b61c6d9a741721b548277a027d704aa3e1ac90915a2735905af40a5a6bc9e37",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_ws_sync_conflict.py",
+      "sha256": "a572065f2650808bccf32c8dc3bd9103b1b949f4320364b9e5f92271f9926cce",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_pipe_transport.py",
+      "sha256": "623eb80f7ba141be091f112891ec16c6d3a68e8d1294fe45aa77117ef04662d0",
+      "gitContentVerified": true
+    },
+    {
+      "file": "tests/service/test_shm_transport.py",
+      "sha256": "2291cca90f473cb96cad18acdb9531da0305897988f4cd93993cf8aa27b3ec3f",
+      "gitContentVerified": true
+    }
+  ],
+  "cliSources": [
+    {
+      "file": "main.service.py",
+      "sha256": "5ef5518d594116feeec383ce992549ffe849585bcaa5fde4c84ef57f44d4ffe6",
+      "gitContentVerified": true
+    },
+    {
+      "file": "cli.example.py",
+      "sha256": "213a98487f16db7d00ff775e6af615682a64ea34466b3cc26d3f7c02e4e05106",
+      "gitContentVerified": true
+    },
+    {
+      "file": "pyproject.toml",
+      "sha256": "378d1cc76e2c7d6105929b390275ff16dafb37b27f07df4e25b8622987a0e1ca",
+      "gitContentVerified": true
+    }
+  ],
+  "cli": {
+    "helpExitCode": 0,
+    "helpOutputSha256": "94be406a7483a6507dcad588a9b8bc23cedc872ccdb8f3ea6e33a72faa1bff00",
+    "supportedOptions": [
+      "--host",
+      "--port",
+      "--reload",
+      "--log-level",
+      "--pipe-name",
+      "--shm-name",
+      "--ocr-update-check",
+      "--no-ocr-update-check"
+    ],
+    "mutuallyExclusiveExitCode": 2,
+    "noPidFileAfterCheck": true,
+    "scope": "Only --help and mutually exclusive option rejection were executed in a separate ignored working directory. Startup logging/exit cleanup ran; no Service server or legacy CLI game tasks were started."
+  },
+  "scope": "Existing backend contract tests in a disposable Git snapshot using the available Python environment. Several tests use deterministic adapters or reduced KDFs; actual cross-language crypto is recorded separately in service-protocol-validation.json. No full service runtime, device, game, TLS deployment or fresh dependency installation is validated."
+}

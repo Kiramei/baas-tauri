@@ -1,4 +1,4 @@
 {
   "title": "User Guide",
-  "pages": ["install", "android", "interface", "scheduler", "wiki"]
+  "pages": ["install", "android", "interface", "configuration", "scheduler", "wiki"]
 }

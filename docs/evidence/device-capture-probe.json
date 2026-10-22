@@ -1,0 +1,121 @@
+{
+  "checkedAt": "2026-10-20T06:24:48.663Z",
+  "scope": "One tagged-frame compatibility probe per adapter in the owned Android demo app. Not a performance comparison; initialization/first-call timings are deliberately omitted. The original local record is not a steady-state benchmark.",
+  "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "targetApplicationId": "io.github.kiramei.baas_tauri.docs.x86",
+  "targetApkSha256": "CBA686BC44DC5A46C842674DA13FC23D2676505200DAFAB8BF7241377BCD1FC5",
+  "environment": {
+    "ownedWebViewVerified": true,
+    "ownedAppForeground": true,
+    "installedApkSha256": "cba686bc44dc5a46c842674da13fc23d2676505200dafab8bf7241377bcd1fc5",
+    "androidRelease": "15",
+    "sdk": "35",
+    "dimensions": [
+      720,
+      1280
+    ],
+    "versions": {
+      "adbutils": "2.2.1",
+      "uiautomator2": "2.16.23",
+      "av": "12.0.0",
+      "numpy": "1.26.4",
+      "opencv-python": "4.8.1.78",
+      "Pillow": "12.3.0"
+    },
+    "sourceFiles": {
+      "core/device/screenshot/adb.py": "f6164ccdcef3eaddb38b57ceeeda4d5d6bec84768510e77b250b6898e2a7b312",
+      "core/device/screenshot/uiautomator2.py": "18b5861e77fa58a705238b80cc32424c757a35fc3f0fae153122be0fea281219",
+      "core/device/screenshot/scrcpy.py": "dfb8f3e5f97cc042ccbdb799766887336ebaa55b84111072d79639b931c25308",
+      "core/device/screenshot/nemu.py": "6dd0d4a7fbc880103feea468ea41d8f62b4d8d73b85e5d846609189bd24f89c1",
+      "core/device/scrcpy_client.py": "1685fb94d1c0c55c4b728e542acbdfc8be8d5a80f893569220bd9c1eff218e0b",
+      "core/device/uiautomator2_client.py": "34d3c988782b4f457f440cad9455f6e8f471cf8f129882250b2afd47d4413847",
+      "core/device/nemu_client.py": "c8ff5fbf14bf3c79e1fcd2052258924ca7a706995e6c35b92cecd4ba1559befc",
+      "core/device/scrcpy/core.py": "3a9c5987477293314bf75308efc06ad2798a3736326f20947c1b7795affb18f4"
+    }
+  },
+  "fixture": {
+    "token": 0,
+    "taps": 0,
+    "frame": 1,
+    "width": 480,
+    "height": 854,
+    "dpr": 1.5
+  },
+  "fixtureRemoved": true,
+  "inputsSent": 0,
+  "results": [
+    {
+      "method": "adb",
+      "available": true,
+      "phase": "complete",
+      "frame": {
+        "width": 720,
+        "height": 1280,
+        "channels": 3,
+        "token": 1,
+        "channelOrder": "BGR",
+        "colorMeanAbsoluteError": 0,
+        "fixtureOffsetPixels": [
+          -0.5857787810383712,
+          -0.2708803611738162
+        ]
+      }
+    },
+    {
+      "method": "uiautomator2",
+      "available": false,
+      "phase": "validate",
+      "failure": {
+        "type": "ValueError",
+        "reason": "invalid-image-array"
+      }
+    },
+    {
+      "method": "scrcpy",
+      "available": true,
+      "phase": "complete",
+      "frame": {
+        "width": 720,
+        "height": 1280,
+        "channels": 3,
+        "token": 3,
+        "channelOrder": "BGR",
+        "colorMeanAbsoluteError": 0.8888888888888888,
+        "fixtureOffsetPixels": [
+          -0.7018348623853186,
+          -0.05045871559632786
+        ]
+      }
+    },
+    {
+      "method": "nemu",
+      "available": true,
+      "phase": "complete",
+      "frame": {
+        "width": 720,
+        "height": 1280,
+        "channels": 3,
+        "token": 4,
+        "channelOrder": "BGR",
+        "colorMeanAbsoluteError": 0,
+        "fixtureOffsetPixels": [
+          -0.5857787810383712,
+          -0.2708803611738162
+        ]
+      }
+    }
+  ],
+  "serviceDiagnostic": {
+    "transport": "ADB direct TCP to device loopback service; no host HTTP proxy",
+    "devicePort": 7912,
+    "versionStatus": 200,
+    "baasBridgeVersionConfirmed": true,
+    "screenshotStatus": 403,
+    "screenshotContentType": "application/json",
+    "screenshotBytes": 21,
+    "isPng": false,
+    "isJpeg": false,
+    "credentialsReadOrSent": false
+  },
+  "interpretation": "Stock desktop uiautomator2 reached Android BAAS's authenticated local bridge at device port 7912, not standard atx-agent. The bridge's unauthenticated version marker and direct-device 403 identify the mismatch. This does not establish an Android-version or uiautomator2 performance limit. A separate target and service ownership are required before comparison."
+}

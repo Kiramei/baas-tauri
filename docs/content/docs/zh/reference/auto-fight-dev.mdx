@@ -11,7 +11,7 @@ description: 自动战斗轴、状态机、截图数据监测、模板匹配、O
 
 ## 自动战斗模型
 
-BAAS 的自动战斗不是使用游戏内 Auto 盲放技能，而是：
+BAAS 自动战斗按以下流程运行：
 
 1. 持续截图。
 2. 从图像中提取费用、技能、血量、时间、角色位置等数据。
@@ -38,7 +38,7 @@ flowchart LR
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/auto_fight/procedure_draft.png"
+  src="/backend-assets/auto_fight/procedure_draft.webp"
   alt="旧文档中的自动战斗状态流程示例"
 />
 
@@ -59,13 +59,13 @@ flowchart LR
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/auto_fight/total_assault_general.png"
+  src="/backend-assets/auto_fight/total_assault_general.webp"
   alt="总力战画面中可被自动战斗读取的数据区域"
 />
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/auto_fight/screenshot_data_update_cycle.png"
+  src="/backend-assets/auto_fight/screenshot_data_update_cycle.webp"
   alt="自动战斗截图数据更新循环"
 />
 
@@ -99,13 +99,13 @@ flowchart LR
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/game_feature/static_feature_example.png"
+  src="/backend-assets/game_feature/static_feature_example.webp"
   alt="商店界面固定元素模板匹配示例"
 />
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/game_feature/swipe_example_common_shop.png"
+  src="/backend-assets/game_feature/swipe_example_common_shop.webp"
   alt="普通商店中需要滑动搜索商品的示例"
 />
 
@@ -123,7 +123,7 @@ OCR 的代价高于模板匹配。能用稳定模板解决的静态 UI，不应�
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/ocr/pass_method1_example.png"
+  src="/backend-assets/ocr/pass_method1_example.webp"
   alt="OCR 本地图像传递方式示例"
 />
 

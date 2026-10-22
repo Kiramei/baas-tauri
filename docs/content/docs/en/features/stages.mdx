@@ -1,82 +1,83 @@
 ---
 title: Stages
-description: Normal stages, hard stages, main story, mini story, group story, and event stages.
+description: Ordered exploration plans, immediate execution, manual boss handling, story commands and current-event data.
 ---
 
-Stage settings enter stages or combat, so they are high-impact. After changes, run once manually and confirm stage number, count, team, and logs.
+Open **Configuration → Stages**. Exploration and Events are two tabs in the same workspace. Editing a plan saves automatically; **Execute starts a one-shot task immediately** and returns to Home. It does not merely enable a scheduler row.
+
+## Exploration Plans
 
 <img
   className="baas-screenshot"
-  src="/en/stages-main-settings.png"
-  alt="Stage configuration main tab with manual boss, normal stages, hard stages, and story execution buttons"
+  src="/media/desktop/en/config-stage.webp"
+  alt="Current exploration tab with manual boss switch, structured normal/hard lists and story commands"
 />
 
-Normal and hard stage input uses English commas, for example `1-1-1,1-2-3`.
+| Control       | Operation / saved field                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Manual boss   | Expects you to handle boss combat rather than assume an unattended clear; `manual_boss` |
+| Normal stages | Ordered exploration list; `explore_normal_task_list`                                    |
+| Hard stages   | Independent ordered list; `explore_hard_task_list`                                      |
 
-## Stage Automation Prerequisites
+Use **Add chapter**, then choose a chapter and either the whole chapter or an individual mission. New normal choices have missions 1–5; hard choices 1–3. Normal chapters divisible by three also offer mission A. Chapter choices come from the backend's supported range and server maximum, not an unlimited list.
 
-Normal stage automation follows fixed team movement routes, not only sweep logic. Before enabling it, confirm:
-
-- Auto end turn and auto battle are unlocked in game.
-- Normal stage automation is generally more stable from area 4 onward.
-- In-game team numbers are arranged from small to large according to the stage requirement; multi-team stages depend on team number for coordinates and move order.
-- Team selection logic matches the settings described in [Teams](./team).
-
-## Event Stages
+Up/down icons move a row; the trash icon deletes it. Changing chapter keeps a compatible mission, otherwise resets it to whole chapter. Existing values outside the normal choices can remain visible, and unrecognized legacy entries display their raw text. Inspecting them does not repair or validate them; remove or replace stale entries before execution.
 
 <img
   className="baas-screenshot"
-  src="/en/stages-event-settings.png"
-  alt="Event stage configuration showing current activity, event story, event mission, and event challenge"
+  src="/media/desktop/en/conditional-explore-legacy-plan.webp"
+  alt="Saved values outside the normal range and an unknown raw legacy row remain visible"
 />
 
-Before enabling event tasks, confirm event recognition, task type, stage number, server progress, and whether boss handling needs manual work.
+The pictured `250-9` and `legacy-plan` demonstrate legacy-value retention and
+must not be executed. Configuration Undo can restore a deleted row. After
+repairing the plan, check its chapters, missions and formation before running.
 
-## Stage Input Rules
+### Storage Format
 
-Legacy backend input rules are still useful for understanding stage parameters:
+| Target             | Example   | Meaning                                  |
+| ------------------ | --------- | ---------------------------------------- |
+| Whole chapter      | `15`      | Explore the chapter's supported missions |
+| Individual mission | `16-3`    | Explore mission 16-3                     |
+| Normal A mission   | `6-A`     | Explore A in normal chapter 6            |
+| Ordered list       | `15,16-3` | Chapter 15 followed by mission 16-3      |
 
-| Scenario      | Format                              | Example                                           |
-| ------------- | ----------------------------------- | ------------------------------------------------- |
-| Normal stages | Area or area-stage                  | `15,16-3` runs area 15 and stage 16-3             |
-| Hard stages   | Same as normal stages               | `15,16-3` runs H15 and H16-3                      |
-| Main story    | Chapter numbers separated by commas | `2,3,6` means chapter 1, chapter 2, final chapter |
+These are **not** three-part sweep tokens. `1-1-1` is not the exploration format. [Sweeps](./sweeps) has a separate count-bearing editor.
 
-Stage automation checks SSS, challenge tasks, and gift collection where applicable. Completed stages are skipped. Some hard stages in chapters 1-13 may be entered more than once to satisfy all goals; later chapters usually finish in one pass.
+The normal/hard Execute button rejects an empty corresponding list with an error. Otherwise the client flushes its draft, sends `start_normal_task` or `start_hard_task`, and opens Home. A request acknowledgement is not evidence that the stages completed.
 
-## Main Story Chapter Numbers
+### Prerequisites
 
-Main story uses numeric chapter IDs separated by English commas:
+Stage exploration follows backend movement routes, not just the game's sweep button. Unlock auto end-turn and auto battle, arrange the correct numbered teams, and use a supported chapter. The normal chapter picker starts from the backend range (commonly chapter 4). Multi-team routes depend on team positions and [selection method](./team).
 
-| Number | Chapter |
-| --- | --- |
-| `1` | Part 1 prologue |
-| `2` | Chapter 1 |
-| `3` | Chapter 2 |
-| `4` | Chapter 3 |
-| `5` | Chapter 4 |
-| `6` | Final chapter |
-| `7` | Chapter 5 |
-| `8` | EX chapter |
-| `9` | Chapter 6 |
-| `10` | Part 2 prologue |
-| `11` | Chapter 0 |
-| `12` | EX chapter |
+The backend checks stars, challenges and gifts where its route supports them, and can skip completed targets. Some hard routes need multiple entries to satisfy all goals. This is not a promise that every chapter can finish in one pass or without manual combat.
 
-Story automation can handle most route-map flows, but final chapter or special combat may still require manual play. Empty input uses the backend default configuration.
+## Story Commands
 
-## Event Recognition
+| Button      | Immediate backend task |
+| ----------- | ---------------------- |
+| Main story  | `start_main_story`     |
+| Group story | `start_group_story`    |
+| Mini story  | `start_mini_story`     |
 
-Event stages are generally stable for Story / Quest / Challenge structures. Challenge stages that are not route-map stages may require manual boss or combat handling.
+There is **no main-story chapter-number input in this editor**. Advanced backend profiles can set `main_story_regions`; an empty parsed list makes the audited backend use its server-specific `main_story_available_episodes`. Numeric IDs are backend episode identifiers, not the normal-stage list. Do not paste old episode tables into a nonexistent UI field.
+
+Special story battles and final-chapter mechanics can still require manual play. Stop other tasks before issuing a one-shot story command and watch Home/logs for its actual result.
+
+## Events
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/activity/has_activity.png"
-  alt="Legacy BAAS event setting showing an active event"
+  src="/media/desktop/en/config-stage-tab-2.webp"
+  alt="Current Events tab with event name, Story/Mission/Challenge execution and attack-type data"
 />
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/activity/null_activity.png"
-  alt="Legacy BAAS event setting showing no active event"
-/>
+The current event name comes from the backend for the selected server. When available, the attack-type table combines its Story, Mission and Challenge entries. No table/name data does not establish that the game currently has no event; backend data can be missing or outdated.
+
+| Action          | Immediate backend task             |
+| --------------- | ---------------------------------- |
+| Event Story     | `start_explore_activity_story`     |
+| Event Mission   | `start_explore_activity_mission`   |
+| Event Challenge | `start_explore_activity_challenge` |
+
+These commands start exploration, not event sweeping. Their presence does not prove support for the live event. Confirm the event version, stage structure, server and teams first. Route-map and non-route challenges can need different/manual handling. Activity sweeps and AP allocation are configured under [Sweeps](./sweeps).
