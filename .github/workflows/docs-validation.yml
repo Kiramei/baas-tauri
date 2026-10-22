@@ -59,7 +59,10 @@ jobs:
         working-directory: docs
         env:
           NEXT_PUBLIC_BASE_PATH: ""
-        run: bun run build
+        run: |
+          bun run build
+          mkdir -p ../.cache/deployment/search-artifact
+          cp out/search-index/*.json ../.cache/deployment/search-artifact/
       - name: Check documentation contracts, WebP pixels and privacy provenance
         run: bun test docs/tests
       - name: Check exported navigation and media
