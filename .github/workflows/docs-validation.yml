@@ -58,13 +58,13 @@ jobs:
           python -m pip install --disable-pip-version-check fonttools brotli
           npm install --prefix "$RUNNER_TEMP/docs-browser" --no-audit --no-fund playwright@1.62.1
           "$RUNNER_TEMP/docs-browser/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Check documentation contracts, WebP pixels and privacy provenance
-        run: bun test docs/tests
       - name: Build static export
         working-directory: docs
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ matrix.base_path }}
         run: bun run build
+      - name: Check documentation contracts, WebP pixels and privacy provenance
+        run: bun test docs/tests
       - name: Check exported navigation and media
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
