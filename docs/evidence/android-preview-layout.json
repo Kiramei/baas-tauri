@@ -1,17 +1,17 @@
 {
-  "checkedAt": "2026-10-22T15:19:36.806Z",
+  "checkedAt": "2026-10-22T16:22:08.309Z",
   "cases": 8,
   "scope": "Documentation navigation, diagram rendering and zoom; no emulator or native preview operated",
   "failures": 0,
   "testedSources": {
     "docs/scripts/check-android-docs.mjs": "8207039da6bff4d7b0793280b46c198d52ffa4d3f90672b1f2a69b8eeb7e400d",
     "docs/components/Mermaid.tsx": "e6ac3f21c6449319abc087511590ec942253be8b7910dd94eac877ae4eb5feb0",
-    "docs/mdx-components.tsx": "aff2c5ff26b88b7a41a257c0bafa247f12d73104b1462cb585ae81f2a4e95958",
+    "docs/mdx-components.tsx": "bd27de07bae249aaae9c24032f5b84e0cde14ca836da557f4cf237a0c455de67",
     "docs/app/global.css": "8454a651017fc68e48c01cf6b6a9c4712e9dec77fd2c19d5441e8567aa62fba2",
     "docs/content/docs/zh/guide/android.mdx": "2f115e6ef8268bbc08e90ace9c1d0f2b8b0593b77c303c3cf3b7226060b7834c",
-    "docs/content/docs/zh/reference/client-architecture.mdx": "f1955d378201f17bbe2ca874be3fe4b3fb357542ec71ed563a7bd1fd6b6d7477",
+    "docs/content/docs/zh/reference/client-architecture.mdx": "6d7fee1f83f6503ae2b38471b5a89a5ad22cd80c0dab914091113d36a05562ba",
     "docs/content/docs/en/guide/android.mdx": "92d03fce46e04aad79dcd7e466196fe94b340e810f98ae3bb09524ce2002da63",
-    "docs/content/docs/en/reference/client-architecture.mdx": "ebf7ba7f66c66dd1501525c627ef8e8ffbf72b306a7e331caca547e9a4370339"
+    "docs/content/docs/en/reference/client-architecture.mdx": "d69f510096edbb5bdf79f9453e1a4d952a2dcc173073f21d5b0bbd64a4c8d8b6"
   },
   "results": [
     {

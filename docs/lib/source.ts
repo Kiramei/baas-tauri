@@ -77,6 +77,7 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/reference/setup-toml", Settings],
   ["/reference/cli-service", Terminal],
   ["/reference/backend-service", Server],
+  ["/reference/client-api", Terminal],
   ["/reference/backend-development", Terminal],
   ["/reference/auto-fight-dev", Bot],
   ["/reference/development", FileCog],

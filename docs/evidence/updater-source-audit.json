@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T15:16:01.553Z",
+  "checkedAt": "2026-10-22T16:25:53.995Z",
   "verificationKind": "code inspection and pinned Git-content comparison",
   "runtimeUpdateExecuted": false,
   "sources": [
@@ -669,10 +669,10 @@
   "testedPages": {
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
     "docs/content/docs/zh/features/update.mdx": "4883cd8ebb36f4e509181f6aa11d57718ec476b6aa3c87abdd6c63d571fb9787",
-    "docs/content/docs/zh/reference/client-architecture.mdx": "f1955d378201f17bbe2ca874be3fe4b3fb357542ec71ed563a7bd1fd6b6d7477",
+    "docs/content/docs/zh/reference/client-architecture.mdx": "6d7fee1f83f6503ae2b38471b5a89a5ad22cd80c0dab914091113d36a05562ba",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3",
     "docs/content/docs/en/features/update.mdx": "ab76a57b0cddded404b05103a7f8561e5139a77c32a00fdc2ff7f16d0aa7a02a",
-    "docs/content/docs/en/reference/client-architecture.mdx": "ebf7ba7f66c66dd1501525c627ef8e8ffbf72b306a7e331caca547e9a4370339"
+    "docs/content/docs/en/reference/client-architecture.mdx": "d69f510096edbb5bdf79f9453e1a4d952a2dcc173073f21d5b0bbd64a4c8d8b6"
   },
   "inspectedBehavior": [
     "manual-stop ordering",

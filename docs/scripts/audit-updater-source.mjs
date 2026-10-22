@@ -9,7 +9,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const sha = value => createHash("sha256").update(value).digest("hex");
 const canonical = value => value.toString().replaceAll("\r\n", "\n");
 const groups = [
-  { name: "desktop", repository: "Kiramei/baas-tauri", revision: "be186c524ab9f7a91c41582aec3a5fef06614751", root,
+  { name: "desktop", repository: "Kiramei/baas-tauri", revision: "be186c524ab9f7a91c41582aec3a5fef06614751",
+    root: process.argv[4] ? path.resolve(process.argv[4]) : root,
     files: ["crates/baas-updater/src/app.rs", "crates/baas-updater/src/workflow.rs", "crates/baas-updater/src/environ.rs",
       "crates/baas-updater/src/repo.rs", "crates/baas-updater/src/mirrorc.rs", "crates/baas-updater/src/constants.rs",
       "src-tauri/src/commands.rs", "src-tauri/src/lib.rs"] },

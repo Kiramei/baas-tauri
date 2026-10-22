@@ -1378,3 +1378,48 @@ eight raw-record links per dataset. Both exports contain only WebP raster
 assets and produce the same content-addressed index revision
 `c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b`.
 The 18 Python documentation/harness unit tests passed without device actions.
+
+## Native API Reference, 2026-10-23
+
+Selected useful material from `62de97e8` and `42cf003b` into the bilingual
+`reference/client-api` pages. Both pages cover all 50 commands registered by
+the client at `55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d`, request wrappers,
+camel-case arguments, result/error handling and platform-specific behavior.
+Existing service, updater and Android architecture explanations remain the
+linked references. The archived all-native-Pipe default, fixed Python 3.9
+description and old verification matrix were not restored.
+
+Restored Twoslash 3.2.1 with examples importing the application's actual invoke
+wrapper and transport types. The build resolves types in the compiler; the
+browser renders popups without executing native commands. Tests also reject
+an invalid transport value. macOS factory behavior is documented separately
+from Windows/Linux and Android, matching the four current factory tests.
+
+The 79-route export passed 128 tests / 13,894 assertions, 78 static-link pages
+and 343 strict deployment cases. Eight native-API display combinations passed
+32 pointer/touch/keyboard popup interactions and search navigation, with
+animation-complete screenshots and viewport bounds checked. Search recovery
+and cache checks passed 24 cases each. Affected Android reader, recognition,
+payload, local-chart, updater and service layout reports were regenerated.
+
+The production-crypto fixture was rerun against the client above and the same
+pinned backend: all 20 cases passed, all 69 backend and four client sources
+matched Git, and temporary authentication/configuration data was removed.
+The updater source audit retained its historical revisions and compared a
+disposable desktop snapshot against those Git blobs, verifying 22 source
+files, 66 anchored references and six current pages. This does not relabel old
+measurements as current results or establish native runtime acceptance.
+
+No application/native implementation, public media or benchmark samples were
+changed. Android runtime work remains on hold. Private screenshots and raw
+fixture diagnostics remain excluded from publication. The existing search
+pointer-click intermittency is not declared fixed by this reference update.
+
+The first Linux checks exposed an index determinism defect: identical page
+content enumerated in a different order produced a different FlexSearch
+artifact. Search indexing now sorts pages by URL without reordering navigation.
+The regression test compares complete exports from reversed and interleaved
+inputs. The corrected Windows export is byte-identical to the downloaded Linux
+index, with revision
+`b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6`.
+Index-bound browser reports were rerun; no content-hash assertion was relaxed.

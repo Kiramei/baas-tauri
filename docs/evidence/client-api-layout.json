@@ -1,0 +1,101 @@
+{
+  "checkedAt": "2026-10-22T16:44:07.821Z",
+  "cases": 8,
+  "failures": 0,
+  "nativeCommandsExecuted": false,
+  "scope": "Documentation rendering, type popups and search only; no native command, game, device or benchmark was run.",
+  "testedSources": {
+    "docs/scripts/check-client-api.mjs": "839b4375a5106dae14281db3924f286d10389a4e7b7874ef1535fb54c06009f0",
+    "docs/source.config.ts": "344da49d3a127cf1d319a9433763a72dfd3595d69c5095824958879e98b0c4e9",
+    "docs/next.config.mjs": "e79c8cb5e6c4031d84baebca75fa0f30b8e93f5eb9cebf95f14d5bf4b62da51d",
+    "docs/mdx-components.tsx": "bd27de07bae249aaae9c24032f5b84e0cde14ca836da557f4cf237a0c455de67",
+    "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
+    "docs/lib/source.ts": "22081de547a558f9832c62252bd11f4dfafa9e0b57763a4cc3b7f56822752342",
+    "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
+    "src/shared/TauriInvoke.ts": "e0c36e6a645bf730799031663bfd8db458561af01a541e00595abbc531a826a9",
+    "src/transport/types.ts": "751cdd0d778e1465dc5d265b88aa3eea4ed565e73470d9434c4ba7adc19b3fa7",
+    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
+    "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
+    "src/transport/factory.ts": "0e87d3e50a2c471526321acdfb04ff252ddfabd716b084aa9e527d43ef1868ba",
+    "src-tauri/src/lib.rs": "10be298e98770b8f953ab586bc4363acc7819e3fa57bf60cf989c86e6b1ea958",
+    "src-tauri/src/commands.rs": "8eb60d17de985e7e2c401ff631ff9a22299aa04e83294e36de21eaac01d8303d",
+    "src-tauri/src/mobile_commands.rs": "31e89ce0950f7cbed756b6170128c3ece588606735dcdf5fa90f12896d327224",
+    ".github/workflows/docs-validation.yml": "941d26f16f177bb0b2d888afc28c8a5e459f78c472866f0cd1b17d418a1c6b1e",
+    "docs/content/docs/en/reference/client-api.mdx": "257adedcc36fce1b73338ddd0726759463e0cd1a189e26d2042359ee938b8a23",
+    "docs/content/docs/zh/reference/client-api.mdx": "fbcdd0e37de6ac7865eec1624130d5725465c59f15629350b4137ac6e95a4c93"
+  },
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "popupChecks": 4,
+      "searchNavigated": true,
+      "noOverflow": true,
+      "pageErrors": []
+    }
+  ]
+}

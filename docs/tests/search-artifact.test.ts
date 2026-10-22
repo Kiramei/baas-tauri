@@ -1,9 +1,32 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { createSearchArtifact } from "../lib/search-artifact.server";
+import { createSearchArtifact, sortSearchPages } from "../lib/search-artifact.server";
+import { flexsearchI18n } from "fumadocs-core/search/flexsearch";
 import { parseSearchPayload, SEARCH_INDEX_FORMAT, SearchIndexChangedError } from "../lib/search-contract";
 
 const indexes = { type: "i18n" as const, raw: { en: {}, zh: {} } };
+
+test("page enumeration order does not change the exported search artifact", async () => {
+  const pages = [
+    { url: "/docs/zh/reference/client-api", locale: "zh", title: "Native API" },
+    { url: "/docs/en/guide/install", locale: "en", title: "Install" },
+    { url: "/docs/en/reference/client-api", locale: "en", title: "Native API" },
+    { url: "/docs/zh/guide/install", locale: "zh", title: "Install" },
+  ].map(page => ({ ...page, id: page.url, structuredData: { headings: [], contents: [] } }));
+  const original = [...pages];
+  const build = async (input: typeof pages) => createSearchArtifact(await flexsearchI18n({
+    i18n: { languages: ["en", "zh"], defaultLanguage: "en" },
+    indexes: sortSearchPages(input),
+  }).export());
+  const first = await build(pages);
+  expect(await build(pages.toReversed())).toEqual(first);
+  expect(await build([pages[1], pages[3], pages[0], pages[2]])).toEqual(first);
+  expect(pages).toEqual(original);
+  expect(sortSearchPages(pages).map(page => page.url)).toEqual([
+    "/docs/en/guide/install", "/docs/en/reference/client-api",
+    "/docs/zh/guide/install", "/docs/zh/reference/client-api",
+  ]);
+});
 
 test("the immutable index address binds its data and encoder format", () => {
   const first = createSearchArtifact(indexes);

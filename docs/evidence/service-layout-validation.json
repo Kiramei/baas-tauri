@@ -1,17 +1,17 @@
 {
-  "checkedAt": "2026-10-22T15:17:49.734Z",
+  "checkedAt": "2026-10-22T16:47:20.316Z",
   "cases": 20,
   "diagramChecks": 16,
   "failures": 0,
   "testedSources": {
     "docs/scripts/check-service-docs.mjs": "645a641fcf8fba9cf407e22e4f59a7dfed2ed01ac3bdd9d2cd4a25ca9f8c8ef2",
-    "docs/content/docs/zh/reference/backend-service.mdx": "02e6c305408411192e987e94954d8e6b011e7578ab4b714be5d3595b5b1d285b",
+    "docs/content/docs/zh/reference/backend-service.mdx": "b0d65df865d4cee148eb7b704e5e537dbb41be05f0e6cccb52caf2458a731350",
     "docs/content/docs/zh/reference/cli-service.mdx": "f7dcdb9c19aed75203f5a615e1726ae8d858af35854164193ab55594294d867d",
-    "docs/content/docs/en/reference/backend-service.mdx": "33c23e1ace0af965f0a238592e21bbee663300e7096ade6f2dbb174483cd114d",
+    "docs/content/docs/en/reference/backend-service.mdx": "bed30c2283b0a75532769452f91b69eea04e1bd792ddda801b7eec61eda03757",
     "docs/content/docs/en/reference/cli-service.mdx": "c67f080e41c978edf3fcad1dee35131398b2962c7642473221b8eb00299bd095"
   },
-  "searchIndexPath": "search-index/c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b.json",
-  "searchIndexSha256": "0008f37fb35a98782d446c0bd98a62764708cf0864e9d71b7b6979dbc64a9636",
+  "searchIndexPath": "search-index/b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6.json",
+  "searchIndexSha256": "9516f748f394b1cf60acdc316dc35d44da32fb6230a15390ddc588e2438b02aa",
   "results": [
     {
       "kind": "render",

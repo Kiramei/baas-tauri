@@ -7,6 +7,7 @@
     "setup-toml",
     "cli-service",
     "backend-service",
+    "client-api",
     "backend-development",
     "auto-fight-dev",
     "performance",

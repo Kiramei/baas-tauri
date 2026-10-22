@@ -5,6 +5,8 @@ description: Tauri 客户端结构、后端通信、文档站本地构建和 Git
 
 工作区草稿持久化、延迟确认、调度关系归属、连接代次与 Android 进程边界的原理见[客户端架构与状态](./client-architecture)；可复现实验、原始样本与测量限制见[性能与基准测试](./performance)。
 
+[客户端原生 API](./client-api)列出宿主注册命令、参数结构与平台差异；业务消息与传输帧格式见[后端服务接口](./backend-service)。
+
 ## 客户端结构
 
 主要目录：
@@ -38,8 +40,7 @@ docs/content/docs/zh
 docs/content/docs/en
 docs/lib/source.ts
 docs/lib/i18n.ts
-docs/public/cn
-docs/public/en
+docs/public/media
 ```
 
 路由规则：
@@ -81,7 +82,7 @@ http://localhost:3000/docs/en/
 7. 上传 `docs/out`。
 8. 部署到 GitHub Pages。
 
-`NEXT_PUBLIC_BASE_PATH` 很重要。仓库 Pages 通常不是部署在域名根路径，如果不传 base path，静态资源和路由可能在 GitHub Pages 上 404。
+当前独立域名部署使用根路径，构建时的 `NEXT_PUBLIC_BASE_PATH` 由 `actions/configure-pages` 提供。
 
 ## 从 baas-dev/docs 迁移
 

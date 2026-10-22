@@ -26,7 +26,7 @@ The ASGI entry is `service.app:app`; `service.api.state.context` creates service
 | `src/shared/SecureWebSocket.ts` | Client handshake, password proof and encrypted streams |
 | `src/transport/factory.ts` | Platform normalization and adapter selection |
 
-These contracts follow the pinned [client](https://github.com/Kiramei/baas-tauri/blob/be186c524ab9f7a91c41582aec3a5fef06614751/src/shared/SecureWebSocket.ts) and [backend](https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/api/security.py). Check both ends when changing either implementation.
+These contracts follow the pinned [client](https://github.com/Kiramei/baas-tauri/blob/55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d/src/shared/SecureWebSocket.ts) and [backend](https://github.com/Kiramei/baas-dev/blob/d0a86a089068766ff53682b501b90bee99857a71/service/api/security.py). Native host command arguments are listed in [Native Client API](./client-api). Check both ends when changing either implementation.
 
 ## HTTP and Access Boundaries
 

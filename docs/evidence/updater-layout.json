@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T15:17:37.616Z",
+  "checkedAt": "2026-10-22T16:44:35.783Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
@@ -9,19 +9,19 @@
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
     "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
-    "docs/lib/search-artifact.server.ts": "b73ef64b7b1217030f608547cd3362b2f692744cad6cc017d775d777e76b6467",
-    "docs/lib/build-search-index.ts": "445648a8138806d26c77d619b7284b1f8aa876cfdf610d08b26fd9546113f638",
+    "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
+    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
     "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
-    "docs/app/layout.tsx": "0c24b3944b3e3ad24a51d43793cb73083b819395b794e5c18191763839a44897",
+    "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
     "docs/lib/locale.ts": "63bd5a6a7841218a063847bbe1ff4afbdf94d3eed49d1c01277d371b4a9fe1eb",
     "docs/lib/ui-translations.ts": "cc7c87abbb0e31c1cf8467d608b3ef81dc141a6d034483ec64938011f9f03448",
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3"
   },
-  "searchIndexPath": "search-index/c9f127eccc155bc49f901f7bcdae0c2a9d5699918e02fb9a74ba28ca8bef0b5b.json",
-  "searchIndexSha256": "0008f37fb35a98782d446c0bd98a62764708cf0864e9d71b7b6979dbc64a9636",
+  "searchIndexPath": "search-index/b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6.json",
+  "searchIndexSha256": "9516f748f394b1cf60acdc316dc35d44da32fb6230a15390ddc588e2438b02aa",
   "results": [
     {
       "locale": "zh",
