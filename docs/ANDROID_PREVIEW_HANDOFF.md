@@ -7,6 +7,11 @@ device tests. The preview/display work is not accepted for release and must not
 be merged into desktop `dev` as a completed preview fix. The former repair
 branch is retired; continue Android development on `android-dev`.
 
+The duplicate native-validation worktree has been removed. The retained local
+checkout is `baas-tauri-android-dev`; its source and tests remain on
+`android-dev`. Local evidence was hash-verified before removal. This cleanup
+does not add runtime validation or change the open failures below.
+
 ## Baseline
 
 - Original baseline: `android-dev` at `5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78`.
@@ -139,10 +144,17 @@ Rust commands are in `src-tauri/src/mobile_commands.rs`.
   require separate approval. Fixture results do not authorize those actions.
 - Raw device logs, original screenshots/videos, tokens, private configuration and
   machine-specific paths are intentionally absent from this handoff. They must
-  stay outside Git and the published site. Existing private diagnostics live in
-  ignored `.cache/android-native-fix/` and `.cache/android-local-benchmark/`
-  directories of the documentation worktree; these are optional local evidence,
-  not portable dependencies.
+  stay outside Git and the published site. Local materials are preserved in
+  ignored `.cache/android-workspace-consolidation-20261023/` in the retained
+  Android checkout. Its `README.md` maps the files; `manifest.json` records
+  SHA-256 hashes for 21,053 preserved files. `validation-workspace/` includes
+  the historical APKs, native test artifacts, screenshots, reports and local
+  configuration. `documentation-evidence/` contains copies of the Android
+  diagnostic and benchmark directories, including `android-native-fix/` and
+  `android-local-benchmark/`; documentation originals remain unchanged.
+  `cleanup-result.json` records the removal and other-worktree checks. These
+  private originals and their metadata are not publication assets or portable
+  dependencies. Preserve the evidence snapshot when clearing routine caches.
 - Public game media has baked-in local Gaussian blur. New media needs its own
   privacy review; do not publish raw captures or merely obscure them with CSS.
 
