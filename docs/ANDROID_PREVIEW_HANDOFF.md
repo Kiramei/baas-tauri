@@ -1,12 +1,15 @@
 # Android Preview Handoff
 
-Updated: 2026-10-21. Android runtime work is on hold. The changes on
-`fix/android-trusted-display-and-insets` are not accepted for release and must
-not be merged into `android-dev` or `dev` as a completed preview fix.
+Updated: 2026-10-23. Android runtime work is on hold. `android-dev` retains the
+15 commits from `fix/android-trusted-display-and-insets`, including this handoff.
+The branches were consolidated by fast-forward, with no runtime changes or new
+device tests. The preview/display work is not accepted for release and must not
+be merged into desktop `dev` as a completed preview fix. The former repair
+branch is retired; continue Android development on `android-dev`.
 
 ## Baseline
 
-- Parent: `android-dev` at `5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78`.
+- Original baseline: `android-dev` at `5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78`.
 - Last tested implementation: `36f08fd35535dccf80b4c51c56da8d33b4201823`.
 - Test build: x86_64 debug, application ID
   `io.github.kiramei.baas_tauri.docs.x86`.
@@ -51,10 +54,13 @@ the parent above before transplanting any subset.
   86 warmups, with configuration/event/UI restoration checked. It measures
   those adapter/script calls, not game FPS or general phone performance.
 
-The benchmark source, fixture, sanitized samples and limitations are on
-`docs/dev-refresh`, under `docs/benchmarks/`, `docs/scripts/measure-android-local*`
-and `docs/public/benchmarks/android-local-current.json`. Preserve the original
-source/APK hashes when using those historical results.
+The benchmark source, fixture, sanitized samples and limitations were merged
+into desktop `dev`; the documentation checkpoint is
+[`f123464c`](https://github.com/Kiramei/baas-tauri/tree/f123464c8e1293437095eb95c44546446a370930/docs).
+They are under `docs/benchmarks/`, `docs/scripts/measure-android-local*` and
+`docs/public/benchmarks/android-local-current.json`. Preserve the original
+source/APK hashes when using those historical results. The former
+`docs/dev-refresh` branch has been removed.
 
 ## Open Failures
 
