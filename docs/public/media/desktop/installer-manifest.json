@@ -1,0 +1,160 @@
+{
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "scope": "Native portable installer in a separate disposable directory. Failure deliberately removes the backend entrypoint with updates skipped. Completion reuses audited backend files and a custom preinstalled Python; fresh network/dependency installation remains untested. No task scheduler is started.",
+  "shots": [
+    {
+      "file": "media/desktop/en/installer-advanced.png",
+      "locale": "en",
+      "state": "advanced",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-completed-details.png",
+      "locale": "en",
+      "state": "completed-details",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-completed.png",
+      "locale": "en",
+      "state": "completed",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-error.png",
+      "locale": "en",
+      "state": "error",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-node-details.png",
+      "locale": "en",
+      "state": "node-details",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-preflight.png",
+      "locale": "en",
+      "state": "preflight",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/en/installer-transport-options.png",
+      "locale": "en",
+      "state": "transport-options",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-advanced.png",
+      "locale": "zh",
+      "state": "advanced",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-completed-details.png",
+      "locale": "zh",
+      "state": "completed-details",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-completed.png",
+      "locale": "zh",
+      "state": "completed",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-error.png",
+      "locale": "zh",
+      "state": "error",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-node-details.png",
+      "locale": "zh",
+      "state": "node-details",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-preflight.png",
+      "locale": "zh",
+      "state": "preflight",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    },
+    {
+      "file": "media/desktop/zh/installer-transport-options.png",
+      "locale": "zh",
+      "state": "transport-options",
+      "native": true,
+      "theme": "light",
+      "portable": true,
+      "privacy": "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands."
+    }
+  ],
+  "verified": [
+    {
+      "locale": "en",
+      "check": "real managed backend ready; automatic entry off retains logs; custom Python and existing code reused",
+      "passed": true,
+      "scenario": "completed"
+    },
+    {
+      "locale": "en",
+      "check": "portable read-only directory, advanced controls, real missing-entrypoint failure, node tooltip, Escape cancellation returns to setup after dismissing the error dialog",
+      "passed": true,
+      "scenario": "failed"
+    },
+    {
+      "locale": "zh",
+      "check": "real managed backend ready; automatic entry off retains logs; custom Python and existing code reused",
+      "passed": true,
+      "scenario": "completed"
+    },
+    {
+      "locale": "zh",
+      "check": "portable read-only directory, advanced controls, real missing-entrypoint failure, node tooltip, Escape cancellation returns to setup after dismissing the error dialog",
+      "passed": true,
+      "scenario": "failed"
+    }
+  ],
+  "capturedAt": "2026-10-20T05:33:39.311Z",
+  "executableSha256": "f248bb598d2254526cc755707c499fff8b3d6c94dea892fc357ff4a0e9c020c0"
+}

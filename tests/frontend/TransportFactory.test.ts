@@ -9,12 +9,13 @@ describe("resolveTransportMode", () => {
       );
     }
   });
-  test("defaults Windows to shared memory while retaining explicit native pipe for comparison", () => {
-    const windows = { android: false, tauri: true, windows: true };
-    expect(resolveTransportMode(undefined, windows)).toBe("shm");
-    expect(resolveTransportMode("shm", windows)).toBe("shm");
-    expect(resolveTransportMode("pipe", windows)).toBe("pipe");
-    expect(resolveTransportMode("websocket", windows)).toBe("websocket");
+  test("supports shared memory on native Windows and Linux while retaining explicit alternatives", () => {
+    const supported = { android: false, tauri: true, sharedMemory: true };
+    expect(resolveTransportMode(undefined, supported)).toBe("shm");
+    expect(resolveTransportMode("shm", supported)).toBe("shm");
+    expect(resolveTransportMode("pipe", supported)).toBe("pipe");
+    expect(resolveTransportMode("websocket", supported)).toBe("websocket");
+    expect(resolveTransportMode("shm", { ...supported, android: true })).toBe("pipe");
     expect(resolveTransportMode("shm", { android: true, tauri: true })).toBe("pipe");
     expect(resolveTransportMode("shm", { android: false, tauri: false })).toBe("websocket");
   });
@@ -24,6 +25,7 @@ describe("resolveTransportMode", () => {
       expect(resolveTransportMode(undefined, native)).toBe("pipe");
       expect(resolveTransportMode("pipe", native)).toBe("pipe");
       expect(resolveTransportMode("websocket", native)).toBe("websocket");
+      expect(resolveTransportMode("shm", native)).toBe("pipe");
     }
   });
 

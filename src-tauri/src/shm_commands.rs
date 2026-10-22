@@ -1,9 +1,9 @@
 use serde_json::Value;
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 use std::sync::Mutex;
 #[cfg(not(mobile))]
 use std::time::Duration;
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 use tauri::ipc::InvokeBody;
 use tauri::{
     ipc::{Channel, InvokeResponseBody, Request},
@@ -12,7 +12,7 @@ use tauri::{
 
 #[derive(Default)]
 pub struct BackendShmManager {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     inner: Mutex<Option<std::sync::Arc<native_impl::Session>>>,
 }
 
@@ -20,7 +20,7 @@ impl BackendShmManager {
     #[cfg(not(mobile))]
     pub fn configure(&self, name: String) -> Result<(), String> {
         self.close_all()?;
-        #[cfg(any(windows, target_os = "macos"))]
+        #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
         {
             let session = native_impl::Session::create(&name)?;
             *self
@@ -29,14 +29,14 @@ impl BackendShmManager {
                 .map_err(|_| "shared-memory manager lock poisoned")? = Some(session);
             Ok(())
         }
-        #[cfg(not(any(windows, target_os = "macos")))]
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             let _ = name;
-            Err("Shared-memory transport requires Windows or macOS desktop".into())
+            Err("Shared-memory transport requires Windows, Linux or macOS desktop".into())
         }
     }
     pub fn close_all(&self) -> Result<(), String> {
-        #[cfg(any(windows, target_os = "macos"))]
+        #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
         if let Some(session) = self
             .inner
             .lock()
@@ -49,17 +49,17 @@ impl BackendShmManager {
     }
     #[cfg(not(mobile))]
     pub fn wait_ready(&self, timeout: Duration) -> Result<(), String> {
-        #[cfg(any(windows, target_os = "macos"))]
+        #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
         {
             self.session()?.wait_ready(timeout)
         }
-        #[cfg(not(any(windows, target_os = "macos")))]
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             let _ = timeout;
-            Err("Shared-memory transport requires Windows or macOS desktop".into())
+            Err("Shared-memory transport requires Windows, Linux or macOS desktop".into())
         }
     }
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     fn session(&self) -> Result<std::sync::Arc<native_impl::Session>, String> {
         self.inner
             .lock()
@@ -75,7 +75,7 @@ impl Drop for BackendShmManager {
     }
 }
 
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 mod native_impl {
     use super::*;
     use crate::{
@@ -620,22 +620,23 @@ mod native_impl {
         }
         #[tokio::test]
         async fn real_python_terminal_reopen_and_process_exit_release_streams() {
-            let default_backend = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join("baas-dev");
             let backend = std::env::var_os("BAAS_SHM_TEST_BACKEND")
                 .map(std::path::PathBuf::from)
-                .unwrap_or(default_backend);
+                .unwrap_or_else(|| {
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .parent()
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .join("baas-dev")
+                });
             let python = std::env::var_os("BAAS_SHM_TEST_PYTHON")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| {
-                    backend.join(if cfg!(target_os = "macos") {
-                        ".venv/bin/python"
-                    } else {
+                    backend.join(if cfg!(windows) {
                         ".venv/Scripts/python.exe"
+                    } else {
+                        ".venv/bin/python"
                     })
                 });
             let fixture = backend.join("tests/service/shm_echo_peer.py");
@@ -754,7 +755,7 @@ pub async fn backend_shm_open(
     name: String,
     on_message: Channel<InvokeResponseBody>,
 ) -> Result<String, String> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
         let session = manager.session()?;
         let waiting = session.clone();
@@ -763,10 +764,10 @@ pub async fn backend_shm_open(
             .map_err(|error| error.to_string())??;
         session.open(channel, name, on_message).await
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = (manager, channel, name, on_message);
-        Err("Shared-memory transport requires Windows or macOS desktop".into())
+        Err("Shared-memory transport requires Windows, Linux or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -777,7 +778,7 @@ pub async fn backend_shm_send_json(
     payload: Value,
     connection_id: String,
 ) -> Result<(), String> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
         let session = manager.session()?;
         session
@@ -790,10 +791,10 @@ pub async fn backend_shm_send_json(
             )
             .await
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = (manager, channel, name, payload, connection_id);
-        Err("Shared-memory transport requires Windows or macOS desktop".into())
+        Err("Shared-memory transport requires Windows, Linux or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -801,7 +802,7 @@ pub async fn backend_shm_send_bytes(
     manager: State<'_, BackendShmManager>,
     request: Request<'_>,
 ) -> Result<(), String> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
         let session = manager.session()?;
         let raw = match request.body() {
@@ -819,10 +820,10 @@ pub async fn backend_shm_send_bytes(
             .send_routed(channel, name, connection_id, 2, payload.to_vec())
             .await
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = (manager, request);
-        Err("Shared-memory transport requires Windows or macOS desktop".into())
+        Err("Shared-memory transport requires Windows, Linux or macOS desktop".into())
     }
 }
 #[tauri::command]
@@ -832,14 +833,14 @@ pub async fn backend_shm_close(
     name: String,
     connection_id: String,
 ) -> Result<(), String> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
         let session = manager.session()?;
         if let Some(stream) = session.remove_checked(&format!("{channel}:{name}"), &connection_id) {
             session.send(stream, 3, Vec::new()).await?;
         }
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     let _ = (manager, channel, name, connection_id);
     Ok(())
 }

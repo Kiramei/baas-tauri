@@ -1,0 +1,10 @@
+{
+  "recordedAt": 1792457195.1357925,
+  "uname": "Linux 7.0.0-31-generic x86_64 GNU/Linux",
+  "loadavg": "2.22 3.40 2.52 3/3889 1648167",
+  "meminfo": "MemTotal:       15562872 kB\nMemFree:         1138572 kB\nMemAvailable:    5644052 kB\nBuffers:          305876 kB\nCached:          4077480 kB\nSwapCached:        72424 kB\nActive:          7982904 kB\nInactive:        3352448 kB\nActive(anon):    5682772 kB\nInactive(anon):  1472944 kB\nActive(file):    2300132 kB\nInactive(file):  1879504 kB\nUnevictable:        5712 kB\nMlocked:            5568 kB\nSwapTotal:      31250428 kB\nSwapFree:        6653664 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:              7836 kB\nWriteback:             0 kB\nAnonPages:       6884708 kB\nMapped:          1980656 kB\nShmem:            204204 kB\nKReclaimable:     668664 kB\nSlab:            1289852 kB\nSReclaimable:     665124 kB\nSUnreclaim:       624728 kB\nKernelStack:       62416 kB\nPageTables:       209688 kB\nSecPageTables:     14860 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    39031864 kB\nCommitted_AS:   75729672 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:      204360 kB\nVmallocChunk:          0 kB\nPercpu:            22208 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:     18432 kB\nFilePmdMapped:         0 kB\nCmaTotal:              0 kB\nCmaFree:               0 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:    14851532 kB\nDirectMap2M:     1644544 kB\nDirectMap1G:     1048576 kB\n",
+  "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+  "logicalCpuCount": 16,
+  "python": "Python 3.9.0",
+  "webkit": "2.52.6"
+}

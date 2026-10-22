@@ -16,6 +16,273 @@
   --baas-scrollbar-border: var(--color-fd-background);
 }
 
+.baas-locale-entry {
+  padding: 32px;
+}
+
+.baas-mobile-screenshot {
+  width: min(100%, 360px);
+}
+
+.baas-android-game-demo {
+  width: min(100%, 360px);
+}
+.baas-android-game-demo img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+}
+
+.baas-motion-demo figcaption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-fd-muted-foreground);
+}
+.baas-motion-demo figcaption button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+}
+
+.baas-recognition {
+  margin-block: 24px;
+  min-width: 0;
+  border-block: 1px solid var(--color-fd-border);
+  padding-block: 16px;
+  font-size: 14px;
+}
+.baas-recognition figcaption { font-weight: 600; margin-bottom: 12px; }
+.baas-recognition-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.baas-recognition-toolbar select {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  padding: 6px;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+}
+.baas-recognition-buttons { display: flex; gap: 4px; }
+.baas-recognition-buttons button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+}
+.baas-recognition-buttons button:disabled { opacity: 0.35; }
+.baas-recognition-buttons button:focus-visible,
+.baas-recognition-toolbar select:focus-visible,
+.baas-recognition-progress input:focus-visible { outline: 2px solid var(--color-fd-primary); outline-offset: 2px; }
+.baas-recognition-progress { display: grid; grid-template-columns: auto minmax(80px, 1fr); align-items: center; gap: 12px; margin-block: 12px; }
+.baas-recognition-progress label { min-width: 90px; font-variant-numeric: tabular-nums; }
+.baas-recognition-progress input { width: 100%; accent-color: var(--color-fd-primary); }
+.baas-recognition-current {
+  display: flex;
+  align-content: start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-height: 96px;
+  padding: 12px 0;
+  border-block: 1px solid var(--color-fd-border);
+}
+.baas-recognition-current strong,
+.baas-recognition-current code,
+.baas-recognition-summary code { overflow-wrap: anywhere; min-width: 0; }
+.baas-recognition-current strong { font-size: 14px; }
+.baas-recognition-match { display: inline-flex; align-items: center; gap: 4px; }
+.baas-recognition-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-block: 12px; font-variant-numeric: tabular-nums; }
+.baas-recognition-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 300px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.baas-recognition-events li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  margin: 0;
+  border-left: 3px solid transparent;
+}
+.baas-recognition-events li[aria-current] {
+  background: var(--color-fd-accent);
+  border-left-color: var(--color-fd-primary);
+}
+.baas-recognition-events code { overflow-wrap: anywhere; font-size: 12px; }
+.baas-recognition-number { font-variant-numeric: tabular-nums; color: var(--color-fd-muted-foreground); }
+.baas-recognition-events [data-kind="click"] { border-left-color: #d97706; }
+.baas-recognition-events [data-kind="return"] { border-left-color: #16a34a; }
+.baas-recognition-events [data-kind="exception"] { border-left-color: #dc2626; }
+
+.baas-benchmark {
+  margin-block: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.baas-benchmark figcaption {
+  font-weight: 600;
+}
+.baas-chart-controls {
+  display: flex;
+  gap: 4px;
+  margin-block: 12px;
+}
+.baas-chart-controls button {
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  padding: 4px 12px;
+}
+.baas-chart-controls button[aria-pressed="true"] {
+  background: var(--color-fd-accent);
+  color: var(--color-fd-primary);
+}
+.baas-benchmark-group {
+  margin-block: 16px;
+}
+.baas-benchmark-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 104px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.baas-benchmark-track {
+  height: 18px;
+  border-left: 1px solid var(--color-fd-border);
+  background: var(--color-fd-muted);
+}
+.baas-benchmark-track > div {
+  height: 100%;
+  min-width: 1px;
+  background: #b45309;
+}
+.baas-benchmark-track > div[data-kind="after"] {
+  background: #0f766e;
+}
+.baas-benchmark-row output {
+  text-align: right;
+}
+.baas-benchmark p {
+  font-size: 13px;
+  color: var(--color-fd-muted-foreground);
+}
+.dark .baas-benchmark-track > div {
+  background: #fbbf24;
+}
+.dark .baas-benchmark-track > div[data-kind="after"] {
+  background: #5eead4;
+}
+
+.baas-transport-benchmark .baas-benchmark-row {
+  grid-template-columns: 86px minmax(0, 1fr) 76px;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="websocket"] {
+  background: #0f766e;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="pipe"] {
+  background: #b45309;
+}
+.baas-transport-benchmark .baas-benchmark-track > div[data-kind="shm"] {
+  background: #be185d;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="websocket"] {
+  background: #5eead4;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="pipe"] {
+  background: #fbbf24;
+}
+.dark .baas-transport-benchmark .baas-benchmark-track > div[data-kind="shm"] {
+  background: #f9a8d4;
+}
+
+.baas-device-benchmark .baas-benchmark-row {
+  grid-template-columns: 100px minmax(0, 1fr) 76px;
+}
+.baas-device-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block: 12px;
+  font-size: 13px;
+}
+.baas-device-controls select {
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 4px;
+  color: var(--color-fd-foreground);
+  background: var(--color-fd-background);
+}
+.baas-device-controls .baas-chart-controls {
+  margin-block: 0;
+}
+.baas-benchmark-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.baas-device-benchmark table,
+.baas-payload-benchmark table {
+  font-size: 13px;
+}
+.baas-device-benchmark caption,
+.baas-payload-benchmark caption {
+  padding-block: 12px;
+  text-align: left;
+  color: var(--color-fd-muted-foreground);
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="adb"] {
+  background: #0f766e;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="uiautomator2"] {
+  background: #0369a1;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="scrcpy"] {
+  background: #be185d;
+}
+.baas-device-benchmark .baas-benchmark-track > div[data-kind="nemu"] {
+  background: #a16207;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="adb"] {
+  background: #5eead4;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="uiautomator2"] {
+  background: #7dd3fc;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="scrcpy"] {
+  background: #f9a8d4;
+}
+.dark .baas-device-benchmark .baas-benchmark-track > div[data-kind="nemu"] {
+  background: #facc15;
+}
+
+img.baas-screenshot,
+.baas-doc-hero-shot img,
+video.baas-screenshot {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid color-mix(in srgb, var(--color-fd-foreground) 14%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
+}
+
 .dark,
 html[data-theme="dark"] {
   --baas-accent: #60a5fa;
@@ -36,20 +303,20 @@ html[data-theme="dark"] {
 
 @font-face {
   font-family: "Blueaka";
-  src: url("/fonts/Blueaka-Subset.woff2") format("woff2");
+  src: url("../public/fonts/Blueaka-Subset.woff2") format("woff2");
   font-display: swap;
   font-weight: 400 800;
 }
 
 html {
   font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 body {
   min-height: 100vh;
   font-family: "Blueaka", ui-sans-serif, system-ui, sans-serif !important;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 html {
@@ -129,7 +396,7 @@ input[type="checkbox"],
 input[type="radio"],
 input[type="submit"],
 .cursor-pointer {
-  cursor: url("/cursors/link.cur"), pointer !important;
+  cursor: url("../public/cursors/link.cur"), pointer !important;
 }
 
 input,
@@ -139,7 +406,7 @@ code,
 [contenteditable="true"],
 .cursor-text {
   cursor:
-    url("/cursors/text_static_blue.cur") 7 16,
+    url("../public/cursors/text_static_blue.cur") 7 16,
     text;
 }
 
@@ -156,7 +423,7 @@ html[data-theme="dark"] code,
 html[data-theme="dark"] [contenteditable="true"],
 html[data-theme="dark"] .cursor-text {
   cursor:
-    url("/cursors/text_static_white.cur") 7 16,
+    url("../public/cursors/text_static_white.cur") 7 16,
     text;
 }
 
@@ -165,12 +432,12 @@ input:disabled,
 select:disabled,
 textarea:disabled,
 [aria-disabled="true"] {
-  cursor: url("/cursors/block.cur"), not-allowed !important;
+  cursor: url("../public/cursors/block.cur"), not-allowed !important;
 }
 
 .cursor-grab,
 [draggable="true"] {
-  cursor: url("/cursors/move.cur"), grab;
+  cursor: url("../public/cursors/move.cur"), grab;
 }
 
 .baas-doc-nav-brand {
@@ -578,17 +845,10 @@ html:not(.dark):not([data-theme="dark"]) .baas-site-section-head p {
   overflow: hidden;
 }
 
-.baas-screenshot[src^="/cn/"],
-.baas-screenshot[src^="/en/"] {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
 img.baas-screenshot,
 .baas-doc-hero-shot img,
 .baas-site-preview img {
-  cursor: url("/cursors/alternativeselect.cur"), zoom-in;
+  cursor: url("../public/cursors/alternativeselect.cur"), zoom-in;
 }
 
 .baas-image-zoom-open {
@@ -604,7 +864,7 @@ img.baas-screenshot,
   background: rgb(2 6 23 / 82%);
   padding: clamp(16px, 3vw, 36px);
   backdrop-filter: blur(10px);
-  cursor: url("/cursors/link.cur"), zoom-out;
+  cursor: url("../public/cursors/link.cur"), zoom-out;
 }
 
 .baas-image-zoom figure {
@@ -613,7 +873,7 @@ img.baas-screenshot,
   max-height: 92vh;
   gap: 10px;
   margin: 0;
-  cursor: url("/cursors/normal.cur"), auto;
+  cursor: url("../public/cursors/normal.cur"), auto;
 }
 
 .baas-image-zoom img {
@@ -644,7 +904,7 @@ img.baas-screenshot,
   border-radius: 999px;
   background: rgb(15 23 42 / 78%);
   color: white;
-  cursor: url("/cursors/link.cur"), pointer;
+  cursor: url("../public/cursors/link.cur"), pointer;
 }
 
 .baas-image-zoom-close:hover {
@@ -680,6 +940,66 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 .baas-mermaid svg {
   max-width: 100%;
   height: auto;
+}
+
+.baas-mermaid-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.baas-mermaid-tools button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--color-fd-foreground);
+  cursor: pointer;
+}
+
+.baas-mermaid-tools button:hover:not(:disabled) {
+  background: var(--color-fd-accent);
+}
+
+.baas-mermaid-tools button:focus-visible,
+.baas-mermaid-viewport:focus-visible {
+  outline: 2px solid var(--color-fd-primary);
+  outline-offset: 2px;
+}
+
+.baas-mermaid-tools button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.baas-mermaid-tools svg {
+  width: 16px;
+  height: 16px;
+}
+
+.baas-mermaid-tools output {
+  width: 48px;
+  flex: 0 0 48px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.baas-mermaid-viewport {
+  max-width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.baas-mermaid-content > svg {
+  display: block;
+  width: 100%;
+  /* Mermaid's intrinsic inline max-width must not cap the selected zoom. */
+  max-width: none !important;
 }
 
 .baas-mermaid-error {
@@ -1136,7 +1456,7 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 .baas-macos-note summary {
   display: flex;
   min-height: 46px;
-  cursor: url("/cursors/link.cur"), pointer;
+  cursor: url("../public/cursors/link.cur"), pointer;
   list-style: none;
   align-items: center;
   justify-content: space-between;
@@ -1213,9 +1533,9 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
 .baas-doc-hero-shot img {
   width: 100%;
   display: block;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
 }
 
 .baas-doc-hero-shot figcaption {

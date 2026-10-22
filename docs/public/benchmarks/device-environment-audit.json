@@ -1,0 +1,23 @@
+{
+    "checkedAt":  "2026-10-20T07:59:13.5536727Z",
+    "scope":  "Post-run host and MuMu SDK inventory; collected separately from the before-run source snapshots.",
+    "rawRecordSha256":  "9c350af3824f322bc366807ee668491db88862a4c8f054ce5f96a0e93ffd31ca",
+    "processors":  [
+                       {
+                           "name":  "AMD Ryzen 9 9950X 16-Core Processor",
+                           "logicalProcessors":  32
+                       }
+                   ],
+    "totalVisibleMemoryKiB":  32623324,
+    "windowsVersion":  "10.0.28000",
+    "nemuSdk":  {
+                    "file":  "external_renderer_ipc.dll",
+                    "sha256":  "fc666dafe94b17c8fb25016371a43b8966acdb50feb229232e51dea90509ce7c",
+                    "bytes":  263672,
+                    "fileVersion":  null,
+                    "productVersion":  null,
+                    "lastWriteUtc":  "2026-10-15T11:12:24.0000000Z",
+                    "lastWritePredatesSampling":  true
+                },
+    "limits":  "File timestamps alone do not prove that a binary stayed unchanged throughout sampling. The SDK digest was collected after the run; its PE version fields may be unavailable."
+}

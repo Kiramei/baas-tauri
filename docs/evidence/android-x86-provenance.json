@@ -1,0 +1,35 @@
+{
+  "applicationId": "io.github.kiramei.baas_tauri.docs.x86",
+  "apkSha256": "CBA686BC44DC5A46C842674DA13FC23D2676505200DAFAB8BF7241377BCD1FC5",
+  "apkBytes": 106607198,
+  "abi": "x86_64",
+  "variant": "x86_64Debug",
+  "sourceRevision": "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78",
+  "device": "MuMu Android emulator, adb serial 127.0.0.1:16384, 720x1280 portrait",
+  "buildCommand": "bun scripts/android-build-debug.mjs --abi x86_64 --application-id io.github.kiramei.baas_tauri.docs.x86 --skip-web-build",
+  "webBuild": "The immediately preceding attempt completed the current android web build; the retry reused it after correcting only the isolated Perl cache layout.",
+  "buildResult": "Gradle BUILD SUCCESSFUL; fresh Rust x86_64 target and Python requirements built. No tracked application source changes.",
+  "installResult": "adb streamed installation successful; cold launch Status ok, TotalTime 723 ms. This is one observation, not a startup benchmark.",
+  "runtime": "Embedded Python/bootstrap; backend repository downloaded into this app's private files/baas on first launch.",
+  "shizuku": {
+    "version": "v13.6.0.r1086.2650830c",
+    "source": "https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0",
+    "installedSeparately": true,
+    "running": true,
+    "grantedThroughNativeDialog": true,
+    "uid": 2000
+  },
+  "verified": [
+    "fresh APK build and installation",
+    "first-run backend preparation, authentication and configuration synchronization",
+    "created isolated Bilibili Documentation Demo profile; all 26 task switches disabled",
+    "Shizuku permission gate and actual native authorization",
+    "virtual display created; native preview and native control overlay opened"
+  ],
+  "notYetVerified": [
+    "game progresses beyond splash and remains on the intended virtual display",
+    "real game input and task completion",
+    "takeover, restart and background lifecycle end to end"
+  ],
+  "scope": "Native UI state is not evidence of successful game-task execution. Screenshots use a documentation-only profile, not existing user profiles."
+}

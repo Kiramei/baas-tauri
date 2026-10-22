@@ -1,193 +1,156 @@
 ---
 title: Installation and Connection
-description: Install BAAS Tauri, prepare the backend, set the key, create a profile, and connect an emulator.
+description: Desktop packages, normal and portable setup, every advanced option, the actual workflow, cancellation, automatic authentication and first connection.
 ---
 
-The installation flow must make three parts work together: the Tauri client, the BAAS backend service, and the emulator or game client. Tasks can run only after the home page shows the service as connected and the Server/ADB configuration can reach the target instance.
+Desktop setup prepares a local backend. For phone installation, see [Android Client](./android). WebUI connects to an already running service.
 
-<Callout type="warn" title="Do Not Skip Connection Validation">
-  Installation completion does not mean unattended automation is ready. Verify backend connection,
-  key authentication, ADB device, and one low-risk task before enabling sweeps, shop, arena, or
-  other resource-spending tasks.
-</Callout>
-
-## Flow Overview
-
-### Download and Run the Desktop Installer [step]
-
-Download the package that matches your operating system and CPU architecture from GitHub Releases, then start the BAAS Tauri installer.
-
-### Choose Backend Directory and Install Options [step]
-
-Use a stable writable backend directory with a simple path. On unstable networks, open Advanced Settings first to adjust language, theme, update source, or MirrorC CDK.
-
-### Start Installation and Wait for Backend Startup [step]
-
-The installer synchronizes dependencies, writes runtime state, and starts the backend service. Keep the installer log screenshot if it fails.
-
-### Initialize the Key and Create a Profile [step]
-
-On first backend connection, initialize or enter the BAAS key, then create a profile for the current account or emulator instance.
-
-### Configure Server and ADB [step]
-
-Set game server, ADB IP, ADB port, emulator path, screenshot method, and control method. Use ADB detection to confirm the target device is online.
-
-### Validate with a Low-risk Task [step]
-
-Run low-risk tasks such as cafe, mail, or reward collection first. Enable resource-spending tasks only after logs, remote display, recognition, and clicks are correct.
+Installing the client, preparing Python/backend files, authenticating, and connecting the correct device are separate checks. Do not enable resource-spending tasks merely because installation completed.
 
 <div id="download" />
 
-## Download the Desktop Installer
+## Download the Client
 
-First download the BAAS Tauri client package for your operating system and CPU architecture from [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases). This documentation site reads the latest Release and lists direct installer links automatically. If the list cannot load, open the Releases page and choose the package manually.
+Choose the operating system **and CPU architecture** on [official Releases](https://github.com/Kiramei/baas-tauri/releases). The panel below uses GitHub's `releases/latest` endpoint, not the `dev` branch or an automatic RC selection. Open Releases explicitly for a prerelease.
 
 <ReleaseDownloadPanel locale="en" />
 
-<details className="baas-macos-note">
-  <summary>⚠️ macOS Notarization Notice</summary>
-  <div>
-    <div>
-      BAAS Tauri macOS packages are not Apple-notarized. On first launch, macOS Gatekeeper may
-      report that the developer cannot be verified, the app is damaged, or the app should be moved
-      to Trash. Download only from the official GitHub Releases linked here; if you trust that
-      source, use the steps below to allow the app.
-    </div>
-    <ol>
-      <li>
-        Open the <code>.dmg</code> and drag <code>BAAS Tauri.app</code> into Applications.
-      </li>
-      <li>In Finder, Control-click the app, choose Open, then confirm Open in the dialog.</li>
-      <li>
-        If macOS still blocks it, try opening the app once, then go to System Settings -&gt; Privacy
-        &amp; Security and click Open Anyway in the security section. Apple notes that this option
-        appears only for a limited time after a launch attempt; see{" "}
-        <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac">
-          Apple's Gatekeeper instructions
-        </a>
-        .
-      </li>
-      <li>
-        If macOS says the app is damaged and you confirmed the file came from official Releases,
-        remove the download quarantine attribute:
-      </li>
-    </ol>
-    <pre>
-      <code>{`xattr -dr com.apple.quarantine "/Applications/BAAS Tauri.app"`}</code>
-    </pre>
-    <div>
-      Do not disable Gatekeeper, do not disable SIP, and do not run the command above for apps from
-      unknown sources. If the app path is different, type{" "}
-      <code>xattr -dr com.apple.quarantine </code> in Terminal, then drag the app icon into Terminal
-      to insert the path.
-    </div>
-  </div>
-</details>
+| Platform / package                                 | Use                                                                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Windows x64 or ARM64 installer, `*-setup.exe`      | Install the matching desktop client, then prepare its backend inside the app                                         |
+| Windows portable ZIP                               | Extract the complete archive into a writable directory; keep its adjacent configuration and runtime files together   |
+| Fixed WebView2 build, where published              | A Windows distribution with its own WebView2 runtime; match the published architecture, not an assumed ARM64 variant |
+| macOS `aarch64.dmg` / `x64.dmg`                    | Apple Silicon / Intel respectively; drag the app into Applications                                                   |
+| Linux `amd64.deb` / `arm64.deb` / `armhf.deb`      | Match the host architecture and package manager                                                                      |
+| Linux `x86_64.rpm` / `aarch64.rpm` / `armv7hl.rpm` | Match the host architecture and RPM-based distribution                                                               |
+| Android APK                                        | Follow the separate Android guide; do not use the desktop backend-directory instructions                             |
 
-| System                       | Recommended Package                           | When to Choose                                                                               |
-| ---------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Windows x64                  | `BAAS.Tauri_*_x64-setup.exe`                  | Most Windows PCs                                                                             |
-| Windows ARM64                | `BAAS.Tauri_*_arm64-setup.exe`                | ARM-based Windows devices                                                                    |
-| Windows x64 fixed WebView2   | `BAAS.Tauri_*_x64_fixed_webview2-setup.exe`   | WebView2 is missing, damaged, or the normal installer cannot launch the app on x64 devices   |
-| Windows ARM64 fixed WebView2 | `BAAS.Tauri_*_arm64_fixed_webview2-setup.exe` | WebView2 is missing, damaged, or the normal installer cannot launch the app on ARM64 devices |
-| macOS Apple Silicon          | `BAAS.Tauri_*_aarch64.dmg`                    | M-series Macs                                                                                |
-| macOS Intel                  | `BAAS.Tauri_*_x64.dmg`                        | Intel Macs                                                                                   |
-| Linux Debian/Ubuntu          | `BAAS.Tauri_*_amd64.deb` or `*_arm64.deb`     | Debian, Ubuntu, and derivatives                                                              |
-| Linux Fedora/RHEL            | `BAAS.Tauri_*_x86_64.rpm` or `*_aarch64.rpm`  | Fedora, RHEL, openSUSE, and other RPM distributions                                          |
+Only select assets actually published for that release. Updater archives and signature files are not interchangeable with a first-install DMG or installer. The OS package installs the **client**; the app's Setup Wizard manages the **backend environment**.
 
-After downloading, run the installer package to start BAAS Tauri. The backend directory, update source, and MirrorC CDK are configured inside the installer afterward.
+### macOS Security
 
-## Installer Home
+If macOS blocks an unverified app, first verify its origin and integrity. Overriding Gatekeeper carries risk. Apple's [official instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) describe the time-limited **Privacy & Security → Open Anyway** exception after a launch attempt. Do not disable Gatekeeper/SIP or blindly remove quarantine from an untrusted download.
 
-The installer selects the backend directory, opens advanced settings, and starts environment preparation. Use a stable writable path without special permission requirements.
+## Directory Selection and Startup
 
 <img
   className="baas-screenshot"
-  src="/en/installer-welcome-dark.png"
-  alt="BAAS installer home with install directory, cancel, advanced settings, and start install"
+  src="/media/desktop/en/installer-preflight.webp"
+  alt="Actual light-mode portable Setup Wizard, showing the locked adjacent directory and channel/transport summary"
 />
 
-| Control             | Purpose                                                    | Recommendation                                |
-| ------------------- | ---------------------------------------------------------- | --------------------------------------------- |
-| Install directory   | Backend files, dependencies, and runtime data              | Use a stable writable path                    |
-| Cancel installation | Exit installer                                             | Check logs before retrying after interruption |
-| Advanced settings   | Language, theme, update channel, update tests, MirrorC CDK | Configure this first on unstable networks     |
-| Start install       | Prepare backend environment                                | Keep a screenshot if it fails                 |
+There are two desktop modes:
 
-## Advanced Installation Settings
+| Mode           | Directory and persistence                                                                                                                                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Normal install | Type the backend directory or use the folder button. Cancelling the folder picker retains the current value. The selected root is remembered as `base_dir` in app-data `.app_storage.json`; its updater configuration is `<root>/setup.toml` |
+| Portable       | An existing `setup.toml` beside the executable activates portable mode. The displayed directory is read-only, `baas_root_path` is normalized to `"."`, and `.app_storage.json` stays beside the executable                                   |
 
-Advanced settings control installer language, theme, update channel, update testing, and MirrorC CDK before installation starts.
+The screenshot is **portable**, not a normal-install folder-picker demonstration. Do not create an adjacent `setup.toml` merely to experiment with a normal installation: it changes mode. Moving portable files separately can break code/runtime/configuration relationships.
+
+Normal Windows defaults to the current working directory, macOS to an app-adjacent BAAS directory, and Linux to `~/.baas`. Choose a stable writable location, not a source checkout with edits you need to keep. Repository updates can replace tracked code; back up profiles and local work first. Changing the selected root does not migrate old profiles automatically.
+
+If a remembered normal root still exists and is nonempty, or the app is portable, startup proceeds into the workflow automatically. Nonempty is **not** validation of a working backend. An invalid old directory can therefore produce a setup failure rather than the first-run form.
+
+On the initial form, **Cancel Installation exits the app**; **Start Installation begins preparation**. After preparation has started, the terminal's Cancel has a different meaning: stop that workflow and return to this form.
+
+## Advanced Settings
 
 <img
   className="baas-screenshot"
-  src="/en/installer-advanced-settings.png"
-  alt="Installer advanced settings with language, theme, update channel, test update, and MirrorC CDK"
+  src="/media/desktop/en/installer-advanced.webp"
+  alt="Actual installer advanced dialog with language, theme, channel, transport, skip updates, auto-enter and MirrorC verification"
 />
 
-| Setting        | Description                     | When to Change                        |
-| -------------- | ------------------------------- | ------------------------------------- |
-| Language       | Installer and later UI language | Before first install                  |
-| Theme          | Light, dark, or system          | Personal preference                   |
-| Update channel | Stable or development           | Stable for daily use, dev for testing |
-| Test update    | Test source availability        | When network quality is unclear       |
-| MirrorC CDK    | MirrorC acceleration credential | When using MirrorC                    |
+| Control                                | Behavior                                                                                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language                               | The seven supported client languages; changes the actual installer/app language immediately, not the game server or docs language                           |
+| Theme                                  | Light, Dark or System; applies immediately. The terminal itself remains dark even in the app's light theme                                                  |
+| Update Channel                         | `stable` or `dev`; selects backend repository/delivery refs, not the desktop client release channel                                                         |
+| Data transport                         | WebSocket, native pipe, plus shared memory on supported Windows/Linux desktop builds. This is client/backend transport, not ADB or screenshot method        |
+| Skip updates                           | `general.no_update`; keep existing main/Cpp files instead of repository synchronization. It does not supply missing code or guarantee offline startup       |
+| Enter automatically after installation | Client-wide `autoEnterAfterInstall`, default on. When off, keep completion logs until Open Home is clicked; not OS login autostart or scheduler Start       |
+| MirrorC CDK                            | Optional distribution credential; Verify CDK checks it for the selected channel. A successful check stages the trimmed key; rejected/failed checks clear it |
+| Confirm                                | Persist the supported updater options for the selected root and close                                                                                       |
+| Cancel / close / outside / Escape      | Dismiss the dialog; this is **not a full rollback**, as described below                                                                                     |
 
-## Installation Logs
+Language, theme and auto-enter are persisted client preferences. Channel, transport, skip-update and successfully verified CDK changes update the parent setup state. Closing with Cancel does not restore that parent state; starting installation can still persist those values. Review the summary and reopen the dialog if necessary. A typed **unverified** CDK is only a text draft and is not applied.
 
-After starting installation, the installer runs repository checks, PyPI source selection, dependency synchronization, cache cleanup, and backend startup. Keep the log screenshot if installation fails.
+The CDK field is not password-masked. Do not put real credentials in screenshots or support logs. Installer validation uses its Verify button; this dialog no longer contains the old download-source selector or Test Update control. Later source/SHA controls are under [Updates](../features/update).
 
 <img
   className="baas-screenshot"
-  src="/en/installer-progress-log-dark.png"
-  alt="Installer execution page showing setup steps and installation logs"
+  src="/media/desktop/en/installer-transport-options.webp"
+  alt="Actual Windows native installer transport choices including shared memory"
 />
 
-After installation, the backend starts as a separate process. First startup may take longer while dependencies are prepared.
+A shared-memory launch requires a matching backend with `main.service.py --shm-name` support. If the message says this support is missing, check whether backend files are missing or older, or select WebSocket for a compatible older backend. Repeatedly restarting the same incompatible combination cannot add that support.
 
-## Key and Authentication
+## Workflow and Logs
 
-On first backend connection, the client asks you to initialize or enter the BAAS key. This key authenticates the local service. It is not your game account password.
+The current workflow has 14 planned nodes. Repository and environment lanes overlap; log arrival order and node numbering are not a serial script or an overall percentage.
 
-Recommendations:
+| Node                  | Work and possible skip                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| Config Migration      | Load/migrate `setup.toml`, validate configured delivery, plan target/staging directories           |
+| Main Repository       | Synchronize main BAAS code unless Skip updates is on                                               |
+| Cpp Repository        | Synchronize OCR/prebuild files unless Skip updates is on                                           |
+| Install UV            | Ensure UV for a managed environment; custom Python skips it                                        |
+| Record Git Versions   | Record repository versions when the applicable Git path runs; may remain pending on a skipped path |
+| CPython Source        | Rank Python-download sources if managed Python is missing                                          |
+| Install Python        | Install the configured managed Python version if needed                                            |
+| Create Venv           | Prepare the managed `.venv`; a custom interpreter skips managed preparation                        |
+| Finalize Repositories | Move fresh staged files into place and persist repository state                                    |
+| PyPI Source           | Select/fail over package indexes and coordinate dependency preparation                             |
+| Compile Dependencies  | Build/reuse the service lock; work may already have run inside source failover                     |
+| Sync Dependencies     | Synchronize the managed environment; matching cache/custom-runtime paths can skip it               |
+| Retain UV Cache       | Keep reusable downloads/builds, rather than automatically deleting the UV cache                    |
+| Launch Backend        | Start the service with the chosen transport and wait for readiness                                 |
 
-- Save the key only on trusted devices.
-- Do not include the key in screenshots or logs.
-- If the home page stays connecting, check backend startup, local port, firewall, and key consistency.
-
-## Create a Profile
-
-Profiles store server, ADB, emulator, script, task, and scheduler settings. Click New Profile from the top-right area, then enter a name and game server.
+Hover or focus a node for status, description/command, timing and available error. Success, skipped, pending, running, failed and stopped are different states. Per-node elapsed time is not a benchmark and the count is not download progress.
 
 <img
   className="baas-screenshot"
-  src="/en/profile-create-import-dialog.png"
-  alt="New profile dialog with import archive, profile name, and game server"
+  src="/media/desktop/en/installer-completed-details.webp"
+  alt="Real native completed workflow with a focused backend-launch node and its timing details"
 />
 
-Profile guidance:
+The verified reuse path can show **13/14 with Installation complete**, because Record Git Versions remains pending. Do not wait forever for every circle to become green; inspect completion, failed nodes and the actual backend connection. Conversely, a high count is not proof of authentication or device readiness.
 
-- Use one profile per account or emulator instance.
-- Do not mix CN official, Bilibili, Global, JP, and KR ONE settings in the same profile.
-- Export a tuned profile as `.zip` for backup, migration, or support reports.
+The copy icon and Setup Error's Copy Logs serialize the collected **structured installer-log buffer**, not a guaranteed complete PTY transcript or filesystem archive. It can include earlier retries. Preserve the failing node/message and relevant terminal output as well, and check that clipboard copying actually succeeded before reporting. Review private paths, endpoints and credentials.
 
-## Connect the Emulator
+## Cancel, Failure and Retry
 
-After creating a profile, configure game server, ADB IP, ADB port, emulator path, emulator type, screenshot method, and control method in [Server](../../features/server), [Emulator](../../features/emulator), and [Script](../../features/script). Use ADB detection to confirm the available device.
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/installer-error.webp"
+  alt="Deliberate missing-backend failure in the real isolated installer, with Back to Setup and Copy Logs"
+/>
 
-Common connection failures:
+During an unfinished run, the terminal's Cancel requests workflow abortion and returns to setup. Plain Escape does the same only when no settings/error dialog, menu or selection overlay owns the key, and the key is not modified, repeated or part of input composition. Escape is not a cancellation shortcut after Backend Ready.
 
-- ADB or developer debugging is disabled in the emulator.
-- Multi-instance port does not match the target instance.
-- Another ADB service occupies the connection.
-- Firewall or security software blocks a local port.
-- Backend logs show permission, path, or authentication errors.
+Cancellation stops registered process/thread tasks and cleans registered temporary staging paths. It is **not a transactional rollback** of repository changes already applied, installed dependencies or changed preferences, and it does not uninstall an existing backend.
 
-## First Run
+Setup Error displays the failing step, message and collected logs. **Back to Setup** invokes cancellation/cleanup and lets you review options and retry. Closing only the error dialog does not retry or undo the failure. Copy logs first; then change the cause, not just the retry frequency. See [Troubleshooting](../reference/troubleshooting).
 
-Do not enable many tasks immediately. Start with low-risk tasks such as cafe, mail, or reward collection. Confirm logs, screenshots, recognition, and clicks first, then add sweeps, shop, arena, events, and combat tasks gradually.
+## Completion and Authentication
 
-<Callout type="success" title="First-run Success Criteria">
-  Home can start a task, logs continue updating, remote display shows the correct game page, and the
-  final resource or state change matches expectations.
-</Callout>
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/installer-completed.webp"
+  alt="Actual light-mode completed installer with logs retained and Open Home because auto-enter is off"
+/>
+
+With automatic entry enabled, Backend Ready starts authentication; otherwise Open Home does so. Desktop setup stores a generated local `baasAutoPassword`, verifies the managed service, submits authentication and initializes synchronized state. A new desktop installation does **not normally require manually choosing a BAAS key**.
+
+**Authentication recovery has side effects:** if that attempt fails, the desktop flow can stop the managed service, delete `service_auth.json`, `service_remembered_logins.json`, `service_signing_key.bin` and `service_ticket.key` under backend `config/`, restart it and generate a new password. Other clients' remembered credentials/identity trust can become invalid. This is not harmless metadata refresh; do not point a setup workflow at a shared service directory without understanding ownership. Preserve logs when the recovery retry fails.
+
+WebUI's manual-key dialog is separate: wait for server verification, enter the existing service key, or initialize a new key twice when explicitly in initialization mode. Empty/mismatched input is rejected. The BAAS key is not a game account password; never publish it or the stored auto-password. Android has its own automatic-auth flow.
+
+## First Profile and Device Check
+
+After Home appears, check the selected profile and server. Use the add-profile icon and [Profiles](../features/profile) for explicit creation/import, naming validation and same-name archive replacement risks. New profiles can have enabled default tasks; inspect them before Start.
+
+For an emulator, configure [Server/ADB](../features/server), [Emulator](../features/emulator) and [Script](../features/script). Confirm the detected serial/instance and a live screenshot of the correct game. PC clients instead use the [PC platform](../features/pc-platform) path. A desktop preview of another app is not proof of game recognition.
+
+Only then run one supervised, low-risk task whose effects you understand. Verify its logs, recognized page and expected result before adding spending, sweeps or combat. Scheduler Start is not part of installation.

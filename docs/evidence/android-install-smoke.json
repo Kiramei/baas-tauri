@@ -1,0 +1,23 @@
+{
+  "device": "MuMu at 127.0.0.1:16384",
+  "reportedAbis": ["x86_64", "arm64-v8a", "x86"],
+  "apk": "android-dev: src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk",
+  "sha256": "94E0565429B262C83762ABCF7B303CA0380577DBAD8CB45B4FD5751964D8E578",
+  "applicationId": "io.github.kiramei.baas_tauri.dev",
+  "versionName": "0.0.8-rc",
+  "versionCode": 8,
+  "installResult": "Success: streamed 164727303 bytes",
+  "command": "bun scripts/android-smoke.mjs --device 127.0.0.1:16384 --package-name io.github.kiramei.baas_tauri.dev --timeout 45000",
+  "result": {
+    "ok": true,
+    "activityDisplayedMs": 2870,
+    "backendReadyMs": 14915,
+    "healthOk": true,
+    "portraitLocked": true,
+    "wikiRemovedFromAndroidBundle": true,
+    "wikiRemovedFromAndroidBackend": true,
+    "virtualDisplay": null,
+    "fatalLines": []
+  },
+  "limits": "One cold launch observation, not a startup benchmark. Existing APK was installed rather than rebuilt; game execution and privileged display validation are outstanding. Later captures verified configuration persistence across WebView reload on a new Documentation Demo profile."
+}

@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-20T06:45:41.562Z",
+  "scope": "Benchmark fixture/transport cleanup only; not real game or scheduler lifecycle validation",
+  "desktop": {
+    "mode": "shm",
+    "auth": "authenticated",
+    "ready": true,
+    "runningSessions": 0,
+    "disabledTasks": 26
+  },
+  "android": {
+    "fixturePresent": false,
+    "fixtureCanvas": false,
+    "demoPresent": true,
+    "taskCounter": "0/26"
+  }
+}

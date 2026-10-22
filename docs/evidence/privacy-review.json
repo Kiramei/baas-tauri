@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-10-22T15:15:01.1323237Z",
+  "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
+  "imageFiles": 285,
+  "decodedFrames": 419,
+  "decodingFailures": 0,
+  "unresolvedPatternFindings": 0,
+  "inventorySha256": "ad92b073bbf8fbc002a41b73b5871c2eb3510deaacc8f94421381cc01ea35921",
+  "reviewedFindings": [
+    {
+      "file": "media/desktop/en/config-emulator.webp",
+      "sha256": "d80cb293bb6b0be1df85ce797da3621f2007c32344899984e2c80b3b77d736c3",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/zh/config-emulator.webp",
+      "sha256": "f90599138b121e9fe95386ccaf627ed48f776864dfbeefdfe34e4b5645f46be7",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    }
+  ],
+  "reviewedRedactions": [
+    {
+      "file": "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.webp",
+      "sha256": "3adb52fe7160c7bae9a93c5e2bcb85a264687f77e8c288b0f283b89b4e939f88",
+      "category": "legacy-game-nickname",
+      "method": "Local Gaussian blur, visually reviewed; region and pixel checks in legacy-media-blur.json.",
+      "regions": 1
+    }
+  ],
+  "publicationReviewComplete": false,
+  "pendingVisualFindings": [],
+  "webpPublication": {
+    "manifestSha256": "e0fc8d0e6cc2ff9a0733560ca70d67361c32c6acb6dbb1990eef1a9bc1c28065",
+    "files": 285,
+    "decodedFrames": 419,
+    "method": "Lossless local WebP encoding of already reviewed/blurred assets; visible decoded RGBA pixels, frame counts, delays and loop counts verified unchanged. Hidden RGB under zero alpha is canonicalized only for comparison and changes are counted separately. This is a publication transform, not a new capture or benchmark run."
+  },
+  "redaction": "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",
+  "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review.",
+  "nativeGameMedia": {
+    "manifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
+    "reviewedFiles": 6,
+    "reviewedFrames": 124,
+    "pngOutsideChangedPixels": 0,
+    "method": "Local Pillow Gaussian blur before PNG publication and before GIF resizing/palette encoding"
+  }
+}

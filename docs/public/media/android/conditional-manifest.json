@@ -1,0 +1,664 @@
+{
+  "capturedAt": "2026-10-20T08:30:27.000Z",
+  "platform": "android",
+  "captureScriptSha256": "529f48fdd28de088d00fd51ad753d9e3d6b14f32ba6b55989d6024b58e06cf88",
+  "nodeVersion": "v24.18.0",
+  "sourceRevision": "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78",
+  "executableOrApkSha256": "cba686bc44dc5a46c842674da13fc23d2676505200dafab8bf7241377bcd1fc5",
+  "scope": "Actual native UI with reversible demo configuration edits; no game input or scheduler execution",
+  "shots": [
+    {
+      "file": "media/android/en/conditional-cafe-student-search.png",
+      "locale": "en",
+      "state": "cafe-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "3e8d5a72cd4f66e638eea2bd678ec392cf97a1927747dc9c748efe064fe8a28e",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-cafe-student-empty.png",
+      "locale": "en",
+      "state": "cafe-student-empty",
+      "native": true,
+      "theme": "light",
+      "sha256": "bc54ad46a2e1f885c37410d343a78139a567cd294876ae68d95d3dc37053fce4",
+      "width": 672,
+      "height": 246,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-cafe-named.png",
+      "locale": "en",
+      "state": "cafe-named",
+      "native": true,
+      "theme": "light",
+      "sha256": "33b526ad69f2432e86d3bc680db800ddda5a4301df73d64ae77951b981ac78e1",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-cafe-starred.png",
+      "locale": "en",
+      "state": "cafe-starred",
+      "native": true,
+      "theme": "light",
+      "sha256": "a41657e258df2a58469e230f62084dc556b970e287f97ebda342b2913bf2ff11",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-phase3-materials.png",
+      "locale": "en",
+      "state": "craft-phase3-materials",
+      "native": true,
+      "theme": "light",
+      "sha256": "56ad976f85e6c6e5ef23c8438c08d630d415da193ca726df8ac9ed1e348496a0",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-phase2-materials.png",
+      "locale": "en",
+      "state": "craft-phase2-materials",
+      "native": true,
+      "theme": "light",
+      "sha256": "294016f86c515409c16e20e12d57cc50e84b1ddf86e966aa9e1772935c30611b",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-recommendation.png",
+      "locale": "en",
+      "state": "craft-recommendation",
+      "native": true,
+      "theme": "light",
+      "sha256": "462ad9fd2b9b661ce1d797e1d948bbc6c067801d628f75b479c44562f94d4a38",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-recommended-priority.png",
+      "locale": "en",
+      "state": "craft-recommended-priority",
+      "native": true,
+      "theme": "light",
+      "sha256": "6acaf5fa3d99c856f0f6ec179f02e7f16e95e8b047a3f8715f5afd986df91635",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-node-picker.png",
+      "locale": "en",
+      "state": "craft-node-picker",
+      "native": true,
+      "theme": "light",
+      "sha256": "adc9708d2a9239ec3240b3963ac70bfa5cd6efc3d99ea7e906a20a3aa93f5c6c",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-craft-invalid-count.png",
+      "locale": "en",
+      "state": "craft-invalid-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "b9a031e6f068fdd78d958ba51aacfccd68ef5a1f08e80bf04cf5d3a57d7c0c59",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-team-preset.png",
+      "locale": "en",
+      "state": "team-preset",
+      "native": true,
+      "theme": "light",
+      "sha256": "6ff444b08425af39beee032f4880d0476630b095c8db1dd021ff03f97a24ff89",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-team-preset-cell.png",
+      "locale": "en",
+      "state": "team-preset-cell",
+      "native": true,
+      "theme": "light",
+      "sha256": "72649ace25bba30074ad63282493f54902a4dc36e9b3a22038c506da780970b8",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-team-order.png",
+      "locale": "en",
+      "state": "team-order",
+      "native": true,
+      "theme": "light",
+      "sha256": "0d3452a27ff44f14b5d84635c30a7b9e1fe765bc536645c423538761a2c464a8",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-lesson-student-search.png",
+      "locale": "en",
+      "state": "lesson-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "4547bd4e7375cfecb0771239d39a0fbd116139e66e74ce9a8ea64ca5d9159272",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-lesson-students.png",
+      "locale": "en",
+      "state": "lesson-students",
+      "native": true,
+      "theme": "light",
+      "sha256": "5a8e60e42a3dcf37650dc99d711fa73e1b5783656febee525a2364dbd2277917",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-sweep-invalid-count.png",
+      "locale": "en",
+      "state": "sweep-invalid-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "f0de09eec17779ab3eec1569399ceb6699666086fed892e28e2a9c3946055935",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-sweep-student-search.png",
+      "locale": "en",
+      "state": "sweep-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "37193831a1f32d056dcabf027c30248205066737ed610116e103b55c0dc6c338",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-sweep-student-stages.png",
+      "locale": "en",
+      "state": "sweep-student-stages",
+      "native": true,
+      "theme": "light",
+      "sha256": "acfecc7dedb789eb3e53862439c281690c0e43faae2537990da8cc1b5984826e",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-sweep-legacy-plan.png",
+      "locale": "en",
+      "state": "sweep-legacy-plan",
+      "native": true,
+      "theme": "light",
+      "sha256": "371fd4519f8cbd1cdbe7d239bc554d30fd0e9557ed7cb61d3c603acf9d3a7068",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-sweep-legacy-count.png",
+      "locale": "en",
+      "state": "sweep-legacy-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "540134249d08720902c7350313ec86aa84c0812cc9ac148acfefb631fdceedc9",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-explore-legacy-mission.png",
+      "locale": "en",
+      "state": "explore-legacy-mission",
+      "native": true,
+      "theme": "light",
+      "sha256": "8aa35918347ea69d65e62358551449a88fd2d97096af7aed92d62defba25c79d",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/en/conditional-explore-legacy-plan.png",
+      "locale": "en",
+      "state": "explore-legacy-plan",
+      "native": true,
+      "theme": "light",
+      "sha256": "cd0bd21530ffb15e093e9936df641f5eeb3562cd92852f671ef727a812c373d1",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-cafe-student-search.png",
+      "locale": "zh",
+      "state": "cafe-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "0b7f712fc2838e92af8042f65517de48fd6c54dc64f44cc911bb7adcfdae5017",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-cafe-student-empty.png",
+      "locale": "zh",
+      "state": "cafe-student-empty",
+      "native": true,
+      "theme": "light",
+      "sha256": "73b4e4e09ccfe3a07766535edcff0a2d2c8ab072a16319c4e866e84830ec4a4a",
+      "width": 672,
+      "height": 246,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-cafe-named.png",
+      "locale": "zh",
+      "state": "cafe-named",
+      "native": true,
+      "theme": "light",
+      "sha256": "7096f4f57db0514f3cc1be45655bed1e2ffc63fd6e1c2d6efdaf3de8e6597dc0",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-cafe-starred.png",
+      "locale": "zh",
+      "state": "cafe-starred",
+      "native": true,
+      "theme": "light",
+      "sha256": "966bf0b9cbb230aa3c25cf1657ec783c4c7b556c25938d958aa6bd20b2fbba88",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-phase3-materials.png",
+      "locale": "zh",
+      "state": "craft-phase3-materials",
+      "native": true,
+      "theme": "light",
+      "sha256": "ace8c263481541ceda82705b5e9390f789b728cc141780d79e2ff9d6c2b20b24",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-phase2-materials.png",
+      "locale": "zh",
+      "state": "craft-phase2-materials",
+      "native": true,
+      "theme": "light",
+      "sha256": "f28682eac108d69413f42f962814e7834cf224a7cb88079354cdd8ae7667e60e",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-recommendation.png",
+      "locale": "zh",
+      "state": "craft-recommendation",
+      "native": true,
+      "theme": "light",
+      "sha256": "5c15f799160ebc16d5f944902563af41bb507f9913c3b3cc2c8dbdf8cf4fb9e9",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-recommended-priority.png",
+      "locale": "zh",
+      "state": "craft-recommended-priority",
+      "native": true,
+      "theme": "light",
+      "sha256": "80ca6e7ebb8b11b6632f07c97b168aa44f364d1e0dd7818e4d919ae9404286f7",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-node-picker.png",
+      "locale": "zh",
+      "state": "craft-node-picker",
+      "native": true,
+      "theme": "light",
+      "sha256": "f1efe69127ab1bc8e1f7ce8531773a9f559ab13ae84967092cc18124da3e7c51",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-craft-invalid-count.png",
+      "locale": "zh",
+      "state": "craft-invalid-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "32250ffc684ce47625bc23545b5cafca1acb3ebd9fafd3daf490fa2fdfa41642",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-team-preset.png",
+      "locale": "zh",
+      "state": "team-preset",
+      "native": true,
+      "theme": "light",
+      "sha256": "eea33a05e5ce5e78cad190247685c540e110fe370aeedf72c40aa813bc923adb",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-team-preset-cell.png",
+      "locale": "zh",
+      "state": "team-preset-cell",
+      "native": true,
+      "theme": "light",
+      "sha256": "d94a5452dea85576fa7825f87b87816673f2f626f3ef20eedff54ab3f4a94be7",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-team-order.png",
+      "locale": "zh",
+      "state": "team-order",
+      "native": true,
+      "theme": "light",
+      "sha256": "e5cef0e3c054f88ab678fedf53effbafe5e484795c8d59bdcb7513b9179f5383",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-lesson-student-search.png",
+      "locale": "zh",
+      "state": "lesson-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "9881bcc8be9ab8cfea5b0a5b1823a93744d8f681624ec8b17730c532f94efcc0",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-lesson-students.png",
+      "locale": "zh",
+      "state": "lesson-students",
+      "native": true,
+      "theme": "light",
+      "sha256": "cc6ad8af1fd6cca639053e951b025f9acfc877c2df993b22201e714d9d82abdb",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-sweep-invalid-count.png",
+      "locale": "zh",
+      "state": "sweep-invalid-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "f182868e8fc23d180df84e8573be3d0ebf4b5a5b1a2767090fc470379e9828ab",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-sweep-student-search.png",
+      "locale": "zh",
+      "state": "sweep-student-search",
+      "native": true,
+      "theme": "light",
+      "sha256": "afdd33b4dbee99cd98a0e32f31fbaeb5d059bcb604061ea094cbf795fdd9235c",
+      "width": 672,
+      "height": 291,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-sweep-student-stages.png",
+      "locale": "zh",
+      "state": "sweep-student-stages",
+      "native": true,
+      "theme": "light",
+      "sha256": "9978359e8487855313035158b723a418574c891c6af47971769adad836a70703",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-sweep-legacy-plan.png",
+      "locale": "zh",
+      "state": "sweep-legacy-plan",
+      "native": true,
+      "theme": "light",
+      "sha256": "8250781441276edd899e39f28a2d15d07a651e2dd48b333ab8f7174ebc36389d",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-sweep-legacy-count.png",
+      "locale": "zh",
+      "state": "sweep-legacy-count",
+      "native": true,
+      "theme": "light",
+      "sha256": "0187a514f35faccdbe8ad8f4ef4eb1a5e461b2e9de79e86c0e79e32cf83a991e",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-explore-legacy-mission.png",
+      "locale": "zh",
+      "state": "explore-legacy-mission",
+      "native": true,
+      "theme": "light",
+      "sha256": "778240b0e03d41553f6111ec01f08511232338da279aabb1551dc77645766984",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    },
+    {
+      "file": "media/android/zh/conditional-explore-legacy-plan.png",
+      "locale": "zh",
+      "state": "explore-legacy-plan",
+      "native": true,
+      "theme": "light",
+      "sha256": "fe32fce840baba8416085818e11a32c0388b97a2debb81644b17029baecfcb55",
+      "width": 720,
+      "height": 1281,
+      "region": "Native viewport / active native modal",
+      "privacy": "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels"
+    }
+  ],
+  "checks": [
+    {
+      "locale": "en",
+      "name": "student selection appends immediately, modal search persists after reopening and clearing restores results",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "second Cafe tab follows undo/redo; five starred positions and per-Cafe values stay independent",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "stage count follows undo/redo; phase 2 exposes seven rules and phase 3 exposes three",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "student recommendation replaces phase 2 with recommended nodes followed by remaining defaults; undo restores custom order",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "priority keyboard preview does not persist; Escape cancels it; committed reorder and undo restore exact labels",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "invalid crafting count remains local and Undo returns to the saved value",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "preset grid follows stored dimensions; five attributes; order mode hides both grids without changing them",
+      "presetRows": 4,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "lesson preference visibility follows toggle and Undo; disabling retains ordered student names",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "empty sweep count remains local; student choice adds all drop stages once at count three and Undo restores empty plan",
+      "addedStages": 3,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "unknown plan and count tokens remain visible; explicit row deletion or count replacement is undoable",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "name": "exploration retains saved chapters and missions outside current choices and preserves unknown raw rows; deletion can be undone",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "student selection appends immediately, modal search persists after reopening and clearing restores results",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "second Cafe tab follows undo/redo; five starred positions and per-Cafe values stay independent",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "stage count follows undo/redo; phase 2 exposes seven rules and phase 3 exposes three",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "student recommendation replaces phase 2 with recommended nodes followed by remaining defaults; undo restores custom order",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "priority keyboard preview does not persist; Escape cancels it; committed reorder and undo restore exact labels",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "invalid crafting count remains local and Undo returns to the saved value",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "preset grid follows stored dimensions; five attributes; order mode hides both grids without changing them",
+      "presetRows": 4,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "lesson preference visibility follows toggle and Undo; disabling retains ordered student names",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "empty sweep count remains local; student choice adds all drop stages once at count three and Undo restores empty plan",
+      "addedStages": 3,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "unknown plan and count tokens remain visible; explicit row deletion or count replacement is undoable",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "name": "exploration retains saved chapters and missions outside current choices and preserves unknown raw rows; deletion can be undone",
+      "passed": true
+    }
+  ],
+  "recordings": [],
+  "scenariosCompleted": true,
+  "restored": true,
+  "runtimeOwnerVerified": true,
+  "originalFieldsSha256": "b32c7ba8359bc97bae3119bec68f2f8775c6833efc9becaf896307bd55773c0b",
+  "restoredFieldsSha256": "b32c7ba8359bc97bae3119bec68f2f8775c6833efc9becaf896307bd55773c0b",
+  "protectedProfilesUnchanged": true,
+  "demoEventsUnchanged": true,
+  "completedAt": "2026-10-20T08:31:41.946Z"
+}

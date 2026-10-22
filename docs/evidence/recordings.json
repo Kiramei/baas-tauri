@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-20T03:30:09.171Z",
+  "results": [
+    {
+      "file": "media/desktop/en/configuration-undo.gif",
+      "locale": "en",
+      "native": true,
+      "theme": "light",
+      "runtimeOverviewAssetsShown": false,
+      "actions": [
+        "toggle collect rewards",
+        "wait for automatic commit",
+        "undo",
+        "verify original value restored"
+      ],
+      "gameInputSent": false
+    },
+    {
+      "file": "media/desktop/zh/configuration-undo.gif",
+      "locale": "zh",
+      "native": true,
+      "theme": "light",
+      "runtimeOverviewAssetsShown": false,
+      "actions": [
+        "toggle collect rewards",
+        "wait for automatic commit",
+        "undo",
+        "verify original value restored"
+      ],
+      "gameInputSent": false
+    }
+  ]
+}

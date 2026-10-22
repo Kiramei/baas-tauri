@@ -1,0 +1,801 @@
+{
+  "checkedAt": "2026-10-21T08:57:02.445Z",
+  "kept": [
+    "backend-assets/auto_fight/procedure_draft.png",
+    "backend-assets/auto_fight/screenshot_data_update_cycle.png",
+    "backend-assets/auto_fight/total_assault_general.png",
+    "backend-assets/game_feature/static_feature_example.png",
+    "backend-assets/game_feature/swipe_example_common_shop.png",
+    "backend-assets/ocr/pass_method1_example.png",
+    "backend-assets/pc_platform/BAAS_log_screen_ratio_not_16_9.png",
+    "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png",
+    "backend-assets/pc_platform/turn_off_hdr.png"
+  ],
+  "removed": [
+    {
+      "file": "backend-assets/activity/enter1.png",
+      "sha256": "ce58f9dc79eba6645721b7986684acf6b54c40989de8e2d3a6d88706b919c6ce",
+      "bytes": 2436016
+    },
+    {
+      "file": "backend-assets/activity/enter2.png",
+      "sha256": "0db01d932fb9982ff8d4da9b4a6a38a65540af6878fb71c7f092e1c89a0d62af",
+      "bytes": 2150519
+    },
+    {
+      "file": "backend-assets/activity/enter3.png",
+      "sha256": "9988607face7efc87240cfc335bbb2e8e6d7687c45a899ebd53bec82ae12cacd",
+      "bytes": 2421634
+    },
+    {
+      "file": "backend-assets/activity/has_activity.png",
+      "sha256": "5e39bfe2cc2f922710edd7c6f0cf30701c63ed862404cd901588736dd847f8e5",
+      "bytes": 6342
+    },
+    {
+      "file": "backend-assets/activity/null_activity.png",
+      "sha256": "3dd59edc9b7039b59cafed9ed932acf6bbb2c2ca8def32e9bcf1b219e24f3ba1",
+      "bytes": 2967
+    },
+    {
+      "file": "backend-assets/auto_fight/acc_auto_phase.png",
+      "sha256": "5f87d03f26a545fbb73ca674d701f2bf86b84dda54d33f5f1ab62399b7351b48",
+      "bytes": 41258
+    },
+    {
+      "file": "backend-assets/auto_fight/all_covered_no_notation1.png",
+      "sha256": "e729af996bee807525a612b68d7eee1aa9fc8f859303571d15a436c542d17b3c",
+      "bytes": 415777
+    },
+    {
+      "file": "backend-assets/auto_fight/all_covered_no_notation2.png",
+      "sha256": "a8e7661a5846b17dc4c0a9ac2b22a33316215197d0f46161e6d3fa0e23e13d2c",
+      "bytes": 577066
+    },
+    {
+      "file": "backend-assets/auto_fight/boss_health.png",
+      "sha256": "392c6e8442335bdc67726823ac8026f982a03309a9b5fee504bd4d194d72087e",
+      "bytes": 209362
+    },
+    {
+      "file": "backend-assets/auto_fight/current_cost.png",
+      "sha256": "44a34fa907b6a7a80751fb1b82f3796f80d170d4cc16982c1dd3590a3f448f6e",
+      "bytes": 79162
+    },
+    {
+      "file": "backend-assets/auto_fight/cvat_ai_guide1.png",
+      "sha256": "ae19eb2b6dbd2ceb511c6bac99da7ec0a37171c1864fa46735ab09a6a8cb98a3",
+      "bytes": 640891
+    },
+    {
+      "file": "backend-assets/auto_fight/cvat_ai_guide2.png",
+      "sha256": "2f1332447fc023971dc71f94fd1fad1af8dd791cde6afd7075792d06a2457b82",
+      "bytes": 3676405
+    },
+    {
+      "file": "backend-assets/auto_fight/enemy_position.png",
+      "sha256": "7c51b8ef54e20059b2ecdfcc7dbcd4990d13ebb69255ec87063469b9d31f78b6",
+      "bytes": 1106228
+    },
+    {
+      "file": "backend-assets/auto_fight/example_skill_active_template.png",
+      "sha256": "8024eeabf787135b111fc7d6adc1946b837c3bfc36b3e3e688244c9effe0d395",
+      "bytes": 12880
+    },
+    {
+      "file": "backend-assets/auto_fight/example_skill_l_inactive_template.png",
+      "sha256": "bc366593ca321a56b9fa1b078f1deae115a0367d0e7c3aadce26943d4738cc7a",
+      "bytes": 5719
+    },
+    {
+      "file": "backend-assets/auto_fight/example_skill_r_inactive_template.png",
+      "sha256": "95ba6d73cc9b4ae667b8ac74d26924e85b44fd5c86000e1b2339c248a8600208",
+      "bytes": 5511
+    },
+    {
+      "file": "backend-assets/auto_fight/fight_left_time.png",
+      "sha256": "36c2932a78d390b16f3ed5800f692dc69e731f57bf497b7ff4334b865870eea0",
+      "bytes": 30076
+    },
+    {
+      "file": "backend-assets/auto_fight/notate_requirements.png",
+      "sha256": "27db8f40b7055493ba8550a638e0deaa593b566a36be42eabc1f9def41a3f332",
+      "bytes": 550625
+    },
+    {
+      "file": "backend-assets/auto_fight/partial_covered_need_notation.png",
+      "sha256": "bbf957c236bf970e135815f101f8ecd0f7980d24193b7967fafabd83404d2920",
+      "bytes": 444619
+    },
+    {
+      "file": "backend-assets/auto_fight/room_left_time.png",
+      "sha256": "d894e1fe8953524045c50752ed6c6b242be57f2bf43088cec08f291981f9cfa6",
+      "bytes": 14421
+    },
+    {
+      "file": "backend-assets/auto_fight/skill_templates.png",
+      "sha256": "a4a3ac7abb8dec97807ceb6b81059ad00847d3cdf63912939bdc2bfe2b67457f",
+      "bytes": 770631
+    },
+    {
+      "file": "backend-assets/auto_fight/student_position.png",
+      "sha256": "1a9aebda186c8e21da395f80e3e27e8970a0fc5afff8520bea5cd0dc4c2bc98e",
+      "bytes": 385753
+    },
+    {
+      "file": "backend-assets/auto_fight/student_skill.png",
+      "sha256": "a522044bbb53573c464a33db8b4770dad83fd1fbfadc6bcf8b28ad253fb676ad",
+      "bytes": 118093
+    },
+    {
+      "file": "backend-assets/auto_fight/yolo_data_yaml_names.png",
+      "sha256": "cfa1453b6c5abe6e6f3ffcbac6439be7bb0eb0b66c9bb038ae60eb3d53c17b43",
+      "bytes": 224286
+    },
+    {
+      "file": "backend-assets/auto_fight/yolo_demo1.png",
+      "sha256": "4006c6bcb88d192c2a4a1e7a2dacaaa88a4cdba4b775258a289794366b3e10bf",
+      "bytes": 610171
+    },
+    {
+      "file": "backend-assets/auto_fight/yolo_demo2.png",
+      "sha256": "22b0c6f67cf7dcc1fd98d68f81af70e6f73a2517239ba649efb54efafbe67a5f",
+      "bytes": 622520
+    },
+    {
+      "file": "backend-assets/auto_fight/yolo_demo3.png",
+      "sha256": "99452edeecb4191d86dcbfbea018aa8c21752da6c7de63f927a7a1c69d9def4d",
+      "bytes": 607153
+    },
+    {
+      "file": "backend-assets/config/anti-harmony.png",
+      "sha256": "2c21201a07eb5046a6b69097336c98dd745fcf00b9cd1a8994b8a1879d38c0c0",
+      "bytes": 70802
+    },
+    {
+      "file": "backend-assets/config/employ_team_method.png",
+      "sha256": "c299da1d1a28248985c580fc42d7a962f9b55093099cba065c8a7a55e62ecf30",
+      "bytes": 95740
+    },
+    {
+      "file": "backend-assets/config/explore_hard_task_fill_in.png",
+      "sha256": "4f52a7b0281f2e55407da878d827da0f2538e08e8f5c8d3c93f8c79e51e022b4",
+      "bytes": 111694
+    },
+    {
+      "file": "backend-assets/config/explore_main_story_fill_in.png",
+      "sha256": "d949790ad6736265795005e253ff2101c7406615c8407b0e91947dd369db5003",
+      "bytes": 132211
+    },
+    {
+      "file": "backend-assets/config/explore_normal_task_fill_in.png",
+      "sha256": "e17355d735380c5c81a4c16cb928f57fbff2cfd72f2914a36361813e987d61b4",
+      "bytes": 109531
+    },
+    {
+      "file": "backend-assets/config/explore_task_preset_fail_to_choose_team.png",
+      "sha256": "70c67657c3f9093408c7252c2c289976e3cca66824335a37eabcdf05f280f4a6",
+      "bytes": 32107
+    },
+    {
+      "file": "backend-assets/config/lesson_affection_example.png",
+      "sha256": "e147bf5bc76533f8cc03fe108a50aef82a6f40bd7a900e7a6d6cd2ac40e1c82d",
+      "bytes": 534134
+    },
+    {
+      "file": "backend-assets/config/mumu_background_keep_alive.png",
+      "sha256": "2c92454b24c5269f7f61711d3fc7977dd563b187877dcf9fcffd8a1b56b8e3ac",
+      "bytes": 632181
+    },
+    {
+      "file": "backend-assets/develop_env/use_baas_env_in_pycharm_1.png",
+      "sha256": "1d27b9952890442ccde2f2ef25b4630c743be02951662194d2028d5edd4cb17a",
+      "bytes": 125440
+    },
+    {
+      "file": "backend-assets/develop_env/use_baas_env_in_pycharm_2.png",
+      "sha256": "3c6821393fc6c1aca1de08edfa1cb3810f2170ba74307d2895889f5b3d6863a1",
+      "bytes": 106557
+    },
+    {
+      "file": "backend-assets/develop_env/use_baas_env_in_pycharm_3.png",
+      "sha256": "621e9e234a15723b5c2339b52aaae1cad12df4c2e1f67629e752e03a00464289",
+      "bytes": 132138
+    },
+    {
+      "file": "backend-assets/faq/MuMu12_Get_Multi_instance_port.png",
+      "sha256": "b19f5ad38863c56e6d977565dbe04aa8a7d3a42646c01c02f29d218032276224",
+      "bytes": 815764
+    },
+    {
+      "file": "backend-assets/faq/log_continuous_tentative_click.png",
+      "sha256": "59b65465ba0f72cdf24d5ac700c1aac32599ab041d59fc6860aeb8d92d1bd216",
+      "bytes": 263404
+    },
+    {
+      "file": "backend-assets/game_feature/static_feature_example2.png",
+      "sha256": "f8517554475bc340d460b41658c4ab45b2be95ab81437c2c10d49ee588696cba",
+      "bytes": 258704
+    },
+    {
+      "file": "backend-assets/game_feature/swipe_example_activity.png",
+      "sha256": "7416f5e0efc386be5a404c17b97243c9c86ddb660512861f66e2eacd51c944f0",
+      "bytes": 142872
+    },
+    {
+      "file": "backend-assets/game_feature/swipe_example_create.png",
+      "sha256": "f094c288c9772b62d64d495fa7db51ed3e9b467a62096715f66098d893eb2978",
+      "bytes": 150111
+    },
+    {
+      "file": "backend-assets/game_feature/swipe_example_preset.png",
+      "sha256": "1cf88c8f036208c1416370b63bbb3dd0eb8d406a6bf07231e9488322a7286b7b",
+      "bytes": 104342
+    },
+    {
+      "file": "backend-assets/install/Mac_adb_path.png",
+      "sha256": "79293e11ce7fb92ca2c0983406457f4114dc80e93557fcb788f5db3c655ab696",
+      "bytes": 38669
+    },
+    {
+      "file": "backend-assets/install/exe_installer.png",
+      "sha256": "e3a694e5e6faa5be3bc1aa8b81bee691ffeb2f36df701d596ff70611ae677893",
+      "bytes": 43508
+    },
+    {
+      "file": "backend-assets/install/full_env_installer.png",
+      "sha256": "722b4e9bb27d6f43dba8666f71e57729ba8aa77f81e3b40a2f65ce7d857de927",
+      "bytes": 43551
+    },
+    {
+      "file": "backend-assets/install/mirrorc_install_success.png",
+      "sha256": "8c423ff54557b1411196673995747503e3b6aff604442da09b28fb0c77c883dc",
+      "bytes": 97972
+    },
+    {
+      "file": "backend-assets/install/mirrorc_update_success.png",
+      "sha256": "8e00533864b2552595a0fe0e5fb9a13fecf3942ba233ba1f5018967a306f2594",
+      "bytes": 148227
+    },
+    {
+      "file": "backend-assets/install/problem_fail_to_start_ui_for_path_with_chinese.png",
+      "sha256": "32af0008f5469c335f8037ef06ebb45cb385ec71bfec997fae38554ec306fc28",
+      "bytes": 82056
+    },
+    {
+      "file": "backend-assets/install/with_config_installer.png",
+      "sha256": "6c045fe130346e7db2f728e6b0b15c297121249f07c175204cb048c921c518c4",
+      "bytes": 75058
+    },
+    {
+      "file": "backend-assets/pc_platform/BAAS_setting_control_method_pyautogui.png",
+      "sha256": "1d0f962aa1d0a410bb4cdb2565060cbb407659014cbbe13c43718a3017d636c4",
+      "bytes": 82309
+    },
+    {
+      "file": "backend-assets/pc_platform/BAAS_setting_game_server_steam_global_or_JP_pc.png",
+      "sha256": "bb9d9b1248dfc36523ab0a51589a4bc4ac189594b229df47a3a1fd1fee1132e4",
+      "bytes": 237851
+    },
+    {
+      "file": "backend-assets/pc_platform/BAAS_setting_screenshot_method_mss_or_pyautogui.png",
+      "sha256": "390ca0a4805fdf68b7c261a79e0800fa7a21bfeaaf9b9839b7f30b63615c88a8",
+      "bytes": 77796
+    },
+    {
+      "file": "backend-assets/pc_platform/run_baas_as_admin.png",
+      "sha256": "6b6e7dc8219fee4c9bb7e3c2ead2842f762b52840fc80226f9b9068f03c98bd1",
+      "bytes": 25833
+    },
+    {
+      "file": "backend-assets/update/query_version_1.png",
+      "sha256": "3a5bf546f14d8e908bddce53e7376bdcfc5b66c2f103d57a84be560e51a6b12a",
+      "bytes": 155521
+    },
+    {
+      "file": "backend-assets/update/query_version_2.png",
+      "sha256": "46d5cdaac6b61fcb7e7e697b74371272a07c75a3269bd8d761b1448d5c6ca89f",
+      "bytes": 426578
+    },
+    {
+      "file": "backend-assets/update/query_version_3.png",
+      "sha256": "9f6c7ef3dce8281c30787afa9882de514898bd06c1f1f7dfa2d52b129ce5e3d8",
+      "bytes": 111759
+    },
+    {
+      "file": "cn/cafe-base-settings.png",
+      "sha256": "d877e03ecdf4752fa2e380abf490e42eb14d1bec1463f08013b8ad2ebe108d7b",
+      "bytes": 209893
+    },
+    {
+      "file": "cn/cafe-one-invite-by-name.png",
+      "sha256": "45f4ff8d3bbb66350c1119958189a9104595f0365647feb346e235cd27fbb428",
+      "bytes": 214739
+    },
+    {
+      "file": "cn/cafe-one-starred-position.png",
+      "sha256": "da6cd7f22af2bdfc916b61e8d03687d1b1ea9a5a6f0d0afbef7052fe0df01609",
+      "bytes": 211120
+    },
+    {
+      "file": "cn/cafe-two-starred-position.png",
+      "sha256": "57c29f1d3a28c8a3201558d1efecb06c0378a22b06d8cb5ddaef4fc43ab10178",
+      "bytes": 208673
+    },
+    {
+      "file": "cn/combat-arena-settings.png",
+      "sha256": "9c2ce721b2f956f0aea99967652a588503aff5bbefaf804989dbff91e1a2c843",
+      "bytes": 231958
+    },
+    {
+      "file": "cn/combat-joint-drill-settings.png",
+      "sha256": "ea3709dc71aaea017a7b360c5cf14cfc12b756d8724b950fc7729c5094df46d3",
+      "bytes": 215454
+    },
+    {
+      "file": "cn/combat-total-assault-settings.png",
+      "sha256": "d76978a0655b2d92ed90c9d5783b961f94ecc71117e646bf17e4e24230eec9f0",
+      "bytes": 212298
+    },
+    {
+      "file": "cn/configuration-overview.png",
+      "sha256": "cc83b98f99e1129def1f6bbae88ab144b8442b8770f5c61d2de4fa3558ba5642",
+      "bytes": 105562
+    },
+    {
+      "file": "cn/crafting-first-stage-priority.png",
+      "sha256": "6774c3af2bc6f88c851711eda81bf7e3cf31e5da579cac540190c5fa39742c1e",
+      "bytes": 171420
+    },
+    {
+      "file": "cn/crafting-global-one-stage.png",
+      "sha256": "d3fa7459ccf59d119731ba3bc2d69be6c74de3d5d6617cdf93c3294c38b85449",
+      "bytes": 153809
+    },
+    {
+      "file": "cn/crafting-global-three-stages.png",
+      "sha256": "aa16417ca4ff74b18a86a545740aa92458a4b790b1eaa5238c4cf7a1d2c67e29",
+      "bytes": 154328
+    },
+    {
+      "file": "cn/crafting-material-dropdown.png",
+      "sha256": "a7a4a7fac99f663bf8b2c39d1250749376a455c9ec32f2fab78688aab1d4d62f",
+      "bytes": 154026
+    },
+    {
+      "file": "cn/crafting-second-stage-student-recommendation.png",
+      "sha256": "0805cf40c360ff72fcfa6da008e52c4288cd69c85215b1133e47f473eba61720",
+      "bytes": 184372
+    },
+    {
+      "file": "cn/crafting-third-stage-priority.png",
+      "sha256": "667388e3f39428708eb572dd7071986c5d59c8d747756d2842aefe24343d34c0",
+      "bytes": 165311
+    },
+    {
+      "file": "cn/daily-stage-sweep-settings.png",
+      "sha256": "49b809e3330476a7362163372c23915bc45dbeffc42c8cf224d7fac7201a846d",
+      "bytes": 188978
+    },
+    {
+      "file": "cn/daily-sweep-detail-settings.png",
+      "sha256": "85341d42ced870f2aa91dfabb2adf2dc51aca80daa88b270ab56ae8c27b81ac1",
+      "bytes": 170214
+    },
+    {
+      "file": "cn/emulator-basic-settings.png",
+      "sha256": "7aa1f0e87a544f9a918f33c6b0d7c260ee0e16f27319331d9f7511072535ac77",
+      "bytes": 226226
+    },
+    {
+      "file": "cn/emulator-multi-instance-settings.png",
+      "sha256": "82e9cfcbeed52727d6389259b1a1cd9ba356be40c324182ec2637ca4edb88993",
+      "bytes": 204879
+    },
+    {
+      "file": "cn/home-dark-context-menu.png",
+      "sha256": "ebe854fc5951492c4e882cc5c0f98be1506783f81e8b1c9c1ab3b4e8e35ed18c",
+      "bytes": 227866
+    },
+    {
+      "file": "cn/home-dark-logs.png",
+      "sha256": "b7a99a96b0486e31d565cd3b4535554fa37e9e67570e4898d03c4c4f1ba9afdc",
+      "bytes": 138164
+    },
+    {
+      "file": "cn/home-dark-remote-display.png",
+      "sha256": "5c897966318fccd551beebe8a3feca4ceec51ed3dba3c6d38572d5dab9d2373e",
+      "bytes": 222109
+    },
+    {
+      "file": "cn/home-light-logs.png",
+      "sha256": "6f7d741d2d118369cc6e0f04a75615b6c58f252259e1e7e94d542e0703eeeb97",
+      "bytes": 138875
+    },
+    {
+      "file": "cn/hotkeys-dialog.png",
+      "sha256": "ccf37f9c58732034df0c3fa1c5a5befcefa0e3d686a171ada3f1ff31133e4387",
+      "bytes": 222814
+    },
+    {
+      "file": "cn/installer-advanced-settings.png",
+      "sha256": "08cfa626486323d72dfd05ec8b3e471bfc2539f3cf92900a94c1936cd90dfa71",
+      "bytes": 414320
+    },
+    {
+      "file": "cn/installer-progress-log-dark.png",
+      "sha256": "a89aacd2aaad07cc2dbb4e31072bc06663955f743952b22408de2c86493d8966",
+      "bytes": 1084291
+    },
+    {
+      "file": "cn/installer-welcome-dark.png",
+      "sha256": "a7474b559b29a7f63b305e90965f7776d4a85bc6f87f293f4dcd85acfba05ea7",
+      "bytes": 1365063
+    },
+    {
+      "file": "cn/lesson-area-matrix.png",
+      "sha256": "8260ab7c13e7eb876bf66295df3bdf3f6bfd1ca3cf3e1e2f2bf858dd45bdff16",
+      "bytes": 217950
+    },
+    {
+      "file": "cn/maintenance-friend-whitelist.png",
+      "sha256": "9def5072a60684bfb0ceea5b364c9661b5875561c908822dce3e597c1865a634",
+      "bytes": 206954
+    },
+    {
+      "file": "cn/maintenance-push-notification.png",
+      "sha256": "175aca56dca1a6820d57f1380d35520320d8595f335de026b25e4e261c7c3629",
+      "bytes": 209192
+    },
+    {
+      "file": "cn/maintenance-uncensor-action.png",
+      "sha256": "b097565e33376fa05f6ba2e0868678404c6a9cbb8740ed0f8b0ad6cad53f09a2",
+      "bytes": 242228
+    },
+    {
+      "file": "cn/profile-actions-menu.png",
+      "sha256": "698e6216c76032f4b88448cc2582afb160dad036c2aa1192d736434c9e4763ca",
+      "bytes": 145359
+    },
+    {
+      "file": "cn/profile-create-import-dialog.png",
+      "sha256": "2cd1817d2e397394e8f42a858fc1f9cd053042d60d7cf72dda187a81f07edc6a",
+      "bytes": 307635
+    },
+    {
+      "file": "cn/remote-display-advanced-settings.png",
+      "sha256": "ba5d6f30c253b4b0c3a2a4fd7c6a96e38d6f222005044f207bd4595a819b4c8e",
+      "bytes": 767778
+    },
+    {
+      "file": "cn/remote-display-player.png",
+      "sha256": "9fa076b6e96d88a0071ecbd38bc5c893743fdd414ab786f54a430827f81868b0",
+      "bytes": 902346
+    },
+    {
+      "file": "cn/scheduler-overview.png",
+      "sha256": "fe6a4a45a75eb84e266e86064ef386933ee166b985622aaa4cc84fe25b66b425",
+      "bytes": 91780
+    },
+    {
+      "file": "cn/scheduler-workflow.png",
+      "sha256": "f23b24fff8c0448f0d48e8c2bc50e861f426305d16e35c86b1fd1e29ba3a4d66",
+      "bytes": 111506
+    },
+    {
+      "file": "cn/script-runtime-settings.png",
+      "sha256": "725655386efb137330fc2e390dc00ad1a99a8e02489f26672b80b9021ef84a5f",
+      "bytes": 180531
+    },
+    {
+      "file": "cn/server-adb-settings.png",
+      "sha256": "fbb92549a73b52ec34a78d7aed63b4cb91ac8ae43e1513140706ecdf7bf9dbbb",
+      "bytes": 236006
+    },
+    {
+      "file": "cn/settings-interface-preferences.png",
+      "sha256": "cba47ccc50dcd7da860a2ef5bec2e4c7ab419a970054bf5ac1ffa415319b3968",
+      "bytes": 78818
+    },
+    {
+      "file": "cn/settings-update-source-sha.png",
+      "sha256": "bf2ff7b1fa80896c4378d9dfd2ab853299865e2530638b073db4280582b82f21",
+      "bytes": 84474
+    },
+    {
+      "file": "cn/settings-version-overview.png",
+      "sha256": "61f4f3ba1701cbd16f39d95cab9e340e885eef6dae7714ad36c48f1a2d5c50c1",
+      "bytes": 181099
+    },
+    {
+      "file": "cn/shop-arena-settings.png",
+      "sha256": "ccd905201b0042c007371fa36bda80ea1cc25b165600a581d165632ebe95d442",
+      "bytes": 216481
+    },
+    {
+      "file": "cn/shop-normal-settings.png",
+      "sha256": "c685d6b4d7bf7b9220dcd1eaeef7e249d2d3121bccf0b9491829fcd51a6b5ae9",
+      "bytes": 217218
+    },
+    {
+      "file": "cn/stages-event-settings.png",
+      "sha256": "bc3b7ce3f4b311b8c18ed2e29293683b890c10a25a717e80105c785cc5847a96",
+      "bytes": 170751
+    },
+    {
+      "file": "cn/stages-main-settings.png",
+      "sha256": "2f4b8b0ccf88dd549383b52cab404f3d8eb3427fb616f3eb04095c61d4d1419b",
+      "bytes": 161575
+    },
+    {
+      "file": "cn/student-picker-cafe-scrolled.png",
+      "sha256": "7193838ab5ba791281e2e602af18e510b67e431a892a40930c1fe4e22bfbb570",
+      "bytes": 200466
+    },
+    {
+      "file": "cn/student-picker-cafe.png",
+      "sha256": "8624cab0cf092ecb358c075974c3f878d390ccaa5e7d693cf2fc7a2f819ee64c",
+      "bytes": 207337
+    },
+    {
+      "file": "cn/team-attribute-dropdown.png",
+      "sha256": "fe187a797da709719d867bc650c1c8520f1b9dde301637178fb45a3946abf031",
+      "bytes": 168104
+    },
+    {
+      "file": "cn/team-attribute-settings.png",
+      "sha256": "5bfd92c1a7689e47b098a23bc71c7054405383f668eaeb6e2c90bb941e03f777",
+      "bytes": 158606
+    },
+    {
+      "file": "cn/team-method-settings.png",
+      "sha256": "2f2e789f5817b6fdb09f54bf13221ec6e45437a6f6a92a9830651330398754f8",
+      "bytes": 206363
+    },
+    {
+      "file": "en/cafe-base-settings.png",
+      "sha256": "9df1288a2085347fcfa8379530964f88164036cb824d08445e5a89e3cc494c1f",
+      "bytes": 197963
+    },
+    {
+      "file": "en/cafe-one-invite-by-name.png",
+      "sha256": "ae25e3808bef7448d4e0f4ca65adf6c7b890def15e415905cf30e9273c3e9152",
+      "bytes": 201602
+    },
+    {
+      "file": "en/cafe-one-starred-position.png",
+      "sha256": "0273b78dcac315a1cd6f5d93dcd719377164409f386cd6c7c610de495028bf9d",
+      "bytes": 197658
+    },
+    {
+      "file": "en/cafe-two-starred-position.png",
+      "sha256": "28cd5a85ab8ac90da10b0783871658d3166fb63a834395719f212bcf9b3beb88",
+      "bytes": 197046
+    },
+    {
+      "file": "en/combat-arena-settings.png",
+      "sha256": "99f6b8391ea4b9246f3e83ca5a5937376a2ba4b40553fcb90e00051cb6f13a9a",
+      "bytes": 217522
+    },
+    {
+      "file": "en/combat-joint-drill-settings.png",
+      "sha256": "190e9fb50c377c7ddd3345ddde336c89f4b6ad169ee14df6cb81049fba8a1de0",
+      "bytes": 200915
+    },
+    {
+      "file": "en/combat-total-assault-settings.png",
+      "sha256": "f091c984d9bc468cf0a79a622f0cab53f575a7dd1432d0024265e1d03dcfae41",
+      "bytes": 197683
+    },
+    {
+      "file": "en/configuration-overview.png",
+      "sha256": "bca593bd492bc573601f5d476cbf191d71ae11fb1723e0c1a822f7704b6f19c0",
+      "bytes": 99002
+    },
+    {
+      "file": "en/crafting-first-stage-priority.png",
+      "sha256": "c89cd46468f83ba565a43c41fd7720aaac9ed662ddf6879383123d4ca11d29e9",
+      "bytes": 159475
+    },
+    {
+      "file": "en/crafting-global-one-stage.png",
+      "sha256": "aafd8a06443fbf5e684d809cc3d86ce15fcbfd9df3c4968252d2022525b7ad55",
+      "bytes": 148297
+    },
+    {
+      "file": "en/crafting-global-three-stages.png",
+      "sha256": "55d0b0ced9219562b27caec26d380c5eb014b47887334608bde40dacc83f5150",
+      "bytes": 148984
+    },
+    {
+      "file": "en/crafting-material-dropdown.png",
+      "sha256": "b7c28312f70524b9ebda41bcb637fb5f34b9f01b42cdcd1a63c243f150a15afb",
+      "bytes": 148000
+    },
+    {
+      "file": "en/crafting-second-stage-student-recommendation.png",
+      "sha256": "57c57a1c3744d05810da1678ead0df65e0f98ebbf6a6e2ae58d36b7d7fc2d9c1",
+      "bytes": 180043
+    },
+    {
+      "file": "en/crafting-third-stage-priority.png",
+      "sha256": "16c4902f7a3a1a60b10459cbf445d2642ec06353f600c52c8efa64077cb184d7",
+      "bytes": 165571
+    },
+    {
+      "file": "en/daily-stage-sweep-settings.png",
+      "sha256": "5d7edc34fd3f6cde743b19eee84aff7d55d285eef92a9627074fb8a10fa10d5e",
+      "bytes": 181296
+    },
+    {
+      "file": "en/daily-sweep-detail-settings.png",
+      "sha256": "088b1fdade48224842dd0f5f61b71a6122c769024f55a4ba0dc3c0fc303ceda1",
+      "bytes": 164011
+    },
+    {
+      "file": "en/emulator-basic-settings.png",
+      "sha256": "5db26cfe936f32827c32f1fbf5937b0030789389e2c6fb804101c929673904e3",
+      "bytes": 211339
+    },
+    {
+      "file": "en/emulator-multi-instance-settings.png",
+      "sha256": "493980d79fbc50b85c1bfdd2c8baced69984f8d423fe406e6bccedd5e30877c2",
+      "bytes": 192488
+    },
+    {
+      "file": "en/home-dark-context-menu.png",
+      "sha256": "2d067ca9d793a202a2dca8ab424df29e496baa25a7744c1fbf0597d643ce72ae",
+      "bytes": 221092
+    },
+    {
+      "file": "en/home-dark-logs.png",
+      "sha256": "f6cebc3dd434667397684364272a80a6bc46f1c89184b5aeb4c8696c9d48a69f",
+      "bytes": 142140
+    },
+    {
+      "file": "en/home-dark-remote-display.png",
+      "sha256": "10bbb567494827938efc9d252774dd6a3dc151dcfd3e4f62d6206316be424d58",
+      "bytes": 217636
+    },
+    {
+      "file": "en/home-light-logs.png",
+      "sha256": "8e969b49aff7e6c862a77d44816f6dbd3f2a50bd95e3a85807ade50389e5e13c",
+      "bytes": 141489
+    },
+    {
+      "file": "en/hotkeys-dialog.png",
+      "sha256": "bc4b3cea740c89b6b05ca43b15fac5e5d16a18093bb2057276b40a17c1f451b6",
+      "bytes": 203521
+    },
+    {
+      "file": "en/installer-advanced-settings.png",
+      "sha256": "d380ba2e0c46958724c3c5c5b3536cb2e8aca2083a6a0a65520138025c01fc4c",
+      "bytes": 414253
+    },
+    {
+      "file": "en/installer-progress-log-dark.png",
+      "sha256": "49f86986462e756df8a798483c5a4e9a9531278cc04154fc948f898f8ceff70c",
+      "bytes": 1085360
+    },
+    {
+      "file": "en/installer-welcome-dark.png",
+      "sha256": "f25b297c44141a58baedcd8aa5142786db1e0224b5c0291ae65d720f529b7de7",
+      "bytes": 1368137
+    },
+    {
+      "file": "en/lesson-area-matrix.png",
+      "sha256": "38ad07ee0f584444c743d696086c8cf3d75bd0d390cd529370c1a16826fd9d32",
+      "bytes": 205694
+    },
+    {
+      "file": "en/maintenance-friend-whitelist.png",
+      "sha256": "86bf3b15e30c95da572e57dcf664f9fd6cc381f59dbf496a685c61ab87112da0",
+      "bytes": 192689
+    },
+    {
+      "file": "en/maintenance-push-notification.png",
+      "sha256": "50b59b99ff1823675f424095a8a1e7038727e99d3d0d612756b75757d9c481c4",
+      "bytes": 194671
+    },
+    {
+      "file": "en/maintenance-uncensor-action.png",
+      "sha256": "a714c6f83af3d45f61d0cd2213acb819d67e24eeb4e10e31aa765347cf7e3f21",
+      "bytes": 228359
+    },
+    {
+      "file": "en/profile-actions-menu.png",
+      "sha256": "9c3a570cadb1616afb08d2b72e77807178b88723f27051d013b94f3eaacb9695",
+      "bytes": 148882
+    },
+    {
+      "file": "en/profile-create-import-dialog.png",
+      "sha256": "a9110bc9094beae8cd9762d2de8037960ed0135756d44ce185befe69af3977b7",
+      "bytes": 290076
+    },
+    {
+      "file": "en/remote-display-advanced-settings.png",
+      "sha256": "160e25e5a4ea9c706ffaf1903e9be160caefe7326e47e272e28b34c824eb2f15",
+      "bytes": 765174
+    },
+    {
+      "file": "en/remote-display-player.png",
+      "sha256": "5fb39d2c975bed2c1ca90f65b8d391f28ac27fdab815e1bcc2fe3b1bdc7156bb",
+      "bytes": 899330
+    },
+    {
+      "file": "en/scheduler-overview.png",
+      "sha256": "ab7d03d0a87dbb18596bdab0675830de6647c843a81c57e868b90fe67aac8453",
+      "bytes": 91101
+    },
+    {
+      "file": "en/script-runtime-settings.png",
+      "sha256": "4ad927e54fd2f018164a304bd928cfc49182ff7e49a9c1d9063e40ffef447b1d",
+      "bytes": 173428
+    },
+    {
+      "file": "en/server-adb-settings.png",
+      "sha256": "e14deee5f448a7bb74ccd809db6f1e6a4bef8afea6fb2fff0f58a88cc232c5f7",
+      "bytes": 221553
+    },
+    {
+      "file": "en/settings-interface-preferences.png",
+      "sha256": "9a94befa1c565d92b1f29f7f8482b76da46246c85f34e538cc7fcc57012e2e94",
+      "bytes": 77788
+    },
+    {
+      "file": "en/settings-update-source-sha.png",
+      "sha256": "72b04f8e7cdb12b364b8d1d3bd969177072dae70091f36b06311902ac9445d6f",
+      "bytes": 87368
+    },
+    {
+      "file": "en/settings-version-overview.png",
+      "sha256": "0e1fed900226475a816a714f98b0f21eb3270021df5550579b4314fab6d61a99",
+      "bytes": 186595
+    },
+    {
+      "file": "en/shop-arena-settings.png",
+      "sha256": "6c01763b078bce0b0c04d2f53598ce9ef6ad84df488a8f7e1a72f1fde62e49c5",
+      "bytes": 202008
+    },
+    {
+      "file": "en/shop-normal-settings.png",
+      "sha256": "dd72598dde867f83b9c9003fa33e1770036e33493c7e21d8dda11f21ca0e585b",
+      "bytes": 201978
+    },
+    {
+      "file": "en/stages-event-settings.png",
+      "sha256": "ea0cfb74ff593af434bb05c4d670c6b85c27ed1ff0d9c7e0eae9f41468025a59",
+      "bytes": 166855
+    },
+    {
+      "file": "en/stages-main-settings.png",
+      "sha256": "c32228357509184aa0b319399dc6517acab808d3689a855bd516a2ff0e9c7e6d",
+      "bytes": 157290
+    },
+    {
+      "file": "en/student-picker-cafe.png",
+      "sha256": "fbc618c11fac26bf31bbe5a1b52cc27c0536d5ddfa633382ea54941b745b8c75",
+      "bytes": 202079
+    },
+    {
+      "file": "en/student-picker-crafting.png",
+      "sha256": "0be265719bb6eac895f46a0e8d025d6b20887a9486e2cc9dc2100ef73f7c79f0",
+      "bytes": 196924
+    },
+    {
+      "file": "en/team-attribute-dropdown.png",
+      "sha256": "16fc361f6c006b7ed26aa8e92578f583e3c05ecc24e5e209e6eefe4c63d880df",
+      "bytes": 162387
+    },
+    {
+      "file": "en/team-attribute-settings.png",
+      "sha256": "05186e2d4dfaac0738629219a1c9b72dca2f6640805dc375219c1c7700e5f15f",
+      "bytes": 153202
+    },
+    {
+      "file": "en/team-method-settings.png",
+      "sha256": "2b4e8b6b3714abfd436ad9c506da58e3f38b920e4ad9755d143964b4f3253e71",
+      "bytes": 192637
+    }
+  ]
+}

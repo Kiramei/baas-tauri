@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-native-window-controls"
+description = "Reads native caption button bounds and synchronizes the application's modal input barrier."
+commands.allow = ["native_window_controls_state", "native_window_controls_set_blocked"]

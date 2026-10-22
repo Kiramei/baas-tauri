@@ -1,48 +1,58 @@
 ---
 title: Maintenance
-description: Friend whitelist, push notification, uncensoring, mail, rewards, MomoTalk, and helper tasks.
+description: Friend-cleanup compatibility warnings, whitelist validation, push endpoints, uncensor actions and reward tasks.
 ---
 
-Maintenance tasks usually avoid high-intensity combat, but they can modify friends, send secrets, collect rewards, or run server-specific operations.
+Maintenance tasks can delete friends, transmit logs or modify game resources. They are not harmless simply because they avoid combat. These editors use [automatic persistence](../guide/configuration); saving a setting and executing a task are separate operations.
+
+## Friend Cleanup
 
 <img
   className="baas-screenshot"
-  src="/en/maintenance-friend-whitelist.png"
-  alt="Friend whitelist configuration with friend code input and whitelist"
+  src="/media/desktop/en/config-whitelist.webp"
+  alt="Current friend cleanup editor with three filters and a friend-code whitelist"
 />
 
-## Push Notification
+**Deletion warning:** the audited default backend's `module/friend.py` deletes every friend not in `clear_friend_white_list`. It does **not** read the three newer filter fields below. The same limitation was confirmed in the backend downloaded by the fresh Android installation. Do not rely on the filters to protect friends, and do not run cleanup with an empty whitelist unless that deletion is intentional.
+
+| Visible filter                | Saved field                                  | Client validation     |
+| ----------------------------- | -------------------------------------------- | --------------------- |
+| Level limit                   | `clear_friend_level_limit`                   | Integer at least `-1` |
+| Days since last login         | `clear_friend_last_login_time_days`          | Integer at least `-1` |
+| Last Total Assault rank limit | `clear_friend_last_total_assault_rank_limit` | Integer at least `-1` |
+
+The UI represents `-1` as disabling a filter. That is an interface convention, not proof the connected backend implements filtering or a particular AND/OR rule. Blank or fractional thresholds block this section's draft commit, including whitelist changes in that draft.
+
+### Edit the Whitelist
+
+Enter a friend code and choose Add, or press Enter after finishing text composition. Leading/trailing whitespace is removed; duplicates are rejected. Validation follows the profile server, not the UI language:
+
+| Server family          | Accepted by this client                                                        |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| CN, including Bilibili | Seven lowercase ASCII letters/digits                                           |
+| Global                 | Eight uppercase ASCII letters                                                  |
+| JP                     | Eight characters; the UI does not impose an additional character-pattern check |
+
+Each accepted code appears as a chip. Its remove icon removes whitelist protection; it does not immediately delete the in-game friend. The next cleanup may delete that friend. The list saves as `clear_friend_white_list`. Confirm codes against the actual account and game before enabling cleanup.
+
+## Push Notifications
 
 <img
   className="baas-screenshot"
-  src="/en/maintenance-push-notification.png"
-  alt="Push notification configuration with error push, completion push, JSON push, and ServerChan push"
+  src="/media/desktop/en/config-push.webp"
+  alt="Push editor with error and completion switches, JSON endpoint and ServerChan key"
 />
 
-## Other
+| Control               | Configuration                                                                |
+| --------------------- | ---------------------------------------------------------------------------- |
+| Push after error      | `push_after_error`: send the error payload when the backend reports an error |
+| Push after completion | `push_after_completion`: send when the backend finishes the run              |
+| JSON push             | `push_json`: receiving URL, **not** a JSON document                          |
+| ServerChan            | `push_serverchan`: SendKey, not the full endpoint URL                        |
 
-<img
-  className="baas-screenshot"
-  src="/en/maintenance-uncensor-action.png"
-  alt="Other configuration dialog with one-click uncensor action"
-/>
+The text inputs are not password-masked and the frontend does not validate their network reachability. Keep keys and signed URLs out of screenshots, shared profiles and public logs. Empty endpoint/key values disable their respective destination. Both nonempty destinations can receive a push.
 
-Low-risk tasks include mail, rewards, club AP, and pass rewards. Medium-risk tasks include friend cleanup, MomoTalk, crafting, and push. Uncensoring is server-specific; do not run it when unsure.
-
-## Uncensoring
-
-Uncensoring only applies to CN-server related scenarios. Legacy docs state that BAAS generally works before and after uncensoring, but character art and some text may change. Stop scheduling and confirm the current server before running it.
-
-Before running:
-
-- The target emulator is open and connected.
-- The current profile is actually CN server.
-- No task is currently running.
-- Re-enter the game afterward and confirm resource state.
-
-## Push JSON Format
-
-For custom JSON push URLs, the backend sends a payload similar to:
+The audited backend POSTs JSON with `Content-Type: application/json`. Example error payload:
 
 ```json
 {
@@ -51,4 +61,20 @@ For custom JSON push URLs, the backend sends a payload similar to:
 }
 ```
 
-Custom receivers should handle this shape. If you only use ServerChan, fill the corresponding SendKey.
+Successful completion uses title `Baas Completed` and description `all activities finished`. The backend treats HTTP 200 as success and logs request failures; saving the URL is not a test push. ServerChan uses `https://sctapi.ftqq.com/{SendKey}.send`. The backend also contains an advanced Feishu field, but this editor has no Feishu control.
+
+## Uncensoring
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/config-other.webp"
+  alt="Other editor with the one-shot uncensor execution command"
+/>
+
+The Other category contains an **Execute** command for uncensoring, not a persistent enable switch. It submits `start_fhx` immediately and returns to Home. Do not click it to test whether settings save.
+
+This is a CN-specific game-resource operation. Stop scheduling, check the profile's real package/server, preserve needed game data and confirm backend support before execution. It is not required for ordinary automation and is not a universal repair for recognition failures. Re-enter the game afterward to verify its resource state; future game updates can change that state.
+
+## Other Maintenance Tasks
+
+Mail, daily rewards, club AP, pass rewards and MomoTalk are selected in the task list rather than through additional controls in these three categories. Review task timing and dependencies in [Scheduler](../guide/scheduler). Even reward collection changes account state, while MomoTalk may advance conversations. Supervise the first run and inspect logs instead of assuming every maintenance task is safe unattended.

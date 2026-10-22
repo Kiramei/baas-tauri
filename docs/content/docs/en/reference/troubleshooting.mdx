@@ -11,7 +11,7 @@ The installer shows setup steps and Installation Logs.
 
 <img
   className="baas-screenshot"
-  src="/en/installer-progress-log-dark.png"
+  src="/media/desktop/en/installer-error.webp"
   alt="Installer log page showing installation steps and command output"
 />
 
@@ -69,7 +69,7 @@ Use ADB detection from Server settings.
 
 <img
   className="baas-screenshot"
-  src="/en/server-adb-settings.png"
+  src="/media/desktop/en/config-server.webp"
   alt="Server settings with ADB IP, ADB port, and detection button"
 />
 
@@ -180,7 +180,7 @@ For stutter or blank stream, reduce parameters in advanced settings.
 
 <img
   className="baas-screenshot"
-  src="/en/remote-display-advanced-settings.png"
+  src="/media/desktop/en/details-remote-advanced.webp"
   alt="Remote emulator advanced settings for resolution, FPS, bitrate, and clipboard"
 />
 
@@ -199,7 +199,7 @@ Use Settings to inspect update source and SHA test results.
 
 <img
   className="baas-screenshot"
-  src="/en/settings-update-source-sha.png"
+  src="/media/desktop/en/settings-updates.webp"
   alt="Update settings and SHA test table"
 />
 
@@ -213,13 +213,19 @@ Recommendations:
 
 ## Android Client Problems
 
-v0.0.7 added the Android client. If Android cannot start, script toggles fail, or the backend keeps restarting:
+Check the stage where the failure occurs:
 
-- Confirm the APK is current and Android allows the app to be installed and run.
-- Start Shizuku, authorize BAAS, and enable the background game display. Accessibility is not required.
-- Keep the foreground service notification alive; if the system kills the app, backend and scripts stop.
-- If the notification script toggle does not work, open the app, confirm the backend has started, then retry from the notification.
-- If the UI does not recover after an Android backend update, close and reopen the app.
+| Symptom | Check and action |
+| ------- | ---------------- |
+| APK installation fails | Check CPU ABI, Android version, installation permission and existing package signatures; clearing app data does not resolve a signature conflict |
+| Initial preparation or update fails | Expand the failed stage, preserve terminal output, and check the download source, network and app-private storage |
+| Game start is blocked | Check Shizuku installation, running state and BAAS authorization separately; local control does not require Accessibility |
+| Black screen, No frame updates or an older Live badge stuck at splash | Stop the scheduler, then close the background display; check the actual frame, Activity placement and repair build; see [background-game diagnostics](../guide/android#game-returns-to-the-main-display-or-preview-stalls) |
+| Game returns to the main display | Inspect `Not allow to launch ... on display` logs; update to an APK with task/focus recovery and create a new session; bitrate cannot resolve placement-permission failure |
+| OCR reports `EM_AARCH64` / `EM_X86_64` or `dlopen failed` | Check the failing library and actual loading-process architecture; the emulator kernel can report a different architecture; see [ABI compatibility](../guide/android#emulator-abi-compatibility) |
+| Background disconnect or interrupted tasks | Check the dedicated backend service, process logs and background restrictions; BAAS attempts to suppress its own notifications, so notification visibility alone is not a health check |
+
+This version has no notification task Start/Stop buttons. Use the central bottom control inside the app for the scheduler. Home's separate game-area play button starts only the background game. Successful game launch does not establish successful task execution.
 
 ## Transport and System Log Problems
 
@@ -243,8 +249,8 @@ If sidebar links go to `/zh/docs/...`, Fumadocs i18n URL generation is wrong. Th
 
 If images do not render:
 
-- Confirm images are under `docs/public/cn` or `docs/public/en`.
-- Use MDX paths starting with `/cn/...` or `/en/...`.
+- New media lives under `docs/public/media`, and benchmark assets under `docs/public/benchmarks`; older assets remain under `cn`, `en` and `backend-assets`.
+- Resolve MDX media paths from the public root, such as `/media/android/en/game-preview.webp`; omit `docs/public` from the URL.
 - For GitHub Pages, confirm `NEXT_PUBLIC_BASE_PATH` is passed during build.
 
 ## Support Report Checklist

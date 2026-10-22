@@ -1,0 +1,691 @@
+{
+  "capturedAt": "2026-10-20T03:40:31.491Z",
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "mode": "Native Tauri release build with isolated real backend; demo profiles; all demo tasks disabled. UI inspection does not prove game-task execution.",
+  "shots": [
+    {
+      "file": "media/desktop/en/workspace.png",
+      "locale": "en",
+      "state": "workspace",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-cafe.png",
+      "locale": "en",
+      "state": "config-cafe",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-cafe-tab-2.png",
+      "locale": "en",
+      "state": "config-cafe-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-cafe-tab-3.png",
+      "locale": "en",
+      "state": "config-cafe-tab-3",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-schedule.png",
+      "locale": "en",
+      "state": "config-schedule",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-schedule-scroll-2.png",
+      "locale": "en",
+      "state": "config-schedule-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-shop.png",
+      "locale": "en",
+      "state": "config-shop",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-shop-tab-2.png",
+      "locale": "en",
+      "state": "config-shop-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-artifact.png",
+      "locale": "en",
+      "state": "config-artifact",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-artifact-tab-2.png",
+      "locale": "en",
+      "state": "config-artifact-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-arena.png",
+      "locale": "en",
+      "state": "config-arena",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-dailySweep.png",
+      "locale": "en",
+      "state": "config-dailySweep",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-dailySweep-scroll-2.png",
+      "locale": "en",
+      "state": "config-dailySweep-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-dailySweep-tab-2.png",
+      "locale": "en",
+      "state": "config-dailySweep-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-dailySweep-tab-2-scroll-2.png",
+      "locale": "en",
+      "state": "config-dailySweep-tab-2-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-tactical.png",
+      "locale": "en",
+      "state": "config-tactical",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-finalRestrictionRls.png",
+      "locale": "en",
+      "state": "config-finalRestrictionRls",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-drill.png",
+      "locale": "en",
+      "state": "config-drill",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-whitelist.png",
+      "locale": "en",
+      "state": "config-whitelist",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-server.png",
+      "locale": "en",
+      "state": "config-server",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-script.png",
+      "locale": "en",
+      "state": "config-script",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-emulator.png",
+      "locale": "en",
+      "state": "config-emulator",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-stage.png",
+      "locale": "en",
+      "state": "config-stage",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-stage-tab-2.png",
+      "locale": "en",
+      "state": "config-stage-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-team.png",
+      "locale": "en",
+      "state": "config-team",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-push.png",
+      "locale": "en",
+      "state": "config-push",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/config-other.png",
+      "locale": "en",
+      "state": "config-other",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-general.png",
+      "locale": "en",
+      "state": "settings-general",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-appearance.png",
+      "locale": "en",
+      "state": "settings-appearance",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-shortcuts.png",
+      "locale": "en",
+      "state": "settings-shortcuts",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-shortcuts-scroll-2.png",
+      "locale": "en",
+      "state": "settings-shortcuts-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-shortcuts-scroll-3.png",
+      "locale": "en",
+      "state": "settings-shortcuts-scroll-3",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-runtime.png",
+      "locale": "en",
+      "state": "settings-runtime",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-updates.png",
+      "locale": "en",
+      "state": "settings-updates",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-updates-scroll-2.png",
+      "locale": "en",
+      "state": "settings-updates-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/settings-logs.png",
+      "locale": "en",
+      "state": "settings-logs",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/scheduler-list.png",
+      "locale": "en",
+      "state": "scheduler-list",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/en/scheduler-workflow.png",
+      "locale": "en",
+      "state": "scheduler-workflow",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/workspace.png",
+      "locale": "zh",
+      "state": "workspace",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-cafe.png",
+      "locale": "zh",
+      "state": "config-cafe",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-cafe-tab-2.png",
+      "locale": "zh",
+      "state": "config-cafe-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-cafe-tab-3.png",
+      "locale": "zh",
+      "state": "config-cafe-tab-3",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-schedule.png",
+      "locale": "zh",
+      "state": "config-schedule",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-schedule-scroll-2.png",
+      "locale": "zh",
+      "state": "config-schedule-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-shop.png",
+      "locale": "zh",
+      "state": "config-shop",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-shop-tab-2.png",
+      "locale": "zh",
+      "state": "config-shop-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-artifact.png",
+      "locale": "zh",
+      "state": "config-artifact",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-artifact-tab-2.png",
+      "locale": "zh",
+      "state": "config-artifact-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-arena.png",
+      "locale": "zh",
+      "state": "config-arena",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-dailySweep.png",
+      "locale": "zh",
+      "state": "config-dailySweep",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-dailySweep-scroll-2.png",
+      "locale": "zh",
+      "state": "config-dailySweep-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-dailySweep-tab-2.png",
+      "locale": "zh",
+      "state": "config-dailySweep-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-dailySweep-tab-2-scroll-2.png",
+      "locale": "zh",
+      "state": "config-dailySweep-tab-2-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-tactical.png",
+      "locale": "zh",
+      "state": "config-tactical",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-finalRestrictionRls.png",
+      "locale": "zh",
+      "state": "config-finalRestrictionRls",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-drill.png",
+      "locale": "zh",
+      "state": "config-drill",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-whitelist.png",
+      "locale": "zh",
+      "state": "config-whitelist",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-server.png",
+      "locale": "zh",
+      "state": "config-server",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-script.png",
+      "locale": "zh",
+      "state": "config-script",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-emulator.png",
+      "locale": "zh",
+      "state": "config-emulator",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-stage.png",
+      "locale": "zh",
+      "state": "config-stage",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-stage-tab-2.png",
+      "locale": "zh",
+      "state": "config-stage-tab-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-team.png",
+      "locale": "zh",
+      "state": "config-team",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-push.png",
+      "locale": "zh",
+      "state": "config-push",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/config-other.png",
+      "locale": "zh",
+      "state": "config-other",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-general.png",
+      "locale": "zh",
+      "state": "settings-general",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-appearance.png",
+      "locale": "zh",
+      "state": "settings-appearance",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-shortcuts.png",
+      "locale": "zh",
+      "state": "settings-shortcuts",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-shortcuts-scroll-2.png",
+      "locale": "zh",
+      "state": "settings-shortcuts-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-shortcuts-scroll-3.png",
+      "locale": "zh",
+      "state": "settings-shortcuts-scroll-3",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-runtime.png",
+      "locale": "zh",
+      "state": "settings-runtime",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-updates.png",
+      "locale": "zh",
+      "state": "settings-updates",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-updates-scroll-2.png",
+      "locale": "zh",
+      "state": "settings-updates-scroll-2",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/settings-logs.png",
+      "locale": "zh",
+      "state": "settings-logs",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/scheduler-list.png",
+      "locale": "zh",
+      "state": "scheduler-list",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "file": "media/desktop/zh/scheduler-workflow.png",
+      "locale": "zh",
+      "state": "scheduler-workflow",
+      "theme": "light",
+      "native": true,
+      "width": 1600,
+      "height": 1000
+    }
+  ]
+}

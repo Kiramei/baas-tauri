@@ -14,6 +14,7 @@
     "default",
     "allow-mobile-commands",
     "allow-open-backend-config-folder",
+    "allow-native-window-controls",
     "core:window:allow-close",
     "core:window:allow-hide",
     "core:window:allow-minimize",

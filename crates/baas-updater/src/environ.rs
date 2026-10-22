@@ -722,6 +722,18 @@ pub fn validate_backend_shm_support(config: &UpdaterConfig) -> UpdaterResult<()>
     }
     #[cfg(target_os = "macos")]
     install_macos_shm_adapter(&root)?;
+    #[cfg(target_os = "linux")]
+    {
+        let native =
+            fs::read_to_string(root.join("service/transport/shm_native.py")).unwrap_or_default();
+        if !native.contains("class _PosixSharedMemorySession") {
+            return Err(UpdaterError::Environment(format!(
+                "Backend at {} does not support Linux shared-memory transport. \
+                 Update the baas-dev backend, or select Pipe or WebSocket in setup.",
+                root.display()
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -1366,6 +1378,16 @@ mod tests {
         fs::write(root.path().join("service/app.py"), "BAAS_SHM_NAME").unwrap();
         for name in ["shm_native", "shm_budget", "shm_endpoint", "shm_server"] {
             fs::write(root.path().join(format!("service/transport/{name}.py")), "").unwrap();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let error = validate_backend_shm_support(&config).unwrap_err().message();
+            assert!(error.contains("does not support Linux shared-memory"));
+            fs::write(
+                root.path().join("service/transport/shm_native.py"),
+                "class _PosixSharedMemorySession: pass",
+            )
+            .unwrap();
         }
         validate_backend_shm_support(&config).unwrap();
         #[cfg(target_os = "macos")]

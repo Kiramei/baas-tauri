@@ -1,0 +1,7567 @@
+{
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "capturedAt": "2026-10-20T03:40:31.491Z",
+  "note": "Observed control labels/descriptions and HTML constraints; conditional options and behavior still require source review.",
+  "controls": [
+    {
+      "locale": "en",
+      "state": "workspace",
+      "rows": []
+    },
+    {
+      "locale": "en",
+      "state": "config-cafe",
+      "rows": [
+        {
+          "label": "Collect rewards",
+          "description": "Collect accumulated cafe earnings.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Use invitation ticket",
+          "description": "Use tickets to invite students.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Student outfit change",
+          "description": "Allow invitations for a student's other outfits.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Duplicate invite",
+          "description": "Allow repeat invitations for the same student.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Cafe 2",
+          "description": "Include Cafe 2 and its invitations.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Patting Rounds",
+          "description": "Higher rounds reduce the chance of missing pats",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "4",
+              "max": "15",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Patting Style",
+          "description": "How to interact with students in the cafe.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-cafe-tab-2",
+      "rows": [
+        {
+          "label": "Invitation Mode",
+          "description": "Choose by relationship, favorite position, or name.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Student Name List",
+          "description": "Add students to invite; use × to remove them.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-cafe-tab-3",
+      "rows": [
+        {
+          "label": "Invitation Mode",
+          "description": "Choose by relationship, favorite position, or name.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Starred Student Position",
+          "description": "Choose position 1–5 in the favorites list.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-schedule",
+      "rows": [
+        {
+          "label": "Prioritize favorites",
+          "description": "Prioritize students in your favorites.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Prioritize relationship gains",
+          "description": "Prefer locations with more students who can gain relationship points.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Lesson areas",
+          "description": "Choose allowed levels and a count; 0 skips the area.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-schedule-scroll-2",
+      "rows": [
+        {
+          "label": "Prioritize favorites",
+          "description": "Prioritize students in your favorites.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Prioritize relationship gains",
+          "description": "Prefer locations with more students who can gain relationship points.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Lesson areas",
+          "description": "Choose allowed levels and a count; 0 skips the area.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-shop",
+      "rows": [
+        {
+          "label": "Refreshes",
+          "description": "Refreshes after purchasing; 0 disables refreshes.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "5",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-shop-tab-2",
+      "rows": [
+        {
+          "label": "Refreshes",
+          "description": "Refreshes after purchasing; 0 disables refreshes.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "5",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-artifact",
+      "rows": [
+        {
+          "label": "Use crafting tickets",
+          "description": "Use instant crafting tickets to skip the wait.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Craft count",
+          "description": "Craft 1–10 times per task.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": "10",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Crafting stages",
+          "description": "Choose how many nodes to craft and set their priorities.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-artifact-tab-2",
+      "rows": [
+        {
+          "label": "Materials",
+          "description": "Material rarities to use for this node.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Priority",
+          "description": "Drag to reorder; higher items have priority.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-arena",
+      "rows": [
+        {
+          "label": "Opponent level difference",
+          "description": "Allowed opponent level difference: -89 to 89.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-89",
+              "max": "89",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Refresh limit",
+          "description": "Maximum list refreshes while finding an opponent.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Opponent position",
+          "description": "Choose opponent 1, 2, or 3 in the list.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-dailySweep",
+      "rows": [
+        {
+          "label": "Normal missions",
+          "description": "Sweep selected stages in list order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Hard missions",
+          "description": "Choose stages and counts, or add all Eleph stages for a student.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-dailySweep-scroll-2",
+      "rows": [
+        {
+          "label": "Normal missions",
+          "description": "Sweep selected stages in list order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Hard missions",
+          "description": "Choose stages and counts, or add all Eleph stages for a student.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-dailySweep-tab-2",
+      "rows": [
+        {
+          "label": "Overpass",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Desert Railroad",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Classroom",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Trinity",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Gehenna",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Millennium",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Base Defense",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Item Retrieval",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Event stage",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy bounty tickets",
+          "description": "Bounty ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy lesson tickets",
+          "description": "Lesson ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy scrimmage tickets",
+          "description": "Scrimmage ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-dailySweep-tab-2-scroll-2",
+      "rows": [
+        {
+          "label": "Overpass",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Desert Railroad",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Classroom",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Trinity",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Gehenna",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Millennium",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Base Defense",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Item Retrieval",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Event stage",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy bounty tickets",
+          "description": "Bounty ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy lesson tickets",
+          "description": "Lesson ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Buy scrimmage tickets",
+          "description": "Scrimmage ticket purchases; 0 buys none.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-tactical",
+      "rows": [
+        {
+          "label": "Total Assault Difficulty",
+          "description": "Difficulty for Total Assault.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-finalRestrictionRls",
+      "rows": [
+        {
+          "label": "Team selection",
+          "description": "Use the current team or copy one from clear records.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Unavailable student limit",
+          "description": "Allow 0–10 unavailable students in a copied team.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "10",
+              "step": null,
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "label": "Team refresh limit",
+          "description": "Maximum clear-list refreshes while finding a usable team.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-drill",
+      "rows": [
+        {
+          "label": "Sweep remaining attempts",
+          "description": "Sweep remaining attempts after the set battles.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Team numbers",
+          "description": "Preset team numbers, in battle order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Drill Difficulty",
+          "description": "Set each team's difficulty in battle order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-whitelist",
+      "rows": [
+        {
+          "label": "Level threshold",
+          "description": "Cleanup level threshold; -1 disables this filter.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Offline days",
+          "description": "Offline-days threshold; -1 disables this filter.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Previous raid rank",
+          "description": "Previous Total Assault rank threshold; -1 disables it.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Add",
+          "description": "Enter a friend code for this server, then add it.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Friend whitelist",
+          "description": "Listed friends are protected from cleanup; × removes protection.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-server",
+      "rows": [
+        {
+          "label": "Game Server",
+          "description": "This profile's server. Use another profile for a different server.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "label": "ADB address",
+          "description": "Usually 127.0.0.1. For a device serial, enter it here and leave the port empty.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "ADB port",
+          "description": "Port 0–65535, or detect a device. With an empty address, this can hold a device serial.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "65535",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-script",
+      "rows": [
+        {
+          "label": "Start tasks automatically",
+          "description": "Start this profile's tasks when the script starts.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "After tasks finish",
+          "description": "What to do after all tasks finish.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Capture interval (s)",
+          "description": "Time between captures, at least 0.1 seconds.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0.1",
+              "max": null,
+              "step": "0.1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Capture method",
+          "description": "Read images from the scrcpy stream.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Control method",
+          "description": "Send touch actions through scrcpy.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-emulator",
+      "rows": [
+        {
+          "label": "Launch emulator",
+          "description": "Open this emulator when the script starts.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Startup wait (s)",
+          "description": "Wait this many seconds before connecting.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Emulator path",
+          "description": "Select the emulator's executable.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Emulator type",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Use an instance",
+          "description": "Launch the selected instance through its manager.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-stage",
+      "rows": [
+        {
+          "label": "Manual boss battle",
+          "description": "Handle boss battles manually during stage clearing.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-stage-tab-2",
+      "rows": [
+        {
+          "label": "Current Event",
+          "description": "",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-team",
+      "rows": [
+        {
+          "label": "Formation Method",
+          "description": "Choose teams by preset, sidebar attribute, or sidebar order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "By sidebar attributes",
+          "description": "Team attributes in sidebar order.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-push",
+      "rows": [
+        {
+          "label": "Push after an error occurs",
+          "description": "Notify through the services below on task errors.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Push after all tasks are completed",
+          "description": "Notify when all tasks in this profile finish.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "JSON Push",
+          "description": "JSON notification settings; leave empty if unused.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "ServerChan Push",
+          "description": "ServerChan settings; leave empty if unused.",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "config-other",
+      "rows": [
+        {
+          "label": "One-click Anti-Censorship",
+          "description": "Restore original artwork on CN",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-general",
+      "rows": [
+        {
+          "label": "Language",
+          "description": "Choose the language used in the app.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reduced effects",
+          "description": "Reduce animations and visual effects to lower interface overhead.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Enable system notifications",
+          "description": "Show system notifications for task status changes or service disconnections.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Minimize to system tray",
+          "description": "Hide the minimized window in the system tray and keep running in the background.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Enter automatically after installation",
+          "description": "When off, installation logs remain visible until you click “Open Home”.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-appearance",
+      "rows": [
+        {
+          "label": "Theme",
+          "description": "",
+          "controls": []
+        },
+        {
+          "label": "UI Zoom Settings",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Show game resources",
+          "description": "Show game resources on the home page.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Enable BAComet",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-shortcuts",
+      "rows": [
+        {
+          "label": "Undo",
+          "description": "Undo the latest config change; search fields keep text undo. Default: Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Redo",
+          "description": "Redo an undone configuration change. Default: Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Settings",
+          "description": "Open app settings. Default: Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Show Sidebar",
+          "description": "Toggle the profile sidebar; settings keep it open. Default: Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Back",
+          "description": "Return to the previous page or profile. Default: Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Forward",
+          "description": "Go to the next page or profile. Default: Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom In",
+          "description": "Enlarge the interface. Default: Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom Out",
+          "description": "Shrink the interface. Default: Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset Zoom",
+          "description": "Reset interface scale to 100%. Default: Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Full Screen",
+          "description": "Enter or leave full screen. Default: F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset app shortcuts",
+          "description": "Reset app bindings; keep profile global shortcuts.",
+          "controls": []
+        },
+        {
+          "label": "Toggle profile",
+          "description": "Control schedules even when BAAS is in the background.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - B服",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - Schale Demo",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Cut",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Copy",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Paste",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Select All",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Delete",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Cancel",
+          "description": "Cancel recording, dismiss a dialog, or cancel installation.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-shortcuts-scroll-2",
+      "rows": [
+        {
+          "label": "Undo",
+          "description": "Undo the latest config change; search fields keep text undo. Default: Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Redo",
+          "description": "Redo an undone configuration change. Default: Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Settings",
+          "description": "Open app settings. Default: Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Show Sidebar",
+          "description": "Toggle the profile sidebar; settings keep it open. Default: Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Back",
+          "description": "Return to the previous page or profile. Default: Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Forward",
+          "description": "Go to the next page or profile. Default: Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom In",
+          "description": "Enlarge the interface. Default: Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom Out",
+          "description": "Shrink the interface. Default: Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset Zoom",
+          "description": "Reset interface scale to 100%. Default: Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Full Screen",
+          "description": "Enter or leave full screen. Default: F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset app shortcuts",
+          "description": "Reset app bindings; keep profile global shortcuts.",
+          "controls": []
+        },
+        {
+          "label": "Toggle profile",
+          "description": "Control schedules even when BAAS is in the background.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - B服",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - Schale Demo",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Cut",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Copy",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Paste",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Select All",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Delete",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Cancel",
+          "description": "Cancel recording, dismiss a dialog, or cancel installation.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-shortcuts-scroll-3",
+      "rows": [
+        {
+          "label": "Undo",
+          "description": "Undo the latest config change; search fields keep text undo. Default: Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Redo",
+          "description": "Redo an undone configuration change. Default: Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Settings",
+          "description": "Open app settings. Default: Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Show Sidebar",
+          "description": "Toggle the profile sidebar; settings keep it open. Default: Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Back",
+          "description": "Return to the previous page or profile. Default: Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Forward",
+          "description": "Go to the next page or profile. Default: Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom In",
+          "description": "Enlarge the interface. Default: Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Zoom Out",
+          "description": "Shrink the interface. Default: Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset Zoom",
+          "description": "Reset interface scale to 100%. Default: Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Full Screen",
+          "description": "Enter or leave full screen. Default: F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Reset app shortcuts",
+          "description": "Reset app bindings; keep profile global shortcuts.",
+          "controls": []
+        },
+        {
+          "label": "Toggle profile",
+          "description": "Control schedules even when BAAS is in the background.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - B服",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Start/Stop - Schale Demo",
+          "description": "Toggle this profile's schedule from any window.",
+          "controls": []
+        },
+        {
+          "label": "Cut",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Copy",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Paste",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Select All",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Delete",
+          "description": "Use while editing or selecting text.",
+          "controls": []
+        },
+        {
+          "label": "Cancel",
+          "description": "Cancel recording, dismiss a dialog, or cancel installation.",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-runtime",
+      "rows": [
+        {
+          "label": "Data transport",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Video decoder",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Encrypt remote video",
+          "description": "Encrypt remote preview data sent over WebSocket.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-updates",
+      "rows": [
+        {
+          "label": "Automatically update scripts when idle",
+          "description": "Automatically update scripts when all profiles are idle.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Update Source",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Update Channel",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-updates-scroll-2",
+      "rows": [
+        {
+          "label": "Automatically update scripts when idle",
+          "description": "Automatically update scripts when all profiles are idle.",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Update Source",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Update Channel",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "settings-logs",
+      "rows": [
+        {
+          "label": "Follow latest logs",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "state": "scheduler-list",
+      "rows": []
+    },
+    {
+      "locale": "en",
+      "state": "scheduler-workflow",
+      "rows": []
+    },
+    {
+      "locale": "zh",
+      "state": "workspace",
+      "rows": []
+    },
+    {
+      "locale": "zh",
+      "state": "config-cafe",
+      "rows": [
+        {
+          "label": "领取奖励",
+          "description": "领取咖啡厅积累的收益。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "使用邀请券",
+          "description": "使用邀请券邀请学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "允许学生更换服饰",
+          "description": "允许邀请学生的其他服装版本。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "允许重复邀请",
+          "description": "允许再次邀请已邀请过的学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "启用二号咖啡厅",
+          "description": "启用 2 号咖啡厅及其邀请设置。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "摸头轮数",
+          "description": "轮数越高越不容易漏摸",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "4",
+              "max": "15",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "摸头风格",
+          "description": "选择与咖啡厅学生互动的方式。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-cafe-tab-2",
+      "rows": [
+        {
+          "label": "邀请模式",
+          "description": "按好感度、收藏位置或姓名选择学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "学生姓名列表",
+          "description": "添加要邀请的学生，点击 × 移除。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-cafe-tab-3",
+      "rows": [
+        {
+          "label": "邀请模式",
+          "description": "按好感度、收藏位置或姓名选择学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "收藏学生位置",
+          "description": "选择收藏列表中第 1–5 位学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-schedule",
+      "rows": [
+        {
+          "label": "优先收藏学生",
+          "description": "优先选择收藏列表中的学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "优先提升好感度",
+          "description": "优先选择可提升好感度的学生更多的地点。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "日程区域",
+          "description": "勾选允许的等级，并设置次数；0 表示跳过。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-schedule-scroll-2",
+      "rows": [
+        {
+          "label": "优先收藏学生",
+          "description": "优先选择收藏列表中的学生。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "优先提升好感度",
+          "description": "优先选择可提升好感度的学生更多的地点。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "日程区域",
+          "description": "勾选允许的等级，并设置次数；0 表示跳过。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "checkbox",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "99",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-shop",
+      "rows": [
+        {
+          "label": "刷新次数",
+          "description": "购买后刷新商店的次数；0 表示不刷新。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "5",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-shop-tab-2",
+      "rows": [
+        {
+          "label": "刷新次数",
+          "description": "购买后刷新商店的次数；0 表示不刷新。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "5",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-artifact",
+      "rows": [
+        {
+          "label": "使用制造券",
+          "description": "使用加速券缩短制造等待。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "制造次数",
+          "description": "每次任务制造 1–10 次。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": "10",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "制造阶段数",
+          "description": "选择制造到第几个节点，并分别设置优先级。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-artifact-tab-2",
+      "rows": [
+        {
+          "label": "投入材料",
+          "description": "选择本节点投入的材料稀有度。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "优先级",
+          "description": "拖动手柄排序，越靠上越优先。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-arena",
+      "rows": [
+        {
+          "label": "对手等级差",
+          "description": "允许对手等级比你高或低的范围，支持 -89 至 89。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-89",
+              "max": "89",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "刷新次数上限",
+          "description": "寻找合适对手时，最多刷新列表的次数。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "对手位置",
+          "description": "选择列表中的第 1、2 或 3 个对手。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-dailySweep",
+      "rows": [
+        {
+          "label": "普通关卡",
+          "description": "按列表顺序扫荡所选关卡。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "困难关卡",
+          "description": "选择关卡与次数，或按学生添加其所有神名文字掉落关卡。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-dailySweep-scroll-2",
+      "rows": [
+        {
+          "label": "普通关卡",
+          "description": "按列表顺序扫荡所选关卡。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "困难关卡",
+          "description": "选择关卡与次数，或按学生添加其所有神名文字掉落关卡。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-dailySweep-tab-2",
+      "rows": [
+        {
+          "label": "高架公路",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "沙漠铁路",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "教室",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "崔尼蒂",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "歌赫娜",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "千禧年",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "据点防御",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "物品回收",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "活动关卡",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买悬赏通缉券",
+          "description": "悬赏通缉券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买日程券",
+          "description": "日程券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买交流会券",
+          "description": "交流会券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-dailySweep-tab-2-scroll-2",
+      "rows": [
+        {
+          "label": "高架公路",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "沙漠铁路",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "教室",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "崔尼蒂",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "歌赫娜",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "千禧年",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "据点防御",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "物品回收",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "1",
+              "max": null,
+              "step": "1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "活动关卡",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买悬赏通缉券",
+          "description": "悬赏通缉券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买日程券",
+          "description": "日程券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "购买交流会券",
+          "description": "交流会券的购买次数，0 表示不买。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-tactical",
+      "rows": [
+        {
+          "label": "总力战难度",
+          "description": "选择总力战的挑战难度。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-finalRestrictionRls",
+      "rows": [
+        {
+          "label": "编队方式",
+          "description": "使用当前编队，或复制通关记录中的队伍。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "不可用学生上限",
+          "description": "允许复制队伍中有 0–10 名不可用学生。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "10",
+              "step": null,
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "label": "队伍刷新上限",
+          "description": "寻找可用队伍时，最多刷新通关记录的次数。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-drill",
+      "rows": [
+        {
+          "label": "出击后扫荡剩余次数",
+          "description": "完成指定战斗后，扫荡剩余次数。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "编队编号",
+          "description": "按出击顺序选择预设编队编号。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "测试难度",
+          "description": "按出击顺序设置每队难度。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-whitelist",
+      "rows": [
+        {
+          "label": "等级阈值",
+          "description": "清理条件中的等级阈值；-1 表示关闭。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "离线天数阈值",
+          "description": "清理条件中的离线天数；-1 表示关闭。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "上期总力战排名阈值",
+          "description": "清理条件中的上期总力战排名；-1 表示关闭。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "-1",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "添加",
+          "description": "填写此服务器的好友码，点击添加。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "好友白名单",
+          "description": "白名单好友不会被清理，点击 × 移除保护。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-server",
+      "rows": [
+        {
+          "label": "游戏服务器",
+          "description": "此配置使用的服务器，其他服务器需另建配置。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": true
+            }
+          ]
+        },
+        {
+          "label": "ADB 地址",
+          "description": "一般为 127.0.0.1。使用设备序列号时，填写在此并留空端口。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "ADB 端口",
+          "description": "端口范围 0–65535，也可自动检测；地址为空时可填写设备序列号。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": "65535",
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-script",
+      "rows": [
+        {
+          "label": "自动启动任务",
+          "description": "脚本启动后，自动执行此配置的任务。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "任务完成后",
+          "description": "选择任务全部完成后的操作。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "截图间隔（秒）",
+          "description": "两次截图的间隔，最小 0.1 秒。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0.1",
+              "max": null,
+              "step": "0.1",
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "截图方式",
+          "description": "从 scrcpy 画面流获取截图。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "控制方式",
+          "description": "通过 scrcpy 连接发送触摸操作。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-emulator",
+      "rows": [
+        {
+          "label": "自动启动模拟器",
+          "description": "脚本启动时，打开此模拟器。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "启动等待（秒）",
+          "description": "启动后等待指定秒数，再连接设备。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "number",
+              "min": "0",
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "模拟器路径",
+          "description": "选择模拟器的启动程序。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "模拟器类型",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "使用多开",
+          "description": "使用多开管理器启动指定实例。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-stage",
+      "rows": [
+        {
+          "label": "手动首领战",
+          "description": "推图时暂停自动操作，由你完成首领战。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-stage-tab-2",
+      "rows": [
+        {
+          "label": "当前活动",
+          "description": "",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-team",
+      "rows": [
+        {
+          "label": "编队方式",
+          "description": "按预设编队、侧栏属性或侧栏顺序选队。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "按侧栏属性编队",
+          "description": "按侧栏顺序设置队伍属性。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            },
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-push",
+      "rows": [
+        {
+          "label": "发生错误后推送",
+          "description": "任务出错时，通过下方服务通知。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "所有任务完成后推送",
+          "description": "此配置的任务全部完成后通知。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "JSON 推送",
+          "description": "填写 JSON 推送配置，不使用时留空。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "Server酱 推送",
+          "description": "填写 Server酱配置，不使用时留空。",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "config-other",
+      "rows": [
+        {
+          "label": "一键反和谐",
+          "description": "恢复国服原始立绘",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-general",
+      "rows": [
+        {
+          "label": "语言",
+          "description": "选择应用界面的显示语言。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "低性能模式",
+          "description": "减少动画和视觉效果，降低界面开销。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "启用系统通知",
+          "description": "在任务状态变化或服务断开时显示系统通知。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "最小化到系统托盘",
+          "description": "最小化窗口时隐藏到系统托盘，继续在后台运行。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "安装完成后自动进入",
+          "description": "关闭后，安装完成时保留安装日志，点击“进入主页”继续。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-appearance",
+      "rows": [
+        {
+          "label": "主题",
+          "description": "",
+          "controls": []
+        },
+        {
+          "label": "UI 缩放设置",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "显示游戏资源",
+          "description": "在主页展示游戏资源。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "启用 BAComet",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-shortcuts",
+      "rows": [
+        {
+          "label": "撤销",
+          "description": "撤销最近的配置修改；搜索框保留文本撤销。 默认：Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重做",
+          "description": "重做已撤销的配置修改。 默认：Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "设置",
+          "description": "打开应用设置。 默认：Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "显示侧边栏",
+          "description": "收起或展开配置栏；设置页始终展开。 默认：Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "返回",
+          "description": "返回上一个页面或配置。 默认：Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "前进",
+          "description": "前往下一个页面或配置。 默认：Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "放大",
+          "description": "放大界面。 默认：Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "缩小",
+          "description": "缩小界面。 默认：Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重置缩放",
+          "description": "恢复 100% 界面缩放。 默认：Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "全屏",
+          "description": "进入或退出全屏。 默认：F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "恢复应用快捷键",
+          "description": "恢复应用默认快捷键，保留配置的全局快捷键。",
+          "controls": []
+        },
+        {
+          "label": "启停配置",
+          "description": "BAAS 在后台时也可控制调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - B服",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - Schale Demo",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "剪切",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "复制",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "粘贴",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "全选",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "删除",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "取消",
+          "description": "取消录制、关闭弹窗或取消安装。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-shortcuts-scroll-2",
+      "rows": [
+        {
+          "label": "撤销",
+          "description": "撤销最近的配置修改；搜索框保留文本撤销。 默认：Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重做",
+          "description": "重做已撤销的配置修改。 默认：Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "设置",
+          "description": "打开应用设置。 默认：Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "显示侧边栏",
+          "description": "收起或展开配置栏；设置页始终展开。 默认：Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "返回",
+          "description": "返回上一个页面或配置。 默认：Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "前进",
+          "description": "前往下一个页面或配置。 默认：Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "放大",
+          "description": "放大界面。 默认：Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "缩小",
+          "description": "缩小界面。 默认：Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重置缩放",
+          "description": "恢复 100% 界面缩放。 默认：Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "全屏",
+          "description": "进入或退出全屏。 默认：F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "恢复应用快捷键",
+          "description": "恢复应用默认快捷键，保留配置的全局快捷键。",
+          "controls": []
+        },
+        {
+          "label": "启停配置",
+          "description": "BAAS 在后台时也可控制调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - B服",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - Schale Demo",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "剪切",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "复制",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "粘贴",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "全选",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "删除",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "取消",
+          "description": "取消录制、关闭弹窗或取消安装。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-shortcuts-scroll-3",
+      "rows": [
+        {
+          "label": "撤销",
+          "description": "撤销最近的配置修改；搜索框保留文本撤销。 默认：Ctrl+Z",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重做",
+          "description": "重做已撤销的配置修改。 默认：Ctrl+Y",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "设置",
+          "description": "打开应用设置。 默认：Ctrl+,",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "显示侧边栏",
+          "description": "收起或展开配置栏；设置页始终展开。 默认：Ctrl+Shift+S",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "返回",
+          "description": "返回上一个页面或配置。 默认：Alt+←",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "前进",
+          "description": "前往下一个页面或配置。 默认：Alt+→",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "放大",
+          "description": "放大界面。 默认：Ctrl++",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "缩小",
+          "description": "缩小界面。 默认：Ctrl+-",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "重置缩放",
+          "description": "恢复 100% 界面缩放。 默认：Ctrl+0",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "全屏",
+          "description": "进入或退出全屏。 默认：F11",
+          "controls": [
+            {
+              "tag": "input",
+              "role": null,
+              "type": "text",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "恢复应用快捷键",
+          "description": "恢复应用默认快捷键，保留配置的全局快捷键。",
+          "controls": []
+        },
+        {
+          "label": "启停配置",
+          "description": "BAAS 在后台时也可控制调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - B服",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "开始/停止 - Schale Demo",
+          "description": "从任意窗口启停此配置的调度。",
+          "controls": []
+        },
+        {
+          "label": "剪切",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "复制",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "粘贴",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "全选",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "删除",
+          "description": "输入或选中文本时使用。",
+          "controls": []
+        },
+        {
+          "label": "取消",
+          "description": "取消录制、关闭弹窗或取消安装。",
+          "controls": []
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-runtime",
+      "rows": [
+        {
+          "label": "数据传输方式",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "画面解码器",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "加密远程画面",
+          "description": "加密 WebSocket 远程预览数据传输。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-updates",
+      "rows": [
+        {
+          "label": "空闲时自动更新脚本",
+          "description": "所有配置档空闲时自动更新脚本。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "更新源",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "更新通道",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-updates-scroll-2",
+      "rows": [
+        {
+          "label": "空闲时自动更新脚本",
+          "description": "所有配置档空闲时自动更新脚本。",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "更新源",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        },
+        {
+          "label": "更新通道",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "combobox",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "settings-logs",
+      "rows": [
+        {
+          "label": "跟随最新日志",
+          "description": "",
+          "controls": [
+            {
+              "tag": "button",
+              "role": "switch",
+              "type": "button",
+              "min": null,
+              "max": null,
+              "step": null,
+              "disabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "locale": "zh",
+      "state": "scheduler-list",
+      "rows": []
+    },
+    {
+      "locale": "zh",
+      "state": "scheduler-workflow",
+      "rows": []
+    }
+  ]
+}

@@ -25,10 +25,10 @@ pub enum BackendTransport {
     /// Encrypted loopback WebSocket transport.
     Websocket,
     /// Native shared-memory transport owned by the Tauri process.
-    #[cfg_attr(any(windows, target_os = "macos"), default)]
+    #[cfg_attr(any(windows, target_os = "linux", target_os = "macos"), default)]
     Shm,
-    /// Legacy native transport retained on non-Windows platforms.
-    #[cfg_attr(not(any(windows, target_os = "macos")), default)]
+    /// Native pipe transport retained on other platforms and as an explicit choice.
+    #[cfg_attr(not(any(windows, target_os = "linux", target_os = "macos")), default)]
     Pipe,
 }
 
@@ -41,9 +41,10 @@ impl BackendTransport {
             "pipe" => Err(UpdaterError::Config(
                 "pipe transport is unavailable on macOS".to_string(),
             )),
-            "shm" if cfg!(any(windows, target_os = "macos")) => Ok(Self::Shm),
+            "shm" if cfg!(any(windows, target_os = "linux", target_os = "macos")) => Ok(Self::Shm),
             "shm" => Err(UpdaterError::Config(
-                "shared-memory transport requires Windows or macOS".to_string(),
+                "shared-memory transport is available on Windows, Linux, and macOS desktop"
+                    .to_string(),
             )),
             _ => Err(UpdaterError::Config(format!(
                 "unsupported backend transport: {value}"
@@ -455,13 +456,14 @@ pub fn migrate_toml(content: &str) -> UpdaterResult<UpdaterConfig> {
 
 /// Migrates legacy native preferences while retaining explicit WebSocket choices.
 fn migrate_transport(config: &mut UpdaterConfig) {
-    if cfg!(windows)
+    if cfg!(any(windows, target_os = "linux"))
         && config.general.transport_version == 0
         && config.general.transport == BackendTransport::Pipe
     {
         config.general.transport = BackendTransport::Shm;
     }
-    if !cfg!(any(windows, target_os = "macos")) && config.general.transport == BackendTransport::Shm
+    if !cfg!(any(windows, target_os = "linux", target_os = "macos"))
+        && config.general.transport == BackendTransport::Shm
     {
         config.general.transport = BackendTransport::Pipe;
     }
@@ -535,11 +537,11 @@ mod tests {
     }
 
     #[test]
-    fn shared_memory_preference_is_portable_to_non_windows_config_readers() {
+    fn shared_memory_preference_follows_platform_support() {
         let config = migrate_toml("[general]\ntransport = 'shm'\ntransport_version = 1\n").unwrap();
         assert_eq!(
             config.general.transport,
-            if cfg!(any(windows, target_os = "macos")) {
+            if cfg!(any(windows, target_os = "linux", target_os = "macos")) {
                 BackendTransport::Shm
             } else {
                 BackendTransport::Pipe
@@ -547,7 +549,7 @@ mod tests {
         );
         assert_eq!(
             BackendTransport::parse("shm").is_ok(),
-            cfg!(any(windows, target_os = "macos"))
+            cfg!(any(windows, target_os = "linux", target_os = "macos"))
         );
     }
 

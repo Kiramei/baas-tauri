@@ -1,0 +1,151 @@
+{
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "backendAuditRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "scope": "Manual audit of six settings categories, profile lifecycle/archive actions, Home status/task logs and desktop remote controls. Not full site or game execution coverage.",
+  "automatedBoundary": "AST checks detect changes to statically labelled settings/remote inputs and registered section/shortcut IDs; mapped mentions must exist in both languages. These checks do not prove semantic completeness, every conditional state, OS registration or backend/device execution.",
+  "sections": [
+    {
+      "id": "general",
+      "en": "General",
+      "zh": "通用"
+    },
+    {
+      "id": "appearance",
+      "en": "Appearance",
+      "zh": "外观"
+    },
+    {
+      "id": "shortcuts",
+      "en": "Shortcuts",
+      "zh": "快捷键"
+    },
+    {
+      "id": "runtime",
+      "en": "Connection and Runtime",
+      "zh": "连接与运行时"
+    },
+    {
+      "id": "updates",
+      "en": "Updates",
+      "zh": "更新"
+    },
+    {
+      "id": "logs",
+      "en": "Logs",
+      "zh": "日志"
+    }
+  ],
+  "settingsLabels": {
+    "language": {
+      "page": "features/system",
+      "mention": "lang"
+    },
+    "settings.ui.lowPerformanceMode": {
+      "page": "features/system",
+      "mention": "lowPerformanceMode"
+    },
+    "settings.ui.enableSystemNotifications": {
+      "page": "features/system",
+      "mention": "enableSystemNotifications"
+    },
+    "workflow.minimizeToTray": {
+      "page": "features/system",
+      "mention": "minimizeToTray"
+    },
+    "installer.autoEnter": {
+      "page": "features/system",
+      "mention": "autoEnterAfterInstall"
+    },
+    "common.theme": {
+      "page": "features/system",
+      "mention": "theme"
+    },
+    "ui.zoom": {
+      "page": "features/system",
+      "mention": "zoomScale"
+    },
+    "settings.ui.assets": {
+      "page": "features/system",
+      "mention": "assetsDisplay"
+    },
+    "settings.ui.enableBAComet": {
+      "page": "features/system",
+      "mention": "enableBAComet"
+    },
+    "transport.label": {
+      "page": "features/system",
+      "mention": "websocket"
+    },
+    "settings.ui.player": {
+      "page": "features/system",
+      "mention": "remoteSettings.streamPlayer"
+    },
+    "settings.ui.enableSafeStream": {
+      "page": "features/system",
+      "mention": "remoteSettings.enableSafeStream"
+    },
+    "settings.ui.idleAutoUpdate": {
+      "page": "features/update",
+      "mention": "idleAutoUpdate"
+    },
+    "update.mirrorCdk": {
+      "page": "features/update",
+      "mention": "mirrorcCdk"
+    },
+    "update.method": {
+      "page": "features/update",
+      "mention": "updateMethod"
+    },
+    "update.channel": {
+      "page": "features/update",
+      "mention": "channel"
+    },
+    "log.scroll.detail": {
+      "page": "features/system",
+      "mention": "scrollToEnd"
+    }
+  },
+  "additionalSettings": [
+    "themeColor",
+    "backgroundImageBase64",
+    "backgroundImageOpacity",
+    "applicationShortcuts"
+  ],
+  "applicationShortcutIds": [
+    "undo",
+    "redo",
+    "settings",
+    "sidebar",
+    "back",
+    "forward",
+    "zoomIn",
+    "zoomOut",
+    "resetZoom",
+    "fullscreen"
+  ],
+  "remoteLabels": {
+    "remote.width": "remoteSettings.maxWidth",
+    "remote.height": "remoteSettings.maxHeight",
+    "remote.fps": "remoteSettings.maxFPS",
+    "remote.iframe": "remoteSettings.iFrameRate",
+    "remote.bitrate": "remoteSettings.bitRate"
+  },
+  "profileCommands": [
+    "add_config",
+    "copy_config",
+    "export_config",
+    "import_config",
+    "remove_config"
+  ],
+  "captureEvidence": [
+    "public/media/desktop/workspaces-manifest.json",
+    "public/media/desktop/remote-manifest.json"
+  ],
+  "notExecuted": [
+    "profile creation/copy/import/export/delete commands in this capture pass",
+    "system log clearing",
+    "saving or exercising new global OS hotkey bindings; the actual recorder temporarily suspends/restores existing bindings",
+    "backend/client update installation",
+    "remote power/clipboard/game-input commands"
+  ]
+}

@@ -1,0 +1,308 @@
+{
+  "checkedAt": "2026-10-20T09:12:24.954353+00:00",
+  "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "scope": "Backend service suite, core task retry and OCR tests in a separate Git archive; test doubles and temporary state, not real-game execution or a fresh dependency installation",
+  "pythonVersion": "3.11.9",
+  "packages": {
+    "pytest": "9.1.1",
+    "httpx": null,
+    "httpx2": "2.5.0",
+    "fastapi": "0.139.0",
+    "pydantic": "2.13.4",
+    "numpy": "1.26.4",
+    "opencv-python": "4.8.1.78",
+    "av": "12.0.0",
+    "adbutils": "2.2.1",
+    "uiautomator2": "2.16.23"
+  },
+  "junitSha256": "2bcd6960279e0d9961c164e0a9022765417b5b5cf45bb0bdd146639f29a9b8ef",
+  "recognitionReplaySha256": "b02b82484949f686c74bee2901d876232853354e54860671a7ab05519623e494",
+  "collected": 416,
+  "passed": 415,
+  "failed": 0,
+  "skipped": [
+    {
+      "test": "test_unix_pipe_channel_round_trip",
+      "reason": "Unix sockets are unavailable on Windows"
+    }
+  ],
+  "verifiedSnapshotFiles": [
+    {
+      "file": "core/Baas_thread.py",
+      "sha256": "4c6f62e86cb974db54a726fe9ed9435cb3fd8a31c478ee01709d0f45edd9bb47"
+    },
+    {
+      "file": "core/color.py",
+      "sha256": "3c7fdbc654ce89d5588bc016524b5c0f50a8f9f479bf1541928cbed2d29a36f6"
+    },
+    {
+      "file": "core/config/config_set.py",
+      "sha256": "8596a6e3140122fede580c1e2d93986e820da22cf81f2ee98d36aa8a08481f82"
+    },
+    {
+      "file": "core/config/default_config.py",
+      "sha256": "c761d50808ccedbb74a7339919cf324ccfd553ec870ba7fda10cb6f3f5483b87"
+    },
+    {
+      "file": "core/config/generated_static_config.py",
+      "sha256": "e7daa63d9c00927a09abde45e741291b8012bddc1c45270a57f3e403fc199b98"
+    },
+    {
+      "file": "core/config/generated_user_config.py",
+      "sha256": "3f734a86dcfde64e0dc24555103bda951369c331f802fd21e14497145990af81"
+    },
+    {
+      "file": "core/device/Screenshot.py",
+      "sha256": "fabe8dcd930ec3a933e4b6c26d581bb173ca135e81dd7d86314c3cd8d4a694d9"
+    },
+    {
+      "file": "core/exception.py",
+      "sha256": "ff9d8a3e98d26fbd829d2d665ebeee12d04f8685a81e7168d0d503da0e00321b"
+    },
+    {
+      "file": "core/image.py",
+      "sha256": "a544911abb06d27a653337cbaef76e424408e61a1c3e8ccb2543b2b908e457a1"
+    },
+    {
+      "file": "core/ocr/ocr.py",
+      "sha256": "fa5c96d98f4003351eebcbe14a97f30e3d1f68c43891569b52dc95742b22d91b"
+    },
+    {
+      "file": "core/picture.py",
+      "sha256": "12098e540bb61d4c2e14193a0d26536c6f347f9b130093373bc4969c00e3cf42"
+    },
+    {
+      "file": "core/position.py",
+      "sha256": "aa18168b626af1ab7527b4a7defbfa7855176401a4af53ea704efcc8b5c850ea"
+    },
+    {
+      "file": "core/scheduler.py",
+      "sha256": "c53ac7dc1f7a292216d8810292e93661d7e00975c3d56ac5ec44d4c3d11f8578"
+    },
+    {
+      "file": "core/utils.py",
+      "sha256": "b9a4542fbf7f98aa48ae4d4e4c30a71757c9eb8c5537cd146af39895629426c9"
+    },
+    {
+      "file": "deploy/service/requirements.service.linux.txt",
+      "sha256": "2e89fe12daaf62a699355357ffdd67740b7210d660e93cc6e3ae3ed2f4a87123"
+    },
+    {
+      "file": "deploy/service/requirements.service.windows.txt",
+      "sha256": "2e89fe12daaf62a699355357ffdd67740b7210d660e93cc6e3ae3ed2f4a87123"
+    },
+    {
+      "file": "develop_tools/generate_dataclass_code.py",
+      "sha256": "78c7ce0d29a4bc3efe9321aed2f960e623a91cdf0e73a0300839e3c2ea731740"
+    },
+    {
+      "file": "main.py",
+      "sha256": "6c91a0c8c41337b5158a3fbacf776e47497ce908711126e35a55731c9f465375"
+    },
+    {
+      "file": "main.service.py",
+      "sha256": "5ef5518d594116feeec383ce992549ffe849585bcaa5fde4c84ef57f44d4ffe6"
+    },
+    {
+      "file": "pyproject.toml",
+      "sha256": "378d1cc76e2c7d6105929b390275ff16dafb37b27f07df4e25b8622987a0e1ca"
+    },
+    {
+      "file": "service/android_local_device.py",
+      "sha256": "1bedba5de8976b1a79d35c3fea6ca54c369f94bbe0e0a4e2fdb37205967d807a"
+    },
+    {
+      "file": "service/android_ocr_client.py",
+      "sha256": "8f14847991b23054855df1fd4ed37755422d1ddfab54278e89b472a2c5d63799"
+    },
+    {
+      "file": "service/api/commands.py",
+      "sha256": "36c1b984f9ab892e75cec03acc503c1b708c7690d4ca3cd88000f18e4024bfb5"
+    },
+    {
+      "file": "service/api/http.py",
+      "sha256": "f2cfc13de73cfd2a331949f4a04c510b2c0e47105cda402dcaa63b6bc73e9335"
+    },
+    {
+      "file": "service/api/state.py",
+      "sha256": "f1e5f128687aa018dbe36b9d63e8b330d9e4dcbbd11ec3be8dec666326f41518"
+    },
+    {
+      "file": "service/app.py",
+      "sha256": "39cd4af9a67a5096e1322b84b64e47ac9b76714627e40d4aeeae418fbdb5abee"
+    },
+    {
+      "file": "service/asset_compat.py",
+      "sha256": "925aca989fadd35d776df1430fa38240774a85aadb2bc29f6f26a565d1dfd8f6"
+    },
+    {
+      "file": "service/channels/sync.py",
+      "sha256": "ccb477ab94fce2295426caae15bac41eac072302e2eaf1b358d5f364af502491"
+    },
+    {
+      "file": "service/conf/initializer.py",
+      "sha256": "dfde6e0f930d5033d93442da0156c1bd786f6eecf3bbc61911db9d53e821e5b1"
+    },
+    {
+      "file": "service/conf/manager.py",
+      "sha256": "f51721bc8bf30005de5dddcdda4c2263f2250e2bea9fb43a1339e1bf6d4e6211"
+    },
+    {
+      "file": "service/conf/resources.py",
+      "sha256": "c405478d5b472aab1192ef1520ef1d7fa992176337a1fd2dc0efaf62b1635015"
+    },
+    {
+      "file": "service/context.py",
+      "sha256": "bcd0dc3758aaaf0761c99bd60269b08b05ff40fad064bf67016fbfb1af1b3302"
+    },
+    {
+      "file": "service/gesture_compat.py",
+      "sha256": "74eb85f350b72866e2629af12700db2cf0ce46ada2fb59f95fbc28023f27ebcc"
+    },
+    {
+      "file": "service/image_compat.py",
+      "sha256": "5fa3a60a7bb1a4572ea571781d8509461adf4bbfce24695cc69d635b361391e6"
+    },
+    {
+      "file": "service/injection.py",
+      "sha256": "2dd985d55f5ec7800085efa173f82f2a92bafb32b0602ff0906f987a5efdf573"
+    },
+    {
+      "file": "service/runtime.py",
+      "sha256": "2227d09db68e1517c201a76cf864165d6328845c2b10c80457815a459d960345"
+    },
+    {
+      "file": "service/system_logging.py",
+      "sha256": "b258f33ada90dbeea6227a4f803fd9167616e013bafba23ba82dea649b978434"
+    },
+    {
+      "file": "tests/conftest.py",
+      "sha256": "c332cd47748a3ac72fe41b44ae077945068bbee717742dedba3ba9cb13448aec"
+    },
+    {
+      "file": "tests/core/ocr/test_android_runtime.py",
+      "sha256": "d7e416854383f1ab37084e6ecda7f5d4fdd45f91db6864bbb92f812899228c7f"
+    },
+    {
+      "file": "tests/core/ocr/test_startup_readiness.py",
+      "sha256": "5d96be1d9df1362f1032f33003cb0b69363f5b7818ab558c4b29e00d17233c8f"
+    },
+    {
+      "file": "tests/core/test_task_retry.py",
+      "sha256": "59b24f1afa89f78027b0c03c463d9a460e033476e874b06b7f625502da8c19b5"
+    },
+    {
+      "file": "tests/service/test_android_display_resize.py",
+      "sha256": "592df5e3223a25c3a0ce4faaad0ea5fe6024840c122c75686782878d19b92a98"
+    },
+    {
+      "file": "tests/service/test_asset_compat.py",
+      "sha256": "5aea54e184ec49a656b54635945528d82dc9ba3e58819194652d72d784ee4a5f"
+    },
+    {
+      "file": "tests/service/test_auth_manager.py",
+      "sha256": "b64f385c2f764286c6ce3d8b75dec04ef5e30149bee5590f4703cd01a94c15a7"
+    },
+    {
+      "file": "tests/service/test_commands.py",
+      "sha256": "a049fec144844191f80c59cbc795aba9e061f36b32d9b07f64a0f4e7be467dcf"
+    },
+    {
+      "file": "tests/service/test_config_runtime_update.py",
+      "sha256": "633c98d160b2ef4269499923788daea3f5fd750b952d194318cce5af6effbd75"
+    },
+    {
+      "file": "tests/service/test_gesture_compat.py",
+      "sha256": "7c365fa189419be1c1030884c5eda9f36176636c7a4dea58f68d5e0f749a3c03"
+    },
+    {
+      "file": "tests/service/test_http_contract.py",
+      "sha256": "05dc4d1c506780eb99fae178a01d85b091cd48a74c2bba06bbf453c0a7e30ccf"
+    },
+    {
+      "file": "tests/service/test_image_compat.py",
+      "sha256": "a73001cfb2f4998a08b2ae813ea45627d00317e1c415c03f36112e103eb6195e"
+    },
+    {
+      "file": "tests/service/test_installer_compatibility.py",
+      "sha256": "3232642e8f122616074f3aa8d09f1aa99f0ff4c3da5f538e47e4d60052589936"
+    },
+    {
+      "file": "tests/service/test_log_delivery.py",
+      "sha256": "602ffbee27696d305c4c73e2b3f4a5b31150a07497a751ee29e77982719b5298"
+    },
+    {
+      "file": "tests/service/test_pipe_transport.py",
+      "sha256": "623eb80f7ba141be091f112891ec16c6d3a68e8d1294fe45aa77117ef04662d0"
+    },
+    {
+      "file": "tests/service/test_remote_proxy.py",
+      "sha256": "63d0ac74e33935b638f8cec71013b308e16c5f795da55e76903a717d6026a997"
+    },
+    {
+      "file": "tests/service/test_runtime_exit_status.py",
+      "sha256": "4a9b840ec0cec373ad6f989f2774757f7fc44d0a3c50ccdfa8f7c0e13e87e295"
+    },
+    {
+      "file": "tests/service/test_runtime_initialization.py",
+      "sha256": "320be1fa0578e59d405cde12ef507a6a4707e871b50efaae4a1d5a6a917360a8"
+    },
+    {
+      "file": "tests/service/test_scrcpy_client.py",
+      "sha256": "bfeb6f2cec508909b56a56d61ddaaa80bb6c0613311e10f367373bc059574bec"
+    },
+    {
+      "file": "tests/service/test_security_contract.py",
+      "sha256": "5f5cea59798a944cbb17cec3ee142e85963f7e5d83f5665dcb69d1f44311b89d"
+    },
+    {
+      "file": "tests/service/test_service_injection.py",
+      "sha256": "537d1c82f231fa8e7dc2614f2420302f7a809338daf7e88a92a9bd1b3bf2a84c"
+    },
+    {
+      "file": "tests/service/test_service_logic.py",
+      "sha256": "ddf77d323508fc0d366fde802a45c008d3890daae5ea8e15397235b04a612b6e"
+    },
+    {
+      "file": "tests/service/test_shm_transport.py",
+      "sha256": "2291cca90f473cb96cad18acdb9531da0305897988f4cd93993cf8aa27b3ec3f"
+    },
+    {
+      "file": "tests/service/test_shop_compat.py",
+      "sha256": "56fc2f0233272157ca66f767c025489e81b5d8f3b5c73e38939713eac6f9563f"
+    },
+    {
+      "file": "tests/service/test_shop_tracking.py",
+      "sha256": "9b8f96ce0bf524efa7880aa8ffea3a37fe97e32ed9e71e77fcfc2d5a7af7669d"
+    },
+    {
+      "file": "tests/service/test_single_task_names.py",
+      "sha256": "08ebf65937043902a4a94439e07c80d2bed7619bca265010cad2e0619ad56672"
+    },
+    {
+      "file": "tests/service/test_startup_imports.py",
+      "sha256": "f8ebeb2f671afe408ceee0884009b58c16686cb0590bde57662d992b29cc4246"
+    },
+    {
+      "file": "tests/service/test_system_logging.py",
+      "sha256": "b7bf6321823a0486993b35268fae2da4f724d0acf5f6b6da54a307ee5168ea12"
+    },
+    {
+      "file": "tests/service/test_update_checks.py",
+      "sha256": "f7468449fbc52c65ce2f57c16754762b08861075d3fd317f6db46aae4dd89ce0"
+    },
+    {
+      "file": "tests/service/test_update_repository.py",
+      "sha256": "8b48a7b6859957c870f1ec4931b7748658e8a2445484dbdad1dd9147256eece4"
+    },
+    {
+      "file": "tests/service/test_ws_behaviors.py",
+      "sha256": "6b61c6d9a741721b548277a027d704aa3e1ac90915a2735905af40a5a6bc9e37"
+    },
+    {
+      "file": "tests/service/test_ws_sync_conflict.py",
+      "sha256": "a572065f2650808bccf32c8dc3bd9103b1b949f4320364b9e5f92271f9926cce"
+    }
+  ],
+  "auditedSourceFiles": 37
+}

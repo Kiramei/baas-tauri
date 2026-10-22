@@ -1,4 +1,4 @@
-//! Shared-memory wire constants for Windows/macOS and the Python backend.
+//! Cross-platform shared-memory wire constants, also implemented in the Python backend.
 pub const HEADER_BYTES: usize = 256;
 pub const SLOT_COUNT: usize = 64;
 pub const SLOT_BYTES: usize = 65_536;

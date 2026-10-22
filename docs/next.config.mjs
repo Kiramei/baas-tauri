@@ -11,6 +11,7 @@ const withMDX = createMDX();
 export default function config(phase) {
   return withMDX({
     output: phase === PHASE_DEVELOPMENT_SERVER ? undefined : "export",
+    distDir: process.env.DOCS_EXPORT_DIR || ".next",
     trailingSlash: true,
     basePath,
     assetPrefix: basePath ? `${basePath}/` : undefined,

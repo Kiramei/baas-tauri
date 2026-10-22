@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { localeFromPathname } from "@/lib/locale";
 
 type ZoomImage = {
   alt: string;
@@ -17,6 +19,7 @@ const zoomableSelector = [
 /** Renders the image zoom component. */
 export function ImageZoom() {
   const [image, setImage] = useState<ZoomImage | null>(null);
+  const zh = localeFromPathname(usePathname()) === "zh";
 
   useEffect(() => {
     /** Handles the on click interaction. */
@@ -63,13 +66,13 @@ export function ImageZoom() {
       className="baas-image-zoom"
       role="dialog"
       aria-modal="true"
-      aria-label={image.alt || "Image preview"}
+      aria-label={image.alt || (zh ? "图片预览" : "Image preview")}
       onClick={() => setImage(null)}
     >
       <button
         className="baas-image-zoom-close"
         type="button"
-        aria-label="Close image preview"
+        aria-label={zh ? "关闭图片预览" : "Close image preview"}
         onClick={() => setImage(null)}
       >
         <X aria-hidden="true" />

@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { LocaleEntry } from "@/components/LocaleEntry";
 
 /** Renders the docs index page component. */
 export default function DocsIndexPage() {
-  redirect("/docs/zh");
+  return <LocaleEntry />;
 }

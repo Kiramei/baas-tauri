@@ -291,6 +291,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "directories",
+ "gtk",
  "jni 0.21.1",
  "libc",
  "minisign-verify",

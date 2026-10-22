@@ -1,0 +1,67 @@
+{
+  "capturedAt": "2026-10-20T04:33:23.560Z",
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "scope": "Desktop native release mirroring actual MuMu Android BAAS UI over its real backend. This is not a game-task completion test. No remote input, clipboard, power commands or video-setting changes were submitted.",
+  "verified": [
+    {
+      "locale": "en",
+      "check": "actual emulator preview decoded nonblank video; no game input sent",
+      "width": 400,
+      "height": 720,
+      "sampledColors": 15,
+      "nonDarkPixels": 4079
+    },
+    {
+      "locale": "zh",
+      "check": "actual emulator preview decoded nonblank video; no game input sent",
+      "width": 400,
+      "height": 720,
+      "sampledColors": 15,
+      "nonDarkPixels": 4079
+    }
+  ],
+  "shots": [
+    {
+      "file": "media/desktop/en/details-remote-preview.png",
+      "locale": "en",
+      "state": "preview",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-remote-enlarged.png",
+      "locale": "en",
+      "state": "enlarged",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-remote-advanced.png",
+      "locale": "en",
+      "state": "advanced",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-remote-preview.png",
+      "locale": "zh",
+      "state": "preview",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-remote-enlarged.png",
+      "locale": "zh",
+      "state": "enlarged",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-remote-advanced.png",
+      "locale": "zh",
+      "state": "advanced",
+      "theme": "light",
+      "native": true
+    }
+  ]
+}
