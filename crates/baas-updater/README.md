@@ -64,9 +64,10 @@ to `stable`.
 On Windows, the default native transport is `shm`. Existing `pipe` preferences
 without `transport_version` migrate once to shared memory. A versioned explicit
 `pipe` preference remains available for compatibility and performance comparison;
-`websocket` preferences are preserved. Other platforms retain their existing
-native pipe transport, and map shared-memory preferences to that transport when
-reading a configuration copied from Windows.
+`websocket` preferences are preserved. macOS also supports `shm` natively on
+Apple Silicon and Intel, migrates legacy `pipe` preferences to `shm`, and keeps
+explicit `websocket` preferences. Other platforms retain their existing native
+pipe transport and map shared-memory preferences to that transport.
 
 ## Workflow
 
@@ -139,6 +140,25 @@ before launching Python and passes it through `WorkflowOptions.shm_name` and
 `--shm-name`. The updater does not create a second backend when attaching to the
 endpoint allocated for its launch. The legacy `pipe_name` option is retained
 for other native platforms and compatibility runs.
+
+On macOS the native session uses POSIX `shm_open`/`mmap`, four named semaphores
+for slot ownership, and `kqueue` process-exit notifications. Darwin name limits
+are handled with a shared SHA-256 name scheme. Kernel names are unlinked after
+both peers attach, while open handles keep the mapping alive. Interrupted
+readers/writers notice stop and peer exit without requiring new data.
+
+The desktop preflight installs `runtime/shm_macos.py` into the matching backend
+and adds a Darwin-only dispatch to `shm_native.py`. It repairs these files after
+backend updates, while retaining the existing Windows implementation and wire
+protocol. A backend without the SHM entry point is still rejected with an
+actionable error. WebSocket remains available as an explicit alternative.
+
+Native regression commands (using a prepared backend):
+
+```sh
+BAAS_SHM_TEST_BACKEND=/path/to/BAAS cargo test -p baas-tauri shm_ --lib
+BAAS_SHM_TEST_BACKEND=/path/to/BAAS /path/to/BAAS/.venv/bin/python scripts/tests/test_macos_shm.py
+```
 
 ## Testing
 

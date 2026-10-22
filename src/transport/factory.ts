@@ -8,19 +8,23 @@ import type {
   BackendTransportMode,
 } from "@/transport/types";
 
+export const isMacOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+
 export function normalizeTransportMode(value: unknown): BackendTransportMode {
   return resolveTransportMode(value, {
     android: __WITH_ANDROID__,
     tauri: __WITH_TAURI__,
     sharedMemory: supportsSharedMemory(),
+    macos: isMacOS,
   });
 }
 
 export function resolveTransportMode(
   value: unknown,
-  environment: { android: boolean; tauri: boolean; sharedMemory?: boolean }
+  environment: { android: boolean; tauri: boolean; sharedMemory?: boolean; macos?: boolean }
 ): BackendTransportMode {
   if (!environment.tauri) return "websocket";
+  if (environment.macos && !environment.android) return value === "websocket" ? "websocket" : "shm";
   if (value === "websocket" || value === "pipe") return value;
   const sharedMemory = !environment.android && environment.sharedMemory === true;
   if (value === "shm") return sharedMemory ? "shm" : "pipe";
@@ -32,7 +36,7 @@ export function supportsSharedMemory(): boolean {
     __WITH_TAURI__ &&
     !__WITH_ANDROID__ &&
     typeof navigator !== "undefined" &&
-    /^(win|linux)/i.test(navigator.platform)
+    /^(win|linux|mac)/i.test(navigator.platform)
   );
 }
 

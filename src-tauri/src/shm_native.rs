@@ -10,3 +10,9 @@ mod windows;
 pub use linux::*;
 #[cfg(windows)]
 pub use windows::*;
+
+#[cfg(target_os = "macos")]
+#[path = "shm_macos.rs"]
+mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::*;

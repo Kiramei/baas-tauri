@@ -536,6 +536,22 @@ pub fn uv_python_install_command(config: &UpdaterConfig) -> CommandSpec {
     uv_python_install_command_with_mirror(config, CPYTHON_HEAD.main)
 }
 
+/// Requests a native managed interpreter, including legacy Apple Silicon configs.
+fn managed_python_request(version: &str, os: &str, arch: &str) -> String {
+    if os == "macos" && matches!(arch, "aarch64" | "x86_64") {
+        // Python 3.9.0 has no Apple Silicon build. UV otherwise falls back to
+        // x86_64, which fails without Rosetta and mismatches the ARM OCR binary.
+        let version = if arch == "aarch64" && version == "3.9.0" {
+            "3.9"
+        } else {
+            version
+        };
+        format!("cpython-{version}-macos-{arch}-none")
+    } else {
+        version.to_string()
+    }
+}
+
 /// Builds the UV Python install command with an already-ranked CPython mirror.
 pub fn uv_python_install_command_with_mirror(
     config: &UpdaterConfig,
@@ -544,7 +560,11 @@ pub fn uv_python_install_command_with_mirror(
     CommandSpec::new(uv_executable(config))
         .arg("python")
         .arg("install")
-        .arg(&config.python.python_version)
+        .arg(managed_python_request(
+            &config.python.python_version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        ))
         .env(
             "UV_PYTHON_INSTALL_DIR",
             uv_python_install_dir(config).to_string_lossy().as_ref(),
@@ -559,7 +579,11 @@ pub fn uv_venv_command(config: &UpdaterConfig) -> CommandSpec {
         .arg("venv")
         .arg(config.baas_root().join(".venv").to_string_lossy())
         .arg("--python")
-        .arg(&config.python.python_version)
+        .arg(managed_python_request(
+            &config.python.python_version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        ))
         .env(
             "UV_PYTHON_INSTALL_DIR",
             uv_python_install_dir(config).to_string_lossy().as_ref(),
@@ -696,6 +720,8 @@ pub fn validate_backend_shm_support(config: &UpdaterConfig) -> UpdaterResult<()>
             root.display()
         )));
     }
+    #[cfg(target_os = "macos")]
+    install_macos_shm_adapter(&root)?;
     #[cfg(target_os = "linux")]
     {
         let native =
@@ -707,6 +733,31 @@ pub fn validate_backend_shm_support(config: &UpdaterConfig) -> UpdaterResult<()>
                 root.display()
             )));
         }
+    }
+    Ok(())
+}
+
+/// Keep the Darwin peer with the desktop build, including after backend updates.
+#[cfg(target_os = "macos")]
+fn install_macos_shm_adapter(root: &Path) -> UpdaterResult<()> {
+    let native = root.join("service/transport/shm_native.py");
+    let mut source = fs::read_to_string(&native)?;
+    const DISPATCH: &str = "\n# BAAS desktop macOS shared-memory adapter\nimport sys as _baas_shm_sys\nif _baas_shm_sys.platform == 'darwin':\n    from .shm_macos import MacSharedMemorySession as SharedMemorySession\n";
+    let adapter = root.join("service/transport/shm_macos.py");
+    let bundled = include_str!("../runtime/shm_macos.py");
+    let replace = |path: &Path, content: &str| -> UpdaterResult<()> {
+        use std::io::Write;
+        let mut file = tempfile::NamedTempFile::new_in(path.parent().unwrap())?;
+        file.write_all(content.as_bytes())?;
+        file.persist(path).map_err(|error| error.error)?;
+        Ok(())
+    };
+    if fs::read_to_string(&adapter).ok().as_deref() != Some(bundled) {
+        replace(&adapter, bundled)?;
+    }
+    if !source.contains("# BAAS desktop macOS shared-memory adapter") {
+        source.push_str(DISPATCH);
+        replace(&native, &source)?;
     }
     Ok(())
 }
@@ -1219,6 +1270,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn apple_silicon_python_requests_do_not_fall_back_to_intel() {
+        assert_eq!(
+            managed_python_request("3.9.0", "macos", "aarch64"),
+            "cpython-3.9-macos-aarch64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.11.0", "macos", "aarch64"),
+            "cpython-3.11.0-macos-aarch64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.9.0", "macos", "x86_64"),
+            "cpython-3.9.0-macos-x86_64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.11.0", "macos", "x86_64"),
+            "cpython-3.11.0-macos-x86_64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.9.0", "windows", "x86_64"),
+            "3.9.0"
+        );
+        assert_eq!(managed_python_request("3.9.0", "linux", "aarch64"), "3.9.0");
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let install = uv_python_install_command(&config);
+        let venv = uv_venv_command(&config);
+        let python_arg = venv.args.iter().position(|arg| arg == "--python").unwrap() + 1;
+        assert_eq!(install.args[2], venv.args[python_arg]);
+    }
+
     /// Handles the custom runtime skips prepare and sync workflow.
     #[test]
     fn custom_runtime_skips_prepare_and_sync() {
@@ -1308,6 +1390,32 @@ mod tests {
             .unwrap();
         }
         validate_backend_shm_support(&config).unwrap();
+        #[cfg(target_os = "macos")]
+        {
+            let native = root.path().join("service/transport/shm_native.py");
+            let adapter = root.path().join("service/transport/shm_macos.py");
+            let installed = fs::read_to_string(&native).unwrap();
+            validate_backend_shm_support(&config).unwrap();
+            assert_eq!(fs::read_to_string(&native).unwrap(), installed);
+            assert!(
+                fs::read_to_string(&adapter)
+                    .unwrap()
+                    .contains("class MacSharedMemorySession")
+            );
+            // Simulate a repository update replacing both patched files.
+            fs::write(&native, "# upstream update\n").unwrap();
+            fs::write(&adapter, "# stale adapter\n").unwrap();
+            validate_backend_shm_support(&config).unwrap();
+            assert!(
+                fs::read_to_string(&native)
+                    .unwrap()
+                    .contains("from .shm_macos import")
+            );
+            assert_eq!(
+                fs::read_to_string(&adapter).unwrap(),
+                include_str!("../runtime/shm_macos.py")
+            );
+        }
         fs::remove_file(root.path().join("service/transport/shm_server.py")).unwrap();
         assert!(
             validate_backend_shm_support(&config)

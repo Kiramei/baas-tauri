@@ -10,18 +10,18 @@ mod android_h264_decoder;
 #[cfg(target_os = "android")]
 mod android_hardware_buffer;
 mod behavior;
-mod file_commands;
 #[cfg(not(mobile))]
 mod commands;
+mod file_commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
-mod notifier_commands;
 mod native_window_controls;
+mod notifier_commands;
 mod pipe_commands;
 mod shm_commands;
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 mod shm_native;
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
 mod shm_protocol;
 mod system_logs;
 #[cfg(windows)]
@@ -33,6 +33,7 @@ compile_error!("BAAS mobile builds currently support Android only.");
 use crate::behavior::{
     disable_f5_press_event, set_backend_locale, set_minimize_to_tray, splash_off, BehaviorState,
 };
+use crate::file_commands::open_backend_config_folder;
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
     android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_native_preview,
@@ -46,11 +47,10 @@ use crate::mobile_commands::{
     updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
     updater_update_config, updater_validate_mirrorc_cdk,
 };
-use crate::notifier_commands::baas_notify;
 use crate::native_window_controls::{
     native_window_controls_set_blocked, native_window_controls_state,
 };
-use crate::file_commands::open_backend_config_folder;
+use crate::notifier_commands::baas_notify;
 use crate::pipe_commands::{
     backend_pipe_close, backend_pipe_close_all, backend_pipe_open, backend_pipe_send_bytes,
     backend_pipe_send_json, BackendPipeManager,

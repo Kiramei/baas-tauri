@@ -12,7 +12,9 @@ import { useNavigationHistory } from "@/context/NavigationHistoryProvider";
 import TitlebarMenus from "@/components/layout/TitlebarMenus";
 import { useNativeWindowControls } from "@/shared/useNativeWindowControls";
 
-/** Windows and Linux share app chrome; decorated platforms keep their native frame. */
+const macOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+
+/** Shared desktop toolbar, with native traffic lights retained on macOS. */
 export default function WindowTitlebar() {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -47,9 +49,15 @@ export default function WindowTitlebar() {
       }, reportError);
     };
     const syncMaximized = () => {
-      void appWindow.isMaximized().then((value) => {
-        if (!disposed) setMaximized(value);
-      }, reportError);
+      void Promise.all([appWindow.isMaximized(), appWindow.isFullscreen()]).then(
+        ([value, isFullscreen]) => {
+          if (!disposed) {
+            setMaximized(value);
+            setFullscreen(isFullscreen);
+          }
+        },
+        reportError
+      );
     };
 
     void Promise.all([
@@ -59,7 +67,7 @@ export default function WindowTitlebar() {
       appWindow.isFocused(),
     ]).then(([decorated, isMaximized, isFullscreen, isFocused]) => {
       if (disposed) return;
-      setCustomFrame(!decorated);
+      setCustomFrame(!decorated || macOS);
       setMaximized(isMaximized);
       setFullscreen(isFullscreen);
       setFocused(isFocused);
@@ -164,7 +172,11 @@ export default function WindowTitlebar() {
       aria-label={t("app.windowControls")}
       data-window-titlebar=""
       data-focused={focused}
+      data-platform={macOS ? "macos" : "other"}
     >
+      {macOS && !fullscreen && (
+        <div className="h-8 w-20 shrink-0" aria-hidden="true" data-native-traffic-lights="" />
+      )}
       {nativeControls.available && nativeControls.startWidth > 0 && (
         <div
           className="h-8 shrink-0"
@@ -230,7 +242,7 @@ export default function WindowTitlebar() {
           aria-hidden="true"
         />
       )}
-      {!fullscreen && !nativeControls.available && (
+      {!fullscreen && !macOS && !nativeControls.available && (
         <div className="-mt-1 flex h-[35px] shrink-0 items-stretch" data-window-caption-controls="">
           <IconTooltip content={t("app.minimize")} side="bottom">
             <button

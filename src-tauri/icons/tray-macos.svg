@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="95 108 330 310" width="44" height="44">
+  <!-- Original BAAS rectangle geometry; holes and canvas stay transparent. -->
+  <g fill="#fff" fill-rule="evenodd">
+    <path d="M115 126H313V324H115Z M141 152H211V163H263V152H288V299H141Z"/>
+    <path d="M241 186H405V350H241Z M258 203H388V333H258Z"/>
+    <path d="M161 282H277V398H161Z M173 294H265V386H173Z"/>
+    <path d="M328 139H387V176H328Z M342 154H374V161H342Z"/>
+  </g>
+</svg>

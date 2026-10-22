@@ -16,7 +16,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useModalFocus } from "@/components/ui/Modal";
 import { createPortal } from "react-dom";
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
-import { normalizeTransportMode, supportsSharedMemory } from "@/transport/factory";
+import { isMacOS, normalizeTransportMode, supportsSharedMemory } from "@/transport/factory";
 
 type Channel = "stable" | "dev";
 type Transport = "websocket" | "pipe" | "shm";
@@ -70,7 +70,9 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
   const { t } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  const autoEnterAfterInstall = useUISetting((settings) => settings.autoEnterAfterInstall !== false);
+  const autoEnterAfterInstall = useUISetting(
+    (settings) => settings.autoEnterAfterInstall !== false
+  );
   const setUISettings = useSetUISettings();
   const [cdkInput, setCdkInput] = useState(setupMirrorcCdk(props.config));
   const [validating, setValidating] = useState(false);
@@ -91,7 +93,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   const channel = props.config?.general?.channel ?? "stable";
   const noUpdate = setupNoUpdate(props.config);
-  const transport = props.config?.general?.transport ?? normalizeTransportMode(undefined);
+  const transport = normalizeTransportMode(props.config?.general?.transport);
 
   const patchGeneral = (patch: Partial<NonNullable<UpdaterConfig["general"]>>) => {
     props.setConfig({
@@ -242,7 +244,7 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
               onChange={(value) => patchGeneral({ transport: value as Transport })}
               options={[
                 { value: "websocket", label: t("transport.websocket") },
-                { value: "pipe", label: t("transport.pipe") },
+                ...(!isMacOS ? [{ value: "pipe", label: t("transport.pipe") }] : []),
                 ...(supportsSharedMemory() ? [{ value: "shm", label: t("transport.shm") }] : []),
               ]}
             />
