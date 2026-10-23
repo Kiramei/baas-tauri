@@ -2,6 +2,8 @@
 
 This directory contains the Fumadocs documentation site for BAAS Tauri.
 
+[中文文档](https://baas.kiramei.moe/docs/zh/) · [English documentation](https://baas.kiramei.moe/docs/en/)
+
 ```bash
 bun install
 bun run dev
@@ -27,10 +29,12 @@ Screenshot rule: identify the screenshot's actual UI before using it. Do not ins
 
 ## Current refresh
 
-`refresh-audit.md` tracks the complete dev/Android refresh, including unfinished
-requirements. `docs/dev-refresh` is based on desktop `dev`; Git cannot also have
-a `dev/docs` branch while the `dev` ref exists. Keep application edits in their
-own worktrees.
+`refresh-audit.md` records documentation changes and validation limits.
+Documentation development is integrated into desktop `dev`; `main` publishes
+the site. Native Android work and its
+[handoff](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md)
+are maintained separately on `android-dev`. Android runtime acceptance remains
+incomplete.
 
 The `/` and `/docs/` entries use a saved language choice, then browser languages,
 with English fallback. Explicit localized URLs retain their language. Relative
