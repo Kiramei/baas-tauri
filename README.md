@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img alt="BAAS icon" height="64" src="docs/public/baas-icon.png" width="64" />
+  <img alt="BAAS icon" height="64" src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/baas-icon.webp" width="64" />
 
   <h1>BAAS Tauri App</h1>
 
@@ -17,50 +17,28 @@
   <p>
     <a href="README_zh.md"><kbd>Chinese README</kbd></a>
     <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>Download</kbd></a>
-    <a href="https://kiramei.cn/baas-tauri"><kbd>Documentation</kbd></a>
+    <a href="https://baas.kiramei.moe/docs/en/"><kbd>Documentation</kbd></a>
     <a href="LICENSE"><kbd>License</kbd></a>
   </p>
 
 </div>
 
-| Light Mode                                                                                | Dark Mode                                                                               |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| <img src="docs/public/en/home-light-logs.png" alt="BAAS Tauri home page in light mode" /> | <img src="docs/public/en/home-dark-logs.png" alt="BAAS Tauri home page in dark mode" /> |
+## Native Android Status
+
+This is the [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev)
+branch. Android runtime work is on hold; game startup and native preview still
+have unresolved blackouts and stalls and have not passed release acceptance.
+See the [Android handoff](docs/ANDROID_PREVIEW_HANDOFF.md) for changes, historical
+test results and remaining failures. Desktop development and current
+documentation are maintained on [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev).
+
+<img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-list.webp" alt="BAAS Tauri desktop task scheduler" />
 
 ---
 
 ## 🚀 Overview
 
-BAAS Tauri is the desktop control client for [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script). It turns the BAAS backend into a daily-use desktop workbench: profile management, scheduling, feature configuration, runtime logs, remote emulator display, updater controls, and web documentation all live in one app.
-
-The boundary is intentional:
-
-- **Tauri orchestrates** profiles, task settings, UI state, logs, update choices, and documentation.
-- **The backend executes** ADB connection, screenshots, recognition, emulator control, task execution, and state synchronization.
-
-```text
-✨ Multi-profile orchestration for different accounts, servers, and emulator instances
-⚡ Real-time task queue, status cards, assets, and log streaming
-🧩 Independent configuration panels for every automation domain
-📺 Remote emulator display with decoder and stream tuning controls
-🌐 Multilingual application UI with maintained Chinese and English documentation
-📚 Fumadocs documentation site, available in-app and as a detached Tauri window
-```
-
-## 🧭 Runtime Flow
-
-```mermaid
-flowchart LR
-  User["User / Profile"] --> Client["BAAS Tauri"]
-  Client --> Scheduler["Scheduler"]
-  Client --> Config["Feature Configuration"]
-  Client --> Logs["Logs & Remote Display"]
-  Scheduler --> Backend["BAAS Backend"]
-  Config --> Backend
-  Backend --> ADB["ADB / Emulator"]
-  Backend --> Game["Blue Archive"]
-  Backend --> Client
-```
+BAAS Tauri is a client for [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script). It manages profiles, scheduling, feature settings, logs, updates and remote device display. The BAAS backend handles device connections, recognition and task execution.
 
 ## 🧩 What It Controls
 
@@ -75,13 +53,13 @@ flowchart LR
 
 ## 🖼️ Screenshots
 
-| Scheduler                                                                                                          | Feature Configuration                                                                        |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| <img src="docs/public/en/scheduler-overview.png" alt="Scheduler overview with inactive and active task columns" /> | <img src="docs/public/en/configuration-overview.png" alt="Feature configuration overview" /> |
+| Desktop Scheduler Workflow | Desktop Feature Configuration |
+| -------------------------- | ----------------------------- |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-workflow.webp" alt="Desktop task dependency workflow" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/config-cafe.webp" alt="Desktop cafe feature configuration" /> |
 
-| Remote Emulator                                                                             | Settings and Updates                                                                           |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| <img src="docs/public/en/remote-display-player.png" alt="Remote emulator display player" /> | <img src="docs/public/en/settings-version-overview.png" alt="Settings and version overview" /> |
+| Desktop Runtime and Transport | Desktop Settings and Updates |
+| ----------------------------- | ---------------------------- |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-runtime.webp" alt="Desktop runtime and connection settings" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-updates.webp" alt="Desktop update settings" /> |
 
 ## 📥 Download
 
@@ -108,32 +86,20 @@ The documentation site also includes a dynamic download panel that reads the lat
 | Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                             |
 | Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.      |
 | State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                  |
-| Realtime      | SecureWebSocket                               | Authenticated channels for provider, sync, trigger, heartbeat, and remote display.   |
+| Realtime      | Shared memory, Pipe, WebSocket                | Native transport selection depends on the platform; WebUI uses authenticated WebSocket. |
 | UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.               |
 | Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
 
 ## 📚 Documentation Site
 
-The documentation site lives in `docs/` and is built as a separate Fumadocs/Next.js app.
+[English documentation](https://baas.kiramei.moe/docs/en/) · [中文文档](https://baas.kiramei.moe/docs/zh/)
 
-```bash
-cd docs
-bun install
-bun run dev
-bun run build
-```
+Current Fumadocs/Next.js sources and local preview instructions are maintained
+in [`dev/docs`](https://github.com/Kiramei/baas-tauri/tree/dev/docs) and its
+[README](https://github.com/Kiramei/baas-tauri/blob/dev/docs/README.md).
 
-| Language | Local URL                        |
-| -------- | -------------------------------- |
-| Chinese  | `http://localhost:3000/docs/zh/` |
-| English  | `http://localhost:3000/docs/en/` |
-
-Documentation policy:
-
-- Only Chinese and English documentation are maintained.
-- Other in-app documentation languages fall back to English.
-- Screenshots are named by visible content under `docs/public/cn` and `docs/public/en`.
-- GitHub Pages deployment is handled by `.github/workflows/wiki-pages.yml`.
+Custom deployments can set `VITE_BAAS_DOCS_URL` at build time.
+`VITE_BAAS_WIKI_URL` remains the legacy fallback.
 
 ## 🛠️ Development
 
@@ -147,7 +113,7 @@ Prerequisites:
 ### Quick Start
 
 ```bash
-bun install
+bun install --frozen-lockfile
 
 # Development
 bun run tauri dev
@@ -198,17 +164,17 @@ bun run i18n:check
 baas-tauri/
 |-- src/                    # React client
 |-- src-tauri/              # Tauri 2 Rust shell, commands, windows, capabilities
-|-- public/                 # application assets, fonts, locales, compatibility docs
+|-- public/                 # application assets, fonts and locales
 |-- docs/                   # Fumadocs documentation site
 |-- scripts/                # packaging, updater, font, and maintenance scripts
 `-- .github/workflows/      # release and documentation deployment workflows
 ```
 
-## 📖 Documentation
+## Development Branches
 
-Choose **Help → Documentation** in the desktop titlebar to open the documentation site in your system's default browser.
-
-The app no longer embeds a Wiki page. The standalone Fumadocs site remains in `docs/` and retains its existing deployment workflow.
+- [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev): desktop, WebUI and documentation development.
+- [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev): native Android work and the [handoff](docs/ANDROID_PREVIEW_HANDOFF.md).
+- [`main`](https://github.com/Kiramei/baas-tauri/tree/main): release line and published documentation.
 
 ## License
 
