@@ -1,3 +1,5 @@
+import { showcaseMedia } from "./showcase-media.mjs";
+
 const sourceMarker = "/content/docs/";
 
 export function resolveDocLink(href, sourcePath, basePath = "") {
@@ -23,7 +25,7 @@ export function remarkDocLinks() {
     const sourcePath = normalized.slice(marker + sourceMarker.length);
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
     const prefixAsset = (value) =>
-      value.startsWith("/") && !value.startsWith("//") ? `${basePath}${value}` : value;
+      value.startsWith("/") && !value.startsWith("//") ? `${basePath}${showcaseMedia(value)}` : value;
     // Fumadocs anchors use Next Link, which applies basePath; media URLs need it explicitly.
     function visit(node) {
       if (node.type === "link" || node.type === "definition")

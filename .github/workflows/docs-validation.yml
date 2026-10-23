@@ -73,6 +73,11 @@ jobs:
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
         run: node docs/scripts/check-client-api.mjs --channel chromium
+      - name: Check desktop showcase images and playback
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+          DOCS_BROWSER_CHANNEL: chromium
+        run: node docs/scripts/check-showcase.mjs
       - name: Check search cache and reload recovery
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright

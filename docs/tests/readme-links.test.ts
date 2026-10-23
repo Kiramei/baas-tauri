@@ -55,7 +55,7 @@ test("both READMEs use existing localized WebP images bound to publication prove
       const bytes = readFileSync(new URL(image.url, root));
       expect(createHash("sha256").update(bytes).digest("hex")).toBe(record!.sha256);
       expect(record!.changedVisiblePixels).toBe(0);
-      if (image.url.includes("/media/")) expect(image.url).toContain(`/media/desktop/${locale}/`);
+      if (image.url.includes("/media/")) expect(image.url).toContain(`/media/desktop/${locale}/dark/`);
     }
     for (const ref of refs) {
       if (/^(https?:|mailto:|#)/.test(ref.url)) continue;

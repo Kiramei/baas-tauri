@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-22T15:15:01.1323237Z",
+  "checkedAt": "2026-10-23T11:24:12.3208694Z",
   "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
-  "imageFiles": 285,
-  "decodedFrames": 419,
+  "imageFiles": 470,
+  "decodedFrames": 621,
   "decodingFailures": 0,
   "unresolvedPatternFindings": 0,
-  "inventorySha256": "ad92b073bbf8fbc002a41b73b5871c2eb3510deaacc8f94421381cc01ea35921",
+  "inventorySha256": "63a87436bbba5f8201019320c594787abee0c60882aca231fade19d911fe7101",
   "reviewedFindings": [
     {
       "file": "media/desktop/en/config-emulator.webp",
@@ -14,8 +14,20 @@
       "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
     },
     {
+      "file": "media/desktop/en/dark/config-emulator.webp",
+      "sha256": "aca76d4740d10d2c05ca315e80d0339847d2b6bd412ad99becfe9fffa8f8a3c2",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
       "file": "media/desktop/zh/config-emulator.webp",
       "sha256": "f90599138b121e9fe95386ccaf627ed48f776864dfbeefdfe34e4b5645f46be7",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/zh/dark/config-emulator.webp",
+      "sha256": "ada5038800483066823657ddf1959e937dbd688c18beb9dcf8f3d2b6574f0326",
       "category": "generic-path-placeholder",
       "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
     }
@@ -32,9 +44,9 @@
   "publicationReviewComplete": false,
   "pendingVisualFindings": [],
   "webpPublication": {
-    "manifestSha256": "e0fc8d0e6cc2ff9a0733560ca70d67361c32c6acb6dbb1990eef1a9bc1c28065",
-    "files": 285,
-    "decodedFrames": 419,
+    "manifestSha256": "c47441e35fe40bd15fd024db7c7beee3956990022d6b3a767ec51c3ca65f70bb",
+    "files": 470,
+    "decodedFrames": 621,
     "method": "Lossless local WebP encoding of already reviewed/blurred assets; visible decoded RGBA pixels, frame counts, delays and loop counts verified unchanged. Hidden RGB under zero alpha is canonicalized only for comparison and changes are counted separately. This is a publication transform, not a new capture or benchmark run."
   },
   "redaction": "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",

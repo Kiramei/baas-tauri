@@ -3,10 +3,12 @@ import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const target = captureTarget(root);
 const base = JSON.parse(readFileSync(path.join(root, "docs/public/media/desktop/manifest.json")));
 const dictionaries = Object.fromEntries(
   ["en", "zh"].map((locale) => [
@@ -49,13 +51,13 @@ async function capture(state) {
   await page.waitForTimeout(250);
   assert.equal(
     await page.evaluate(() => document.documentElement.classList.contains("dark")),
-    false
+    target.theme === "dark"
   );
   const file = "media/desktop/" + locale + "/details-" + state + ".png";
-  const destination = path.join(root, "docs/public", file);
+  const destination = path.join(target.publicRoot, file);
   mkdirSync(path.dirname(destination), { recursive: true });
   await page.screenshot({ path: destination });
-  shots.push({ file, locale, state, theme: "light", native: true });
+  shots.push({ file, locale, state, theme: target.theme, native: true });
   console.log(locale + "/" + state);
 }
 async function profileMenu() {
@@ -64,6 +66,7 @@ async function profileMenu() {
   await page.getByRole("menu", { name: "Schale Demo", exact: true }).waitFor();
 }
 try {
+  await target.verify(page);
   await page.keyboard.press("Escape");
   await page
     .getByRole("button", { name: /^Schale Demo / })
@@ -84,8 +87,10 @@ try {
     await settings("appearance");
     await page
       .getByRole("group", { name: t("common.theme"), exact: true })
-      .getByRole("button", { name: t("common.theme.light"), exact: true })
+      .getByRole("button", { name: t(`common.theme.${target.theme}`), exact: true })
       .click();
+    const assets = page.getByRole("switch", { name: t("settings.ui.assets"), exact: true });
+    if ((await assets.getAttribute("aria-checked")) === "true") await assets.click();
     await button(t("nav.home")).click();
     assert.equal(await button(t("common.stop")).count(), 0, "Capture profile must not be running");
     await capture("home");
@@ -190,14 +195,14 @@ try {
   const evidence = {
     capturedAt: new Date().toISOString(),
     sourceRevision: base.sourceRevision,
-    mode: "Isolated real native desktop release and real backend; light mode; Schale Demo scheduler stopped",
+    mode: `Isolated real native desktop release and real backend; ${target.theme} mode; Schale Demo scheduler stopped`,
     scope:
       "Read-only dialogs plus rejected/cancelled UI input. No profiles created/deleted, no logs cleared, no task execution or updater applied.",
     verified,
     shots,
   };
   writeFileSync(
-    path.join(root, "docs/public/media/desktop/workspaces-manifest.json"),
+    path.join(target.publicRoot, "media/desktop/workspaces-manifest.json"),
     JSON.stringify(evidence, null, 2) + "\n"
   );
 } finally {

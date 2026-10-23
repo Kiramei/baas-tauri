@@ -3,10 +3,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const target = captureTarget(repo);
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${process.argv[2] || "19230"}`);
 const page = browser
   .contexts()
@@ -30,6 +32,7 @@ const t = (key) => {
 };
 const results = [];
 try {
+  await target.verify(page);
   for (const next of ["en", "zh"]) {
     await page
       .getByRole("button", { name: t("nav.settings"), exact: true })
@@ -55,13 +58,17 @@ try {
       .click();
     const assets = page.getByRole("switch", { name: t("settings.ui.assets"), exact: true });
     if ((await assets.getAttribute("aria-checked")) === "true") await assets.click();
+    await page.getByRole("group", { name: t("common.theme"), exact: true })
+      .getByRole("button", { name: t(`common.theme.${target.theme}`), exact: true }).click();
+    if (!(await page.evaluate(theme => document.documentElement.classList.contains(theme), target.theme)))
+      throw new Error("Unexpected application capture theme");
     await page
       .getByRole("button", { name: t("nav.home"), exact: true })
       .filter({ visible: true })
       .click();
     await page.waitForTimeout(300);
     await page.screenshot({
-      path: path.join(repo, `docs/public/media/desktop/${locale}/workspace.png`),
+      path: path.join(target.publicRoot, `media/desktop/${locale}/workspace.png`),
     });
     await page
       .getByRole("button", { name: t("nav.configuration"), exact: true })
@@ -104,7 +111,7 @@ try {
     await record(10);
     if ((await control.getAttribute("aria-checked")) !== initial)
       throw new Error("Undo did not restore the captured value");
-    const output = path.join(repo, `docs/public/media/desktop/${locale}/configuration-undo.gif`);
+    const output = path.join(target.publicRoot, `media/desktop/${locale}/configuration-undo.gif`);
     execFileSync(
       process.env.DOCS_PYTHON || "python",
       ["docs/scripts/encode-demo.py", frames, output],
@@ -114,7 +121,7 @@ try {
       file: `media/desktop/${locale}/configuration-undo.gif`,
       locale,
       native: true,
-      theme: "light",
+      theme: target.theme,
       runtimeOverviewAssetsShown: false,
       actions: [
         "toggle collect rewards",
@@ -127,7 +134,7 @@ try {
     console.log(`${locale}: GIF recorded`);
   }
   writeFileSync(
-    path.join(repo, "docs/evidence/recordings.json"),
+    path.join(target.evidenceRoot, "recordings.json"),
     `${JSON.stringify({ recordedAt: new Date().toISOString(), results }, null, 2)}\n`
   );
 } finally {

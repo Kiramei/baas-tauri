@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T16:44:07.821Z",
+  "checkedAt": "2026-10-23T11:25:06.850Z",
   "cases": 8,
   "failures": 0,
   "nativeCommandsExecuted": false,
@@ -20,7 +20,7 @@
     "src-tauri/src/lib.rs": "10be298e98770b8f953ab586bc4363acc7819e3fa57bf60cf989c86e6b1ea958",
     "src-tauri/src/commands.rs": "8eb60d17de985e7e2c401ff631ff9a22299aa04e83294e36de21eaac01d8303d",
     "src-tauri/src/mobile_commands.rs": "31e89ce0950f7cbed756b6170128c3ece588606735dcdf5fa90f12896d327224",
-    ".github/workflows/docs-validation.yml": "941d26f16f177bb0b2d888afc28c8a5e459f78c472866f0cd1b17d418a1c6b1e",
+    ".github/workflows/docs-validation.yml": "eb259a914aae16518e4b5369ab0319b4ae6f6b5bad9173c3e521e250bc524863",
     "docs/content/docs/en/reference/client-api.mdx": "257adedcc36fce1b73338ddd0726759463e0cd1a189e26d2042359ee938b8a23",
     "docs/content/docs/zh/reference/client-api.mdx": "fbcdd0e37de6ac7865eec1624130d5725465c59f15629350b4137ac6e95a4c93"
   },

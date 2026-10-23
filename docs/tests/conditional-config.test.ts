@@ -27,7 +27,7 @@ for (const platform of ["desktop", "android"]) {
     expect(report.demoEventsUnchanged).toBe(true);
     expect(report.protectedProfilesUnchanged).toBe(true);
     expect(report.restoredFieldsSha256).toBe(report.originalFieldsSha256);
-    expect(report.captureScriptSha256).toBe(digest(read("docs/scripts/capture-conditional-config.mjs")));
+    expect(report.captureScriptSha256).toBe(digest(read("docs/evidence/capture-scripts/conditional-20261020.mjs")));
     const proof = platform === "desktop"
       ? json("docs/public/media/desktop/installer-manifest.json")
       : json("docs/evidence/android-x86-provenance.json");

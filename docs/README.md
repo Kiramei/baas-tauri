@@ -109,6 +109,15 @@ using them on another environment. Capture manifests distinguish verified
 installation/navigation from unverified game execution. The current ARM64 ABI
 failure and fresh matching x86_64 build are recorded separately under `evidence/`.
 
+Desktop capture scripts require `DOCS_CAPTURE_RUNTIME` to identify the disposable
+backend. They verify its portable storage path, executable hash and disabled demo
+tasks. `DOCS_CAPTURE_THEME` defaults to `dark`; `DOCS_CAPTURE_OUTPUT` stages
+captures under the checkout's ignored `.cache/` directory. Historical public
+capture manifests are not overwritten. `scripts/publish-showcase.mjs` publishes
+reviewed captures as lossless WebP with a separate manifest and display mapping.
+`scripts/check-showcase.mjs` checks exported image references and both document
+themes, languages and viewport sizes.
+
 `scripts/capture-workspaces.mjs 19230` records actual profile/settings/log dialogs
 in the isolated desktop demo without confirming destructive operations or saving
 new hotkeys. The actual global shortcut recorder temporarily suspends/restores
@@ -121,8 +130,7 @@ coverage, not backend behavior or the semantic accuracy of every paragraph.
 
 `scripts/record-workspace.mjs` records a real configuration toggle and undo;
 `scripts/encode-demo.py` requires Pillow to encode those frames. The website
-starts on a still frame and lets readers start/stop the GIF. Published app
-captures use light mode; docs remain independently light/dark.
+starts on a still frame and lets readers start/stop the animated WebP.
 
 Reproduce the frontend microbenchmarks with
 `bun docs/scripts/measure-frontend.ts` from the repository root. Preserve the raw
