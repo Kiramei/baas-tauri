@@ -5,11 +5,15 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const [platform, port, runtimeArgument, python, serial] = process.argv.slice(2);
+const target = platform === "desktop" ? captureTarget(root) : null;
+const theme = target?.theme ?? "light";
+const publicRoot = target?.publicRoot ?? path.join(root, "docs/public");
 assert.ok(["desktop", "android"].includes(platform) && port && runtimeArgument && python,
   "Usage: capture-conditional-config.mjs PLATFORM CDP_PORT DISPOSABLE_BACKEND PYTHON [ADB_SERIAL]");
 const runtime = realpathSync(runtimeArgument);
@@ -51,7 +55,8 @@ const report = { capturedAt: new Date().toISOString(), platform,
   executableOrApkSha256: platform === "desktop" ? desktopProof.executableSha256 : androidProof.apkSha256.toLowerCase(),
   scope: "Actual native UI with reversible demo configuration edits; no game input or scheduler execution",
   shots: [], checks: [], recordings: [], scenariosCompleted: false, restored: false };
-const destination = path.join(root, "docs/public/media", platform, "conditional-manifest.json");
+const destination = path.join(publicRoot, "media", platform, "conditional-manifest.json");
+mkdirSync(path.dirname(destination), { recursive: true });
 const cache = path.join(root, ".cache/docs-conditional", platform + "-" + randomUUID());
 mkdirSync(cache, { recursive: true });
 const save = () => writeFileSync(destination, JSON.stringify(report, null, 2) + "\n");
@@ -177,7 +182,7 @@ async function seed(values) {
 
 async function imageBytes() {
   await page.evaluate(() => document.fonts.ready);
-  assert.equal(await page.evaluate(() => document.documentElement.classList.contains("dark")), false);
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains("dark")), theme === "dark");
   assert.equal(await page.evaluate(() => document.visibilityState), "visible");
   await page.waitForTimeout(180);
   const privateExpression = /[a-z]:[\\/]|baas-shm-[a-f0-9-]+|\b(?:password|token|secret|cdk)\s*[=:]\s*\S+/i;
@@ -221,8 +226,8 @@ async function capture(state) {
   await page.mouse.move(20, 45);
   const file = `media/${platform}/${locale}/conditional-${state}.png`;
   const png = await imageBytes();
-  writeFileSync(path.join(root, "docs/public", file), png);
-  report.shots.push({ file, locale, state, native: true, theme: "light", sha256: digest(png),
+  writeFileSync(path.join(publicRoot, file), png);
+  report.shots.push({ file, locale, state, native: true, theme, sha256: digest(png),
     width: png.readUInt32BE(16), height: png.readUInt32BE(20),
     region: platform === "desktop" ? "Visible configuration panel / active native modal" : "Native viewport / active native modal",
     privacy: "Demo data; sensitive path/IPC/credential text receives a temporary local 12px blur baked into PNG pixels" });
@@ -311,8 +316,8 @@ async function recordPriority(list) {
   await waitFields({ createPriority_phase2: list });
   await record(5);
   const file = `media/desktop/${locale}/conditional-priority-reorder.gif`;
-  execFileSync(python, [path.join(root, "docs/scripts/encode-demo.py"), frames, path.join(root, "docs/public", file)], { windowsHide: true });
-  report.recordings.push({ file, locale, native: true, theme: "light", sha256: digest(readFileSync(path.join(root, "docs/public", file))),
+  execFileSync(python, [path.join(root, "docs/scripts/encode-demo.py"), frames, path.join(publicRoot, file)], { windowsHide: true });
+  report.recordings.push({ file, locale, native: true, theme, sha256: digest(readFileSync(path.join(publicRoot, file))),
     frames: index, actions: ["pick up handle", "preview a new position", "commit", "automatic save", "undo and verify original order"],
     playbackFrameMs: 160, gameInputSent: false });
 }
@@ -502,6 +507,7 @@ async function exploration() {
 
 try {
   if (platform === "desktop") {
+    await target.verify(page);
     assert.equal(digest(readFileSync(path.join(runtime, "baas-tauri.exe"))), desktopProof.executableSha256);
     const storage = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("updater_get_storage_state"));
     assert.equal(storage.portable, true);
@@ -525,7 +531,7 @@ try {
     await setLocale(next);
     await category("settings.sections.appearance", "settings");
     await page.getByRole("group", { name: t("common.theme"), exact: true })
-      .getByRole("button", { name: t("common.theme.light"), exact: true }).click();
+      .getByRole("button", { name: t(`common.theme.${theme}`), exact: true }).click();
     await home();
     await page.reload();
     await attachStore();

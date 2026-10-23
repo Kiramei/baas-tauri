@@ -1,13 +1,14 @@
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CONFIGURATION_SECTIONS } from "../../src/shared/ConfigurationSections.ts";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const target = captureTarget(repo);
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${process.argv[2] || "19230"}`);
 const page = browser
   .contexts()
@@ -39,17 +40,17 @@ async function capture(name) {
   await page.evaluate(() => document.fonts.ready);
   await page.mouse.move(1100, 42);
   await page.waitForTimeout(350);
-  if (await page.evaluate(() => document.documentElement.classList.contains("dark")))
-    throw new Error("Documentation app captures must use light mode");
+  if (!(await page.evaluate(theme => document.documentElement.classList.contains(theme), target.theme)))
+    throw new Error("Capture theme does not match the selected application theme");
   const relative = `media/desktop/${locale}/${name}.png`;
-  const destination = path.join(repo, "docs/public", relative);
+  const destination = path.join(target.publicRoot, relative);
   mkdirSync(path.dirname(destination), { recursive: true });
   await page.screenshot({ path: destination });
   shots.push({
     file: relative,
     locale,
     state: name,
-    theme: "light",
+    theme: target.theme,
     native: true,
     width: await page.evaluate(() => innerWidth),
     height: await page.evaluate(() => innerHeight),
@@ -109,6 +110,7 @@ async function settings(section) {
     .click();
 }
 try {
+  await target.verify(page);
   await page.getByRole("button", { name: /^Schale Demo / }).click();
   for (const nextLocale of ["en", "zh"]) {
     await settings("general");
@@ -128,7 +130,7 @@ try {
     await settings("appearance");
     await page
       .getByRole("group", { name: t("common.theme"), exact: true })
-      .getByRole("button", { name: t("common.theme.light"), exact: true })
+      .getByRole("button", { name: t(`common.theme.${target.theme}`), exact: true })
       .click();
     await page
       .getByRole("button", { name: t("nav.home"), exact: true })
@@ -170,21 +172,17 @@ try {
   }
   const manifest = {
     capturedAt: new Date().toISOString(),
-    sourceRevision: execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: repo,
-      encoding: "utf8",
-      windowsHide: true,
-    }).trim(),
+    sourceRevision: target.sourceRevision,
     mode: "Native Tauri release build with isolated real backend; demo profiles; all demo tasks disabled. UI inspection does not prove game-task execution.",
     shots,
   };
   writeFileSync(
-    path.join(repo, "docs/public/media/desktop/manifest.json"),
+    path.join(target.publicRoot, "media/desktop/manifest.json"),
     `${JSON.stringify(manifest, null, 2)}\n`
   );
-  mkdirSync(path.join(repo, "docs/evidence"), { recursive: true });
+  mkdirSync(target.evidenceRoot, { recursive: true });
   writeFileSync(
-    path.join(repo, "docs/evidence/desktop-controls.json"),
+    path.join(target.evidenceRoot, "desktop-controls.json"),
     `${JSON.stringify({ sourceRevision: manifest.sourceRevision, capturedAt: manifest.capturedAt, note: "Observed control labels/descriptions and HTML constraints; conditional options and behavior still require source review.", controls }, null, 2)}\n`
   );
 } finally {

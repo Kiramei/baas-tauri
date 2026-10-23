@@ -3,10 +3,12 @@ import { createRequire } from "node:module";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const target = captureTarget(root);
 const base = JSON.parse(readFileSync(path.join(root, "docs/public/media/desktop/manifest.json")));
 const dictionaries = Object.fromEntries(
   ["en", "zh"].map((locale) => [
@@ -40,16 +42,18 @@ async function capture(state) {
   await page.evaluate(() => document.fonts.ready);
   assert.equal(
     await page.evaluate(() => document.documentElement.classList.contains("dark")),
-    false
+    target.theme === "dark"
   );
   await page.mouse.move(1400, 42);
   await page.waitForTimeout(250);
   const file = "media/desktop/" + locale + "/details-remote-" + state + ".png";
-  await page.screenshot({ path: path.join(root, "docs/public", file) });
-  shots.push({ file, locale, state, theme: "light", native: true });
+  await page.screenshot({ path: path.join(target.publicRoot, file) });
+  shots.push({ file, locale, state, theme: target.theme, native: true });
   console.log(locale + "/remote-" + state);
 }
 try {
+  await target.verify(page);
+  await page.setViewportSize({ width: 1600, height: 1000 });
   await page.keyboard.press("Escape");
   await button(t("nav.home")).click();
   assert.equal(await button(t("common.stop")).count(), 0);
@@ -75,6 +79,10 @@ try {
         .click();
       locale = nextLocale;
     }
+    await page.getByRole("navigation", { name: t("settings.categories"), exact: true })
+      .getByRole("button", { name: t("settings.sections.appearance"), exact: true }).click();
+    await page.getByRole("group", { name: t("common.theme"), exact: true })
+      .getByRole("button", { name: t(`common.theme.${target.theme}`), exact: true }).click();
     await button(t("nav.home")).click();
     await button(t("remote.emulator")).click();
     await page.waitForFunction(() => {
@@ -118,15 +126,18 @@ try {
     assert.equal(await dialog.locator("video").count(), 1);
     await capture("enlarged");
     await dialog.getByRole("button", { name: t("remote.advanced"), exact: true }).click();
+    await page.waitForTimeout(400);
     await dialog
       .getByRole("button", { name: t("remote.saveAndApply"), exact: true })
       .scrollIntoViewIfNeeded();
+    const saveBounds = await dialog.getByRole("button", { name: t("remote.saveAndApply"), exact: true }).boundingBox();
+    assert.ok(saveBounds && saveBounds.y + saveBounds.height <= await page.evaluate(() => innerHeight));
     await capture("advanced");
     await dialog.getByRole("button", { name: t("common.close"), exact: true }).click();
     await button(t("remote.emulator")).click();
   }
   writeFileSync(
-    path.join(root, "docs/public/media/desktop/remote-manifest.json"),
+    path.join(target.publicRoot, "media/desktop/remote-manifest.json"),
     JSON.stringify(
       {
         capturedAt: new Date().toISOString(),

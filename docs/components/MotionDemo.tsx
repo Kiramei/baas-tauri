@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pause, Play } from "lucide-react";
+import { showcaseMedia } from "@/lib/showcase-media.mjs";
 
 export function MotionDemo({
   locale,
@@ -27,15 +28,15 @@ export function MotionDemo({
     <figure className="baas-motion-demo">
       <img
         className="baas-screenshot"
-        src={`${base}/media/desktop/${locale}/${playing ? animated : still}`}
+        src={`${base}${showcaseMedia(`/media/desktop/${locale}/${playing ? animated : still}`)}`}
         alt={
           priority
             ? zh
               ? "制造优先级：拿起首个节点、下移、提交，再撤销恢复顺序"
               : "Crafting priority: pick up the first node, move down, commit, then undo to restore the order"
             : zh
-              ? "真实浅色窗口：切换领取收益，等待自动保存，再撤销恢复原值"
-              : "Real light-theme window: toggle Collect rewards, wait for automatic saving, then Undo to restore the original value"
+              ? "切换领取收益，等待自动保存，再撤销恢复原值"
+              : "Toggle Collect rewards, wait for automatic saving, then Undo to restore the original value"
         }
       />
       <figcaption>

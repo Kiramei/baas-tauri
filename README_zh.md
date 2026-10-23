@@ -15,7 +15,7 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 
 ## 界面预览
 
-<img src="docs/public/media/desktop/zh/scheduler-list.webp" alt="BAAS Tauri 任务调度界面" />
+<img src="docs/public/media/desktop/zh/dark/scheduler-list.webp" alt="BAAS Tauri 任务调度界面" />
 
 ## 🧭 它负责什么
 
@@ -32,11 +32,11 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 
 | 调度工作流 | 功能配置 |
 | ---------- | -------- |
-| <img src="docs/public/media/desktop/zh/scheduler-workflow.webp" alt="任务依赖工作流" /> | <img src="docs/public/media/desktop/zh/config-cafe.webp" alt="咖啡厅功能配置" /> |
+| <img src="docs/public/media/desktop/zh/dark/scheduler-workflow.webp" alt="任务依赖工作流" /> | <img src="docs/public/media/desktop/zh/dark/config-cafe.webp" alt="咖啡厅功能配置" /> |
 
 | 运行与连接 | 设置与更新 |
 | ---------- | ---------- |
-| <img src="docs/public/media/desktop/zh/settings-runtime.webp" alt="运行与连接设置" /> | <img src="docs/public/media/desktop/zh/settings-updates.webp" alt="更新设置" /> |
+| <img src="docs/public/media/desktop/zh/dark/settings-runtime.webp" alt="运行与连接设置" /> | <img src="docs/public/media/desktop/zh/dark/settings-updates.webp" alt="更新设置" /> |
 
 ## 📥 下载
 

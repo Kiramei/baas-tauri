@@ -35,6 +35,8 @@ const genericPathExamples = new Map([
     "media/desktop/zh/config-emulator.png",
     "49d968c9f0a16d0274f3123567d61ebf9e3640feb79d14ae8907f21446af96a9",
   ],
+  ["media/desktop/en/dark/config-emulator.png", "55189b1087e7b5b29a29b97b04a05595c6e62170cd8c1d3b3503d8cf20651df9"],
+  ["media/desktop/zh/dark/config-emulator.png", "12b5d03b13cae455d427829cf5e642122a3a21f9e6fd601db0cd763ac5bf581b"],
 ]);
 const knownVisualFindings = [
   {

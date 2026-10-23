@@ -3,11 +3,14 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { captureTarget } from "./capture-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const destination = path.join(root, "docs/public/media/desktop/installer-manifest.json");
+const target = captureTarget(root);
+const destination = path.join(target.publicRoot, "media/desktop/installer-manifest.json");
+mkdirSync(path.dirname(destination), { recursive: true });
 const dictionaries = Object.fromEntries(
   ["en", "zh"].map((locale) => [
     locale,
@@ -49,11 +52,11 @@ async function capture(state, preserveHover = false) {
   if (!preserveHover) await page.mouse.move(1450, 45);
   await page.waitForTimeout(250);
   assert.equal(
-    await page.evaluate(() => document.documentElement.classList.contains("light")),
+    await page.evaluate(theme => document.documentElement.classList.contains(theme), target.theme),
     true
   );
   const file = `media/desktop/${locale}/installer-${state}.png`;
-  mkdirSync(path.dirname(path.join(root, "docs/public", file)), { recursive: true });
+  mkdirSync(path.dirname(path.join(target.publicRoot, file)), { recursive: true });
   const privateFields = [
     page.getByRole("textbox", { name: text("label.installDir"), exact: true }),
     page.locator(".xterm-rows > div").filter({ hasText: privateText }),
@@ -73,7 +76,7 @@ async function capture(state, preserveHover = false) {
             throw new Error("Privacy blur was overridden");
         }
       });
-    await page.screenshot({ path: path.join(root, "docs/public", file) });
+    await page.screenshot({ path: path.join(target.publicRoot, file) });
   } finally {
     await page.locator("[data-docs-private]").evaluateAll((elements) => {
       for (const element of elements) {
@@ -94,7 +97,7 @@ async function capture(state, preserveHover = false) {
     locale,
     state,
     native: true,
-    theme: "light",
+    theme: target.theme,
     portable: true,
     privacy:
       "Native capture applies a temporary 12px blur to the install-path input, terminal rows with local paths/IPC identifiers/credentials, matching structured-log rows and tooltip commands.",
@@ -102,6 +105,7 @@ async function capture(state, preserveHover = false) {
   console.log(locale + "/installer-" + state);
 }
 try {
+  await target.verify(page);
   await page.setViewportSize({ width: 1600, height: 1000 });
   if (scenario === "failed") {
     const existingError = page.getByRole("dialog", { name: "Setup Error", exact: true });
@@ -122,7 +126,7 @@ try {
         })
         .click();
     }
-    await button(text("common.theme.light")).click();
+    await button(text(`common.theme.${target.theme}`)).click();
     const autoEnter = page.getByRole("switch", { name: text("installer.autoEnter"), exact: true });
     if (await autoEnter.isChecked()) await autoEnter.click();
     await capture("advanced");

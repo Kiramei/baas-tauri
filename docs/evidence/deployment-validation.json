@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-22T16:46:58.658Z",
+  "checkedAt": "2026-10-23T11:32:03.590Z",
   "platform": "win32",
   "basePath": "",
   "strictStaticHost": true,
@@ -9,7 +9,7 @@
     "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
     "docs/app/docs/[lang]/layout.tsx": "31f1b8f615678943a5ea3c83e3ac9fdf53dd58321375aa573bdde4dfff58d9e4",
     "docs/app/global.css": "8454a651017fc68e48c01cf6b6a9c4712e9dec77fd2c19d5441e8567aa62fba2",
-    "docs/lib/remark-doc-links.mjs": "b6026467143a20c22fbddd86380e0b7061218b904adcffd82014b30f96030cbb",
+    "docs/lib/remark-doc-links.mjs": "a6cd6384cbdc827010a2ad7bfd1790e9c5ef236995974ff83aa6a7d3c445cf1f",
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
     "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
@@ -27,7 +27,7 @@
     "docs/scripts/normalize-static-export.mjs": "f1dcc41609adb5deb6d096ded587e0cc53eff2dc32b599c61b2ee65b56634dd7",
     "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
     "docs/scripts/check-deployment.mjs": "8254dabf1c1c0cd8f84647014543697e25a0eaf5457b41c0909465d41e55978f",
-    ".github/workflows/docs-validation.yml": "941d26f16f177bb0b2d888afc28c8a5e459f78c472866f0cd1b17d418a1c6b1e"
+    ".github/workflows/docs-validation.yml": "eb259a914aae16518e4b5369ab0319b4ae6f6b5bad9173c3e521e250bc524863"
   },
   "cases": [
     {
@@ -2386,12 +2386,12 @@
     },
     {
       "kind": "search-artifact",
-      "revision": "b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6"
+      "revision": "0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b"
     }
   ],
   "caseCount": 343,
   "failures": [],
-  "searchIndexPath": "search-index/b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6.json",
-  "searchIndexRevision": "b068aa6f1ee94aad440b037483e5579f7fd9934858144f21c0920c2d821072e6",
-  "searchIndexSha256": "9516f748f394b1cf60acdc316dc35d44da32fb6230a15390ddc588e2438b02aa"
+  "searchIndexPath": "search-index/0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b.json",
+  "searchIndexRevision": "0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b",
+  "searchIndexSha256": "92023d01258588d139df7239a80bc956126a513bb635c8ce0341bb03bb16ffa2"
 }

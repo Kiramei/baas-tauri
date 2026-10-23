@@ -23,7 +23,7 @@
 
 </div>
 
-<img src="docs/public/media/desktop/en/scheduler-list.webp" alt="BAAS Tauri task scheduler" />
+<img src="docs/public/media/desktop/en/dark/scheduler-list.webp" alt="BAAS Tauri task scheduler" />
 
 ---
 
@@ -46,11 +46,11 @@ BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto S
 
 | Scheduler Workflow | Feature Configuration |
 | ------------------ | --------------------- |
-| <img src="docs/public/media/desktop/en/scheduler-workflow.webp" alt="Task dependency workflow" /> | <img src="docs/public/media/desktop/en/config-cafe.webp" alt="Cafe feature configuration" /> |
+| <img src="docs/public/media/desktop/en/dark/scheduler-workflow.webp" alt="Task dependency workflow" /> | <img src="docs/public/media/desktop/en/dark/config-cafe.webp" alt="Cafe feature configuration" /> |
 
 | Runtime and Transport | Settings and Updates |
 | --------------------- | -------------------- |
-| <img src="docs/public/media/desktop/en/settings-runtime.webp" alt="Runtime and connection settings" /> | <img src="docs/public/media/desktop/en/settings-updates.webp" alt="Update settings" /> |
+| <img src="docs/public/media/desktop/en/dark/settings-runtime.webp" alt="Runtime and connection settings" /> | <img src="docs/public/media/desktop/en/dark/settings-updates.webp" alt="Update settings" /> |
 
 ## 📥 Download
 
