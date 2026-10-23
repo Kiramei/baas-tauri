@@ -3,6 +3,18 @@ import { mock } from "bun:test";
 
 delete process.env.VITE_BAAS_DOCS_URL;
 delete process.env.VITE_BAAS_WIKI_URL;
+const mode = process.argv[2] || "default";
+let expectedUrl = "https://baas.kiramei.moe";
+if (mode === "docs") {
+  process.env.VITE_BAAS_DOCS_URL = "https://docs.example.test/custom/";
+  process.env.VITE_BAAS_WIKI_URL = "https://legacy.example.test/";
+  expectedUrl = process.env.VITE_BAAS_DOCS_URL;
+} else if (mode === "legacy") {
+  process.env.VITE_BAAS_WIKI_URL = "https://legacy.example.test/";
+  expectedUrl = process.env.VITE_BAAS_WIKI_URL;
+} else {
+  assert.equal(mode, "default");
+}
 const browserCalls: unknown[][] = [];
 const nativeCalls: string[] = [];
 const nativeState: { failure?: Error } = {};
@@ -20,7 +32,7 @@ mock.module("@tauri-apps/plugin-opener", () => ({
   },
 }));
 const { DOCUMENTATION_URL, openDocumentation } = await import("../../../src/shared/Documentation");
-assert.equal(DOCUMENTATION_URL, "https://baas.kiramei.cn");
+assert.equal(DOCUMENTATION_URL, expectedUrl);
 
 const webOpening = openDocumentation();
 // Browser opening must happen during the click's user activation, before any await.
