@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img alt="BAAS icon" height="64" src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/baas-icon.webp" width="64" />
+  <img alt="BAAS icon" height="64" src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/baas-icon.webp" width="64" />
 
   <h1>BAAS Tauri App</h1>
 
@@ -32,7 +32,7 @@ See the [Android handoff](docs/ANDROID_PREVIEW_HANDOFF.md) for changes, historic
 test results and remaining failures. Desktop development and current
 documentation are maintained on [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev).
 
-<img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-list.webp" alt="BAAS Tauri desktop task scheduler" />
+<img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/en/dark/scheduler-list.webp" alt="BAAS Tauri desktop task scheduler" />
 
 ---
 
@@ -55,11 +55,11 @@ BAAS Tauri is a client for [Blue Archive Auto Script](https://github.com/pur1fyi
 
 | Desktop Scheduler Workflow | Desktop Feature Configuration |
 | -------------------------- | ----------------------------- |
-| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-workflow.webp" alt="Desktop task dependency workflow" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/config-cafe.webp" alt="Desktop cafe feature configuration" /> |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/en/dark/scheduler-workflow.webp" alt="Desktop task dependency workflow" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/en/dark/config-cafe.webp" alt="Desktop cafe feature configuration" /> |
 
 | Desktop Runtime and Transport | Desktop Settings and Updates |
 | ----------------------------- | ---------------------------- |
-| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-runtime.webp" alt="Desktop runtime and connection settings" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-updates.webp" alt="Desktop update settings" /> |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/en/dark/settings-runtime.webp" alt="Desktop runtime and connection settings" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/en/dark/settings-updates.webp" alt="Desktop update settings" /> |
 
 ## 📥 Download
 

@@ -15,12 +15,12 @@ Android 运行时工作暂缓，游戏启动和原生预览仍有黑屏、停顿
 BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script) 的客户端，可管理配置档、调度、功能配置、日志、更新和远程设备画面。设备连接、识别与任务执行由 BAAS 后端完成。
 
 <p>
-  <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/baas-icon.webp" width="72" alt="BAAS 图标" />
+  <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/baas-icon.webp" width="72" alt="BAAS 图标" />
 </p>
 
 ## 桌面端界面预览
 
-<img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/scheduler-list.webp" alt="BAAS Tauri 桌面端任务调度界面" />
+<img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/zh/dark/scheduler-list.webp" alt="BAAS Tauri 桌面端任务调度界面" />
 
 ## 🧭 它负责什么
 
@@ -37,11 +37,11 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 
 | 桌面端调度工作流 | 桌面端功能配置 |
 | ---------------- | -------------- |
-| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/scheduler-workflow.webp" alt="桌面端任务依赖工作流" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/config-cafe.webp" alt="桌面端咖啡厅功能配置" /> |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/zh/dark/scheduler-workflow.webp" alt="桌面端任务依赖工作流" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/zh/dark/config-cafe.webp" alt="桌面端咖啡厅功能配置" /> |
 
 | 桌面端运行与连接 | 桌面端设置与更新 |
 | ---------------- | ---------------- |
-| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/settings-runtime.webp" alt="桌面端运行与连接设置" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/settings-updates.webp" alt="桌面端更新设置" /> |
+| <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/zh/dark/settings-runtime.webp" alt="桌面端运行与连接设置" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/15543d8dc39630558e66186e7f190002735cfa39/docs/public/media/desktop/zh/dark/settings-updates.webp" alt="桌面端更新设置" /> |
 
 ## 📥 下载
 
