@@ -13,6 +13,7 @@ import TitlebarMenus from "@/components/layout/TitlebarMenus";
 import { useNativeWindowControls } from "@/shared/useNativeWindowControls";
 
 const macOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+const linuxDesktop = typeof navigator !== "undefined" && navigator.platform.startsWith("Linux");
 
 /** Shared desktop toolbar, with native traffic lights retained on macOS. */
 export default function WindowTitlebar() {
@@ -67,7 +68,9 @@ export default function WindowTitlebar() {
       appWindow.isFocused(),
     ]).then(([decorated, isMaximized, isFullscreen, isFocused]) => {
       if (disposed) return;
-      setCustomFrame(!decorated || macOS);
+      // GTK keeps CSD enabled for its outer shadow while our toolbar and
+      // native caption widgets still provide the Linux title bar.
+      setCustomFrame(!decorated || macOS || linuxDesktop);
       setMaximized(isMaximized);
       setFullscreen(isFullscreen);
       setFocused(isFocused);
@@ -90,18 +93,26 @@ export default function WindowTitlebar() {
   useLayoutEffect(() => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return;
 
-    const rootStyle = document.documentElement.style;
+    const root = document.documentElement;
+    const rootStyle = root.style;
     const property = "--window-titlebar-height";
     const previousValue = rootStyle.getPropertyValue(property);
     const previousPriority = rootStyle.getPropertyPriority(property);
     // Body portals need the same workspace boundary as the App flex layout.
     rootStyle.setProperty(property, `${titlebarHeight}px`);
-    const windowsMaterial = navigator.userAgent.includes("Windows");
-    if (windowsMaterial) document.documentElement.dataset.windowMaterial = "acrylic";
+    const previousPlatform = root.dataset.windowPlatform;
+    const previousMaterial = root.dataset.windowMaterial;
+    const windowsDesktop = navigator.userAgent.includes("Windows");
+    root.dataset.windowPlatform = linuxDesktop ? "linux" : macOS ? "macos" : "windows";
+    if (linuxDesktop) root.dataset.windowMaterial = "solid";
+    else if (windowsDesktop) root.dataset.windowMaterial = "acrylic";
     return () => {
       if (previousValue) rootStyle.setProperty(property, previousValue, previousPriority);
       else rootStyle.removeProperty(property);
-      if (windowsMaterial) delete document.documentElement.dataset.windowMaterial;
+      if (previousPlatform) root.dataset.windowPlatform = previousPlatform;
+      else delete root.dataset.windowPlatform;
+      if (previousMaterial) root.dataset.windowMaterial = previousMaterial;
+      else delete root.dataset.windowMaterial;
     };
   }, [customFrame, titlebarHeight]);
 
