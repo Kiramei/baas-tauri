@@ -1,6 +1,7 @@
 package io.github.kiramei.baas_tauri
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -22,6 +23,7 @@ class MainActivity : TauriActivity() {
   private var backRequestInFlight = false
   private var systemBarBackground = Color.rgb(24, 24, 24)
   private var systemBarDarkIcons = false
+  private var gameFullscreen = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
@@ -119,12 +121,25 @@ class MainActivity : TauriActivity() {
     WindowCompat.getInsetsController(window, window.decorView).apply {
       isAppearanceLightStatusBars = darkIcons
       isAppearanceLightNavigationBars = darkIcons
+      if (gameFullscreen) hide(WindowInsetsCompat.Type.systemBars())
     }
     findViewById<View>(android.R.id.content)?.setBackgroundColor(backgroundColor)
     findWebView(window.decorView)?.setBackgroundColor(backgroundColor)
   }
 
+  /** Rotate this Activity only. The game remains on its existing owned virtual display. */
+  fun setGameFullscreen(active: Boolean) {
+    gameFullscreen = active
+    requestedOrientation = if (active) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+      systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      if (active) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
+    }
+    applySystemBars(systemBarBackground, systemBarDarkIcons)
+  }
+
   private fun handleAppBack() {
+    if (NativeGamePreview.current?.consumeFullscreenBack() == true) return
     if (backRequestInFlight) return
     val webView = findWebView(window?.decorView)
     if (webView == null) {

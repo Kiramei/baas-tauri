@@ -25,11 +25,14 @@
 
 ## Native Android Status
 
-This is the [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev)
-branch. Android runtime work is on hold; game startup and native preview still
-have unresolved blackouts and stalls and have not passed release acceptance.
-See the [Android handoff](docs/ANDROID_PREVIEW_HANDOFF.md) for changes, historical
-test results and remaining failures. Desktop development and current
+This Android development snapshot is based on
+[`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev).
+Earlier APKs have scoped Android 12 x86_64 validation; the newest manual/script
+coexistence and startup candidate failed cold-start acceptance and was rolled
+back. Work is paused; performance gains and physical-device compatibility are
+not established. See [goals and current status](docs/ANDROID_GOALS_AND_STATUS_20261024.md),
+[version-specific validation](docs/ANDROID_RUNTIME_VALIDATION.md) and the
+[historical handoff](docs/ANDROID_PREVIEW_HANDOFF.md). Desktop development and current
 documentation are maintained on [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev).
 
 <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-list.webp" alt="BAAS Tauri desktop task scheduler" />
@@ -53,12 +56,12 @@ BAAS Tauri is a client for [Blue Archive Auto Script](https://github.com/pur1fyi
 
 ## 🖼️ Screenshots
 
-| Desktop Scheduler Workflow | Desktop Feature Configuration |
-| -------------------------- | ----------------------------- |
+| Desktop Scheduler Workflow                                                                                                                                                                              | Desktop Feature Configuration                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/scheduler-workflow.webp" alt="Desktop task dependency workflow" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/config-cafe.webp" alt="Desktop cafe feature configuration" /> |
 
-| Desktop Runtime and Transport | Desktop Settings and Updates |
-| ----------------------------- | ---------------------------- |
+| Desktop Runtime and Transport                                                                                                                                                                                | Desktop Settings and Updates                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-runtime.webp" alt="Desktop runtime and connection settings" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/en/settings-updates.webp" alt="Desktop update settings" /> |
 
 ## 📥 Download
@@ -80,15 +83,15 @@ The documentation site also includes a dynamic download panel that reads the lat
 
 ## 📦 Tech Stack
 
-| Category      | Tools                                         | Notes                                                                                |
-| ------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Desktop Shell | Tauri 2, Rust                                 | Native windowing, commands, capabilities, and packaging.                             |
-| Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                             |
-| Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.      |
-| State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                  |
+| Category      | Tools                                         | Notes                                                                                   |
+| ------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Desktop Shell | Tauri 2, Rust                                 | Native windowing, commands, capabilities, and packaging.                                |
+| Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                                |
+| Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.         |
+| State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                     |
 | Realtime      | Shared memory, Pipe, WebSocket                | Native transport selection depends on the platform; WebUI uses authenticated WebSocket. |
-| UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.               |
-| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
+| UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.                  |
+| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting.    |
 
 ## 📚 Documentation Site
 

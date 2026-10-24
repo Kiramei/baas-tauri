@@ -12,6 +12,7 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Base64
 import androidx.core.content.FileProvider
+import androidx.appcompat.app.AppCompatActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
@@ -25,6 +26,84 @@ import java.io.File
 class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   private val nativePreview = NativeGamePreview(activity)
   private val previewProgress = PreviewFrameProgress()
+  private val commands = BoundedNativeWorker("baas-native-command", 8)
+  private val previewQueries = BoundedNativeWorker("baas-native-preview-query", 0)
+  private val previewOwner = LatestNativeRequest<PreviewLayout>()
+  private var previewLayout: PreviewLayout? = null
+  private var previewProbe = PreviewProbe()
+  private var sessionOperations = 0
+  private var destroyed = false
+  private var foreground = true
+  private var fullscreenRequest = 0L
+  private var fullscreenPending = false
+
+  init {
+    nativePreview.cancelPendingFullscreen = {
+      if (fullscreenPending) {
+        fullscreenPending = false; fullscreenRequest++; nativePreview.reportFullscreen(false); true
+      } else false
+    }
+  }
+
+  private data class PreviewLayout(val x: Double, val y: Double, val width: Double, val height: Double,
+    val viewportWidth: Double, val enabled: Boolean, val clipTop: Double, val clipBottom: Double, val language: String)
+  private data class PreviewProbe(val captured: Long = 0, val presented: Long = 0,
+    val hasContent: Boolean = false, val focusDisplay: Int = -1, val error: String? = null)
+
+  private fun onUi(work: () -> Unit) = activity.runOnUiThread { if (!destroyed) work() }
+
+  private fun applyLayout(layout: PreviewLayout, focusDisplay: Int = -1) {
+    nativePreview.update(layout.x, layout.y, layout.width, layout.height, layout.viewportWidth,
+      layout.enabled, layout.clipTop, layout.clipBottom, focusDisplay)
+  }
+
+  private fun resetPreview() {
+    previewOwner.invalidate()
+    previewProbe = PreviewProbe()
+    previewProgress.reset()
+    previewLayout?.let { applyLayout(it.copy(enabled = false)) }
+  }
+
+  private fun previewReport(layout: PreviewLayout): JSObject {
+    val probe = previewProbe
+    val displayed = nativePreview.displayedFrameCount()
+    val state = if (layout.enabled && probe.error == null) {
+      previewProgress.update(probe.captured, probe.presented, displayed, probe.hasContent, android.os.SystemClock.uptimeMillis())
+    } else { previewProgress.reset(); PreviewFrameState.WAITING }
+    nativePreview.setStatus(state, probe.error, layout.language)
+    return JSObject().apply {
+      put("capturedFrames", probe.captured); put("presentedFrames", probe.presented)
+      put("displayedFrames", displayed); put("focusDisplayId", probe.focusDisplay)
+      put("ready", state == PreviewFrameState.LIVE); put("frameState", state.name.lowercase())
+      probe.error?.let { put("error", it) }
+    }
+  }
+
+  /** No PackageManager, Shizuku, capture or filesystem work is allowed on the UI thread. */
+  private fun background(invoke: Invoke, changesSession: Boolean = false,
+    settled: () -> Unit = {}, commit: (JSObject) -> JSObject = { it }, work: () -> JSObject = { JSObject() }) {
+    activity.runOnUiThread {
+      if (destroyed) { invoke.reject("Android activity was destroyed"); return@runOnUiThread }
+      if (changesSession) { sessionOperations++; fullscreenRequest++; fullscreenPending = false; nativePreview.exitFullscreen(); resetPreview() }
+      commands.submit(15_000L, work, { result -> activity.runOnUiThread {
+        try {
+          if (destroyed) invoke.reject("Android activity was destroyed")
+          else result.fold({ value ->
+            try { invoke.resolve(commit(value)) } catch (error: Exception) { invoke.reject(error.message, error) }
+          }, { invoke.reject(it.message ?: it.javaClass.simpleName) })
+        } finally { settled() }
+      } }, { if (changesSession) onUi { sessionOperations--; resetPreview() } })
+    }
+  }
+
+  override fun onPause() { onUi { foreground = false; fullscreenRequest++; resetPreview() } }
+  override fun onResume() { onUi { foreground = true } }
+  override fun onDestroy(activity: AppCompatActivity) {
+    resetPreview()
+    destroyed = true
+    commands.close(); previewQueries.close()
+    super.onDestroy(activity)
+  }
 
   @Command
   fun setSystemBars(invoke: Invoke) {
@@ -51,43 +130,97 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun gameNativePreview(invoke: Invoke) {
     val args = invoke.getArgs()
-    val enabled = args.optBoolean("enabled", false)
-    val result = JSObject()
-    var captured = 0L
-    var presented = 0L
-    var hasContent = false
-    if (enabled) {
-      runCatching {
-        val counts = ShizukuController.nativeFrameCounts(activity)
-        captured = counts.first
-        presented = counts.second
-        result.put("capturedFrames", captured)
-        // Kept for compatibility: this counts successful EGL swaps, not display updates.
-        result.put("presentedFrames", presented)
-        hasContent = ShizukuController.hasVisibleFrame(activity)
-        result.put("focusDisplayId", ShizukuController.previewFocusDisplayId(activity))
-      }.onFailure {
-        result.put("error", it.message ?: it.javaClass.simpleName)
+    activity.runOnUiThread {
+      if (destroyed) { invoke.reject("Android activity was destroyed"); return@runOnUiThread }
+      try {
+        val palette = args.optJSONObject("themePalette")
+        if (palette != null) nativePreview.applyTheme(NativePreviewPalette.from { palette.optString(it) })
+        val layout = PreviewLayout(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
+          args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0),
+          (args.optBoolean("enabled", false) || nativePreview.isFullscreen()) && sessionOperations == 0 && foreground,
+          args.optDouble("clipTop", 0.0),
+          args.optDouble("clipBottom", 0.0), args.optString("language", "en"))
+        if (previewLayout != layout) { previewProbe = PreviewProbe(); previewProgress.reset() }
+        previewLayout = layout
+        val ticket = previewOwner.update(layout)
+        // Resolve immediately: the frontend serializes these commands, including menu hides.
+        applyLayout(layout)
+        invoke.resolve(previewReport(layout))
+        if (layout.enabled) previewQueries.submit(3_000L, {
+          val counts = ShizukuController.nativeFrameCounts(activity)
+          PreviewProbe(counts.first, counts.second, ShizukuController.hasVisibleFrame(activity),
+            ShizukuController.previewFocusDisplayId(activity))
+        }, { result ->
+          if (result.exceptionOrNull() !is java.util.concurrent.RejectedExecutionException) onUi {
+            if (previewOwner.isCurrent(ticket) && sessionOperations == 0) {
+              previewProbe = result.getOrElse { PreviewProbe(error = it.message ?: it.javaClass.simpleName) }
+              applyLayout(layout, previewProbe.focusDisplay)
+              previewReport(layout)
+            }
+          }
+        })
+      } catch (error: Exception) { invoke.reject(error.message, error) }
+    }
+  }
+
+  @Command
+  fun gameFullscreen(invoke: Invoke) {
+    val args = invoke.getArgs()
+    activity.runOnUiThread {
+      if (destroyed) { invoke.reject("Android activity was destroyed"); return@runOnUiThread }
+      val ticket = ++fullscreenRequest
+      val palette = args.optJSONObject("themePalette")
+      if (palette != null) nativePreview.applyTheme(NativePreviewPalette.from { palette.optString(it) })
+      if (!args.optBoolean("active", false)) {
+        fullscreenPending = false
+        nativePreview.exitFullscreen()
+        previewOwner.invalidate(); previewProbe = PreviewProbe(); previewProgress.reset()
+        invoke.resolve(JSObject().apply { put("active", false) })
+        return@runOnUiThread
+      }
+      fullscreenPending = true
+      val handoff = ManualLeaseHandoff<NativeManualInputLease>()
+      background(invoke, settled = {
+        handoff.cancel()
+        if (ticket == fullscreenRequest) fullscreenPending = false
+      }, commit = { session ->
+        check(ticket == fullscreenRequest && foreground && sessionOperations == 0) { "Fullscreen request was superseded" }
+        previewOwner.invalidate()
+        val lease = checkNotNull(handoff.take()) { "The manual input lease expired" }
+        try {
+          nativePreview.enterFullscreen(session.getInt("displayId"), session.getInt("width"), session.getInt("height"),
+            args.optString("language", "en"), lease)
+        } catch (error: Throwable) {
+          runCatching { nativePreview.exitFullscreen() }
+          lease.close()
+          throw error
+        }
+        JSObject().apply { put("active", true) }
+      }) {
+        val packageName = allowedGamePackage(args.getString("packageName"))
+        val display = ShizukuController.virtualDisplayId(activity)
+        check(display > 0 && ShizukuController.currentGamePackage(activity) == packageName) { "The selected game is not running in its owned display" }
+        val size = ShizukuController.virtualDisplaySize(activity)
+        check(size.size >= 2 && size[0] > 0 && size[1] > 0) { "The game display dimensions are unavailable" }
+        val token = ShizukuController.acquireManualInput(activity, display)
+        check(token > 0) { "The installed privileged service does not support manual input leases; restart Shizuku" }
+        val lease = NativeManualInputLease(display, token) { ShizukuController.releaseManualInputAsync(activity, display, token) }
+        check(handoff.offer(lease)) { "The manual input request was superseded" }
+        check(ShizukuController.virtualDisplayId(activity) == display && ShizukuController.currentGamePackage(activity) == packageName) {
+          "The selected game changed while manual control was opening"
+        }
+        JSObject().apply { put("displayId", display); put("width", size[0]); put("height", size[1]) }
       }
     }
-    activity.runOnUiThread {
-      try {
-        nativePreview.update(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
-          args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0), enabled,
-          args.optDouble("clipTop", 0.0), args.optDouble("clipBottom", 0.0), result.optInt("focusDisplayId", -1))
-        val displayed = nativePreview.displayedFrameCount()
-        result.put("displayedFrames", displayed)
-        val frameState = if (enabled && !result.has("error")) {
-          previewProgress.update(captured, presented, displayed, hasContent, android.os.SystemClock.uptimeMillis())
-        } else {
-          previewProgress.reset()
-          PreviewFrameState.WAITING
-        }
-        result.put("ready", frameState == PreviewFrameState.LIVE)
-        result.put("frameState", frameState.name.lowercase())
-        nativePreview.setStatus(frameState, result.optString("error").takeIf { it.isNotEmpty() }, args.optString("language", "en"))
-        invoke.resolve(result)
-      } catch (error: Exception) { invoke.reject(error.message, error) }
+  }
+
+  @Command
+  fun gameResumeAutomation(invoke: Invoke) {
+    val args = invoke.getArgs()
+    background(invoke) {
+      val id = args.getInteger("displayId", -1)
+      check(ShizukuController.resumeAutomation(activity, id)) { "The owned display changed or input cancellation failed" }
+      JSObject().apply { put("resumed", true) }
     }
   }
   private val gamePackages = linkedMapOf(
@@ -99,7 +232,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command
   fun ensureStarted(invoke: Invoke) {
-    try {
+    background(invoke) {
       val context = activity.applicationContext
       ShizukuController.prebind(context)
       val intent = Intent(context, BaasForegroundService::class.java)
@@ -113,15 +246,13 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       val (videoStreamUrl, videoStreamToken) = BaasLocalDeviceServer.videoStreamAccess(context)
       result.put("videoStreamUrl", videoStreamUrl)
       result.put("videoStreamToken", videoStreamToken)
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun listGames(invoke: Invoke) {
-    try {
+    background(invoke) {
       ShizukuController.prebind(activity)
       val packageManager = activity.packageManager
       val games = JSArray()
@@ -141,59 +272,53 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       val result = JSObject()
       result.put("games", games)
       putShizukuState(result)
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun launchGame(invoke: Invoke) {
-    try {
-      val packageName = allowedGamePackage(invoke.getArgs().getString("packageName"))
+    val args = invoke.getArgs()
+    background(invoke, changesSession = true) {
+      val packageName = allowedGamePackage(args.getString("packageName"))
       if (ShizukuController.state(activity).granted && ShizukuController.virtualDisplayId(activity) >= 0) {
         ShizukuController.takeOverGame(activity, packageName)
-        invoke.resolve()
-        return
+        return@background JSObject()
       }
       val intent = activity.packageManager.getLaunchIntentForPackage(packageName)
         ?: throw IllegalStateException("No launcher activity is available for $packageName")
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
       activity.startActivity(intent)
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 
   @Command
   fun gameScreenshot(invoke: Invoke) {
-    try {
-      allowedGamePackage(invoke.getArgs().getString("packageName"))
+    val args = invoke.getArgs()
+    background(invoke) {
+      allowedGamePackage(args.getString("packageName"))
       val result = JSObject()
       result.put("pngBase64", ShizukuController.captureVirtualDisplay(activity))
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun gamePreview(invoke: Invoke) {
-    try {
-      allowedGamePackage(invoke.getArgs().getString("packageName"))
+    val args = invoke.getArgs()
+    background(invoke) {
+      allowedGamePackage(args.getString("packageName"))
       val result = JSObject()
       result.put("jpegBase64", ShizukuController.captureVirtualDisplayPreview(activity))
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun gameStreamInfo(invoke: Invoke) {
-    try {
-      val args = invoke.getArgs()
+    val args = invoke.getArgs()
+    background(invoke) {
       val (videoStreamUrl, videoStreamToken) = BaasLocalDeviceServer.prepareVideoStream(
         activity,
         args.getInteger("fps", 30).coerceIn(1, 60),
@@ -202,17 +327,14 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
       val result = JSObject()
       result.put("videoStreamUrl", videoStreamUrl)
       result.put("videoStreamToken", videoStreamToken)
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      android.util.Log.e("BaasGameStream", "Unable to prepare H.264 stream", error)
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun gameGesture(invoke: Invoke) {
-    try {
-      val args = invoke.getArgs()
+    val args = invoke.getArgs()
+    background(invoke) {
       allowedGamePackage(args.getString("packageName"))
       val success = ShizukuController.gesture(
         activity,
@@ -223,27 +345,23 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         args.getInteger("durationMs", 1).coerceIn(1, 10_000),
       )
       if (!success) throw IllegalStateException("Shizuku could not control the game display")
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 
   @Command
   fun shizukuStatus(invoke: Invoke) {
-    try {
+    background(invoke) {
       val result = JSObject()
       putShizukuState(result)
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun startShizukuDisplay(invoke: Invoke) {
-    try {
-      val args = invoke.getArgs()
+    val args = invoke.getArgs()
+    background(invoke, changesSession = true) {
       val result = JSObject()
       result.put(
         "displayId",
@@ -254,75 +372,63 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
           args.getInteger("density", 240),
         ),
       )
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun launchPackageOnShizukuDisplay(invoke: Invoke) {
-    try {
-      val args = invoke.getArgs()
+    val args = invoke.getArgs()
+    background(invoke, changesSession = true) {
       val packageName = allowedGamePackage(args.getString("packageName"))
       val displayId = args.getInteger("displayId", -1)
       if (!ShizukuController.launchPackageOnDisplay(activity, packageName, displayId)) {
         throw IllegalStateException("Android rejected the game launch on the virtual display")
       }
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 
   @Command
   fun stopShizukuDisplay(invoke: Invoke) {
-    try {
+    background(invoke, changesSession = true) {
       ShizukuController.stopVirtualDisplay(activity)
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 
   @Command
   fun openShizuku(invoke: Invoke) {
-    activity.runOnUiThread {
-      try {
-        ShizukuController.openInstalledShizuku(activity)
-        invoke.resolve()
-      } catch (error: Exception) {
-        invoke.reject(error.message, error)
-      }
+    background(invoke) {
+      ShizukuController.openInstalledShizuku(activity)
+      JSObject()
     }
   }
 
   @Command
   fun requestShizukuPermission(invoke: Invoke) {
-    try {
+    background(invoke) {
       ShizukuController.requestPermission(activity)
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 
   @Command
   fun shizukuShell(invoke: Invoke) {
-    try {
-      val command = invoke.getArgs().getString("command")
+    val args = invoke.getArgs()
+    background(invoke) {
+      val command = args.getString("command")
       val result = JSObject()
       result.put("output", ShizukuController.execute(activity, command))
-      invoke.resolve(result)
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      result
     }
   }
 
   @Command
   fun installPackage(invoke: Invoke) {
-    try {
-      val packagePath = File(invoke.getArgs().getString("path")).canonicalFile
+    val args = invoke.getArgs()
+    background(invoke) {
+      val packagePath = File(args.getString("path")).canonicalFile
       val allowedRoots = listOf(activity.cacheDir.canonicalFile, activity.filesDir.canonicalFile)
       if (allowedRoots.none { packagePath.toPath().startsWith(it.toPath()) }) {
         throw SecurityException("Update package must be stored in app-private storage")
@@ -346,9 +452,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
       }
       activity.startActivity(intent)
-      invoke.resolve()
-    } catch (error: Exception) {
-      invoke.reject(error.message, error)
+      JSObject()
     }
   }
 

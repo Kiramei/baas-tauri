@@ -7,9 +7,10 @@
   <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
 </p>
 
-当前为 [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) 原生 Android 开发分支。
-Android 运行时工作暂缓，游戏启动和原生预览仍有黑屏、停顿问题，尚未通过发布验收。
-已有修改、历史测试结果和待解决问题见 [Android 交接文档](docs/ANDROID_PREVIEW_HANDOFF.md)。
+当前为基于 [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) 的原生 Android 开发快照。
+较早 APK 有 Android 12 x86_64 的限定验证；最新手操/脚本共存与启动优化候选未通过冷启动验收，已回滚。
+运行调试已暂停，尚未证实整体提速或通用真机兼容，不代表发布验收通过。
+详见[目标与当前状态](docs/ANDROID_GOALS_AND_STATUS_20261024.md)、[各版本验证记录](docs/ANDROID_RUNTIME_VALIDATION.md)与[历史交接文档](docs/ANDROID_PREVIEW_HANDOFF.md)。
 桌面端与当前文档开发位于 [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)。
 
 BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script) 的客户端，可管理配置档、调度、功能配置、日志、更新和远程设备画面。设备连接、识别与任务执行由 BAAS 后端完成。
@@ -31,16 +32,16 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 | 🗓️ 调度     | 启用任务、编辑下次执行时间、搜索、排序、设置间隔、每日重置、前置任务和后置任务。                             |
 | 🧩 功能配置 | 配置服务器、模拟器、脚本、推图、扫荡、编队、咖啡厅、日程、商店、制造、战斗、维护和推送。                     |
 | 🎛️ 设置     | 调整主题、语言、背景图、UI 缩放、远程解码器、安全流、低性能模式、更新通道、更新源、MirrorC CDK 和 SHA 测试。 |
-| 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                     |
+| 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                      |
 
 ## 🖼️ 截图
 
-| 桌面端调度工作流 | 桌面端功能配置 |
-| ---------------- | -------------- |
+| 桌面端调度工作流                                                                                                                                                                            | 桌面端功能配置                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/scheduler-workflow.webp" alt="桌面端任务依赖工作流" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/config-cafe.webp" alt="桌面端咖啡厅功能配置" /> |
 
-| 桌面端运行与连接 | 桌面端设置与更新 |
-| ---------------- | ---------------- |
+| 桌面端运行与连接                                                                                                                                                                          | 桌面端设置与更新                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/settings-runtime.webp" alt="桌面端运行与连接设置" /> | <img src="https://raw.githubusercontent.com/Kiramei/baas-tauri/f123464c8e1293437095eb95c44546446a370930/docs/public/media/desktop/zh/settings-updates.webp" alt="桌面端更新设置" /> |
 
 ## 📥 下载

@@ -167,13 +167,13 @@ interface WebSocketState {
   init: () => Promise<void>;
   modify: (path: string, value: any, showToast?: boolean) => void;
   patch: (path: string, value: any) => void;
-  trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
-  triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => void;
+  trigger: (payload: CommandPayload, callback?: (e: any) => void) => number;
+  triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => number;
   triggerBinary: (
     payload: CommandPayload,
     binary: ArrayBuffer | Uint8Array,
     callback?: (e: any) => void
-  ) => void;
+  ) => number;
   connectRemote: () => Promise<BackendConnection>;
   pendingCallbacks: Record<string, (data?: any) => void>;
   pendingStreamCallbacks: Record<string, (data?: any) => void>;

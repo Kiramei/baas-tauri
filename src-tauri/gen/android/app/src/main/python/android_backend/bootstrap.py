@@ -503,7 +503,11 @@ def _ensure_android_support_files(root):
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
     _patch_android_native_capture_runtime(root)
+    _patch_android_owned_display_resize_guard(root)
     _patch_android_game_resource_update(root)
+    _patch_android_inventory_full(root)
+    _patch_android_startup_loading(root)
+    _patch_android_home_asset_readings(root)
     _write_android_direct_adb_server(root)
     _write_android_media_codec_decoder(root)
     _write_watchfiles_stub(root)
@@ -538,6 +542,106 @@ def _patch_android_game_resource_update(root):
                         "            fail_cnt = 0\n"
                         "            continue\n" + needle, 1)
     target.write_text(text, encoding="utf-8")
+
+
+def _patch_android_inventory_full(root):
+    """Install narrow CN inventory guards only into the Android private backend."""
+    patches = (
+        ("core/picture.py", "BAAS_ANDROID_INVENTORY_FULL_CO_DETECT_V1", (
+            ("import time\n", "import time\nfrom android_backend.inventory_full import handle_inventory_full\n"),
+            ("        # loading check\n",
+             "        # BAAS_ANDROID_INVENTORY_FULL_CO_DETECT_V1\n"
+             "        handle_inventory_full(self)\n"
+             "        # loading check\n"),
+        )),
+        ("core/color.py", "BAAS_ANDROID_INVENTORY_FULL_WAIT_LOADING_V1", (
+            ("import time\n", "import time\nfrom android_backend.inventory_full import handle_inventory_full\n"),
+            ("    startTime = time.time()\n",
+             "    # BAAS_ANDROID_INVENTORY_FULL_WAIT_LOADING_V1\n"
+             "    handle_inventory_full(self)\n"
+             "    startTime = time.time()\n"),
+            ("        self.update_screenshot_array()\n        loadingTime = ",
+             "        self.update_screenshot_array()\n"
+             "        handle_inventory_full(self)\n"
+             "        loadingTime = "),
+        )),
+        ("core/Baas_thread.py", "BAAS_ANDROID_INVENTORY_FULL_TASK_V1", (
+            ("import time\n",
+             "import time\nfrom android_backend.inventory_full import (\n"
+             "    InventoryFull, check_claim_task_result, finish_inventory_full_task,\n)\n"),
+            ("                return func_dict[activity](self)\n",
+             "                # BAAS_ANDROID_INVENTORY_FULL_TASK_V1\n"
+             "                result = func_dict[activity](self)\n"
+             "                return check_claim_task_result(self, activity, result)\n"),
+            ("            except FunctionCallTimeout:\n",
+             "            except InventoryFull as error:\n"
+             "                return finish_inventory_full_task(self, activity, error)\n"
+             "            except FunctionCallTimeout:\n"),
+            ("        except Exception as e:\n"
+             "            self.logger.error(traceback.format_exc())\n"
+             "            return False\n",
+             "        except InventoryFull as error:\n"
+             "            # BAAS_ANDROID_INVENTORY_FULL_ROUND_END_V1\n"
+             "            return finish_inventory_full_task(self, None, error)\n"
+             "        except Exception as e:\n"
+             "            self.logger.error(traceback.format_exc())\n"
+             "            return False\n"),
+        )),
+    )
+    if not any((root / relative).exists() for relative, _, _ in patches):
+        return
+    updates = []
+    for relative, marker, replacements in patches:
+        path = root / relative
+        text = path.read_text(encoding="utf-8")
+        if marker in text:
+            continue
+        next_text = text.replace("\r\n", "\n")
+        for needle, replacement in replacements:
+            if next_text.count(needle) != 1:
+                raise RuntimeError("Cannot safely install Android inventory-full guard in " + relative)
+            next_text = next_text.replace(needle, replacement, 1)
+        compile(next_text, str(path), "exec")
+        if "\r\n" in text:
+            next_text = next_text.replace("\n", "\r\n")
+        updates.append((path, next_text))
+    for path, next_text in updates:
+        path.write_text(next_text, encoding="utf-8")
+
+
+def _patch_android_startup_loading(root):
+    """Keep explicit CN startup loading inside co_detect's existing deadline."""
+    path = root / "core" / "picture.py"
+    if not path.exists():
+        return
+    marker = "BAAS_ANDROID_STARTUP_LOADING_V1"
+    text = path.read_text(encoding="utf-8")
+    if marker in text:
+        return
+    needle = "        # loading check\n"
+    if text.count(needle) != 1:
+        raise RuntimeError("Cannot safely install Android startup loading guard")
+    updated = text.replace("import time\n", "import time\nfrom android_backend.startup_loading import is_startup_loading\n", 1)
+    updated = updated.replace(needle,
+        "        # BAAS_ANDROID_STARTUP_LOADING_V1\n"
+        "        if is_startup_loading(self):\n"
+        "            fail_cnt = 0\n"
+        "            time.sleep(self.screenshot_interval)\n"
+        "            continue\n" + needle, 1)
+    compile(updated, str(path), "exec")
+    path.write_text(updated, encoding="utf-8")
+
+
+def _patch_android_home_asset_readings(root):
+    _replace_once(
+        root / "core" / "Baas_thread.py", "BAAS_ANDROID_HOME_ASSETS_V1",
+        "    def main_page_update_data(self):\n",
+        "    def main_page_update_data(self):\n"
+        "        # BAAS_ANDROID_HOME_ASSETS_V1\n"
+        "        from android_backend.home_assets import update_home_assets\n"
+        "        if update_home_assets(self):\n"
+        "            return\n",
+    )
 
 
 def _remove_android_legacy_device_dependencies(root):
@@ -750,6 +854,55 @@ def _patch_android_native_capture_runtime(root):
         "    if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
         "        return False\n",
     )
+
+
+def _patch_android_owned_display_resize_guard(root):
+    """Native capture owns a virtual display, never the user's primary wm size.
+
+    Keep legacy resize behavior intact, but refuse to start with an unrecognized
+    guard shape rather than silently leaving a primary-display command enabled.
+    """
+    import ast
+
+    target = root / "service" / "runtime.py"
+    if not target.is_file():
+        return
+    text = target.read_text(encoding="utf-8")
+    tree = ast.parse(text, filename=str(target))
+    guard = next((node for node in tree.body
+                  if isinstance(node, ast.ClassDef)
+                  and node.name == "_AndroidDisplayResizeGuard"), None)
+    if guard is None:
+        return
+    lines = text.splitlines(keepends=True)
+    insertions = []
+    for name in ("activate", "release", "force_restore"):
+        method = next((node for node in guard.body
+                       if isinstance(node, ast.FunctionDef) and node.name == name), None)
+        if method is None:
+            raise RuntimeError("Cannot protect Android primary display: missing resize guard " + name)
+        marker = "BAAS_ANDROID_OWNED_DISPLAY_" + name.upper() + "_V1"
+        if marker in "".join(lines[method.lineno - 1:method.end_lineno]):
+            continue
+        first = method.body[0]
+        insertion = first.lineno - 1
+        # Preserve a method docstring while still guarding before its first operation.
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
+                and isinstance(first.value.value, str):
+            insertion = first.end_lineno
+        body_line = lines[first.lineno - 1]
+        indent = body_line[:len(body_line) - len(body_line.lstrip())]
+        insertions.append((insertion,
+                           indent + "# " + marker + "\n"
+                           + indent + "if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+                           + indent + "    return\n"))
+    if not insertions:
+        return
+    for position, replacement in sorted(insertions, reverse=True):
+        lines.insert(position, replacement)
+    patched = "".join(lines)
+    compile(patched, str(target), "exec")
+    target.write_text(patched, encoding="utf-8")
 
 
 def _apply_bundled_android_overlay(root):
@@ -2618,17 +2771,7 @@ def _start_android_direct_adb_server_if_needed(root):
 def _write_watchfiles_stub(root):
     path = root / "watchfiles.py"
     path.write_text(
-        "import asyncio\n"
-        "from enum import Enum\n\n"
-        "class Change(Enum):\n"
-        "    added = 1\n"
-        "    modified = 2\n"
-        "    deleted = 3\n\n"
-        "async def awatch(*_args, **_kwargs):\n"
-        "    while True:\n"
-        "        await asyncio.sleep(3600)\n"
-        "        if False:\n"
-        "            yield set()\n",
+        "from android_backend.config_watch import Change, awatch\n",
         encoding="utf-8",
     )
 

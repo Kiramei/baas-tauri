@@ -1,13 +1,25 @@
 # Android Preview Handoff
 
-Updated: 2026-10-23. Android runtime work is on hold. `android-dev` retains the
+Latest status (2026-10-24): runtime work is paused after the newest candidate
+failed cold-start acceptance and was rolled back. See
+[goals and current status](ANDROID_GOALS_AND_STATUS_20261024.md) before using
+the historical checkpoints below.
+
+Previous update: 2026-10-23. Work had resumed on `android-dev`; see
+[current runtime validation](ANDROID_RUNTIME_VALIDATION.md) for the later
+Android 12 installation and consented daily-cycle evidence. The newest local
+fullscreen and responsiveness changes are still awaiting device verification.
+The sections below preserve the earlier Android 15 checkpoint and its unresolved
+failures; the later Android 12 run does not retroactively validate that environment.
+
+At the earlier consolidation checkpoint, `android-dev` retained the
 15 commits from `fix/android-trusted-display-and-insets`, including this handoff.
 The branches were consolidated by fast-forward, with no runtime changes or new
 device tests. The preview/display work is not accepted for release and must not
 be merged into desktop `dev` as a completed preview fix. The former repair
 branch is retired; continue Android development on `android-dev`.
 
-The duplicate native-validation worktree has been removed. The retained local
+The duplicate native-validation worktree was removed. At that checkpoint the retained local
 checkout is `baas-tauri-android-dev`; its source and tests remain on
 `android-dev`. Local evidence was hash-verified before removal. This cleanup
 does not add runtime validation or change the open failures below.
@@ -33,13 +45,13 @@ recompiling Kotlin alone can leave the frontend or native implementation stale.
 
 ## Changes Kept On This Branch
 
-| Commit | Change |
-| --- | --- |
-| `8e38508f` | Wait for display registration before configuring rotation. |
-| `532f785b` | Require capture, EGL submission and TextureView consumer progress for the live indicator. |
+| Commit     | Change                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `8e38508f` | Wait for display registration before configuring rotation.                                                         |
+| `532f785b` | Require capture, EGL submission and TextureView consumer progress for the live indicator.                          |
 | `79d0d6f4` | Include the installed APK path in the owned Shizuku user-service version, avoiding stale JNI code after reinstall. |
-| `128983b8` | Count distinct positive SurfaceTexture timestamps instead of redraw callbacks. |
-| `36f08fd3` | Restore a white foreground for the destructive stop control. |
+| `128983b8` | Count distinct positive SurfaceTexture timestamps instead of redraw callbacks.                                     |
+| `36f08fd3` | Restore a white foreground for the destructive stop control.                                                       |
 
 The branch also contains the earlier isolated system-bar inset, task-transfer,
 native-preview and privileged-execution work. Review the complete diff against

@@ -11,6 +11,10 @@ mod file_commands;
 mod commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
+#[cfg(any(target_os = "android", test))]
+mod mobile_plugin_ack;
+#[cfg(any(target_os = "android", test))]
+mod mobile_update_query;
 mod notifier_commands;
 mod pipe_commands;
 mod shm_commands;
@@ -30,8 +34,8 @@ use crate::behavior::{
 };
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
-    android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_native_preview,
-    android_game_preview, android_game_screenshot, android_game_stream_info, android_launch_game,
+    android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture, android_game_native_preview,
+    android_game_preview, android_game_resume_automation, android_game_screenshot, android_game_stream_info, android_launch_game,
     android_list_games, android_open_shizuku, android_prepare_scrcpy_virtual_display, android_request_shizuku_permission,
     android_set_system_bars,
     android_scrcpy_virtual_display_status, android_shizuku_status, backend_transport_start,
@@ -60,8 +64,8 @@ use crate::system_logs::{
 use crate::{
     behavior::inject_tray_icon,
     commands::{
-        android_cleanup_scrcpy_virtual_display, android_game_gesture, android_game_native_preview,
-        android_game_preview, android_game_screenshot, android_game_stream_info,
+        android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture, android_game_native_preview,
+        android_game_preview, android_game_resume_automation, android_game_screenshot, android_game_stream_info,
         android_launch_game, android_list_games, android_open_shizuku, android_prepare_scrcpy_virtual_display,
         android_set_system_bars,
         android_request_shizuku_permission, android_scrcpy_virtual_display_status,
@@ -147,6 +151,8 @@ pub fn run() {
             android_launch_game,
             android_game_preview,
             android_game_native_preview,
+            android_game_fullscreen,
+            android_game_resume_automation,
             android_game_stream_info,
             android_game_screenshot,
             android_game_gesture,

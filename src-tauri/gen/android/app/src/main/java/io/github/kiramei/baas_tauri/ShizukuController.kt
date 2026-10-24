@@ -50,7 +50,7 @@ object ShizukuController {
       // The tag stays stable; each APK install must replace a daemon whose
       // class loader and native-library paths still point at the removed APK.
       .tag("baas-game-service-v36")
-      .version(PrivilegedExecution.userServiceVersion(39, context.applicationInfo.sourceDir))
+      .version(PrivilegedExecution.userServiceVersion(43, context.applicationInfo.sourceDir))
       .also { cachedUserServiceArgs = it }
   }
 
@@ -284,6 +284,84 @@ object ShizukuController {
       return nativeEndpoint(context).pinch(inward, percent, durationMs)
     }
     return callService(context) { it.pinch(inward, percent, durationMs) }
+  }
+
+  /** Called only by the preview's ordered background touch dispatcher. */
+  fun touch(context: Context, expectedDisplayId: Int, leaseId: Long, event: android.view.MotionEvent): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    // Do not query PackageManager for every MOVE, or retry an ambiguous Binder
+    // failure (a duplicate DOWN can corrupt the stream). The UI dispatcher's
+    // failure path sends CANCEL; only a fresh gesture may retry.
+    check(Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+      "Shizuku permission is unavailable"
+    }
+    return try {
+      if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+        val endpoint = NativeDisplayProvider.endpoint?.takeIf { it.asBinder().isBinderAlive }
+          ?: throw IllegalStateException("The native game input endpoint disconnected")
+        endpoint.touch(expectedDisplayId, leaseId, event)
+      } else {
+        val inputService = service?.takeIf { it.asBinder().isBinderAlive }
+          ?: throw IllegalStateException("The game input service disconnected")
+        inputService.touch(expectedDisplayId, leaseId, event)
+      }
+    } catch (error: RemoteException) {
+      invalidateService()
+      throw error
+    }
+  }
+
+  private val manualInputOwner = android.os.Binder()
+
+  fun acquireManualInput(context: Context, expectedDisplayId: Int): Long {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    requireReady(context)
+    // Never replay an ambiguous acquire: the first transaction may own a lease.
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).acquireManualInput(expectedDisplayId, manualInputOwner)
+    } else ensureBound(context).acquireManualInput(expectedDisplayId, manualInputOwner)
+  }
+
+  fun releaseManualInput(context: Context, expectedDisplayId: Int, leaseId: Long): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).releaseManualInput(expectedDisplayId, leaseId)
+    } else ensureBound(context).releaseManualInput(expectedDisplayId, leaseId)
+  }
+
+  fun resumeAutomation(context: Context, expectedDisplayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    requireReady(context)
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).resumeAutomation(expectedDisplayId)
+    } else ensureBound(context).resumeAutomation(expectedDisplayId)
+  }
+
+  private data class LeaseRelease(val context: Context, val displayId: Int, val token: Long)
+  private val releaseLock = Any()
+  private val leaseReleases = BoundedNativeWorker("baas-manual-input-release", 1)
+  private var pendingRelease: LeaseRelease? = null
+  private var releasing = false
+
+  /** One physical worker and one pending latest lease; never wait on the UI. A
+   * newer lease proves older leases were released or their owned VD was replaced. */
+  fun releaseManualInputAsync(context: Context, displayId: Int, token: Long) = synchronized(releaseLock) {
+    pendingRelease = LeaseRelease(context.applicationContext, displayId, token)
+    drainLeaseReleaseLocked()
+  }
+
+  private fun drainLeaseReleaseLocked() {
+    if (releasing) return
+    val next = pendingRelease ?: return
+    pendingRelease = null
+    releasing = true
+    leaseReleases.submit(3000L, {
+      releaseManualInput(next.context, next.displayId, next.token)
+    }, { result ->
+      result.exceptionOrNull()?.let { Log.w("BaasShizuku", "Manual input release is unconfirmed; automation remains protected", it) }
+    }, {
+      synchronized(releaseLock) { releasing = false; drainLeaseReleaseLocked() }
+    })
   }
 
   fun openShizuku(context: Context) {

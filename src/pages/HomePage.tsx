@@ -20,6 +20,11 @@ import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
+import {
+  androidManualControl,
+  resumeAndroidAutomationBeforeStart,
+  verifyAndroidManualControlOwnership,
+} from "@/shared/AndroidManualControl";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
@@ -36,6 +41,17 @@ import {
 } from "@/shared/AndroidProfileGame";
 
 const EMPTY_LOGS: LogItem[] = [];
+/** High-frequency log batches must not rerender the game panel and whole home. */
+const ProfileLogView: React.FC<{ configId?: string; scrollToEnd: boolean; visible: boolean }> = ({
+  configId,
+  scrollToEnd,
+  visible,
+}) => {
+  const logs = useWebSocketStore((state) =>
+    visible && configId ? (state.logStore[`config:${configId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
+  );
+  return <Logger logs={logs} scrollToEnd={scrollToEnd} />;
+};
 const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
 const TOOL_BUTTON_CLASS =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-40";
@@ -62,9 +78,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   );
   const settings = useWebSocketStore((state) =>
     activeConfigId ? state.configStore[activeConfigId] : undefined
-  );
-  const activeLogs = useWebSocketStore((state) =>
-    activeConfigId ? (state.logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
   );
   const remoteAvailable = !__WITH_ANDROID__;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
@@ -267,7 +280,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const startScript = async () => {
     if (!profile || !activeConfigId || scriptRunning || androidBusy) return;
-    const dispatchStart = () =>
+    const dispatchStart = () => {
+      if (__WITH_ANDROID__ && androidManualControl.isActive()) return;
       useWebSocketStore.getState().trigger(
         {
           timestamp: getTimestampMs(),
@@ -284,6 +298,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           }
         }
       );
+    };
     if (__WITH_ANDROID__ && __WITH_TAURI__) {
       if (!requireAndroidRunSlot()) return;
       await androidStartGuard.run(async () => {
@@ -296,6 +311,19 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           if (!prepared || !(await refreshAndroidVirtualDisplayStatus())) return false;
         }
         if (!requireAndroidRunSlot()) return false;
+        const session = androidProfileGameSession.getSnapshot();
+        if (session?.profileId !== activeConfigId || session.packageName !== game.packageName)
+          return false;
+        const { invoke } = await import("@/shared/TauriInvoke");
+        const resumed = await resumeAndroidAutomationBeforeStart(session.displayId, (request) =>
+          invoke<{ resumed: boolean }>("android_game_resume_automation", { request })
+        );
+        if (
+          !resumed ||
+          androidProfileGameSession.getSnapshot() !== session ||
+          !requireAndroidRunSlot()
+        )
+          return false;
         dispatchStart();
         return true;
       });
@@ -325,6 +353,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   useEffect(() => {
     if (!__WITH_ANDROID__) return;
     const toggleRun = () => {
+      if (androidManualControl.isActive()) return;
       // Home stays mounted per profile so the bottom action also works from
       // Settings and Configuration. Cached profiles must never receive it.
       if (activeProfile?.id !== activeConfigId) return;
@@ -340,6 +369,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const pad = (n: number) => n.toString().padStart(2, "0");
   const exportLog = async () => {
+    const activeLogs = activeConfigId
+      ? (useWebSocketStore.getState().logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS)
+      : EMPTY_LOGS;
     const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
@@ -451,9 +483,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-secondary" />}
         >
           <AndroidGamePanel
+            active={activeProfile?.id === activeConfigId}
             configuredPackage={androidGamePackage}
             virtualDisplayActive={androidDisplayMatchesProfile}
             virtualDisplayBusy={androidBusy}
+            onBeforeManualControl={async () => {
+              if (!activeConfigId || !requireAndroidRunSlot())
+                throw new Error("The Android game session is unavailable");
+              await verifyAndroidManualControlOwnership(useWebSocketStore.getState, activeConfigId);
+            }}
             onToggleVirtualDisplay={async (active, packageName) => {
               await toggleAndroidVirtualDisplay(active, packageName);
             }}
@@ -530,11 +568,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
             <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
             {t("log")}
-            {activeLogs.length > 0 && (
-              <span className="ml-0.5 text-[11px] font-normal tabular-nums text-muted-foreground">
-                {activeLogs.length.toLocaleString()}
-              </span>
-            )}
           </h2>
           <div className="flex shrink-0 items-center gap-1">
             <IconTooltip content={t("log.scroll.detail")}>
@@ -564,7 +597,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           {remoteAvailable && remoteVisible && activeConfigId && (
             <RemoteDisplay profileId={activeConfigId} />
           )}
-          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
+          <ProfileLogView
+            configId={activeConfigId}
+            scrollToEnd={scrollToEnd}
+            visible={activeProfile?.id === activeConfigId}
+          />
         </div>
       </section>
     </div>

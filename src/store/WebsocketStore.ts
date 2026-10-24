@@ -104,6 +104,21 @@ type PendingSyncPatch = {
 
 const pendingSyncPatches = new Map<number, PendingSyncPatch>();
 
+const commandTimestamp = (requested: number, state: WebSocketState): number => {
+  // Keep IDs exact across JS/native/Python JSON boundaries. Fractional
+  // timestamps are not reliable callback keys; concurrent commands share a ms.
+  const integer = Math.trunc(requested);
+  let timestamp = Number.isSafeInteger(integer) && integer > 0 ? integer : Date.now();
+  while (
+    pendingSyncPatches.has(timestamp) ||
+    state.pendingCallbacks[timestamp] ||
+    state.pendingStreamCallbacks[timestamp] ||
+    state.pendingBinaryCallbacks[timestamp]
+  )
+    timestamp += 1;
+  return timestamp;
+};
+
 /** Coalesces transport startup requests emitted by multiple mounted desktop pages. */
 const startManagedBackendTransport = async (mode: "websocket" | "pipe" | "shm") => {
   if (Date.now() - transportStartupFailureAt < 5_000) {
@@ -1708,7 +1723,7 @@ export const useWebSocketStore = create<WebSocketState>()(
     },
 
     trigger: (payload, callback) => {
-      const timestamp = payload.timestamp || Date.now();
+      const timestamp = commandTimestamp(payload.timestamp, get());
       const stopConfigId = payload.command === "stop_scheduler" ? payload.config_id : undefined;
       if (stopConfigId) {
         const statusAtRequest = get().statusStore[stopConfigId];
@@ -1731,8 +1746,10 @@ export const useWebSocketStore = create<WebSocketState>()(
           }
           callback?.(response);
         };
-      } else if (callback) {
-        get().pendingCallbacks[timestamp] = callback;
+      } else {
+        // Even fire-and-forget commands receive an ACK. Reserve its ID until
+        // then so that it cannot accidentally resolve another command's wait.
+        get().pendingCallbacks[timestamp] = callback ?? (() => {});
       }
       const normalizedPayload = {
         ...payload,
@@ -1742,13 +1759,12 @@ export const useWebSocketStore = create<WebSocketState>()(
         type: "command",
         ...normalizedPayload,
       });
+      return timestamp;
     },
 
     triggerStream: (payload, callback) => {
-      const timestamp = payload.timestamp || Date.now();
-      if (callback) {
-        get().pendingStreamCallbacks[timestamp] = callback;
-      }
+      const timestamp = commandTimestamp(payload.timestamp, get());
+      get().pendingStreamCallbacks[timestamp] = callback ?? (() => {});
       const normalizedPayload = {
         ...payload,
         timestamp,
@@ -1757,13 +1773,13 @@ export const useWebSocketStore = create<WebSocketState>()(
         type: "command",
         ...normalizedPayload,
       });
+      return timestamp;
     },
 
     triggerBinary: (payload, binary, callback) => {
-      const timestamp = payload.timestamp || Date.now();
-      if (callback) {
-        get().pendingCallbacks[timestamp] = callback;
-      }
+      const timestamp = commandTimestamp(payload.timestamp, get());
+      const pendingCallback = callback ?? (() => {});
+      get().pendingCallbacks[timestamp] = pendingCallback;
       const normalizedPayload = {
         ...payload,
         timestamp,
@@ -1773,11 +1789,37 @@ export const useWebSocketStore = create<WebSocketState>()(
         },
       };
       const conn = get().connections.trigger;
-      conn?.sendJson({
-        type: "command",
-        ...normalizedPayload,
-      });
-      conn?.sendBytes(binary);
+      void (async () => {
+        try {
+          if (!conn) throw new Error("Backend command channel is unavailable");
+          const message = { type: "command", ...normalizedPayload };
+          if (conn.sendJsonWithBytes) await conn.sendJsonWithBytes(message, binary);
+          else {
+            // WebSocket writes are synchronous: awaiting void would yield and
+            // let another command enter before the ZIP bytes on this channel.
+            const headerWrite = conn.sendJson(message);
+            if (headerWrite !== undefined) await headerWrite;
+            await conn.sendBytes(binary);
+          }
+        } catch (error) {
+          if (get().pendingCallbacks[timestamp] === pendingCallback) {
+            delete get().pendingCallbacks[timestamp];
+            try {
+              pendingCallback({ command: payload.command, status: "error", error: String(error) });
+            } catch (callbackError) {
+              console.error("Binary command failure callback failed", callbackError);
+            }
+          }
+          // After the command header, Python is waiting for bytes. A failed
+          // binary invoke must retire this channel before any other commands.
+          try {
+            await conn?.close();
+          } catch (closeError) {
+            console.warn("Failed to close the interrupted binary command channel", closeError);
+          }
+        }
+      })();
+      return timestamp;
     },
   }))
 );

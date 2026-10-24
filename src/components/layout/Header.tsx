@@ -17,11 +17,10 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
-import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useModalFocus } from "@/components/ui/Modal.tsx";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
@@ -30,14 +29,11 @@ import { buildServerOptions } from "@/shared/serverOptions";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
+import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
+import { reconcileProfileTabs, type ProfileTab as Tab } from "@/shared/ProfileTabs";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
-type Tab = Pick<ProfileDTO, "id" | "name" | "server">;
-
-const isProfileReady = (settings: any): boolean =>
-  Boolean(settings?.name && settings?.ap && settings?._pass);
 
 /** Renders the header component. */
 const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = ({
@@ -77,7 +73,6 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   );
   const modify = useWebSocketStore((s) => s.modify);
   const trigger = useWebSocketStore((s) => s.trigger);
-  const triggerBinary = useWebSocketStore((s) => s.triggerBinary);
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
@@ -121,21 +116,13 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   const hideCtxMenu = () => setCtxMenu(null);
 
   useEffect(() => {
-    const list: Tab[] = profileEntries.map((entry) => {
-      const [id, name, server] = JSON.parse(entry) as [string, string, string];
-      return { id, name, server };
-    });
-    const order = StorageUtil.get("tabOrder");
-    if (order && order.length) {
-      list.sort((a, b) => {
-        const ia = order.indexOf(a.id);
-        const ib = order.indexOf(b.id);
-        if (ia === -1 && ib === -1) return 0;
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-    }
+    // profileEntries triggers reconciliation, but a queued effect/reorder must
+    // read current membership and metadata rather than a previous render.
+    const list = reconcileProfileTabs(
+      useWebSocketStore.getState().configStore,
+      StorageUtil.get("tabOrder")
+    );
+    tabsRef.current = list;
     setTabs(list);
     const exists = list.find((p) => p.id === activeProfile?.id);
     const nextActive = exists ?? list[0];
@@ -155,10 +142,15 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
 
   /** Handles the on reorder interaction. */
   const onReorder = (next: Tab[]) => {
-    setTabs(next);
+    const reconciled = reconcileProfileTabs(
+      useWebSocketStore.getState().configStore,
+      next.map((tab) => tab.id)
+    );
+    tabsRef.current = reconciled;
+    setTabs(reconciled);
     StorageUtil.set(
       "tabOrder",
-      next.map((t) => t.id)
+      reconciled.map((tab) => tab.id)
     );
   };
 
@@ -183,52 +175,29 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
 
-    const serialName = await new Promise<string>((resolve) => {
-      trigger(
-        {
-          timestamp: getTimestampMs() + Math.random() * 1000,
-          command: "add_config",
-          payload: { name, server },
-        },
-        (e) => resolve(e.data.serial)
-      );
+    const result = await runProfileCommand(useWebSocketStore.getState, "add_config", {
+      name,
+      server,
     });
-
-    await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
-
-    const next = tabsRef.current.find((p) => p.id === serialName);
-    if (next) setActiveProfile(next);
+    await waitForConfig(result?.serial);
   };
 
   const runTrigger = React.useCallback(
     (command: string, payload: Record<string, any>) =>
-      new Promise<any>((resolve, reject) => {
-        trigger(
-          {
-            timestamp: getTimestampMs() + Math.random() * 1000,
-            command,
-            payload,
-          },
-          (event) => {
-            if (event?.status === "error") {
-              reject(new Error(event.error || `${command} failed`));
-              return;
-            }
-            resolve(event?.binary ? event : event?.data);
-          }
-        );
-      }),
-    [trigger]
+      runProfileCommand(useWebSocketStore.getState, command, payload),
+    []
   );
 
   const waitForConfig = React.useCallback(
     async (serialName: string) => {
-      await waitForNormal(
-        () => useWebSocketStore.getState().configStore[serialName],
-        isProfileReady
-      );
-      const next = tabsRef.current.find((p) => p.id === serialName);
-      if (next) setActiveProfile(next);
+      const profile = await waitForProfileConfig(useWebSocketStore.getState, serialName);
+      // The store snapshot can precede React's tab-list effect by one render.
+      const next: Tab = {
+        id: serialName,
+        name: profileDisplayName(String(profile.name)),
+        server: String(profile.server ?? ""),
+      };
+      setActiveProfile(next);
     },
     [setActiveProfile]
   );
@@ -262,29 +231,18 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     try {
       const bytes = await StorageUtil.upload(t, ".zip");
       if (!bytes) return;
-      const result = await new Promise<any>((resolve, reject) => {
-        triggerBinary(
-          {
-            timestamp: getTimestampMs() + Math.random() * 1000,
-            command: "import_config",
-            payload: {},
-          },
-          bytes,
-          (event) => {
-            if (event?.status === "error") {
-              reject(new Error(event.error || "import_config failed"));
-              return;
-            }
-            resolve(event?.data);
-          }
-        );
-      });
-      await waitForConfig(result.serial);
+      const result = await runProfileCommand(
+        useWebSocketStore.getState,
+        "import_config",
+        {},
+        bytes
+      );
+      await waitForConfig(result?.serial);
       setEditor(null);
     } catch (error: any) {
       toast.error(t("profile.importFailed"), { description: error?.message });
     }
-  }, [runTrigger, t, waitForConfig]);
+  }, [t, waitForConfig]);
 
   /** Handles the handle edit interaction. */
   const handleEdit = async (tab: Tab, name: string, server: string) => {
@@ -319,7 +277,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     }
 
     trigger({
-      timestamp: getTimestampMs() + Math.random() * 1000,
+      timestamp: getTimestampMs(),
       command: "remove_config",
       payload: {
         id: tab.id,
@@ -451,7 +409,9 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                 {tabs.map((tab) => {
                   const active = activeProfile?.id === tab.id;
                   const menuOpen = ctxMenu?.tab?.id === tab.id;
-                  return tab.id in runningByProfile ? (
+                  // A config can arrive before its status or survive status
+                  // recovery. Missing status must not hide its entry point.
+                  return (
                     <Reorder.Item
                       id={`tab-${tab.id}`}
                       key={tab.id}
@@ -535,8 +495,6 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                         </button>
                       </IconTooltip>
                     </Reorder.Item>
-                  ) : (
-                    <div key={tab.id}></div>
                   );
                 })}
               </Reorder.Group>
