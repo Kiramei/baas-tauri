@@ -686,7 +686,7 @@
       "restartFailed": "游戏重启失败",
       "showControls": "显示游戏控制",
       "startBackground": "后台启动游戏",
-      "takeoverFailed": "接管游戏失败"
+      "takeoverFailed": "无法进入横屏游戏模式"
     },
     "start": {
       "actionFailed": "操作未完成，请在 Shizuku 中检查服务和应用授权。",

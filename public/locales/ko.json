@@ -686,7 +686,7 @@
       "restartFailed": "게임을 다시 시작할 수 없습니다",
       "showControls": "게임 제어 표시",
       "startBackground": "백그라운드에서 게임 시작",
-      "takeoverFailed": "게임 제어를 전환할 수 없습니다"
+      "takeoverFailed": "전체 화면 게임 모드를 시작할 수 없습니다"
     },
     "start": {
       "actionFailed": "작업을 완료하지 못했습니다. Shizuku에서 서비스와 앱 권한을 확인하세요.",

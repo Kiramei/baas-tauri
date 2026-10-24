@@ -33,6 +33,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
+base64 = "0.22.1"
 
 # Main App Specified Packages
 tauri-plugin-opener = "2"
@@ -54,7 +55,6 @@ url = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }
-base64 = "0.22.1"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
 minisign-verify = "0.2.4"
 rand = "0.8.5"

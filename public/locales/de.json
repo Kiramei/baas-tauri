@@ -686,7 +686,7 @@
       "restartFailed": "Spiel konnte nicht neu gestartet werden",
       "showControls": "Spielsteuerung anzeigen",
       "startBackground": "Spiel im Hintergrund starten",
-      "takeoverFailed": "Spiel konnte nicht übernommen werden"
+      "takeoverFailed": "Vollbild-Spielmodus konnte nicht geöffnet werden"
     },
     "start": {
       "actionFailed": "Die Aktion wurde nicht abgeschlossen. Prüfe Dienst und App-Berechtigung in Shizuku.",

@@ -1,3 +1,4 @@
+use crate::mobile_plugin_ack::NativeVoidAck;
 use tauri::{
     plugin::{Builder, PluginHandle, TauriPlugin},
     AppHandle, Manager, Runtime,
@@ -154,7 +155,8 @@ pub fn list_games<R: Runtime>(app: &AppHandle<R>) -> Result<AndroidGameList, Str
 pub fn launch_game<R: Runtime>(app: &AppHandle<R>, package_name: &str) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("launchGame", PackageRequest { package_name })
+        .run_mobile_plugin::<NativeVoidAck>("launchGame", PackageRequest { package_name })
+        .map(|_| ())
         .map_err(|error| format!("failed to launch Android game: {error}"))
 }
 
@@ -199,6 +201,26 @@ pub fn game_native_preview<R: Runtime>(
         .map_err(|error| format!("failed to update native Android preview: {error}"))
 }
 
+pub fn game_fullscreen<R: Runtime>(
+    app: &AppHandle<R>,
+    request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("gameFullscreen", request)
+        .map_err(|error| format!("failed to update fullscreen Android game: {error}"))
+}
+
+pub fn game_resume_automation<R: Runtime>(
+    app: &AppHandle<R>,
+    request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    app.state::<AndroidBackendService<R>>()
+        .0
+        .run_mobile_plugin("gameResumeAutomation", request)
+        .map_err(|error| format!("failed to resume Android automation: {error}"))
+}
+
 pub fn game_gesture<R: Runtime>(
     app: &AppHandle<R>,
     package_name: &str,
@@ -208,7 +230,7 @@ pub fn game_gesture<R: Runtime>(
 ) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin(
+        .run_mobile_plugin::<NativeVoidAck>(
             "gameGesture",
             GestureRequest {
                 package_name,
@@ -219,13 +241,15 @@ pub fn game_gesture<R: Runtime>(
                 duration_ms,
             },
         )
+        .map(|_| ())
         .map_err(|error| format!("failed to control Android game: {error}"))
 }
 
 pub fn install_package<R: Runtime>(app: &AppHandle<R>, path: &str) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("installPackage", InstallPackageRequest { path })
+        .run_mobile_plugin::<NativeVoidAck>("installPackage", InstallPackageRequest { path })
+        .map(|_| ())
         .map_err(|error| format!("failed to open Android package installer: {error}"))
 }
 
@@ -243,21 +267,30 @@ pub fn set_system_bars<R: Runtime>(
 ) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("setSystemBars", SystemBarsRequest { background_color, dark_icons })
+        .run_mobile_plugin::<NativeVoidAck>(
+            "setSystemBars",
+            SystemBarsRequest {
+                background_color,
+                dark_icons,
+            },
+        )
+        .map(|_| ())
         .map_err(|error| format!("failed to update Android system bars: {error}"))
 }
 
 pub fn open_shizuku<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("openShizuku", ())
+        .run_mobile_plugin::<NativeVoidAck>("openShizuku", ())
+        .map(|_| ())
         .map_err(|error| format!("failed to open Shizuku: {error}"))
 }
 
 pub fn request_shizuku_permission<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("requestShizukuPermission", ())
+        .run_mobile_plugin::<NativeVoidAck>("requestShizukuPermission", ())
+        .map(|_| ())
         .map_err(|error| format!("failed to request Shizuku permission: {error}"))
 }
 
@@ -292,7 +325,8 @@ pub fn start_shizuku_display<R: Runtime>(
 pub fn stop_shizuku_display<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin("stopShizukuDisplay", ())
+        .run_mobile_plugin::<NativeVoidAck>("stopShizukuDisplay", ())
+        .map(|_| ())
         .map_err(|error| format!("failed to stop Shizuku virtual display: {error}"))
 }
 
@@ -306,12 +340,13 @@ pub fn launch_package_on_shizuku_display<R: Runtime>(
     }
     app.state::<AndroidBackendService<R>>()
         .0
-        .run_mobile_plugin(
+        .run_mobile_plugin::<NativeVoidAck>(
             "launchPackageOnShizukuDisplay",
             ShizukuDisplayLaunchRequest {
                 package_name,
                 display_id,
             },
         )
+        .map(|_| ())
         .map_err(|error| format!("failed to launch game on Shizuku display: {error}"))
 }

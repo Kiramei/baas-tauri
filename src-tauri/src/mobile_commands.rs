@@ -1,4 +1,5 @@
 use crate::pipe_commands::BackendPipeManager;
+use crate::mobile_update_query::{QueryDeadline, QueryProbeLease, QueryProbeScope, UpdateQuery};
 use crate::system_logs::system_log;
 use baas_updater::{
     android::{
@@ -40,6 +41,9 @@ const ANDROID_ADBD_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const ANDROID_ADBD_AUTH_TIMEOUT: Duration = Duration::from_secs(90);
 const ANDROID_ADBD_FAST_TIMEOUT: Duration = Duration::from_secs(4);
 const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
+const ANDROID_UPDATE_QUERY_TIMEOUT: Duration = Duration::from_secs(30);
+static ANDROID_BACKEND_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android backend update check");
+static ANDROID_CLIENT_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android client update check");
 const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
     "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
@@ -55,6 +59,22 @@ impl SourceProbe for AndroidUpdateEndpointProbe {
     fn measure(&self, url: &str) -> baas_updater::UpdaterResult<Duration> {
         let started = Instant::now();
         fetch_android_update_metadata(url).map_err(baas_updater::UpdaterError::Network)?;
+        Ok(started.elapsed())
+    }
+}
+
+#[derive(Clone)]
+struct TimedAndroidUpdateEndpointProbe {
+    deadline: QueryDeadline,
+    // Clone is deliberately tracked before SourceSelector spawns each detached probe thread.
+    _lease: QueryProbeLease,
+}
+
+impl SourceProbe for TimedAndroidUpdateEndpointProbe {
+    fn measure(&self, url: &str) -> baas_updater::UpdaterResult<Duration> {
+        let started = Instant::now();
+        fetch_android_update_metadata_before(url, self.deadline)
+            .map_err(baas_updater::UpdaterError::Network)?;
         Ok(started.elapsed())
     }
 }
@@ -292,18 +312,26 @@ pub async fn android_scrcpy_virtual_display_status(
 
 /// Returns the supported Blue Archive packages installed on this Android device.
 #[tauri::command]
-pub fn android_list_games(app: AppHandle) -> Result<Value, String> {
-    let report = crate::android_backend_service::list_games(&app)?;
-    serde_json::to_value(report).map_err(|error| error.to_string())
+pub async fn android_list_games(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = crate::android_backend_service::list_games(&app)?;
+        serde_json::to_value(report).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android installed-game query worker failed: {error}"))?
 }
 
 /// Transfers an embedded game task to the main display, or launches a game if no embedded session exists.
 #[tauri::command]
-pub fn android_launch_game(
+pub async fn android_launch_game(
     app: AppHandle,
     request: AndroidGamePackageRequest,
 ) -> Result<(), String> {
-    crate::android_backend_service::launch_game(&app, &request.package_name)
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::launch_game(&app, &request.package_name)
+    })
+    .await
+    .map_err(|error| format!("Android game launch worker failed: {error}"))?
 }
 
 /// Captures the display which currently owns the selected game window.
@@ -350,18 +378,42 @@ pub async fn android_game_native_preview(app: AppHandle, request: Value) -> Resu
     .map_err(|error| format!("Android native preview worker failed: {error}"))?
 }
 
+/// Keeps the owned game in-process while switching between embedded and manual fullscreen UI.
+#[tauri::command]
+pub async fn android_game_fullscreen(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::game_fullscreen(&app, request)
+    })
+    .await
+    .map_err(|error| format!("Android fullscreen game worker failed: {error}"))?
+}
+
+/// Releases native manual-control isolation only after an explicit new script start.
+#[tauri::command]
+pub async fn android_game_resume_automation(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::game_resume_automation(&app, request)
+    })
+    .await
+    .map_err(|error| format!("Android automation resume worker failed: {error}"))?
+}
+
 /// Establishes and returns the endpoint for the persistent binary H.264 stream.
 #[tauri::command]
-pub fn android_game_stream_info(
+pub async fn android_game_stream_info(
     app: AppHandle,
     request: AndroidGameStreamRequest,
 ) -> Result<Value, String> {
-    let info = crate::android_backend_service::game_stream_info(
-        &app,
-        request.fps.clamp(1, 60),
-        request.bitrate.clamp(256_000, 20_000_000),
-    )?;
-    serde_json::to_value(info).map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let info = crate::android_backend_service::game_stream_info(
+            &app,
+            request.fps.clamp(1, 60),
+            request.bitrate.clamp(256_000, 20_000_000),
+        )?;
+        serde_json::to_value(info).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android game stream query worker failed: {error}"))?
 }
 
 /// Sends a touch or swipe to the selected game's Shizuku virtual display.
@@ -385,31 +437,47 @@ pub async fn android_game_gesture(
 
 /// Reports whether Shizuku is installed, running, and authorized.
 #[tauri::command]
-pub fn android_shizuku_status(app: AppHandle) -> Result<Value, String> {
-    let status = crate::android_backend_service::shizuku_status(&app)?;
-    serde_json::to_value(status).map_err(|error| error.to_string())
+pub async fn android_shizuku_status(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let status = crate::android_backend_service::shizuku_status(&app)?;
+        serde_json::to_value(status).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku status worker failed: {error}"))?
 }
 
 /// Opens Shizuku or requests its runtime authorization.
 #[tauri::command]
-pub fn android_request_shizuku_permission(app: AppHandle) -> Result<(), String> {
-    crate::android_backend_service::request_shizuku_permission(&app)
+pub async fn android_request_shizuku_permission(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::request_shizuku_permission(&app)
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku permission worker failed: {error}"))?
 }
 
 /// Opens only the installed Shizuku app after an explicit user action.
 #[tauri::command]
-pub fn android_open_shizuku(app: AppHandle) -> Result<(), String> {
-    crate::android_backend_service::open_shizuku(&app)
+pub async fn android_open_shizuku(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::open_shizuku(&app)
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku launcher worker failed: {error}"))?
 }
 
 /// Applies the app palette to Android's status and navigation bars.
 #[tauri::command]
-pub fn android_set_system_bars(
+pub async fn android_set_system_bars(
     app: AppHandle,
     background_color: String,
     dark_icons: bool,
 ) -> Result<(), String> {
-    crate::android_backend_service::set_system_bars(&app, &background_color, dark_icons)
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::set_system_bars(&app, &background_color, dark_icons)
+    })
+    .await
+    .map_err(|error| format!("Android system bar worker failed: {error}"))?
 }
 
 fn android_cleanup_scrcpy_virtual_display_blocking(
@@ -2450,7 +2518,7 @@ pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
 
 /// Handles the tauri client check update workflow.
 #[tauri::command]
-pub fn tauri_client_check_update(
+pub async fn tauri_client_check_update(
     app: AppHandle,
     request: TauriClientUpdateRequest,
 ) -> Result<Value, String> {
@@ -2458,6 +2526,25 @@ pub fn tauri_client_check_update(
         .current_version
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    ANDROID_CLIENT_UPDATE_QUERY
+        .run(current_version.clone(), ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
+            // Declaration order ensures probe leases drop before their scope, including unwinding.
+            let scope = QueryProbeScope::new();
+            let probe = TimedAndroidUpdateEndpointProbe {
+                deadline,
+                _lease: scope.lease(),
+            };
+            tauri_client_check_update_blocking(app, current_version, deadline, &probe)
+        })
+        .await
+}
+
+fn tauri_client_check_update_blocking(
+    app: AppHandle,
+    current_version: String,
+    deadline: QueryDeadline,
+    probe: &TimedAndroidUpdateEndpointProbe,
+) -> Result<Value, String> {
     let endpoints = TAURI_UPDATE_ENDPOINTS
         .iter()
         .map(|endpoint| endpoint.to_string())
@@ -2473,15 +2560,16 @@ pub fn tauri_client_check_update(
     let mut selector =
         SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
     loop {
+        deadline.remaining()?;
         let endpoint = selector
             .next_source(
                 &probes,
-                &AndroidUpdateEndpointProbe,
+                probe,
                 &baas_updater::NoopOutput,
                 "Android client update",
             )
             .map_err(|error| error.message())?;
-        match fetch_android_update_metadata(&endpoint) {
+        match fetch_android_update_metadata_before(&endpoint, deadline) {
             Ok(update) => {
                 let remote_version = normalize_version(
                     update
@@ -2674,10 +2762,25 @@ fn verify_android_update_signature(bytes: &[u8], encoded_signature: &str) -> Res
 
 /// Handles the fetch android update metadata workflow.
 fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
+    fetch_android_update_metadata_with_timeout(endpoint, 15)
+}
+
+fn fetch_android_update_metadata_before(
+    endpoint: &str,
+    deadline: QueryDeadline,
+) -> Result<Value, String> {
+    // minreq's timeout uses whole seconds. Round up, never start a request after the deadline,
+    // and retain the existing 15-second per-source cap. This is not a hard git2 cancellation.
+    let remaining = deadline.remaining()?;
+    let seconds = remaining.as_secs() + u64::from(remaining.subsec_nanos() != 0);
+    fetch_android_update_metadata_with_timeout(endpoint, seconds.clamp(1, 15))
+}
+
+fn fetch_android_update_metadata_with_timeout(endpoint: &str, seconds: u64) -> Result<Value, String> {
     let response = minreq::get(endpoint)
         .with_header("cache-control", "no-cache")
         .with_header("accept", "application/json")
-        .with_timeout(15)
+        .with_timeout(seconds)
         .send()
         .map_err(|error| error.to_string())?;
     if !(200..300).contains(&response.status_code) {
@@ -2692,9 +2795,22 @@ fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
 
 /// Performs the updater check version operation.
 #[tauri::command]
-pub fn updater_check_version(
+pub async fn updater_check_version(
     app: AppHandle,
     request: UpdaterVersionCheckRequest,
+) -> Result<Value, String> {
+    let key = request.channel.as_deref().unwrap_or_default().trim().to_string();
+    ANDROID_BACKEND_UPDATE_QUERY
+        .run(key, ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
+            updater_check_version_blocking(app, request, deadline)
+        })
+        .await
+}
+
+fn updater_check_version_blocking(
+    app: AppHandle,
+    request: UpdaterVersionCheckRequest,
+    deadline: QueryDeadline,
 ) -> Result<Value, String> {
     system_log(
         "DEBUG",
@@ -2713,7 +2829,7 @@ pub fn updater_check_version(
     let preferred_method = normalize_android_sha_method(
         &read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default(),
     );
-    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method)?;
+    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method, deadline)?;
     Ok(json!({
         "local": local,
         "remote": remote,
@@ -2822,19 +2938,23 @@ pub fn updater_start_workflow(
 
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
-pub fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
+pub async fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
     system_log(
         "WARNING",
         "backend_auth",
         "Android backend authentication reset requested",
     );
-    let _ = ensure_android_backend_service(&app)?;
-    Ok(json!({
-        "base_backend_addr": "127.0.0.1",
-        "base_backend_port": 8190,
-        "restarted": false,
-        "restart_deferred": true
-    }))
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = ensure_android_backend_service(&app)?;
+        Ok(json!({
+            "base_backend_addr": "127.0.0.1",
+            "base_backend_port": 8190,
+            "restarted": false,
+            "restart_deferred": true
+        }))
+    })
+    .await
+    .map_err(|error| format!("Android backend service startup worker failed: {error}"))?
 }
 
 /// Starts the Android backend and configures its selected local transport.
@@ -2847,8 +2967,13 @@ pub async fn backend_transport_start(
     if mode != "websocket" && mode != "pipe" {
         return Err(format!("Unsupported Android backend transport: {mode}"));
     }
-    persist_android_transport(&app, &mode)?;
-    let service = ensure_android_backend_service(&app)?;
+    let worker_mode = mode.clone();
+    let service = tauri::async_runtime::spawn_blocking(move || {
+        persist_android_transport(&app, &worker_mode)?;
+        ensure_android_backend_service(&app)
+    })
+    .await
+    .map_err(|error| format!("Android backend transport startup worker failed: {error}"))??;
     tauri::async_runtime::spawn_blocking(wait_for_android_backend_health)
         .await
         .map_err(|error| format!("Android backend readiness task failed: {error}"))??;
@@ -2979,6 +3104,7 @@ fn android_first_remote_sha(
     root: &Path,
     channel: UpdateChannel,
     preferred_method: &str,
+    deadline: QueryDeadline,
 ) -> Result<(String, String), String> {
     let methods = android_sha_method_sources(channel);
     let mut ordered = Vec::new();
@@ -2999,6 +3125,7 @@ fn android_first_remote_sha(
         let Some((_, Some(url))) = methods.iter().find(|(name, _)| name == &method) else {
             continue;
         };
+        deadline.remaining()?;
         match android_repository_remote_sha(root, RepositoryKind::Main, channel, url) {
             Ok(sha) => return Ok((method, sha)),
             Err(error) => last_error = Some(error.message()),

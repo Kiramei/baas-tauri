@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   decodeFrames,
   encodeBinaryRequest,
+  encodeAndroidBinaryRequest,
   KIND_BYTES,
   KIND_CLOSE,
   KIND_JSON,
@@ -63,5 +64,18 @@ describe("pipe WebView protocol", () => {
     expect(new TextDecoder().decode(encoded.subarray(8, 8 + length))).toBe("remote-配置");
     expect(encoded.subarray(8 + length)).toEqual(new Uint8Array([0, 255, 7]));
     expect(() => encodeBinaryRequest("remote", "配".repeat(22_000), payload)).toThrow("65535");
+  });
+
+  test("Android JSON IPC keeps UTF-8 routing and large sliced payloads in base64", () => {
+    const payload = new Uint8Array(100_000).map((_, index) => index % 256);
+    const encoded = encodeAndroidBinaryRequest("trigger", "trigger-配置", payload.subarray(1, -1));
+    const json = JSON.parse(JSON.stringify(encoded));
+    expect(json.channel).toBe("trigger");
+    expect(json.name).toBe("trigger-配置");
+    expect(typeof json.payload).toBe("string");
+    expect(Uint8Array.from(atob(json.payload), (value) => value.charCodeAt(0))).toEqual(
+      payload.subarray(1, -1)
+    );
+    expect(encodeAndroidBinaryRequest("trigger", "trigger", new Uint8Array()).payload).toBe("");
   });
 });

@@ -3,8 +3,8 @@ import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import { getTimestampMs } from "@/shared/GlobalUtilities";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useWebSocketStore } from "@/store/WebsocketStore";
+import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
 
 type DropState = "zip" | "invalid" | null;
 type PendingArchive = {
@@ -21,11 +21,6 @@ const filesFromDrop = (event: DragEvent): File[] =>
   Array.from(event.dataTransfer?.files ?? []).filter((file) => isZipName(file.name));
 
 const archiveNameFromPath = (path: string) => path.split(/[\\/]/).pop() || path;
-
-const waitForImportedConfig = async (serial: string) => {
-  await waitForNormal(() => useWebSocketStore.getState().configStore?.[serial], Boolean, 8000);
-  return useWebSocketStore.getState().configStore?.[serial];
-};
 
 /** Renders the config archive drop overlay component. */
 const ConfigArchiveDropOverlay: React.FC = () => {
@@ -51,35 +46,14 @@ const ConfigArchiveDropOverlay: React.FC = () => {
         );
       }
 
-      const result = await new Promise<any>((resolve, reject) => {
-        state.triggerBinary(
-          {
-            timestamp: getTimestampMs() + Math.random() * 1000,
-            command: "import_config",
-            payload: { filename: name },
-          },
-          bytes,
-          (event) => {
-            if (event?.status === "error") {
-              reject(new Error(event.error || "import_config failed"));
-              return;
-            }
-            resolve(event?.data);
-          }
-        );
-      });
-
-      if (result?.serial) {
-        try {
-          const config = await waitForImportedConfig(result.serial);
-          setActiveProfile({
-            id: result.serial,
-            name: config?.name ?? result.name ?? archiveNameFromPath(name),
-          });
-        } catch {
-          // The import already succeeded; filesystem sync can still arrive after the UI toast.
-        }
-      }
+      const result = await runProfileCommand(
+        useWebSocketStore.getState,
+        "import_config",
+        { filename: name },
+        bytes
+      );
+      const config = await waitForProfileConfig(useWebSocketStore.getState, result?.serial);
+      setActiveProfile({ id: result.serial, name: config.name });
 
       return result;
     },

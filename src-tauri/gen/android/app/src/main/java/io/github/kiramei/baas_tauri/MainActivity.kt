@@ -1,6 +1,7 @@
 package io.github.kiramei.baas_tauri
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -22,10 +23,13 @@ class MainActivity : TauriActivity() {
   private var backRequestInFlight = false
   private var systemBarBackground = Color.rgb(24, 24, 24)
   private var systemBarDarkIcons = false
+  private var gameFullscreen = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
     super.onCreate(savedInstanceState)
+    TauriActivityResultCompat.onActivityCreate(this)
+    BackendServicePlugin.activityCreated(this)
     WindowCompat.setDecorFitsSystemWindows(window, false)
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     applySystemBars(systemBarBackground, systemBarDarkIcons)
@@ -52,7 +56,7 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     applySystemBars(systemBarBackground, systemBarDarkIcons)
-    NativeGamePreview.current?.resume()
+    BackendServicePlugin.activityResumed(this)
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
   }
@@ -94,12 +98,12 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onPause() {
-    NativeGamePreview.current?.pause()
+    BackendServicePlugin.activityPaused(this)
     super.onPause()
   }
 
   override fun onDestroy() {
-    NativeGamePreview.current?.destroy()
+    BackendServicePlugin.activityDestroyed(this)
     super.onDestroy()
   }
 
@@ -119,12 +123,25 @@ class MainActivity : TauriActivity() {
     WindowCompat.getInsetsController(window, window.decorView).apply {
       isAppearanceLightStatusBars = darkIcons
       isAppearanceLightNavigationBars = darkIcons
+      if (gameFullscreen) hide(WindowInsetsCompat.Type.systemBars())
     }
     findViewById<View>(android.R.id.content)?.setBackgroundColor(backgroundColor)
     findWebView(window.decorView)?.setBackgroundColor(backgroundColor)
   }
 
+  /** Rotate this Activity only. The game remains on its existing owned virtual display. */
+  fun setGameFullscreen(active: Boolean) {
+    gameFullscreen = active
+    requestedOrientation = if (active) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+      systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      if (active) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
+    }
+    applySystemBars(systemBarBackground, systemBarDarkIcons)
+  }
+
   private fun handleAppBack() {
+    if (NativeGamePreview.forActivity(this)?.consumeFullscreenBack() == true) return
     if (backRequestInFlight) return
     val webView = findWebView(window?.decorView)
     if (webView == null) {

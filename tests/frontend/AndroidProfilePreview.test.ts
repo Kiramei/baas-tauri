@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { ANDROID_PREVIEW_BLOCKERS } from "../../src/shared/AndroidPreviewInvalidation";
 
 test("profile menus and confirmation dialogs suspend only the native preview", () => {
   const header = readFileSync(
@@ -20,8 +21,9 @@ test("profile menus and confirmation dialogs suspend only the native preview", (
     '[role="alertdialog"]',
     "[data-native-preview-blocker]",
   ]) {
-    expect(panel).toContain(selector);
+    expect(ANDROID_PREVIEW_BLOCKERS).toContain(selector);
   }
+  expect(panel).toContain("document.querySelectorAll(ANDROID_PREVIEW_BLOCKERS)");
   expect(panel).toContain("if (updatePending && !disposed) schedule();");
   expect(panel).toMatch(
     /mutations\.observe\(document\.body,\s*\{[\s\S]*?childList:\s*true,[\s\S]*?subtree:\s*true/

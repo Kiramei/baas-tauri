@@ -686,7 +686,7 @@
       "restartFailed": "ゲームを再起動できません",
       "showControls": "ゲーム操作を表示",
       "startBackground": "バックグラウンドでゲームを起動",
-      "takeoverFailed": "ゲーム操作を引き継げません"
+      "takeoverFailed": "全画面ゲームモードを開始できません"
     },
     "start": {
       "actionFailed": "操作を完了できませんでした。Shizuku のサービスとアプリの権限を確認してください。",

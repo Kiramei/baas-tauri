@@ -68,3 +68,22 @@ export function encodeBinaryRequest(
   request.set(bytes, BINARY_REQUEST_HEADER_BYTES + nameBytes.byteLength);
   return request;
 }
+
+// Android Tauri IPC is JSON-only. Base64 avoids both its unsupported raw-body
+// conversion and the size/serialization cost of expanding a ZIP to number[].
+export function encodeAndroidBinaryRequest(
+  channel: BackendChannelName,
+  name: string,
+  payload: ArrayBuffer | Uint8Array
+): { channel: BackendChannelName; name: string; payload: string } {
+  const bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+  if (encoder.encode(name).byteLength > 0xffff)
+    throw new Error("Named pipe channel name exceeds 65535 UTF-8 bytes");
+  if (bytes.byteLength > MAX_PAYLOAD_BYTES)
+    throw new Error("Named pipe payload exceeds the 64 MiB limit");
+  let binary = "";
+  for (let offset = 0; offset < bytes.byteLength; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return { channel, name, payload: btoa(binary) };
+}

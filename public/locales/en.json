@@ -686,7 +686,7 @@
       "restartFailed": "Unable to restart the game",
       "showControls": "Show game controls",
       "startBackground": "Start game in background",
-      "takeoverFailed": "Unable to take over the game"
+      "takeoverFailed": "Unable to enter fullscreen game mode"
     },
     "start": {
       "actionFailed": "The action did not finish. Check the service and app permission in Shizuku.",

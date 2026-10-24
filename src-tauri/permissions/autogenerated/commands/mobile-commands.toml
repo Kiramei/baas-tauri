@@ -41,6 +41,8 @@ commands.allow = [
   "android_launch_game",
   "android_game_preview",
   "android_game_native_preview",
+  "android_game_fullscreen",
+  "android_game_resume_automation",
   "android_game_screenshot",
   "android_game_stream_info",
   "android_game_gesture",

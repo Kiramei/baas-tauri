@@ -1,4 +1,5 @@
 import json
+import http.client
 import hashlib
 import types
 import os
@@ -9,6 +10,7 @@ import threading
 import time
 import traceback
 import urllib.request
+import urllib.error
 import zipfile
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -53,6 +55,11 @@ SERVICE_TRANSPORT_OVERLAY_FILES = (
 _SERVER = None
 _HOT_RESTART_DONE = False
 _SERVER_LOCK = threading.RLock()
+_BOOTSTRAP_CLAIMED = False
+_BOOTSTRAP_STATUS = {"ok": False, "stage": "starting"}
+_BOOTSTRAP_HTTP_SERVER = None
+_BOOTSTRAP_HTTP_THREAD = None
+_BOOTSTRAP_HTTP_ROOT = None
 _ATX_START_LOCK = threading.RLock()
 _ATX_START_THREAD = None
 REPOSITORIES = {
@@ -84,6 +91,22 @@ def restart(files_dir=None, storage_root_or_port=None, port=None, native_library
 
 # Performs the start operation.
 def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
+    global _BOOTSTRAP_CLAIMED
+
+    # The normal service blocks, but its diagnostic HTTP server runs on a
+    # background thread. A returned call is therefore not permission to retry
+    # installation, truncate the first startup log, or bind the port again.
+    # An explicit process restart supplies the only fresh bootstrap lifecycle.
+    with _SERVER_LOCK:
+        if _BOOTSTRAP_CLAIMED:
+            return dict(_BOOTSTRAP_STATUS)
+        _BOOTSTRAP_CLAIMED = True
+    return _start_once(files_dir, storage_root_or_port, port, native_library_dir)
+
+
+def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=None):
+    global _BOOTSTRAP_STATUS
+
     if port is None:
         port = storage_root_or_port
         storage_root = Path(files_dir) / PACKAGE_NAME
@@ -128,6 +151,7 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         "source": "runtime-repository",
         "startedAt": time.time(),
     }
+    _BOOTSTRAP_STATUS = status
 
     try:
         status["stage"] = "runtime"
@@ -145,10 +169,11 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         print("[service] Starting local backend service", flush=True)
         _activate_bundled_service_transport(root)
         _run_baas_service(root, port)
-        return
+        raise RuntimeError("The local backend service stopped; explicitly restart the Android backend to recover.")
     except Exception as error:
         status.update(
             {
+                "ok": False,
                 "stage": "failed",
                 "backendInstalled": _service_path(root).exists(),
                 "error": str(error),
@@ -157,12 +182,25 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
                     "Embedded Python 3.9 is running, but the bundled BAAS service "
                     "backend could not be started. Android does not use uv; the "
                     "backend source is installed in the app's private files directory. "
-                    "The first missing Android-compatible dependency is reported here."
+                    "The original installation or service error is reported here. "
+                    "Explicitly restart the Android backend after resolving it."
                 ),
             }
         )
         _write_status(root, status)
-        _run_bootstrap_server(port, root, status)
+        print("[bootstrap] Backend startup failed: " + status["error"], file=sys.stderr, flush=True)
+        traceback.print_exc()
+        try:
+            _run_bootstrap_server(port, root, status)
+        except Exception as diagnostic_error:
+            # Keep the download/import/service exception as the primary cause.
+            # Diagnostic transport failure is additional evidence, never a
+            # replacement 'address already in use' bootstrap error.
+            status["diagnosticError"] = str(diagnostic_error)
+            status["diagnosticTraceback"] = traceback.format_exc()
+            _write_status(root, status)
+            print("[bootstrap] Diagnostic server failed: " + str(diagnostic_error), file=sys.stderr, flush=True)
+        return dict(status)
 
 
 # Performs the configure environment operation.
@@ -374,31 +412,45 @@ def _download_backend_archive(target_root, channel):
     branch = repo["branch"]
     print(f"[runtime] Resolving backend revision: {owner}/{name}@{branch}", flush=True)
     remote_sha = _get_github_branch_sha(owner, name, branch)
-    archive_url = f"https://codeload.github.com/{owner}/{name}/zip/refs/heads/{branch}"
+    archive_ref = remote_sha or f"refs/heads/{branch}"
+    archive_url = f"https://codeload.github.com/{owner}/{name}/zip/{archive_ref}"
     target_root.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
-        archive_path = Path(tmp_dir) / "repo.zip"
-        print(f"[runtime] GET {archive_url}", flush=True)
-        with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
-            downloaded = 0
-            last_report = time.monotonic()
-            while True:
-                chunk = response.read(256 * 1024)
-                if not chunk:
-                    break
-                output.write(chunk)
-                downloaded += len(chunk)
-                if time.monotonic() - last_report >= 1:
-                    print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
+    for attempt in range(1, 4):
+        try:
+            with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
+                archive_path = Path(tmp_dir) / "repo.zip"
+                print(f"[runtime] GET {archive_url} (attempt {attempt}/3)", flush=True)
+                with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
+                    downloaded = 0
                     last_report = time.monotonic()
-        print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
-        with zipfile.ZipFile(archive_path) as archive:
-            archive.extractall(tmp_dir)
-        candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
-        source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
-        if source_root is None:
-            raise RuntimeError("Downloaded BAAS backend archive does not contain main.service.py")
-        shutil.copytree(source_root, target_root)
+                    while True:
+                        chunk = response.read(256 * 1024)
+                        if not chunk:
+                            break
+                        output.write(chunk)
+                        downloaded += len(chunk)
+                        if time.monotonic() - last_report >= 1:
+                            print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
+                            last_report = time.monotonic()
+                with zipfile.ZipFile(archive_path) as archive:
+                    if archive.testzip() is not None:
+                        raise zipfile.BadZipFile("Downloaded backend failed ZIP CRC verification")
+                    print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
+                    archive.extractall(tmp_dir)
+                candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
+                source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
+                if source_root is None:
+                    raise RuntimeError("Downloaded BAAS backend archive does not contain main.service.py")
+                shutil.copytree(source_root, target_root)
+            break
+        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError,
+                zipfile.BadZipFile) as error:
+            if isinstance(error, urllib.error.HTTPError) and error.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            if attempt == 3:
+                raise
+            print(f"[runtime] Backend download interrupted ({type(error).__name__}); retrying", flush=True)
+            time.sleep(attempt)
     if remote_sha:
         _write_installed_backend_sha(target_root / "setup.toml", remote_sha, channel)
     (target_root / "android-backend-source.json").write_text(
@@ -503,7 +555,11 @@ def _ensure_android_support_files(root):
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
     _patch_android_native_capture_runtime(root)
+    _patch_android_owned_display_resize_guard(root)
     _patch_android_game_resource_update(root)
+    _patch_android_inventory_full(root)
+    _patch_android_startup_loading(root)
+    _patch_android_home_asset_readings(root)
     _write_android_direct_adb_server(root)
     _write_android_media_codec_decoder(root)
     _write_watchfiles_stub(root)
@@ -538,6 +594,106 @@ def _patch_android_game_resource_update(root):
                         "            fail_cnt = 0\n"
                         "            continue\n" + needle, 1)
     target.write_text(text, encoding="utf-8")
+
+
+def _patch_android_inventory_full(root):
+    """Install narrow CN inventory guards only into the Android private backend."""
+    patches = (
+        ("core/picture.py", "BAAS_ANDROID_INVENTORY_FULL_CO_DETECT_V1", (
+            ("import time\n", "import time\nfrom android_backend.inventory_full import handle_inventory_full\n"),
+            ("        # loading check\n",
+             "        # BAAS_ANDROID_INVENTORY_FULL_CO_DETECT_V1\n"
+             "        handle_inventory_full(self)\n"
+             "        # loading check\n"),
+        )),
+        ("core/color.py", "BAAS_ANDROID_INVENTORY_FULL_WAIT_LOADING_V1", (
+            ("import time\n", "import time\nfrom android_backend.inventory_full import handle_inventory_full\n"),
+            ("    startTime = time.time()\n",
+             "    # BAAS_ANDROID_INVENTORY_FULL_WAIT_LOADING_V1\n"
+             "    handle_inventory_full(self)\n"
+             "    startTime = time.time()\n"),
+            ("        self.update_screenshot_array()\n        loadingTime = ",
+             "        self.update_screenshot_array()\n"
+             "        handle_inventory_full(self)\n"
+             "        loadingTime = "),
+        )),
+        ("core/Baas_thread.py", "BAAS_ANDROID_INVENTORY_FULL_TASK_V1", (
+            ("import time\n",
+             "import time\nfrom android_backend.inventory_full import (\n"
+             "    InventoryFull, check_claim_task_result, finish_inventory_full_task,\n)\n"),
+            ("                return func_dict[activity](self)\n",
+             "                # BAAS_ANDROID_INVENTORY_FULL_TASK_V1\n"
+             "                result = func_dict[activity](self)\n"
+             "                return check_claim_task_result(self, activity, result)\n"),
+            ("            except FunctionCallTimeout:\n",
+             "            except InventoryFull as error:\n"
+             "                return finish_inventory_full_task(self, activity, error)\n"
+             "            except FunctionCallTimeout:\n"),
+            ("        except Exception as e:\n"
+             "            self.logger.error(traceback.format_exc())\n"
+             "            return False\n",
+             "        except InventoryFull as error:\n"
+             "            # BAAS_ANDROID_INVENTORY_FULL_ROUND_END_V1\n"
+             "            return finish_inventory_full_task(self, None, error)\n"
+             "        except Exception as e:\n"
+             "            self.logger.error(traceback.format_exc())\n"
+             "            return False\n"),
+        )),
+    )
+    if not any((root / relative).exists() for relative, _, _ in patches):
+        return
+    updates = []
+    for relative, marker, replacements in patches:
+        path = root / relative
+        text = path.read_text(encoding="utf-8")
+        if marker in text:
+            continue
+        next_text = text.replace("\r\n", "\n")
+        for needle, replacement in replacements:
+            if next_text.count(needle) != 1:
+                raise RuntimeError("Cannot safely install Android inventory-full guard in " + relative)
+            next_text = next_text.replace(needle, replacement, 1)
+        compile(next_text, str(path), "exec")
+        if "\r\n" in text:
+            next_text = next_text.replace("\n", "\r\n")
+        updates.append((path, next_text))
+    for path, next_text in updates:
+        path.write_text(next_text, encoding="utf-8")
+
+
+def _patch_android_startup_loading(root):
+    """Keep explicit CN startup loading inside co_detect's existing deadline."""
+    path = root / "core" / "picture.py"
+    if not path.exists():
+        return
+    marker = "BAAS_ANDROID_STARTUP_LOADING_V1"
+    text = path.read_text(encoding="utf-8")
+    if marker in text:
+        return
+    needle = "        # loading check\n"
+    if text.count(needle) != 1:
+        raise RuntimeError("Cannot safely install Android startup loading guard")
+    updated = text.replace("import time\n", "import time\nfrom android_backend.startup_loading import is_startup_loading\n", 1)
+    updated = updated.replace(needle,
+        "        # BAAS_ANDROID_STARTUP_LOADING_V1\n"
+        "        if is_startup_loading(self):\n"
+        "            fail_cnt = 0\n"
+        "            time.sleep(self.screenshot_interval)\n"
+        "            continue\n" + needle, 1)
+    compile(updated, str(path), "exec")
+    path.write_text(updated, encoding="utf-8")
+
+
+def _patch_android_home_asset_readings(root):
+    _replace_once(
+        root / "core" / "Baas_thread.py", "BAAS_ANDROID_HOME_ASSETS_V1",
+        "    def main_page_update_data(self):\n",
+        "    def main_page_update_data(self):\n"
+        "        # BAAS_ANDROID_HOME_ASSETS_V1\n"
+        "        from android_backend.home_assets import update_home_assets\n"
+        "        if update_home_assets(self):\n"
+        "            return\n",
+    )
 
 
 def _remove_android_legacy_device_dependencies(root):
@@ -750,6 +906,55 @@ def _patch_android_native_capture_runtime(root):
         "    if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
         "        return False\n",
     )
+
+
+def _patch_android_owned_display_resize_guard(root):
+    """Native capture owns a virtual display, never the user's primary wm size.
+
+    Keep legacy resize behavior intact, but refuse to start with an unrecognized
+    guard shape rather than silently leaving a primary-display command enabled.
+    """
+    import ast
+
+    target = root / "service" / "runtime.py"
+    if not target.is_file():
+        return
+    text = target.read_text(encoding="utf-8")
+    tree = ast.parse(text, filename=str(target))
+    guard = next((node for node in tree.body
+                  if isinstance(node, ast.ClassDef)
+                  and node.name == "_AndroidDisplayResizeGuard"), None)
+    if guard is None:
+        return
+    lines = text.splitlines(keepends=True)
+    insertions = []
+    for name in ("activate", "release", "force_restore"):
+        method = next((node for node in guard.body
+                       if isinstance(node, ast.FunctionDef) and node.name == name), None)
+        if method is None:
+            raise RuntimeError("Cannot protect Android primary display: missing resize guard " + name)
+        marker = "BAAS_ANDROID_OWNED_DISPLAY_" + name.upper() + "_V1"
+        if marker in "".join(lines[method.lineno - 1:method.end_lineno]):
+            continue
+        first = method.body[0]
+        insertion = first.lineno - 1
+        # Preserve a method docstring while still guarding before its first operation.
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
+                and isinstance(first.value.value, str):
+            insertion = first.end_lineno
+        body_line = lines[first.lineno - 1]
+        indent = body_line[:len(body_line) - len(body_line.lstrip())]
+        insertions.append((insertion,
+                           indent + "# " + marker + "\n"
+                           + indent + "if os.getenv('BAAS_ANDROID_NATIVE_CAPTURE') == '1':\n"
+                           + indent + "    return\n"))
+    if not insertions:
+        return
+    for position, replacement in sorted(insertions, reverse=True):
+        lines.insert(position, replacement)
+    patched = "".join(lines)
+    compile(patched, str(target), "exec")
+    target.write_text(patched, encoding="utf-8")
 
 
 def _apply_bundled_android_overlay(root):
@@ -2618,17 +2823,7 @@ def _start_android_direct_adb_server_if_needed(root):
 def _write_watchfiles_stub(root):
     path = root / "watchfiles.py"
     path.write_text(
-        "import asyncio\n"
-        "from enum import Enum\n\n"
-        "class Change(Enum):\n"
-        "    added = 1\n"
-        "    modified = 2\n"
-        "    deleted = 3\n\n"
-        "async def awatch(*_args, **_kwargs):\n"
-        "    while True:\n"
-        "        await asyncio.sleep(3600)\n"
-        "        if False:\n"
-        "            yield set()\n",
+        "from android_backend.config_watch import Change, awatch\n",
         encoding="utf-8",
     )
 
@@ -3214,18 +3409,33 @@ def _read_status(root, fallback):
 
 # Handles the run bootstrap server workflow.
 def _run_bootstrap_server(port, root, initial_status):
+    global _BOOTSTRAP_HTTP_SERVER, _BOOTSTRAP_HTTP_THREAD, _BOOTSTRAP_HTTP_ROOT
+
     class Handler(BaseHTTPRequestHandler):
         # Handles the do get workflow.
         def do_GET(self):
             if self.path.startswith("/health") or self.path.startswith("/auth/remember"):
-                self._json(_read_status(root, initial_status))
+                # A diagnostic responder is alive, but the backend is not ready.
+                self._json(_read_status(root, initial_status), 503)
                 return
             self.send_error(404)
 
+        def do_POST(self):
+            if self.path != "/android/bootstrap-restart":
+                self.send_error(404)
+                return
+            self._json({"ok": True, "restartScheduled": True})
+            threading.Thread(
+                target=_delayed_restart,
+                args=(os.environ.get("BAAS_ANDROID_INTERNAL_FILES_DIR", ""), root, port, None),
+                name="baas-android-delayed-restart",
+                daemon=True,
+            ).start()
+
         # Handles the json workflow.
-        def _json(self, payload):
+        def _json(self, payload, status=200):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -3235,5 +3445,22 @@ def _run_bootstrap_server(port, root, initial_status):
         def log_message(self, _format, *_args):
             return
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    threading.Thread(target=server.serve_forever, name="baas-bootstrap-http", daemon=True).start()
+    with _SERVER_LOCK:
+        if _BOOTSTRAP_HTTP_SERVER is not None:
+            if (int(port) not in (0, _BOOTSTRAP_HTTP_SERVER.server_address[1]) or
+                    str(root) != _BOOTSTRAP_HTTP_ROOT):
+                raise RuntimeError("A different Android bootstrap diagnostic server already owns this process")
+            if _BOOTSTRAP_HTTP_THREAD is None or not _BOOTSTRAP_HTTP_THREAD.is_alive():
+                raise RuntimeError("The Android bootstrap diagnostic server stopped; explicitly restart the backend")
+            return _BOOTSTRAP_HTTP_SERVER
+        server = ThreadingHTTPServer(("127.0.0.1", int(port)), Handler)
+        thread = threading.Thread(target=server.serve_forever, name="baas-bootstrap-http", daemon=True)
+        try:
+            thread.start()
+        except Exception:
+            server.server_close()
+            raise
+        _BOOTSTRAP_HTTP_SERVER = server
+        _BOOTSTRAP_HTTP_THREAD = thread
+        _BOOTSTRAP_HTTP_ROOT = str(root)
+        return server

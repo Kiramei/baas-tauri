@@ -686,7 +686,7 @@
       "restartFailed": "Impossible de redémarrer le jeu",
       "showControls": "Afficher les commandes du jeu",
       "startBackground": "Démarrer le jeu en arrière-plan",
-      "takeoverFailed": "Impossible de reprendre le contrôle du jeu"
+      "takeoverFailed": "Impossible d’ouvrir le jeu en plein écran"
     },
     "start": {
       "actionFailed": "L’action n’a pas abouti. Vérifiez le service et l’autorisation de BAAS dans Shizuku.",

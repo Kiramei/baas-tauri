@@ -470,6 +470,17 @@ pub fn android_game_gesture(_request: serde_json::Value) -> Result<(), String> {
     Err("Android game control is only available in the Android app".to_string())
 }
 
+#[tauri::command]
+pub fn android_game_fullscreen(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Fullscreen game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_resume_automation(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Native game automation is only available in the Android app".to_string())
+}
+
 /// Android-only command placeholder retained so the shared desktop handler compiles.
 #[tauri::command]
 pub fn android_shizuku_status() -> Result<serde_json::Value, String> {
