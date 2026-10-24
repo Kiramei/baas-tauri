@@ -5,6 +5,23 @@ The 2026-10-24–25 continuation has the limited physical-ARM results below. The
 earlier failed coexistence/startup candidate and its rollback remain historical
 checkpoints later in this document. No result transfers between APKs or providers.
 
+## Sticky navigation correction — 2026-10-25 Asia/Shanghai
+
+The subsequent ARM64 debug UI patch is **169,257,523 bytes**, SHA-256
+`b9e36470ef9fc5c9fb1eefd023eaea035c5dc5d046bc42b12ec4adf7583bbe40`;
+the installed Redmi K30 APK hash matched. Low-performance mode removes box
+shadows, including the shadow previously used to cover the 16px gap above
+sticky settings/configuration navigation. An opaque pseudo-element now covers
+that gap, sharing the scroll-padding variable without changing native insets.
+
+Android frontend/type/translation checks and ARM64 debug packaging passed.
+On the installed APK, 20 settings and 20 configuration geometry checks passed
+across low-performance mode on/off, dark/light CSS palettes, and scroll offsets
+0/100/155/260/600. A physical screenshot at the original settings offset confirmed
+that the title no longer shows above the search bar. These are UI-only results;
+the earlier runtime, gesture, and mail-flow observations below remain bound to
+their original APK identities.
+
 ## Continuation checkpoint — through early 2026-10-25 Asia/Shanghai
 
 The user explicitly requested continued development and allowed physical-device

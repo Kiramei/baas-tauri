@@ -1,5 +1,6 @@
 /* Android owns its viewport and touch sizing; desktop surfaces keep their own density. */
 html[data-app-platform="android"] {
+  --android-page-top-padding: 16px;
   --android-bottom-navigation-height: calc(56px + env(safe-area-inset-bottom, 0px));
   --android-page-bottom-reserve: var(--android-bottom-navigation-height);
   overflow: hidden;
@@ -14,7 +15,7 @@ html[data-app-platform="android"] #root {
 
 [data-app-platform="android"] .android-page-scroll {
   min-width: 0;
-  padding: 16px max(14px, env(safe-area-inset-right, 0px))
+  padding: var(--android-page-top-padding) max(14px, env(safe-area-inset-right, 0px))
     calc(20px + var(--android-page-bottom-reserve)) max(14px, env(safe-area-inset-left, 0px));
   overscroll-behavior-y: contain;
   scroll-padding-block: 16px calc(20px + var(--android-page-bottom-reserve));
@@ -391,6 +392,19 @@ html[data-app-platform="android"][data-android-keyboard-visible="true"] {
 }
 
 @media (max-width: 1023px) {
+  /* Sticky bounds retain the scroll padding above the navigation. Paint that
+     gap even when low-performance mode disables decorative box shadows. */
+  [data-app-platform="android"] .configuration-compact-navigation::before,
+  [data-app-platform="android"] .settings-page > .settings-mobile-navigation::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: var(--android-page-top-padding);
+    background: var(--background);
+    pointer-events: none;
+  }
+
   [data-app-platform="android"]
     .android-settings-page:not(.android-settings-searching)
     .settings-category-inactive {
