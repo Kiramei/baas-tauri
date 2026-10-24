@@ -70,6 +70,7 @@ libc = "0.2"
 sha2 = "0.11.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+gdkx11 = "0.18"
 gtk = "0.18.2"
 libc = "0.2"
 

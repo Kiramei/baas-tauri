@@ -204,12 +204,125 @@ mod linux {
         .map_err(|error| error.to_string())
     }
 
+    fn disable_x11_frame_sync(window: &gtk::ApplicationWindow) {
+        let Some(native) = window
+            .window()
+            .and_then(|window| window.downcast::<gdkx11::X11Window>().ok())
+        else {
+            return;
+        };
+        // GTK's X11 frame clock can remain frozen while waiting for a
+        // _NET_WM_FRAME_DRAWN acknowledgement after switching applications.
+        // Disable that per-window wait without changing WebKit compositing or
+        // the native Wayland rendering path.
+        native.set_frame_sync_enabled(false);
+        crate::system_logs::system_log(
+            "INFO",
+            "native_window_controls",
+            "Disabled main-window X11 frame synchronization to avoid stalled redraws while waiting for compositor frame acknowledgements",
+        );
+    }
+
+    fn enable_existing_csd_shadow(window: &gtk::ApplicationWindow) {
+        let Some(titlebar) = window.titlebar() else {
+            crate::system_logs::system_log(
+                "INFO",
+                "native_window_controls",
+                "Native outer shadow skipped: the main window has no existing GTK CSD titlebar",
+            );
+            return;
+        };
+        let context = window.style_context();
+        if !context.has_class("csd") {
+            crate::system_logs::system_log(
+                "WARNING",
+                "native_window_controls",
+                "Native outer shadow skipped: the existing GTK decoration does not support client shadows",
+            );
+            return;
+        }
+        let provider = gtk::CssProvider::new();
+        if let Err(error) = provider.load_from_data(
+            br#"
+                window.baas-main-window-frame,
+                window.baas-main-window-frame > decoration {
+                    border-radius: 0;
+                }
+                window.baas-main-window-frame.csd > decoration {
+                    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+                }
+                window.baas-main-window-frame.csd:backdrop > decoration {
+                    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.30);
+                }
+                window.baas-main-window-frame.csd.maximized > decoration,
+                window.baas-main-window-frame.csd.fullscreen > decoration,
+                window.baas-main-window-frame.csd.tiled > decoration,
+                window.baas-main-window-frame.csd.tiled-top > decoration,
+                window.baas-main-window-frame.csd.tiled-right > decoration,
+                window.baas-main-window-frame.csd.tiled-bottom > decoration,
+                window.baas-main-window-frame.csd.tiled-left > decoration {
+                    box-shadow: none;
+                }
+            "#,
+        ) {
+            crate::system_logs::system_log(
+                "WARNING",
+                "native_window_controls",
+                format!("Native outer shadow styling was not applied: {error}"),
+            );
+            return;
+        }
+        // A context-local provider styles only this window and its decoration
+        // node, leaving system caption buttons and other application windows
+        // untouched. Retain the theme's margins/padding for GTK resize grips;
+        // get_shadow_width also accounts for the softer shadow's own extents.
+        context.add_class("baas-main-window-frame");
+        context.add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        // Tao already creates a CSD titlebar on Wayland before realization.
+        // Reuse its native shadow surface and GTK's resize/input regions, while
+        // keeping the titlebar itself hidden behind our HTML/GTK overlay chrome.
+        // Creating a new titlebar here would unrealize an already-live window.
+        titlebar.set_no_show_all(true);
+        titlebar.hide();
+        window.set_decorated(true);
+        crate::system_logs::system_log(
+            "INFO",
+            "native_window_controls",
+            format!(
+                "Enabled existing GTK CSD outer shadow: decorated={} titlebar_visible={}; square main-window frame with a single soft shadow (active=35%, inactive=30%)",
+                window.is_decorated(),
+                titlebar.is_visible(),
+            ),
+        );
+        #[cfg(debug_assertions)]
+        if std::env::var_os("BAAS_DEBUG_NATIVE_FRAME").is_some() {
+            let window = window.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+                let flags =
+                    gtk::StyleContextPrintFlags::RECURSE | gtk::StyleContextPrintFlags::SHOW_STYLE;
+                eprintln!(
+                    "BAAS_NATIVE_FRAME_STYLE active={} state={:?}\n{}",
+                    window.is_active(),
+                    window.window().map(|native| native.state()),
+                    gtk::prelude::StyleContextExt::to_string(&window.style_context(), flags)
+                        .unwrap_or_default(),
+                );
+            });
+        }
+    }
+
     fn attach(
         app: &AppHandle,
         main: &tauri::WebviewWindow,
         webview: gtk::Widget,
     ) -> Result<(), String> {
         let window = main.gtk_window().map_err(|error| error.to_string())?;
+        // Keep this independent of caption attachment: the rendering workaround
+        // also applies when a different widget hierarchy needs the HTML fallback.
+        window.connect_realize(disable_x11_frame_sync);
+        if window.is_realized() {
+            disable_x11_frame_sync(&window);
+        }
         let vbox = main.default_vbox().map_err(|error| error.to_string())?;
         if webview.parent().as_ref() != Some(vbox.upcast_ref::<gtk::Widget>())
             || window.child().as_ref() != Some(vbox.upcast_ref::<gtk::Widget>())
@@ -258,6 +371,7 @@ mod linux {
         window.add(&overlay);
         overlay.show();
         webview.show();
+        enable_existing_csd_shadow(&window);
         if restore_size {
             window.resize(initial_size.0, initial_size.1);
         }
