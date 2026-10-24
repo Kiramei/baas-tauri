@@ -6,7 +6,7 @@ import tempfile
 import threading
 import types
 import unittest
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from pathlib import Path
 from unittest.mock import patch
 
@@ -81,6 +81,23 @@ class AndroidConfigWatchTest(unittest.IsolatedAsyncioTestCase):
                 exec(source, namespace)
             self.assertIs(namespace["Change"], watch.Change)
             self.assertIs(namespace["awatch"], watch.awatch)
+
+    def test_windows_directory_entries_use_the_same_identity_as_json_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "config.json"
+            target.write_text("{}", encoding="utf-8")
+            info = os.stat(target, follow_symlinks=False)
+            cached = types.SimpleNamespace(st_dev=0, st_ino=0, st_size=info.st_size,
+                                          st_mtime_ns=info.st_mtime_ns, st_ctime_ns=info.st_ctime_ns)
+            entry = types.SimpleNamespace(name=target.name, path=str(target),
+                                          is_file=lambda **kwargs: True, stat=lambda **kwargs: cached)
+            with patch.object(watch.os, "name", "nt"), patch.object(
+                watch.os, "scandir", return_value=nullcontext([entry])
+            ):
+                observed = watch._snapshot((str(root),), True, {}, True)
+            self.assertEqual(observed[str(target)], watch._signature(info))
+            self.assertTrue(watch._complete_json(str(target), observed[str(target)]))
 
     async def test_existing_configuration_modifications_are_observed(self):
         with tempfile.TemporaryDirectory() as directory:

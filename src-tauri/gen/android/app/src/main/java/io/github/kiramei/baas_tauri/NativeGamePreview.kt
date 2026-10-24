@@ -36,8 +36,16 @@ class NativeGamePreview(private val activity: Activity) {
     cornerRadius = dp(radius).toFloat()
     setStroke(dp(1), palette.border)
   }
-  companion object { var current: NativeGamePreview? = null }
-  private val worker = Executors.newSingleThreadExecutor()
+  companion object {
+    var current: NativeGamePreview? = null
+      private set
+    internal fun forActivity(activity: Activity): NativeGamePreview? = current?.takeIf { it.activity === activity }
+    // Surface detach from an old Activity must complete before its successor's
+    // attach. A new Activity must not create another lane around a stuck Binder.
+    private val lifecycleWorker = Executors.newSingleThreadExecutor()
+  }
+  private val worker = lifecycleWorker
+  private var destroyed = false
   private var container: FrameLayout? = null
   private var texture: TextureView? = null
   private var surface: Surface? = null
@@ -187,6 +195,7 @@ class NativeGamePreview(private val activity: Activity) {
   }
 
   private fun create(): FrameLayout {
+    check(!destroyed) { "Native preview activity was destroyed" }
     container?.let { return it }
     webView = findWebView(activity.window.decorView)
     val host = FrameLayout(activity).apply {
@@ -202,6 +211,7 @@ class NativeGamePreview(private val activity: Activity) {
     texture = view
     view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
       override fun onSurfaceTextureAvailable(value: SurfaceTexture, width: Int, height: Int) {
+        if (destroyed) return
         displayedFrames.reset()
         surface = Surface(value)
         attach()
@@ -283,6 +293,7 @@ class NativeGamePreview(private val activity: Activity) {
   }
 
   fun update(x: Double, y: Double, width: Double, height: Double, viewportWidth: Double, enabled: Boolean, clipTop: Double, clipBottom: Double, focusDisplayId: Int = -1) {
+    if (destroyed) return
     if (fullscreen != null) {
       // DOM geometry may disappear or rotate behind native fullscreen. It cannot
       // hide/reparent the active game or resurrect the old portrait layout.
@@ -431,6 +442,7 @@ class NativeGamePreview(private val activity: Activity) {
   }
 
   private fun attach() {
+    if (destroyed) return
     val target = surface ?: return
     if (!visible || paused) return
     if (attachedSurface === target) return
@@ -464,6 +476,7 @@ class NativeGamePreview(private val activity: Activity) {
   }
 
   fun pause() {
+    if (destroyed) return
     touch.cancel()
     cancelFocusRecovery()
     paused = true; container?.visibility = View.GONE
@@ -485,6 +498,14 @@ class NativeGamePreview(private val activity: Activity) {
     status?.text = error ?: label
     badge?.text = if (error != null) (if (chinese) "连接异常" else "Preview error") else label
   }
-  fun resume() { paused = false; if (visible) { container?.visibility = View.VISIBLE; attach() } }
-  fun destroy() { consumeFullscreenBack(); reportFullscreen(false); touch.close(); visible = false; cancelFocusRecovery(); detach(); (container?.parent as? ViewGroup)?.removeView(container); container = null; worker.shutdown(); cancelPendingFullscreen = null; if (current === this) current = null }
+  fun resume() { if (destroyed) return; paused = false; if (visible) { container?.visibility = View.VISIBLE; attach() } }
+  fun destroy() {
+    if (destroyed) return
+    destroyed = true
+    consumeFullscreenBack(); reportFullscreen(false); touch.close(); visible = false
+    cancelFocusRecovery(); detach()
+    (container?.parent as? ViewGroup)?.removeView(container)
+    container = null; cancelPendingFullscreen = null
+    if (current === this) current = null
+  }
 }

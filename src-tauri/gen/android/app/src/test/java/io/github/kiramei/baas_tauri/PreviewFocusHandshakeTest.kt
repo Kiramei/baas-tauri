@@ -1,6 +1,7 @@
 package io.github.kiramei.baas_tauri
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -86,6 +87,31 @@ class PreviewFocusHandshakeTest {
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(region = "[65,0][1280,720]"), 2, 10072))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(region = "[0,0][64,720]"), 2, 10072))
     assertFalse(PrivilegedExecution.ownsFocusInputWindow(window(token = false), 2, 10072))
+  }
+
+  @Test fun focusDiagnosticsDistinguishUnpublishedHiddenAndObscuredShields() {
+    val shield = window(uid = 2000, type = "2010")
+    val missing = PrivilegedExecution.checkFocusInputWindow("Input Dispatcher State:", 2, 2000)
+    assertFalse(missing.verified)
+    assertEquals("NO_TOUCHABLE_WINDOW", missing.reason)
+    assertTrue(missing.diagnostic.contains("ownedShields=0"))
+
+    val hidden = PrivilegedExecution.checkFocusInputWindow(shield.replace("visible=true", "visible=false"), 2, 2000)
+    assertFalse(hidden.verified)
+    assertTrue(hidden.diagnostic.contains("ownedShields=1 visibleShields=0"))
+
+    val obscured = PrivilegedExecution.checkFocusInputWindow(window(name = "private account screen", uid = 10070) + "\n" + shield, 2, 2000)
+    assertFalse(obscured.verified)
+    assertEquals("OTHER_OWNER_ON_TOP", obscured.reason)
+    assertTrue(obscured.diagnostic.contains("ownedShields=1 visibleShields=1"))
+    assertFalse(obscured.diagnostic.contains("private account screen"))
+    assertFalse(obscured.diagnostic.contains("10070"))
+  }
+
+  @Test fun oversizedDumpCoordinatesRejectInputInsteadOfOverflowing() {
+    val check = PrivilegedExecution.checkFocusInputWindow(window(region = "[0,0][999999999999,720]"), 2, 10072)
+    assertFalse(check.verified)
+    assertEquals("UNKNOWN_TOUCH_REGION", check.reason)
   }
 
   @Test fun downWithoutCancelDoesNotAcknowledgeTheHandshake() {

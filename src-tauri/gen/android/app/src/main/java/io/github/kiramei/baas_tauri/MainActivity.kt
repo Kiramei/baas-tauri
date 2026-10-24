@@ -28,6 +28,8 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
     super.onCreate(savedInstanceState)
+    TauriActivityResultCompat.onActivityCreate(this)
+    BackendServicePlugin.activityCreated(this)
     WindowCompat.setDecorFitsSystemWindows(window, false)
     window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     applySystemBars(systemBarBackground, systemBarDarkIcons)
@@ -54,7 +56,7 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     applySystemBars(systemBarBackground, systemBarDarkIcons)
-    NativeGamePreview.current?.resume()
+    BackendServicePlugin.activityResumed(this)
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
   }
@@ -96,12 +98,12 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onPause() {
-    NativeGamePreview.current?.pause()
+    BackendServicePlugin.activityPaused(this)
     super.onPause()
   }
 
   override fun onDestroy() {
-    NativeGamePreview.current?.destroy()
+    BackendServicePlugin.activityDestroyed(this)
     super.onDestroy()
   }
 
@@ -139,7 +141,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun handleAppBack() {
-    if (NativeGamePreview.current?.consumeFullscreenBack() == true) return
+    if (NativeGamePreview.forActivity(this)?.consumeFullscreenBack() == true) return
     if (backRequestInFlight) return
     val webView = findWebView(window?.decorView)
     if (webView == null) {

@@ -123,6 +123,37 @@ class ManualInputGateTest {
     assertFalse(gate.automation(7) { true })
   }
 
+  @Test fun failedManualInputKeepsItsCauseWhenCancellationAlsoThrows() {
+    val injectionFailure = IllegalStateException("manual injection failed")
+    val cancellationFailure = IllegalStateException("manual cancellation failed")
+    val gate = ManualInputGate { throw cancellationFailure }.apply { own(7); activate(7) }
+    val token = gate.acquire(7)
+    try {
+      gate.manual(7, token, frame(0)) { throw injectionFailure }
+      fail("The original injection failure must propagate")
+    } catch (error: IllegalStateException) {
+      assertSame(injectionFailure, error)
+      assertArrayEquals(arrayOf(cancellationFailure), error.suppressed)
+    }
+    assertFalse(gate.isManual(7, token))
+    assertFalse(gate.automation(7) { fail("Unconfirmed manual cancellation"); true })
+    assertFalse(gate.canPrepare(7)); assertNull(gate.shellPermit())
+  }
+
+  @Test fun manualInputAndCancellationMayThrowTheSameErrorWithoutMaskingIt() {
+    val failure = IllegalStateException("disconnected input endpoint")
+    val gate = ManualInputGate { throw failure }.apply { own(7); activate(7) }
+    val token = gate.acquire(7)
+    try {
+      gate.manual(7, token, frame(0)) { throw failure }
+      fail("The endpoint failure must propagate")
+    } catch (error: IllegalStateException) {
+      assertSame(failure, error)
+      assertTrue(error.suppressed.isEmpty())
+    }
+    assertFalse(gate.resumeAutomation(7))
+  }
+
   @Test fun lifecycleCancellationFailureCannotBeReopenedOnTheSameDisplay() {
     val h = Harness(); val token = h.gate.acquire(7)
     assertTrue(h.send(token, frame(0))); h.cancelAccepted = false

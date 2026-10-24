@@ -60,13 +60,19 @@ object PrivilegedDisplayMain {
         }
         override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
           authorize()
-          val id = virtualDisplay?.display?.displayId ?: -1
-          inputGate.automation(id) { DisplayInput.gesture(id, x1, y1, x2, y2, durationMs) }
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            val id = virtualDisplay?.display?.displayId ?: -1
+            inputGate.automation(id) { DisplayInput.gesture(id, x1, y1, x2, y2, durationMs) }
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
         }
         override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
           authorize()
-          val id = virtualDisplay?.display?.displayId ?: -1
-          inputGate.automation(id) { DisplayInput.pinch(id, displayWidth, displayHeight, inward, percent, durationMs) }
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            val id = virtualDisplay?.display?.displayId ?: -1
+            inputGate.automation(id) { DisplayInput.pinch(id, displayWidth, displayHeight, inward, percent, durationMs) }
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
         }
         override fun touch(expectedDisplayId: Int, leaseId: Long, event: android.view.MotionEvent): Boolean = PrivilegedExecution.binderResult {
           authorize()

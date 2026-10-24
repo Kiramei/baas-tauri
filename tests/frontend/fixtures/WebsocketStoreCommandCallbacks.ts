@@ -64,8 +64,12 @@ assert.equal(connection.bytes[0], zip);
 // The backend command model uses float, not int. Exercise Python JSON output
 // as well: a whole-number float such as 1791621186600.0 is the same JS key.
 const python = Bun.spawnSync({
-  cmd: ["python3", "-c", "import json, sys; print(json.dumps(float(sys.stdin.read())))"],
-  stdin: new TextEncoder().encode(JSON.stringify(importRequest.timestamp)),
+  cmd: [
+    process.platform === "win32" ? "python" : "python3",
+    "-c",
+    "import json, sys; print(json.dumps(float(sys.argv[1])))",
+    JSON.stringify(importRequest.timestamp),
+  ],
   stdout: "pipe",
   stderr: "pipe",
 });

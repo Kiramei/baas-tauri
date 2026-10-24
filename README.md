@@ -25,12 +25,13 @@
 
 ## Native Android Status
 
-This Android development snapshot is based on
+Native Android development is maintained on
 [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev).
-Earlier APKs have scoped Android 12 x86_64 validation; the newest manual/script
-coexistence and startup candidate failed cold-start acceptance and was rolled
-back. Work is paused; performance gains and physical-device compatibility are
-not established. See [goals and current status](docs/ANDROID_GOALS_AND_STATUS_20261024.md),
+The latest debug candidate has scoped Android 12 ARM64 physical-device validation
+with root Shizuku: cold game startup through the mail flow, preview fullscreen
+entry/return, Activity recreation, and configuration ZIP round trips. Android 15
+shell-mode input, the full gesture matrix, release builds, and overall performance
+gains remain unverified. See [goals and current status](docs/ANDROID_GOALS_AND_STATUS_20261024.md),
 [version-specific validation](docs/ANDROID_RUNTIME_VALIDATION.md) and the
 [historical handoff](docs/ANDROID_PREVIEW_HANDOFF.md). Desktop development and current
 documentation are maintained on [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev).

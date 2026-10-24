@@ -58,7 +58,12 @@ def _snapshot(roots, recursive, previous, ignore_permission_denied):
                             continue
                         try:
                             if entry.is_file(follow_symlinks=False):
-                                files[entry.path] = _signature(entry.stat(follow_symlinks=False))
+                                # Windows DirEntry.stat caches zero st_dev/st_ino.
+                                # JSON validation uses os.stat, so its identity must
+                                # match this snapshot rather than remain pending.
+                                info = (os.stat(entry.path, follow_symlinks=False) if os.name == "nt"
+                                        else entry.stat(follow_symlinks=False))
+                                files[entry.path] = _signature(info)
                             elif descend and entry.is_dir(follow_symlinks=False):
                                 visit(entry.path, True)
                         except OSError as error:

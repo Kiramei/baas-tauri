@@ -1,4 +1,5 @@
 import json
+import http.client
 import hashlib
 import types
 import os
@@ -9,6 +10,7 @@ import threading
 import time
 import traceback
 import urllib.request
+import urllib.error
 import zipfile
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -53,6 +55,11 @@ SERVICE_TRANSPORT_OVERLAY_FILES = (
 _SERVER = None
 _HOT_RESTART_DONE = False
 _SERVER_LOCK = threading.RLock()
+_BOOTSTRAP_CLAIMED = False
+_BOOTSTRAP_STATUS = {"ok": False, "stage": "starting"}
+_BOOTSTRAP_HTTP_SERVER = None
+_BOOTSTRAP_HTTP_THREAD = None
+_BOOTSTRAP_HTTP_ROOT = None
 _ATX_START_LOCK = threading.RLock()
 _ATX_START_THREAD = None
 REPOSITORIES = {
@@ -84,6 +91,22 @@ def restart(files_dir=None, storage_root_or_port=None, port=None, native_library
 
 # Performs the start operation.
 def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
+    global _BOOTSTRAP_CLAIMED
+
+    # The normal service blocks, but its diagnostic HTTP server runs on a
+    # background thread. A returned call is therefore not permission to retry
+    # installation, truncate the first startup log, or bind the port again.
+    # An explicit process restart supplies the only fresh bootstrap lifecycle.
+    with _SERVER_LOCK:
+        if _BOOTSTRAP_CLAIMED:
+            return dict(_BOOTSTRAP_STATUS)
+        _BOOTSTRAP_CLAIMED = True
+    return _start_once(files_dir, storage_root_or_port, port, native_library_dir)
+
+
+def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=None):
+    global _BOOTSTRAP_STATUS
+
     if port is None:
         port = storage_root_or_port
         storage_root = Path(files_dir) / PACKAGE_NAME
@@ -128,6 +151,7 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         "source": "runtime-repository",
         "startedAt": time.time(),
     }
+    _BOOTSTRAP_STATUS = status
 
     try:
         status["stage"] = "runtime"
@@ -145,10 +169,11 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
         print("[service] Starting local backend service", flush=True)
         _activate_bundled_service_transport(root)
         _run_baas_service(root, port)
-        return
+        raise RuntimeError("The local backend service stopped; explicitly restart the Android backend to recover.")
     except Exception as error:
         status.update(
             {
+                "ok": False,
                 "stage": "failed",
                 "backendInstalled": _service_path(root).exists(),
                 "error": str(error),
@@ -157,12 +182,25 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
                     "Embedded Python 3.9 is running, but the bundled BAAS service "
                     "backend could not be started. Android does not use uv; the "
                     "backend source is installed in the app's private files directory. "
-                    "The first missing Android-compatible dependency is reported here."
+                    "The original installation or service error is reported here. "
+                    "Explicitly restart the Android backend after resolving it."
                 ),
             }
         )
         _write_status(root, status)
-        _run_bootstrap_server(port, root, status)
+        print("[bootstrap] Backend startup failed: " + status["error"], file=sys.stderr, flush=True)
+        traceback.print_exc()
+        try:
+            _run_bootstrap_server(port, root, status)
+        except Exception as diagnostic_error:
+            # Keep the download/import/service exception as the primary cause.
+            # Diagnostic transport failure is additional evidence, never a
+            # replacement 'address already in use' bootstrap error.
+            status["diagnosticError"] = str(diagnostic_error)
+            status["diagnosticTraceback"] = traceback.format_exc()
+            _write_status(root, status)
+            print("[bootstrap] Diagnostic server failed: " + str(diagnostic_error), file=sys.stderr, flush=True)
+        return dict(status)
 
 
 # Performs the configure environment operation.
@@ -374,31 +412,45 @@ def _download_backend_archive(target_root, channel):
     branch = repo["branch"]
     print(f"[runtime] Resolving backend revision: {owner}/{name}@{branch}", flush=True)
     remote_sha = _get_github_branch_sha(owner, name, branch)
-    archive_url = f"https://codeload.github.com/{owner}/{name}/zip/refs/heads/{branch}"
+    archive_ref = remote_sha or f"refs/heads/{branch}"
+    archive_url = f"https://codeload.github.com/{owner}/{name}/zip/{archive_ref}"
     target_root.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
-        archive_path = Path(tmp_dir) / "repo.zip"
-        print(f"[runtime] GET {archive_url}", flush=True)
-        with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
-            downloaded = 0
-            last_report = time.monotonic()
-            while True:
-                chunk = response.read(256 * 1024)
-                if not chunk:
-                    break
-                output.write(chunk)
-                downloaded += len(chunk)
-                if time.monotonic() - last_report >= 1:
-                    print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
+    for attempt in range(1, 4):
+        try:
+            with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
+                archive_path = Path(tmp_dir) / "repo.zip"
+                print(f"[runtime] GET {archive_url} (attempt {attempt}/3)", flush=True)
+                with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
+                    downloaded = 0
                     last_report = time.monotonic()
-        print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
-        with zipfile.ZipFile(archive_path) as archive:
-            archive.extractall(tmp_dir)
-        candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
-        source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
-        if source_root is None:
-            raise RuntimeError("Downloaded BAAS backend archive does not contain main.service.py")
-        shutil.copytree(source_root, target_root)
+                    while True:
+                        chunk = response.read(256 * 1024)
+                        if not chunk:
+                            break
+                        output.write(chunk)
+                        downloaded += len(chunk)
+                        if time.monotonic() - last_report >= 1:
+                            print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
+                            last_report = time.monotonic()
+                with zipfile.ZipFile(archive_path) as archive:
+                    if archive.testzip() is not None:
+                        raise zipfile.BadZipFile("Downloaded backend failed ZIP CRC verification")
+                    print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
+                    archive.extractall(tmp_dir)
+                candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
+                source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
+                if source_root is None:
+                    raise RuntimeError("Downloaded BAAS backend archive does not contain main.service.py")
+                shutil.copytree(source_root, target_root)
+            break
+        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError,
+                zipfile.BadZipFile) as error:
+            if isinstance(error, urllib.error.HTTPError) and error.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            if attempt == 3:
+                raise
+            print(f"[runtime] Backend download interrupted ({type(error).__name__}); retrying", flush=True)
+            time.sleep(attempt)
     if remote_sha:
         _write_installed_backend_sha(target_root / "setup.toml", remote_sha, channel)
     (target_root / "android-backend-source.json").write_text(
@@ -3357,18 +3409,33 @@ def _read_status(root, fallback):
 
 # Handles the run bootstrap server workflow.
 def _run_bootstrap_server(port, root, initial_status):
+    global _BOOTSTRAP_HTTP_SERVER, _BOOTSTRAP_HTTP_THREAD, _BOOTSTRAP_HTTP_ROOT
+
     class Handler(BaseHTTPRequestHandler):
         # Handles the do get workflow.
         def do_GET(self):
             if self.path.startswith("/health") or self.path.startswith("/auth/remember"):
-                self._json(_read_status(root, initial_status))
+                # A diagnostic responder is alive, but the backend is not ready.
+                self._json(_read_status(root, initial_status), 503)
                 return
             self.send_error(404)
 
+        def do_POST(self):
+            if self.path != "/android/bootstrap-restart":
+                self.send_error(404)
+                return
+            self._json({"ok": True, "restartScheduled": True})
+            threading.Thread(
+                target=_delayed_restart,
+                args=(os.environ.get("BAAS_ANDROID_INTERNAL_FILES_DIR", ""), root, port, None),
+                name="baas-android-delayed-restart",
+                daemon=True,
+            ).start()
+
         # Handles the json workflow.
-        def _json(self, payload):
+        def _json(self, payload, status=200):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -3378,5 +3445,22 @@ def _run_bootstrap_server(port, root, initial_status):
         def log_message(self, _format, *_args):
             return
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    threading.Thread(target=server.serve_forever, name="baas-bootstrap-http", daemon=True).start()
+    with _SERVER_LOCK:
+        if _BOOTSTRAP_HTTP_SERVER is not None:
+            if (int(port) not in (0, _BOOTSTRAP_HTTP_SERVER.server_address[1]) or
+                    str(root) != _BOOTSTRAP_HTTP_ROOT):
+                raise RuntimeError("A different Android bootstrap diagnostic server already owns this process")
+            if _BOOTSTRAP_HTTP_THREAD is None or not _BOOTSTRAP_HTTP_THREAD.is_alive():
+                raise RuntimeError("The Android bootstrap diagnostic server stopped; explicitly restart the backend")
+            return _BOOTSTRAP_HTTP_SERVER
+        server = ThreadingHTTPServer(("127.0.0.1", int(port)), Handler)
+        thread = threading.Thread(target=server.serve_forever, name="baas-bootstrap-http", daemon=True)
+        try:
+            thread.start()
+        except Exception:
+            server.server_close()
+            raise
+        _BOOTSTRAP_HTTP_SERVER = server
+        _BOOTSTRAP_HTTP_THREAD = thread
+        _BOOTSTRAP_HTTP_ROOT = str(root)
+        return server

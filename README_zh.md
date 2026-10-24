@@ -7,9 +7,9 @@
   <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
 </p>
 
-当前为基于 [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) 的原生 Android 开发快照。
-较早 APK 有 Android 12 x86_64 的限定验证；最新手操/脚本共存与启动优化候选未通过冷启动验收，已回滚。
-运行调试已暂停，尚未证实整体提速或通用真机兼容，不代表发布验收通过。
+原生 Android 开发位于 [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev)。
+最新 debug 候选已在 Android 12 ARM64 真机的 root Shizuku 模式下完成限定验证：游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
+Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，不代表通用兼容或发布验收通过。
 详见[目标与当前状态](docs/ANDROID_GOALS_AND_STATUS_20261024.md)、[各版本验证记录](docs/ANDROID_RUNTIME_VALIDATION.md)与[历史交接文档](docs/ANDROID_PREVIEW_HANDOFF.md)。
 桌面端与当前文档开发位于 [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)。
 

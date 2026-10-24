@@ -164,8 +164,12 @@ object DisplayInput {
       // Android 12 cannot target a UID. Never send even DOWN unless the published
       // top input window is our full-display shield, which stays until CANCEL.
       check(ownerUid == android.os.Process.SHELL_UID) { "Android 12 focus requires the privileged BAAS shield" }
-      check(PrivilegedExecution.ownsFocusInputWindow(inputWindowSnapshot(), displayId, ownerUid)) {
-        "The privileged BAAS focus shield is not the verified top input window"
+      val windowCheck = PrivilegedExecution.checkFocusInputWindow(inputWindowSnapshot(), displayId, ownerUid)
+      check(windowCheck.verified) {
+        // Keep raw dumps (which include other application/window names) private.
+        // This is the exact snapshot checked before DOWN, while our shield lives.
+        "The privileged BAAS focus shield is not the verified top input window " +
+          "(display=$displayId ${windowCheck.diagnostic})"
       }
       val action: (InputEvent) -> Boolean = { event -> inject.invoke(manager, event, 2) as Boolean }
       action
@@ -196,7 +200,7 @@ object DisplayInput {
       val exited = process.waitFor(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
       val exit = if (exited) process.exitValue() else null
       if (exit == 0) snapshot else {
-        android.util.Log.w("BaasNativePreview", "Input dump subprocess exited=$exited exitCode=$exit output=${snapshot.take(240).replace('\n', ' ')}; using input Binder dump")
+        android.util.Log.w("BaasNativePreview", "Input dump subprocess exited=$exited exitCode=$exit bytes=${snapshot.length}; using input Binder dump")
         inputBinderSnapshot()
       }
     } catch (error: Exception) {

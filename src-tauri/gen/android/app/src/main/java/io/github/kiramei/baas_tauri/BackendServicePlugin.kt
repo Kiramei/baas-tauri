@@ -21,18 +21,113 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.lang.ref.WeakReference
 
 @TauriPlugin
-class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
+class BackendServicePlugin(initialActivity: Activity) : Plugin(initialActivity) {
+  companion object {
+    // Tauri keeps the plugin across Activity relaunches. Keep its native lanes
+    // across them too: recreating UI cannot bypass an already-running Binder call.
+    private val commands = BoundedNativeWorker("baas-native-command", 8)
+    private val previewQueries = BoundedNativeWorker("baas-native-preview-query", 0)
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+    private var activeActivity: WeakReference<Activity>? = null
+    private var activePlugin: WeakReference<BackendServicePlugin>? = null
+    private val sessionOperations: NativeSessionOperations = NativeSessionOperations {
+      activeActivity?.get()?.let { activePlugin?.get()?.sessions?.current(it)?.nativeSessionChanged() }
+    }
+
+    internal fun activityCreated(activity: Activity) {
+      activeActivity = WeakReference(activity)
+      activePlugin?.get()?.sessions?.attach(activity)
+    }
+
+    internal fun activityResumed(activity: Activity) {
+      activityCreated(activity)
+      activePlugin?.get()?.sessions?.current(activity)?.onResume()
+    }
+
+    internal fun activityPaused(activity: Activity) {
+      activePlugin?.get()?.sessions?.current(activity)?.onPause()
+    }
+
+    internal fun activityDestroyed(activity: Activity) {
+      // A late destroy from the previous Activity cannot destroy its successor.
+      activePlugin?.get()?.sessions?.detach(activity)
+      if (activeActivity?.get() === activity) activeActivity = null
+    }
+  }
+
+  private val sessions: ActivitySessionSlot<Activity, BackendActivitySession> = ActivitySessionSlot {
+    BackendActivitySession(it, commands, previewQueries, sessionOperations)
+  }
+
+  init {
+    activePlugin?.get()?.sessions?.clear()
+    activePlugin = WeakReference(this)
+    val owner = activeActivity?.get()?.takeUnless { it.isDestroyed } ?: initialActivity
+    if (!owner.isDestroyed) {
+      activeActivity = WeakReference(owner)
+      sessions.attach(owner)
+    }
+  }
+
+  private fun dispatch(invoke: Invoke, command: (BackendActivitySession) -> Unit) {
+    val request = sessions.capture()
+    ui.post {
+      if (activePlugin?.get() !== this) {
+        invoke.reject("Android plugin was superseded"); return@post
+      }
+      if (request == null || !sessions.isCurrent(request)) {
+        invoke.reject("Android activity changed before the command could run"); return@post
+      }
+      val owner = request.owner
+      if (activeActivity?.get() !== owner || owner.isDestroyed || owner.isFinishing) {
+        invoke.reject("No live Android activity is available"); return@post
+      }
+      try { command(sessions.attach(owner)) }
+      catch (error: Exception) { invoke.reject(error.message, error) }
+    }
+  }
+
+  override fun onPause() { activeActivity?.get()?.let { activityPaused(it) } }
+  override fun onResume() { activeActivity?.get()?.let { activityResumed(it) } }
+  override fun onDestroy(activity: AppCompatActivity) { activityDestroyed(activity) }
+
+  @Command fun setSystemBars(invoke: Invoke) = dispatch(invoke) { it.setSystemBars(invoke) }
+  @Command fun gameNativePreview(invoke: Invoke) = dispatch(invoke) { it.gameNativePreview(invoke) }
+  @Command fun gameFullscreen(invoke: Invoke) = dispatch(invoke) { it.gameFullscreen(invoke) }
+  @Command fun gameResumeAutomation(invoke: Invoke) = dispatch(invoke) { it.gameResumeAutomation(invoke) }
+  @Command fun ensureStarted(invoke: Invoke) = dispatch(invoke) { it.ensureStarted(invoke) }
+  @Command fun listGames(invoke: Invoke) = dispatch(invoke) { it.listGames(invoke) }
+  @Command fun launchGame(invoke: Invoke) = dispatch(invoke) { it.launchGame(invoke) }
+  @Command fun gameScreenshot(invoke: Invoke) = dispatch(invoke) { it.gameScreenshot(invoke) }
+  @Command fun gamePreview(invoke: Invoke) = dispatch(invoke) { it.gamePreview(invoke) }
+  @Command fun gameStreamInfo(invoke: Invoke) = dispatch(invoke) { it.gameStreamInfo(invoke) }
+  @Command fun gameGesture(invoke: Invoke) = dispatch(invoke) { it.gameGesture(invoke) }
+  @Command fun shizukuStatus(invoke: Invoke) = dispatch(invoke) { it.shizukuStatus(invoke) }
+  @Command fun startShizukuDisplay(invoke: Invoke) = dispatch(invoke) { it.startShizukuDisplay(invoke) }
+  @Command fun launchPackageOnShizukuDisplay(invoke: Invoke) = dispatch(invoke) { it.launchPackageOnShizukuDisplay(invoke) }
+  @Command fun stopShizukuDisplay(invoke: Invoke) = dispatch(invoke) { it.stopShizukuDisplay(invoke) }
+  @Command fun openShizuku(invoke: Invoke) = dispatch(invoke) { it.openShizuku(invoke) }
+  @Command fun requestShizukuPermission(invoke: Invoke) = dispatch(invoke) { it.requestShizukuPermission(invoke) }
+  @Command fun shizukuShell(invoke: Invoke) = dispatch(invoke) { it.shizukuShell(invoke) }
+  @Command fun installPackage(invoke: Invoke) = dispatch(invoke) { it.installPackage(invoke) }
+}
+
+/** Activity references and asynchronous continuations never migrate to a new owner. */
+private class BackendActivitySession(
+  private val activity: Activity,
+  private val commands: BoundedNativeWorker,
+  private val previewQueries: BoundedNativeWorker,
+  private val sessionOperations: NativeSessionOperations,
+) : AutoCloseable {
   private val nativePreview = NativeGamePreview(activity)
   private val previewProgress = PreviewFrameProgress()
-  private val commands = BoundedNativeWorker("baas-native-command", 8)
-  private val previewQueries = BoundedNativeWorker("baas-native-preview-query", 0)
   private val previewOwner = LatestNativeRequest<PreviewLayout>()
   private var previewLayout: PreviewLayout? = null
   private var previewProbe = PreviewProbe()
-  private var sessionOperations = 0
-  private var destroyed = false
+  @Volatile private var destroyed = false
   private var foreground = true
   private var fullscreenRequest = 0L
   private var fullscreenPending = false
@@ -84,25 +179,31 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
     settled: () -> Unit = {}, commit: (JSObject) -> JSObject = { it }, work: () -> JSObject = { JSObject() }) {
     activity.runOnUiThread {
       if (destroyed) { invoke.reject("Android activity was destroyed"); return@runOnUiThread }
-      if (changesSession) { sessionOperations++; fullscreenRequest++; fullscreenPending = false; nativePreview.exitFullscreen(); resetPreview() }
-      commands.submit(15_000L, work, { result -> activity.runOnUiThread {
+      val mutation = if (changesSession) sessionOperations.begin() else null
+      commands.submit(15_000L, { check(!destroyed) { "Android activity was destroyed" }; work() }, { result -> activity.runOnUiThread {
         try {
           if (destroyed) invoke.reject("Android activity was destroyed")
           else result.fold({ value ->
             try { invoke.resolve(commit(value)) } catch (error: Exception) { invoke.reject(error.message, error) }
           }, { invoke.reject(it.message ?: it.javaClass.simpleName) })
         } finally { settled() }
-      } }, { if (changesSession) onUi { sessionOperations--; resetPreview() } })
+      } }, { if (mutation != null) activity.runOnUiThread { mutation.close() } })
     }
   }
 
-  override fun onPause() { onUi { foreground = false; fullscreenRequest++; resetPreview() } }
-  override fun onResume() { onUi { foreground = true } }
-  override fun onDestroy(activity: AppCompatActivity) {
-    resetPreview()
+  fun onPause() { onUi { foreground = false; fullscreenRequest++; resetPreview(); nativePreview.pause() } }
+  fun onResume() { onUi { foreground = true; nativePreview.resume() } }
+  fun nativeSessionChanged() {
+    if (destroyed) return
+    fullscreenRequest++; fullscreenPending = false
+    nativePreview.exitFullscreen(); resetPreview()
+  }
+  override fun close() {
+    if (destroyed) return
     destroyed = true
-    commands.close(); previewQueries.close()
-    super.onDestroy(activity)
+    fullscreenRequest++; fullscreenPending = false
+    previewOwner.invalidate(); previewProbe = PreviewProbe(); previewProgress.reset()
+    nativePreview.destroy()
   }
 
   @Command
@@ -116,6 +217,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
     val backgroundColor = Color.parseColor(background)
     val darkIcons = args.optBoolean("darkIcons", false)
     activity.runOnUiThread {
+      if (destroyed) { invoke.reject("Android activity was destroyed"); return@runOnUiThread }
       try {
         val mainActivity = activity as? MainActivity
           ?: throw IllegalStateException("Main Android activity is unavailable")
@@ -137,7 +239,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         if (palette != null) nativePreview.applyTheme(NativePreviewPalette.from { palette.optString(it) })
         val layout = PreviewLayout(args.optDouble("x", 0.0), args.optDouble("y", 0.0),
           args.optDouble("width", 0.0), args.optDouble("height", 0.0), args.optDouble("viewportWidth", 1.0),
-          (args.optBoolean("enabled", false) || nativePreview.isFullscreen()) && sessionOperations == 0 && foreground,
+          (args.optBoolean("enabled", false) || nativePreview.isFullscreen()) && sessionOperations.count == 0 && foreground,
           args.optDouble("clipTop", 0.0),
           args.optDouble("clipBottom", 0.0), args.optString("language", "en"))
         if (previewLayout != layout) { previewProbe = PreviewProbe(); previewProgress.reset() }
@@ -147,12 +249,13 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         applyLayout(layout)
         invoke.resolve(previewReport(layout))
         if (layout.enabled) previewQueries.submit(3_000L, {
+          check(!destroyed) { "Android activity was destroyed" }
           val counts = ShizukuController.nativeFrameCounts(activity)
           PreviewProbe(counts.first, counts.second, ShizukuController.hasVisibleFrame(activity),
             ShizukuController.previewFocusDisplayId(activity))
         }, { result ->
           if (result.exceptionOrNull() !is java.util.concurrent.RejectedExecutionException) onUi {
-            if (previewOwner.isCurrent(ticket) && sessionOperations == 0) {
+            if (previewOwner.isCurrent(ticket) && sessionOperations.count == 0) {
               previewProbe = result.getOrElse { PreviewProbe(error = it.message ?: it.javaClass.simpleName) }
               applyLayout(layout, previewProbe.focusDisplay)
               previewReport(layout)
@@ -184,7 +287,7 @@ class BackendServicePlugin(private val activity: Activity) : Plugin(activity) {
         handoff.cancel()
         if (ticket == fullscreenRequest) fullscreenPending = false
       }, commit = { session ->
-        check(ticket == fullscreenRequest && foreground && sessionOperations == 0) { "Fullscreen request was superseded" }
+        check(ticket == fullscreenRequest && foreground && sessionOperations.count == 0) { "Fullscreen request was superseded" }
         previewOwner.invalidate()
         val lease = checkNotNull(handoff.take()) { "The manual input lease expired" }
         try {

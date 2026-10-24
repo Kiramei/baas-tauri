@@ -1,9 +1,204 @@
 # Android runtime validation
 
-Latest snapshot: [goals and current status, 2026-10-24](ANDROID_GOALS_AND_STATUS_20261024.md).
-The newest coexistence/startup candidate failed cold-start acceptance and was
-rolled back. The exclusive manual-input behavior and APK results below are
-historical checkpoints, not acceptance of the current source snapshot.
+Latest snapshot: [goals and current status, updated through 2026-10-25](ANDROID_GOALS_AND_STATUS_20261024.md).
+The 2026-10-24–25 continuation has the limited physical-ARM results below. The
+earlier failed coexistence/startup candidate and its rollback remain historical
+checkpoints later in this document. No result transfers between APKs or providers.
+
+## Continuation checkpoint — through early 2026-10-25 Asia/Shanghai
+
+The user explicitly requested continued development and allowed physical-device
+testing after the previous 01:00 Asia/Shanghai stop. The old stop is a historical
+boundary, not an active prohibition on this continuation. This remains a scoped
+development record, not release sign-off or completion of all Android goals.
+The original `20261024` filenames are retained; final device observations and
+cleanup crossed midnight into 2026-10-25.
+
+### Latest ARM64 identity and local verification
+
+The final ARM64 debug candidate for this continuation is **103,902,521 bytes**, SHA-256
+`c4690df37501a58cdc4161deebd19ff299a81ba1f8aa5b2ffeae80edd7b36d5b`.
+The installed APK hash matched exactly. APK ZIP CRC and v2 signature passed;
+all 183 frontend files, 12 native libraries, and the bootstrap/config_watch
+Python sources inside `app.imy` matched the audited source/build outputs
+byte for byte. This identity binds the latest device results below. It is not
+release sign-off or a transfer of earlier candidates' input/performance results.
+
+Local results for the current source are 275 frontend tests / 7,621 assertions,
+142 native JVM tests, 42 Rust library tests, and 117 Android Python tests
+(116 passed, one existing optional skip). TypeScript, production frontend builds,
+and 838 translation keys across seven languages passed. C++ frame-content and
+callback-draining tests, including 100 session reopenings, passed; ARM64 and
+x86_64 API 24 native objects compiled with `-Wall -Wextra -Werror`.
+The 11 added native tests cover picker binding, the exact seven-field keep
+contract and owner identity, among related lifecycle boundaries. These are JVM
+and debug-build results, not an installed R8-minified release acceptance.
+
+Changes include capture publication-lock isolation with a callback lifetime
+fence, root Binder identity handling, sanitized strict focus diagnostics, and
+Activity-owned native UI sessions. The capture still performs per-frame CPU
+readback and retains `glFinish`; this is not zero-copy capture or a measured
+reduction in bytes copied. Worker and in-flight session ownership survive an
+Activity relaunch; an old owner's callback or destroy cannot mutate its successor.
+The Tauri picker compatibility helper rebinds activity-result handling after
+configuration recreation, with an exact seven-field ProGuard keep contract.
+Actual recreated-Activity save/open behavior passed on this debug candidate;
+that is not evidence that every minified release variant works.
+
+First-run download correctness now has at most three attempts, a pinned resolved
+commit SHA, and full ZIP CRC validation before extraction. Kotlin and Python
+claim bootstrap once per backend process, preserving the original installation
+or service error when reconnects or diagnostic transport fail. The fallback
+health endpoint returns 503, and explicit process restart remains available.
+Regression tests cover interrupted transfers, bad ZIPs, concurrent reconnects,
+occupied ports, first-error preservation, real local HTTP 503 and restart. The
+isolated emulator also performed a real fresh backend download/start. These
+facts do not establish faster startup or a general network-reliability rate.
+
+### Redmi K30 / Android 12 / API 31 / physical ARM64 / root Shizuku
+
+At the user's request, both old official and Dev BAAS packages, their configuration
+and preferences were backed up before uninstall. The game and shared Shizuku were
+retained. MIUI initially refused installation; after the user re-enabled USB
+installation, the latest package installed and its installed hash was verified.
+Installation is therefore no longer the current blocker.
+
+This provider uses the system-identity display backend. It does not exercise the
+Android 12 shell shield path that failed on Redroid, and cannot prove that older
+shell failure fixed.
+
+- The latest app stayed in the same process through one `font_scale`
+  `1.0 → 1.01 → 1.0` round trip, triggering two Activity recreations.
+  Native Shizuku calls recovered after recreation,
+  and both system Save and Open document pickers actually worked. This covers
+  that configuration-change/picker lifecycle, not arbitrary process death,
+  screen-off behavior or long unattended use.
+- System Documents saved `ZIP_Acceptance.zip`, **4,960 bytes**. ZIP CRC and
+  `config.json`, `event.json`, `switch.json` were verified. The source test copy
+  was deleted through exact UI confirmation, then the system picker selected
+  that ZIP for import. Waiting ended, the editor closed and the imported profile
+  appeared selected. All three imported JSON files were parsed and compared
+  equal to the exported data; the imported test profile was then precisely
+  confirmed and deleted through UI.
+- Copy, rename to `ZIP_Acceptance`, and exact confirmed delete were exercised
+  again on this same latest APK. Persisted storage contained only the original
+  safe Bili profile and `default`. The temporary phone ZIP was removed; private
+  backups remain in the ignored local evidence directory. The old Download test
+  APK was precisely replaced with this candidate's contents.
+- The final mail-only run began from a genuinely cold game and used automation
+  without a human game tap to advance startup. Both before and after the run,
+  safety checks confirmed only `mail` enabled, the other 25 tasks disabled,
+  all pre/post lists empty, purchase/shop values zero, and `autostart=false`.
+- Three consecutive `Recognized explicit Android CN initialization status;
+  waiting without tentative clicks` log entries established the conservative
+  wait inside that known initialization phase. Tentative clicks still occurred
+  after leaving known initialization. No A/B startup comparison was performed;
+  this is not a claim of globally faster or entirely click-free startup.
+- The algorithm subsequently recognized login/news/`main_page`, entered
+  `mail_menu`, ran `COLLECT mail reward`, handled the `reward_acquired` popup
+  and returned to `main_page`; the visible UI finished at the real game home.
+  Every individual mail item was not audited, so stage logs or `next_time`
+  alone do not prove every reward was collected. No balance values or claims
+  attributing balance changes are published. Explicit Stop left all latest
+  health states `running=false`, `current_task=null`, `waiting_tasks=[]`.
+- Switching through the UI to Light visibly changed the native inline toolbar
+  to a white background with black icons. Its actual middle button entered
+  landscape while retaining the game process; explicit display-0 BACK returned
+  to portrait. The original System/dark theme was restored, and normal frontend
+  close removed the game process and owned display. The same shared Shizuku
+  service remained running/granted, and `font_scale` was restored to `1.0`.
+- The latest APK's separate UI monitor recorded **15,082 samples / 757.8844 s**
+  (about 12.63 minutes), maximum event-loop gap **296.6 ms**, and no gap above
+  500 ms. It still recorded **48 long tasks, maximum 186 ms**. This mixed window
+  included cold startup, pages, file pickers and theme operations. Its workload
+  differs from `67291e03`; the figures are not a speedup comparison or evidence
+  of long-term stability. The injected monitor timer was stopped afterwards.
+
+Final cleanup returned to the safe Bili profile home with only Bili and `default`
+remaining and no Stop button. All backend statuses were idle with an empty queue;
+native display ID was `-1`, and the game process was absent. Shared root Shizuku
+remained running/granted, font scale was `1.0`, and System/dark appearance was
+restored. Only this task's temporary ZIP, profiles, ADB forwards, APK/dump tooling
+were cleaned up; pre-existing external forwards were retained. The phone's
+Download test APK contains `c4690df3`, not the earlier `e09f2d60` contents. Local
+evidence, old APKs and configuration backups remain private under `.cache`.
+
+These observations establish limited real-game preview, actual input,
+fullscreen/return ownership, Activity relaunch, ZIP/configuration UI, Light
+toolbar styling and one cold mail automation flow.
+They do not pass the complete long-hold, multi-pointer, automation-preemption,
+late-CANCEL, floating-menu drag, complete theme matrix, cold-start A/B,
+screen-off or long-duration matrix, nor an R8 release install. General UI-stall
+resolution and reproducible speed improvements are not established.
+
+### Earlier continuation candidate `67291e03` — separate historical evidence
+
+This ARM64 APK was **103,895,888 bytes**, SHA-256
+`67291e03627c1840af50ccb6f94463df3b29e341af241c1adf5edc838a19c3f4`.
+Its installed hash, ZIP CRC, 183 frontend files and 12 native libraries matched;
+its v2 signature was subsequently verified too. Native JVM tests at that
+checkpoint numbered 131. The following observations belong only to that APK:
+
+- Two same-process font-configuration relaunches retained working
+  `nativeShizukuStatus`, followed by real-game native `Live`. The actual middle
+  native button opened landscape, a title-screen touch reached game home, and
+  display-0 BACK returned while retaining the game process and owned display.
+- During the first safe mail-only attempt, fullscreen entry/return retained
+  `running=true` / `current_task=mail` without intermediate Stop/Start. A
+  character illustration had its game UI hidden; loading waited about 61 s
+  before explicit Stop. This attempt did not complete or claim mail.
+- After restoring the visible home, the second attempt opened mail, confirmed
+  inventory full on two fresh frames and pressed only X, logging
+  `SKIPPED/unclaimed` without resource consumption. It returned to real
+  `main_page` and was explicitly stopped idle. This skip is not overwritten
+  as a reward claim by another candidate's later `reward_acquired` stage.
+  AP, credits and pyroxene OCR also refreshed from a new game frame into its UI;
+  the balances and account imagery remain private.
+- Export received its backend ACK, but Tauri `dialog.saveFileDialog` used the
+  old recreated Activity's `unregistered ActivityResultLauncher`, and
+  `CREATE_DOCUMENT` did not open. That real failure is preserved historically;
+  the latest `c4690df3` actual ZIP round trip above resolved this blocker.
+- Its UI monitor recorded **20,878 samples / 1,045.288 s**, maximum event-loop
+  gap **385 ms**, no gap above 500 ms, and **15 long tasks, maximum 140 ms**.
+  It was not a zero-long-task run. These figures do not belong to `c4690df3`,
+  are not compared across differing workloads as a speedup, and do not establish
+  long unattended stability.
+
+### Android 15 / API 35 / x86_64 / shell-provider fixture
+
+The separate isolated APK SHA-256 is
+`8e71086a9c2819d4e81536d00c16e49cdbd149bfb54a78ae25d6bae3c8c06eb9`.
+This was an Android 15 x86_64 emulator with Shizuku shell UID 2000, not a physical
+phone or signed-in game. Its local native input fixture had no permissions,
+network access or account and was installed after confirming its package name
+unoccupied. No scheduler task or script/manual coexistence run was attempted.
+
+- A real fresh backend download/start reached service connection. The owned
+  native preview showed the fixture's animation and `Live`; the actual middle
+  control entered landscape. Normal return retained its process and owned
+  display; closing removed both.
+- The service reported effective VD flags `8`. Focus recovery failed with
+  `The BAAS focus window did not acknowledge DOWN+CANCEL`. The cause of the
+  requested display capabilities being unavailable was not separately proven.
+- Primary-display focus did not remain within the safety driver's verified
+  BAAS target. The driver refused the next gesture before DOWN, did not inject
+  directly into the fixture's owned display, and did not relax the guard.
+  Final fixture evidence was `seq=0`, `completedGestures=0`, `cancelledGestures=0`,
+  `maxPointerCount=0`, `activeGesture=false` and `violationCount=0`. Opening BAAS
+  controls or dismissing the emulator's prompt is not fixture-input acceptance.
+  Long holds, multi-pointer/CANCEL and automation-preemption end-to-end checks
+  remain unpassed.
+- The owned display was closed; fixture and isolated validation packages,
+  temporary tools and forwards were removed. Shizuku remained running. Other
+  BAAS installations and real game accounts were not modified by this test.
+
+Earlier Android 12 shell failures, this Android 15 refusal, and the unmerged
+legacy-compatibility experiment remain separate unresolved scopes. Only source,
+tests and sanitized documentation are deliverables; APKs, raw logs, account
+images, device connection identifiers and private backups remain local. This
+work does not automatically create a PR or merge into `android-dev` / `dev`.
+
+## Historical checkpoints — 2026-10-23
 
 Date: 2026-10-23. Work branch: `android-dev`, based on `326760f`.
 This is a scoped development record, not release sign-off. No device connection

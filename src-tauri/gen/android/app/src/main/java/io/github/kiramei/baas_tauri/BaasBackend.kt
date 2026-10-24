@@ -14,6 +14,9 @@ import kotlin.concurrent.thread
 
 object BaasBackend {
   private const val TAG = "BAAS"
+  // Claims one attempt for this process, including a returned diagnostic server
+  // or a failed initialization. Frontend reconnects must not install/rebind again
+  // or overwrite the first failure; explicit backend process restart recovers.
   private val started = AtomicBoolean(false)
 
   fun ensureStarted(context: Context) {
@@ -46,11 +49,19 @@ object BaasBackend {
           )
       } catch (error: Throwable) {
         Log.e(TAG, "Python backend bootstrap failed", error)
-        val failure = org.json.JSONObject().put("stage", "failed").put("error", error.toString())
-          .put("traceback", error.stackTraceToString())
-        File(appContext.filesDir, "baas/android-bootstrap-status.json").writeText(failure.toString())
-      } finally {
-        started.set(false)
+        val statusFile = File(appContext.filesDir, "baas/android-bootstrap-status.json")
+        val previous = runCatching { org.json.JSONObject(statusFile.readText()) }.getOrNull()
+        val failure = if (previous?.optString("stage") == "failed" && previous.optString("error").isNotBlank()) {
+          previous.put("nativeError", error.toString()).put("nativeTraceback", error.stackTraceToString())
+        } else {
+          org.json.JSONObject().put("stage", "failed").put("error", error.toString())
+            .put("traceback", error.stackTraceToString())
+        }
+        failure.put("ok", false)
+        runCatching {
+          statusFile.parentFile?.mkdirs()
+          statusFile.writeText(failure.toString())
+        }.onFailure { Log.e(TAG, "Unable to preserve backend startup failure", it) }
       }
     }
   }

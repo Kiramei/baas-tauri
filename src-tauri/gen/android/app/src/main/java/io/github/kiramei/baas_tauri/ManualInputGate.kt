@@ -143,7 +143,11 @@ internal class ManualInputGate(private val cancelManual: () -> Boolean = { true 
       return action == OwnedDisplayTouch.CANCEL && manualDownTime == null
     }
     val accepted = try { work() } catch (error: Throwable) {
-      cancelManualLocked()
+      // The failed input is the primary error even when its cleanup also fails.
+      // cancelManualLocked still seals admission before propagating its error.
+      try { cancelManualLocked() } catch (cancellation: Throwable) {
+        if (cancellation !== error) error.addSuppressed(cancellation)
+      }
       throw error
     }
     if (!accepted) cancelManualLocked()
