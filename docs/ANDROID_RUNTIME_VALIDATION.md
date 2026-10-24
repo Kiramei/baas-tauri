@@ -5,6 +5,19 @@ The 2026-10-24–25 continuation has the limited physical-ARM results below. The
 earlier failed coexistence/startup candidate and its rollback remain historical
 checkpoints later in this document. No result transfers between APKs or providers.
 
+## Android settings categories — 2026-10-25 Asia/Shanghai
+
+The next ARM64 debug APK is **103,902,334 bytes**, SHA-256
+`da88159abf21e12a8c64297846f3649228a2fef1d90975f5b860cefdcaaea3d4`;
+ZIP CRC passed and the installed Redmi K30 hash matched. Android no longer
+renders or offers the desktop shortcuts category, including shared wide-layout
+navigation and category search. An actual selection of Shortcuts before updating
+fell back to General after installation. The physical UI showed five categories,
+searching `快捷键` returned `0/0`, and searching `语言` still returned matches.
+Existing settings/category/search tests passed (14 tests, 50 assertions), as did
+Android type/translation checks, production frontend build, and ARM64 packaging.
+Desktop category behavior remains covered by those existing tests.
+
 ## Sticky navigation correction — 2026-10-25 Asia/Shanghai
 
 The subsequent ARM64 debug UI patch is **169,257,523 bytes**, SHA-256

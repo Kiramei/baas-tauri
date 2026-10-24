@@ -69,16 +69,28 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]["id"];
+type SettingsSectionList = readonly (typeof SETTINGS_SECTIONS)[number][];
+
+export const ANDROID_SETTINGS_SECTIONS = SETTINGS_SECTIONS.filter(
+  (section) => section.id !== "shortcuts"
+);
 
 /** Old or malformed persisted preferences safely fall back to the first section. */
-export function resolveSettingsSection(value: unknown) {
-  return SETTINGS_SECTIONS.find((section) => section.id === value) ?? SETTINGS_SECTIONS[0];
+export function resolveSettingsSection(
+  value: unknown,
+  sections: SettingsSectionList = SETTINGS_SECTIONS
+) {
+  return sections.find((section) => section.id === value) ?? sections[0] ?? SETTINGS_SECTIONS[0];
 }
 
 /** Search translated section names and the controls they contain. */
-export function filterSettingsSections(query: string, translate: (key: TranslationKey) => string) {
+export function filterSettingsSections(
+  query: string,
+  translate: (key: TranslationKey) => string,
+  sections: SettingsSectionList = SETTINGS_SECTIONS
+) {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return SETTINGS_SECTIONS.filter((section) => {
+  return sections.filter((section) => {
     const text = [section.label, ...section.keywords]
       .map((key) => translate(key as TranslationKey))
       .join(" ")

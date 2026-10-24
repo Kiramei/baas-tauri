@@ -6,8 +6,7 @@ import { FormSelect } from "@/components/ui/FormSelect";
 import { VersionOverview } from "@/components/settings/VersionOverview";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
-import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
-import { SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
+import { ANDROID_SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
 import {
   SettingsToggle,
   SettingsGroup,
@@ -175,7 +174,7 @@ const SettingsPage: React.FC = () => {
   const { t, language } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
-  const section = resolveSettingsSection(uiSettings.settingsSection);
+  const section = resolveSettingsSection(uiSettings.settingsSection, ANDROID_SETTINGS_SECTIONS);
   const { query: settingsQuery } = useSettingsSearch();
   const pageRef = useRef<HTMLDivElement>(null);
   useSettingsSearchHighlight(pageRef, section.id, language);
@@ -723,10 +722,10 @@ const SettingsPage: React.FC = () => {
           onChange={(value) =>
             setUiSettings((settings) => ({
               ...settings,
-              settingsSection: resolveSettingsSection(value).id,
+              settingsSection: resolveSettingsSection(value, ANDROID_SETTINGS_SECTIONS).id,
             }))
           }
-          options={SETTINGS_SECTIONS.map(({ id, label }) => ({
+          options={ANDROID_SETTINGS_SECTIONS.map(({ id, label }) => ({
             value: id,
             label: t(i18nKey(label)),
           }))}
@@ -741,7 +740,7 @@ const SettingsPage: React.FC = () => {
         onChange={handleWebBackgroundImageChange}
       />
       <div className="settings-categories">
-        {SETTINGS_SECTIONS.map((displayedSection) => (
+        {ANDROID_SETTINGS_SECTIONS.map((displayedSection) => (
           <section
             key={displayedSection.id}
             aria-labelledby={`settings-section-${displayedSection.id}-title`}
@@ -755,7 +754,6 @@ const SettingsPage: React.FC = () => {
               {t(i18nKey(displayedSection.label))}
             </h2>
             <div className="settings-sections">
-              {displayedSection.id === "shortcuts" && <ShortcutSettings />}
               {displayedSection.id === "general" && (
                 <div className="settings-sections">
                   <SettingsGroup title={t("settings.groups.preferences")}>
