@@ -44,6 +44,9 @@ const CAFE_BASIC_HELP: readonly TranslationKey[] = [
   "configurationHelp.cafeSecondCafe",
   "description.cafe.patRounds",
   "configurationHelp.cafePatStyle",
+  "cafe.advancedSettings",
+  "cafe.interactionShotDelay",
+  "configurationHelp.cafeInteractionShotDelay",
 ];
 const CAFE_INVITATION_HELP: readonly TranslationKey[] = [
   "configurationHelp.cafeInviteMode",
@@ -332,6 +335,8 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
       "arena.higherLevel",
       "arena.maxRefreshTimes",
       "arena.opponentNo",
+      "arena.stopAtFirstPlace",
+      "configurationHelp.arenaStopAtFirstPlace",
       "configurationHelp.arenaLevel",
       "configurationHelp.arenaRefresh",
       "configurationHelp.arenaOpponent",
@@ -450,6 +455,10 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
       "server.global.teen",
       "server.jp",
       "server.kr.one",
+      "server.jpPc",
+      "server.globalPc",
+      "server.pcGameWindow",
+      "server.pcWindowHelp",
       "adb.detectBtn",
       "configurationHelp.server",
       "configurationHelp.adbAddress",
@@ -477,6 +486,8 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
       "configurationHelp.screenshotInterval",
       "configurationHelp.screenshotMethod",
       "configurationHelp.controlMethod",
+      "server.pcMethodsHelp",
+      "server.pcRecommendedMethods",
     ],
   },
   {
@@ -517,6 +528,11 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
         title: "stage.exploreTab",
         keywords: [
           "stage.manualBoss",
+          "stage.simpleMode",
+          "stage.mainStoryEpisodes",
+          "stage.mainStoryEpisodeList",
+          "configurationHelp.exploreSimpleMode",
+          "configurationHelp.mainStoryEpisodes",
           "stage.story.main",
           "stage.story.group",
           "stage.story.mini",
@@ -542,6 +558,11 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
       "stage.exploreTab",
       "stage.eventTab",
       "stage.manualBoss",
+      "stage.simpleMode",
+      "stage.mainStoryEpisodes",
+      "stage.mainStoryEpisodeList",
+      "configurationHelp.exploreSimpleMode",
+      "configurationHelp.mainStoryEpisodes",
       "stage.story.main",
       "stage.story.group",
       "stage.story.mini",
@@ -579,10 +600,22 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
       "push.afterCompletion",
       "push.json",
       "push.serverchan",
+      "push.feishu",
+      "push.wecom",
+      "push.telegram",
+      "push.telegramToken",
+      "push.telegramChatId",
+      "push.telegramProxy",
+      "push.telegramApi",
       "configurationHelp.pushError",
       "configurationHelp.pushCompletion",
       "configurationHelp.pushJson",
       "configurationHelp.pushServerchan",
+      "configurationHelp.pushFeishu",
+      "configurationHelp.pushWecom",
+      "configurationHelp.pushTelegram",
+      "configurationHelp.pushTelegramProxy",
+      "configurationHelp.pushTelegramApi",
     ],
   },
   {
@@ -600,6 +633,8 @@ const ANDROID_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
   "script.controlMethod",
   "configurationHelp.screenshotMethod",
   "configurationHelp.controlMethod",
+  "server.pcMethodsHelp",
+  "server.pcRecommendedMethods",
 ]);
 const ANDROID_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
   (section) => section.id !== "emulator"
@@ -620,6 +655,7 @@ const WEBUI_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
   "script.exitBoth",
   "script.shutdown",
   "configurationHelp.scriptThen",
+  "server.pcRecommendedMethods",
 ]);
 const WEBUI_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
   (section) => section.id !== "emulator"

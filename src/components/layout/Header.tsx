@@ -25,7 +25,8 @@ import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
-import { buildServerOptions } from "@/shared/serverOptions";
+import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
+import { configureNewPcProfile } from "@/shared/PcProfiles";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
@@ -59,6 +60,8 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
 
   const [tabs, setTabs] = React.useState<Tab[]>([]);
   const tabsRef = useRef(tabs);
+  const createController = useRef<AbortController | null>(null);
+  useEffect(() => () => createController.current?.abort(), []);
 
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
@@ -175,11 +178,36 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
 
-    const result = await runProfileCommand(useWebSocketStore.getState, "add_config", {
-      name,
-      server,
-    });
-    await waitForConfig(result?.serial);
+    if (isPcServer(server) && !supportsPcServers()) throw new Error(t("server.pcWindowsOnly"));
+    createController.current?.abort();
+    const controller = new AbortController();
+    createController.current = controller;
+    const originalSession = useWebSocketStore.getState()._session;
+    try {
+      const result = await runProfileCommand(useWebSocketStore.getState, "add_config", {
+        name,
+        server,
+      });
+      if (controller.signal.aborted) return;
+      if (useWebSocketStore.getState()._session !== originalSession)
+        throw new Error(t("configAdd.saveFailed"));
+      await waitForConfig(result?.serial, controller.signal);
+      if (controller.signal.aborted || !isPcServer(server)) return;
+      try {
+        if (useWebSocketStore.getState()._session !== originalSession)
+          throw new Error("Authentication session changed");
+        await configureNewPcProfile(useWebSocketStore.getState, result.serial, {
+          signal: controller.signal,
+        });
+      } catch {
+        if (!controller.signal.aborted)
+          toast.error(t("server.pcSetupIncomplete"), {
+            description: t("server.pcSetupIncompleteHelp"),
+          });
+      }
+    } finally {
+      if (createController.current === controller) createController.current = null;
+    }
   };
 
   const runTrigger = React.useCallback(
@@ -189,8 +217,15 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   );
 
   const waitForConfig = React.useCallback(
-    async (serialName: string) => {
-      const profile = await waitForProfileConfig(useWebSocketStore.getState, serialName);
+    async (serialName: string, signal?: AbortSignal) => {
+      const profile = await waitForProfileConfig(
+        useWebSocketStore.getState,
+        serialName,
+        10_000,
+        50,
+        signal
+      );
+      if (signal?.aborted) return;
       // The store snapshot can precede React's tab-list effect by one render.
       const next: Tab = {
         id: serialName,
@@ -770,9 +805,18 @@ const ProfileEditorModal = (props: {
             placeholder={t("configAdd.selectServer")}
             options={[
               { label: t("configAdd.selectServer"), value: "NULL" },
-              ...buildServerOptions(t),
+              ...buildServerOptions(t, {
+                includePc: supportsPcServers(),
+                selected: props.mode === "edit" ? server : undefined,
+              }),
             ]}
           />
+
+          {isPcServer(server) && (
+            <p className="text-xs leading-5 text-muted-foreground">
+              {supportsPcServers() ? t("server.pcCreateHelp") : t("server.pcWindowsOnly")}
+            </p>
+          )}
 
           {err && (
             <div role="alert" className="text-sm text-destructive">

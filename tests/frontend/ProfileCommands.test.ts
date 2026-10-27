@@ -109,4 +109,12 @@ describe("profile command completion", () => {
       "Missing profile ID in command response"
     );
   });
+
+  test("unmount cancellation stops a pending profile snapshot refresh", async () => {
+    const store = createStore();
+    const controller = new AbortController();
+    const refresh = waitForProfileConfig(store.getState, "created", 100, 1, controller.signal);
+    controller.abort();
+    await expect(refresh).rejects.toThrow("cancelled");
+  });
 });

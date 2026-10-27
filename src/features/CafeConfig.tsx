@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { X } from "lucide-react";
 import StudentSelectorModal from "@/components/StudentSelectorModal";
@@ -13,6 +13,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { serverMap } from "@/shared/GlobalUtilities";
 import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import {
+  hasConfigurationField,
+  parseCafeInteractionDelay,
+  serializeCafeInteractionSettings,
+  supportedConfigurationPatch,
+} from "./upstreamConfig";
+import "@/components/configuration/configuration-forms.css";
 
 type CafeConfigProps = { onClose: () => void; profileId?: string };
 type Draft = {
@@ -23,6 +30,7 @@ type Draft = {
   cafe_reward_has_no2_cafe: boolean;
   cafe_reward_affection_pat_round: number | "";
   patStyle: string;
+  cafe_reward_interaction_shot_delay: string;
   cafe_reward_invite1_criterion: string;
   cafe_reward_invite2_criterion: string;
   cafe_reward_invite1_starred_student_position: string;
@@ -30,23 +38,27 @@ type Draft = {
   favorStudent1: string[];
   favorStudent2: string[];
 };
-const serialize = (draft: Draft) =>
-  draft.cafe_reward_affection_pat_round === ""
-    ? null
-    : {
-        ...draft,
-        cafe_reward_invite1_starred_student_position: Number(
-          draft.cafe_reward_invite1_starred_student_position
-        ),
-        cafe_reward_invite2_starred_student_position: Number(
-          draft.cafe_reward_invite2_starred_student_position
-        ),
-      };
+const serialize = (draft: Draft, snapshot: object) => {
+  if (draft.cafe_reward_affection_pat_round === "") return null;
+  return supportedConfigurationPatch(
+    {
+      ...serializeCafeInteractionSettings(draft),
+      cafe_reward_invite1_starred_student_position: Number(
+        draft.cafe_reward_invite1_starred_student_position
+      ),
+      cafe_reward_invite2_starred_student_position: Number(
+        draft.cafe_reward_invite2_starred_student_position
+      ),
+    },
+    snapshot
+  );
+};
 
 /** Cafe behavior and per-cafe invitations, saved as the user edits. */
 const CafeConfig: React.FC<CafeConfigProps> = ({ profileId }) => {
   const { t } = useAppTranslation();
   const settings = useWebSocketStore((state) => state.configStore[profileId!]);
+  const supportsShotDelay = hasConfigurationField(settings, "cafe_reward_interaction_shot_delay");
   const studentNames = useWebSocketStore((state) => state.staticStore.student_names ?? []);
   const ext = useMemo<Draft>(
     () => ({
@@ -57,6 +69,7 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ profileId }) => {
       cafe_reward_has_no2_cafe: settings.cafe_reward_has_no2_cafe ?? false,
       cafe_reward_affection_pat_round: settings.cafe_reward_affection_pat_round ?? 5,
       patStyle: settings.patStyle ?? "普通",
+      cafe_reward_interaction_shot_delay: String(settings.cafe_reward_interaction_shot_delay ?? 1),
       cafe_reward_invite1_criterion: settings.cafe_reward_invite1_criterion ?? "lowest_affection",
       cafe_reward_invite2_criterion: settings.cafe_reward_invite2_criterion ?? "lowest_affection",
       cafe_reward_invite1_starred_student_position: String(
@@ -70,9 +83,15 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ profileId }) => {
     }),
     [settings]
   );
-  const [draft, setDraft] = useConfigurationDraft(profileId!, "cafe", ext, { serialize });
+  const [draft, setDraft] = useConfigurationDraft(profileId!, "cafe", ext, {
+    serialize: (value) => serialize(value, settings),
+  });
   const [selector, setSelector] = useState<1 | 2 | null>(null);
   const [tab, setTab] = useState("basic");
+  const delayErrorId = useId();
+  const invalidDelay =
+    supportsShotDelay &&
+    parseCafeInteractionDelay(draft.cafe_reward_interaction_shot_delay) === null;
   const inviteOptions = [
     { value: "lowest_affection", label: t("cafe.lowestAffection") },
     { value: "highest_affection", label: t("cafe.highestAffection") },
@@ -239,6 +258,40 @@ const CafeConfig: React.FC<CafeConfigProps> = ({ profileId }) => {
                 { value: "拖动礼物", label: t("cafe.patStyleDragGift") },
               ]}
             />
+            {draft.patStyle === "拖动礼物" ? (
+              <details className="border-t border-border/60">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-ring">
+                  {t("cafe.advancedSettings")}
+                </summary>
+                <ConfigurationInput
+                  label={t("cafe.interactionShotDelay")}
+                  className="configuration-row-responsive"
+                  description={
+                    supportsShotDelay
+                      ? t("configurationHelp.cafeInteractionShotDelay")
+                      : t("configurationHelp.backendUpdateRequired")
+                  }
+                  disabled={!supportsShotDelay}
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={draft.cafe_reward_interaction_shot_delay}
+                  aria-invalid={invalidDelay}
+                  aria-describedby={invalidDelay ? delayErrorId : undefined}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      cafe_reward_interaction_shot_delay: event.target.value,
+                    }))
+                  }
+                />
+                {invalidDelay ? (
+                  <p id={delayErrorId} role="alert" className="px-4 pb-3 text-xs text-destructive">
+                    {t("cafe.invalidInteractionShotDelay")}
+                  </p>
+                ) : null}
+              </details>
+            ) : null}
           </ConfigurationGroup>
         </TabsContent>
         <TabsContent value="cafe1">{renderInvitation(1)}</TabsContent>
