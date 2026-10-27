@@ -2,6 +2,7 @@ import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { CalendarCheckIcon } from "@phosphor-icons/react/dist/csr/CalendarCheck";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react/dist/csr/SlidersHorizontal";
 import { GearSixIcon } from "@phosphor-icons/react/dist/csr/GearSix";
+import { PuzzlePieceIcon } from "@phosphor-icons/react/dist/csr/PuzzlePiece";
 import type { PageKey } from "@/types/app";
 import { normalizePageKey } from "@/shared/PageKey";
 
@@ -12,12 +13,13 @@ interface NavigationIconProps {
   className?: string;
 }
 
-// Import each icon directly so development and production load only this family of four.
+// Import each icon directly so development and production load only this family of five.
 const navigationIcons = {
   home: HouseIcon,
   scheduler: CalendarCheckIcon,
   configuration: SlidersHorizontalIcon,
   settings: GearSixIcon,
+  plugins: PuzzlePieceIcon,
 } satisfies Record<PageKey, typeof HouseIcon>;
 
 /** Page selection changes weight within one icon family; focus never swaps its silhouette. */

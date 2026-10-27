@@ -21,7 +21,7 @@ const sameView = (left?: Readonly<NavigationView>, right?: Readonly<NavigationVi
 
 const normalizeView = (view: Readonly<NavigationView>): Readonly<NavigationView> => {
   const page = normalizePageKey(view.page);
-  if (page === "settings")
+  if (page === "settings" || page === "plugins")
     return view.page === page && view.profileId === undefined ? view : Object.freeze({ page });
   return view.page === page ? view : Object.freeze({ ...view, page });
 };
@@ -115,7 +115,7 @@ export class NavigationHistory {
         return true;
       }
       this.position = previous;
-      if (entry.page === "settings") {
+      if (entry.page === "settings" || entry.page === "plugins") {
         this.publish();
         return false;
       }
@@ -150,6 +150,8 @@ export class NavigationHistory {
   }
 
   private isAvailable(view: Readonly<NavigationView>): boolean {
-    return view.page === "settings" || this.profiles.has(view.profileId ?? "");
+    return (
+      view.page === "settings" || view.page === "plugins" || this.profiles.has(view.profileId ?? "")
+    );
   }
 }

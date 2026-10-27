@@ -7,6 +7,7 @@ import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.t
 import LoadingPage from "@/pages/LoadingPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
 import { normalizePageKey } from "@/shared/PageKey";
+import { PLUGIN_OPEN_EVENT } from "@/shared/Plugins";
 import { AboutBaasProvider } from "@/context/AboutBaasProvider";
 import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
 import PageActivity from "@/components/PageActivity";
@@ -48,6 +49,7 @@ const HomePage = React.lazy(loadHomePage);
 const MainLayout = React.lazy(loadMainLayout);
 const SchedulerPage = React.lazy(() => import("@/pages/SchedulerPage"));
 const ConfigurationPage = React.lazy(() => import("@/android/pages/ConfigurationPage"));
+const PluginsPage = React.lazy(() => import("@/pages/PluginsPage"));
 const SettingsPage = React.lazy(() => import("@/android/pages/SettingsPage"));
 let homeReadyReported = false;
 const HomeReadyMarker: React.FC<{ onReady: () => void }> = ({ onReady }) => {
@@ -89,6 +91,11 @@ const PageLoadingFallback: React.FC = () => (
 export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady }) => {
   const [selectedPage, setActivePage] = React.useState<PageKey>("home");
   const activePage = normalizePageKey(selectedPage);
+  useEffect(() => {
+    const openPlugins = () => setActivePage("plugins");
+    window.addEventListener(PLUGIN_OPEN_EVENT, openPlugins);
+    return () => window.removeEventListener(PLUGIN_OPEN_EVENT, openPlugins);
+  }, []);
   const { activeProfile, profiles } = useApp();
   const activePid = activeProfile?.id;
   const currentKey = instanceKeyOf(activePage, activePid);
@@ -99,7 +106,7 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
   );
 
   useEffect(() => {
-    if (!activePid && activePage !== "settings") return;
+    if (!activePid && activePage !== "settings" && activePage !== "plugins") return;
     setSeenKeys((keys) =>
       keys.includes(currentKey) && (!homeKey || keys.includes(homeKey))
         ? keys
@@ -167,6 +174,12 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
           return <SchedulerPage profileId={pid} />;
         case "configuration":
           return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
+        case "plugins":
+          return (
+            <Suspense fallback={null}>
+              <PluginsPage />
+            </Suspense>
+          );
         case "settings":
           return <SettingsPage />;
         default:
@@ -176,7 +189,7 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
     [onReady]
   );
 
-  if ((!activeProfile || !activePid) && activePage !== "settings") {
+  if ((!activeProfile || !activePid) && activePage !== "settings" && activePage !== "plugins") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
         <HomeReadyMarker onReady={onReady} />
@@ -191,7 +204,12 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
           const separator = key.indexOf(":");
           const page = normalizePageKey(separator < 0 ? key : key.slice(0, separator));
           const pid = separator < 0 ? undefined : key.slice(separator + 1);
-          if (page !== "settings" && !profiles.some((profile) => profile.id === pid)) return null;
+          if (
+            page !== "settings" &&
+            page !== "plugins" &&
+            !profiles.some((profile) => profile.id === pid)
+          )
+            return null;
           const isActive = key === currentKey;
           const content = (
             <Suspense fallback={<PageLoadingFallback />}>{renderPage(page, pid)}</Suspense>

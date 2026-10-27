@@ -6,6 +6,22 @@ const view = (page: NavigationView["page"], profileId: string): NavigationView =
   page === "settings" ? { page } : { page, profileId };
 
 describe("page and profile navigation history", () => {
+  test("plugins remain a global route before profiles exist and after a profile is deleted", () => {
+    expect(normalizePageKey("plugins")).toBe("plugins");
+    const history = new NavigationHistory();
+    const restored: Readonly<NavigationView>[] = [];
+    history.attach((next) => {
+      restored.push(next);
+      return true;
+    });
+    history.observe({ page: "plugins", profileId: "legacy" }, []);
+    history.observe({ page: "settings" }, []);
+    expect(history.back()).toBe(true);
+    expect(restored.at(-1)).toEqual({ page: "plugins" });
+    history.observe({ page: "home", profileId: "one" }, ["one"]);
+    history.observe({ page: "plugins" }, []);
+    expect(history.getSnapshot().canBack).toBe(false);
+  });
   test("back and forward restore both the page and active profile", () => {
     const history = new NavigationHistory();
     let current = view("home", "b-server");

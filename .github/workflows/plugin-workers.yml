@@ -1,0 +1,31 @@
+name: Android plugin worker protocol
+
+on:
+  pull_request:
+    paths:
+      - 'src-tauri/gen/android/app/src/main/python/android_backend/plugin_worker.py'
+      - 'src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PluginWorker*.kt'
+      - 'scripts/tests/test_android_plugin_worker.py'
+      - '.github/workflows/plugin-workers.yml'
+  push:
+    branches: [dev, 'codex/feat-plugin-system']
+    paths:
+      - 'src-tauri/gen/android/app/src/main/python/android_backend/plugin_worker.py'
+      - 'src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri/PluginWorker*.kt'
+      - 'scripts/tests/test_android_plugin_worker.py'
+      - '.github/workflows/plugin-workers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+      - name: Verify bounded private-file protocol and redaction
+        run: python scripts/tests/test_android_plugin_worker.py

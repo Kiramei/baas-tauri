@@ -51,7 +51,7 @@ export type Theme = "light" | "dark" | "system";
 /**
  * Identifiers for each primary application route.
  */
-export type PageKey = "home" | "scheduler" | "configuration" | "settings";
+export type PageKey = "home" | "scheduler" | "configuration" | "plugins" | "settings";
 
 export interface ProfileProps {
   profileId?: string;

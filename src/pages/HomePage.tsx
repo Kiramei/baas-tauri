@@ -12,6 +12,7 @@ import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
 import AssetsDisplay from "@/components/AssetsDisplay";
+import PluginHomeShortcuts from "@/components/plugins/PluginHomeShortcuts";
 import { ArrowDownToLine, FileDown, Keyboard, Logs, Play, Square, Webcam } from "lucide-react";
 import { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
@@ -449,6 +450,14 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             </CButton>
           </div>
         </div>
+      )}
+
+      {activeConfigId && (
+        <PluginHomeShortcuts
+          key={activeConfigId}
+          configId={activeConfigId}
+          active={activeProfile?.id === activeConfigId}
+        />
       )}
 
       {hotkeyAvailable && (
