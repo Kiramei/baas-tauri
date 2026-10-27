@@ -1,5 +1,7 @@
 #[cfg(any(windows, unix))]
 use crate::system_logs::system_log;
+#[cfg(any(windows, unix))]
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::Value;
 use std::sync::Mutex;
 use tauri::{
@@ -395,23 +397,8 @@ pub async fn backend_pipe_send_bytes(
                 send_frame(&manager, channel, name, KIND_BYTES, payload).await
             }
             InvokeBody::Json(value) => {
-                // Keep compatibility with existing callers using JSON number[].
-                #[derive(serde::Deserialize)]
-                struct LegacyRequest {
-                    channel: String,
-                    name: String,
-                    payload: Vec<u8>,
-                }
-                let legacy: LegacyRequest =
-                    serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-                send_frame(
-                    &manager,
-                    &legacy.channel,
-                    &legacy.name,
-                    KIND_BYTES,
-                    &legacy.payload,
-                )
-                .await
+                let (channel, name, payload) = decode_json_binary_request(value)?;
+                send_frame(&manager, &channel, &name, KIND_BYTES, &payload).await
             }
         }
     }
@@ -420,6 +407,51 @@ pub async fn backend_pipe_send_bytes(
         let _ = (manager, request);
         Err("Pipe transport is unavailable on this platform".to_string())
     }
+}
+
+#[cfg(any(windows, unix))]
+fn decode_json_binary_request(value: &Value) -> Result<(String, String, Vec<u8>), String> {
+    // Older Android frontends passed BPRQ as raw invoke bytes, but Android's
+    // postMessage IPC converts those bytes into a top-level JSON number array.
+    if value.is_array() {
+        let raw: Vec<u8> =
+            serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
+        let (channel, name, payload) = decode_binary_request(&raw)?;
+        return Ok((channel.to_string(), name.to_string(), payload.to_vec()));
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum JsonBytes {
+        Base64(String),
+        LegacyArray(Vec<u8>),
+    }
+    #[derive(serde::Deserialize)]
+    struct JsonRequest {
+        channel: String,
+        name: String,
+        payload: JsonBytes,
+    }
+    let request: JsonRequest =
+        serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
+    if request.name.len() > u16::MAX as usize {
+        return Err("pipe binary request name exceeds 65535 UTF-8 bytes".to_string());
+    }
+    let payload = match request.payload {
+        JsonBytes::Base64(encoded) => {
+            if encoded.len() > MAX_PAYLOAD_BYTES.div_ceil(3) * 4 {
+                return Err("pipe payload exceeds the 64 MiB limit".to_string());
+            }
+            BASE64
+                .decode(encoded)
+                .map_err(|error| format!("invalid pipe binary base64: {error}"))?
+        }
+        JsonBytes::LegacyArray(bytes) => bytes,
+    };
+    if payload.len() > MAX_PAYLOAD_BYTES {
+        return Err("pipe payload exceeds the 64 MiB limit".to_string());
+    }
+    Ok((request.channel, request.name, payload))
 }
 
 #[cfg(any(windows, unix))]
@@ -592,6 +624,32 @@ mod tests {
         }
         raw[5] = 255;
         assert!(decode_binary_request(&raw).is_err());
+    }
+
+    #[test]
+    fn android_pipe_binary_json_accepts_base64_legacy_arrays_and_raw_fallback() {
+        let name = "trigger-配置";
+        let payload = vec![0, 1, 255, 66, 80];
+        let expected = ("trigger".to_string(), name.to_string(), payload.clone());
+        for value in [
+            serde_json::json!({"channel":"trigger", "name":name, "payload":BASE64.encode(&payload)}),
+            serde_json::json!({"channel":"trigger", "name":name, "payload":payload}),
+        ] {
+            assert_eq!(decode_json_binary_request(&value).unwrap(), expected);
+        }
+        let mut raw = b"BPRQ\x01\x03".to_vec();
+        raw.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        raw.extend_from_slice(name.as_bytes());
+        raw.extend_from_slice(&payload);
+        assert_eq!(
+            decode_json_binary_request(&serde_json::json!(raw)).unwrap(),
+            expected
+        );
+        assert!(decode_json_binary_request(&serde_json::json!({
+            "channel":"trigger", "name":name, "payload":"not base64!"
+        }))
+        .is_err());
+        assert!(decode_json_binary_request(&serde_json::json!([66, 80])).is_err());
     }
 
     #[test]

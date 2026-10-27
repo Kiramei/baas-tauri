@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::{
     collections::VecDeque,
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
@@ -15,6 +15,7 @@ const MAX_FILE_BYTES: u64 = 10 * 1024 * 1024;
 const BACKUP_COUNT: usize = 5;
 const MAX_MEMORY_ENTRIES: usize = 5000;
 const MAX_MESSAGE_CHARS: usize = 32_000;
+const MAX_FRONTEND_BATCH_ENTRIES: usize = 250;
 
 static GLOBAL_LOG_STATE: OnceLock<SystemLogState> = OnceLock::new();
 
@@ -58,6 +59,8 @@ pub struct SystemLogState {
 struct SystemLogInner {
     path: PathBuf,
     entries: Mutex<VecDeque<SystemLogEntry>>,
+    writer: Mutex<()>,
+    frontend_writer: Arc<tokio::sync::Semaphore>,
 }
 
 impl SystemLogState {
@@ -70,6 +73,8 @@ impl SystemLogState {
             inner: Arc::new(SystemLogInner {
                 path,
                 entries: Mutex::new(entries),
+                writer: Mutex::new(()),
+                frontend_writer: Arc::new(tokio::sync::Semaphore::new(1)),
             }),
         })
     }
@@ -93,25 +98,53 @@ impl SystemLogState {
         self.append(entry);
     }
 
-    fn append(&self, mut entry: SystemLogEntry) {
-        entry.source = if entry.source == "frontend" {
-            "frontend".to_string()
-        } else {
-            "tauri".to_string()
-        };
-        entry.level = normalize_level(&entry.level);
-        entry.message = truncate(entry.message, MAX_MESSAGE_CHARS);
-        if entry.timestamp_ms == 0 {
-            entry.timestamp_ms = now_ms();
-        }
+    fn append(&self, entry: SystemLogEntry) {
+        let _ = self.append_batch(vec![entry]);
+    }
 
-        if let Ok(mut entries) = self.inner.entries.lock() {
-            entries.push_back(entry.clone());
-            while entries.len() > MAX_MEMORY_ENTRIES {
-                entries.pop_front();
+    fn append_batch(&self, batch: Vec<SystemLogEntry>) -> Result<(), String> {
+        if batch.is_empty() {
+            return Ok(());
+        }
+        let batch: Vec<_> = batch
+            .into_iter()
+            .map(|mut entry| {
+                entry.source = if entry.source == "frontend" {
+                    "frontend".to_string()
+                } else {
+                    "tauri".to_string()
+                };
+                entry.level = normalize_level(&entry.level);
+                entry.message = truncate(entry.message, MAX_MESSAGE_CHARS);
+                if entry.timestamp_ms == 0 {
+                    entry.timestamp_ms = now_ms();
+                }
+                entry
+            })
+            .collect();
+
+        // Serialize writers and rotation, not readers. Snapshot's memory lock
+        // must never wait for the slow filesystem work below.
+        let _writer = self
+            .inner
+            .writer
+            .lock()
+            .map_err(|_| "system log writer lock poisoned".to_string())?;
+        {
+            let mut entries = self
+                .inner
+                .entries
+                .lock()
+                .map_err(|_| "system log memory lock poisoned".to_string())?;
+            entries.extend(batch.iter().cloned());
+            if entries.len() > MAX_MEMORY_ENTRIES {
+                let excess = entries.len() - MAX_MEMORY_ENTRIES;
+                entries.drain(..excess);
             }
         }
-        let _ = append_to_file(&self.inner.path, &entry);
+        // Preserve the in-memory error record on failure and reject the IPC
+        // batch so the existing bounded frontend buffer can retry it.
+        append_to_file(&self.inner.path, &batch)
     }
 
     fn snapshot(&self, limit: usize) -> SystemLogSnapshot {
@@ -142,6 +175,11 @@ impl SystemLogState {
     }
 
     fn clear(&self) -> Result<(), String> {
+        let _writer = self
+            .inner
+            .writer
+            .lock()
+            .map_err(|_| "system log writer lock poisoned".to_string())?;
         if let Ok(mut entries) = self.inner.entries.lock() {
             entries.clear();
         }
@@ -191,46 +229,110 @@ pub fn system_log(level: &str, target: &str, message: impl Into<String>) {
 }
 
 #[tauri::command]
-pub fn system_logs_snapshot(
+pub async fn system_logs_snapshot(
     request: Option<SystemLogSnapshotRequest>,
     state: State<'_, SystemLogState>,
-) -> SystemLogSnapshot {
-    state.snapshot(request.and_then(|value| value.limit).unwrap_or(4000))
+) -> Result<SystemLogSnapshot, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.snapshot(request.and_then(|value| value.limit).unwrap_or(4000))
+    })
+    .await
+    .map_err(|error| format!("system log snapshot task failed: {error}"))
 }
 
 #[tauri::command]
-pub fn system_logs_clear(state: State<'_, SystemLogState>) -> Result<(), String> {
-    state.clear()?;
-    state.record("tauri", "INFO", "system_logs", "System logs cleared", None);
-    Ok(())
+pub async fn system_logs_clear(state: State<'_, SystemLogState>) -> Result<(), String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state.clear()?;
+        state.record("tauri", "INFO", "system_logs", "System logs cleared", None);
+        Ok(())
+    })
+    .await
+    .map_err(|error| format!("system log clear task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn system_logs_ingest_frontend(
+pub async fn system_logs_ingest_frontend(
     request: FrontendLogBatch,
     state: State<'_, SystemLogState>,
 ) -> Result<(), String> {
-    for entry in request.entries.into_iter().take(250) {
-        state.append(SystemLogEntry {
-            source: "frontend".to_string(),
-            ..entry
-        });
-    }
-    Ok(())
+    ingest_frontend_batch(state.inner().clone(), request).await
 }
 
-fn append_to_file(path: &Path, entry: &SystemLogEntry) -> Result<(), String> {
-    if path.metadata().map(|metadata| metadata.len()).unwrap_or(0) >= MAX_FILE_BYTES {
-        rotate_files(path)?;
+async fn ingest_frontend_batch(
+    state: SystemLogState,
+    request: FrontendLogBatch,
+) -> Result<(), String> {
+    if request.entries.len() > MAX_FRONTEND_BATCH_ENTRIES {
+        return Err("frontend log batch exceeds 250 entries".to_string());
     }
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|error| error.to_string())?;
-    serde_json::to_writer(&mut file, entry).map_err(|error| error.to_string())?;
-    file.write_all(b"\n").map_err(|error| error.to_string())?;
-    file.flush().map_err(|error| error.to_string())
+    if request.entries.is_empty() {
+        return Ok(());
+    }
+    // No fire-and-forget or unbounded writer queue. One batch is in flight;
+    // callers get backpressure and retain their batch on any rejection.
+    let permit = state
+        .inner
+        .frontend_writer
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| "frontend log writer is busy; retry the batch".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _permit = permit;
+        state.append_batch(
+            request
+                .entries
+                .into_iter()
+                .map(|entry| SystemLogEntry {
+                    source: "frontend".to_string(),
+                    ..entry
+                })
+                .collect(),
+        )
+    })
+    .await
+    .map_err(|error| format!("frontend log writer task failed: {error}"))?
+}
+
+fn append_to_file(path: &Path, entries: &[SystemLogEntry]) -> Result<(), String> {
+    let mut length = path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    let mut writer: Option<BufWriter<File>> = None;
+    for entry in entries {
+        if length >= MAX_FILE_BYTES {
+            // Close before rename for Windows, and flush only at rotation or
+            // the end of the batch, rather than opening/flushing every line.
+            if let Some(mut previous) = writer.take() {
+                previous.flush().map_err(|error| error.to_string())?;
+                drop(previous);
+            }
+            rotate_files(path)?;
+            length = 0;
+        }
+        if writer.is_none() {
+            writer = Some(BufWriter::with_capacity(
+                64 * 1024,
+                OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                    .map_err(|error| error.to_string())?,
+            ));
+        }
+        let mut line = serde_json::to_vec(entry).map_err(|error| error.to_string())?;
+        line.push(b'\n');
+        writer
+            .as_mut()
+            .expect("opened log writer")
+            .write_all(&line)
+            .map_err(|error| error.to_string())?;
+        length += line.len() as u64;
+    }
+    if let Some(mut writer) = writer {
+        writer.flush().map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 fn rotate_files(path: &Path) -> Result<(), String> {
@@ -305,7 +407,19 @@ fn truncate(value: String, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, Instant};
     use tempfile::tempdir;
+
+    fn entry(message: impl Into<String>) -> SystemLogEntry {
+        SystemLogEntry {
+            source: "frontend".to_string(),
+            timestamp_ms: 1,
+            level: "error".to_string(),
+            target: "window".to_string(),
+            message: message.into(),
+            details: None,
+        }
+    }
 
     #[test]
     fn persists_and_limits_entries() {
@@ -336,5 +450,205 @@ mod tests {
         });
         assert_eq!(state.snapshot(10).entries[0].source, "frontend");
         assert_eq!(state.snapshot(10).entries[0].level, "WARNING");
+    }
+
+    #[tokio::test]
+    async fn frontend_batch_keeps_normalization_and_reports_disk_errors() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("system.jsonl");
+        let state = SystemLogState::new(path.clone()).unwrap();
+        let mut record = entry("x".repeat(MAX_MESSAGE_CHARS + 2));
+        record.source = "untrusted-source".to_string();
+        record.timestamp_ms = 0;
+        record.details = Some(serde_json::json!({"context":"retained"}));
+        ingest_frontend_batch(
+            state.clone(),
+            FrontendLogBatch {
+                entries: vec![record],
+            },
+        )
+        .await
+        .unwrap();
+        let snapshot = state.snapshot(10);
+        assert_eq!(snapshot.entries[0].source, "frontend");
+        assert_eq!(snapshot.entries[0].level, "ERROR");
+        assert_ne!(snapshot.entries[0].timestamp_ms, 0);
+        assert!(snapshot.entries[0].message.ends_with("...<truncated>"));
+        assert_eq!(
+            snapshot.entries[0].details,
+            Some(serde_json::json!({"context":"retained"}))
+        );
+
+        let failed_path = temp.path().join("not-a-file");
+        let failed = SystemLogState::new(failed_path.clone()).unwrap();
+        fs::create_dir(&failed_path).unwrap();
+        assert!(ingest_frontend_batch(
+            failed.clone(),
+            FrontendLogBatch {
+                entries: vec![entry("retain this error")]
+            },
+        )
+        .await
+        .is_err());
+        assert_eq!(failed.snapshot(10).entries[0].message, "retain this error");
+    }
+
+    #[tokio::test]
+    async fn frontend_writer_rejects_overload_without_a_background_queue() {
+        let temp = tempdir().unwrap();
+        let state = SystemLogState::new(temp.path().join("system.jsonl")).unwrap();
+        let permit = state
+            .inner
+            .frontend_writer
+            .clone()
+            .try_acquire_owned()
+            .unwrap();
+        let batch = FrontendLogBatch {
+            entries: vec![entry("retry this error")],
+        };
+        assert!(ingest_frontend_batch(state.clone(), batch.clone())
+            .await
+            .unwrap_err()
+            .contains("busy"));
+        assert!(state.snapshot(10).entries.is_empty());
+        drop(permit);
+        ingest_frontend_batch(state.clone(), batch).await.unwrap();
+        assert_eq!(state.snapshot(10).entries[0].message, "retry this error");
+        assert!(ingest_frontend_batch(
+            state.clone(),
+            FrontendLogBatch {
+                entries: vec![entry("not silently truncated"); MAX_FRONTEND_BATCH_ENTRIES + 1]
+            },
+        )
+        .await
+        .unwrap_err()
+        .contains("exceeds"));
+        assert_eq!(state.snapshot(10).entries.len(), 1);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn slow_log_io_does_not_block_async_dispatch_or_memory_snapshots() {
+        let temp = tempdir().unwrap();
+        let state = SystemLogState::new(temp.path().join("system.jsonl")).unwrap();
+        let holder = state.clone();
+        let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let _lock = holder.inner.writer.lock().unwrap();
+            locked_tx.send(()).unwrap();
+            // Fail safely rather than deadlocking if ingestion regresses to a
+            // blocking call on the async dispatcher used by this test.
+            let _ = release_rx.recv_timeout(Duration::from_secs(2));
+        });
+        locked_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        let pending_state = state.clone();
+        let pending = tokio::spawn(async move {
+            ingest_frontend_batch(
+                pending_state,
+                FrontendLogBatch {
+                    entries: vec![entry("after slow IO")],
+                },
+            )
+            .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while state.inner.frontend_writer.available_permits() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("ingestion never yielded to the dispatcher");
+        let started = Instant::now();
+        assert!(state.snapshot(10).entries.is_empty());
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert!(
+            !pending.is_finished(),
+            "writer did not wait for the IO lock"
+        );
+        release_tx.send(()).unwrap();
+        pending.await.unwrap().unwrap();
+        thread.join().unwrap();
+        assert_eq!(state.snapshot(10).entries[0].message, "after slow IO");
+    }
+
+    #[test]
+    fn batches_bound_memory_and_preserve_disk_order_across_concurrent_writers() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("system.jsonl");
+        let state = SystemLogState::new(path.clone()).unwrap();
+        state
+            .append_batch(
+                (0..MAX_MEMORY_ENTRIES + 3)
+                    .map(|index| entry(format!("initial-{index}")))
+                    .collect(),
+            )
+            .unwrap();
+        let snapshot = state.snapshot(MAX_MEMORY_ENTRIES);
+        assert_eq!(snapshot.entries.len(), MAX_MEMORY_ENTRIES);
+        assert_eq!(snapshot.entries[0].message, "initial-3");
+        state.clear().unwrap();
+
+        let threads: Vec<_> = (0..4)
+            .map(|batch| {
+                let writer = state.clone();
+                std::thread::spawn(move || {
+                    writer
+                        .append_batch(
+                            (0..20)
+                                .map(|index| entry(format!("batch-{batch}-{index}")))
+                                .collect(),
+                        )
+                        .unwrap();
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        let in_memory: Vec<_> = state
+            .snapshot(100)
+            .entries
+            .into_iter()
+            .map(|entry| entry.message)
+            .collect();
+        let on_disk: Vec<_> = load_entries(&path, 100)
+            .into_iter()
+            .map(|entry| entry.message)
+            .collect();
+        assert_eq!(in_memory, on_disk);
+        assert_eq!(on_disk.len(), 80);
+        for chunk in on_disk.chunks_exact(20) {
+            let batch = chunk[0].rsplit_once('-').unwrap().0;
+            for (index, message) in chunk.iter().enumerate() {
+                assert_eq!(message, &format!("{batch}-{index}"));
+            }
+        }
+    }
+
+    #[test]
+    fn a_batch_rotates_at_the_original_entry_boundary_without_losing_lines() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("system.jsonl");
+        let state = SystemLogState::new(path.clone()).unwrap();
+        let mut old = vec![b' '; MAX_FILE_BYTES as usize - 1];
+        *old.last_mut().unwrap() = b'\n';
+        fs::write(&path, old).unwrap();
+        for index in 1..=BACKUP_COUNT {
+            fs::write(rotated_path(&path, index), format!("old-{index}\n")).unwrap();
+        }
+        state
+            .append_batch(vec![entry("first"), entry("second"), entry("third")])
+            .unwrap();
+        assert!(fs::metadata(rotated_path(&path, 1)).unwrap().len() >= MAX_FILE_BYTES);
+        assert_eq!(
+            fs::read_to_string(rotated_path(&path, BACKUP_COUNT)).unwrap(),
+            "old-4\n"
+        );
+        let reloaded: Vec<_> = load_entries(&path, 10)
+            .into_iter()
+            .map(|entry| entry.message)
+            .collect();
+        assert_eq!(reloaded, ["first", "second", "third"]);
     }
 }

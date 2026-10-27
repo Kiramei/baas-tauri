@@ -19,6 +19,8 @@ export type ConfigurationSection =
   | "push"
   | "other";
 
+export type ConfigurationPlatform = "desktop" | "android";
+
 export interface ConfigurationSearchTab {
   readonly value: string;
   readonly title: TranslationKey;
@@ -592,20 +594,48 @@ export const CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] =
   },
 ];
 
-/** Unknown or obsolete persisted selections open the first configuration panel. */
-export function resolveConfigurationSection(value: unknown): ConfigurationSectionDefinition {
-  return (
-    CONFIGURATION_SECTIONS.find((section) => section.id === value) ?? CONFIGURATION_SECTIONS[0]
-  );
+// Android runs on this device through android_local; it has no emulator setup or method selector.
+const ANDROID_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
+  "script.screenshotMethod",
+  "script.controlMethod",
+  "configurationHelp.screenshotMethod",
+  "configurationHelp.controlMethod",
+]);
+const ANDROID_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
+  (section) => section.id !== "emulator"
+).map((section) =>
+  section.id === "script"
+    ? {
+        ...section,
+        keywords: section.keywords.filter((key) => !ANDROID_HIDDEN_SCRIPT_KEYWORDS.has(key)),
+      }
+    : section
+);
+
+/** The platform catalog is shared by navigation, search and the mounted editor list. */
+export function getConfigurationSections(
+  platform: ConfigurationPlatform = "desktop"
+): readonly ConfigurationSectionDefinition[] {
+  return platform === "android" ? ANDROID_CONFIGURATION_SECTIONS : CONFIGURATION_SECTIONS;
+}
+
+/** Unknown, removed or platform-unavailable selections open the first supported panel. */
+export function resolveConfigurationSection(
+  value: unknown,
+  platform: ConfigurationPlatform = "desktop"
+): ConfigurationSectionDefinition {
+  const sections = getConfigurationSections(platform);
+  return sections.find((section) => section.id === value) ?? sections[0];
 }
 
 /** Match every query term against the current language's panel and control names. */
 export function filterConfigurationSections(
   query: string,
-  translate: (key: TranslationKey) => string
+  translate: (key: TranslationKey) => string,
+  platform: ConfigurationPlatform = "desktop"
 ): ConfigurationSectionDefinition[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return CONFIGURATION_SECTIONS.filter((section) => {
+  return getConfigurationSections(platform).filter((section) => {
     const text = [
       section.title,
       section.description,
@@ -623,9 +653,10 @@ export function filterConfigurationSections(
 export function resolveConfigurationSearchTab(
   sectionId: ConfigurationSection | string,
   query: string,
-  translate: (key: TranslationKey) => string
+  translate: (key: TranslationKey) => string,
+  platform: ConfigurationPlatform = "desktop"
 ): string | null {
-  const section = CONFIGURATION_SECTIONS.find(({ id }) => id === sectionId);
+  const section = getConfigurationSections(platform).find(({ id }) => id === sectionId);
   const normalized = query.trim().toLocaleLowerCase();
   if (!section?.tabs || !normalized) return null;
   const title = translate(section.title).toLocaleLowerCase();

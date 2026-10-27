@@ -16,6 +16,9 @@
   "nav": {
     "configuration": "配置",
     "home": "主页",
+    "mobileConfiguration": "配置",
+    "mobileScheduler": "调度",
+    "mobileSettings": "设置",
     "scheduler": "调度",
     "settings": "设置"
   },
@@ -1009,5 +1012,45 @@
     "unknownRefs": "未知任务引用（已保留）：{{refs}}",
     "zoomIn": "放大",
     "zoomOut": "缩小"
+  },
+  "android": {
+    "game": {
+      "fallbackName": "游戏",
+      "inspectFailed": "无法读取已安装的游戏",
+      "live": "实时",
+      "liveDisplay": "{{game}}实时画面",
+      "restartFailed": "游戏重启失败",
+      "showControls": "显示游戏控制",
+      "startBackground": "后台启动游戏",
+      "takeoverFailed": "无法进入横屏游戏模式"
+    },
+    "start": {
+      "actionFailed": "操作未完成，请在 Shizuku 中检查服务和应用授权。",
+      "authorize": "允许授权",
+      "checkAgain": "重试",
+      "checkFailedDescription": "暂时无法读取 Shizuku 状态，请重试。",
+      "checkFailedTitle": "无法检查 Shizuku",
+      "cleanupFailed": "关闭后台游戏画面失败",
+      "displayClosed": "后台游戏画面已关闭",
+      "displayFailed": "后台启动游戏失败",
+      "displayNotReady": "游戏画面尚未就绪",
+      "displayOpened": "游戏已在后台启动",
+      "missingDescription": "启动脚本需要 Shizuku。请先安装 Shizuku，再返回重试。",
+      "missingGameDescription": "配置“{{profile}}”使用{{server}}，手机尚未安装对应客户端。请安装该客户端，或为已安装的服务器新建配置。",
+      "missingGameTitle": "未安装此配置的游戏",
+      "missingTitle": "未安装 Shizuku",
+      "openShizuku": "打开 Shizuku",
+      "otherProfileRunningDescription": "“{{profiles}}”正在运行。Android 共用一个游戏画面，请先停止该配置，再启动“{{profile}}”。",
+      "otherProfileRunningTitle": "其他配置正在运行",
+      "permissionDescription": "BAAS 需要 Shizuku 权限来启动游戏和执行操作。请允许授权，再次点击启动。",
+      "permissionTitle": "需要 Shizuku 授权",
+      "readyDescription": "请关闭此提示，再次点击启动。",
+      "readyTitle": "Shizuku 已就绪",
+      "scriptFailed": "脚本启动失败",
+      "stoppedDescription": "请打开 Shizuku 并启动服务，再返回启动脚本。",
+      "stoppedTitle": "Shizuku 未运行",
+      "unsupportedGameDescription": "配置“{{profile}}”的服务器“{{server}}”不受 Android 支持。请为手机上已安装的服务器新建配置。",
+      "unsupportedGameTitle": "此服务器无法在 Android 上运行"
+    }
   }
 }

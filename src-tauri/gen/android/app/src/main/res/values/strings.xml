@@ -2,7 +2,7 @@
     <string name="app_name">BAAS Tauri</string>
     <string name="main_activity_title">BAAS Tauri</string>
     <string name="baas_backend_channel_name">BAAS 后台服务</string>
-    <string name="baas_backend_channel_description">保持 BAAS 后端运行，以支持从通知栏启停脚本。</string>
+    <string name="baas_backend_channel_description">安卓系统要求的后台服务提示，不显示脚本状态或控制按钮。</string>
     <string name="baas_backend_notification_title">BAAS 后端运行中</string>
     <string name="baas_backend_notification_text">点击通知启停脚本。</string>
     <string name="baas_backend_notification_toggle_action">启停脚本</string>

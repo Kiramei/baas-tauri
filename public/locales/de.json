@@ -16,6 +16,9 @@
   "nav": {
     "configuration": "Konfiguration",
     "home": "Startseite",
+    "mobileConfiguration": "Konfig.",
+    "mobileScheduler": "Planer",
+    "mobileSettings": "Optionen",
     "scheduler": "Planer",
     "settings": "Einstellungen"
   },
@@ -1009,5 +1012,45 @@
     "unknownRefs": "Unbekannte Aufgabenverweise (beibehalten): {{refs}}",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern"
+  },
+  "android": {
+    "game": {
+      "fallbackName": "Spiel",
+      "inspectFailed": "Installierte Spiele konnten nicht gelesen werden",
+      "live": "Live",
+      "liveDisplay": "Livebild von {{game}}",
+      "restartFailed": "Spiel konnte nicht neu gestartet werden",
+      "showControls": "Spielsteuerung anzeigen",
+      "startBackground": "Spiel im Hintergrund starten",
+      "takeoverFailed": "Vollbild-Spielmodus konnte nicht geöffnet werden"
+    },
+    "start": {
+      "actionFailed": "Die Aktion wurde nicht abgeschlossen. Prüfe Dienst und App-Berechtigung in Shizuku.",
+      "authorize": "Zugriff erlauben",
+      "checkAgain": "Erneut versuchen",
+      "checkFailedDescription": "Der Shizuku-Status ist nicht verfügbar. Versuche es erneut.",
+      "checkFailedTitle": "Shizuku nicht erreichbar",
+      "cleanupFailed": "Spielanzeige im Hintergrund konnte nicht geschlossen werden",
+      "displayClosed": "Spielanzeige im Hintergrund geschlossen",
+      "displayFailed": "Spiel konnte nicht im Hintergrund starten",
+      "displayNotReady": "Die Spielanzeige ist noch nicht bereit",
+      "displayOpened": "Spiel im Hintergrund gestartet",
+      "missingDescription": "Zum Starten des Skripts wird Shizuku benötigt. Installiere Shizuku und versuche es danach erneut.",
+      "missingGameDescription": "„{{profile}}“ verwendet {{server}}, aber der zugehörige Client fehlt. Installiere ihn oder erstelle ein Profil für den installierten Server.",
+      "missingGameTitle": "Das Spiel dieses Profils ist nicht installiert",
+      "missingTitle": "Shizuku ist nicht installiert",
+      "openShizuku": "Shizuku öffnen",
+      "otherProfileRunningDescription": "„{{profiles}}“ läuft. Android verwendet eine gemeinsame Spielanzeige. Stoppe dieses Profil, bevor du „{{profile}}“ startest.",
+      "otherProfileRunningTitle": "Ein anderes Profil läuft",
+      "permissionDescription": "BAAS benötigt Shizuku, um das Spiel zu starten und zu steuern. Erlaube den Zugriff und tippe erneut auf Start.",
+      "permissionTitle": "Shizuku-Berechtigung erforderlich",
+      "readyDescription": "Schließe diese Meldung und tippe erneut auf Start.",
+      "readyTitle": "Shizuku ist bereit",
+      "scriptFailed": "Skript konnte nicht starten",
+      "stoppedDescription": "Öffne Shizuku und starte den Dienst. Kehre danach zurück, um das Skript zu starten.",
+      "stoppedTitle": "Shizuku läuft nicht",
+      "unsupportedGameDescription": "Der Server „{{server}}“ im Profil „{{profile}}“ wird auf Android nicht unterstützt. Erstelle ein Profil für einen auf dem Handy installierten Server.",
+      "unsupportedGameTitle": "Dieser Server läuft nicht auf Android"
+    }
   }
 }

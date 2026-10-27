@@ -86,6 +86,35 @@ receive({ global: running("global"), cn: running("cn") });
 await store.getState().connect("trigger");
 assert.equal(store.getState().statusStore.global.running, true, "opening trigger does not clear provider data");
 const trigger = opened.get("trigger")!;
+let startupError: unknown;
+store.getState().trigger(
+  { command: "start_scheduler", config_id: "global", timestamp: 990, payload: {} },
+  (response) => { startupError = response; }
+);
+trigger.receive!({
+  type: "command_response", command: "start_scheduler", timestamp: 990, status: "error",
+  error: "Runtime initialization failed",
+});
+assert.deepEqual(startupError, {
+  command: "start_scheduler", data: undefined, status: "error", error: "Runtime initialization failed",
+}, "startup failures retain the backend error even when there is no data payload");
+assert.equal(store.getState().pendingCallbacks[990], undefined);
+
+let binaryResponse: any;
+store.getState().trigger(
+  { command: "export_config", timestamp: 991, payload: { id: "global" } },
+  (response) => { binaryResponse = response; }
+);
+trigger.receive!({
+  type: "command_response", command: "export_config", timestamp: 991, status: "ok",
+  data: { binary: { size: 2 } }, error: "diagnostic detail",
+});
+const archive = new Uint8Array([1, 2]).buffer;
+trigger.receive!(archive);
+assert.equal(binaryResponse.error, "diagnostic detail", "binary replies preserve the same response fields");
+assert.equal(binaryResponse.binary, archive);
+assert.equal(store.getState().pendingCallbacks[991], undefined);
+
 let acknowledgement = false;
 store.getState().trigger(
   { command: "stop_scheduler", config_id: "global", timestamp: 1000, payload: {} },

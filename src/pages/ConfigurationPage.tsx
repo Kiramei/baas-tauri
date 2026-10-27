@@ -46,6 +46,7 @@ import StorageUtil from "@/shared/StorageManager";
 import type { HotkeyConfig } from "@/components/HotkeyConfig";
 import {
   filterConfigurationSections,
+  getConfigurationSections,
   resolveConfigurationSection,
   type ConfigurationSection,
 } from "@/shared/ConfigurationSections";
@@ -84,19 +85,23 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const { t, language } = useAppTranslation();
   const { profiles, activeProfile } = useApp();
   const { expanded } = useWindowLayout();
+  const platform = __WITH_ANDROID__ ? "android" : "desktop";
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
     () => profiles.find((item) => item.id === pid) ?? activeProfile,
     [profiles, pid, activeProfile]
   );
-  const { selected, query, select, search } = useConfigurationWorkspace(pid);
+  const { selected, query, select, search } = useConfigurationWorkspace(pid, platform);
   const history = useConfigurationHistoryActions(pid);
   const applicationShortcuts = useApplicationShortcuts();
   const [visited, setVisited] = useState<ConfigurationSection[]>([]);
   const [revisions, setRevisions] = useState<Partial<Record<ConfigurationSection, number>>>({});
   const detailRef = useRef<HTMLDivElement>(null);
-  const hasResults = filterConfigurationSections(query, t).length > 0;
-  const panels = visited.includes(selected.id) ? visited : [...visited, selected.id];
+  const hasResults = filterConfigurationSections(query, t, platform).length > 0;
+  const supportedSections = getConfigurationSections(platform);
+  const panels = (visited.includes(selected.id) ? visited : [...visited, selected.id]).filter(
+    (section) => supportedSections.some(({ id }) => id === section)
+  );
   useEffect(() => {
     setVisited((current) => (current.includes(selected.id) ? current : [...current, selected.id]));
   }, [selected.id]);
@@ -163,6 +168,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
           query={query}
           onQueryChange={search}
           onSelect={select}
+          platform={platform}
           compact
         />
       </div>
@@ -229,7 +235,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
               <section
                 className="configuration-editor"
                 data-configuration-section={section}
-                aria-label={t(i18nKey(resolveConfigurationSection(section).title))}
+                aria-label={t(i18nKey(resolveConfigurationSection(section, platform).title))}
               >
                 <FeaturePanelErrorBoundary
                   key={`${pid}:${section}:${revisions[section] ?? 0}`}

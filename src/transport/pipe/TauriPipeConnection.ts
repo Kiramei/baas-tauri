@@ -2,6 +2,7 @@ import type { BackendChannelName, BackendConnection } from "@/transport/types";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
   decodeFrames,
+  encodeAndroidBinaryRequest,
   encodeBinaryRequest,
   KIND_BYTES,
   KIND_CLOSE,
@@ -19,6 +20,7 @@ export class TauriPipeConnection implements BackendConnection {
   private closed = false;
   private connectionId?: string;
   private opening?: Promise<string | void>;
+  private outgoing = Promise.resolve();
 
   constructor(
     private readonly channel: BackendChannelName,
@@ -85,7 +87,31 @@ export class TauriPipeConnection implements BackendConnection {
     this.onOpen?.(new Event("open"));
   }
 
-  async sendJson(payload: Record<string, unknown>): Promise<void> {
+  sendJson(payload: Record<string, unknown>): Promise<void> {
+    return this.enqueueSend(() => this.invokeJson(payload));
+  }
+
+  sendBytes(payload: ArrayBuffer | Uint8Array): Promise<void> {
+    return this.enqueueSend(() => this.invokeBytes(payload));
+  }
+
+  sendJsonWithBytes(
+    payload: Record<string, unknown>,
+    bytes: ArrayBuffer | Uint8Array
+  ): Promise<void> {
+    return this.enqueueSend(async () => {
+      await this.invokeJson(payload);
+      await this.invokeBytes(bytes);
+    });
+  }
+
+  private enqueueSend(operation: () => Promise<void>): Promise<void> {
+    const pending = this.outgoing.then(operation);
+    this.outgoing = pending.catch(() => {});
+    return pending;
+  }
+
+  private async invokeJson(payload: Record<string, unknown>): Promise<void> {
     await this.opening;
     if (this.closed) throw new Error("Native connection is closed");
     await invoke(`${this.commands}_send_json`, {
@@ -96,12 +122,14 @@ export class TauriPipeConnection implements BackendConnection {
     });
   }
 
-  async sendBytes(payload: ArrayBuffer | Uint8Array): Promise<void> {
+  private async invokeBytes(payload: ArrayBuffer | Uint8Array): Promise<void> {
     await this.opening;
     if (this.closed) throw new Error("Native connection is closed");
     await invoke(
       `${this.commands}_send_bytes`,
-      encodeBinaryRequest(this.channel, this.name, payload),
+      typeof __WITH_ANDROID__ !== "undefined" && __WITH_ANDROID__
+        ? encodeAndroidBinaryRequest(this.channel, this.name, payload)
+        : encodeBinaryRequest(this.channel, this.name, payload),
       this.connectionId ? { headers: { "x-baas-connection-id": this.connectionId } } : undefined
     );
   }

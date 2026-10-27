@@ -5,9 +5,30 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cn } from "@/shared/cn";
 import "./select-surface.css";
 
+const SelectOpenContext = React.createContext(false);
+
 /** Renders the select component. */
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+function Select({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const [localOpen, setLocalOpen] = React.useState(defaultOpen ?? false);
+  return (
+    <SelectOpenContext.Provider value={open ?? localOpen}>
+      <SelectPrimitive.Root
+        data-slot="select"
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={(nextOpen) => {
+          setLocalOpen(nextOpen);
+          onOpenChange?.(nextOpen);
+        }}
+        {...props}
+      />
+    </SelectOpenContext.Provider>
+  );
 }
 
 /** Renders the select group component. */
@@ -25,6 +46,7 @@ function SelectTrigger({
   className,
   size = "default",
   children,
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default";
@@ -38,6 +60,7 @@ function SelectTrigger({
         className
       )}
       {...props}
+      style={{ ...style, ...(__WITH_ANDROID__ ? { minWidth: 44, minHeight: 44 } : {}) }}
     >
       {children}
       <SelectPrimitive.Icon asChild>
@@ -52,12 +75,16 @@ function SelectContent({
   className,
   children,
   position = "popper",
+  collisionPadding = __WITH_ANDROID__ ? 12 : undefined,
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const open = React.useContext(SelectOpenContext);
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
+        data-native-preview-blocker={__WITH_ANDROID__ && open ? "" : undefined}
         className={cn(
           "select-surface text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-100 relative z-[1300] max-h-(--radix-select-content-available-height) max-w-[min(calc(100vw-24px),var(--radix-select-content-available-width))] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto border-none",
           position === "popper" &&
@@ -65,7 +92,20 @@ function SelectContent({
           className
         )}
         position={position}
+        collisionPadding={collisionPadding}
         {...props}
+        style={{
+          ...style,
+          ...(__WITH_ANDROID__
+            ? {
+                maxWidth:
+                  "min(calc(var(--android-viewport-width, 100vw) - 24px), var(--radix-select-content-available-width, 100vw))",
+                maxHeight:
+                  "min(calc(var(--android-viewport-height, 100dvh) - 24px), var(--radix-select-content-available-height, 100dvh))",
+                overscrollBehavior: "contain",
+              }
+            : {}),
+        }}
       >
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
@@ -98,6 +138,7 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
 function SelectItem({
   className,
   children,
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
   return (
@@ -108,6 +149,7 @@ function SelectItem({
         className
       )}
       {...props}
+      style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
     >
       <span className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
@@ -139,6 +181,7 @@ function SelectSeparator({
 /** Renders the select scroll up button component. */
 function SelectScrollUpButton({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
   return (
@@ -146,6 +189,7 @@ function SelectScrollUpButton({
       data-slot="select-scroll-up-button"
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
+      style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
     >
       <ChevronUpIcon className="size-4" />
     </SelectPrimitive.ScrollUpButton>
@@ -155,6 +199,7 @@ function SelectScrollUpButton({
 /** Renders the select scroll down button component. */
 function SelectScrollDownButton({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
   return (
@@ -162,6 +207,7 @@ function SelectScrollDownButton({
       data-slot="select-scroll-down-button"
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
+      style={{ ...style, ...(__WITH_ANDROID__ ? { minHeight: 44 } : {}) }}
     >
       <ChevronDownIcon className="size-4" />
     </SelectPrimitive.ScrollDownButton>

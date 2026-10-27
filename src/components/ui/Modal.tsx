@@ -113,9 +113,25 @@ export const Modal: React.FC<ModalProps> = ({
       data-modal-backdrop=""
       className={overlayCls}
       style={{
+        ...(__WITH_ANDROID__
+          ? {
+              top: "var(--android-viewport-top, 0px)",
+              left: "var(--android-viewport-left, 0px)",
+              right: "auto",
+              bottom: "auto",
+              width: "var(--android-viewport-width, 100vw)",
+              height: "var(--android-viewport-height, 100dvh)",
+              padding: fullscreen ? 0 : 12,
+            }
+          : {}),
         paddingTop: fullscreen
           ? "var(--window-titlebar-height, 0px)"
-          : "calc(var(--window-titlebar-height, 0px) + 1rem)",
+          : __WITH_ANDROID__
+            ? "max(12px, env(safe-area-inset-top, 0px))"
+            : "calc(var(--window-titlebar-height, 0px) + 1rem)",
+        ...(__WITH_ANDROID__ && !fullscreen
+          ? { paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }
+          : {}),
       }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
@@ -143,10 +159,10 @@ export const Modal: React.FC<ModalProps> = ({
           fullscreen
             ? undefined
             : {
-                width: `${width}%`,
+                width: __WITH_ANDROID__ ? "100%" : `${width}%`,
                 minWidth: "min(320px, 100%)",
-                maxWidth: "100%",
-                zoom: zoomScale / 100,
+                maxWidth: __WITH_ANDROID__ ? "min(640px, 100%)" : "100%",
+                zoom: __WITH_ANDROID__ ? 1 : zoomScale / 100,
               }
         }
       >
@@ -155,7 +171,12 @@ export const Modal: React.FC<ModalProps> = ({
           style={
             fullscreen
               ? undefined
-              : { maxHeight: "calc(100vh - var(--window-titlebar-height, 0px) - 80px)" }
+              : {
+                  maxHeight: __WITH_ANDROID__
+                    ? "calc(var(--android-viewport-height, 100dvh) - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
+                    : "calc(100vh - var(--window-titlebar-height, 0px) - 80px)",
+                  ...(__WITH_ANDROID__ ? { overscrollBehavior: "contain" } : {}),
+                }
           }
         >
           <div
@@ -177,6 +198,7 @@ export const Modal: React.FC<ModalProps> = ({
               onClick={onClose}
               aria-label={t("common.close")}
               className="modal-close"
+              style={__WITH_ANDROID__ ? { width: 44, height: 44, flexBasis: 44 } : undefined}
             >
               <X className="size-4" />
             </button>

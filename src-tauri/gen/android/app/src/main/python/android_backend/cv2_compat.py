@@ -214,26 +214,48 @@ def matchTemplate(image, templ, method):
 
     out_h = ih - th + 1
     out_w = iw - tw + 1
-    result = np.empty((out_h, out_w), dtype=np.float32)
+    if source.shape[2] != target.shape[2]:
+        raise RuntimeError("image and template must have the same channel count")
+    if method not in (TM_SQDIFF, TM_CCOEFF_NORMED):
+        raise RuntimeError("cv2.matchTemplate method is unsupported on Android: %s" % method)
+    source64 = source.astype(np.float64)
     target64 = target.astype(np.float64)
-    target_mean = target64.mean()
-    target_centered = target64 - target_mean
-    target_norm = np.sqrt(np.sum(target_centered * target_centered))
+    kernel = target64
+    if method == TM_CCOEFF_NORMED:
+        # OpenCV subtracts each channel's own spatial mean.
+        kernel = target64 - target64.mean(axis=(0, 1), keepdims=True)
+        target_energy = np.sum(kernel * kernel)
+        if target_energy <= np.finfo(np.float64).eps:
+            return np.ones((out_h, out_w), dtype=np.float32)
 
-    for y in range(out_h):
-        rows = source[y:y + th]
-        for x in range(out_w):
-            patch = rows[:, x:x + tw].astype(np.float64)
-            if method == TM_SQDIFF:
-                diff = patch - target64
-                result[y, x] = float(np.sum(diff * diff))
-            elif method == TM_CCOEFF_NORMED:
-                centered = patch - patch.mean()
-                denom = np.sqrt(np.sum(centered * centered)) * target_norm
-                result[y, x] = 0.0 if denom == 0 else float(np.sum(centered * target_centered) / denom)
-            else:
-                raise RuntimeError("cv2.matchTemplate method is unsupported on Android: %s" % method)
-    return result
+    correlation = np.zeros((out_h, out_w), dtype=np.float64)
+    if out_h * out_w <= 64:
+        # Cropped feature comparisons normally have just one output position.
+        for y in range(out_h):
+            for x in range(out_w):
+                correlation[y, x] = np.sum(source64[y:y + th, x:x + tw] * kernel)
+    else:
+        # Correlate whole planes, avoiding a Python loop over every cafe pixel.
+        fft_shape = (1 << (ih + th - 2).bit_length(), 1 << (iw + tw - 2).bit_length())
+        for channel in range(source.shape[2]):
+            image_fft = np.fft.rfft2(source64[:, :, channel], s=fft_shape)
+            template_fft = np.fft.rfft2(kernel[:, :, channel], s=fft_shape)
+            plane = np.fft.irfft2(image_fft * template_fft.conj(), s=fft_shape)
+            correlation += plane[:out_h, :out_w]
+
+    def window_sum(values):
+        integral = np.pad(values.cumsum(axis=0).cumsum(axis=1), ((1, 0), (1, 0), (0, 0)))
+        return integral[th:, tw:] - integral[:-th, tw:] - integral[th:, :-tw] + integral[:-th, :-tw]
+
+    square_sum = window_sum(source64 * source64).sum(axis=2)
+    if method == TM_SQDIFF:
+        return np.maximum(square_sum + np.sum(target64 * target64) - 2 * correlation, 0).astype(np.float32)
+    channel_sum = window_sum(source64)
+    image_energy = np.maximum(square_sum - (channel_sum * channel_sum).sum(axis=2) / (th * tw), 0)
+    denominator = np.sqrt(image_energy * target_energy)
+    result = np.zeros_like(correlation)
+    np.divide(correlation, denominator, out=result, where=denominator > np.finfo(np.float64).eps)
+    return np.clip(result, -1, 1).astype(np.float32)
 
 
 # Handles the pil to cv array workflow.

@@ -7,6 +7,7 @@ import java.io.BufferedWriter
 import java.io.Closeable
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.io.File
 
 class PrivilegedDisplayBridge private constructor(
   private val process: Process,
@@ -50,7 +51,9 @@ class PrivilegedDisplayBridge private constructor(
         // DisplayManager validates that the owner package belongs to the caller.
         // Magisk's root Shizuku mode therefore launches the isolated backend as
         // Android's system uid, matching the identity used by MAA-Meow.
-        listOf("/system/bin/su", "-p", android.os.Process.SYSTEM_UID.toString(), "-c", mainCommand.joinToString(" "))
+        PrivilegedExecution.systemCommand(mainCommand, System.getenv("PATH")) { path ->
+          File(path).let { it.isFile && it.canExecute() }
+        }.also { Log.i("BaasPrivilegedDisplay", "Starting system display backend via ${it.first()}") }
       } else {
         mainCommand
       }

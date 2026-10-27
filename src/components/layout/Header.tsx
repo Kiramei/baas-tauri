@@ -17,11 +17,10 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
-import { type ProfileDTO } from "@/types/app";
 import { FormSelect } from "@/components/ui/FormSelect.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useModalFocus } from "@/components/ui/Modal.tsx";
-import { useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import { useWebSocketStore } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
@@ -30,14 +29,11 @@ import { buildServerOptions } from "@/shared/serverOptions";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
+import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
+import { reconcileProfileTabs, type ProfileTab as Tab } from "@/shared/ProfileTabs";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
-type Tab = Pick<ProfileDTO, "id" | "name" | "server">;
-
-const isProfileReady = (settings: any): boolean =>
-  Boolean(settings?.name && settings?.ap && settings?._pass);
 
 /** Renders the header component. */
 const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = ({
@@ -77,7 +73,6 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   );
   const modify = useWebSocketStore((s) => s.modify);
   const trigger = useWebSocketStore((s) => s.trigger);
-  const triggerBinary = useWebSocketStore((s) => s.triggerBinary);
 
   const stripRef = React.useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = React.useState({ left: false, right: false });
@@ -121,21 +116,13 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   const hideCtxMenu = () => setCtxMenu(null);
 
   useEffect(() => {
-    const list: Tab[] = profileEntries.map((entry) => {
-      const [id, name, server] = JSON.parse(entry) as [string, string, string];
-      return { id, name, server };
-    });
-    const order = StorageUtil.get("tabOrder");
-    if (order && order.length) {
-      list.sort((a, b) => {
-        const ia = order.indexOf(a.id);
-        const ib = order.indexOf(b.id);
-        if (ia === -1 && ib === -1) return 0;
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-      });
-    }
+    // profileEntries triggers reconciliation, but a queued effect/reorder must
+    // read current membership and metadata rather than a previous render.
+    const list = reconcileProfileTabs(
+      useWebSocketStore.getState().configStore,
+      StorageUtil.get("tabOrder")
+    );
+    tabsRef.current = list;
     setTabs(list);
     const exists = list.find((p) => p.id === activeProfile?.id);
     const nextActive = exists ?? list[0];
@@ -155,10 +142,15 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
 
   /** Handles the on reorder interaction. */
   const onReorder = (next: Tab[]) => {
-    setTabs(next);
+    const reconciled = reconcileProfileTabs(
+      useWebSocketStore.getState().configStore,
+      next.map((tab) => tab.id)
+    );
+    tabsRef.current = reconciled;
+    setTabs(reconciled);
     StorageUtil.set(
       "tabOrder",
-      next.map((t) => t.id)
+      reconciled.map((tab) => tab.id)
     );
   };
 
@@ -183,52 +175,29 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     if (tabsRef.current.some((t) => (t.name ?? "").trim() === name.trim()))
       throw new Error(t("profile.nameExists"));
 
-    const serialName = await new Promise<string>((resolve) => {
-      trigger(
-        {
-          timestamp: getTimestampMs() + Math.random() * 1000,
-          command: "add_config",
-          payload: { name, server },
-        },
-        (e) => resolve(e.data.serial)
-      );
+    const result = await runProfileCommand(useWebSocketStore.getState, "add_config", {
+      name,
+      server,
     });
-
-    await waitForNormal(() => useWebSocketStore.getState().configStore[serialName], isProfileReady);
-
-    const next = tabsRef.current.find((p) => p.id === serialName);
-    if (next) setActiveProfile(next);
+    await waitForConfig(result?.serial);
   };
 
   const runTrigger = React.useCallback(
     (command: string, payload: Record<string, any>) =>
-      new Promise<any>((resolve, reject) => {
-        trigger(
-          {
-            timestamp: getTimestampMs() + Math.random() * 1000,
-            command,
-            payload,
-          },
-          (event) => {
-            if (event?.status === "error") {
-              reject(new Error(event.error || `${command} failed`));
-              return;
-            }
-            resolve(event?.binary ? event : event?.data);
-          }
-        );
-      }),
-    [trigger]
+      runProfileCommand(useWebSocketStore.getState, command, payload),
+    []
   );
 
   const waitForConfig = React.useCallback(
     async (serialName: string) => {
-      await waitForNormal(
-        () => useWebSocketStore.getState().configStore[serialName],
-        isProfileReady
-      );
-      const next = tabsRef.current.find((p) => p.id === serialName);
-      if (next) setActiveProfile(next);
+      const profile = await waitForProfileConfig(useWebSocketStore.getState, serialName);
+      // The store snapshot can precede React's tab-list effect by one render.
+      const next: Tab = {
+        id: serialName,
+        name: profileDisplayName(String(profile.name)),
+        server: String(profile.server ?? ""),
+      };
+      setActiveProfile(next);
     },
     [setActiveProfile]
   );
@@ -262,29 +231,18 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     try {
       const bytes = await StorageUtil.upload(t, ".zip");
       if (!bytes) return;
-      const result = await new Promise<any>((resolve, reject) => {
-        triggerBinary(
-          {
-            timestamp: getTimestampMs() + Math.random() * 1000,
-            command: "import_config",
-            payload: {},
-          },
-          bytes,
-          (event) => {
-            if (event?.status === "error") {
-              reject(new Error(event.error || "import_config failed"));
-              return;
-            }
-            resolve(event?.data);
-          }
-        );
-      });
-      await waitForConfig(result.serial);
+      const result = await runProfileCommand(
+        useWebSocketStore.getState,
+        "import_config",
+        {},
+        bytes
+      );
+      await waitForConfig(result?.serial);
       setEditor(null);
     } catch (error: any) {
       toast.error(t("profile.importFailed"), { description: error?.message });
     }
-  }, [runTrigger, t, waitForConfig]);
+  }, [setEditor, t, waitForConfig]);
 
   /** Handles the handle edit interaction. */
   const handleEdit = async (tab: Tab, name: string, server: string) => {
@@ -319,7 +277,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     }
 
     trigger({
-      timestamp: getTimestampMs() + Math.random() * 1000,
+      timestamp: getTimestampMs(),
       command: "remove_config",
       payload: {
         id: tab.id,
@@ -395,7 +353,9 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
       <header
         className={
           settingsMode
-            ? "profile-navigation flex h-[52px] min-w-0 shrink-0 items-center border-b border-border bg-background px-4 text-sm lg:hidden"
+            ? __WITH_ANDROID__
+              ? "hidden"
+              : "profile-navigation flex h-[52px] min-w-0 shrink-0 items-center border-b border-border bg-background px-4 text-sm lg:hidden"
             : `profile-navigation flex h-[52px] min-h-0 shrink-0 items-center gap-1 border-b border-border bg-background px-2 text-sm lg:h-auto lg:flex-1 lg:flex-col lg:items-stretch lg:gap-2 lg:border-0 lg:bg-transparent lg:px-0 lg:pt-2 ${desktopExpanded ? "" : "lg:hidden"}`
         }
       >
@@ -419,7 +379,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
               </IconTooltip>
             </div>
             {/* Left side: scroll controls */}
-            <div className="mr-1 flex items-center gap-1 lg:hidden">
+            <div className={__WITH_ANDROID__ ? "hidden" : "mr-1 flex items-center gap-1 lg:hidden"}>
               <button
                 className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
                 onClick={() => scrollBy(-200)}
@@ -444,12 +404,14 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                 axis={desktop ? "y" : "x"}
                 values={tabs}
                 onReorder={onReorder}
-                className="flex h-9 items-stretch gap-1 lg:h-auto lg:flex-col lg:gap-0.5"
+                className={`flex items-stretch gap-1 lg:h-auto lg:flex-col lg:gap-0.5 ${__WITH_ANDROID__ ? "h-11" : "h-9"}`}
               >
                 {tabs.map((tab) => {
                   const active = activeProfile?.id === tab.id;
                   const menuOpen = ctxMenu?.tab?.id === tab.id;
-                  return tab.id in runningByProfile ? (
+                  // A config can arrive before its status or survive status
+                  // recovery. Missing status must not hide its entry point.
+                  return (
                     <Reorder.Item
                       id={`tab-${tab.id}`}
                       key={tab.id}
@@ -476,7 +438,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                           onSelect(tab);
                         }
                       }}
-                      className={`group relative flex h-9 max-w-xs shrink-0 select-none items-center rounded-lg px-3 lg:h-8 lg:w-full lg:max-w-none lg:px-2
+                      className={`group relative flex max-w-xs shrink-0 select-none items-center rounded-lg px-3 lg:h-8 lg:w-full lg:max-w-none lg:px-2 ${__WITH_ANDROID__ ? "h-11" : "h-9"}
                     cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring
                     ${
                       active
@@ -503,7 +465,9 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                       )}
 
                       {/* Profile name */}
-                      <span className="min-w-0 truncate pr-6 text-[14px] font-normal lg:pr-7">
+                      <span
+                        className={`min-w-0 truncate text-[14px] font-normal lg:pr-7 ${__WITH_ANDROID__ ? "pr-10" : "pr-6"}`}
+                      >
                         {tab.name}
                       </span>
 
@@ -514,7 +478,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                           aria-label={`${t("profile.edit")} ${tab.name}`}
                           aria-haspopup="menu"
                           aria-expanded={menuOpen}
-                          className={`absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${runningByProfile[tab.id] ? "lg:opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
+                          className={`absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${__WITH_ANDROID__ ? "size-11 opacity-100" : "size-6 opacity-0"} ${runningByProfile[tab.id] ? "lg:opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             const bounds = e.currentTarget.getBoundingClientRect();
@@ -531,8 +495,6 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                         </button>
                       </IconTooltip>
                     </Reorder.Item>
-                  ) : (
-                    <div key={tab.id}></div>
                   );
                 })}
               </Reorder.Group>
@@ -544,7 +506,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                 <button
                   onClick={() => setEditor({ mode: "create" })}
                   aria-label={t("profile.add")}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary"
+                  className={`flex shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary ${__WITH_ANDROID__ ? "size-11" : "size-8"}`}
                 >
                   <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
                 </button>
@@ -561,6 +523,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
               <motion.div
                 ref={ctxMenuRef}
                 role="menu"
+                data-native-preview-blocker
                 aria-label={ctxMenu.tab.name}
                 onKeyDown={onMenuKeyDown}
                 onContextMenu={(event) => event.preventDefault()}

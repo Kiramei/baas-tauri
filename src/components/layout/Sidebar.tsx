@@ -178,11 +178,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
     };
   }, [peek, desktopExpanded, closePeek, cancelClose, panePage]);
 
-  const navItems: Array<{ id: PageKey; label: string }> = [
+  const navItems: Array<{ id: PageKey; label: string; compactLabel?: string }> = [
     { id: "home", label: t("nav.home") },
-    { id: "scheduler", label: t("nav.scheduler") },
-    { id: "configuration", label: t("nav.configuration") },
-    { id: "settings", label: t("nav.settings") },
+    { id: "scheduler", label: t("nav.scheduler"), compactLabel: t("nav.mobileScheduler") },
+    { id: "configuration", label: t("nav.configuration"), compactLabel: t("nav.mobileConfiguration") },
+    { id: "settings", label: t("nav.settings"), compactLabel: t("nav.mobileSettings") },
   ];
 
   const stopAllTasks = async () => {
@@ -362,7 +362,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
   return (
     <div
-      className={`app-sidebar relative flex h-[52px] w-full shrink-0 flex-col lg:mb-[2px] lg:grid lg:h-auto lg:min-h-0 lg:self-stretch lg:grid-rows-[minmax(0,1fr)] lg:transition-[width] lg:duration-200 ${
+      className={`app-sidebar relative flex ${__WITH_ANDROID__ && activePage === "settings" ? "h-0" : "h-[52px]"} w-full shrink-0 flex-col lg:mb-[2px] lg:grid lg:h-auto lg:min-h-0 lg:self-stretch lg:grid-rows-[minmax(0,1fr)] lg:transition-[width] lg:duration-200 ${
         desktopExpanded
           ? "lg:w-[292px] lg:grid-cols-[52px_minmax(0,1fr)]"
           : "lg:w-[52px] lg:grid-cols-[52px_0px]"
@@ -587,7 +587,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
       {/* Mobile bottom navigation */}
       <nav
-        className={`fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-14" : "h-[70px]"}`}
+        className={`mobile-bottom-navigation fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-[var(--android-bottom-navigation-height)] pb-[env(safe-area-inset-bottom,0px)]" : "h-[70px]"}`}
       >
         {navItems.map((item, index) => (
           <React.Fragment key={item.id}>
@@ -603,13 +603,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                     : "text-muted-foreground/75 hover:text-foreground"
                 }`}
               >
-                <span className="flex h-8 w-12 items-center justify-center">
+                <span className="mobile-navigation-icon flex h-8 w-12 items-center justify-center">
                   <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
                 </span>
                 <span
-                  className={`block max-w-full truncate text-center text-xs leading-4 ${activePage === item.id ? "font-semibold" : "font-normal"}`}
+                  className={`mobile-navigation-label block max-w-full truncate text-center text-xs leading-4 ${activePage === item.id ? "font-semibold" : "font-normal"}`}
                 >
-                  {item.label}
+                  {__WITH_ANDROID__ ? (item.compactLabel ?? item.label) : item.label}
                 </span>
               </button>
             </IconTooltip>
@@ -619,12 +619,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                 aria-label={primaryRunning ? t("common.stop") : t("common.start")}
                 disabled={!activeProfile}
                 onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-                className={`mx-2 grid h-16 w-16 shrink-0 -translate-y-3 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+                className={`mobile-primary-run mx-2 grid h-14 w-14 shrink-0 -translate-y-2.5 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
               >
                 {primaryRunning ? (
                   <Square className="h-6 w-6 fill-current" />
                 ) : (
-                  <Play className="ml-1 h-7 w-7 fill-current" />
+                  <Play className="h-7 w-7 -translate-y-px fill-current" />
                 )}
               </button>
             )}
@@ -634,7 +634,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
       {/* Mobile floating update buttons */}
       {hasAnyUpdate && (
-        <div className="lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
+        <div className="mobile-update-actions lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
           {hasBackendUpdate && (
             <FloatingUpdateButton
               title={t("update.backendAction")}
@@ -664,7 +664,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         tauriStatus={tauriUpdate.status}
       />
       {backendUpdateLogOpen && (
-        <div className="fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
+        <div className="mobile-update-log fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Android update log

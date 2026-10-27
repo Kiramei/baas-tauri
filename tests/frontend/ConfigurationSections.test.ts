@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   CONFIGURATION_SECTIONS,
   filterConfigurationSections,
+  getConfigurationSections,
   resolveConfigurationSection,
   resolveConfigurationSearchTab,
 } from "../../src/shared/ConfigurationSections";
@@ -33,6 +34,82 @@ const matches = (query: string, locale: Record<string, unknown>) =>
 const locales = [zh, en, de, fr, ja, ko, ru];
 
 describe("profile configuration navigation", () => {
+  test("Android retains its original 16 panels and excludes emulator setup", () => {
+    const android = getConfigurationSections("android");
+    expect(android.map(({ id }) => id)).toEqual(
+      CONFIGURATION_SECTIONS.filter(({ id }) => id !== "emulator").map(({ id }) => id)
+    );
+    expect(android).toHaveLength(16);
+    expect(android.filter(({ group }) => group === "general").map(({ id }) => id)).toEqual([
+      "server",
+      "script",
+      "stage",
+      "team",
+      "push",
+      "other",
+    ]);
+    expect(getConfigurationSections("desktop")).toBe(CONFIGURATION_SECTIONS);
+  });
+
+  test("an unavailable saved Android panel safely falls back to Cafe", () => {
+    expect(resolveConfigurationSection("emulator", "android").id).toBe("cafe");
+    expect(resolveConfigurationSection("emulator", "desktop").id).toBe("emulator");
+    for (const section of getConfigurationSections("android")) {
+      expect(resolveConfigurationSection(section.id, "android")).toBe(section);
+    }
+  });
+
+  test("Android navigation and search share the supported panel catalog in every language", () => {
+    for (const locale of locales) {
+      const translate = translator(locale);
+      expect(filterConfigurationSections("", translate, "android")).toEqual(
+        getConfigurationSections("android")
+      );
+      for (const key of [
+        "emulator",
+        "emulator.address",
+        "emulator.instanceCount",
+        "configurationHelp.emulatorInstance",
+      ] as const) {
+        expect(
+          filterConfigurationSections(translate(key), translate, "android").map(({ id }) => id)
+        ).not.toContain("emulator");
+        expect(
+          filterConfigurationSections(translate(key), translate, "desktop").map(({ id }) => id)
+        ).toContain("emulator");
+      }
+    }
+  });
+
+  test("Android search does not advertise its hidden desktop capture/control selectors", () => {
+    for (const locale of locales) {
+      const translate = translator(locale);
+      for (const key of [
+        "script.screenshotMethod",
+        "script.controlMethod",
+        "configurationHelp.screenshotMethod",
+        "configurationHelp.controlMethod",
+      ] as const) {
+        expect(
+          filterConfigurationSections(translate(key), translate, "android").map(({ id }) => id)
+        ).not.toContain("script");
+        expect(
+          filterConfigurationSections(translate(key), translate, "desktop").map(({ id }) => id)
+        ).toContain("script");
+      }
+      expect(
+        filterConfigurationSections(
+          translate("script.screenshotInterval"),
+          translate,
+          "android"
+        ).map(({ id }) => id)
+      ).toContain("script");
+      expect(
+        resolveConfigurationSearchTab("cafe", translate("cafe.patRounds"), translate, "android")
+      ).toBe("basic");
+    }
+  });
+
   test("retains all configuration panels in their existing group and display order", () => {
     expect(
       CONFIGURATION_SECTIONS.filter((section) => section.group === "feature").map((s) => s.id)

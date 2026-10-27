@@ -121,12 +121,17 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
   );
 
   return (
-    <div className={cn("flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8", className)}>
+    <div
+      className={cn(
+        "date-time-picker flex bg-transparent border px-4 rounded-lg py-0 w-fit h-8",
+        className
+      )}
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <FormInput
             value={dateStr}
-            className="justify-between font-mono !p-0"
+            className="date-time-picker-date justify-between font-mono !p-0"
             childClassName="border-none !p-0 !bg-transparent shadow-none h-8"
           />
         </PopoverTrigger>
@@ -140,14 +145,14 @@ const DateTimePickerBase: React.FC<DateTimePickerProps> = ({
         </PopoverContent>
       </Popover>
 
-      <span className="mx-1 h-8">.</span>
+      <span className="date-time-picker-separator mx-1 h-8">.</span>
 
       <FormInput
         type="time"
         step="1"
         value={localTime}
         onChange={handleTimeInput}
-        className="font-mono h-8"
+        className="date-time-picker-time font-mono h-8"
         childClassName="h-8
           border-none !p-0 !bg-transparent shadow-none
         "

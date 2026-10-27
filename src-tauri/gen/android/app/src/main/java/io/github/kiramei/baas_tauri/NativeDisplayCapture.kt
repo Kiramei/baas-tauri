@@ -23,4 +23,5 @@ object NativeDisplayCapture {
   external fun captureBitmap(): Bitmap?
   external fun frameCount(): Long
   external fun previewFrameCount(): Long
+  external fun hasVisibleFrame(): Boolean
 }

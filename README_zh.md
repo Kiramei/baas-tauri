@@ -151,9 +151,14 @@ baas-tauri/
 | [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | 桌面端、WebUI 和文档开发。 |
 | [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。 |
 
-Android 运行时工作暂缓，游戏启动和原生预览仍有黑屏、停顿问题，尚未通过发布验收。
-已有修改、历史测试结果和待解决问题见
-[Android 交接文档](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md)。
+Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 Android 开发。
+最新 debug 候选已在 Android 12 ARM64 真机的 root Shizuku 模式下完成限定验证：
+游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
+Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，
+不代表通用兼容或发布验收通过。详见
+[目标与当前状态](docs/ANDROID_GOALS_AND_STATUS_20261024.md)、
+[各版本验证记录](docs/ANDROID_RUNTIME_VALIDATION.md)与
+[历史 Android 交接文档](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md)。
 
 ## 许可证
 

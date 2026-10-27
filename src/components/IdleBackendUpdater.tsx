@@ -6,6 +6,7 @@ import { isTauriNoUpdateEnabled, useWebSocketStore } from "@/store/WebsocketStor
 import StorageUtil from "@/shared/StorageManager";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { reloadWithoutPrompt } from "@/shared/reload";
+import { androidManualControl } from "@/shared/AndroidManualControl";
 import {
   allProfilesIdle,
   captureUpdateResumeState,
@@ -22,21 +23,24 @@ let operationInProgress = false;
 let reloadPending = false;
 let commandTimestamp = 0;
 
-async function command(name: string, configId?: string): Promise<any> {
+export async function command(name: string, configId?: string): Promise<any> {
   const store = useWebSocketStore.getState();
   if (!store.connections.trigger) throw new Error("Backend command channel is unavailable");
-  const timestamp = Math.max(getTimestampMs(), commandTimestamp + 1);
+  let timestamp = Math.max(getTimestampMs(), commandTimestamp + 1);
   commandTimestamp = timestamp;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       delete useWebSocketStore.getState().pendingCallbacks[timestamp];
       reject(new Error(`Backend command timed out: ${name}`));
     }, 30_000);
-    store.trigger({ timestamp, command: name, config_id: configId, payload: {} }, (response) => {
-      clearTimeout(timer);
-      if (response.status === "error") reject(new Error(String(response.error ?? name)));
-      else resolve(response.data);
-    });
+    timestamp = store.trigger(
+      { timestamp, command: name, config_id: configId, payload: {} },
+      (response) => {
+        clearTimeout(timer);
+        if (response.status === "error") reject(new Error(String(response.error ?? name)));
+        else resolve(response.data);
+      }
+    );
   });
 }
 
@@ -81,6 +85,7 @@ export default function IdleBackendUpdater({ clientUpdating }: { clientUpdating:
     if (!__WITH_TAURI__ || __WITH_WEBUI__) return;
     async function tick() {
       if (operationInProgress || reloadPending || Date.now() < retryAfter.current) return;
+      if (__WITH_ANDROID__ && androidManualControl.isActive()) return;
       const state = useWebSocketStore.getState();
       if (
         state._auth_phase !== "authenticated" ||
@@ -95,10 +100,15 @@ export default function IdleBackendUpdater({ clientUpdating }: { clientUpdating:
       if (!ids.length || !ids.every((id) => state._receivedSnapshots[`config:${id}`])) return;
       const root = String(StorageUtil.get("base_dir") ?? "");
       const saved = StorageUtil.get<UpdateResumeState>(RESUME_KEY);
+      let ownsAndroidUpdate = false;
       operationInProgress = true;
       try {
         // Finish an interrupted update's restoration even when the switch is now off.
         if (saved) {
+          if (__WITH_ANDROID__) {
+            if (!androidManualControl.beginBackendUpdate()) return;
+            ownsAndroidUpdate = true;
+          }
           if (
             saved.schema !== 1 ||
             saved.root !== root ||
@@ -152,6 +162,12 @@ export default function IdleBackendUpdater({ clientUpdating }: { clientUpdating:
         // Scheduler startup initially publishes empty queues; require a stable idle window.
         if (idleSince.current === null) idleSince.current = Date.now();
         if (Date.now() - idleSince.current < 3_000) return;
+        // Claim atomically after async checks. Manual play may have started
+        // while status/storage requests were pending.
+        if (__WITH_ANDROID__) {
+          if (!androidManualControl.beginBackendUpdate()) return;
+          ownsAndroidUpdate = true;
+        }
         const snapshot = captureUpdateResumeState(root, ids, statuses);
         // Flush to disk before stopping scripts or entering the updater.
         await StorageUtil.setDurable(ATTEMPT_KEY, { version, time: Date.now() });
@@ -173,6 +189,7 @@ export default function IdleBackendUpdater({ clientUpdating }: { clientUpdating:
           description: error instanceof Error ? error.message : String(error),
         });
       } finally {
+        if (ownsAndroidUpdate) androidManualControl.endBackendUpdate();
         operationInProgress = false;
       }
     }

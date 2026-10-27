@@ -12,6 +12,10 @@ export interface BackendConnection {
   ): Promise<void>;
   sendJson(payload: Record<string, unknown>): Promise<void> | void;
   sendBytes(payload: ArrayBuffer | Uint8Array): Promise<void> | void;
+  sendJsonWithBytes?(
+    payload: Record<string, unknown>,
+    bytes: ArrayBuffer | Uint8Array
+  ): Promise<void> | void;
   close(): Promise<void> | void;
   onOpen?: (event: Event) => void;
   onClose?: (event: CloseEvent) => void;

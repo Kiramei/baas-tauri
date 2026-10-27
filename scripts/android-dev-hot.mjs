@@ -17,34 +17,51 @@ const args = parseArgs(process.argv.slice(2), {
   boolean: ["installShell", "noLaunch", "keepMarker", "dryRun"],
 });
 
-ensureJavaHome();
-ensureAndroidHome();
-
-const device = args.device ?? process.env.BAAS_ANDROID_DEVICE ?? selectDevice();
+const device = (args.device ?? process.env.BAAS_ANDROID_DEVICE ?? "").trim();
 const devUrl = args.devUrl ?? "http://127.0.0.1:8191";
 const abi = args.abi ?? "x86_64";
-const packageName = "io.github.kiramei.baas_tauri";
+const packageName = args.applicationId ?? "io.github.kiramei.baas_tauri";
 
 if (!device) {
-  throw new Error("No Android device is connected. Start an emulator or pass --device <serial>.");
+  throw new Error("Specify --device <serial> or BAAS_ANDROID_DEVICE to select the Android device.");
 }
-
-run("adb", ["-s", device, "reverse", "tcp:8191", "tcp:8191"], {
-  stdio: "ignore",
-  errorMessage: "Failed to configure adb reverse for Android HMR.",
-});
-console.log(`Android frontend HMR: device ${device} -> host ${devUrl}`);
+if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
+  throw new Error(`Invalid Android application ID: ${packageName}`);
+}
+console.log(`Android frontend HMR: ${packageName} on device ${device} -> host ${devUrl}`);
 
 if (args.dryRun) {
   console.log("Dry run complete.");
   process.exit(0);
 }
 
+ensureJavaHome();
+ensureAndroidHome();
+
+if (output("adb", ["-s", device, "get-state"]) !== "device") {
+  throw new Error(`Android device ${device} is not ready. Check USB debugging authorization.`);
+}
+run("adb", ["-s", device, "reverse", "tcp:8191", "tcp:8191"], {
+  stdio: "ignore",
+  errorMessage: "Failed to configure adb reverse for Android HMR.",
+});
+
 if (args.installShell) {
   if (args.backendSource) process.env.BAAS_ANDROID_BACKEND_SRC = args.backendSource;
-  run("bun", ["scripts/android-build-debug.mjs", "--skip-web-build", "--abi", abi], {
-    errorMessage: "Failed to build Android debug shell.",
-  });
+  run(
+    "bun",
+    [
+      "scripts/android-build-debug.mjs",
+      "--skip-web-build",
+      "--abi",
+      abi,
+      "--application-id",
+      packageName,
+    ],
+    {
+      errorMessage: "Failed to build Android debug shell.",
+    }
+  );
   const apk = path.join(
     androidRoot,
     "app",
@@ -53,7 +70,7 @@ if (args.installShell) {
     "apk",
     abi,
     "debug",
-    `app-${abi}-debug.apk`,
+    `app-${abi}-debug.apk`
   );
   run("adb", ["-s", device, "install", "-r", "-d", apk], {
     errorMessage: "Failed to install Android debug APK.",
@@ -66,14 +83,6 @@ const viteOut = path.join(logDir, "android-vite-hot.log");
 const viteErr = path.join(logDir, "android-vite-hot.err");
 fs.rmSync(viteOut, { force: true });
 fs.rmSync(viteErr, { force: true });
-
-function selectDevice() {
-  const lines = output("adb", ["devices"], { stdio: ["ignore", "pipe", "pipe"] })
-    .split(/\r?\n/)
-    .filter((line) => /\tdevice$/.test(line));
-  const preferred = lines.find((line) => line.startsWith("emulator-5556\t"));
-  return (preferred ?? lines[0])?.split("\t")[0] ?? "";
-}
 
 function setAndroidDevUrlMarker() {
   fs.writeFileSync(path.join(logDir, "baas-tauri-dev-url.txt"), devUrl, "ascii");
@@ -90,8 +99,9 @@ function setAndroidDevUrlMarker() {
       `printf %s ${shQuote(devUrl)} > files/baas-tauri-dev-url.txt`,
     ],
     {
-      errorMessage: "Failed to write dev URL marker. Install a debug APK first, or rerun with --install-shell.",
-    },
+      errorMessage:
+        "Failed to write dev URL marker. Install a debug APK first, or rerun with --install-shell.",
+    }
   );
 }
 
@@ -100,7 +110,7 @@ function clearAndroidDevUrlMarker() {
     run(
       "adb",
       ["-s", device, "shell", "run-as", packageName, "rm", "-f", "files/baas-tauri-dev-url.txt"],
-      { stdio: "ignore" },
+      { stdio: "ignore" }
     );
   } catch {
     // Debug marker cleanup should not hide the original dev-server error.
@@ -152,8 +162,18 @@ try {
     run("adb", ["-s", device, "shell", "am", "force-stop", packageName], { stdio: "ignore" });
     run(
       "adb",
-      ["-s", device, "shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"],
-      { stdio: "ignore" },
+      [
+        "-s",
+        device,
+        "shell",
+        "monkey",
+        "-p",
+        packageName,
+        "-c",
+        "android.intent.category.LAUNCHER",
+        "1",
+      ],
+      { stdio: "ignore" }
     );
     if (!args.keepMarker) {
       await new Promise((resolve) => setTimeout(resolve, 3000));

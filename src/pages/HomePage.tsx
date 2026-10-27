@@ -1,5 +1,12 @@
 import { IconTooltip } from "@/components/ui/Tooltip";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
@@ -13,23 +20,41 @@ import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
+import {
+  androidManualControl,
+  resumeAndroidAutomationBeforeStart,
+  verifyAndroidManualControlOwnership,
+} from "@/shared/AndroidManualControl";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
-import { buildServerOptions, SERVER_VALUES } from "@/shared/serverOptions";
+import { buildServerOptions } from "@/shared/serverOptions";
+import { useAndroidStartGuard } from "@/android/components/AndroidStartGuard";
+import { Modal } from "@/components/ui/Modal";
+import {
+  androidPackageForServer,
+  androidProfileGameSession,
+  isAndroidProfileDisplayReady,
+  otherRunningAndroidProfiles,
+  resolveAndroidProfileGame,
+  type AndroidInstalledGame,
+} from "@/shared/AndroidProfileGame";
 
 const EMPTY_LOGS: LogItem[] = [];
+/** High-frequency log batches must not rerender the game panel and whole home. */
+const ProfileLogView: React.FC<{ configId?: string; scrollToEnd: boolean; visible: boolean }> = ({
+  configId,
+  scrollToEnd,
+  visible,
+}) => {
+  const logs = useWebSocketStore((state) =>
+    visible && configId ? (state.logStore[`config:${configId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
+  );
+  return <Logger logs={logs} scrollToEnd={scrollToEnd} />;
+};
 const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
 const TOOL_BUTTON_CLASS =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-40";
-const ANDROID_GAME_PACKAGES: Record<string, string> = {
-  [SERVER_VALUES.CN_OFFICIAL]: "com.RoamingStar.BlueArchive",
-  [SERVER_VALUES.CN_BILIBILI]: "com.RoamingStar.BlueArchive.bilibili",
-  [SERVER_VALUES.GLOBAL]: "com.nexon.bluearchive",
-  [SERVER_VALUES.GLOBAL_TEEN]: "com.nexon.bluearchiveteen",
-  [SERVER_VALUES.KR_ONE]: "com.nexon.bluearchiveone",
-  [SERVER_VALUES.JP]: "com.YostarJP.BlueArchive",
-};
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
@@ -54,9 +79,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const settings = useWebSocketStore((state) =>
     activeConfigId ? state.configStore[activeConfigId] : undefined
   );
-  const activeLogs = useWebSocketStore((state) =>
-    activeConfigId ? (state.logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
-  );
   const remoteAvailable = !__WITH_ANDROID__;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
   const isAndroid = __WITH_ANDROID__;
@@ -64,8 +86,29 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
+  const [androidGameIssue, setAndroidGameIssue] = useState<{
+    unsupported: boolean;
+    server: string;
+    packageName?: string;
+  } | null>(null);
+  const [androidBlockingProfiles, setAndroidBlockingProfiles] = useState<string[]>([]);
+  const androidDisplayBinding = useSyncExternalStore(
+    androidProfileGameSession.subscribe,
+    androidProfileGameSession.getSnapshot,
+    androidProfileGameSession.getSnapshot
+  );
+  const androidDisplayOperation = useRef(false);
+  const androidStartGuard = useAndroidStartGuard(
+    isAndroid && __WITH_TAURI__ && activeProfile?.id === activeConfigId
+  );
+  const androidBusy = androidVirtualDisplayBusy || androidStartGuard.busy;
 
-  const androidGamePackage = ANDROID_GAME_PACKAGES[String(settings?.server ?? "")];
+  const androidGamePackage = androidPackageForServer(settings?.server);
+  const androidDisplayMatchesProfile = Boolean(
+    androidVirtualDisplayActive &&
+    androidDisplayBinding?.profileId === activeConfigId &&
+    androidDisplayBinding?.packageName === androidGamePackage
+  );
   const serverLabel = buildServerOptions(t).find(
     (server) => server.value === settings?.server
   )?.label;
@@ -82,26 +125,70 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   }, [settings?.adbIP, settings?.adbPort]);
 
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
-    if (!__WITH_ANDROID__) return false;
+    if (!__WITH_ANDROID__ || !__WITH_TAURI__) return false;
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
       const status = await invoke<{ active: boolean; displayId?: number | null }>(
         "android_scrcpy_virtual_display_status",
         { serial: adbSerial }
       );
-      setAndroidVirtualDisplayActive(Boolean(status.active));
-      return Boolean(status.active);
+      const profilePackage = androidPackageForServer(
+        useWebSocketStore.getState().configStore[activeConfigId ?? ""]?.server
+      );
+      const ready = isAndroidProfileDisplayReady(
+        androidProfileGameSession.getSnapshot(),
+        activeConfigId,
+        profilePackage,
+        status
+      );
+      setAndroidVirtualDisplayActive(ready);
+      return ready;
     } catch (error) {
       console.warn("Android background display status failed", error);
       return false;
     }
-  }, [adbSerial]);
+  }, [adbSerial, activeConfigId]);
 
-  const toggleAndroidVirtualDisplay = async (
+  const requireAndroidProfileGame = async (): Promise<AndroidInstalledGame | null> => {
+    const server = useWebSocketStore.getState().configStore[activeConfigId ?? ""]?.server;
+    try {
+      const { invoke } = await import("@/shared/TauriInvoke");
+      const report = await invoke<{ games: AndroidInstalledGame[] }>("android_list_games");
+      const result = resolveAndroidProfileGame(server, report.games);
+      if (result.state !== "ready") {
+        const label = buildServerOptions(t).find((item) => item.value === server)?.label;
+        setAndroidGameIssue({
+          unsupported: result.state === "unsupported",
+          server: label ?? String(server ?? ""),
+          packageName: result.state === "missing" ? result.packageName : undefined,
+        });
+        return null;
+      }
+      return result.game;
+    } catch (error) {
+      toast.error(t("android.game.inspectFailed"), { description: String(error) });
+      return null;
+    }
+  };
+
+  const requireAndroidRunSlot = (): boolean => {
+    const running = otherRunningAndroidProfiles(
+      useWebSocketStore.getState().statusStore,
+      activeConfigId
+    );
+    setAndroidBlockingProfiles(running);
+    return running.length === 0;
+  };
+
+  const changeAndroidVirtualDisplay = async (
     value: boolean,
     packageName?: string
   ): Promise<boolean> => {
-    if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return false;
+    if (!__WITH_ANDROID__ || !__WITH_TAURI__ || androidDisplayOperation.current) return false;
+    // Recheck after permission/game checks, before native prepare can force-stop
+    // the shared game or cleanup can remove another scheduler's display.
+    if (!requireAndroidRunSlot()) return false;
+    androidDisplayOperation.current = true;
     setAndroidVirtualDisplayBusy(true);
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
@@ -113,7 +200,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               request: {
                 serial: adbSerial,
                 configId: activeConfigId,
-                packageName: packageName ?? androidGamePackage,
+                packageName,
                 width: 1280,
                 height: 720,
                 density: 240,
@@ -128,9 +215,17 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
             await new Promise((resolve) => window.setTimeout(resolve, 1_200));
           }
         }
-        if (!report) throw new Error("Shizuku display did not become ready");
+        if (!report) throw new Error(t("android.start.displayNotReady"));
+        if (!activeConfigId || report.packageName !== packageName) {
+          throw new Error(t("android.start.displayNotReady"));
+        }
+        androidProfileGameSession.claim({
+          profileId: activeConfigId,
+          packageName: report.packageName,
+          displayId: report.displayId,
+        });
         setAndroidVirtualDisplayActive(true);
-        toast.success(`Background game display #${report.displayId}`);
+        toast.success(t("android.start.displayOpened"));
       } else {
         if (scriptRunning && activeConfigId) {
           useWebSocketStore.getState().trigger({
@@ -141,58 +236,100 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           });
         }
         await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
+        androidProfileGameSession.clear();
         setAndroidVirtualDisplayActive(false);
-        toast.success("Background game display closed");
+        toast.success(t("android.start.displayClosed"));
       }
       void refreshAndroidVirtualDisplayStatus();
       return true;
     } catch (error) {
-      toast.error(
-        value ? "Background game display failed" : "Background game display cleanup failed",
-        {
-          description: String(error),
-        }
-      );
+      toast.error(value ? t("android.start.displayFailed") : t("android.start.cleanupFailed"), {
+        description: String(error),
+      });
       void refreshAndroidVirtualDisplayStatus();
       return false;
     } finally {
+      androidDisplayOperation.current = false;
       setAndroidVirtualDisplayBusy(false);
     }
   };
 
+  const toggleAndroidVirtualDisplay = (value: boolean, packageName?: string): Promise<boolean> => {
+    if (!requireAndroidRunSlot()) return Promise.resolve(false);
+    return value
+      ? androidStartGuard.run(async () => {
+          const game = await requireAndroidProfileGame();
+          if (!game) return false;
+          return changeAndroidVirtualDisplay(true, game.packageName);
+        })
+      : androidStartGuard.run(() => changeAndroidVirtualDisplay(false, packageName), "stop");
+  };
+
   useEffect(() => {
-    void refreshAndroidVirtualDisplayStatus();
-  }, [refreshAndroidVirtualDisplayStatus]);
+    if (activeProfile?.id === activeConfigId) void refreshAndroidVirtualDisplayStatus();
+  }, [
+    activeProfile?.id,
+    activeConfigId,
+    androidDisplayBinding,
+    refreshAndroidVirtualDisplayStatus,
+  ]);
 
   /**
    * Issues the scheduler start command for the active profile.
    * Guarded against duplicate submissions when a run is already active.
    */
   const startScript = async () => {
-    if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__ && !androidVirtualDisplayActive) {
-      const prepared = await toggleAndroidVirtualDisplay(
-        true,
-        window.localStorage.getItem("baasAndroidSelectedGame") || androidGamePackage
-      );
-      if (!prepared || !(await refreshAndroidVirtualDisplayStatus())) return;
-    }
-    useWebSocketStore.getState().trigger(
-      {
-        timestamp: getTimestampMs(),
-        command: "start_scheduler",
-        config_id: activeConfigId,
-        payload: {},
-      },
-      (response) => {
-        console.debug("start_scheduler acknowledged", response);
-        if ((response as any)?.status === "error") {
-          toast.error("start_scheduler failed", {
-            description: String((response as any)?.message ?? (response as any)?.error ?? ""),
-          });
+    if (!profile || !activeConfigId || scriptRunning || androidBusy) return;
+    const dispatchStart = () => {
+      if (__WITH_ANDROID__ && androidManualControl.isActive()) return;
+      useWebSocketStore.getState().trigger(
+        {
+          timestamp: getTimestampMs(),
+          command: "start_scheduler",
+          config_id: activeConfigId,
+          payload: {},
+        },
+        (response) => {
+          console.debug("start_scheduler acknowledged", response);
+          if ((response as any)?.status === "error") {
+            toast.error(t("android.start.scriptFailed"), {
+              description: String((response as any)?.message ?? (response as any)?.error ?? ""),
+            });
+          }
         }
-      }
-    );
+      );
+    };
+    if (__WITH_ANDROID__ && __WITH_TAURI__) {
+      if (!requireAndroidRunSlot()) return;
+      await androidStartGuard.run(async () => {
+        const game = await requireAndroidProfileGame();
+        if (!game) return false;
+        // An old preview can remain marked active after Shizuku has stopped.
+        // Check its native state only after the fresh permission check passed.
+        if (!(await refreshAndroidVirtualDisplayStatus())) {
+          const prepared = await changeAndroidVirtualDisplay(true, game.packageName);
+          if (!prepared || !(await refreshAndroidVirtualDisplayStatus())) return false;
+        }
+        if (!requireAndroidRunSlot()) return false;
+        const session = androidProfileGameSession.getSnapshot();
+        if (session?.profileId !== activeConfigId || session.packageName !== game.packageName)
+          return false;
+        const { invoke } = await import("@/shared/TauriInvoke");
+        const resumed = await resumeAndroidAutomationBeforeStart(session.displayId, (request) =>
+          invoke<{ resumed: boolean }>("android_game_resume_automation", { request })
+        );
+        if (
+          !resumed ||
+          androidProfileGameSession.getSnapshot() !== session ||
+          !requireAndroidRunSlot()
+        )
+          return false;
+        dispatchStart();
+        return true;
+      });
+      return;
+    }
+    dispatchStart();
   };
 
   /**
@@ -216,6 +353,10 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   useEffect(() => {
     if (!__WITH_ANDROID__) return;
     const toggleRun = () => {
+      if (androidManualControl.isActive()) return;
+      // Home stays mounted per profile so the bottom action also works from
+      // Settings and Configuration. Cached profiles must never receive it.
+      if (activeProfile?.id !== activeConfigId) return;
       if (scriptRunning) stopScript();
       else void startScript();
     };
@@ -228,6 +369,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
    */
   const pad = (n: number) => n.toString().padStart(2, "0");
   const exportLog = async () => {
+    const activeLogs = activeConfigId
+      ? (useWebSocketStore.getState().logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS)
+      : EMPTY_LOGS;
     const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
@@ -290,14 +434,14 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
               aria-label={scriptRunning ? t("common.stop") : t("common.start")}
               variant={scriptRunning ? "danger" : "primary"}
               className="ml-2 h-8.5 gap-1.5 rounded-lg px-3.5 py-0 text-xs"
-              disabled={androidVirtualDisplayBusy}
+              disabled={androidBusy}
             >
               {scriptRunning ? (
                 <Square className="h-3 w-3" fill="currentColor" strokeWidth={1.6} />
               ) : (
                 <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.6} />
               )}
-              {androidVirtualDisplayBusy
+              {androidBusy
                 ? t("home.preparing")
                 : scriptRunning
                   ? t("common.stop")
@@ -334,19 +478,78 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         />
       )}
 
-      {isAndroid && (
+      {isAndroid && __WITH_TAURI__ && (
         <React.Suspense
           fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-secondary" />}
         >
           <AndroidGamePanel
-            virtualDisplayActive={androidVirtualDisplayActive}
-            virtualDisplayBusy={androidVirtualDisplayBusy}
+            active={activeProfile?.id === activeConfigId}
+            configuredPackage={androidGamePackage}
+            virtualDisplayActive={androidDisplayMatchesProfile}
+            virtualDisplayBusy={androidBusy}
+            onBeforeManualControl={async () => {
+              if (!activeConfigId || !requireAndroidRunSlot())
+                throw new Error("The Android game session is unavailable");
+              await verifyAndroidManualControlOwnership(useWebSocketStore.getState, activeConfigId);
+            }}
             onToggleVirtualDisplay={async (active, packageName) => {
               await toggleAndroidVirtualDisplay(active, packageName);
             }}
           />
         </React.Suspense>
       )}
+
+      {androidStartGuard.dialog}
+
+      <Modal
+        isOpen={isAndroid && activeProfile?.id === activeConfigId && androidGameIssue !== null}
+        onClose={() => setAndroidGameIssue(null)}
+        title={
+          androidGameIssue?.unsupported
+            ? t("android.start.unsupportedGameTitle")
+            : t("android.start.missingGameTitle")
+        }
+      >
+        <p className="text-sm leading-6 text-muted-foreground">
+          {androidGameIssue?.unsupported
+            ? t("android.start.unsupportedGameDescription", {
+                profile: profile?.name,
+                server: androidGameIssue.server,
+              })
+            : t("android.start.missingGameDescription", {
+                profile: profile?.name,
+                server: androidGameIssue?.server,
+              })}
+        </p>
+        {androidGameIssue?.packageName && (
+          <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
+            {androidGameIssue.packageName}
+          </p>
+        )}
+        <div className="modal-footer">
+          <CButton onClick={() => setAndroidGameIssue(null)}>{t("common.close")}</CButton>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={
+          isAndroid && activeProfile?.id === activeConfigId && androidBlockingProfiles.length > 0
+        }
+        onClose={() => setAndroidBlockingProfiles([])}
+        title={t("android.start.otherProfileRunningTitle")}
+      >
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t("android.start.otherProfileRunningDescription", {
+            profiles: androidBlockingProfiles
+              .map((id) => profiles.find((item) => item.id === id)?.name ?? id)
+              .join(", "),
+            profile: profile?.name,
+          })}
+        </p>
+        <div className="modal-footer">
+          <CButton onClick={() => setAndroidBlockingProfiles([])}>{t("common.close")}</CButton>
+        </div>
+      </Modal>
 
       {/* Account data and task context share one compact summary area. */}
       {activeConfigId && (
@@ -365,11 +568,6 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
             <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
             {t("log")}
-            {activeLogs.length > 0 && (
-              <span className="ml-0.5 text-[11px] font-normal tabular-nums text-muted-foreground">
-                {activeLogs.length.toLocaleString()}
-              </span>
-            )}
           </h2>
           <div className="flex shrink-0 items-center gap-1">
             <IconTooltip content={t("log.scroll.detail")}>
@@ -399,7 +597,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           {remoteAvailable && remoteVisible && activeConfigId && (
             <RemoteDisplay profileId={activeConfigId} />
           )}
-          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
+          <ProfileLogView
+            configId={activeConfigId}
+            scrollToEnd={scrollToEnd}
+            visible={activeProfile?.id === activeConfigId}
+          />
         </div>
       </section>
     </div>

@@ -29,3 +29,16 @@
 # Shizuku instantiates the user service in a separate shell-identity process.
 -keep class io.github.kiramei.baas_tauri.ShizukuShellService { *; }
 -keep class io.github.kiramei.baas_tauri.IShizukuShellService$Stub { *; }
+
+# Audited Tauri 2.11.2 compatibility contract: the app replaces launchers whose
+# retained Activity was destroyed. Preserve names, mutability and exact types;
+# R8 must not remove the currently unused intent-sender channel or narrow fields.
+-keepclassmembers class app.tauri.plugin.PluginManager {
+    static androidx.appcompat.app.AppCompatActivity activity;
+    static androidx.activity.result.ActivityResultLauncher startActivityForResultLauncher;
+    static androidx.activity.result.ActivityResultLauncher startIntentSenderForResultLauncher;
+    static androidx.activity.result.ActivityResultLauncher requestPermissionsLauncher;
+    static app.tauri.plugin.PluginManager$ActivityResultCallback startActivityForResultCallback;
+    static app.tauri.plugin.PluginManager$ActivityResultCallback startIntentSenderForResultCallback;
+    static app.tauri.plugin.PluginManager$RequestPermissionsCallback requestPermissionsCallback;
+}

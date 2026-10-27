@@ -118,7 +118,9 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
           ]}
         />
       </ConfigurationGroup>
-      <ConfigurationGroup title={t("script.screenshotMethod")}>
+      <ConfigurationGroup
+        title={__WITH_ANDROID__ ? t("script.screenshotInterval") : t("script.screenshotMethod")}
+      >
         <ConfigurationInput
           type="number"
           label={t("script.screenshotInterval")}

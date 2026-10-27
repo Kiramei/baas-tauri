@@ -25,6 +25,11 @@ object PrivilegedDisplayMain {
   private var displayWidth = 0
   private var displayHeight = 0
   @Volatile private var activePackage = ""
+  private val touchSession = OwnedDisplayTouch(android.os.SystemClock::uptimeMillis, DisplayInput::touchEvent)
+  private val inputGate = ManualInputGate(touchSession::cancelStream)
+  private val manualLeases = ManualInputLeaseHost(inputGate) { check(touchSession.cancelStream()) { "Manual touch cancellation failed" } }
+  private val shellPermits = mutableMapOf<Long, AutoCloseable>()
+  private var nextShellPermit = 0L
 
   @JvmStatic
   fun main(args: Array<String>) {
@@ -39,10 +44,57 @@ object PrivilegedDisplayMain {
         private fun authorize() {
           check(android.os.Binder.getCallingUid() == args[2].toInt()) { "Unexpected preview client" }
         }
-        override fun setPreviewSurface(surface: android.view.Surface?) { authorize(); NativeDisplayCapture.setPreviewSurface(surface) }
-        override fun frameCount(): Long { authorize(); return NativeDisplayCapture.frameCount() }
-        override fun previewFrameCount(): Long { authorize(); return NativeDisplayCapture.previewFrameCount() }
-        override fun currentPackage(): String { authorize(); return activePackage }
+        override fun setPreviewSurface(surface: android.view.Surface?) = PrivilegedExecution.binderResult {
+          authorize(); NativeDisplayCapture.setPreviewSurface(surface)
+        }
+        override fun frameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.frameCount() }
+        override fun previewFrameCount(): Long = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.previewFrameCount() }
+        override fun hasVisibleFrame(): Boolean = PrivilegedExecution.binderResult { authorize(); NativeDisplayCapture.hasVisibleFrame() }
+        override fun currentPackage(): String = PrivilegedExecution.binderResult { authorize(); activePackage }
+        override fun topPackage(): String = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            virtualDisplay?.display?.displayId?.let { GameTaskTransfer.topPackage(it) }.orEmpty()
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            val id = virtualDisplay?.display?.displayId ?: -1
+            inputGate.automation(id) { DisplayInput.gesture(id, x1, y1, x2, y2, durationMs) }
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            val id = virtualDisplay?.display?.displayId ?: -1
+            inputGate.automation(id) { DisplayInput.pinch(id, displayWidth, displayHeight, inward, percent, durationMs) }
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun touch(expectedDisplayId: Int, leaseId: Long, event: android.view.MotionEvent): Boolean = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try {
+            val frame = DisplayInput.touchFrame(event)
+            inputGate.manual(expectedDisplayId, leaseId, frame) { touchSession.send(expectedDisplayId, frame) }
+          } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun acquireManualInput(expectedDisplayId: Int, owner: IBinder): Long = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try { manualLeases.acquire(expectedDisplayId, owner) } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun releaseManualInput(expectedDisplayId: Int, leaseId: Long): Boolean = PrivilegedExecution.binderResult {
+          authorize()
+          val identity = android.os.Binder.clearCallingIdentity()
+          try { manualLeases.release(expectedDisplayId, leaseId) } finally { android.os.Binder.restoreCallingIdentity(identity) }
+        }
+        override fun resumeAutomation(expectedDisplayId: Int): Boolean = PrivilegedExecution.binderResult {
+          authorize(); inputGate.resumeAutomation(expectedDisplayId)
+        }
       }
       publishEndpoint("${args[1]}.native-display", endpoint)
       System.`in`.bufferedReader().forEachLine { line ->
@@ -51,6 +103,17 @@ object PrivilegedDisplayMain {
           val result = when (parts.firstOrNull()) {
             "PING" -> "pong"
             "PUBLISH" -> { publishEndpoint("${args[1]}.native-display", endpoint); "" }
+            "SHELL_BEGIN" -> {
+              check(shellPermits.size < 16) { "Too many outstanding automation shell calls" }
+              val permit = checkNotNull(inputGate.shellPermit()) { "The owned display cannot safely accept automation input" }
+              val token = ++nextShellPermit
+              shellPermits[token] = permit
+              token.toString()
+            }
+            "SHELL_END" -> {
+              checkNotNull(shellPermits.remove(parts[1].toLong())) { "Unknown automation shell permit" }.close()
+              ""
+            }
             "START" -> startDisplay(systemContext, parts[1].toInt(), parts[2].toInt(), parts[3].toInt()).toString()
             "STOP" -> { stopDisplay(); "" }
             "ID" -> (virtualDisplay?.display?.displayId ?: -1).toString()
@@ -60,8 +123,24 @@ object PrivilegedDisplayMain {
             "OPEN_STREAM" -> throw UnsupportedOperationException("Use native preview; capture output cannot be reassigned to an encoder")
             "CLOSE_STREAM" -> ""
             "GESTURE" -> gesture(parts.drop(1).map(String::toInt)).toString()
-            "KEY" -> DisplayInput.key(virtualDisplay?.display?.displayId ?: -1, parts[1].toInt()).toString()
+            "KEY" -> {
+              val id = virtualDisplay?.display?.displayId ?: -1
+              inputGate.automation(id) { DisplayInput.key(id, parts[1].toInt()) }.toString()
+            }
             "LAUNCH" -> launch(systemContext, parts[1], parts[2].toInt()).toString()
+            "TRANSFER" -> {
+              check(parts[1] == activePackage) { "The selected game is not active" }
+              inputGate.invalidate({ touchSession.deactivate() })
+              try {
+                GameTaskTransfer.move(parts[1], virtualDisplay?.display?.displayId ?: -1, parts[2].toInt())
+              } catch (error: Throwable) {
+                touchSession.activate(activePackage)
+                inputGate.activate(virtualDisplay?.display?.displayId ?: -1)
+                throw error
+              }
+              activePackage = ""
+              ""
+            }
             "EXIT" -> {
               stopDisplay()
               output.println("OK")
@@ -81,6 +160,8 @@ object PrivilegedDisplayMain {
       val message = errorDescription(error)
       output.println("ERR ${Base64.encodeToString(message.toByteArray(), Base64.NO_WRAP)}")
     } finally {
+      shellPermits.values.forEach { runCatching { it.close() } }
+      shellPermits.clear()
       stopDisplay()
     }
   }
@@ -141,10 +222,14 @@ object PrivilegedDisplayMain {
   }
 
   private fun startDisplay(context: Context, width: Int, height: Int, density: Int): Int {
-    stopDisplay()
     val safeWidth = width.coerceIn(640, 3840)
     val safeHeight = height.coerceIn(360, 2160)
     val safeDensity = density.coerceIn(120, 640)
+    virtualDisplay?.display?.displayId?.let { id ->
+      check(inputGate.canPrepare(id)) { "A manual view or automated input is still using the owned display" }
+      if (displayWidth == safeWidth && displayHeight == safeHeight) return PrivilegedExecution.virtualDisplayId(id)
+    }
+    stopDisplay()
     val captureSurface = NativeDisplayCapture.start(safeWidth, safeHeight)
     val constructor = DisplayManager::class.java.getDeclaredConstructor(Context::class.java).apply { isAccessible = true }
     val manager = constructor.newInstance(context)
@@ -152,19 +237,30 @@ object PrivilegedDisplayMain {
       DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE or
       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
-      (1 shl 6) or (1 shl 8) or (1 shl 10) or (1 shl 11) or (1 shl 12)
-    val display = manager.createVirtualDisplay(
-      "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, flags,
-    ) ?: run { NativeDisplayCapture.stop(); throw IllegalStateException("Android rejected the privileged virtual display") }
-    captureSurface.release()
+      (1 shl 6) or (1 shl 8) or (1 shl 11) or (1 shl 12)
+    val display = try {
+      manager.createVirtualDisplay(
+        "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, PrivilegedExecution.trustedDisplayFlags(flags, android.os.Build.VERSION.SDK_INT),
+      ) ?: throw IllegalStateException("Android rejected the privileged virtual display")
+    } catch (error: Throwable) {
+      runCatching { NativeDisplayCapture.stop() }
+      throw error
+    } finally {
+      captureSurface.release()
+    }
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
-    return display.display.displayId
+    touchSession.own(display.display.displayId, safeWidth, safeHeight)
+    inputGate.own(display.display.displayId)
+    return PrivilegedExecution.virtualDisplayId(display.display.displayId)
   }
 
   private fun launch(context: Context, packageName: String, displayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplay?.display?.displayId == displayId) { "The requested game display is no longer active" }
     require(packageName.matches(Regex("[A-Za-z0-9_.]+")))
+    return inputGate.automation(displayId, requireActive = false) {
     val intent = context.packageManager.getLaunchIntentForPackage(packageName)
       ?: context.packageManager.getLeanbackLaunchIntentForPackage(packageName)
       ?: throw IllegalStateException("No launcher activity is available for $packageName")
@@ -179,15 +275,20 @@ object PrivilegedDisplayMain {
       android.os.Bundle::class.java, Int::class.javaPrimitiveType,
     )
     val success = (method.invoke(manager, null, OWNER_PACKAGE, intent, null, null, null, 0, 0, null, options.toBundle(), -2) as Int) >= 0
-    if (success) activePackage = packageName
-    return success
+    if (success) {
+      activePackage = packageName
+      touchSession.activate(packageName)
+      inputGate.activate(displayId)
+    }
+    success
+    }
   }
 
   private fun gesture(values: List<Int>): Boolean {
     require(values.size == 5)
     val displayId = virtualDisplay?.display?.displayId ?: return false
     val (x1, y1, x2, y2, duration) = values
-    return DisplayInput.gesture(displayId, x1, y1, x2, y2, duration)
+    return inputGate.automation(displayId) { DisplayInput.gesture(displayId, x1, y1, x2, y2, duration) }
   }
 
   @Synchronized private fun capture(format: Bitmap.CompressFormat, quality: Int): String {
@@ -200,6 +301,7 @@ object PrivilegedDisplayMain {
 
 
   @Synchronized private fun stopDisplay() {
+    inputGate.invalidate({ touchSession.clear() }, closed = true)
     virtualDisplay?.release()
     NativeDisplayCapture.stop()
     virtualDisplay = null

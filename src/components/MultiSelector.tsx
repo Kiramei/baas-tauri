@@ -108,7 +108,7 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
           />
 
           {/* Candidate list */}
-          <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto">
+          <div className="ordered-selector-options flex flex-wrap gap-2 max-h-96 overflow-y-auto">
             {filtered.map((s) => {
               const name = s.toString();
               const active = selected.includes(name);
@@ -166,7 +166,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
   return (
     <>
-      <div>
+      <div className="ordered-selector">
         {label &&
           (tooltip ? (
             <LabelWithTooltip
@@ -179,12 +179,12 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
           ))}
 
         <div className={cn("space-y-2", className)}>
-          <div className="overflow-x-auto pb-1">
+          <div className="ordered-selector-scroll overflow-x-auto pb-1">
             <Reorder.Group
               axis="x"
               values={values}
               onReorder={handleReorder}
-              className="flex gap-1 min-w-max"
+              className="ordered-selector-list flex gap-1 min-w-max"
             >
               {values.map((name, index) => (
                 <Reorder.Item
@@ -193,7 +193,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                   layout={lowPerformanceMode ? undefined : true}
                   transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-0.5 shrink-0",
+                    "ordered-selector-item flex items-center gap-2 px-3 py-0.5 shrink-0",
                     "rounded-lg border border-input",
                     "bg-secondary/50 text-foreground",
                     "transition-colors hover:bg-secondary",
@@ -209,8 +209,10 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
                   {/* Remove button */}
                   <button
+                    type="button"
                     onClick={() => handleRemove(name)}
-                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
+                    aria-label={`${t("common.delete")} ${translateName(name)}`}
+                    className="ordered-selector-remove ml-1 inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -219,9 +221,10 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
               {/* Add button */}
               <button
+                type="button"
                 onClick={handleAdd}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-0.5 shrink-0",
+                  "ordered-selector-add flex items-center gap-1 px-3 py-0.5 shrink-0",
                   "rounded-lg border border-dashed border-input",
                   "text-muted-foreground",
                   "hover:bg-secondary hover:text-foreground"
@@ -302,7 +305,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
   };
 
   return (
-    <div>
+    <div className="time-selector" data-time-mode={mode}>
       {label &&
         (tooltip ? (
           <LabelWithTooltip
@@ -315,12 +318,12 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
         ))}
 
       <div className={cn("space-y-2", className)}>
-        <div className="overflow-x-auto pb-2 flex flex-row gap-1 scroll-embedded">
+        <div className="time-selector-list overflow-x-auto pb-2 flex flex-row gap-1 scroll-embedded">
           {values.map((item, index) => (
             <div
               key={index}
               className={cn(
-                "flex items-center gap-1 px-2 shrink-0",
+                "time-selector-item flex items-center gap-1 px-2 shrink-0",
                 "rounded-lg border border-input",
                 "bg-secondary/50 text-foreground",
                 "transition-colors hover:bg-secondary"
@@ -338,16 +341,20 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
                     newValues[index] = arr;
                     onChange(newValues as any);
                   }}
-                  className="w-20.5 md:w-18.5"
+                  className="time-selector-field w-20.5 md:w-18.5"
                   childClassName="h-6 px-1 bg-background shadow-none translate-y-[-1px]"
                 />
               )}
 
               {mode === "range" && (
-                <div className="flex items-center gap-1">
+                <div className="time-selector-range flex items-center gap-1">
                   {(item as number[][]).map((point, i) => (
                     <React.Fragment key={i}>
-                      {i === 1 && <span className="mx-1 text-muted-foreground">~</span>}
+                      {i === 1 && (
+                        <span className="time-selector-separator mx-1 text-muted-foreground">
+                          ~
+                        </span>
+                      )}
                       <FormInput
                         type="time"
                         value={forwardHandler(point)}
@@ -358,7 +365,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
                           newValues[index][i] = arr;
                           onChange(newValues as any);
                         }}
-                        className="w-18.5"
+                        className="time-selector-field w-18.5"
                         childClassName="h-6 px-1 bg-background shadow-none translate-y-[-1px]"
                       />
                     </React.Fragment>
@@ -367,8 +374,10 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
               )}
 
               <button
+                type="button"
                 onClick={() => handleRemove(index)}
-                className="inline-flex items-center justify-center w-5 h-5
+                aria-label={t("common.delete")}
+                className="time-selector-remove inline-flex items-center justify-center w-5 h-5
                 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -378,9 +387,10 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
 
           {/* Add button */}
           <button
+            type="button"
             onClick={mode === "time" ? handleTimeAdd : handleRangeAdd}
             className={cn(
-              "flex items-center gap-1 px-3 py-0.5 shrink-0",
+              "time-selector-add flex items-center gap-1 px-3 py-0.5 shrink-0",
               "rounded-lg border border-dashed border-input",
               "text-muted-foreground",
               "hover:bg-secondary hover:text-foreground"

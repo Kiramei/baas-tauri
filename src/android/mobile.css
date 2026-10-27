@@ -1,0 +1,434 @@
+/* Android owns its viewport and touch sizing; desktop surfaces keep their own density. */
+html[data-app-platform="android"] {
+  --android-page-top-padding: 16px;
+  --android-bottom-navigation-height: calc(56px + env(safe-area-inset-bottom, 0px));
+  --android-page-bottom-reserve: var(--android-bottom-navigation-height);
+  overflow: hidden;
+}
+
+html[data-app-platform="android"] body,
+html[data-app-platform="android"] #root {
+  height: var(--android-viewport-height, 100%);
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-app-platform="android"] .android-page-scroll {
+  min-width: 0;
+  padding: var(--android-page-top-padding) max(14px, env(safe-area-inset-right, 0px))
+    calc(20px + var(--android-page-bottom-reserve)) max(14px, env(safe-area-inset-left, 0px));
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 16px calc(20px + var(--android-page-bottom-reserve));
+  scrollbar-gutter: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-app-platform="android"] .android-page-scroll[data-page="home"] {
+  padding-block: 10px calc(14px + var(--android-page-bottom-reserve));
+}
+
+[data-app-platform="android"] .configuration-page {
+  padding-top: 0;
+}
+
+[data-app-platform="android"] .configuration-compact-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-bottom: 24px;
+  padding-bottom: 8px;
+  background: var(--background);
+  box-shadow: 0 -16px 0 var(--background);
+}
+
+[data-app-platform="android"] .configuration-detail-heading {
+  margin-bottom: 24px;
+}
+
+[data-app-platform="android"] .app-layout {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+[data-app-platform="android"] .configuration-editor [data-slot="tabs-trigger"] {
+  min-height: 44px;
+}
+
+[data-app-platform="android"] [data-modal-backdrop] {
+  inset: auto;
+  top: var(--android-viewport-top, 0px);
+  left: var(--android-viewport-left, 0px);
+  width: var(--android-viewport-width, 100vw);
+  height: var(--android-viewport-height, 100dvh);
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+[data-app-platform="android"] .modal-surface {
+  max-height: calc(var(--android-viewport-height, 100dvh) - 24px) !important;
+  overscroll-behavior: contain;
+}
+
+[data-app-platform="android"] .modal-close {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+}
+
+[data-app-platform="android"] .modal-footer > button,
+[data-app-platform="android"]
+  .modal-surface
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  height: 44px;
+  min-height: 44px;
+}
+
+[data-app-platform="android"] .mobile-navigation-icon {
+  height: 24px;
+}
+
+[data-app-platform="android"] .mobile-bottom-navigation > button:not(.mobile-primary-run) {
+  gap: 0;
+}
+
+[data-app-platform="android"] .mobile-navigation-label {
+  display: flex;
+  min-height: 16px;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: -0.025em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  [data-app-platform="android"] [data-slot="tooltip-content"] {
+    display: none;
+  }
+}
+
+[data-app-platform="android"] .date-time-picker {
+  min-width: 0;
+  max-width: 100%;
+  height: 44px;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 10px;
+}
+
+[data-app-platform="android"] .date-time-picker-date {
+  width: 11ch;
+  min-width: 0;
+  flex: 0 1 11ch;
+}
+
+[data-app-platform="android"] .date-time-picker-time {
+  width: 112px;
+  min-width: 112px;
+  flex: 0 0 112px;
+}
+
+[data-app-platform="android"] .date-time-picker-date,
+[data-app-platform="android"] .date-time-picker-time,
+[data-app-platform="android"] .date-time-picker input {
+  height: 42px;
+  min-height: 42px;
+  margin-block: 0;
+  line-height: normal;
+}
+
+[data-app-platform="android"] .date-time-picker input {
+  text-align: center;
+}
+
+[data-app-platform="android"] .date-time-picker-separator {
+  display: none;
+}
+
+[data-app-platform="android"] .scheduler-task-editor {
+  min-width: 0;
+}
+
+[data-app-platform="android"] .scheduler-task-editor > .grid {
+  min-width: 0;
+  row-gap: 16px;
+}
+
+[data-app-platform="android"] .time-selector,
+[data-app-platform="android"] .ordered-selector {
+  min-width: 0;
+}
+
+[data-app-platform="android"] .time-selector-list {
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow: visible;
+}
+
+[data-app-platform="android"] .time-selector-item {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 46px;
+  gap: 8px;
+}
+
+[data-app-platform="android"] .time-selector-field {
+  width: 112px;
+  min-width: 112px;
+}
+
+[data-app-platform="android"] .time-selector-field input {
+  height: 44px;
+  min-height: 44px;
+  padding-inline: 6px;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+  transform: none;
+}
+
+[data-app-platform="android"] .time-selector-range {
+  min-width: 0;
+  gap: 4px;
+}
+
+[data-app-platform="android"] .time-selector-remove,
+[data-app-platform="android"] .ordered-selector-remove {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}
+
+[data-app-platform="android"] .time-selector-add,
+[data-app-platform="android"] .ordered-selector-add,
+[data-app-platform="android"] .ordered-selector-options > button {
+  min-height: 44px;
+}
+
+[data-app-platform="android"] .ordered-selector-item {
+  min-height: 48px;
+}
+
+@media (max-width: 379px) {
+  [data-app-platform="android"] .time-selector[data-time-mode="range"] .time-selector-item {
+    width: 100%;
+  }
+
+  [data-app-platform="android"] .time-selector-range {
+    flex: 1 1 auto;
+    flex-direction: column;
+    padding-block: 6px;
+  }
+
+  [data-app-platform="android"] .time-selector-range .time-selector-field {
+    width: 100%;
+  }
+
+  [data-app-platform="android"] .time-selector-separator {
+    margin-block: -6px;
+    line-height: 16px;
+  }
+}
+
+[data-app-platform="android"] .scheduler-task-row {
+  grid-template-columns: minmax(0, 1fr) max-content 92px;
+  min-height: 60px;
+}
+
+[data-app-platform="android"] .scheduler-task-edit,
+[data-app-platform="android"] .scheduler-task-toggle {
+  width: 44px;
+  height: 44px;
+}
+
+[data-app-platform="android"] .scheduler-task-toolbar input,
+[data-app-platform="android"] .scheduler-task-toolbar button,
+[data-app-platform="android"] .scheduler-task-bulk-actions > button {
+  min-height: 44px;
+}
+
+[data-app-platform="android"] .scheduler-task-toolbar button,
+[data-app-platform="android"] .scheduler-page > div:first-child button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+[data-app-platform="android"] .configuration-history button,
+[data-app-platform="android"] .priority-editor-handle,
+[data-app-platform="android"] .priority-editor-remove,
+[data-app-platform="android"] .sweep-plan-icon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+}
+
+[data-app-platform="android"] .configuration-action,
+[data-app-platform="android"] .priority-editor-add,
+[data-app-platform="android"] .priority-editor-choice,
+[data-app-platform="android"] .sweep-plan-add,
+[data-app-platform="android"] .stage-task-action {
+  min-height: 44px;
+}
+
+[data-app-platform="android"] .priority-editor-row {
+  min-height: 52px;
+  gap: 6px;
+}
+
+[data-app-platform="android"] .priority-editor-list {
+  max-height: min(420px, calc(var(--android-viewport-height, 100vh) - 260px));
+}
+
+[data-app-platform="android"] .settings-row {
+  min-height: 68px;
+  gap: 12px;
+}
+
+[data-app-platform="android"] .settings-label,
+[data-app-platform="android"] .shop-goods-name {
+  font-size: 14px;
+}
+
+[data-app-platform="android"] .settings-description {
+  line-height: 1.55;
+}
+
+[data-app-platform="android"] .settings-page [data-slot="select-trigger"],
+[data-app-platform="android"] .configuration-row .settings-row-control [data-slot="select-trigger"],
+[data-app-platform="android"]
+  .configuration-row
+  .settings-row-control
+  input:not([type="checkbox"]):not([type="radio"]),
+[data-app-platform="android"] .configuration-navigation input,
+[data-app-platform="android"] .configuration-navigation [data-slot="select-trigger"],
+[data-app-platform="android"] .settings-mobile-navigation input,
+[data-app-platform="android"] .settings-mobile-navigation [data-slot="select-trigger"],
+[data-app-platform="android"] .settings-page .settings-card input:not([type="range"]),
+[data-app-platform="android"] .sweep-plan-fields [data-slot="select-trigger"],
+[data-app-platform="android"] .sweep-plan-fields input,
+[data-app-platform="android"] .priority-editor-picker input {
+  height: 44px;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+[data-app-platform="android"] .settings-mobile-navigation [data-slot="select-trigger"] {
+  width: 100%;
+  max-width: 100%;
+}
+
+[data-app-platform="android"]
+  .settings-page
+  .settings-card
+  button:not(.control-switch):not([role="switch"]) {
+  min-height: 44px;
+}
+
+/* Keep the switch track compact inside a full 44px touch target. */
+[data-app-platform="android"] button.control-switch {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+[data-app-platform="android"] button.control-switch::before {
+  position: absolute;
+  top: 12px;
+  left: 4px;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--control-track);
+  content: "";
+  transition: background-color 150ms;
+}
+
+[data-app-platform="android"] button.control-switch[aria-checked="true"]::before {
+  background: var(--control-checked);
+}
+
+[data-app-platform="android"] button.control-switch .control-switch-thumb {
+  position: absolute;
+  top: 14px;
+  left: 4px;
+  transform: translateX(2px);
+}
+
+[data-app-platform="android"] button.control-switch[aria-checked="true"] .control-switch-thumb {
+  transform: translateX(18px);
+}
+
+[data-app-platform="android"] .settings-page > .settings-mobile-navigation {
+  display: grid;
+  gap: 10px;
+  padding-block: 4px 8px;
+  margin-bottom: 20px;
+}
+
+[data-app-platform="android"] .settings-page-title {
+  margin-bottom: 20px;
+}
+
+[data-app-platform="android"] .settings-sections {
+  gap: 24px;
+}
+
+[data-app-platform="android"] .shop-goods-item {
+  min-height: 80px;
+  padding: 11px;
+}
+
+html[data-app-platform="android"][data-android-keyboard-visible="true"] {
+  --android-page-bottom-reserve: 0px;
+}
+
+[data-app-platform="android"][data-android-keyboard-visible="true"] .mobile-bottom-navigation,
+[data-app-platform="android"][data-android-keyboard-visible="true"] .mobile-update-actions,
+[data-app-platform="android"][data-android-keyboard-visible="true"] .mobile-update-log {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  /* Sticky bounds retain the scroll padding above the navigation. Paint that
+     gap even when low-performance mode disables decorative box shadows. */
+  [data-app-platform="android"] .configuration-compact-navigation::before,
+  [data-app-platform="android"] .settings-page > .settings-mobile-navigation::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: var(--android-page-top-padding);
+    background: var(--background);
+    pointer-events: none;
+  }
+
+  [data-app-platform="android"]
+    .android-settings-page:not(.android-settings-searching)
+    .settings-category-inactive {
+    display: none;
+  }
+
+  [data-app-platform="android"] .android-settings-page .settings-page-title {
+    margin-bottom: 24px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 639px) {
+  [data-app-platform="android"] .scheduler-task-row {
+    grid-template-columns: minmax(0, 1fr) 92px;
+  }
+}
+
+@media (min-width: 1024px) {
+  html[data-app-platform="android"] {
+    --android-page-bottom-reserve: 0px;
+  }
+
+  [data-app-platform="android"] .settings-page > .settings-mobile-navigation {
+    display: none;
+  }
+}

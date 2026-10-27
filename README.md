@@ -182,10 +182,16 @@ baas-tauri/
 | [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | Desktop, WebUI and documentation development. |
 | [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development. |
 
-Android runtime work is on hold. Game startup and native preview still have
-unresolved blackouts and stalls; this work has not passed release acceptance.
-Current changes, historical test results and remaining failures are recorded in
-the [Android handoff](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md).
+The Android implementation is also integrated into `dev`; `android-dev` remains
+available for native Android development. The latest debug candidate has scoped
+Android 12 ARM64 physical-device validation with root Shizuku: cold game startup
+through the mail flow, preview fullscreen entry/return, Activity recreation, and
+configuration ZIP round trips. Android 15 shell-mode input, the full gesture
+matrix, release builds, and overall performance gains remain unverified. These
+results do not establish general compatibility or release acceptance. See
+[goals and current status](docs/ANDROID_GOALS_AND_STATUS_20261024.md),
+[version-specific validation](docs/ANDROID_RUNTIME_VALIDATION.md), and the
+[historical Android handoff](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md).
 
 ## License
 

@@ -22,6 +22,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
+serde_json = { workspace = true }
 
 [dependencies]
 # Borrow from workspace
@@ -32,6 +33,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
+base64 = "0.22.1"
 
 # Main App Specified Packages
 tauri-plugin-opener = "2"
@@ -53,9 +55,6 @@ url = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }
-base64 = "0.22.1"
-jni = "0.21.1"
-openh264 = "0.9.8"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
 minisign-verify = "0.2.4"
 rand = "0.8.5"

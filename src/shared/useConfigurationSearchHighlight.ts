@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import { findSettingsSearchMatches } from "./SettingsSearch";
 import { settingsSearchClipBounds, type SettingsSearchClip } from "./SettingsSearchClipping";
+import { clipToSearchViewport, searchViewportBounds } from "./SearchViewport";
 import { resolveConfigurationSearchTab } from "./ConfigurationSections";
 import { useAppTranslation } from "./useAppTranslation";
 import "./settings-search.css";
@@ -66,9 +67,18 @@ export function useConfigurationSearchHighlight(
         ? input
         : null;
     };
+    const viewportBounds = () =>
+      searchViewportBounds(
+        view.innerWidth,
+        view.innerHeight,
+        __WITH_ANDROID__ ? view.visualViewport : null
+      );
     const clipBounds = (element: Element | null) =>
-      settingsSearchClipBounds(element, view.innerWidth, view.innerHeight, (parent) =>
-        view.getComputedStyle(parent)
+      clipToSearchViewport(
+        settingsSearchClipBounds(element, view.innerWidth, view.innerHeight, (parent) =>
+          view.getComputedStyle(parent)
+        ),
+        viewportBounds()
       );
     const intersect = (rect: DOMRect, clip: SettingsSearchClip, padding = 0) => ({
       left: Math.max(clip.left, rect.left - padding),
@@ -77,6 +87,7 @@ export function useConfigurationSearchHighlight(
       bottom: Math.min(clip.bottom, rect.bottom + padding),
     });
     const reveal = (range: Range, input: HTMLElement) => {
+      const viewport = viewportBounds();
       const scrollRegion = root.closest<HTMLElement>(".app-page-scroll, .android-page-scroll");
       for (
         let element = range.startContainer.parentElement;
@@ -89,12 +100,17 @@ export function useConfigurationSearchHighlight(
           const scaleY = element.offsetHeight ? box.height / element.offsetHeight : 1;
           const inputBottom =
             element === scrollRegion && element.contains(input)
-              ? input.getBoundingClientRect().bottom + 16
+              ? (__WITH_ANDROID__
+                  ? (input.closest(".configuration-compact-navigation") ?? input)
+                  : input
+                ).getBoundingClientRect().bottom + 16
               : 0;
-          const top = Math.max(box.top + element.clientTop * scaleY + 16, inputBottom);
-          const bottom = box.bottom - 16;
+          const contentTop = Math.max(box.top + element.clientTop * scaleY + 16, inputBottom);
+          const top = __WITH_ANDROID__ ? Math.max(contentTop, viewport.top + 16) : contentTop;
+          const bottom =
+            (__WITH_ANDROID__ ? Math.min(box.bottom, viewport.bottom) : box.bottom) - 16;
           const rect = range.getBoundingClientRect();
-          if (rect.top < top || rect.bottom > bottom) {
+          if ((!__WITH_ANDROID__ || bottom > top) && (rect.top < top || rect.bottom > bottom)) {
             element.scrollTop +=
               (rect.top - top - Math.min(96, Math.max(0, bottom - top) * 0.25)) / scaleY;
           }
@@ -171,6 +187,17 @@ export function useConfigurationSearchHighlight(
       overlay = document.createElement("div");
       overlay.className = "settings-search-overlays configuration-search-overlays";
       overlay.setAttribute("aria-hidden", "true");
+      const viewport = viewportBounds();
+      if (__WITH_ANDROID__) {
+        overlay.setAttribute("data-native-preview-blocker", "");
+        Object.assign(overlay.style, {
+          inset: "auto",
+          left: `${viewport.left}px`,
+          top: `${viewport.top}px`,
+          width: `${viewport.right - viewport.left}px`,
+          height: `${viewport.bottom - viewport.top}px`,
+        });
+      }
       overlay.dataset.activeIndex = String(activeIndex);
       overlay.dataset.matchCount = String(matchCount);
       overlay.dataset.activeSection = section;
@@ -198,8 +225,8 @@ export function useConfigurationSearchHighlight(
         if (box.right <= box.left || box.bottom <= box.top) continue;
         mask.appendChild(
           svgRect({
-            x: String(box.left),
-            y: String(box.top),
+            x: String(box.left - viewport.left),
+            y: String(box.top - viewport.top),
             width: String(box.right - box.left),
             height: String(box.bottom - box.top),
             rx: element === target ? "9" : "22",
@@ -227,8 +254,8 @@ export function useConfigurationSearchHighlight(
             const mark = document.createElement("span");
             if (range === active) mark.className = "settings-search-active";
             Object.assign(mark.style, {
-              left: `${box.left}px`,
-              top: `${box.top}px`,
+              left: `${box.left - viewport.left}px`,
+              top: `${box.top - viewport.top}px`,
               width: `${box.right - box.left}px`,
               height: `${box.bottom - box.top}px`,
             });
@@ -241,6 +268,11 @@ export function useConfigurationSearchHighlight(
     const schedule = () => {
       if (!frame && !disposed) frame = view.requestAnimationFrame(paint);
     };
+    const viewportChanged = () => {
+      lastScrollKey = "";
+      schedule();
+    };
+    const visualViewport = __WITH_ANDROID__ ? view.visualViewport : null;
     const syncFocus = () => {
       if (!focusedSearch()) {
         if (frame) view.cancelAnimationFrame(frame);
@@ -291,6 +323,8 @@ export function useConfigurationSearchHighlight(
     view.addEventListener("blur", blurWindow);
     view.addEventListener("focus", focusWindow);
     view.addEventListener("resize", schedule);
+    visualViewport?.addEventListener("resize", viewportChanged);
+    visualViewport?.addEventListener("scroll", viewportChanged);
     schedule();
     return () => {
       disposed = true;
@@ -303,6 +337,8 @@ export function useConfigurationSearchHighlight(
       view.removeEventListener("blur", blurWindow);
       view.removeEventListener("focus", focusWindow);
       view.removeEventListener("resize", schedule);
+      visualViewport?.removeEventListener("resize", viewportChanged);
+      visualViewport?.removeEventListener("scroll", viewportChanged);
       if (frame) view.cancelAnimationFrame(frame);
       clear();
     };
