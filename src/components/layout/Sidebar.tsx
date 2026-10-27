@@ -183,7 +183,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const navItems: Array<{ id: PageKey; label: string; compactLabel?: string }> = [
     { id: "home", label: t("nav.home") },
     { id: "scheduler", label: t("nav.scheduler"), compactLabel: t("nav.mobileScheduler") },
-    { id: "configuration", label: t("nav.configuration"), compactLabel: t("nav.mobileConfiguration") },
+    {
+      id: "configuration",
+      label: t("nav.configuration"),
+      compactLabel: t("nav.mobileConfiguration"),
+    },
+    { id: "plugins", label: t("nav.plugins"), compactLabel: t("nav.mobilePlugins") },
     { id: "settings", label: t("nav.settings"), compactLabel: t("nav.mobileSettings") },
   ];
 
@@ -591,7 +596,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       <nav
         className={`mobile-bottom-navigation fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-[var(--android-bottom-navigation-height)] pb-[env(safe-area-inset-bottom,0px)]" : "h-[70px]"}`}
       >
-        {navItems.map((item, index) => (
+        {navItems.map((item) => (
           <React.Fragment key={item.id}>
             <IconTooltip content={item.label} side="top">
               <button
@@ -605,7 +610,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                     : "text-muted-foreground/75 hover:text-foreground"
                 }`}
               >
-                <span className="mobile-navigation-icon flex h-8 w-12 items-center justify-center">
+                <span className="mobile-navigation-icon flex h-8 w-9 items-center justify-center">
                   <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
                 </span>
                 <span
@@ -615,23 +620,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                 </span>
               </button>
             </IconTooltip>
-            {__WITH_ANDROID__ && index === 1 && (
-              <button
-                type="button"
-                aria-label={primaryRunning ? t("common.stop") : t("common.start")}
-                disabled={!activeProfile}
-                onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-                className={`mobile-primary-run mx-2 grid h-14 w-14 shrink-0 -translate-y-2.5 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
-              >
-                {primaryRunning ? (
-                  <Square className="h-6 w-6 fill-current" />
-                ) : (
-                  <Play className="h-7 w-7 -translate-y-px fill-current" />
-                )}
-              </button>
-            )}
           </React.Fragment>
         ))}
+        {__WITH_ANDROID__ && (
+          <button
+            type="button"
+            aria-label={primaryRunning ? t("common.stop") : t("common.start")}
+            disabled={!activeProfile}
+            onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
+            className={`mobile-primary-run absolute -top-16 right-3 grid h-12 w-12 shrink-0 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+          >
+            {primaryRunning ? (
+              <Square className="h-6 w-6 fill-current" />
+            ) : (
+              <Play className="h-7 w-7 -translate-y-px fill-current" />
+            )}
+          </button>
+        )}
       </nav>
 
       {/* Mobile floating update buttons */}

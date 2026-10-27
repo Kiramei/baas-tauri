@@ -22,7 +22,9 @@ import HomePage from "@/pages/HomePage";
 import SchedulerPage from "@/pages/SchedulerPage";
 import ConfigurationPage from "@/pages/ConfigurationPage";
 import SettingsPage from "@/pages/SettingsPage";
+const PluginsPage = React.lazy(() => import("@/pages/PluginsPage"));
 import { normalizePageKey } from "@/shared/PageKey";
+import { PLUGIN_OPEN_EVENT } from "@/shared/Plugins";
 import { AboutBaasProvider } from "@/context/AboutBaasProvider";
 import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
 import PageActivity from "@/components/PageActivity";
@@ -91,6 +93,11 @@ const parseInstanceKey = (k: string): [PageKey, string | undefined] => {
 export const Main: React.FC = () => {
   const [selectedPage, setActivePage] = React.useState<PageKey>("home");
   const activePage = normalizePageKey(selectedPage);
+  useEffect(() => {
+    const openPlugins = () => setActivePage("plugins");
+    window.addEventListener(PLUGIN_OPEN_EVENT, openPlugins);
+    return () => window.removeEventListener(PLUGIN_OPEN_EVENT, openPlugins);
+  }, []);
   const { activeProfile, profiles, setActiveProfile } = useApp();
   const navigationHistory = useNavigationHistoryController();
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
@@ -100,8 +107,8 @@ export const Main: React.FC = () => {
   useLayoutEffect(
     () =>
       navigationHistory.attach((view) => {
-        if (view.page === "settings") {
-          setActivePage("settings");
+        if (view.page === "settings" || view.page === "plugins") {
+          setActivePage(view.page);
           return true;
         }
         const profile = profiles.find((item) => item.id === view.profileId);
@@ -115,8 +122,8 @@ export const Main: React.FC = () => {
 
   useLayoutEffect(() => {
     navigationHistory.observe(
-      activePage === "settings"
-        ? { page: "settings" }
+      activePage === "settings" || activePage === "plugins"
+        ? { page: activePage }
         : activePid
           ? { page: activePage, profileId: activePid }
           : null,
@@ -130,7 +137,7 @@ export const Main: React.FC = () => {
 
   // Track every page/profile combination that has been rendered so components keep their local state.
   React.useEffect(() => {
-    if (!activePid && activePage !== "settings") return;
+    if (!activePid && activePage !== "settings" && activePage !== "plugins") return;
     setSeenKeys((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
   }, [activePid, activePage, currentKey]);
 
@@ -145,6 +152,12 @@ export const Main: React.FC = () => {
         return <SchedulerPage profileId={pid} />;
       case "configuration":
         return <ConfigurationPage profileId={pid} setActivePage={setActivePage} />;
+      case "plugins":
+        return (
+          <Suspense fallback={null}>
+            <PluginsPage />
+          </Suspense>
+        );
       case "settings":
         return <SettingsPage />;
       default:
@@ -152,7 +165,7 @@ export const Main: React.FC = () => {
     }
   }, []);
 
-  if ((!activeProfile || !activePid) && activePage !== "settings") {
+  if ((!activeProfile || !activePid) && activePage !== "settings" && activePage !== "plugins") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
         {null}
@@ -167,7 +180,12 @@ export const Main: React.FC = () => {
       <div className="relative flex-1 min-h-0 overflow-hidden h-[calc(100%-70px)] lg:h-full">
         {renderedKeys.map((instKey) => {
           const [page, pid] = parseInstanceKey(instKey);
-          if (page !== "settings" && !profiles.some((profile) => profile.id === pid)) return null;
+          if (
+            page !== "settings" &&
+            page !== "plugins" &&
+            !profiles.some((profile) => profile.id === pid)
+          )
+            return null;
           const isActive = instKey === currentKey;
           const pageContent = renderPage(page, pid ?? activePid);
           return (
