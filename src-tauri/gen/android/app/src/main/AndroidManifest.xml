@@ -42,6 +42,17 @@
         </activity>
 
         <service
+            android:name=".PluginWorkerService0"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:process=":baas_plugin_worker0" />
+        <service
+            android:name=".PluginWorkerService1"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:process=":baas_plugin_worker1" />
+
+        <service
             android:name=".BaasForegroundService"
             android:exported="false"
             android:foregroundServiceType="specialUse"

@@ -28,6 +28,7 @@
 
 # Shizuku instantiates the user service in a separate shell-identity process.
 -keep class io.github.kiramei.baas_tauri.ShizukuShellService { *; }
+-keep class io.github.kiramei.baas_tauri.PluginWorkerBridge { *; }
 -keep class io.github.kiramei.baas_tauri.IShizukuShellService$Stub { *; }
 
 # Audited Tauri 2.11.2 compatibility contract: the app replaces launchers whose

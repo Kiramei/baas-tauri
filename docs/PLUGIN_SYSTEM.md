@@ -24,4 +24,6 @@ Keep `schema_version`, `api_version` and the package `version` distinct. Use sta
 
 External Python code executes with the backend user's operating-system privileges. Separate workers provide timeout, cancellation and failure isolation; they are not a security sandbox. Packages must be trusted before enabling, and modifying installed bytes invalidates previous trust. No dependency installer or automatic plugin update runs in v1.
 
+Android uses private native service processes for embedded Python. The bridge and lifecycle contract are documented in [Android plugin workers](ANDROID_PLUGIN_WORKERS.md).
+
 An older backend can still run the application; the Plugins page explains that the backend needs updating. On narrow screens the same five navigation entries, forms and result tables remain accessible.
