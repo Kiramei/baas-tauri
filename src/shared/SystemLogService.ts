@@ -95,9 +95,11 @@ export const recordFrontendSystemLog = (
   };
   frontendEntries.push(entry);
   if (frontendEntries.length > MAX_FRONTEND_ENTRIES) frontendEntries.shift();
-  pendingEntries.push(entry);
-  if (pendingEntries.length > MAX_PENDING_ENTRIES) pendingEntries.shift();
-  scheduleFlush();
+  if (__WITH_TAURI__) {
+    pendingEntries.push(entry);
+    if (pendingEntries.length > MAX_PENDING_ENTRIES) pendingEntries.shift();
+    scheduleFlush();
+  }
 };
 
 export const installFrontendSystemLogging = () => {
@@ -184,38 +186,40 @@ export const collectSystemLogs = async (limit = 4000): Promise<SystemLogCollecti
     );
   }
 
-  tasks.push(
-    (async () => {
-      try {
-        const response = await fetch(`${resolveHttpBase()}/system/logs?limit=${limit}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json();
-        collection.pythonFiles = Array.isArray(payload?.files) ? payload.files : [];
-        for (const entry of payload?.entries ?? []) {
-          collection.entries.push({
-            source: "python",
-            timestampMs: Date.parse(entry.timestamp || "") || 0,
-            level: normalizeLevel(entry.level || "INFO"),
-            target: entry.logger || entry.module || "python",
-            message: entry.message || "",
-            details: {
-              exception: entry.exception,
-              stack: entry.stack,
-              module: entry.module,
-              line: entry.line,
-              process: entry.process,
-              thread: entry.thread,
-            },
+  // Server diagnostic endpoints are loopback-only. WebUI exposes this tab's logs.
+  if (__WITH_TAURI__)
+    tasks.push(
+      (async () => {
+        try {
+          const response = await fetch(`${resolveHttpBase()}/system/logs?limit=${limit}`, {
+            credentials: "include",
+            cache: "no-store",
           });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const payload = await response.json();
+          collection.pythonFiles = Array.isArray(payload?.files) ? payload.files : [];
+          for (const entry of payload?.entries ?? []) {
+            collection.entries.push({
+              source: "python",
+              timestampMs: Date.parse(entry.timestamp || "") || 0,
+              level: normalizeLevel(entry.level || "INFO"),
+              target: entry.logger || entry.module || "python",
+              message: entry.message || "",
+              details: {
+                exception: entry.exception,
+                stack: entry.stack,
+                module: entry.module,
+                line: entry.line,
+                process: entry.process,
+                thread: entry.thread,
+              },
+            });
+          }
+        } catch (error) {
+          collection.errors.push(`Python: ${serializeValue(error)}`);
         }
-      } catch (error) {
-        collection.errors.push(`Python: ${serializeValue(error)}`);
-      }
-    })()
-  );
+      })()
+    );
 
   await Promise.all(tasks);
   const unique = new Map<string, SystemLogEntry>();
@@ -236,14 +240,15 @@ export const clearSystemLogs = async () => {
   if (__WITH_TAURI__) {
     tasks.push(import("@/shared/TauriInvoke").then(({ invoke }) => invoke("system_logs_clear")));
   }
-  tasks.push(
-    fetch(`${resolveHttpBase()}/system/logs/clear`, {
-      method: "POST",
-      credentials: "include",
-    }).then((response) => {
-      if (!response.ok) throw new Error(`Python log clear failed: HTTP ${response.status}`);
-    })
-  );
+  if (__WITH_TAURI__)
+    tasks.push(
+      fetch(`${resolveHttpBase()}/system/logs/clear`, {
+        method: "POST",
+        credentials: "include",
+      }).then((response) => {
+        if (!response.ok) throw new Error(`Python log clear failed: HTTP ${response.status}`);
+      })
+    );
   const results = await Promise.allSettled(tasks);
   const failures = results.filter((result) => result.status === "rejected");
   if (failures.length > 0) {

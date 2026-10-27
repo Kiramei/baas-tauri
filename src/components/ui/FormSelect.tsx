@@ -14,6 +14,7 @@ import { useGlobalSelect } from "@/components/ui/SelectGlobal.tsx";
 interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface FormSelectProps {
@@ -81,7 +82,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
         <SelectContent position="popper">
           {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
+            <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}
             </SelectItem>
           ))}

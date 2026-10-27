@@ -30,27 +30,20 @@ import {
 } from "@/shared/ServiceTransportEvents";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 
+import { resolveBackendAddress } from "@/shared/BackendAddress";
+
 let activeWebSocketBase: string | null = null;
 
-const resolveBase = () => {
-  if (activeWebSocketBase) return activeWebSocketBase;
-  if (import.meta.env.VITE_BAAS_WS_BASE) {
-    return import.meta.env.VITE_BAAS_WS_BASE as string;
-  }
-  const storedAddr = StorageUtil.get<string>("baseBackendAddr");
-  const storedPort = StorageUtil.get<number | string>("baseBackendPort");
-  if (storedAddr && storedPort) {
-    return `ws://${storedAddr}:${Number(storedPort)}`;
-  }
-  if (__WITH_ANDROID__) {
-    return "ws://127.0.0.1:8190";
-  }
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${wsProtocol}//${window.location.hostname}:8190`;
-  }
-  return "ws://127.0.0.1:8190";
-};
+const resolveBase = () =>
+  resolveBackendAddress({
+    activeBase: activeWebSocketBase,
+    configuredBase: import.meta.env.VITE_BAAS_WS_BASE as string | undefined,
+    webui: !__WITH_TAURI__ && !__WITH_ANDROID__,
+    android: __WITH_ANDROID__,
+    storedAddress: StorageUtil.get<string>("baseBackendAddr"),
+    storedPort: StorageUtil.get<number | string>("baseBackendPort"),
+    location: typeof window !== "undefined" ? window.location : undefined,
+  });
 
 export const resolveHttpBase = () => {
   const wsBase = resolveBase();

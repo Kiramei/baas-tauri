@@ -69,11 +69,31 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]["id"];
-type SettingsSectionList = readonly (typeof SETTINGS_SECTIONS)[number][];
+type SettingsSectionList = readonly {
+  readonly id: SettingsSection;
+  readonly label: TranslationKey;
+  readonly keywords: readonly TranslationKey[];
+}[];
 
 export const ANDROID_SETTINGS_SECTIONS = SETTINGS_SECTIONS.filter(
   (section) => section.id !== "shortcuts"
 );
+
+const WEBUI_HIDDEN_KEYWORDS = new Set<TranslationKey>([
+  "settings.ui.enableSystemNotifications",
+  "workflow.minimizeToTray",
+  "settings.shortcuts.global",
+  "settings.shortcuts.profileRun",
+  "transport.label",
+  "about.clientVersion",
+  "settings.ui.idleAutoUpdate",
+]);
+
+/** Browser settings retain backend diagnostics and local keyboard/appearance controls. */
+export const WEBUI_SETTINGS_SECTIONS: SettingsSectionList = SETTINGS_SECTIONS.map((section) => ({
+  ...section,
+  keywords: section.keywords.filter((key) => !WEBUI_HIDDEN_KEYWORDS.has(key)),
+}));
 
 /** Old or malformed persisted preferences safely fall back to the first section. */
 export function resolveSettingsSection(

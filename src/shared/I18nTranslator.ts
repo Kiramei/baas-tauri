@@ -1,9 +1,11 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import StorageUtil from "@/shared/StorageManager.ts";
+import englishLocale from "../../public/locales/en.json";
 
-const baseUrl = import.meta.env.BASE_URL;
+const baseUrl = import.meta.env.BASE_URL ?? "/";
 const selfKey = "$self";
+const supportedLocales = new Set(["en", "zh", "ja", "ko", "de", "ru", "fr"]);
 
 function flattenLocale(value: unknown, prefix = "", output: Record<string, string> = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return output;
@@ -47,9 +49,10 @@ export async function initI18n() {
   const lang = StorageUtil.get("uiSettings")?.["lang"] || "en";
 
   await i18n.use(initReactI18next).init({
-    lng: lang,
+    lng: "en",
     fallbackLng: "en",
-    resources: {},
+    // English ships with the application so a missing locale cannot leave raw keys.
+    resources: { en: { translation: flattenLocale(englishLocale) } },
     interpolation: { escapeValue: false },
   });
 
@@ -61,11 +64,18 @@ export async function initI18n() {
 /**
  * Load locale JSON file from /public/locales/
  */
-export async function loadLocale(lang: string) {
+export async function loadLocale(lang: string): Promise<boolean> {
+  if (!supportedLocales.has(lang)) return false;
   try {
-    const res = await fetch(`${__WITH_WEBUI__ ? baseUrl : ""}locales/${lang}.json`);
-    if (!res.ok) throw new Error(`Failed to load locale: ${lang}`);
-    const data = flattenLocale(await res.json());
+    let data: Record<string, string>;
+    if (lang === "en") {
+      data = flattenLocale(englishLocale);
+    } else {
+      const res = await fetch(`${__WITH_WEBUI__ ? baseUrl : ""}locales/${lang}.json`);
+      if (!res.ok) throw new Error(`Failed to load locale: ${lang}`);
+      data = flattenLocale(await res.json());
+      if (Object.keys(data).length === 0) throw new Error(`Empty locale: ${lang}`);
+    }
 
     // Add or overwrite translations for this language
     i18n.addResourceBundle(lang, "translation", data, true, true);
@@ -75,8 +85,10 @@ export async function loadLocale(lang: string) {
     await syncBackendLocale(lang);
 
     console.log(`[i18n] switched to ${lang}`);
+    return true;
   } catch (err) {
     console.error(`[i18n] failed to load ${lang}:`, err);
+    return false;
   }
 }
 

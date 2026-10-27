@@ -9,6 +9,8 @@ import React, {
 
 import type { UISettings } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
+import i18n from "i18next";
+import { toast } from "sonner";
 
 interface UISettingsContextType {
   uiSettings: UISettings;
@@ -88,11 +90,12 @@ const loadInitialSettings = (): UISettings => {
   return settings;
 };
 
-const createUISettingsStore = (): UISettingsStore => {
+export const createUISettingsStore = (): UISettingsStore => {
   let settings = loadInitialSettings();
   const listeners = new Set<() => void>();
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   const flush = () => {
+    if (!__WITH_TAURI__) return;
     if (persistTimer !== null) clearTimeout(persistTimer);
     persistTimer = null;
     StorageUtil.set("uiSettings", settings);
@@ -110,8 +113,14 @@ const createUISettingsStore = (): UISettingsStore => {
     set: (update) => {
       const next = typeof update === "function" ? update(settings) : update;
       if (Object.is(next, settings)) return;
+      // A large background can exceed the browser quota. Reject that entire
+      // update before publishing it so existing appearance and preferences survive.
+      if (!__WITH_TAURI__ && !StorageUtil.trySet("uiSettings", next)) {
+        toast.error(i18n.t("settings.ui.storageFailed"));
+        return;
+      }
       settings = next;
-      schedulePersist();
+      if (__WITH_TAURI__) schedulePersist();
       listeners.forEach((listener) => listener());
     },
     attach: () => window.addEventListener("pagehide", flush),

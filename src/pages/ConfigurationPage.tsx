@@ -85,7 +85,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
   const { t, language } = useAppTranslation();
   const { profiles, activeProfile } = useApp();
   const { expanded } = useWindowLayout();
-  const platform = __WITH_ANDROID__ ? "android" : "desktop";
+  const platform = __WITH_ANDROID__ ? "android" : __WITH_WEBUI__ ? "webui" : "desktop";
   const pid = profileId ?? activeProfile?.id;
   const profile = useMemo(
     () => profiles.find((item) => item.id === pid) ?? activeProfile,

@@ -107,8 +107,8 @@ const ConfigEditorModal = (props: ConfigEditorProps) => {
 
   /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
-    loadLocale(value).then(() => {
-      setUISettings((settings) => ({ ...settings, lang: value }));
+    void loadLocale(value).then((loaded) => {
+      if (loaded) setUISettings((settings) => ({ ...settings, lang: value }));
     });
   };
 

@@ -34,7 +34,11 @@ const useWorkspaceStore = create<{
 
 export function useConfigurationWorkspace(
   profileId: string | undefined,
-  platform: ConfigurationPlatform = __WITH_ANDROID__ ? "android" : "desktop"
+  platform: ConfigurationPlatform = __WITH_ANDROID__
+    ? "android"
+    : __WITH_WEBUI__
+      ? "webui"
+      : "desktop"
 ) {
   const { t } = useAppTranslation();
   const workspace = useWorkspaceStore(

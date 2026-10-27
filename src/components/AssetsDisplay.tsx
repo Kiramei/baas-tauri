@@ -195,7 +195,10 @@ const AssetsDisplay: React.FC<{ profileId: string }> = ({ profileId }) => {
             }
           >
             <div className="min-w-0">
-              <div className="mb-1.5 whitespace-nowrap text-xs leading-4 text-muted-foreground">
+              <div
+                className="mb-1.5 truncate text-xs leading-4 text-muted-foreground"
+                title={item.name}
+              >
                 {item.name}
               </div>
               <div

@@ -19,7 +19,7 @@ export type ConfigurationSection =
   | "push"
   | "other";
 
-export type ConfigurationPlatform = "desktop" | "android";
+export type ConfigurationPlatform = "desktop" | "android" | "webui";
 
 export interface ConfigurationSearchTab {
   readonly value: string;
@@ -612,11 +612,33 @@ const ANDROID_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
     : section
 );
 
+const WEBUI_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
+  "script.then",
+  "script.doNothing",
+  "script.exitBaas",
+  "script.exitEmu",
+  "script.exitBoth",
+  "script.shutdown",
+  "configurationHelp.scriptThen",
+]);
+const WEBUI_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
+  (section) => section.id !== "emulator"
+).map((section) =>
+  section.id === "script"
+    ? {
+        ...section,
+        keywords: section.keywords.filter((key) => !WEBUI_HIDDEN_SCRIPT_KEYWORDS.has(key)),
+      }
+    : section
+);
+
 /** The platform catalog is shared by navigation, search and the mounted editor list. */
 export function getConfigurationSections(
   platform: ConfigurationPlatform = "desktop"
 ): readonly ConfigurationSectionDefinition[] {
-  return platform === "android" ? ANDROID_CONFIGURATION_SECTIONS : CONFIGURATION_SECTIONS;
+  if (platform === "android") return ANDROID_CONFIGURATION_SECTIONS;
+  if (platform === "webui") return WEBUI_CONFIGURATION_SECTIONS;
+  return CONFIGURATION_SECTIONS;
 }
 
 /** Unknown, removed or platform-unavailable selections open the first supported panel. */

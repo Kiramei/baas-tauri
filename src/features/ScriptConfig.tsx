@@ -9,6 +9,8 @@ import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
+import { scriptMethodOptions } from "@/shared/ScriptMethods";
+
 interface ScriptConfigProps {
   profileId: string;
   onClose: () => void;
@@ -85,13 +87,9 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
     },
   };
   const methodOptions = (methods: unknown, selected: string) => {
-    const values = Array.isArray(methods)
-      ? methods.filter((value): value is string => typeof value === "string")
-      : [];
-    if (selected && !values.includes(selected)) values.push(selected);
-    return [...new Set(values)].map((value) => ({
-      value,
-      label: methodCopy[value]?.label ?? value,
+    return scriptMethodOptions(methods, selected, __WITH_WEBUI__).map((option) => ({
+      ...option,
+      label: methodCopy[option.value]?.label ?? option.value,
     }));
   };
 
@@ -104,19 +102,21 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
           checked={draft.autostart}
           onChange={change("autostart")}
         />
-        <ConfigurationSelect
-          label={t("script.then")}
-          description={t("configurationHelp.scriptThen")}
-          value={draft.then}
-          onChange={change("then")}
-          options={[
-            { label: t("script.doNothing"), value: "无动作" },
-            { label: t("script.exitBaas"), value: "退出 Baas" },
-            { label: t("script.exitEmu"), value: "退出 模拟器" },
-            { label: t("script.exitBoth"), value: "退出 Baas 和 模拟器" },
-            { label: t("script.shutdown"), value: "关机" },
-          ]}
-        />
+        {!__WITH_WEBUI__ && (
+          <ConfigurationSelect
+            label={t("script.then")}
+            description={t("configurationHelp.scriptThen")}
+            value={draft.then}
+            onChange={change("then")}
+            options={[
+              { label: t("script.doNothing"), value: "无动作" },
+              { label: t("script.exitBaas"), value: "退出 Baas" },
+              { label: t("script.exitEmu"), value: "退出 模拟器" },
+              { label: t("script.exitBoth"), value: "退出 Baas 和 模拟器" },
+              { label: t("script.shutdown"), value: "关机" },
+            ]}
+          />
+        )}
       </ConfigurationGroup>
       <ConfigurationGroup
         title={__WITH_ANDROID__ ? t("script.screenshotInterval") : t("script.screenshotMethod")}

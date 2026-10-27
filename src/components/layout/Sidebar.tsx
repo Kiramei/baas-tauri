@@ -72,7 +72,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
   const hasBackendUpdate =
-    Boolean(versionConfig["remote"]) && versionConfig["local"] !== versionConfig["remote"];
+    __WITH_TAURI__ &&
+    Boolean(versionConfig["remote"]) &&
+    versionConfig["local"] !== versionConfig["remote"];
   const hasTauriUpdate = Boolean(__WITH_TAURI__ && tauriVersion.updateAvailable);
   const hasAnyUpdate = hasBackendUpdate || hasTauriUpdate;
   const sidebarToggleLabel = desktopExpanded ? t("app.collapseSidebar") : t("app.expandSidebar");
@@ -372,7 +374,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         className="desktop-app-rail hidden min-h-0 flex-col items-center gap-3 py-2 lg:col-start-1 lg:row-start-1 lg:flex"
         aria-label="BAAS"
       >
-        {!customFrame && !sidebarLocked && (
+        {(__WITH_TAURI__ || __WITH_ANDROID__) && !customFrame && !sidebarLocked && (
           <IconTooltip content={sidebarToggleLabel} side="right">
             <button
               type="button"

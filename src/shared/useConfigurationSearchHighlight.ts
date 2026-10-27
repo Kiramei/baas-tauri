@@ -135,7 +135,12 @@ export function useConfigurationSearchHighlight(
       }
       if (!tabResolved) {
         tabResolved = true;
-        const tab = resolveConfigurationSearchTab(section, query, t);
+        const tab = resolveConfigurationSearchTab(
+          section,
+          query,
+          t,
+          __WITH_ANDROID__ ? "android" : __WITH_WEBUI__ ? "webui" : "desktop"
+        );
         const trigger = tab
           ? root.querySelector<HTMLButtonElement>(
               `[data-configuration-section="${section}"] [role="tab"][id$="-trigger-${tab}"]`

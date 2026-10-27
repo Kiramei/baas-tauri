@@ -26,6 +26,8 @@ import {
   type SystemLogSource,
 } from "@/shared/SystemLogService";
 import { getLogLevelColor } from "@/shared/LogPresentation";
+import { copyBrowserText } from "@/shared/BrowserClipboard";
+import { downloadBrowserFile } from "@/shared/StorageManager";
 import {
   formatSystemLogDetails as formatDetails,
   formatSystemLogEntries as formatEntries,
@@ -33,7 +35,9 @@ import {
 } from "@/shared/SystemLogFormatting";
 import "./system-logs.css";
 
-const sourceOptions: Array<"all" | SystemLogSource> = ["all", "tauri", "python", "frontend"];
+const sourceOptions: Array<"all" | SystemLogSource> = __WITH_TAURI__
+  ? ["all", "tauri", "python", "frontend"]
+  : ["all", "frontend"];
 const levelOptions: Array<"all" | SystemLogLevel> = [
   "all",
   "TRACE",
@@ -47,6 +51,9 @@ const emptyCollection = (): SystemLogCollection => ({ entries: [], pythonFiles: 
 
 export const SystemLogSettings: React.FC = () => {
   const { t } = useAppTranslation();
+  const description = __WITH_TAURI__
+    ? t("settings.systemLogs.description")
+    : t("settings.systemLogs.browserDescription");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [collection, setCollection] = useState<SystemLogCollection>(emptyCollection);
@@ -117,8 +124,9 @@ export const SystemLogSettings: React.FC = () => {
   }, [filteredEntries, followTail, open]);
 
   const copyLogs = async () => {
-    await navigator.clipboard.writeText(formatEntries(filteredEntries));
-    toast.success(t("settings.systemLogs.copied"));
+    const copied = await copyBrowserText(formatEntries(filteredEntries));
+    if (copied) toast.success(t("settings.systemLogs.copied"));
+    else toast.error(t("settings.systemLogs.copyFailed"));
   };
 
   const exportLogs = async () => {
@@ -140,12 +148,13 @@ export const SystemLogSettings: React.FC = () => {
         // Browser download remains available when a platform dialog is unavailable.
       }
     }
-    const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      downloadBrowserFile(filename, content);
+    } catch (error) {
+      toast.error(t("settings.systemLogs.exportFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   const clearLogs = async () => {
@@ -182,9 +191,7 @@ export const SystemLogSettings: React.FC = () => {
             <div className="text-sm font-semibold text-foreground">
               {t("settings.systemLogs.title")}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {t("settings.systemLogs.description")}
-            </div>
+            <div className="text-xs text-muted-foreground">{description}</div>
           </div>
         </div>
         <CButton type="button" variant="secondary" onClick={() => setOpen(true)}>
@@ -202,7 +209,11 @@ export const SystemLogSettings: React.FC = () => {
         <div className="system-logs-explorer">
           {clearConfirmationOpen && (
             <div className="system-logs-notice system-logs-notice-danger">
-              <span>{t("settings.systemLogs.clearConfirm")}</span>
+              <span>
+                {__WITH_TAURI__
+                  ? t("settings.systemLogs.clearConfirm")
+                  : t("settings.systemLogs.browserClearConfirm")}
+              </span>
               <div className="flex items-center gap-2">
                 <CButton
                   type="button"
@@ -227,13 +238,8 @@ export const SystemLogSettings: React.FC = () => {
           )}
 
           <div className="system-logs-workspace">
-            <aside
-              className="system-logs-sources"
-              aria-label={t("settings.systemLogs.source")}
-            >
-              <div className="system-logs-section-label">
-                {t("settings.systemLogs.source")}
-              </div>
+            <aside className="system-logs-sources" aria-label={t("settings.systemLogs.source")}>
+              <div className="system-logs-section-label">{t("settings.systemLogs.source")}</div>
               <div className="system-logs-source-list">
                 {sourceOptions.map((value) => (
                   <button
@@ -250,15 +256,10 @@ export const SystemLogSettings: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <div className="system-logs-source-caption">
-                {t("settings.systemLogs.description")}
-              </div>
+              <div className="system-logs-source-caption">{description}</div>
             </aside>
 
-            <section
-              className="system-logs-main"
-              aria-label={t("settings.systemLogs.title")}
-            >
+            <section className="system-logs-main" aria-label={t("settings.systemLogs.title")}>
               <div className="system-logs-toolbar">
                 <SearchInput
                   value={query}
@@ -271,8 +272,7 @@ export const SystemLogSettings: React.FC = () => {
                   onChange={(value) => setLevel(value as typeof level)}
                   options={levelOptions.map((value) => ({
                     value,
-                    label:
-                      value === "all" ? t("settings.systemLogs.allLevels") : value,
+                    label: value === "all" ? t("settings.systemLogs.allLevels") : value,
                   }))}
                   selectId="system-log-level"
                   ariaLabel={t("settings.systemLogs.level")}

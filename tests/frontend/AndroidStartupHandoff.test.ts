@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 
 test("Android retains the original animation until the actual installer commits", () => {
   const loading = readFileSync(new URL("../../src/pages/LoadingPage.tsx", import.meta.url), "utf8");
-  expect(loading).toContain('<React.Suspense fallback={null}><StartupShellHandoff><AndroidInstallStepper');
+  expect(loading).toMatch(
+    /<React\.Suspense fallback=\{null\}>\s*<StartupShellHandoff>\s*<AndroidInstallStepper/
+  );
   expect(loading).not.toContain("AndroidPrepareShell");
   expect(loading).not.toContain("正在准备应用…");
   const app = readFileSync(new URL("../../src/android/App.tsx", import.meta.url), "utf8");

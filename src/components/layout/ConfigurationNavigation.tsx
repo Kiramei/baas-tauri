@@ -66,7 +66,7 @@ export default function ConfigurationNavigation({
   onSelect,
   compact = false,
   disabled = false,
-  platform = __WITH_ANDROID__ ? "android" : "desktop",
+  platform = __WITH_ANDROID__ ? "android" : __WITH_WEBUI__ ? "webui" : "desktop",
 }: ConfigurationNavigationProps) {
   const { t } = useAppTranslation();
   const navigationId = useId();

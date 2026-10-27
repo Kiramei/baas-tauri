@@ -173,19 +173,23 @@ export default function TitlebarMenus() {
         void profiles?.import();
       },
     },
-    { id: "file-separator", separator: true },
-    {
-      id: "config-folder",
-      label: t("file.openConfigFolder"),
-      disabled: !__WITH_TAURI__ || __WITH_ANDROID__,
-      onSelect: () => {
-        void invoke("open_backend_config_folder").catch((error: unknown) => {
-          console.error("[file] failed to open config folder:", error);
-          toast.error(t("file.openConfigFolderFailed"));
-        });
-      },
-    },
   ];
+  if (__WITH_TAURI__) {
+    fileEntries.push(
+      { id: "file-separator", separator: true },
+      {
+        id: "config-folder",
+        label: t("file.openConfigFolder"),
+        disabled: __WITH_ANDROID__,
+        onSelect: () => {
+          void invoke("open_backend_config_folder").catch((error: unknown) => {
+            console.error("[file] failed to open config folder:", error);
+            toast.error(t("file.openConfigFolderFailed"));
+          });
+        },
+      }
+    );
+  }
   const editEntries: TitlebarMenuEntry[] = [
     {
       id: "undo",

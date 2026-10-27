@@ -34,6 +34,37 @@ const matches = (query: string, locale: Record<string, unknown>) =>
 const locales = [zh, en, de, fr, ja, ko, ru];
 
 describe("profile configuration navigation", () => {
+  test("WebUI keeps device configuration without advertising host window actions", () => {
+    expect(getConfigurationSections("webui").map(({ id }) => id)).not.toContain("emulator");
+    expect(resolveConfigurationSection("emulator", "webui").id).toBe("cafe");
+    for (const locale of locales) {
+      const translate = translator(locale);
+      for (const key of [
+        "script.then",
+        "script.exitEmu",
+        "script.exitBaas",
+        "script.shutdown",
+        "configurationHelp.emulatorPath",
+      ] as const) {
+        const matches = filterConfigurationSections(translate(key), translate, "webui").map(
+          ({ id }) => id
+        );
+        expect(matches).not.toContain("script");
+        expect(matches).not.toContain("emulator");
+      }
+      expect(
+        filterConfigurationSections(translate("server.adbPort"), translate, "webui").map(
+          ({ id }) => id
+        )
+      ).toContain("server");
+      expect(
+        filterConfigurationSections(translate("script.screenshotMethod"), translate, "webui").map(
+          ({ id }) => id
+        )
+      ).toContain("script");
+    }
+  });
+
   test("Android retains its original 16 panels and excludes emulator setup", () => {
     const android = getConfigurationSections("android");
     expect(android.map(({ id }) => id)).toEqual(

@@ -53,8 +53,8 @@ const PasswordInputModal: React.FC<{
 
   /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
-    loadLocale(value).then(() => {
-      setUiSettings((state) => ({ ...state, lang: value }));
+    void loadLocale(value).then((loaded) => {
+      if (loaded) setUiSettings((state) => ({ ...state, lang: value }));
     });
   };
 
