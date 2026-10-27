@@ -101,4 +101,17 @@ describe("global settings categories", () => {
       SETTINGS_SECTIONS.map(({ id }) => id)
     );
   });
+
+  test("Key login settings are searchable only where browser authentication is available", () => {
+    for (const [locale, search] of [
+      [en, "reset key"],
+      [zh, "重置 Key"],
+    ] as const) {
+      const t = translator(locale);
+      expect(
+        filterSettingsSections(search, t, WEBUI_SETTINGS_SECTIONS).map(({ id }) => id)
+      ).toEqual(["general"]);
+      expect(filterSettingsSections(search, t, SETTINGS_SECTIONS)).toHaveLength(0);
+    }
+  });
 });

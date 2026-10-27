@@ -158,6 +158,7 @@ interface WebSocketState {
   _receivedSnapshots: Record<string, boolean>;
   startAuthFlow: (backendReady?: boolean) => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
+  resetKey: (newKey: string) => Promise<void>;
   checkTauriUpdater: (notify?: boolean, visible?: boolean) => Promise<void>;
   startTauriUpdaterPolling: () => void;
   connect: (name: WsName) => Promise<void>;

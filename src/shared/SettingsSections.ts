@@ -92,7 +92,12 @@ const WEBUI_HIDDEN_KEYWORDS = new Set<TranslationKey>([
 /** Browser settings retain backend diagnostics and local keyboard/appearance controls. */
 export const WEBUI_SETTINGS_SECTIONS: SettingsSectionList = SETTINGS_SECTIONS.map((section) => ({
   ...section,
-  keywords: section.keywords.filter((key) => !WEBUI_HIDDEN_KEYWORDS.has(key)),
+  keywords: [
+    ...section.keywords.filter((key) => !WEBUI_HIDDEN_KEYWORDS.has(key)),
+    ...(section.id === "general"
+      ? (["auth.loginSettingsTitle", "auth.resetKey", "auth.passwordLabel"] as const)
+      : []),
+  ],
 }));
 
 /** Old or malformed persisted preferences safely fall back to the first section. */

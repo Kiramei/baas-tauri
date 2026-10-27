@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import CButton from "@/components/ui/CButton.tsx";
 import { loadLocale } from "@/shared/I18nTranslator.ts";
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LanguageSelect from "@/components/LanguageSelect.tsx";
+import { validateKeyInput, type KeyInputError } from "@/shared/KeyInput";
 
 const overlayCls = "fixed inset-0 flex items-center justify-center bg-black/40 p-4 z-[1100]";
 
@@ -23,7 +24,8 @@ const PasswordInputModal: React.FC<{
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [localError, setLocalError] = useState("");
+  const [localError, setLocalError] = useState<KeyInputError | null>(null);
+  const pendingRef = useRef(false);
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const setUiSettings = useSetUISettings();
 
@@ -31,7 +33,7 @@ const PasswordInputModal: React.FC<{
     if (!open) {
       setPassword("");
       setConfirmPassword("");
-      setLocalError("");
+      setLocalError(null);
     }
   }, [open]);
 
@@ -39,17 +41,28 @@ const PasswordInputModal: React.FC<{
 
   /** Handles the handle confirm interaction. */
   const handleConfirm = async () => {
-    if (!password.trim()) {
-      setLocalError("Please enter the key!");
-      return;
+    if (!serverVerified || submitting || pendingRef.current) return;
+    const validationError = validateKeyInput(password, setupMode ? confirmPassword : undefined);
+    setLocalError(validationError);
+    if (validationError) return;
+    const key = password.trim();
+    setPassword("");
+    setConfirmPassword("");
+    pendingRef.current = true;
+    try {
+      await onConfirm(key);
+    } finally {
+      pendingRef.current = false;
     }
-    if (setupMode && password !== confirmPassword) {
-      setLocalError("The two passwords do not match!");
-      return;
-    }
-    setLocalError("");
-    await onConfirm(password.trim());
   };
+
+  // Only store-owned, localized notices are safe to display verbatim.
+  const errorMessage =
+    error === t("auth.keyChanged") ||
+    error === t("auth.keyReset") ||
+    error === t("auth.keyRequired")
+      ? error
+      : t("auth.authenticationFailed");
 
   /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
@@ -107,10 +120,11 @@ const PasswordInputModal: React.FC<{
 
             <FormInput
               label={setupMode ? t("auth.newPasswordLabel") : t("auth.passwordLabel")}
+              aria-label={setupMode ? t("auth.newPasswordLabel") : t("auth.passwordLabel")}
               type="password"
               value={password}
               id="baas-key-input"
-              autoComplete="current-password"
+              autoComplete={setupMode ? "new-password" : "current-password"}
               onKeyDown={async (e) => {
                 if (e.code === "Enter") {
                   if (setupMode) return;
@@ -130,18 +144,25 @@ const PasswordInputModal: React.FC<{
             <div className="mb-4">
               <FormInput
                 label={t("auth.confirmPasswordLabel")}
+                aria-label={t("auth.confirmPasswordLabel")}
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder={t("auth.setPasswordPlaceholder")}
                 disabled={!serverVerified || submitting}
-                autoComplete="off"
+                autoComplete="new-password"
               />
             </div>
           )}
 
           {(localError || error) && (
-            <p className="mb-4 text-xs text-red-500 dark:text-red-400">{localError || error}</p>
+            <p role="alert" className="mb-4 text-xs text-red-500 dark:text-red-400">
+              {localError === "required"
+                ? t("auth.keyRequired")
+                : localError === "mismatch"
+                  ? t("auth.keyMismatch")
+                  : errorMessage}
+            </p>
           )}
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

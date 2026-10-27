@@ -144,7 +144,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
       : authPhase === "resuming"
         ? "Restoring authenticated session..."
         : authPhase === "initializing"
-          ? "Initializing system password..."
+          ? "Initializing BAAS Key..."
           : authPhase === "authenticating"
             ? "Authenticating session..."
             : message;

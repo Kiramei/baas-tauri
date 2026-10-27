@@ -13,7 +13,7 @@ docker compose -f scripts/docker/docker-compose.yml ps
 
 These commands use the published image by default. To exercise changes in this source branch, build the local image as described below and select it with `BAAS_WEBUI_IMAGE`.
 
-Open `http://127.0.0.1:8191`. On the first visit, initialize the service password. Subsequent visits use the service's remembered-session cookie or ask for the password again. No password is embedded in the image.
+Open `http://127.0.0.1:8191`. On the first visit, initialize the service Key. Subsequent visits use the service's remembered-session cookie or ask for the Key again. No login Key is embedded in the image.
 
 The Compose file stores the service checkout, profiles, authentication state and logs in `scripts/docker/app/` on the host. Keep this directory across image replacement, and back it up before updating. The UI assets and Python packages belong to the image; backend source updates alone do not update those assets or dependencies.
 
@@ -31,6 +31,21 @@ no_update = true # keep the installed backend version
 `no_update` must be a TOML boolean. The backend can generate a legacy `[General]` table beside an existing `[general]` table during startup. The launcher reads `general.no_update` first, falls back to `General.no_update` when the modern flag is absent, and defaults to updating when neither flag exists. Invalid TOML or invalid types in the selected table/flag stop startup before Git changes. Enabling the flag on an empty volume does not install a backend; an existing `main.service.py` is required. An installed checkout with this flag can start without supplying a repository URL.
 
 The image's health check requests nginx's local `/health` route, so both nginx and the backend must respond. Startup includes cloning and backend initialization; allow time for the container to become healthy. If either process exits, the container stops its sibling and exits unsuccessfully so the restart policy can recover it. `docker compose stop` forwards shutdown to both services, waits up to ten seconds, and then stops any remaining process group.
+
+## Login Key and authenticated reset
+
+The login credential is called **Key** throughout the UI. After signing in, open **Settings → General → Login / Key → Reset Key**, enter a new Key twice, and confirm. A successful reset signs out every existing session, invalidates remembered logins and requires the new Key on the next login. Profile data remains in place.
+
+Reset uses the existing encrypted, authenticated control connection. The server validates that session again before changing the Key; an unauthenticated HTTP or WebSocket request cannot reset it. The browser waits for a matching encrypted acknowledgement and does not save the plaintext Key in browser preferences or diagnostics.
+
+The backend must advertise `auth.key_reset_supported: true` in `/health`. Older backends are blocked before sending a change, because they cannot reliably confirm its outcome. Backend support is on `Kiramei/baas-dev` branch `codex/fix-webui-key-reset` (commit `b215c059`, including the acknowledgement fix). Until that change reaches the default backend branch, select it explicitly when testing this frontend branch:
+
+```sh
+BRANCH=codex/fix-webui-key-reset BAAS_WEBUI_IMAGE=baas-webui:local \
+  docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+An existing installation with `no_update = true` keeps its installed backend, so update that installation deliberately before using the new reset feature. The public health capability is informational and does not grant permission to reset a Key.
 
 ## OCR installation
 
@@ -110,7 +125,7 @@ docker inspect --format '{{.State.Health.Status}}' baas-webui-check
 curl --fail http://127.0.0.1:18191/health
 ```
 
-Verify first-password initialization, reload/session restore, profile creation and configuration save, page reload, and persistence after restarting that test container. Confirm `/system/logs` and `/android/reset-auth` return JSON 404, missing assets return 404, and the browser connects only to the frontend origin. A separate LAN-HTTP or test-hostname browser run covers clipboard behavior outside localhost's secure-context exception. Stop and remove only the named test container; retain its test volume when checking persistence or remove it explicitly after finishing.
+Verify first Key initialization, reload/session restore, profile creation and configuration save, page reload, and persistence after restarting that test container. Confirm `/system/logs` and `/android/reset-auth` return JSON 404, missing assets return 404, and the browser connects only to the frontend origin. A separate LAN-HTTP or test-hostname browser run covers clipboard behavior outside localhost's secure-context exception. Stop and remove only the named test container; retain its test volume when checking persistence or remove it explicitly after finishing.
 
 The existing Docker release workflow's stable/latest publication policy is unchanged. A local build or manual workflow run on a development branch does not imply that the registry's `latest` tag was updated.
 
@@ -118,7 +133,7 @@ The existing Docker release workflow's stable/latest publication policy is uncha
 
 The `fix/webui-mode` image was built and exercised on this Linux machine with isolated data directories and published frontend ports. These checks used the real service and browser, including OCR initialization:
 
-- Empty-directory installation, first-password setup and real OCR model self-tests.
+- Empty-directory installation, first Key setup and real OCR model self-tests.
 - Same-origin HTTP on a custom port, LAN-style insecure HTTP crypto/clipboard fallback, and HTTPS/WSS behind a TLS proxy with a Secure, HttpOnly session cookie.
 - Profile creation, ADB/capture-setting saves, browser reload, ZIP export/import, light/dark appearance and a 390-pixel viewport.
 - Container replacement preserving remembered login, three test profiles, device settings and theme; an existing installation with `no_update = true` also started without a repository argument.
@@ -126,3 +141,9 @@ The `fix/webui-mode` image was built and exercised on this Linux machine with is
 - Backend termination stopping nginx and exiting the container unsuccessfully, allowing a restart policy to recover it.
 
 The frontend test suite (288 tests), container launcher suite (24 tests), TypeScript checks and all three frontend build modes passed. Native desktop and Android functionality remain in their own build modes. The test did not start an automation task or publish an image to the registry.
+
+### Key reset validation (2026-10-28)
+
+The updated image passed an isolated browser test covering anonymous HTTP/WebSocket rejection, input validation, old-backend rejection before mutation, authenticated reset confirmation, two-session revocation, invalidation of old remembered cookies, rejection of the old Key and login with the new Key. Generated test credentials were not placed in source files; checks confirmed that plaintext Keys were absent from browser storage and service logs. The active preview installation's Key was not changed.
+
+Validation also passed 308 frontend tests, 35 backend authentication/HTTP/WebSocket tests, TypeScript, changed-file ESLint, and WebUI/desktop/Android frontend builds.
