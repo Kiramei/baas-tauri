@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-27T15:41:20.446Z",
+  "checkedAt": "2026-10-27T17:27:12.938Z",
   "cases": 8,
   "failures": 0,
   "nativeCommandsExecuted": false,
@@ -17,12 +17,12 @@
     "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
     "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
     "src/transport/factory.ts": "0e87d3e50a2c471526321acdfb04ff252ddfabd716b084aa9e527d43ef1868ba",
-    "src-tauri/src/lib.rs": "063f7497c36c8cea371e948c0fcf5ef2194f1a0f1ce32c7b2177f9675afe7dfd",
-    "src-tauri/src/commands.rs": "86216fb03f9f584ba5133baa84ee32b33dc8c0faa9249540ad21e7d6147897a9",
-    "src-tauri/src/mobile_commands.rs": "951cc15fd0a7cfdf5008c29f1a3906391abe6200c339d7861fb7369ddf30531e",
+    "src-tauri/src/lib.rs": "a22a4a9ec5479cb9601b3830e9bf51634582cf220c344babd1efff63fad14f05",
+    "src-tauri/src/commands.rs": "22513997a75aa77b2a4c8490c5786765b972c45e2b132fcd6528fca68305eff8",
+    "src-tauri/src/mobile_commands.rs": "3944b62310dc610ab3126f233bbf7a20f7485c56c55cf5e69613bc440bd06ebd",
     ".github/workflows/docs-validation.yml": "1911b1d92bce46699385046b0e2356938d427af415b68b121b9755ac7e4cb6ff",
-    "docs/content/docs/en/reference/client-api.mdx": "7c2edbd6932b2b77c80b2f26b5a53fdc6b3a549e94cbf79346b8ed0cbf82bb16",
-    "docs/content/docs/zh/reference/client-api.mdx": "4eb5db38c614d5e40eac60f0c93013a34b844d5d845e306351e425cb7eb68d1c"
+    "docs/content/docs/en/reference/client-api.mdx": "2fcad57d5f3699b271fd9f84a0e947c6bc9663125fffdac1d6db19dedb49cd1a",
+    "docs/content/docs/zh/reference/client-api.mdx": "285708560ec1330c3fb5813cf8ac9e90105faff62df8cd6171eec6e9143f6796"
   },
   "results": [
     {

@@ -56,6 +56,7 @@ snapshot.entries;
 | `tauri_client_check_update` | `{ request?: { currentVersion? } }` | 桌面更新器元数据或 Android 安装包更新元数据。 |
 | `tauri_client_download_and_install` | `{ onEvent }` | 通过 Tauri 事件通道报告下载安装过程，各平台的返回处理不同。 |
 | `updater_check_version` | `{ request: { channel? } }` | 后端本地与远端版本报告。 |
+| `updater_get_commit_history` | `{ request: { channel?, limit?, refresh? } }` | 在桌面和 Android 读取后端提交元数据。通道缺省使用当前配置，条数缺省为 100，并限制在 1–500。 |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 探测一个远端版本来源。 |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 探测多个来源，报告可能按完成顺序返回。 |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 启动更新器终端会话。 |
@@ -65,6 +66,10 @@ snapshot.entries;
 | `updater_reset_backend_auth_and_restart` | 无 | 桌面执行有破坏性的认证重置与重启；Android 当前返回 `restarted: false`、`restart_deferred: true`。 |
 
 认证重置、安装更新和取消会改变存储或运行状态，不能用于探测连接。进程归属、非原子替换与 Android 延迟重启行为见[更新器内部机制](./updater-internals)。
+
+提交历史返回的 `entries` 每条只包含 `hash`、`author`、`message`；哈希为完整的 40 位 SHA，界面缩写为六位。报告还包含 `repository`、`reference`、`current`、`source`、`stale`、`partial`、`hasMore` 和 `issue`。来源可能是 GitHub、已有本地提交、随包元数据清单或缓存；判断是否完整、是否最新时，应同时检查来源和失败标记。`refresh` 缺省为 `false`，设为 `true` 可跳过十分钟的元数据缓存。
+
+读取历史不会拉取 Git 对象、加深浅克隆或改动已安装代码。元数据缓存位于 `.git` 之外，最多保存 500 条、2 MiB，不保存补丁或历史文件内容。GitHub 元数据及本地、缓存回退不依赖 MirrorC 是否可用；该报告也不能验证 MirrorC 下载。WebUI 通过已认证的 Trigger 通道发送 `get_commit_history`，不调用此原生命令；未认证请求会被拒绝。帮助菜单中的客户端发布说明是另一种历史。
 
 ## 传输接口
 
