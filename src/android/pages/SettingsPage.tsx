@@ -4,6 +4,7 @@ import { useSettingsSearchHighlight } from "@/shared/useSettingsSearchHighlight"
 import { useSettingsSearch } from "@/shared/useSettingsSearch";
 import { FormSelect } from "@/components/ui/FormSelect";
 import { VersionOverview } from "@/components/settings/VersionOverview";
+import { CommitHistorySettings } from "@/components/settings/CommitHistory";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
 import { ANDROID_SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
@@ -1003,6 +1004,7 @@ const SettingsPage: React.FC = () => {
                         : undefined
                     }
                   />
+                  <CommitHistorySettings channel={updateChannel} />
                   <SettingsGroup title={t("update.settingsTitle")}>
                     {__WITH_TAURI__ && !__WITH_WEBUI__ && (
                       <SettingsToggle

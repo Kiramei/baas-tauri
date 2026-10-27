@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, History } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { resolveClientVersion } from "@/shared/ClientVersion";
@@ -7,6 +7,7 @@ import { openDocumentation } from "@/shared/Documentation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { formatBackendConnectionStatus } from "@/shared/BackendConnectionStatus";
 import { useBackendConnectionStatus } from "@/shared/useBackendConnectionStatus";
+import { useClientHistory } from "@/context/AboutBaasProvider";
 
 const frontendProjectUrl = "https://github.com/Kiramei/baas-tauri";
 const scriptProjectUrl = "https://github.com/pur1fying/blue_archive_auto_script";
@@ -21,6 +22,7 @@ export default function AboutBaasModal({ open, onClose }: AboutBaasModalProps) {
   const versions = useWebSocketStore((state) => state.versionStore);
   const transportMode = useWebSocketStore((state) => state.transportMode);
   const backendStatus = useBackendConnectionStatus();
+  const openHistory = useClientHistory();
 
   const clientVersion = resolveClientVersion(versions.tauri?.currentVersion);
   const commit =
@@ -96,6 +98,11 @@ export default function AboutBaasModal({ open, onClose }: AboutBaasModalProps) {
         <div className="space-y-1 border-t border-border pt-3">
           {[
             {
+              id: "client-history",
+              label: t("clientHistory.title"),
+              onOpen: openHistory,
+            },
+            {
               id: "documentation",
               label: t("help.documentation"),
               onOpen: () => {
@@ -123,7 +130,14 @@ export default function AboutBaasModal({ open, onClose }: AboutBaasModalProps) {
               className="flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-sm text-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               <span>{label}</span>
-              <ExternalLink className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              {id === "client-history" ? (
+                <History className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              ) : (
+                <ExternalLink
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              )}
             </button>
           ))}
         </div>

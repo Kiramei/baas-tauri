@@ -1,0 +1,105 @@
+.commit-history {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-height: max(
+    240px,
+    calc(var(--android-viewport-height, 100dvh) - var(--window-titlebar-height, 0px) - 180px)
+  );
+  gap: 12px;
+}
+.commit-history > :not(.commit-history-scroll, .commit-history-detail) {
+  flex-shrink: 0;
+}
+.commit-history-provenance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  overflow-wrap: anywhere;
+}
+.commit-history-scroll {
+  max-width: 100%;
+  max-height: 46vh;
+  min-height: 80px;
+  flex: 0 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.commit-history-table {
+  width: 100%;
+  min-width: 460px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.commit-history-hash {
+  width: 80px;
+}
+.commit-history-author {
+  width: 128px;
+}
+.commit-history-table th,
+.commit-history-table td {
+  height: 40px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commit-history-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--secondary);
+}
+.commit-history-table tr:last-child td {
+  border-bottom: 0;
+}
+.commit-history-table tr[data-current] {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+}
+.commit-history-message {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+.commit-history-message:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.commit-history-detail {
+  max-height: 18vh;
+  min-height: 72px;
+  flex: 0 1 auto;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  font-size: 13px;
+  user-select: text;
+}
+.commit-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .commit-history-table th,
+  .commit-history-table td {
+    height: 44px;
+  }
+  .commit-history-author {
+    width: 112px;
+  }
+}

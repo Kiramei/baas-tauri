@@ -14,6 +14,7 @@ commands.allow = [
   "tauri_client_check_update",
   "tauri_client_download_and_install",
   "updater_check_version",
+  "updater_get_commit_history",
   "updater_test_sha_method",
   "updater_test_sha_methods",
   "updater_start_workflow",

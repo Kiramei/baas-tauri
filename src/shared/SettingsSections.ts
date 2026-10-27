@@ -54,6 +54,7 @@ export const SETTINGS_SECTIONS = [
       "about.backendCommit",
       "about.clientVersion",
       "update.settingsTitle",
+      "commitHistory.title",
       "update.method",
       "update.channel",
       "update.mirrorCdk",

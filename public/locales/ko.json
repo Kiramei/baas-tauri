@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "‘{{profile}}’의 서버 ‘{{server}}’은 Android에서 지원되지 않습니다. 휴대폰에 설치된 서버용 프로필을 새로 만드세요.",
       "unsupportedGameTitle": "이 서버는 Android에서 사용할 수 없습니다"
     }
+  },
+  "clientHistory": {
+    "description": "시험판을 포함한 클라이언트의 이전 릴리스 노트입니다.",
+    "emptyNotes": "이 버전에는 릴리스 노트가 없습니다.",
+    "partial": "일부 릴리스 기록만 사용할 수 있습니다.",
+    "refresh": "새로고침",
+    "refreshing": "새로고침 중…",
+    "source": {
+      "bundled": "포함된 릴리스 노트",
+      "cache": "캐시된 릴리스 노트",
+      "current": "현재 버전의 노트만 표시",
+      "github": "GitHub Releases"
+    },
+    "title": "클라이언트 기록",
+    "unavailable": "GitHub에 연결할 수 없어 사용 가능한 노트를 표시합니다.",
+    "version": "버전"
+  },
+  "commitHistory": {
+    "author": "작성자",
+    "current": "현재 설치됨",
+    "description": "선택한 업데이트 채널의 Git 커밋 기록입니다. 메타데이터만 저장하며 이전 코드는 다운로드하지 않습니다.",
+    "empty": "사용 가능한 커밋 기록이 없습니다.",
+    "emptyMessage": "(메시지 없음)",
+    "failed": "기록을 불러올 수 없습니다. 다시 연결하거나 백엔드를 업데이트한 후 재시도하세요.",
+    "issue": {
+      "offline": "기록 데이터 소스에 연결할 수 없습니다.",
+      "rateLimited": "GitHub API 요청 한도에 도달했습니다. 나중에 다시 시도하세요.",
+      "unavailable": "현재 기록 데이터 소스를 사용할 수 없습니다."
+    },
+    "limit": "최근 커밋 500개를 표시합니다.",
+    "loading": "커밋 기록 불러오는 중…",
+    "message": "커밋 메시지",
+    "mobileHint": "메시지를 누르면 전체 내용을 볼 수 있습니다. 작은 화면에서는 표를 가로로 스와이프하세요.",
+    "more": "더 불러오기",
+    "partial": "일부 기록만 사용할 수 있습니다.",
+    "refresh": "새로고침",
+    "source": {
+      "bundle": "포함된 메타데이터",
+      "cache": "메타데이터 캐시",
+      "github": "GitHub 메타데이터",
+      "local": "로컬 Git"
+    },
+    "stale": "저장된 기록을 표시합니다. 최신 기록이 아닐 수 있습니다.",
+    "title": "스크립트 업데이트 기록",
+    "view": "기록 보기"
   }
 }

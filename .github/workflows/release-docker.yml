@@ -57,6 +57,11 @@ jobs:
       - name: Setup Bun dependencies
         uses: ./.github/actions/setup-bun-deps
 
+      - name: Refresh bundled release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Build WebUI assets
         run: bun run build:webui
 

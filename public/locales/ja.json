@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "「{{profile}}」のサーバー「{{server}}」は Android に対応していません。この端末にインストール済みのサーバー用に設定を作成してください。",
       "unsupportedGameTitle": "このサーバーは Android に非対応です"
     }
+  },
+  "clientHistory": {
+    "description": "プレリリースを含む、クライアントの過去のリリースノート。",
+    "emptyNotes": "このバージョンにはリリースノートがありません。",
+    "partial": "リリース履歴の一部のみ利用できます。",
+    "refresh": "更新",
+    "refreshing": "更新中…",
+    "source": {
+      "bundled": "同梱リリースノート",
+      "cache": "キャッシュされたリリースノート",
+      "current": "現在のバージョンのノートのみ",
+      "github": "GitHub Releases"
+    },
+    "title": "クライアント履歴",
+    "unavailable": "GitHub に接続できません。利用可能なノートを表示しています。",
+    "version": "バージョン"
+  },
+  "commitHistory": {
+    "author": "作成者",
+    "current": "インストール済み",
+    "description": "選択した更新チャンネルの Git コミット履歴です。メタデータのみ保存し、古いコードはダウンロードしません。",
+    "empty": "表示できるコミット履歴はありません。",
+    "emptyMessage": "（メッセージなし）",
+    "failed": "履歴を取得できません。再接続またはバックエンドを更新して再試行してください。",
+    "issue": {
+      "offline": "履歴の取得先に接続できません。",
+      "rateLimited": "GitHub API の制限に達しました。後でもう一度お試しください。",
+      "unavailable": "現在、履歴を取得できません。"
+    },
+    "limit": "最新 500 件のコミットを表示しています。",
+    "loading": "コミット履歴を読み込み中…",
+    "message": "コミットメッセージ",
+    "mobileHint": "メッセージをタップすると全文を表示します。小さい画面では表を横にスワイプできます。",
+    "more": "さらに読み込む",
+    "partial": "履歴の一部のみ利用できます。",
+    "refresh": "更新",
+    "source": {
+      "bundle": "同梱メタデータ",
+      "cache": "メタデータキャッシュ",
+      "github": "GitHub メタデータ",
+      "local": "ローカル Git"
+    },
+    "stale": "保存済みの履歴を表示しています。最新ではない可能性があります。",
+    "title": "スクリプト更新履歴",
+    "view": "履歴を表示"
   }
 }

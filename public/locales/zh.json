@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "配置“{{profile}}”的服务器“{{server}}”不受 Android 支持。请为手机上已安装的服务器新建配置。",
       "unsupportedGameTitle": "此服务器无法在 Android 上运行"
     }
+  },
+  "clientHistory": {
+    "description": "客户端历次发布说明，包含预发布版本。",
+    "emptyNotes": "此版本未提供发布说明。",
+    "partial": "当前仅有部分版本历史。",
+    "refresh": "刷新",
+    "refreshing": "正在刷新…",
+    "source": {
+      "bundled": "随客户端附带的发布说明",
+      "cache": "本地缓存的发布说明",
+      "current": "仅当前版本的发布说明",
+      "github": "GitHub Releases"
+    },
+    "title": "客户端历史",
+    "unavailable": "无法连接 GitHub，正在显示已有的发布说明。",
+    "version": "版本"
+  },
+  "commitHistory": {
+    "author": "作者",
+    "current": "当前安装",
+    "description": "所选脚本更新通道的 Git 提交记录。只保存提交元数据，不下载旧代码。",
+    "empty": "暂无可用的提交历史。",
+    "emptyMessage": "（无提交信息）",
+    "failed": "无法读取历史。请重新连接或更新后端后重试。",
+    "issue": {
+      "offline": "暂时无法连接历史数据源。",
+      "rateLimited": "GitHub API 请求已达限额，请稍后重试。",
+      "unavailable": "历史数据源暂时不可用。"
+    },
+    "limit": "当前显示最近 500 条提交。",
+    "loading": "正在读取提交历史…",
+    "message": "提交信息",
+    "mobileHint": "点按提交信息可查看完整内容；小屏幕可横向滑动表格。",
+    "more": "加载更多",
+    "partial": "当前仅有部分历史记录。",
+    "refresh": "刷新",
+    "source": {
+      "bundle": "随包元数据",
+      "cache": "元数据缓存",
+      "github": "GitHub 元数据",
+      "local": "本地 Git"
+    },
+    "stale": "正在显示已保存的历史，可能不是最新记录。",
+    "title": "脚本更新历史",
+    "view": "查看历史"
   }
 }

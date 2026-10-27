@@ -949,6 +949,36 @@ fn current_time_millis() -> u128 {
         .as_millis()
 }
 
+/// Reads backend commit metadata without extending the installed Git repository.
+#[tauri::command]
+pub async fn updater_get_commit_history(
+    app: AppHandle,
+    request: baas_updater::history::HistoryRequest,
+) -> Result<baas_updater::history::HistoryReport, String> {
+    let manager = ensure_default_config(&app)?;
+    let channel = request.channel.unwrap_or(manager.config.general.channel);
+    let root = manager.config.baas_root();
+    let current = (channel == manager.config.general.channel)
+        .then(|| manager.config.general.current_baas_sha.clone());
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?
+        .join("update-history");
+    tauri::async_runtime::spawn_blocking(move || {
+        baas_updater::history::get_commit_history(
+            &root,
+            &cache,
+            channel,
+            current,
+            &request,
+            baas_updater::history::fetch_github,
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())
+}
+
 /// Performs the updater check version operation.
 #[tauri::command]
 pub fn updater_check_version(

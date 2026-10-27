@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "Le serveur « {{server}} » du profil « {{profile}} » n’est pas pris en charge sur Android. Créez un profil pour un serveur installé sur ce téléphone.",
       "unsupportedGameTitle": "Ce serveur ne fonctionne pas sur Android"
     }
+  },
+  "clientHistory": {
+    "description": "Notes des versions du client, y compris les préversions.",
+    "emptyNotes": "Aucune note n’a été fournie pour cette version.",
+    "partial": "Une partie seulement de l’historique des versions est disponible.",
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation…",
+    "source": {
+      "bundled": "Notes de version incluses",
+      "cache": "Notes de version en cache",
+      "current": "Notes de la version actuelle uniquement",
+      "github": "GitHub Releases"
+    },
+    "title": "Historique du client",
+    "unavailable": "GitHub est inaccessible. Les notes disponibles sont affichées.",
+    "version": "Version"
+  },
+  "commitHistory": {
+    "author": "Auteur",
+    "current": "Version installée",
+    "description": "Commits Git du canal de mise à jour choisi. Seules les métadonnées sont conservées, sans télécharger l’ancien code.",
+    "empty": "Aucun historique de commits disponible.",
+    "emptyMessage": "(Sans message)",
+    "failed": "Historique indisponible. Reconnectez-vous ou mettez le backend à jour, puis réessayez.",
+    "issue": {
+      "offline": "La source de l’historique est inaccessible.",
+      "rateLimited": "Limite de l’API GitHub atteinte. Réessayez plus tard.",
+      "unavailable": "La source de l’historique est temporairement indisponible."
+    },
+    "limit": "Affichage des 500 derniers commits.",
+    "loading": "Chargement des commits…",
+    "message": "Message du commit",
+    "mobileHint": "Touchez un message pour le lire en entier. Sur petit écran, faites glisser le tableau horizontalement.",
+    "more": "Charger la suite",
+    "partial": "Une partie seulement de l’historique est disponible.",
+    "refresh": "Actualiser",
+    "source": {
+      "bundle": "Métadonnées incluses",
+      "cache": "Cache de métadonnées",
+      "github": "Métadonnées GitHub",
+      "local": "Git local"
+    },
+    "stale": "Historique enregistré affiché ; il peut être ancien.",
+    "title": "Historique du script",
+    "view": "Voir l’historique"
   }
 }

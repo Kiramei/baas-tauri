@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "The server “{{server}}” in “{{profile}}” is not supported on Android. Create a profile for a server installed on this phone.",
       "unsupportedGameTitle": "This server cannot run on Android"
     }
+  },
+  "clientHistory": {
+    "description": "Published client release notes, including prereleases.",
+    "emptyNotes": "No release notes were provided for this version.",
+    "partial": "Only part of the release history is available.",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "source": {
+      "bundled": "Bundled release notes",
+      "cache": "Cached release notes",
+      "current": "Current version notes only",
+      "github": "GitHub Releases"
+    },
+    "title": "Client history",
+    "unavailable": "Could not reach GitHub. Showing available release notes.",
+    "version": "Version"
+  },
+  "commitHistory": {
+    "author": "Author",
+    "current": "Currently installed",
+    "description": "Git commit history for the selected script update channel. Only commit metadata is stored; no old code is downloaded.",
+    "empty": "No commit history is available.",
+    "emptyMessage": "(No commit message)",
+    "failed": "Unable to load history. Reconnect or update the backend, then retry.",
+    "issue": {
+      "offline": "The history source is unreachable.",
+      "rateLimited": "GitHub API rate limit reached. Try again later.",
+      "unavailable": "The history source is currently unavailable."
+    },
+    "limit": "Showing the latest 500 commits.",
+    "loading": "Loading commit history…",
+    "message": "Commit message",
+    "mobileHint": "Tap a message to read it in full. Swipe the table horizontally on small screens.",
+    "more": "Load more",
+    "partial": "Only part of the history is available.",
+    "refresh": "Refresh",
+    "source": {
+      "bundle": "Bundled metadata",
+      "cache": "Metadata cache",
+      "github": "GitHub metadata",
+      "local": "Local Git"
+    },
+    "stale": "Showing saved history; it may be out of date.",
+    "title": "Script update history",
+    "view": "View history"
   }
 }

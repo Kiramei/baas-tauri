@@ -4,13 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BlueArchiveAutoScript</title>
+    <script id="baas-theme-bootstrap">
+      // This must run before stylesheets and the application bundle can paint.
+      (() => {
+        let theme = "system";
+        try {
+          const saved = localStorage.getItem("theme");
+          if (saved === "light" || saved === "dark" || saved === "system") theme = saved;
+        } catch {
+          // Restricted browser storage still permits following the system theme.
+        }
+        const root = document.documentElement;
+        const dark =
+          theme === "dark" ||
+          (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        root.classList.remove("light", "dark");
+        root.classList.add(dark ? "dark" : "light");
+        root.dataset.themePreference = theme;
+      })();
+    </script>
     <style>
+      :root {
+        color-scheme: light;
+        --baas-startup-background: #ffffff;
+        --baas-startup-foreground: #1a1c1f;
+        --baas-startup-muted: #6a6b6d;
+      }
+
+      :root.dark {
+        color-scheme: dark;
+        --baas-startup-background: #181818;
+        --baas-startup-foreground: #dfdfdf;
+        --baas-startup-muted: #999999;
+      }
+
       html,
       body,
       #root {
         height: 100%;
         margin: 0;
-        background: #fff;
+        background: var(--background, var(--baas-startup-background));
+        color: var(--foreground, var(--baas-startup-foreground));
       }
 
       #baas-startup-shell {
@@ -20,8 +54,8 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        background: var(--background, #fff);
-        color: var(--foreground, #1a1c1f);
+        background: var(--background, var(--baas-startup-background));
+        color: var(--foreground, var(--baas-startup-foreground));
         opacity: 1;
         pointer-events: none;
         transition: opacity 160ms ease-out;
@@ -74,7 +108,7 @@
       }
 
       #baas-startup-shell span {
-        color: var(--muted-foreground, #6a6b6d);
+        color: var(--muted-foreground, var(--baas-startup-muted));
         font-size: 14px;
       }
 
@@ -88,9 +122,12 @@
         }
       }
       @media (prefers-color-scheme: dark) {
-        html:not(.light),
-        html:not(.light) body {
-          background: #181818;
+        /* A safe fallback when scripts are disabled or blocked. */
+        :root:not(.light):not(.dark) {
+          color-scheme: dark;
+          --baas-startup-background: #181818;
+          --baas-startup-foreground: #dfdfdf;
+          --baas-startup-muted: #999999;
         }
       }
     </style>

@@ -8,6 +8,7 @@ import {
   SettingsSelect,
 } from "@/components/settings/SettingsControls";
 import { VersionOverview } from "@/components/settings/VersionOverview";
+import { CommitHistorySettings } from "@/components/settings/CommitHistory";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
 import {
@@ -1073,6 +1074,7 @@ const SettingsPage: React.FC = () => {
                         : undefined
                     }
                   />
+                  <CommitHistorySettings channel={updateChannel} />
                   <SettingsGroup title={t("update.settingsTitle")}>
                     {__WITH_TAURI__ && !__WITH_WEBUI__ && (
                       <SettingsToggle

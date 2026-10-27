@@ -1070,5 +1070,50 @@
       "unsupportedGameDescription": "Der Server „{{server}}“ im Profil „{{profile}}“ wird auf Android nicht unterstützt. Erstelle ein Profil für einen auf dem Handy installierten Server.",
       "unsupportedGameTitle": "Dieser Server läuft nicht auf Android"
     }
+  },
+  "clientHistory": {
+    "description": "Veröffentlichte Client-Versionshinweise einschließlich Vorabversionen.",
+    "emptyNotes": "Für diese Version gibt es keine Versionshinweise.",
+    "partial": "Nur ein Teil des Versionsverlaufs ist verfügbar.",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert…",
+    "source": {
+      "bundled": "Mitgelieferte Versionshinweise",
+      "cache": "Gespeicherte Versionshinweise",
+      "current": "Nur Hinweise zur aktuellen Version",
+      "github": "GitHub Releases"
+    },
+    "title": "Client-Verlauf",
+    "unavailable": "GitHub ist nicht erreichbar. Verfügbare Versionshinweise werden angezeigt.",
+    "version": "Version"
+  },
+  "commitHistory": {
+    "author": "Autor",
+    "current": "Aktuell installiert",
+    "description": "Git-Commits des gewählten Updatekanals. Es werden nur Metadaten gespeichert, kein alter Code heruntergeladen.",
+    "empty": "Kein Commit-Verlauf verfügbar.",
+    "emptyMessage": "(Keine Nachricht)",
+    "failed": "Verlauf nicht verfügbar. Verbindung wiederherstellen oder Backend aktualisieren und erneut versuchen.",
+    "issue": {
+      "offline": "Die Verlaufsquelle ist nicht erreichbar.",
+      "rateLimited": "GitHub-API-Limit erreicht. Später erneut versuchen.",
+      "unavailable": "Die Verlaufsquelle ist derzeit nicht verfügbar."
+    },
+    "limit": "Die letzten 500 Commits werden angezeigt.",
+    "loading": "Commit-Verlauf wird geladen…",
+    "message": "Commit-Nachricht",
+    "mobileHint": "Nachricht antippen, um sie vollständig zu lesen. Auf kleinen Bildschirmen die Tabelle horizontal wischen.",
+    "more": "Mehr laden",
+    "partial": "Nur ein Teil des Verlaufs ist verfügbar.",
+    "refresh": "Aktualisieren",
+    "source": {
+      "bundle": "Mitgelieferte Metadaten",
+      "cache": "Metadaten-Cache",
+      "github": "GitHub-Metadaten",
+      "local": "Lokales Git"
+    },
+    "stale": "Gespeicherter Verlauf; möglicherweise nicht aktuell.",
+    "title": "Skript-Updateverlauf",
+    "view": "Verlauf anzeigen"
   }
 }

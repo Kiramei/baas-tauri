@@ -2793,6 +2793,56 @@ fn fetch_android_update_metadata_with_timeout(endpoint: &str, seconds: u64) -> R
         .map_err(|error| error.to_string())
 }
 
+/// Android shares the metadata engine and supplies its existing rustls HTTP client.
+#[tauri::command]
+pub async fn updater_get_commit_history(
+    app: AppHandle,
+    request: baas_updater::history::HistoryRequest,
+) -> Result<baas_updater::history::HistoryReport, String> {
+    let root = android_storage_root(&app)?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    let configured = android_requested_channel(None, &setup_path)?;
+    let channel = request.channel.unwrap_or(configured);
+    let current = (channel == configured)
+        .then(|| read_setup_value(&setup_path, "current_baas_sha"))
+        .flatten();
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?
+        .join("update-history");
+    tauri::async_runtime::spawn_blocking(move || {
+        baas_updater::history::get_commit_history(
+            &root,
+            &cache,
+            channel,
+            current,
+            &request,
+            |url| {
+                use baas_updater::history::{HistoryHttpResponse, HistoryIssue};
+                let response = minreq::get(url)
+                    .with_header("User-Agent", "BAAS-commit-history")
+                    .with_header("Accept", "application/vnd.github+json")
+                    .with_header("X-GitHub-Api-Version", "2022-11-28")
+                    .with_timeout(8)
+                    .with_max_redirects(0)
+                    .send_lazy()
+                    .map_err(|_| HistoryIssue::Offline)?;
+                let status = response.status_code;
+                let has_more = response.headers.iter().any(|(name, value)|
+                    name.eq_ignore_ascii_case("link") && value.contains("rel=\"next\""));
+                let mut body = Vec::new();
+                response.take(2 * 1024 * 1024 + 1).read_to_end(&mut body)
+                    .map_err(|_| HistoryIssue::Offline)?;
+                if body.len() > 2 * 1024 * 1024 { return Err(HistoryIssue::Unavailable); }
+                Ok(HistoryHttpResponse { status, has_more, body })
+            },
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())
+}
+
 /// Performs the updater check version operation.
 #[tauri::command]
 pub async fn updater_check_version(

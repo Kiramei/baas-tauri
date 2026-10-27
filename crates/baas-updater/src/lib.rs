@@ -14,6 +14,7 @@ pub mod config;
 pub mod constants;
 #[cfg(not(target_os = "android"))]
 pub mod environ;
+pub mod history;
 #[cfg(not(target_os = "android"))]
 pub mod mirrorc;
 pub mod repo;
