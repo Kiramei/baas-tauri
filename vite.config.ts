@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
       port: withTauri ? 8191 : 8192,
       strictPort: true,
       watch: {
-        ignored: ["**/target/**", "**/.git/**"],
+        ignored: ["**/target/**", "**/.git/**", "**/src-tauri/gen/**"],
       },
       warmup: {
         clientFiles: [

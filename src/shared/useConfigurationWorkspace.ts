@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   filterConfigurationSections,
   resolveConfigurationSection,
+  type ConfigurationPlatform,
   type ConfigurationSection,
 } from "./ConfigurationSections";
 import { useAppTranslation } from "./useAppTranslation";
@@ -31,28 +32,33 @@ const useWorkspaceStore = create<{
   },
 }));
 
-export function useConfigurationWorkspace(profileId: string | undefined) {
+export function useConfigurationWorkspace(
+  profileId: string | undefined,
+  platform: ConfigurationPlatform = __WITH_ANDROID__ ? "android" : "desktop"
+) {
   const { t } = useAppTranslation();
   const workspace = useWorkspaceStore(
     (state) => state.profiles[profileId ?? ""] ?? EMPTY_WORKSPACE
   );
   const update = useWorkspaceStore((state) => state.update);
   const select = useCallback(
-    (selected: ConfigurationSection) => update(profileId ?? "", { selected }),
-    [profileId, update]
+    (selected: ConfigurationSection) =>
+      update(profileId ?? "", { selected: resolveConfigurationSection(selected, platform).id }),
+    [profileId, platform, update]
   );
   const search = useCallback(
     (query: string) => {
-      const matches = filterConfigurationSections(query, t);
-      const selected = matches.some(({ id }) => id === workspace.selected)
-        ? workspace.selected
-        : (matches[0]?.id ?? workspace.selected);
+      const matches = filterConfigurationSections(query, t, platform);
+      const current = resolveConfigurationSection(workspace.selected, platform).id;
+      const selected = matches.some(({ id }) => id === current)
+        ? current
+        : (matches[0]?.id ?? current);
       update(profileId ?? "", { query, selected });
     },
-    [profileId, t, update, workspace.selected]
+    [profileId, platform, t, update, workspace.selected]
   );
   return {
-    selected: resolveConfigurationSection(workspace.selected),
+    selected: resolveConfigurationSection(workspace.selected, platform),
     query: workspace.query,
     select,
     search,

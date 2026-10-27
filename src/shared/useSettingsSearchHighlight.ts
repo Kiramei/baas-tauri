@@ -7,6 +7,7 @@ import {
   settingsSearchTerms,
 } from "./SettingsSearch";
 import { settingsSearchClipBounds, type SettingsSearchClip } from "./SettingsSearchClipping";
+import { clipToSearchViewport, searchViewportBounds } from "./SearchViewport";
 import "./settings-search.css";
 
 const HIGHLIGHT_NAME = "baas-settings-search";
@@ -113,9 +114,18 @@ export function useSettingsSearchHighlight(
       }
       return matches;
     };
+    const viewportBounds = () =>
+      searchViewportBounds(
+        view.innerWidth,
+        view.innerHeight,
+        __WITH_ANDROID__ ? view.visualViewport : null
+      );
     const clipBounds = (element: Element | null) =>
-      settingsSearchClipBounds(element, view.innerWidth, view.innerHeight, (parent) =>
-        view.getComputedStyle(parent)
+      clipToSearchViewport(
+        settingsSearchClipBounds(element, view.innerWidth, view.innerHeight, (parent) =>
+          view.getComputedStyle(parent)
+        ),
+        viewportBounds()
       );
     const intersect = (rect: DOMRect, clip: SettingsSearchClip, padding = 0) => ({
       left: Math.max(clip.left, rect.left - padding),
@@ -124,6 +134,7 @@ export function useSettingsSearchHighlight(
       bottom: Math.min(clip.bottom, rect.bottom + padding),
     });
     const reveal = (range: Range, input: HTMLElement) => {
+      const viewport = viewportBounds();
       const scrollRegion = root.closest<HTMLElement>(".app-page-scroll, .android-page-scroll");
       for (
         let element = range.startContainer.parentElement;
@@ -136,12 +147,17 @@ export function useSettingsSearchHighlight(
           const scaleY = element.offsetHeight ? box.height / element.offsetHeight : 1;
           const inputBottom =
             element === scrollRegion && element.contains(input)
-              ? input.getBoundingClientRect().bottom + 16
+              ? (__WITH_ANDROID__
+                  ? (input.closest(".settings-mobile-navigation") ?? input)
+                  : input
+                ).getBoundingClientRect().bottom + 16
               : 0;
-          const top = Math.max(box.top + element.clientTop * scaleY + 16, inputBottom);
-          const bottom = box.bottom - 16;
+          const contentTop = Math.max(box.top + element.clientTop * scaleY + 16, inputBottom);
+          const top = __WITH_ANDROID__ ? Math.max(contentTop, viewport.top + 16) : contentTop;
+          const bottom =
+            (__WITH_ANDROID__ ? Math.min(box.bottom, viewport.bottom) : box.bottom) - 16;
           const rect = range.getBoundingClientRect();
-          if (rect.top < top || rect.bottom > bottom) {
+          if ((!__WITH_ANDROID__ || bottom > top) && (rect.top < top || rect.bottom > bottom)) {
             element.scrollTop +=
               (rect.top - top - Math.min(96, Math.max(0, bottom - top) * 0.25)) / scaleY;
           }
@@ -202,6 +218,17 @@ export function useSettingsSearchHighlight(
       overlay = document.createElement("div");
       overlay.className = "settings-search-overlays";
       overlay.setAttribute("aria-hidden", "true");
+      const viewport = viewportBounds();
+      if (__WITH_ANDROID__) {
+        overlay.setAttribute("data-native-preview-blocker", "");
+        Object.assign(overlay.style, {
+          inset: "auto",
+          left: `${viewport.left}px`,
+          top: `${viewport.top}px`,
+          width: `${viewport.right - viewport.left}px`,
+          height: `${viewport.bottom - viewport.top}px`,
+        });
+      }
       overlay.dataset.activeIndex = String(activeIndex);
       overlay.dataset.matchCount = String(matches.length);
       overlay.dataset.activeSection = active.section;
@@ -229,8 +256,8 @@ export function useSettingsSearchHighlight(
         if (box.right <= box.left || box.bottom <= box.top) continue;
         mask.appendChild(
           svgRect({
-            x: String(box.left),
-            y: String(box.top),
+            x: String(box.left - viewport.left),
+            y: String(box.top - viewport.top),
             width: String(box.right - box.left),
             height: String(box.bottom - box.top),
             rx: element === target ? "9" : "22",
@@ -259,8 +286,8 @@ export function useSettingsSearchHighlight(
             const mark = document.createElement("span");
             if (range === active.range) mark.className = "settings-search-active";
             Object.assign(mark.style, {
-              left: `${box.left}px`,
-              top: `${box.top}px`,
+              left: `${box.left - viewport.left}px`,
+              top: `${box.top - viewport.top}px`,
               width: `${box.right - box.left}px`,
               height: `${box.bottom - box.top}px`,
             });
@@ -273,6 +300,11 @@ export function useSettingsSearchHighlight(
     const schedule = () => {
       if (!pendingFrame && !disposed) pendingFrame = view.requestAnimationFrame(paint);
     };
+    const viewportChanged = () => {
+      lastScrollKey = "";
+      schedule();
+    };
+    const visualViewport = __WITH_ANDROID__ ? view.visualViewport : null;
     const sync = () => {
       if (!searchIsFocused()) {
         if (pendingFrame) view.cancelAnimationFrame(pendingFrame);
@@ -296,6 +328,8 @@ export function useSettingsSearchHighlight(
     resizeObserver?.observe(root);
     document.addEventListener("scroll", schedule, true);
     view.addEventListener("resize", schedule);
+    visualViewport?.addEventListener("resize", viewportChanged);
+    visualViewport?.addEventListener("scroll", viewportChanged);
     sync();
     return () => {
       disposed = true;
@@ -304,6 +338,8 @@ export function useSettingsSearchHighlight(
       resizeObserver?.disconnect();
       document.removeEventListener("scroll", schedule, true);
       view.removeEventListener("resize", schedule);
+      visualViewport?.removeEventListener("resize", viewportChanged);
+      visualViewport?.removeEventListener("scroll", viewportChanged);
       if (pendingFrame) view.cancelAnimationFrame(pendingFrame);
       clear();
     };

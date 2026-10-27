@@ -6,6 +6,7 @@
         <item name="android:navigationBarColor">@color/baas_startup_background</item>
         <item name="android:statusBarColor">@color/baas_startup_background</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>

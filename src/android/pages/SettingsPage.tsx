@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useSettingsSearchHighlight } from "@/shared/useSettingsSearchHighlight";
+import { useSettingsSearch } from "@/shared/useSettingsSearch";
+import { FormSelect } from "@/components/ui/FormSelect";
 import { VersionOverview } from "@/components/settings/VersionOverview";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
-import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
-import { SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
+import { ANDROID_SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
 import {
   SettingsToggle,
   SettingsGroup,
@@ -173,15 +174,14 @@ const SettingsPage: React.FC = () => {
   const { t, language } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
-  const section = resolveSettingsSection(uiSettings.settingsSection);
+  const section = resolveSettingsSection(uiSettings.settingsSection, ANDROID_SETTINGS_SECTIONS);
+  const { query: settingsQuery } = useSettingsSearch();
   const pageRef = useRef<HTMLDivElement>(null);
   useSettingsSearchHighlight(pageRef, section.id, language);
   useEffect(() => {
     const scrollRegion = pageRef.current?.closest<HTMLElement>(".android-page-scroll");
-    if (scrollRegion && window.matchMedia("(min-width: 1024px)").matches) {
-      scrollRegion.scrollTop = 0;
-    }
-  }, [section.id]);
+    if (scrollRegion && !settingsQuery.trim()) scrollRegion.scrollTop = 0;
+  }, [section.id, settingsQuery]);
   const backgroundFileInputRef = useRef<HTMLInputElement | null>(null);
   const trigger = useWebSocketStore((state) => state.trigger);
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
@@ -711,9 +711,26 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div ref={pageRef} className="settings-page">
+    <div
+      ref={pageRef}
+      className={`settings-page android-settings-page${settingsQuery.trim() ? " android-settings-searching" : ""}`}
+    >
       <div className="settings-mobile-navigation lg:hidden">
         <SettingsNavigation compact />
+        <FormSelect
+          value={section.id}
+          onChange={(value) =>
+            setUiSettings((settings) => ({
+              ...settings,
+              settingsSection: resolveSettingsSection(value, ANDROID_SETTINGS_SECTIONS).id,
+            }))
+          }
+          options={ANDROID_SETTINGS_SECTIONS.map(({ id, label }) => ({
+            value: id,
+            label: t(i18nKey(label)),
+          }))}
+          ariaLabel={t("settings.categories")}
+        />
       </div>
       <input
         ref={backgroundFileInputRef}
@@ -723,7 +740,7 @@ const SettingsPage: React.FC = () => {
         onChange={handleWebBackgroundImageChange}
       />
       <div className="settings-categories">
-        {SETTINGS_SECTIONS.map((displayedSection) => (
+        {ANDROID_SETTINGS_SECTIONS.map((displayedSection) => (
           <section
             key={displayedSection.id}
             aria-labelledby={`settings-section-${displayedSection.id}-title`}
@@ -737,7 +754,6 @@ const SettingsPage: React.FC = () => {
               {t(i18nKey(displayedSection.label))}
             </h2>
             <div className="settings-sections">
-              {displayedSection.id === "shortcuts" && <ShortcutSettings />}
               {displayedSection.id === "general" && (
                 <div className="settings-sections">
                   <SettingsGroup title={t("settings.groups.preferences")}>
@@ -760,7 +776,7 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                   </SettingsGroup>
-                  {__WITH_TAURI__ && (
+                  {__WITH_TAURI__ && !__WITH_ANDROID__ && (
                     <SettingsGroup title={t("settings.groups.desktop")}>
                       {__WITH_TAURI__ && (
                         <SettingsToggle

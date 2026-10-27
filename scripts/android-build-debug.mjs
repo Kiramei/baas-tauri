@@ -327,6 +327,13 @@ function buildAndroidOpenSsl() {
     CFLAGS: targetFlag,
     PERL: "perl",
   };
+  // Native Windows make converts MSYS absolute paths back to drive paths.
+  // Git Perl then splits the drive colon as a module-path separator. Keep
+  // our compatibility modules relative to this build's working directory.
+  const perlCompatRoot = path.join(repoRoot, "target", "android-perl-compat");
+  if (process.platform === "win32" && fs.existsSync(perlCompatRoot)) {
+    env.PERL5LIB = path.relative(buildRoot, perlCompatRoot).replaceAll("\\", "/");
+  }
   run(
     "perl",
     [
@@ -605,6 +612,7 @@ run(
     `:app:assemble${target.gradle}${profileTaskName}`,
     "-x",
     `rustBuild${target.gradle}${profileTaskName}`,
+    ...(args.applicationId ? [`-PbaasAndroidApplicationId=${args.applicationId}`] : []),
   ],
   {
     cwd: androidRoot,

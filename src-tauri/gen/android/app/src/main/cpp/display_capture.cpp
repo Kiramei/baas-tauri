@@ -16,18 +16,22 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include "capture_callback_fence.h"
+#include "frame_content.h"
 
 namespace {
-struct Frame { int width, height; std::vector<uint8_t> rgba; };
+struct Frame { int width, height; std::vector<uint8_t> rgba; bool hasContent = false; };
 std::mutex mutex;
+std::mutex frameReadMutex;
 std::condition_variable changed;
+CaptureCallbackFence callbacks;
 std::array<std::shared_ptr<Frame>, 3> frames;
 std::shared_ptr<Frame> latest;
 AImageReader* reader = nullptr;
 AImage* pendingImage = nullptr;
 ANativeWindow* pendingWindow = nullptr;
 ANativeWindow* assignedWindow = nullptr; // Identity only; owned by the pending slot or renderer.
-bool windowChanged = false, running = false, previewEnabled = false;
+bool windowChanged = false, running = false;
 std::thread renderer;
 std::atomic<int64_t> captured{0}, presented{0};
 
@@ -118,6 +122,7 @@ struct EglRenderer {
 
 void renderLoop() {
   EglRenderer egl;
+  AImage* currentImage = nullptr;
   while (true) {
     AImage* image = nullptr; ANativeWindow* window = nullptr; bool update = false;
     {
@@ -131,46 +136,78 @@ void renderLoop() {
     if (update && !egl.attach(window) && window) {
       __android_log_print(ANDROID_LOG_ERROR, "BaasNativeCapture", "Could not attach EGL preview surface");
     }
-    if (image) { egl.draw(image); AImage_delete(image); }
+    if (image) {
+      if (currentImage) AImage_delete(currentImage);
+      currentImage = image;
+    }
+    // Retain one acquired image so a new preview surface can show a static game
+    // immediately, without waiting for the producer to submit another frame.
+    if (currentImage && (image || update)) egl.draw(currentImage);
   }
+  if (currentImage) AImage_delete(currentImage);
 }
 
 void available(void*, AImageReader* source) {
-  std::lock_guard<std::mutex> lock(mutex);
-  if (!running || source != reader) return;
+  // Keep acquisition/publication ordered even if reader callbacks overlap.
+  // This lock is separate from the renderer and preview-state publication.
+  std::lock_guard<std::mutex> readLock(frameReadMutex);
+  CaptureCallbackFence::Lease callback;
+  std::shared_ptr<Frame> frame;
   AImage* image = nullptr;
-  if (AImageReader_acquireLatestImage(source, &image) != AMEDIA_OK || !image) return;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!running || source != reader) return;
+    callback = callbacks.tryAcquire();
+    if (!callback || AImageReader_acquireLatestImage(source, &image) != AMEDIA_OK || !image) return;
+    for (auto& slot : frames) {
+      // Retaining the slot reserves it while the publication lock is released.
+      // Never overwrite the published frame or a screenshot/callback in flight.
+      if (slot != latest && slot.use_count() == 1) { frame = slot; break; }
+    }
+  }
+  bool copied = false;
   AHardwareBuffer* buffer = nullptr; void* pixels = nullptr;
-  if (AImage_getHardwareBuffer(image, &buffer) == AMEDIA_OK && buffer) {
-    for (auto& frame : frames) {
-      // Readers retain their slot; never overwrite the published frame or a screenshot in flight.
-      if (frame != latest && frame.use_count() == 1 &&
-          AHardwareBuffer_lock(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &pixels) == 0) {
-        AHardwareBuffer_Desc description; AHardwareBuffer_describe(buffer, &description);
+  // Mapping and copying may wait on the producer fence. Keep the reader/image
+  // alive with the callback lease, without blocking preview publication/layout.
+  if (frame && AImage_getHardwareBuffer(image, &buffer) == AMEDIA_OK && buffer &&
+      AHardwareBuffer_lock(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &pixels) == 0) {
+    AHardwareBuffer_Desc description; AHardwareBuffer_describe(buffer, &description);
+    if (pixels && description.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM &&
+        description.width >= uint32_t(frame->width) && description.height >= uint32_t(frame->height) &&
+        description.stride >= uint32_t(frame->width)) {
         for (int row = 0; row < frame->height; ++row) {
           memcpy(frame->rgba.data() + size_t(row) * frame->width * 4,
             static_cast<uint8_t*>(pixels) + size_t(row) * description.stride * 4, size_t(frame->width) * 4);
         }
-        AHardwareBuffer_unlock(buffer, nullptr); latest = frame; captured.fetch_add(1); break;
-      }
+        copied = true;
+    }
+    AHardwareBuffer_unlock(buffer, nullptr);
+    if (copied) frame->hasContent = hasFrameContent(frame->rgba.data(), size_t(frame->width) * frame->height);
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (running && source == reader) {
+      if (copied) { latest = frame; captured.fetch_add(1); }
+      if (pendingImage) AImage_delete(pendingImage);
+      pendingImage = image; image = nullptr; changed.notify_one();
     }
   }
-  if (previewEnabled) {
-    if (pendingImage) AImage_delete(pendingImage);
-    pendingImage = image; changed.notify_one();
-  } else AImage_delete(image);
+  // A stopped session must not publish or retain its final in-flight image.
+  if (image) AImage_delete(image);
 }
 
 void stopCapture() {
   AImageReader* old;
   {
     std::lock_guard<std::mutex> lock(mutex);
-    running = false; previewEnabled = false; old = reader; reader = nullptr;
+    running = false; old = reader; reader = nullptr;
+    callbacks.close();
     assignedWindow = nullptr;
     if (pendingImage) { AImage_delete(pendingImage); pendingImage = nullptr; }
     if (pendingWindow) { ANativeWindow_release(pendingWindow); pendingWindow = nullptr; }
     changed.notify_all();
   }
+  callbacks.waitUntilIdle();
   if (renderer.joinable()) renderer.join();
   if (old) AImageReader_delete(old);
   std::lock_guard<std::mutex> lock(mutex);
@@ -194,6 +231,7 @@ Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_start(JNIEnv* env, jobje
       fail(env, "Cannot create native image reader"); return nullptr;
     }
     running = true;
+    callbacks.open();
     AImageReader_ImageListener listener{nullptr, available};
     AImageReader_setImageListener(reader, &listener);
     ANativeWindow* window = nullptr; AImageReader_getWindow(reader, &window);
@@ -213,8 +251,7 @@ Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_setPreviewSurface(JNIEnv
   if (window == assignedWindow) { if (window) ANativeWindow_release(window); return; }
   assignedWindow = window;
   if (pendingWindow) ANativeWindow_release(pendingWindow);
-  pendingWindow = window; windowChanged = true; previewEnabled = window != nullptr;
-  if (pendingImage) { AImage_delete(pendingImage); pendingImage = nullptr; }
+  pendingWindow = window; windowChanged = true;
   changed.notify_one();
 }
 
@@ -222,6 +259,12 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_frameCount(JNIEnv*, jobject) { return captured.load(); }
 extern "C" JNIEXPORT jlong JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_previewFrameCount(JNIEnv*, jobject) { return presented.load(); }
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_hasVisibleFrame(JNIEnv*, jobject) {
+  std::lock_guard<std::mutex> lock(mutex);
+  return latest && latest->hasContent;
+}
 
 extern "C" JNIEXPORT jobject JNICALL
 Java_io_github_kiramei_baas_1tauri_NativeDisplayCapture_captureBitmap(JNIEnv* env, jobject) {

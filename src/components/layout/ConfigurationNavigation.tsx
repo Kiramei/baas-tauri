@@ -23,6 +23,7 @@ import { FormSelect } from "@/components/ui/FormSelect";
 import { SearchInput } from "@/components/ui/SearchInput";
 import {
   filterConfigurationSections,
+  type ConfigurationPlatform,
   type ConfigurationSection,
 } from "@/shared/ConfigurationSections";
 import { useAppTranslation } from "@/shared/useAppTranslation";
@@ -54,6 +55,7 @@ export interface ConfigurationNavigationProps {
   onSelect: (section: ConfigurationSection) => void;
   compact?: boolean;
   disabled?: boolean;
+  platform?: ConfigurationPlatform;
 }
 
 /** Profile configuration navigation shares its selection and search between layouts. */
@@ -64,10 +66,11 @@ export default function ConfigurationNavigation({
   onSelect,
   compact = false,
   disabled = false,
+  platform = __WITH_ANDROID__ ? "android" : "desktop",
 }: ConfigurationNavigationProps) {
   const { t } = useAppTranslation();
   const navigationId = useId();
-  const sections = filterConfigurationSections(query, t);
+  const sections = filterConfigurationSections(query, t, platform);
   const selectedIsVisible = sections.some(({ id }) => id === selected);
 
   return (

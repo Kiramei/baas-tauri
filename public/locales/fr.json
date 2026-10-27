@@ -16,6 +16,9 @@
   "nav": {
     "configuration": "Config",
     "home": "Accueil",
+    "mobileConfiguration": "Config",
+    "mobileScheduler": "Tâches",
+    "mobileSettings": "Réglages",
     "scheduler": "Planificateur",
     "settings": "Paramètres"
   },
@@ -1009,5 +1012,45 @@
     "unknownRefs": "Références inconnues (conservées) : {{refs}}",
     "zoomIn": "Agrandir",
     "zoomOut": "Réduire"
+  },
+  "android": {
+    "game": {
+      "fallbackName": "Jeu",
+      "inspectFailed": "Impossible de lire les jeux installés",
+      "live": "En direct",
+      "liveDisplay": "{{game}} en direct",
+      "restartFailed": "Impossible de redémarrer le jeu",
+      "showControls": "Afficher les commandes du jeu",
+      "startBackground": "Démarrer le jeu en arrière-plan",
+      "takeoverFailed": "Impossible d’ouvrir le jeu en plein écran"
+    },
+    "start": {
+      "actionFailed": "L’action n’a pas abouti. Vérifiez le service et l’autorisation de BAAS dans Shizuku.",
+      "authorize": "Autoriser l’accès",
+      "checkAgain": "Réessayer",
+      "checkFailedDescription": "L’état de Shizuku est indisponible. Réessayez.",
+      "checkFailedTitle": "Impossible de vérifier Shizuku",
+      "cleanupFailed": "Impossible de fermer l’affichage du jeu en arrière-plan",
+      "displayClosed": "Affichage du jeu en arrière-plan fermé",
+      "displayFailed": "Impossible de lancer le jeu en arrière-plan",
+      "displayNotReady": "L’affichage du jeu n’est pas prêt",
+      "displayOpened": "Jeu lancé en arrière-plan",
+      "missingDescription": "Shizuku est nécessaire pour lancer le script. Installez Shizuku, puis revenez réessayer.",
+      "missingGameDescription": "« {{profile}} » utilise {{server}}, mais le client correspondant est absent. Installez-le ou créez un profil pour le serveur déjà installé.",
+      "missingGameTitle": "Le jeu de ce profil n’est pas installé",
+      "missingTitle": "Shizuku n’est pas installé",
+      "openShizuku": "Ouvrir Shizuku",
+      "otherProfileRunningDescription": "« {{profiles}} » est en cours. Android partage un seul affichage de jeu. Arrêtez ce profil avant de démarrer « {{profile}} ».",
+      "otherProfileRunningTitle": "Un autre profil est en cours",
+      "permissionDescription": "BAAS a besoin de Shizuku pour lancer et contrôler le jeu. Autorisez l’accès, puis appuyez à nouveau sur Démarrer.",
+      "permissionTitle": "Autorisation Shizuku requise",
+      "readyDescription": "Fermez ce message et appuyez à nouveau sur Démarrer.",
+      "readyTitle": "Shizuku est prêt",
+      "scriptFailed": "Impossible de lancer le script",
+      "stoppedDescription": "Ouvrez Shizuku et démarrez son service, puis revenez lancer le script.",
+      "stoppedTitle": "Shizuku n’est pas démarré",
+      "unsupportedGameDescription": "Le serveur « {{server}} » du profil « {{profile}} » n’est pas pris en charge sur Android. Créez un profil pour un serveur installé sur ce téléphone.",
+      "unsupportedGameTitle": "Ce serveur ne fonctionne pas sur Android"
+    }
   }
 }

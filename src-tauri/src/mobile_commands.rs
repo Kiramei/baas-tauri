@@ -1,4 +1,5 @@
 use crate::pipe_commands::BackendPipeManager;
+use crate::mobile_update_query::{QueryDeadline, QueryProbeLease, QueryProbeScope, UpdateQuery};
 use crate::system_logs::system_log;
 use baas_updater::{
     android::{
@@ -36,13 +37,13 @@ const ANDROID_BACKEND_MESSAGE: &str =
 const ANDROID_PACKAGE_NAME: &str = "io.github.kiramei.baas_tauri";
 const ANDROID_STORAGE_ROOT_MARKER: &str = "baas-android-storage-root.txt";
 const ANDROID_ADB_PRIVATE_KEY: &str = "adbkey";
-const ANDROID_HEADLESS_DISPLAY_REQUEST: &str = "headless_virtual_display.request";
-const ANDROID_SHELL_HEADLESS_DISPLAY_REQUEST: &str = "shell_virtual_display.request";
-const ANDROID_SHELL_HEADLESS_FRAME: &str = "android_shell_virtual_display.jpg";
 const ANDROID_ADBD_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const ANDROID_ADBD_AUTH_TIMEOUT: Duration = Duration::from_secs(90);
 const ANDROID_ADBD_FAST_TIMEOUT: Duration = Duration::from_secs(4);
 const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
+const ANDROID_UPDATE_QUERY_TIMEOUT: Duration = Duration::from_secs(30);
+static ANDROID_BACKEND_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android backend update check");
+static ANDROID_CLIENT_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android client update check");
 const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
     "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
@@ -58,6 +59,22 @@ impl SourceProbe for AndroidUpdateEndpointProbe {
     fn measure(&self, url: &str) -> baas_updater::UpdaterResult<Duration> {
         let started = Instant::now();
         fetch_android_update_metadata(url).map_err(baas_updater::UpdaterError::Network)?;
+        Ok(started.elapsed())
+    }
+}
+
+#[derive(Clone)]
+struct TimedAndroidUpdateEndpointProbe {
+    deadline: QueryDeadline,
+    // Clone is deliberately tracked before SourceSelector spawns each detached probe thread.
+    _lease: QueryProbeLease,
+}
+
+impl SourceProbe for TimedAndroidUpdateEndpointProbe {
+    fn measure(&self, url: &str) -> baas_updater::UpdaterResult<Duration> {
+        let started = Instant::now();
+        fetch_android_update_metadata_before(url, self.deadline)
+            .map_err(baas_updater::UpdaterError::Network)?;
         Ok(started.elapsed())
     }
 }
@@ -295,18 +312,26 @@ pub async fn android_scrcpy_virtual_display_status(
 
 /// Returns the supported Blue Archive packages installed on this Android device.
 #[tauri::command]
-pub fn android_list_games(app: AppHandle) -> Result<Value, String> {
-    let report = crate::android_backend_service::list_games(&app)?;
-    serde_json::to_value(report).map_err(|error| error.to_string())
+pub async fn android_list_games(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = crate::android_backend_service::list_games(&app)?;
+        serde_json::to_value(report).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android installed-game query worker failed: {error}"))?
 }
 
-/// Launches an allow-listed game through Android's PackageManager, without ADB.
+/// Transfers an embedded game task to the main display, or launches a game if no embedded session exists.
 #[tauri::command]
-pub fn android_launch_game(
+pub async fn android_launch_game(
     app: AppHandle,
     request: AndroidGamePackageRequest,
 ) -> Result<(), String> {
-    crate::android_backend_service::launch_game(&app, &request.package_name)
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::launch_game(&app, &request.package_name)
+    })
+    .await
+    .map_err(|error| format!("Android game launch worker failed: {error}"))?
 }
 
 /// Captures the display which currently owns the selected game window.
@@ -353,18 +378,42 @@ pub async fn android_game_native_preview(app: AppHandle, request: Value) -> Resu
     .map_err(|error| format!("Android native preview worker failed: {error}"))?
 }
 
+/// Keeps the owned game in-process while switching between embedded and manual fullscreen UI.
+#[tauri::command]
+pub async fn android_game_fullscreen(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::game_fullscreen(&app, request)
+    })
+    .await
+    .map_err(|error| format!("Android fullscreen game worker failed: {error}"))?
+}
+
+/// Releases native manual-control isolation only after an explicit new script start.
+#[tauri::command]
+pub async fn android_game_resume_automation(app: AppHandle, request: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::game_resume_automation(&app, request)
+    })
+    .await
+    .map_err(|error| format!("Android automation resume worker failed: {error}"))?
+}
+
 /// Establishes and returns the endpoint for the persistent binary H.264 stream.
 #[tauri::command]
-pub fn android_game_stream_info(
+pub async fn android_game_stream_info(
     app: AppHandle,
     request: AndroidGameStreamRequest,
 ) -> Result<Value, String> {
-    let info = crate::android_backend_service::game_stream_info(
-        &app,
-        request.fps.clamp(1, 60),
-        request.bitrate.clamp(256_000, 20_000_000),
-    )?;
-    serde_json::to_value(info).map_err(|error| error.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let info = crate::android_backend_service::game_stream_info(
+            &app,
+            request.fps.clamp(1, 60),
+            request.bitrate.clamp(256_000, 20_000_000),
+        )?;
+        serde_json::to_value(info).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android game stream query worker failed: {error}"))?
 }
 
 /// Sends a touch or swipe to the selected game's Shizuku virtual display.
@@ -388,15 +437,47 @@ pub async fn android_game_gesture(
 
 /// Reports whether Shizuku is installed, running, and authorized.
 #[tauri::command]
-pub fn android_shizuku_status(app: AppHandle) -> Result<Value, String> {
-    let status = crate::android_backend_service::shizuku_status(&app)?;
-    serde_json::to_value(status).map_err(|error| error.to_string())
+pub async fn android_shizuku_status(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let status = crate::android_backend_service::shizuku_status(&app)?;
+        serde_json::to_value(status).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku status worker failed: {error}"))?
 }
 
 /// Opens Shizuku or requests its runtime authorization.
 #[tauri::command]
-pub fn android_request_shizuku_permission(app: AppHandle) -> Result<(), String> {
-    crate::android_backend_service::request_shizuku_permission(&app)
+pub async fn android_request_shizuku_permission(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::request_shizuku_permission(&app)
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku permission worker failed: {error}"))?
+}
+
+/// Opens only the installed Shizuku app after an explicit user action.
+#[tauri::command]
+pub async fn android_open_shizuku(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::open_shizuku(&app)
+    })
+    .await
+    .map_err(|error| format!("Android Shizuku launcher worker failed: {error}"))?
+}
+
+/// Applies the app palette to Android's status and navigation bars.
+#[tauri::command]
+pub async fn android_set_system_bars(
+    app: AppHandle,
+    background_color: String,
+    dark_icons: bool,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android_backend_service::set_system_bars(&app, &background_color, dark_icons)
+    })
+    .await
+    .map_err(|error| format!("Android system bar worker failed: {error}"))?
 }
 
 fn android_cleanup_scrcpy_virtual_display_blocking(
@@ -410,28 +491,26 @@ fn android_cleanup_scrcpy_virtual_display_blocking(
     let auth_dir = android_storage_root(&app)
         .ok()
         .map(|root| root.join("config"));
-    if let Some(config_dir) = auth_dir.as_deref() {
-        let _ = fs::remove_file(config_dir.join(ANDROID_HEADLESS_DISPLAY_REQUEST));
-        let _ = fs::remove_file(config_dir.join(ANDROID_SHELL_HEADLESS_DISPLAY_REQUEST));
-        if let Some(root) = config_dir.parent() {
-            let _ = fs::remove_file(root.join("cache").join(ANDROID_SHELL_HEADLESS_FRAME));
-        }
-    }
-    thread::sleep(Duration::from_millis(500));
     let force_stop_command = android_blue_archive_force_stop_shell_command();
     if crate::android_backend_service::shizuku_status(&app)
         .map(|status| status.shizuku_granted)
         .unwrap_or(false)
     {
-        match crate::android_backend_service::stop_shizuku_display(&app) {
-            Ok(_) => log.push("Shizuku stopped the virtual display".to_string()),
-            Err(error) => failures.push(format!("Shizuku stop display: {error}")),
+        crate::android_backend_service::stop_shizuku_display(&app)?;
+        // Native Shizuku capture does not own overlay_display_devices or an ADB
+        // connection. Do not run legacy cleanup after a successful native stop.
+        if crate::android_backend_service::shizuku_status(&app)?.shizuku_display_id >= 0 {
+            return Err("The native game display is still active after stopping".to_string());
         }
-        let _ = crate::android_backend_service::shizuku_shell(&app, &force_stop_command);
-        let _ = crate::android_backend_service::shizuku_shell(
-            &app,
-            "pkill -f com.genymobile.scrcpy.Server || true",
-        );
+        if let Ok(root) = android_storage_root(&app) {
+            let path = root.join("config").join("scrcpy_display_id.txt");
+            if let Err(error) = fs::remove_file(&path) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    return Err(format!("Failed to clear native display state: {error}"));
+                }
+            }
+        }
+        return Ok(());
     }
     match adb_direct_shell_with_timeout(
         &adb_serial,
@@ -528,35 +607,6 @@ fn android_scrcpy_virtual_display_status_blocking(
     let marker_display_id = fs::read_to_string(&display_id_file)
         .ok()
         .and_then(|value| value.trim().parse::<u32>().ok());
-    let shell_headless_requested = config_dir
-        .join(ANDROID_SHELL_HEADLESS_DISPLAY_REQUEST)
-        .is_file();
-    let headless_requested = config_dir.join(ANDROID_HEADLESS_DISPLAY_REQUEST).is_file();
-
-    if shell_headless_requested && marker_display_id.is_some() {
-        return Ok(json!(AndroidScrcpyVirtualDisplayStatus {
-            active: true,
-            serial,
-            display_id: marker_display_id,
-            display_id_file,
-            setting: None,
-            mode: "shell-headless".to_string(),
-            log,
-        }));
-    }
-
-    if headless_requested && marker_display_id.is_some() {
-        return Ok(json!(AndroidScrcpyVirtualDisplayStatus {
-            active: true,
-            serial,
-            display_id: marker_display_id,
-            display_id_file,
-            setting: None,
-            mode: "native-headless".to_string(),
-            log,
-        }));
-    }
-
     let auth_dir = Some(config_dir.as_path());
     if let Ok(shizuku) = crate::android_backend_service::shizuku_status(&app) {
         if shizuku.shizuku_granted && shizuku.shizuku_display_id >= 0 {
@@ -680,7 +730,7 @@ fn prepare_scrcpy_virtual_display_with_shizuku(
     let mut log = vec!["Shizuku privileged virtual-display service connected".to_string()];
     let display_id =
         crate::android_backend_service::start_shizuku_display(app, width, height, density)?;
-    if display_id < 0 {
+    if display_id <= 0 {
         return Err("Shizuku did not return a valid virtual display id".to_string());
     }
     let display_id = u32::try_from(display_id)
@@ -767,41 +817,6 @@ fn prepare_scrcpy_virtual_display_with_adbd(
     let auth_dir = android_storage_root(app)?.join("config");
     let mut log = Vec::new();
 
-    let emulator = adb_direct_shell(
-        &serial,
-        "getprop nemud.player_package",
-        &mut log,
-        Some(&auth_dir),
-    )
-    .unwrap_or_default();
-    if emulator.to_ascii_lowercase().contains("mumu") {
-        match prepare_shell_headless_virtual_display_with_adbd(
-            app, request, &serial, &auth_dir, &mut log,
-        ) {
-            Ok(report) => return Ok(report),
-            Err(error) => {
-                log.push(format!(
-                    "trusted shell headless display unavailable, falling back: {error}"
-                ));
-                let _ = fs::remove_file(auth_dir.join(ANDROID_SHELL_HEADLESS_DISPLAY_REQUEST));
-                let _ = fs::remove_file(auth_dir.join("scrcpy_display_id.txt"));
-            }
-        }
-    }
-
-    match prepare_native_headless_virtual_display_with_adbd(
-        app, request, &serial, &auth_dir, &mut log,
-    ) {
-        Ok(report) => return Ok(report),
-        Err(error) => {
-            log.push(format!(
-                "native headless display unavailable, falling back: {error}"
-            ));
-            let _ = fs::remove_file(auth_dir.join(ANDROID_HEADLESS_DISPLAY_REQUEST));
-            let _ = fs::remove_file(auth_dir.join("scrcpy_display_id.txt"));
-        }
-    }
-
     adb_direct_shell(
         &serial,
         &format!("settings put global overlay_display_devices {width}x{height}/{density}"),
@@ -855,210 +870,6 @@ fn prepare_scrcpy_virtual_display_with_adbd(
             activity_name,
         },
         log,
-    )
-}
-
-fn prepare_shell_headless_virtual_display_with_adbd(
-    app: &AppHandle,
-    request: &AndroidScrcpyVirtualDisplayRequest,
-    serial: &str,
-    auth_dir: &Path,
-    log: &mut Vec<String>,
-) -> Result<AndroidScrcpyVirtualDisplayReport, String> {
-    let width = request.width.unwrap_or(1280);
-    let height = request.height.unwrap_or(720);
-    let density = request.density.unwrap_or(240);
-    let storage_root = android_storage_root(app)?;
-    let cache_dir = storage_root.join("cache");
-    fs::create_dir_all(auth_dir).map_err(|error| error.to_string())?;
-    fs::create_dir_all(&cache_dir).map_err(|error| error.to_string())?;
-    let display_id_file = auth_dir.join("scrcpy_display_id.txt");
-    let request_file = auth_dir.join(ANDROID_SHELL_HEADLESS_DISPLAY_REQUEST);
-    let frame_file = cache_dir.join(ANDROID_SHELL_HEADLESS_FRAME);
-
-    let _ = adb_direct_shell_with_timeout(
-        serial,
-        "settings delete global overlay_display_devices",
-        log,
-        Some(auth_dir),
-        ANDROID_ADBD_FAST_TIMEOUT,
-    );
-    let _ = fs::remove_file(&request_file);
-    thread::sleep(Duration::from_millis(500));
-    let _ = fs::remove_file(&display_id_file);
-    let _ = fs::remove_file(&frame_file);
-    let _ = fs::remove_file(auth_dir.join(ANDROID_HEADLESS_DISPLAY_REQUEST));
-    fs::write(&request_file, format!("{width},{height},{density}"))
-        .map_err(|error| format!("failed to request shell headless display: {error}"))?;
-
-    let package_probe = "for p in io.github.kiramei.baas_tauri.dev io.github.kiramei.baas_tauri; do if pm path $p >/dev/null 2>&1; then echo $p; break; fi; done";
-    let host_package = adb_direct_shell(serial, package_probe, log, Some(auth_dir))?
-        .lines()
-        .map(str::trim)
-        .find(|line| line.starts_with("io.github.kiramei.baas_tauri"))
-        .ok_or_else(|| "could not resolve the installed BAAS Android package".to_string())?
-        .to_string();
-    let apk_output = adb_direct_shell(
-        serial,
-        &format!("pm path {host_package}"),
-        log,
-        Some(auth_dir),
-    )?;
-    let apk_path = apk_output
-        .lines()
-        .find_map(|line| line.trim().strip_prefix("package:"))
-        .ok_or_else(|| format!("could not resolve APK path for {host_package}"))?;
-    let launch_command = format!(
-        "nohup setsid env CLASSPATH={apk_path} app_process / io.github.kiramei.baas_tauri.BaasShellVirtualDisplay {} {} {} {width} {height} {density} >/data/local/tmp/baas-shell-vd.log 2>&1 </dev/null &",
-        request_file.display(),
-        display_id_file.display(),
-        frame_file.display(),
-    );
-    adb_direct_shell_v2_with_timeout(
-        serial,
-        &launch_command,
-        log,
-        Some(auth_dir),
-        ANDROID_ADBD_AUTH_TIMEOUT,
-    )?;
-
-    let deadline = Instant::now() + Duration::from_secs(12);
-    let display_id = loop {
-        if let Some(display_id) = fs::read_to_string(&display_id_file)
-            .ok()
-            .and_then(|value| value.trim().parse::<u32>().ok())
-        {
-            break display_id;
-        }
-        if Instant::now() >= deadline {
-            let process_log = adb_direct_shell(
-                serial,
-                "tail -n 80 /data/local/tmp/baas-shell-vd.log",
-                log,
-                Some(auth_dir),
-            )
-            .unwrap_or_default();
-            return Err(format!(
-                "shell service did not create a trusted VirtualDisplay: {process_log}"
-            ));
-        }
-        thread::sleep(Duration::from_millis(100));
-    };
-    let display_dump = adb_direct_shell(serial, "dumpsys window displays", log, Some(auth_dir))?;
-    if !display_dump.contains(&format!("Display: mDisplayId={display_id}")) {
-        return Err(format!("trusted display id {display_id} is not registered"));
-    }
-
-    let package_name = resolve_requested_android_package_with_adbd(
-        request.package_name.as_deref(),
-        serial,
-        log,
-        auth_dir,
-    )?;
-    let activity_name = match request.activity_name.clone() {
-        Some(activity) if !activity.trim().is_empty() => activity,
-        _ => resolve_android_launcher_activity_with_adbd(serial, &package_name, log, auth_dir)?,
-    };
-    start_android_activity_on_display_with_adbd(
-        serial,
-        display_id,
-        &package_name,
-        &activity_name,
-        log,
-        auth_dir,
-    )?;
-
-    finish_android_scrcpy_virtual_display(
-        app,
-        "shell-headless",
-        serial,
-        request.config_id.as_deref(),
-        AndroidDisplayLaunch {
-            display_id,
-            package_name,
-            activity_name,
-        },
-        log.clone(),
-    )
-}
-
-fn prepare_native_headless_virtual_display_with_adbd(
-    app: &AppHandle,
-    request: &AndroidScrcpyVirtualDisplayRequest,
-    serial: &str,
-    auth_dir: &Path,
-    log: &mut Vec<String>,
-) -> Result<AndroidScrcpyVirtualDisplayReport, String> {
-    let width = request.width.unwrap_or(1280);
-    let height = request.height.unwrap_or(720);
-    let density = request.density.unwrap_or(240);
-    fs::create_dir_all(auth_dir).map_err(|error| error.to_string())?;
-    let display_id_file = auth_dir.join("scrcpy_display_id.txt");
-    let request_file = auth_dir.join(ANDROID_HEADLESS_DISPLAY_REQUEST);
-    // A stale developer overlay can remain after an interrupted run. Remove it
-    // before asking the backend process for the app-owned, invisible display.
-    let _ = adb_direct_shell_with_timeout(
-        serial,
-        "settings delete global overlay_display_devices",
-        log,
-        Some(auth_dir),
-        ANDROID_ADBD_FAST_TIMEOUT,
-    );
-    thread::sleep(Duration::from_millis(300));
-    let _ = fs::remove_file(&display_id_file);
-    fs::write(&request_file, format!("{width},{height},{density}"))
-        .map_err(|error| format!("failed to request native headless display: {error}"))?;
-
-    let deadline = Instant::now() + Duration::from_secs(6);
-    let display_id = loop {
-        if let Some(display_id) = fs::read_to_string(&display_id_file)
-            .ok()
-            .and_then(|value| value.trim().parse::<u32>().ok())
-        {
-            break display_id;
-        }
-        if Instant::now() >= deadline {
-            return Err("backend service did not create a headless VirtualDisplay".to_string());
-        }
-        thread::sleep(Duration::from_millis(100));
-    };
-    let display_dump = adb_direct_shell(serial, "dumpsys window displays", log, Some(auth_dir))?;
-    if !display_dump.contains(&format!("Display: mDisplayId={display_id}")) {
-        return Err(format!(
-            "headless display id {display_id} is not registered"
-        ));
-    }
-
-    let package_name = resolve_requested_android_package_with_adbd(
-        request.package_name.as_deref(),
-        serial,
-        log,
-        auth_dir,
-    )?;
-    let activity_name = match request.activity_name.clone() {
-        Some(activity) if !activity.trim().is_empty() => activity,
-        _ => resolve_android_launcher_activity_with_adbd(serial, &package_name, log, auth_dir)?,
-    };
-    start_android_activity_on_display_with_adbd(
-        serial,
-        display_id,
-        &package_name,
-        &activity_name,
-        log,
-        auth_dir,
-    )?;
-
-    finish_android_scrcpy_virtual_display(
-        app,
-        "native-headless",
-        serial,
-        request.config_id.as_deref(),
-        AndroidDisplayLaunch {
-            display_id,
-            package_name,
-            activity_name,
-        },
-        log.clone(),
     )
 }
 
@@ -2639,6 +2450,10 @@ pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
         "portable": true,
         "baasRootExistsNonEmpty": root.join("main.service.py").exists(),
         "platformUnsupported": false,
+        "bootstrap": fs::read_to_string(root.join("android-bootstrap-status.json"))
+            .ok().and_then(|text| serde_json::from_str::<Value>(&text).ok()),
+        "startupLog": app.path().app_cache_dir().ok()
+            .and_then(|path| fs::read_to_string(path.join("android-startup.log")).ok()).unwrap_or_default(),
         "message": ANDROID_BACKEND_MESSAGE
     }))
 }
@@ -2703,7 +2518,7 @@ pub fn updater_validate_mirrorc_cdk(request: MirrorCValidateRequest) -> Value {
 
 /// Handles the tauri client check update workflow.
 #[tauri::command]
-pub fn tauri_client_check_update(
+pub async fn tauri_client_check_update(
     app: AppHandle,
     request: TauriClientUpdateRequest,
 ) -> Result<Value, String> {
@@ -2711,6 +2526,25 @@ pub fn tauri_client_check_update(
         .current_version
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    ANDROID_CLIENT_UPDATE_QUERY
+        .run(current_version.clone(), ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
+            // Declaration order ensures probe leases drop before their scope, including unwinding.
+            let scope = QueryProbeScope::new();
+            let probe = TimedAndroidUpdateEndpointProbe {
+                deadline,
+                _lease: scope.lease(),
+            };
+            tauri_client_check_update_blocking(app, current_version, deadline, &probe)
+        })
+        .await
+}
+
+fn tauri_client_check_update_blocking(
+    app: AppHandle,
+    current_version: String,
+    deadline: QueryDeadline,
+    probe: &TimedAndroidUpdateEndpointProbe,
+) -> Result<Value, String> {
     let endpoints = TAURI_UPDATE_ENDPOINTS
         .iter()
         .map(|endpoint| endpoint.to_string())
@@ -2726,15 +2560,16 @@ pub fn tauri_client_check_update(
     let mut selector =
         SourceSelector::load(Some(&ranking_path), &endpoints).map_err(|error| error.message())?;
     loop {
+        deadline.remaining()?;
         let endpoint = selector
             .next_source(
                 &probes,
-                &AndroidUpdateEndpointProbe,
+                probe,
                 &baas_updater::NoopOutput,
                 "Android client update",
             )
             .map_err(|error| error.message())?;
-        match fetch_android_update_metadata(&endpoint) {
+        match fetch_android_update_metadata_before(&endpoint, deadline) {
             Ok(update) => {
                 let remote_version = normalize_version(
                     update
@@ -2927,10 +2762,25 @@ fn verify_android_update_signature(bytes: &[u8], encoded_signature: &str) -> Res
 
 /// Handles the fetch android update metadata workflow.
 fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
+    fetch_android_update_metadata_with_timeout(endpoint, 15)
+}
+
+fn fetch_android_update_metadata_before(
+    endpoint: &str,
+    deadline: QueryDeadline,
+) -> Result<Value, String> {
+    // minreq's timeout uses whole seconds. Round up, never start a request after the deadline,
+    // and retain the existing 15-second per-source cap. This is not a hard git2 cancellation.
+    let remaining = deadline.remaining()?;
+    let seconds = remaining.as_secs() + u64::from(remaining.subsec_nanos() != 0);
+    fetch_android_update_metadata_with_timeout(endpoint, seconds.clamp(1, 15))
+}
+
+fn fetch_android_update_metadata_with_timeout(endpoint: &str, seconds: u64) -> Result<Value, String> {
     let response = minreq::get(endpoint)
         .with_header("cache-control", "no-cache")
         .with_header("accept", "application/json")
-        .with_timeout(15)
+        .with_timeout(seconds)
         .send()
         .map_err(|error| error.to_string())?;
     if !(200..300).contains(&response.status_code) {
@@ -2945,9 +2795,22 @@ fn fetch_android_update_metadata(endpoint: &str) -> Result<Value, String> {
 
 /// Performs the updater check version operation.
 #[tauri::command]
-pub fn updater_check_version(
+pub async fn updater_check_version(
     app: AppHandle,
     request: UpdaterVersionCheckRequest,
+) -> Result<Value, String> {
+    let key = request.channel.as_deref().unwrap_or_default().trim().to_string();
+    ANDROID_BACKEND_UPDATE_QUERY
+        .run(key, ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
+            updater_check_version_blocking(app, request, deadline)
+        })
+        .await
+}
+
+fn updater_check_version_blocking(
+    app: AppHandle,
+    request: UpdaterVersionCheckRequest,
+    deadline: QueryDeadline,
 ) -> Result<Value, String> {
     system_log(
         "DEBUG",
@@ -2966,7 +2829,7 @@ pub fn updater_check_version(
     let preferred_method = normalize_android_sha_method(
         &read_setup_value(&setup_path, "get_remote_sha_method").unwrap_or_default(),
     );
-    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method)?;
+    let (method, remote) = android_first_remote_sha(&root, channel, &preferred_method, deadline)?;
     Ok(json!({
         "local": local,
         "remote": remote,
@@ -3075,19 +2938,23 @@ pub fn updater_start_workflow(
 
 /// Performs the updater reset backend auth and restart operation.
 #[tauri::command]
-pub fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
+pub async fn updater_reset_backend_auth_and_restart(app: tauri::AppHandle) -> Result<Value, String> {
     system_log(
         "WARNING",
         "backend_auth",
         "Android backend authentication reset requested",
     );
-    let _ = ensure_android_backend_service(&app)?;
-    Ok(json!({
-        "base_backend_addr": "127.0.0.1",
-        "base_backend_port": 8190,
-        "restarted": false,
-        "restart_deferred": true
-    }))
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = ensure_android_backend_service(&app)?;
+        Ok(json!({
+            "base_backend_addr": "127.0.0.1",
+            "base_backend_port": 8190,
+            "restarted": false,
+            "restart_deferred": true
+        }))
+    })
+    .await
+    .map_err(|error| format!("Android backend service startup worker failed: {error}"))?
 }
 
 /// Starts the Android backend and configures its selected local transport.
@@ -3100,8 +2967,13 @@ pub async fn backend_transport_start(
     if mode != "websocket" && mode != "pipe" {
         return Err(format!("Unsupported Android backend transport: {mode}"));
     }
-    persist_android_transport(&app, &mode)?;
-    let service = ensure_android_backend_service(&app)?;
+    let worker_mode = mode.clone();
+    let service = tauri::async_runtime::spawn_blocking(move || {
+        persist_android_transport(&app, &worker_mode)?;
+        ensure_android_backend_service(&app)
+    })
+    .await
+    .map_err(|error| format!("Android backend transport startup worker failed: {error}"))??;
     tauri::async_runtime::spawn_blocking(wait_for_android_backend_health)
         .await
         .map_err(|error| format!("Android backend readiness task failed: {error}"))??;
@@ -3232,6 +3104,7 @@ fn android_first_remote_sha(
     root: &Path,
     channel: UpdateChannel,
     preferred_method: &str,
+    deadline: QueryDeadline,
 ) -> Result<(String, String), String> {
     let methods = android_sha_method_sources(channel);
     let mut ordered = Vec::new();
@@ -3252,6 +3125,7 @@ fn android_first_remote_sha(
         let Some((_, Some(url))) = methods.iter().find(|(name, _)| name == &method) else {
             continue;
         };
+        deadline.remaining()?;
         match android_repository_remote_sha(root, RepositoryKind::Main, channel, url) {
             Ok(sha) => return Ok((method, sha)),
             Err(error) => last_error = Some(error.message()),
@@ -3382,9 +3256,7 @@ fn android_storage_root(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    Ok(PathBuf::from(format!(
-        "/storage/emulated/0/Android/data/{ANDROID_PACKAGE_NAME}"
-    )))
+    Ok(app_data_dir.join("files").join("baas"))
 }
 
 /// Handles the android update platform workflow.

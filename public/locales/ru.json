@@ -16,6 +16,9 @@
   "nav": {
     "configuration": "Конфигурация",
     "home": "Главная",
+    "mobileConfiguration": "Конфиг.",
+    "mobileScheduler": "Задачи",
+    "mobileSettings": "Настройки",
     "scheduler": "Планировщик",
     "settings": "Настройки"
   },
@@ -1009,5 +1012,45 @@
     "unknownRefs": "Неизвестные ссылки на задачи (сохранены): {{refs}}",
     "zoomIn": "Увеличить",
     "zoomOut": "Уменьшить"
+  },
+  "android": {
+    "game": {
+      "fallbackName": "Игра",
+      "inspectFailed": "Не удалось прочитать список установленных игр",
+      "live": "Прямой эфир",
+      "liveDisplay": "{{game}} — прямая трансляция",
+      "restartFailed": "Не удалось перезапустить игру",
+      "showControls": "Показать управление игрой",
+      "startBackground": "Запустить игру в фоне",
+      "takeoverFailed": "Не удалось открыть полноэкранный режим игры"
+    },
+    "start": {
+      "actionFailed": "Действие не завершено. Проверьте службу и разрешение приложения в Shizuku.",
+      "authorize": "Разрешить доступ",
+      "checkAgain": "Повторить",
+      "checkFailedDescription": "Состояние Shizuku недоступно. Повторите попытку.",
+      "checkFailedTitle": "Не удалось проверить Shizuku",
+      "cleanupFailed": "Не удалось закрыть фоновый экран игры",
+      "displayClosed": "Фоновый экран игры закрыт",
+      "displayFailed": "Не удалось запустить игру в фоне",
+      "displayNotReady": "Экран игры ещё не готов",
+      "displayOpened": "Игра запущена в фоне",
+      "missingDescription": "Для запуска скрипта нужен Shizuku. Установите его, вернитесь и повторите попытку.",
+      "missingGameDescription": "Профиль «{{profile}}» использует {{server}}, но нужный клиент не установлен. Установите его или создайте профиль для уже установленного сервера.",
+      "missingGameTitle": "Игра для этого профиля не установлена",
+      "missingTitle": "Shizuku не установлен",
+      "openShizuku": "Открыть Shizuku",
+      "otherProfileRunningDescription": "Профиль «{{profiles}}» уже работает. Android использует общий экран игры. Остановите его перед запуском «{{profile}}».",
+      "otherProfileRunningTitle": "Другой профиль уже запущен",
+      "permissionDescription": "BAAS нужен доступ к Shizuku для запуска игры и управления ею. Разрешите доступ и снова нажмите «Старт».",
+      "permissionTitle": "Требуется разрешение Shizuku",
+      "readyDescription": "Закройте это сообщение и снова нажмите «Старт».",
+      "readyTitle": "Shizuku готов",
+      "scriptFailed": "Не удалось запустить скрипт",
+      "stoppedDescription": "Откройте Shizuku и запустите службу, затем вернитесь и запустите скрипт.",
+      "stoppedTitle": "Shizuku не запущен",
+      "unsupportedGameDescription": "Сервер «{{server}}» в профиле «{{profile}}» не поддерживается на Android. Создайте профиль для сервера, установленного на этом телефоне.",
+      "unsupportedGameTitle": "Этот сервер не поддерживает Android"
+    }
   }
 }

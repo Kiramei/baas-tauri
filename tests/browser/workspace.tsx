@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "../../src/components/ui/Sonner";
-import { Main as AppMain } from "../../src/App";
+import { Main as DesktopMain } from "../../src/App";
+import { Main as AndroidMain, useAndroidViewport } from "../../src/android/App";
 import { AppProvider } from "../../src/context/AppContext";
 import { AboutBaasProvider } from "../../src/context/AboutBaasProvider";
 import { ProfileActionsProvider } from "../../src/context/ProfileActionsProvider";
@@ -23,8 +24,10 @@ import type { EventConfig } from "../../src/types/event";
 import type { PageKey } from "../../src/types/app";
 import "../../src/styles/index.css";
 
-if (!import.meta.env.DEV || !__WITH_WEBUI__ || __WITH_TAURI__ || __WITH_ANDROID__)
-  throw new Error("This isolated fixture requires Vite development WebUI mode");
+if (!import.meta.env.DEV || (!__WITH_WEBUI__ && !__WITH_ANDROID__) || __WITH_TAURI__)
+  throw new Error("This isolated fixture requires a Vite development browser");
+
+const AppMain = __WITH_ANDROID__ ? AndroidMain : DesktopMain;
 
 const query = new URLSearchParams(location.search);
 const schedulerPreview = query.get("scheduler") === "1";
@@ -537,6 +540,7 @@ function navigate(page: PageKey) {
 }
 
 function Fixture() {
+  useAndroidViewport();
   const { theme, setTheme } = useTheme();
   const { setUiSettings } = useUISettings();
   const hasProfiles = useWebSocketStore((state) => Object.keys(state.configStore).length > 0);

@@ -17,7 +17,10 @@
     "configuration": "設定",
     "home": "ホーム",
     "scheduler": "スケジュール",
-    "settings": "アプリ設定"
+    "settings": "アプリ設定",
+    "mobileConfiguration": "設定",
+    "mobileScheduler": "タスク",
+    "mobileSettings": "アプリ設定"
   },
   "common": {
     "add": "追加",
@@ -1009,5 +1012,45 @@
     "unknownRefs": "不明なタスク参照（保持）：{{refs}}",
     "zoomIn": "拡大",
     "zoomOut": "縮小"
+  },
+  "android": {
+    "game": {
+      "fallbackName": "ゲーム",
+      "inspectFailed": "インストール済みゲームを読み込めません",
+      "live": "ライブ",
+      "liveDisplay": "{{game}}のライブ画面",
+      "restartFailed": "ゲームを再起動できません",
+      "showControls": "ゲーム操作を表示",
+      "startBackground": "バックグラウンドでゲームを起動",
+      "takeoverFailed": "全画面ゲームモードを開始できません"
+    },
+    "start": {
+      "actionFailed": "操作を完了できませんでした。Shizuku のサービスとアプリの権限を確認してください。",
+      "authorize": "権限を許可",
+      "checkAgain": "再試行",
+      "checkFailedDescription": "Shizuku の状態を取得できません。再試行してください。",
+      "checkFailedTitle": "Shizuku を確認できません",
+      "cleanupFailed": "バックグラウンドのゲーム画面を閉じられません",
+      "displayClosed": "バックグラウンドのゲーム画面を閉じました",
+      "displayFailed": "バックグラウンドでゲームを起動できません",
+      "displayNotReady": "ゲーム画面の準備ができていません",
+      "displayOpened": "ゲームをバックグラウンドで起動しました",
+      "missingDescription": "スクリプトの開始には Shizuku が必要です。インストール後、戻って再試行してください。",
+      "missingGameDescription": "「{{profile}}」は{{server}}の設定ですが、対応するクライアントがありません。インストールするか、インストール済みのサーバー用に設定を作成してください。",
+      "missingGameTitle": "この設定のゲームが未インストールです",
+      "missingTitle": "Shizuku が未インストールです",
+      "openShizuku": "Shizuku を開く",
+      "otherProfileRunningDescription": "「{{profiles}}」が実行中です。Android ではゲーム画面を共有するため、停止してから「{{profile}}」を開始してください。",
+      "otherProfileRunningTitle": "別の設定が実行中です",
+      "permissionDescription": "ゲームの起動と操作に Shizuku の権限が必要です。BAAS を許可し、再度開始を押してください。",
+      "permissionTitle": "Shizuku の権限が必要です",
+      "readyDescription": "この画面を閉じ、再度開始を押してください。",
+      "readyTitle": "Shizuku の準備ができました",
+      "scriptFailed": "スクリプトを開始できません",
+      "stoppedDescription": "Shizuku を開いてサービスを開始し、戻ってスクリプトを開始してください。",
+      "stoppedTitle": "Shizuku が停止しています",
+      "unsupportedGameDescription": "「{{profile}}」のサーバー「{{server}}」は Android に対応していません。この端末にインストール済みのサーバー用に設定を作成してください。",
+      "unsupportedGameTitle": "このサーバーは Android に非対応です"
+    }
   }
 }

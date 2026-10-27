@@ -29,7 +29,13 @@ android {
     namespace = "io.github.kiramei.baas_tauri"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "io.github.kiramei.baas_tauri"
+        applicationId = providers.gradleProperty("baasAndroidApplicationId")
+            .getOrElse("io.github.kiramei.baas_tauri")
+        manifestPlaceholders["baasAppLabel"] = if (applicationId == "io.github.kiramei.baas_tauri") {
+            "@string/app_name"
+        } else {
+            "BAAS Android Dev"
+        }
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
@@ -109,8 +115,6 @@ chaquopy {
             install("tomli")
             install("tomli-w")
             install("rich")
-            install("adbutils==2.2.1")
-            install("uiautomator2==2.16.23")
             install("numpy<2.0")
             install("Pillow")
         }

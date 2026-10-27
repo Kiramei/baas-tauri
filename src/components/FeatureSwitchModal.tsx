@@ -38,7 +38,7 @@ const FeatureSwitchModal: React.FC<FeatureSwitchModalProps> = ({
 
   return (
     <Modal isOpen={true} onClose={onClose} title={t("scheduler.detailConfig")} width={80}>
-      <div className="space-y-2">
+      <div className="scheduler-task-editor space-y-2">
         {/* Event name (read-only) */}
         <FormInput
           label={t("scheduler.eventName")}

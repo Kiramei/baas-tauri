@@ -5,6 +5,7 @@ import { useUISetting, useSetUISettings } from "@/context/UISettingsProvider";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { i18nKey } from "@/shared/I18nKeys";
 import {
+  ANDROID_SETTINGS_SECTIONS,
   SETTINGS_SECTIONS,
   filterSettingsSections,
   resolveSettingsSection,
@@ -21,18 +22,22 @@ const sectionIcons = {
   logs: ScrollText,
 };
 
+const availableSections = __WITH_ANDROID__ ? ANDROID_SETTINGS_SECTIONS : SETTINGS_SECTIONS;
+
 /** Global settings navigation, independent of the active game profile. */
 export default function SettingsNavigation({ compact = false }: { compact?: boolean }) {
   const { t } = useAppTranslation();
-  const section = useUISetting((settings) => resolveSettingsSection(settings.settingsSection).id);
+  const section = useUISetting(
+    (settings) => resolveSettingsSection(settings.settingsSection, availableSections).id
+  );
   const setUiSettings = useSetUISettings();
   const { query, activeIndex, matchCount, matchedSections, resultsQuery } = useSettingsSearch();
   const searchSource = useId();
   const searchRef = useRef<HTMLInputElement>(null);
   const hasResults = query.trim().length > 0 && resultsQuery === query;
   const sections = hasResults
-    ? SETTINGS_SECTIONS.filter(({ id }) => matchedSections.includes(id))
-    : filterSettingsSections(query, t);
+    ? availableSections.filter(({ id }) => matchedSections.includes(id))
+    : filterSettingsSections(query, t, availableSections);
 
   useEffect(() => {
     const blur = () => settingsSearchStore.blur(searchSource);

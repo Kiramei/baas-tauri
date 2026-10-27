@@ -189,7 +189,7 @@ object BaasLocalDeviceServer {
           throw IllegalStateException("The Shizuku virtual display has not produced a frame yet")
         }
         "click" -> requireGesture(
-          ShizukuController.gesture(context, params.getInt(0), params.getInt(1), params.getInt(0), params.getInt(1), 1)
+          ShizukuController.gesture(context, params.getInt(0), params.getInt(1), params.getInt(0), params.getInt(1), 50)
         )
         "swipe" -> requireGesture(
           ShizukuController.gesture(
@@ -202,6 +202,9 @@ object BaasLocalDeviceServer {
           )
         )
         "pressKey" -> executeKey(context, keyCodeFor(params.optString(0)))
+        "pinchIn", "pinchOut" -> requireGesture(
+          ShizukuController.pinch(context, method == "pinchIn", params.optInt(0, 50), (params.optInt(1, 30) * 5).coerceIn(1, 10_000))
+        )
         "pressKeyCode" -> executeKey(context, params.getInt(0))
         "wakeUp" -> executeKey(context, 224)
         "sleep" -> executeKey(context, 223)
@@ -224,7 +227,7 @@ object BaasLocalDeviceServer {
     val size = ShizukuController.virtualDisplaySize(context)
     val (captured, presented) = ShizukuController.nativeFrameCounts(context)
     return JSONObject()
-      .put("currentPackageName", ShizukuController.currentGamePackage(context))
+      .put("currentPackageName", ShizukuController.topGamePackage(context))
       .put("displayWidth", size[0])
       .put("displayHeight", size[1])
       .put("display", JSONObject().put("width", size[0]).put("height", size[1]))

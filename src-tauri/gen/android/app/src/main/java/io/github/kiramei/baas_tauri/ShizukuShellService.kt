@@ -14,6 +14,8 @@ import android.os.Process
 import androidx.annotation.Keep
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 /** Shell/root process which owns the virtual display, frame capture and input channel. */
 @Keep
@@ -24,7 +26,14 @@ class ShizukuShellService : IShizukuShellService.Stub {
   private var displayWidth = 0
   private var displayHeight = 0
   @Volatile private var activePackage = ""
+  private val touchSession = OwnedDisplayTouch(android.os.SystemClock::uptimeMillis, DisplayInput::touchEvent)
+  private val inputGate = ManualInputGate(touchSession::cancelStream)
+  private val manualLeases = ManualInputLeaseHost(inputGate) { check(touchSession.cancelStream()) { "Manual touch cancellation failed" } }
   private var privilegedBridge: PrivilegedDisplayBridge? = null
+  private val rootBridgeLock = Any()
+  private val placementExecutor = Executors.newSingleThreadScheduledExecutor()
+  private var placementCheck: ScheduledFuture<*>? = null
+  private var placementError: Throwable? = null
 
   constructor()
 
@@ -33,7 +42,25 @@ class ShizukuShellService : IShizukuShellService.Stub {
     this.context = context.applicationContext
   }
 
-  override fun execute(command: String): String {
+  override fun execute(command: String): String = privileged {
+    synchronized(rootBridgeLock) {
+      // Root commands retain their original root UID. The system display process
+      // owns admission/draining, not the shell subprocess's execution identity.
+      val bridge = privilegedBridge
+      val remotePermit = bridge?.request("SHELL_BEGIN")?.toLong()
+      val localPermit = if (bridge == null) checkNotNull(inputGate.shellPermit()) {
+        "The owned display cannot safely accept automation input"
+      } else null
+      try {
+        executeShell(command)
+      } finally {
+        localPermit?.close()
+        if (remotePermit != null) bridge?.request("SHELL_END $remotePermit")
+      }
+    }
+  }
+
+  private fun executeShell(command: String): String {
     val process = ProcessBuilder("sh", "-c", command).start()
     val readers = Executors.newFixedThreadPool(2)
     return try {
@@ -54,19 +81,43 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
   }
 
+  override fun disableOwnNotifications(appUid: Int) = privileged {
+    // This privileged operation is intentionally restricted to BAAS, never a
+    // caller-supplied package. Disabling at NotificationManager also clears
+    // already-posted notifications, unlike merely changing an app-op.
+    val manager = Class.forName("android.os.ServiceManager")
+      .getMethod("getService", String::class.java).invoke(null, "notification") as android.os.IBinder
+    val notifications = Class.forName("android.app.INotificationManager\$Stub")
+      .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, manager)
+    Class.forName("android.app.INotificationManager")
+      .getMethod("setNotificationsEnabledForPackage", String::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
+      .invoke(notifications, BuildConfig.APPLICATION_ID, appUid, false)
+    Unit
+  }
+
   override fun startVirtualDisplay(width: Int, height: Int, density: Int): Int = privileged {
     if (Process.myUid() == Process.ROOT_UID) {
-      val bridge = privilegedBridge ?: PrivilegedDisplayBridge.start(
-        context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
-      ).also { privilegedBridge = it }
-      return@privileged bridge.request("START $width $height $density").toInt()
+      synchronized(rootBridgeLock) {
+        val bridge = privilegedBridge ?: PrivilegedDisplayBridge.start(
+          context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
+        ).also { privilegedBridge = it }
+        return@privileged PrivilegedExecution.virtualDisplayId(
+          bridge.request("START $width $height $density").toInt()
+        )
+      }
     }
     synchronized(displayLock) {
     val safeWidth = width.coerceIn(640, 3840)
     val safeHeight = height.coerceIn(360, 2160)
     val safeDensity = density.coerceIn(120, 640)
+    virtualDisplay?.display?.displayId?.let { id ->
+      check(inputGate.canPrepare(id)) { "A manual view or automated input is still using the owned display" }
+    }
     if (virtualDisplay != null && displayWidth == safeWidth && displayHeight == safeHeight) {
-      return@synchronized virtualDisplay?.display?.displayId ?: -1
+      val id = PrivilegedExecution.virtualDisplayId(virtualDisplay?.display?.displayId ?: -1)
+      // Explicit UI preparation after a WebView/Activity restart may reuse the
+      // display. Python appStart never reaches this path and cannot reopen it.
+      return@synchronized id
     }
     stopVirtualDisplayLocked()
     val serviceContext = context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
@@ -87,23 +138,31 @@ class ShizukuShellService : IShizukuShellService.Stub {
       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
       (1 shl 6) or
       (1 shl 8)
-    val display = manager.createVirtualDisplay(
-      "BAAS Game",
-      safeWidth,
-      safeHeight,
-      safeDensity,
-      captureSurface,
-      flags,
-    ) ?: run {
+    val display = try {
+      PrivilegedExecution.createShellDisplay(flags, android.os.Build.VERSION.SDK_INT) { requestedFlags ->
+        manager.createVirtualDisplay(
+          "BAAS Game", safeWidth, safeHeight, safeDensity, captureSurface, requestedFlags,
+        ) ?: throw IllegalStateException("Android rejected the BAAS virtual display")
+      }
+    } catch (error: Throwable) {
+      runCatching { NativeDisplayCapture.stop() }
+      throw error
+    } finally {
       captureSurface.release()
-      NativeDisplayCapture.stop()
-      throw IllegalStateException("Android rejected the BAAS virtual display")
     }
-    captureSurface.release()
     virtualDisplay = display
     displayWidth = safeWidth
     displayHeight = safeHeight
-      display.display.displayId
+    touchSession.own(display.display.displayId, safeWidth, safeHeight)
+    inputGate.own(display.display.displayId)
+    try {
+      lockDisplayRotation(display.display.displayId)
+    } catch (error: Throwable) {
+      stopVirtualDisplayLocked()
+      throw error
+    }
+    android.util.Log.i("BaasGameDisplay", "Created display ${display.display.displayId}, effective flags=${display.display.flags}, uid=${Process.myUid()}")
+      PrivilegedExecution.virtualDisplayId(display.display.displayId)
     }
   }
 
@@ -117,24 +176,30 @@ class ShizukuShellService : IShizukuShellService.Stub {
     }
   }
 
-  override fun getVirtualDisplayId(): Int = synchronized(displayLock) {
-    privilegedBridge?.let { return@synchronized it.request("ID").toInt() }
-    virtualDisplay?.display?.displayId ?: -1
-  }
-
-  override fun getVirtualDisplaySize(): IntArray = synchronized(displayLock) {
-    privilegedBridge?.let {
-      val parts = it.request("SIZE").split(',')
-      return@synchronized intArrayOf(parts[0].toInt(), parts[1].toInt())
+  override fun getVirtualDisplayId(): Int = privileged {
+    synchronized(displayLock) {
+      privilegedBridge?.let { return@synchronized it.request("ID").toInt() }
+      virtualDisplay?.display?.displayId ?: -1
     }
-    intArrayOf(displayWidth.coerceAtLeast(1), displayHeight.coerceAtLeast(1))
   }
 
-  override fun captureVirtualDisplay(): ParcelFileDescriptor =
-    captureVirtualDisplay("CAPTURE", Bitmap.CompressFormat.PNG, 100)
+  override fun getVirtualDisplaySize(): IntArray = privileged {
+    synchronized(displayLock) {
+      privilegedBridge?.let {
+        val parts = it.request("SIZE").split(',')
+        return@synchronized intArrayOf(parts[0].toInt(), parts[1].toInt())
+      }
+      intArrayOf(displayWidth.coerceAtLeast(1), displayHeight.coerceAtLeast(1))
+    }
+  }
 
-  override fun captureVirtualDisplayPreview(): ParcelFileDescriptor =
+  override fun captureVirtualDisplay(): ParcelFileDescriptor = privileged {
+    captureVirtualDisplay("CAPTURE", Bitmap.CompressFormat.PNG, 100)
+  }
+
+  override fun captureVirtualDisplayPreview(): ParcelFileDescriptor = privileged {
     captureVirtualDisplay("PREVIEW", Bitmap.CompressFormat.JPEG, 76)
+  }
 
   override fun openVideoStream(fps: Int, bitrate: Int): ParcelFileDescriptor = privileged {
     throw UnsupportedOperationException("Use native preview; screenshots remain active")
@@ -149,6 +214,7 @@ class ShizukuShellService : IShizukuShellService.Stub {
     format: Bitmap.CompressFormat,
     quality: Int,
   ): ParcelFileDescriptor = synchronized(displayLock) {
+    checkGamePlacement()
     val bytes = privilegedBridge?.let { bridge ->
       val encoded = bridge.request(command)
       if (encoded.isEmpty()) ByteArray(0)
@@ -169,14 +235,42 @@ class ShizukuShellService : IShizukuShellService.Stub {
     pipe[0]
   }
 
-  override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean {
+  override fun gesture(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): Boolean = privileged {
     privilegedBridge?.let {
-      return it.request("GESTURE $x1 $y1 $x2 $y2 $durationMs").toBoolean()
+      return@privileged synchronized(rootBridgeLock) {
+        it.request("GESTURE $x1 $y1 $x2 $y2 $durationMs").toBoolean()
+      }
     }
     val displayId = getVirtualDisplayId()
-    if (displayId < 0) return false
-    return privileged { DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs) }
+    if (displayId <= 0) return@privileged false
+    inputGate.automation(displayId) { synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.gesture(displayId, x1, y1, x2, y2, durationMs)
+    } }
   }
+
+  override fun pinch(inward: Boolean, percent: Int, durationMs: Int): Boolean = privileged {
+    val displayId = getVirtualDisplayId()
+    inputGate.automation(displayId) { synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.pinch(displayId, displayWidth, displayHeight, inward, percent, durationMs)
+    } }
+  }
+
+  override fun touch(expectedDisplayId: Int, leaseId: Long, event: android.view.MotionEvent): Boolean = privileged {
+    // The session's input-only lock is also invalidated before every lifecycle
+    // transition. Never queue real-time input behind capture/placement/gestures.
+    val frame = DisplayInput.touchFrame(event)
+    inputGate.manual(expectedDisplayId, leaseId, frame) { touchSession.send(expectedDisplayId, frame) }
+  }
+
+  override fun acquireManualInput(expectedDisplayId: Int, owner: android.os.IBinder): Long = privileged {
+    manualLeases.acquire(expectedDisplayId, owner)
+  }
+  override fun releaseManualInput(expectedDisplayId: Int, leaseId: Long): Boolean = privileged {
+    manualLeases.release(expectedDisplayId, leaseId)
+  }
+  override fun resumeAutomation(expectedDisplayId: Int): Boolean = privileged { inputGate.resumeAutomation(expectedDisplayId) }
 
   override fun setPreviewSurface(surface: android.view.Surface?) = privileged {
     check(Process.myUid() != Process.ROOT_UID) { "Root preview uses the system display endpoint" }
@@ -184,24 +278,89 @@ class ShizukuShellService : IShizukuShellService.Stub {
     NativeDisplayCapture.setPreviewSurface(surface)
   }
 
-  override fun frameCount(): Long = NativeDisplayCapture.frameCount()
-  override fun previewFrameCount(): Long = NativeDisplayCapture.previewFrameCount()
-  override fun currentPackage(): String = activePackage
+  override fun frameCount(): Long = privileged { NativeDisplayCapture.frameCount() }
+  override fun previewFrameCount(): Long = privileged { NativeDisplayCapture.previewFrameCount() }
+  override fun hasVisibleFrame(): Boolean = privileged { NativeDisplayCapture.hasVisibleFrame() }
+  override fun currentPackage(): String = privileged { activePackage }
+  override fun topPackage(): String = privileged {
+    synchronized(displayLock) {
+      val displayId = virtualDisplay?.display?.displayId ?: return@synchronized ""
+      checkGamePlacement()
+      GameTaskTransfer.topPackage(displayId)
+    }
+  }
+  override fun getPreviewFocusDisplayId(): Int = privileged {
+    synchronized(displayLock) {
+      val display = virtualDisplay?.display
+      if (Process.myUid() != Process.SHELL_UID || !PrivilegedExecution.supportsPreviewFocus(android.os.Build.VERSION.SDK_INT) ||
+        display == null || display.flags and (1 shl 7) != 0 || activePackage.isBlank()) return@synchronized -1
+      checkGamePlacement()
+      if (GameTaskTransfer.needsPreviewFocus(activePackage, display.displayId)) display.displayId else -1
+    }
+  }
+
+  override fun focusPreviewWindow(displayId: Int): Boolean = privileged {
+    synchronized(displayLock) {
+      checkPreviewFocusSession(displayId)
+      if (!PrivilegedExecution.usesTargetedFocusInput(android.os.Build.VERSION.SDK_INT)) {
+        return@synchronized DisplayInput.focusShieldWindow(checkNotNull(context), displayId)
+      }
+      val ownerUid = checkNotNull(context).packageManager.getApplicationInfo(BuildConfig.APPLICATION_ID, 0).uid
+      DisplayInput.focusOwnedWindow(displayId, ownerUid)
+    }
+  }
+
+  override fun focusGameTask(displayId: Int) = privileged {
+    synchronized(displayLock) {
+      checkPreviewFocusSession(displayId)
+      GameTaskTransfer.focus(activePackage, displayId)
+    }
+  }
+
+  private fun checkPreviewFocusSession(displayId: Int) {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplay?.display?.displayId == displayId && activePackage.isNotBlank()) {
+      "The background game session changed during focus recovery"
+    }
+    checkGamePlacement()
+  }
+  override fun moveGameToDisplay(packageName: String, displayId: Int) = privileged {
+    synchronized(displayLock) {
+      privilegedBridge?.let { it.request("TRANSFER $packageName $displayId"); return@privileged }
+      check(packageName == activePackage) { "The selected game is not active" }
+      inputGate.invalidate({ touchSession.deactivate() })
+      try {
+        GameTaskTransfer.move(packageName, getVirtualDisplayId(), displayId)
+      } catch (error: Throwable) {
+        touchSession.activate(packageName)
+        inputGate.activate(getVirtualDisplayId())
+        throw error
+      }
+      stopPlacementCheck()
+      activePackage = ""
+    }
+  }
   override fun reconnectNativeEndpoint() = privileged {
     privilegedBridge?.request("PUBLISH")
     Unit
   }
   override fun keyEvent(keyCode: Int): Boolean = privileged {
-    privilegedBridge?.let { return@privileged it.request("KEY $keyCode").toBoolean() }
-    DisplayInput.key(getVirtualDisplayId(), keyCode)
+    privilegedBridge?.let { return@privileged synchronized(rootBridgeLock) { it.request("KEY $keyCode").toBoolean() } }
+    val displayId = getVirtualDisplayId()
+    inputGate.automation(displayId) { synchronized(displayLock) {
+      checkGamePlacement()
+      DisplayInput.key(displayId, keyCode)
+    } }
   }
 
   /** Launch through ActivityManager's binder, matching MAA-Meow's primary path. */
   override fun launchPackageOnDisplay(packageName: String, displayId: Int): Boolean = privileged {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(getVirtualDisplayId() == displayId) { "The requested game display is no longer active" }
     privilegedBridge?.let {
-      return@privileged it.request("LAUNCH $packageName $displayId").toBoolean()
+      return@privileged synchronized(rootBridgeLock) { it.request("LAUNCH $packageName $displayId").toBoolean() }
     }
-    require(displayId >= 0) { "Invalid virtual display id" }
+    inputGate.automation(displayId, requireActive = false) {
     require(packageName.matches(Regex("[A-Za-z0-9_.]+"))) { "Invalid package name" }
     val serviceContext = context ?: throw IllegalStateException("Shizuku user-service context is unavailable")
     val intent = serviceContext.packageManager.getLaunchIntentForPackage(packageName)
@@ -245,11 +404,60 @@ class ShizukuShellService : IShizukuShellService.Stub {
       options.toBundle(),
       -2,
     ) as Int
-    (result >= 0).also { if (it) activePackage = packageName }
+    val started = result >= 0
+    if (started) synchronized(displayLock) {
+      check(getVirtualDisplayId() == displayId) { "The game display was closed while launching" }
+      activePackage = packageName
+      touchSession.activate(packageName)
+      inputGate.activate(displayId)
+      startPlacementCheck(packageName, displayId)
+    }
+    started
+    }
   }
 
+  private fun startPlacementCheck(packageName: String, displayId: Int) {
+    stopPlacementCheck()
+    // Splash/SDK Activities can create a new task on display 0 after launch returns.
+    placementCheck = placementExecutor.scheduleWithFixedDelay({ synchronized(displayLock) {
+      if (activePackage == packageName && virtualDisplay?.display?.displayId == displayId) {
+        try {
+          GameTaskTransfer.keepOnDisplay(packageName, displayId)
+          placementError = null
+          touchSession.activate(packageName)
+          inputGate.activate(displayId)
+        } catch (error: Throwable) {
+          if (placementError == null) android.util.Log.w("BaasGameDisplay", "Unable to keep the game on its display", error)
+          placementError = error
+          inputGate.invalidate({ touchSession.deactivate() })
+        }
+      }
+    } }, 0L, 500L, TimeUnit.MILLISECONDS)
+  }
+
+  private fun lockDisplayRotation(displayId: Int) {
+    val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
+      .invoke(null, "window")
+    val manager = checkNotNull(Class.forName("android.view.IWindowManager\$Stub")
+      .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)) {
+      "Android window manager is unavailable"
+    }
+    GameDisplayRotation.configure(manager, displayId) { Thread.sleep(25L) }
+  }
+
+  private fun checkGamePlacement() {
+    placementError?.let { throw IllegalStateException("The game left its background display and could not be moved back", it) }
+  }
+
+  private fun stopPlacementCheck() {
+    placementCheck?.cancel(false)
+    placementCheck = null
+    placementError = null
+  }
 
   private fun stopVirtualDisplayLocked() {
+    inputGate.invalidate({ touchSession.clear() }, closed = true)
+    stopPlacementCheck()
     closeVideoStreamLocked(restoreCaptureSurface = false)
     virtualDisplay?.release()
     if (Process.myUid() != Process.ROOT_UID) NativeDisplayCapture.stop()
@@ -262,18 +470,19 @@ class ShizukuShellService : IShizukuShellService.Stub {
   // Compatibility stop for the retired stream API. Never changes the capture Surface.
   private fun closeVideoStreamLocked(restoreCaptureSurface: Boolean = true) = Unit
 
-  override fun destroy() {
+  override fun destroy() = privileged {
     synchronized(displayLock) { closeVideoStreamLocked() }
     privilegedBridge?.close()
     privilegedBridge = null
     stopVirtualDisplay()
+    placementExecutor.shutdownNow()
     System.exit(0)
   }
 
   private inline fun <T> privileged(block: () -> T): T {
     val identity = Binder.clearCallingIdentity()
     return try {
-      block()
+      PrivilegedExecution.binderResult(block)
     } finally {
       Binder.restoreCallingIdentity(identity)
     }

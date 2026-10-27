@@ -31,11 +31,7 @@ export function useZoom(scale: number) {
 const MainLayoutContent: React.FC<MainLayoutProps> = ({ children, activePage, setActivePage }) => {
   const zoomScale = useUISetting((settings) => settings.zoomScale);
   const zoomRef = useZoom(zoomScale / 100);
-  const {
-    expanded: desktopSidebarExpanded,
-    registerSidebar,
-    setSidebarLocked,
-  } = useWindowLayout();
+  const { expanded: desktopSidebarExpanded, registerSidebar, setSidebarLocked } = useWindowLayout();
   useLayoutEffect(registerSidebar, [registerSidebar]);
   useLayoutEffect(() => {
     setSidebarLocked(activePage === "settings");
@@ -58,7 +54,7 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({ children, activePage, se
         <main
           className={
             __WITH_ANDROID__
-              ? "desktop-main-panel min-h-0 flex-1 overflow-hidden bg-background p-3"
+              ? "desktop-main-panel min-h-0 flex-1 overflow-hidden bg-background"
               : "desktop-main-panel min-h-0 flex-1 overflow-hidden bg-background"
           }
         >

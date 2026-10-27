@@ -2,6 +2,7 @@ package io.github.kiramei.baas_tauri;
 
 import android.os.ParcelFileDescriptor;
 import android.view.Surface;
+import android.view.MotionEvent;
 
 interface IShizukuShellService {
     String execute(String command) = 1;
@@ -21,5 +22,17 @@ interface IShizukuShellService {
     String currentPackage() = 15;
     boolean keyEvent(int keyCode) = 16;
     void reconnectNativeEndpoint() = 17;
+  void moveGameToDisplay(String packageName, int displayId) = 19;
+  void disableOwnNotifications(int appUid) = 20;
+    boolean pinch(boolean inward, int percent, int durationMs) = 18;
+    int getPreviewFocusDisplayId() = 21;
+    boolean focusPreviewWindow(int displayId) = 22;
+    void focusGameTask(int displayId) = 23;
+    boolean hasVisibleFrame() = 24;
+    String topPackage() = 25;
+    boolean touch(int expectedDisplayId, long leaseId, in MotionEvent event) = 26;
+    long acquireManualInput(int expectedDisplayId, IBinder owner) = 27;
+    boolean releaseManualInput(int expectedDisplayId, long leaseId) = 28;
+    boolean resumeAutomation(int expectedDisplayId) = 29;
     void destroy() = 16777114;
 }

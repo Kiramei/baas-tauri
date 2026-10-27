@@ -5,8 +5,14 @@ import { TauriPipeConnection } from "../../src/transport/pipe/TauriPipeConnectio
 import { TauriSharedMemoryConnection } from "../../src/transport/shm/TauriSharedMemoryConnection";
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+const originalAndroid = Object.getOwnPropertyDescriptor(globalThis, "__WITH_ANDROID__");
 
 beforeEach(() => {
+  Object.defineProperty(globalThis, "__WITH_ANDROID__", {
+    configurable: true,
+    writable: true,
+    value: false,
+  });
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: { crypto: globalThis.crypto },
@@ -17,6 +23,8 @@ afterEach(() => {
   clearMocks();
   if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
   else delete (globalThis as any).window;
+  if (originalAndroid) Object.defineProperty(globalThis, "__WITH_ANDROID__", originalAndroid);
+  else delete (globalThis as any).__WITH_ANDROID__;
 });
 
 function frame(kind: number, text = ""): Uint8Array {
@@ -146,6 +154,44 @@ describe("Tauri pipe delivery", () => {
     await new TauriPipeConnection("remote", "screen").sendBytes(new Uint8Array([0, 255]));
     expect(calls[0].command).toBe("backend_pipe_send_bytes");
     expect(calls[0].args).toBeInstanceOf(Uint8Array);
+  });
+
+  test("Android binary invokes use JSON objects rather than unsupported raw IPC", async () => {
+    (globalThis as any).__WITH_ANDROID__ = true;
+    let observed: any;
+    mockIPC((command, args) => {
+      if (command === "backend_pipe_send_bytes") observed = JSON.parse(JSON.stringify(args));
+    });
+    const connection = new TauriPipeConnection("trigger", "trigger-配置");
+    await connection.sendBytes(new Uint8Array([0, 66, 255]));
+    expect(observed).toEqual({ channel: "trigger", name: "trigger-配置", payload: "AEL/" });
+  });
+
+  test("binary command header and bytes stay adjacent before subsequent commands", async () => {
+    const sent: string[] = [];
+    let finishHeader: () => void = () => {};
+    mockIPC((command, args) => {
+      if (command === "backend_pipe_send_json") {
+        const type = (args as any).payload.type;
+        sent.push(type);
+        if (type === "import_config")
+          return new Promise<void>((resolve) => {
+            finishHeader = resolve;
+          });
+      }
+      if (command === "backend_pipe_send_bytes") sent.push("bytes");
+    });
+    const connection = new TauriPipeConnection("trigger", "trigger");
+    const importing = connection.sendJsonWithBytes(
+      { type: "import_config" },
+      new Uint8Array([80, 75])
+    );
+    const nextCommand = connection.sendJson({ type: "other_command" });
+    for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    expect(sent).toEqual(["import_config"]);
+    finishHeader();
+    await Promise.all([importing, nextCommand]);
+    expect(sent).toEqual(["import_config", "bytes", "other_command"]);
   });
 
   test("a consumer failure does not discard following messages in the batch", async () => {
