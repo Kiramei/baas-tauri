@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-23T11:22:19.441Z",
+  "checkedAt": "2026-10-27T15:41:32.348Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
-    "docs/scripts/check-updater-docs.mjs": "dcd8fe9c1685c3a00390e61e675516e3b8d6311a0e09f1e18fe1844bdc5981c9",
+    "docs/scripts/check-updater-docs.mjs": "116015b276ccbdb2abc4df27325d34caeb41249bc5331ad1c6b6c499d7d1fb09",
     "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
     "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
@@ -20,8 +20,8 @@
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3"
   },
-  "searchIndexPath": "search-index/0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b.json",
-  "searchIndexSha256": "92023d01258588d139df7239a80bc956126a513bb635c8ce0341bb03bb16ffa2",
+  "searchIndexPath": "search-index/3e200e07acf5645e9682cda1ada86bafb855ca75710c2af4de783150edbbc210.json",
+  "searchIndexSha256": "640d7198992c98805955d0d9218540d6f9fe7ab40e0eb05c6afa51881e71243e",
   "results": [
     {
       "locale": "zh",

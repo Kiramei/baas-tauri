@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-23T11:25:06.850Z",
+  "checkedAt": "2026-10-27T15:41:20.446Z",
   "cases": 8,
   "failures": 0,
   "nativeCommandsExecuted": false,
@@ -13,16 +13,16 @@
     "docs/lib/source.ts": "22081de547a558f9832c62252bd11f4dfafa9e0b57763a4cc3b7f56822752342",
     "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
     "src/shared/TauriInvoke.ts": "e0c36e6a645bf730799031663bfd8db458561af01a541e00595abbc531a826a9",
-    "src/transport/types.ts": "751cdd0d778e1465dc5d265b88aa3eea4ed565e73470d9434c4ba7adc19b3fa7",
+    "src/transport/types.ts": "d245d4c61f24ef8e1fb8dd597c9cb50e5138ae99022b0f1162b7f6c82b00e204",
     "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
     "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
     "src/transport/factory.ts": "0e87d3e50a2c471526321acdfb04ff252ddfabd716b084aa9e527d43ef1868ba",
-    "src-tauri/src/lib.rs": "10be298e98770b8f953ab586bc4363acc7819e3fa57bf60cf989c86e6b1ea958",
-    "src-tauri/src/commands.rs": "8eb60d17de985e7e2c401ff631ff9a22299aa04e83294e36de21eaac01d8303d",
-    "src-tauri/src/mobile_commands.rs": "31e89ce0950f7cbed756b6170128c3ece588606735dcdf5fa90f12896d327224",
-    ".github/workflows/docs-validation.yml": "eb259a914aae16518e4b5369ab0319b4ae6f6b5bad9173c3e521e250bc524863",
-    "docs/content/docs/en/reference/client-api.mdx": "257adedcc36fce1b73338ddd0726759463e0cd1a189e26d2042359ee938b8a23",
-    "docs/content/docs/zh/reference/client-api.mdx": "fbcdd0e37de6ac7865eec1624130d5725465c59f15629350b4137ac6e95a4c93"
+    "src-tauri/src/lib.rs": "063f7497c36c8cea371e948c0fcf5ef2194f1a0f1ce32c7b2177f9675afe7dfd",
+    "src-tauri/src/commands.rs": "86216fb03f9f584ba5133baa84ee32b33dc8c0faa9249540ad21e7d6147897a9",
+    "src-tauri/src/mobile_commands.rs": "951cc15fd0a7cfdf5008c29f1a3906391abe6200c339d7861fb7369ddf30531e",
+    ".github/workflows/docs-validation.yml": "1911b1d92bce46699385046b0e2356938d427af415b68b121b9755ac7e4cb6ff",
+    "docs/content/docs/en/reference/client-api.mdx": "7c2edbd6932b2b77c80b2f26b5a53fdc6b3a549e94cbf79346b8ed0cbf82bb16",
+    "docs/content/docs/zh/reference/client-api.mdx": "4eb5db38c614d5e40eac60f0c93013a34b844d5d845e306351e425cb7eb68d1c"
   },
   "results": [
     {

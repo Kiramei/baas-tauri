@@ -4,14 +4,24 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { readSearchArtifact } from "./read-search-artifact.mjs";
+import { createExportServer } from "./static-export-server.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const base = process.argv[2] || "http://127.0.0.1:4173";
+const { values, positionals } = parseArgs({
+  allowPositionals: true, options: { channel: { type: "string", default: "msedge" } },
+});
+let server;
+const base = (positionals[0] || await (async () => {
+  server = createExportServer(path.join(root, "docs/out"));
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+  return `http://127.0.0.1:${server.address().port}`;
+})()).replace(/\/$/, "");
 const cache = path.join(root, ".cache/updater-docs");
 mkdirSync(cache, { recursive: true });
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
-const browser = await chromium.launch({ channel: "msedge", headless: true });
+let browser;
 const results = [];
 const labels = locale => locale === "zh" ? {
   search: "搜索", closeSearch: "关闭搜索", empty: "未找到结果", toc: "本页目录", anchor: "复制章节链接",
@@ -24,6 +34,7 @@ const labels = locale => locale === "zh" ? {
 };
 
 try {
+  browser = await chromium.launch({ ...(values.channel === "chromium" ? {} : { channel: values.channel }), headless: true });
   for (const locale of ["zh", "en"]) for (const theme of ["light", "dark"]) for (const mobile of [false, true]) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 960 } });
     await context.addInitScript(theme => localStorage.setItem("theme", theme), theme);
@@ -98,7 +109,12 @@ try {
       throw error;
     } finally { await context.close(); }
   }
-} finally { await browser.close(); }
+} finally {
+  try { if (browser) await browser.close(); }
+  finally {
+    if (server) await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+  }
+}
 const files = ["docs/scripts/check-updater-docs.mjs", "docs/components/DocsProvider.tsx", "docs/components/FlexSearchDialog.tsx",
   "docs/lib/search-index.ts", "docs/lib/search-encoding.ts", "docs/lib/search-contract.ts",
   "docs/lib/search-artifact.server.ts", "docs/lib/build-search-index.ts", "docs/app/search-index/[file]/route.ts",

@@ -5,7 +5,7 @@ description: Tauri command names, argument shapes, transport ownership and deskt
 
 The native host exposes commands through Tauri IPC. Application code calls them through `@/shared/TauriInvoke`; Provider, Sync, Trigger and Remote messages use `BackendConnection`. The WebUI has no native command host.
 
-The command registry is [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/lib.rs). Desktop implementations come from [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/commands.rs); Android selects [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/mobile_commands.rs). A registered name can still return an unsupported-platform error or a compatibility result.
+The command registry is [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/lib.rs). Desktop implementations come from [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/commands.rs); Android selects [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/mobile_commands.rs). A registered name can still return an unsupported-platform error or a compatibility result.
 
 ## Calling Convention
 
@@ -120,11 +120,15 @@ These commands belong inside the transport adapters. Reuse their binary encoders
 | `android_launch_game` | Launches a selected package. |
 | `android_game_preview` | Preview status/data through the Android implementation. |
 | `android_game_native_preview` | Controls the native preview Surface. |
+| `android_game_fullscreen` | `{ request }`; switches the owned game between embedded preview and manual fullscreen without moving it to another process. |
+| `android_game_resume_automation` | `{ request }`; releases manual-control isolation after an explicit new script start. |
 | `android_game_stream_info` | Reports stream connection information. |
 | `android_game_screenshot` | Requests an Android-local game screenshot. |
 | `android_game_gesture` | Submits an Android-local gesture request. |
 | `android_shizuku_status` | Reads Shizuku availability/authorization. |
 | `android_request_shizuku_permission` | Opens or requests Shizuku authorization; it does not grant permission automatically. |
+| `android_open_shizuku` | Opens the installed Shizuku app after an explicit user action; does not install it or grant permission. |
+| `android_set_system_bars` | `{ backgroundColor, darkIcons }`; applies the app palette to Android status and navigation bars. |
 
 The game/Shizuku commands have desktop stubs that reject unsupported calls. Use the platform implementations' request structs; the desktop display request includes ADB serial/package fields, while Android carries device-session fields such as `configId`. A successful `/health`, invoke response or display ID does not establish moving game frames or completed automation. [Android](../guide/android) and [Native Preview](./client-architecture#android-native-preview-and-capture) describe those checks separately.
 
