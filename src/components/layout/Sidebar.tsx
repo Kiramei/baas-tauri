@@ -641,7 +641,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
 
       {/* Mobile floating update buttons */}
       {hasAnyUpdate && (
-        <div className="mobile-update-actions lg:hidden fixed bottom-25 right-5 z-50 flex flex-col gap-3">
+        <div
+          className={`mobile-update-actions lg:hidden fixed right-5 z-50 flex flex-col gap-3 ${__WITH_ANDROID__ ? "bottom-[calc(var(--android-bottom-navigation-height)+80px)]" : "bottom-25"}`}
+        >
           {hasBackendUpdate && (
             <FloatingUpdateButton
               title={t("update.backendAction")}
