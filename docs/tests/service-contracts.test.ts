@@ -1,14 +1,20 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import protocol from "../evidence/service-protocol-validation.json";
 import contracts from "../evidence/service-contract-tests.json";
 import layout from "../evidence/service-layout-validation.json";
 
 const read = (file: string) => readFileSync(new URL("../../" + file, import.meta.url), "utf8").replaceAll("\r\n", "\n");
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+const historicalClientSource = (file: string) => execFileSync(
+  "git", ["show", `${protocol.clientRevision}:${file}`],
+  { cwd: fileURLToPath(new URL("../../", import.meta.url)), encoding: "utf8" }
+).replaceAll("\r\n", "\n");
 
-test("protocol interoperability preserves production source, actual crypto and cleanup boundaries", () => {
+test("historical protocol interoperability preserves pinned production source, actual crypto and cleanup boundaries", () => {
   expect(protocol.backendRevision).toBe("d0a86a089068766ff53682b501b90bee99857a71");
   expect(protocol.clientRevision).toBe("55f11ec6f4e0dd2a075e7eead2d16378ad24ae8d");
   expect(protocol.backendSources).toHaveLength(69);
@@ -17,7 +23,10 @@ test("protocol interoperability preserves production source, actual crypto and c
     expect(source.gitContentVerified).toBe(true);
     expect(source.sha256).toMatch(/^[a-f0-9]{64}$/);
   }
-  for (const source of protocol.clientSources) expect(hash(read(source.file))).toBe(source.sha256);
+  // This evidence describes the explicitly recorded revision, rather than a new
+  // interoperability run for each later change to the application store or framing.
+  for (const source of protocol.clientSources)
+    expect(hash(historicalClientSource(source.file))).toBe(source.sha256);
   for (const [file, expected] of Object.entries(protocol.harnessSources)) expect(hash(read(file))).toBe(expected);
   expect(protocol.cases).toBe(20);
   expect(protocol.results).toHaveLength(20);

@@ -4,14 +4,24 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { readSearchArtifact } from "./read-search-artifact.mjs";
+import { createExportServer } from "./static-export-server.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const base = (process.argv[2] || "http://127.0.0.1:4173").replace(/\/$/, "");
+const { values, positionals } = parseArgs({
+  allowPositionals: true, options: { channel: { type: "string", default: "msedge" } },
+});
+let server;
+const base = (positionals[0] || await (async () => {
+  server = createExportServer(path.join(root, "docs/out"));
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+  return `http://127.0.0.1:${server.address().port}`;
+})()).replace(/\/$/, "");
 const cache = path.join(root, ".cache/search-recovery");
 mkdirSync(cache, { recursive: true });
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
-const browser = await chromium.launch({ channel: "msedge", headless: true });
+let browser;
 const results = [];
 const labels = (locale) =>
   locale === "zh"
@@ -33,6 +43,7 @@ const labels = (locale) =>
       };
 
 try {
+  browser = await chromium.launch({ ...(values.channel === "chromium" ? {} : { channel: values.channel }), headless: true });
   for (const locale of ["en", "zh"])
     for (const theme of ["light", "dark"])
       for (const mobile of [false, true]) {
@@ -166,7 +177,10 @@ try {
         }
       }
 } finally {
-  await browser.close();
+  try { if (browser) await browser.close(); }
+  finally {
+    if (server) await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+  }
 }
 
 const files = [

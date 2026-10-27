@@ -5,7 +5,7 @@ description: Tauri 命令名称、参数结构、传输归属及桌面与 Androi
 
 原生宿主通过 Tauri IPC 提供命令，应用代码使用 `@/shared/TauriInvoke` 调用。Provider、Sync、Trigger、Remote 业务消息经由 `BackendConnection` 发送。WebUI 没有原生命令宿主。
 
-命令注册表位于 [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/lib.rs)。桌面实现来自 [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/commands.rs)，Android 选择 [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/55f11ec6/src-tauri/src/mobile_commands.rs)。命令已注册时，仍可能返回平台不支持错误或兼容性结果。
+命令注册表位于 [`src-tauri/src/lib.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/lib.rs)。桌面实现来自 [`commands.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/commands.rs)，Android 选择 [`mobile_commands.rs`](https://github.com/Kiramei/baas-tauri/blob/d373fd96/src-tauri/src/mobile_commands.rs)。命令已注册时，仍可能返回平台不支持错误或兼容性结果。
 
 ## 调用约定
 
@@ -120,11 +120,15 @@ const mode: BackendTransportMode = "shm";
 | `android_launch_game` | 启动选定包。 |
 | `android_game_preview` | 经 Android 实现获取预览状态或数据。 |
 | `android_game_native_preview` | 控制原生预览 Surface。 |
+| `android_game_fullscreen` | `{ request }`，在内嵌预览与手动全屏之间切换所持有的游戏，不迁移到其他进程。 |
+| `android_game_resume_automation` | `{ request }`，仅在明确开始新脚本后解除手动控制隔离。 |
 | `android_game_stream_info` | 返回流连接信息。 |
 | `android_game_screenshot` | 请求 Android 本机游戏截图。 |
 | `android_game_gesture` | 提交 Android 本机手势请求。 |
 | `android_shizuku_status` | 读取 Shizuku 可用性与授权状态。 |
 | `android_request_shizuku_permission` | 打开或请求 Shizuku 授权，不会自动授予权限。 |
+| `android_open_shizuku` | 在用户明确操作后打开已安装的 Shizuku 应用，不负责安装或授予权限。 |
+| `android_set_system_bars` | `{ backgroundColor, darkIcons }`，将应用配色应用于 Android 状态栏与导航栏。 |
 
 游戏与 Shizuku 命令在桌面有拒绝不支持调用的占位实现。请求结构应以各平台源码为准：桌面显示请求包含 ADB 序列号与包名，Android 则带有 `configId` 等设备会话字段。`/health`、命令成功响应或显示 ID 都无法证明游戏画面正在变化或自动化已完成，分别检查这些阶段的方法见 [Android](../guide/android) 和[原生预览](./client-architecture#android-原生预览与截图)。
 

@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-23T11:19:44.832Z",
+  "checkedAt": "2026-10-27T15:41:58.299Z",
   "cases": 24,
   "failures": 0,
   "testedSources": {
-    "docs/scripts/check-search-recovery.mjs": "f83a5d097610f8f49ad8b09c9960a4cf9b3eb6505b72cedc445dfa38d98605ee",
+    "docs/scripts/check-search-recovery.mjs": "0481079627b28f4b5def11feb10af05f730b6147b49a7d06671ed4c841dd81bd",
     "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
@@ -15,8 +15,8 @@
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d"
   },
-  "searchIndexPath": "search-index/0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b.json",
-  "searchIndexSha256": "92023d01258588d139df7239a80bc956126a513bb635c8ce0341bb03bb16ffa2",
+  "searchIndexPath": "search-index/3e200e07acf5645e9682cda1ada86bafb855ca75710c2af4de783150edbbc210.json",
+  "searchIndexSha256": "640d7198992c98805955d0d9218540d6f9fe7ab40e0eb05c6afa51881e71243e",
   "results": [
     {
       "locale": "en",
