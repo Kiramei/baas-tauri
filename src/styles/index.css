@@ -178,25 +178,29 @@ body {
   background: var(--chrome-background);
 }
 
-/* Linux uses solid neutral surfaces, including menus rendered in body portals. */
-html[data-window-platform="linux"] {
+/* Solid desktop and browser surfaces also cover menus rendered in body portals. */
+html[data-window-platform="linux"],
+html[data-window-platform="webui"] {
   --chrome-background: #f3f3f3;
   --chrome-tint: var(--chrome-background);
   --menu-background: #ffffff;
 }
 
-html[data-window-platform="linux"].dark {
+html[data-window-platform="linux"].dark,
+html[data-window-platform="webui"].dark {
   --chrome-background: #141414;
   --sidebar: #181818;
   --menu-background: #212121;
 }
 
-html[data-window-platform="linux"] * {
+html[data-window-platform="linux"] *,
+html[data-window-platform="webui"] * {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-html[data-window-platform="linux"] .select-surface {
+html[data-window-platform="linux"] .select-surface,
+html[data-window-platform="webui"] .select-surface {
   background: var(--select-surface-solid);
 }
 

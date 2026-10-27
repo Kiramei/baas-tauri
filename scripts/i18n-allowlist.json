@@ -146,7 +146,18 @@
     "updateMethod.mirrorc",
     "version.tapToTest",
     "version.testing",
-    "whitelist"
+    "whitelist",
+    "commitHistory.source.github",
+    "commitHistory.source.local",
+    "commitHistory.source.bundle",
+    "commitHistory.source.cache",
+    "commitHistory.issue.offline",
+    "commitHistory.issue.rateLimited",
+    "commitHistory.issue.unavailable",
+    "clientHistory.source.github",
+    "clientHistory.source.cache",
+    "clientHistory.source.bundled",
+    "clientHistory.source.current"
   ],
   "allowedDynamicFunctions": [
     "artifactPhaseKey",

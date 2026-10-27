@@ -7,6 +7,7 @@ import { i18nKey } from "@/shared/I18nKeys";
 import {
   ANDROID_SETTINGS_SECTIONS,
   SETTINGS_SECTIONS,
+  WEBUI_SETTINGS_SECTIONS,
   filterSettingsSections,
   resolveSettingsSection,
 } from "@/shared/SettingsSections";
@@ -22,7 +23,11 @@ const sectionIcons = {
   logs: ScrollText,
 };
 
-const availableSections = __WITH_ANDROID__ ? ANDROID_SETTINGS_SECTIONS : SETTINGS_SECTIONS;
+const availableSections = __WITH_ANDROID__
+  ? ANDROID_SETTINGS_SECTIONS
+  : __WITH_TAURI__
+    ? SETTINGS_SECTIONS
+    : WEBUI_SETTINGS_SECTIONS;
 
 /** Global settings navigation, independent of the active game profile. */
 export default function SettingsNavigation({ compact = false }: { compact?: boolean }) {

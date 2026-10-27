@@ -8,9 +8,14 @@ import {
   SettingsSelect,
 } from "@/components/settings/SettingsControls";
 import { VersionOverview } from "@/components/settings/VersionOverview";
+import { CommitHistorySettings } from "@/components/settings/CommitHistory";
 import { ShaDiagnostics, type ShaDiagnosticResult } from "@/components/settings/ShaDiagnostics";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
-import { SETTINGS_SECTIONS, resolveSettingsSection } from "@/shared/SettingsSections";
+import {
+  SETTINGS_SECTIONS,
+  WEBUI_SETTINGS_SECTIONS,
+  resolveSettingsSection,
+} from "@/shared/SettingsSections";
 import { useTheme } from "@/context/ThemeProvider";
 import { Theme } from "@/types/app";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
@@ -33,6 +38,7 @@ import { TauriUpdateProgressModal } from "@/components/updater/TauriUpdateProgre
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
 import { SystemLogSettings } from "@/components/SystemLogSettings";
 import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
+import { KeyResetSettings } from "@/components/settings/KeyResetSettings";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -174,12 +180,14 @@ const shaMethodsInit = [
   { label: "shaMethod.baasCdn", value: "baas_cdn" },
 ];
 
+const availableSections = __WITH_TAURI__ ? SETTINGS_SECTIONS : WEBUI_SETTINGS_SECTIONS;
+
 /** Renders the settings page component. */
 const SettingsPage: React.FC = () => {
   const { t, language } = useAppTranslation();
   const { theme, setTheme } = useTheme();
   const { uiSettings, setUiSettings } = useUISettings();
-  const section = resolveSettingsSection(uiSettings.settingsSection);
+  const section = resolveSettingsSection(uiSettings.settingsSection, availableSections);
   const pageRef = useRef<HTMLDivElement>(null);
   useSettingsSearchHighlight(pageRef, section.id, language);
   useEffect(() => {
@@ -214,8 +222,8 @@ const SettingsPage: React.FC = () => {
 
   /** Handles the handle language change interaction. */
   const handleLanguageChange = (value: string) => {
-    loadLocale(value).then(() => {
-      setUiSettings((state) => ({ ...state, lang: value }));
+    void loadLocale(value).then((loaded) => {
+      if (loaded) setUiSettings((state) => ({ ...state, lang: value }));
     });
   };
 
@@ -270,7 +278,13 @@ const SettingsPage: React.FC = () => {
       return;
     }
 
-    handleBackgroundImageBytes(new Uint8Array(await file.arrayBuffer()), mime);
+    try {
+      handleBackgroundImageBytes(new Uint8Array(await file.arrayBuffer()), mime);
+    } catch (error) {
+      toast.error(t("settings.ui.backgroundImageReadFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   /** Handles the handle select background image interaction. */
@@ -706,6 +720,7 @@ const SettingsPage: React.FC = () => {
 
   /** Persists and activates the selected desktop backend transport. */
   const handleTransportMode = async (value: string) => {
+    if (!__WITH_TAURI__) return;
     const mode = value === "shm" ? "shm" : value === "pipe" ? "pipe" : "websocket";
     try {
       await setTransportMode(mode);
@@ -727,7 +742,7 @@ const SettingsPage: React.FC = () => {
         onChange={handleWebBackgroundImageChange}
       />
       <div className="settings-categories">
-        {SETTINGS_SECTIONS.map((displayedSection) => (
+        {availableSections.map((displayedSection) => (
           <section
             key={displayedSection.id}
             aria-labelledby={`settings-section-${displayedSection.id}-title`}
@@ -763,6 +778,7 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                   </SettingsGroup>
+                  {__WITH_WEBUI__ && <KeyResetSettings />}
                   {__WITH_TAURI__ && (
                     <SettingsGroup title={t("settings.groups.desktop")}>
                       {__WITH_TAURI__ && (
@@ -992,18 +1008,20 @@ const SettingsPage: React.FC = () => {
               )}
               {displayedSection.id === "runtime" && (
                 <SettingsGroup title={t("settings.groups.connection")}>
-                  <SettingsSelect
-                    label={t("transport.label")}
-                    value={transportMode}
-                    onChange={(value) => void handleTransportMode(value)}
-                    options={[
-                      { value: "websocket", label: t("transport.websocket") },
-                      { value: "pipe", label: t("transport.pipe") },
-                      ...(supportsSharedMemory()
-                        ? [{ value: "shm", label: t("transport.shm") }]
-                        : []),
-                    ]}
-                  />
+                  {__WITH_TAURI__ && (
+                    <SettingsSelect
+                      label={t("transport.label")}
+                      value={transportMode}
+                      onChange={(value) => void handleTransportMode(value)}
+                      options={[
+                        { value: "websocket", label: t("transport.websocket") },
+                        { value: "pipe", label: t("transport.pipe") },
+                        ...(supportsSharedMemory()
+                          ? [{ value: "shm", label: t("transport.shm") }]
+                          : []),
+                      ]}
+                    />
+                  )}
                   {!__WITH_ANDROID__ && (
                     <SettingsSelect
                       value={uiSettings?.remoteSettings.streamPlayer}
@@ -1056,6 +1074,7 @@ const SettingsPage: React.FC = () => {
                         : undefined
                     }
                   />
+                  <CommitHistorySettings channel={updateChannel} />
                   <SettingsGroup title={t("update.settingsTitle")}>
                     {__WITH_TAURI__ && !__WITH_WEBUI__ && (
                       <SettingsToggle
@@ -1169,13 +1188,15 @@ const SettingsPage: React.FC = () => {
           </section>
         ))}
       </div>
-      <TauriUpdateProgressModal
-        open={tauriUpdate.progressOpen}
-        onClose={() => tauriUpdate.setProgressOpen(false)}
-        updating={tauriUpdate.updating}
-        tauriProgress={tauriUpdate.progress}
-        tauriStatus={tauriUpdate.status}
-      />
+      {__WITH_TAURI__ && (
+        <TauriUpdateProgressModal
+          open={tauriUpdate.progressOpen}
+          onClose={() => tauriUpdate.setProgressOpen(false)}
+          updating={tauriUpdate.updating}
+          tauriProgress={tauriUpdate.progress}
+          tauriStatus={tauriUpdate.status}
+        />
+      )}
     </div>
   );
 };

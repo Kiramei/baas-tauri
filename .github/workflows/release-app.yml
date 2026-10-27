@@ -142,6 +142,12 @@ jobs:
           echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
 
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Tauri build
         shell: bash
         env:
@@ -419,6 +425,12 @@ jobs:
             echo "CXX_armv7_unknown_linux_gnueabihf=${{ matrix.cxx }}" >> "$GITHUB_ENV"
           fi
 
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Tauri build
         shell: bash
         env:
@@ -557,6 +569,12 @@ jobs:
           printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
           echo "ANDROID_RELEASE_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
 
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Build Android arm64 release APK
         shell: bash
         run: bun run tauri:android:build:release -- --abi arm64
@@ -639,6 +657,12 @@ jobs:
 
           Remove-Item ".\src-tauri\tauri.windows.conf.json" -Force
           Rename-Item ".\src-tauri\webview2.$arch.json" "tauri.windows.conf.json"
+
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
 
       - name: Tauri build
         shell: bash

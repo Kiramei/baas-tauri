@@ -2,12 +2,13 @@ import { toast } from "sonner";
 import type { TitlebarMenuEntry } from "./TitlebarMenu";
 import { useAppTranslation } from "@/shared/useAppTranslation";
 import { openDocumentation } from "@/shared/Documentation";
-import { useAboutBaas } from "@/context/AboutBaasProvider";
+import { useAboutBaas, useClientHistory } from "@/context/AboutBaasProvider";
 
-/** Both titlebar layouts invoke these same Documentation and About actions. */
+/** Both titlebar layouts invoke the same help actions and shared dialogs. */
 export function useHelpMenuEntries(): TitlebarMenuEntry[] {
   const { t } = useAppTranslation();
   const openAbout = useAboutBaas();
+  const openHistory = useClientHistory();
   return [
     {
       id: "documentation",
@@ -19,6 +20,7 @@ export function useHelpMenuEntries(): TitlebarMenuEntry[] {
         });
       },
     },
+    { id: "client-history", label: t("clientHistory.title"), onSelect: openHistory },
     { id: "about", label: t("about.title"), onSelect: openAbout },
   ];
 }

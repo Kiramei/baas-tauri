@@ -15,7 +15,7 @@ import { useNativeWindowControls } from "@/shared/useNativeWindowControls";
 const macOS = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
 const linuxDesktop = typeof navigator !== "undefined" && navigator.platform.startsWith("Linux");
 
-/** Shared desktop toolbar, with native traffic lights retained on macOS. */
+/** Shared workspace toolbar, with native caption controls in the desktop client. */
 export default function WindowTitlebar() {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -31,7 +31,8 @@ export default function WindowTitlebar() {
   } = useWindowLayout();
   const navigation = useNavigationHistory();
   const nativeControls = useNativeWindowControls();
-  const titlebarHeight = Math.max(44, nativeControls.height);
+  const webUI = !__WITH_TAURI__ && !__WITH_ANDROID__;
+  const titlebarHeight = webUI ? 44 : Math.max(44, nativeControls.height);
   const [maximized, setMaximized] = useState(false);
   const [focused, setFocused] = useState(true);
   const dragRegionRef = useRef<HTMLDivElement>(null);
@@ -91,7 +92,7 @@ export default function WindowTitlebar() {
   }, [setCustomFrame, setFullscreen]);
 
   useLayoutEffect(() => {
-    if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return;
+    if (__WITH_ANDROID__ || (!webUI && !customFrame)) return;
 
     const root = document.documentElement;
     const rootStyle = root.style;
@@ -103,8 +104,14 @@ export default function WindowTitlebar() {
     const previousPlatform = root.dataset.windowPlatform;
     const previousMaterial = root.dataset.windowMaterial;
     const windowsDesktop = navigator.userAgent.includes("Windows");
-    root.dataset.windowPlatform = linuxDesktop ? "linux" : macOS ? "macos" : "windows";
-    if (linuxDesktop) root.dataset.windowMaterial = "solid";
+    root.dataset.windowPlatform = webUI
+      ? "webui"
+      : linuxDesktop
+        ? "linux"
+        : macOS
+          ? "macos"
+          : "windows";
+    if (webUI || linuxDesktop) root.dataset.windowMaterial = "solid";
     else if (windowsDesktop) root.dataset.windowMaterial = "acrylic";
     return () => {
       if (previousValue) rootStyle.setProperty(property, previousValue, previousPriority);
@@ -114,7 +121,7 @@ export default function WindowTitlebar() {
       if (previousMaterial) root.dataset.windowMaterial = previousMaterial;
       else delete root.dataset.windowMaterial;
     };
-  }, [customFrame, titlebarHeight]);
+  }, [customFrame, titlebarHeight, webUI]);
 
   useEffect(() => {
     if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return;
@@ -158,7 +165,7 @@ export default function WindowTitlebar() {
     return () => document.removeEventListener("mousedown", dragThroughBackdrop, true);
   }, [customFrame, fullscreen]);
 
-  if (!__WITH_TAURI__ || __WITH_ANDROID__ || !customFrame) return null;
+  if (__WITH_ANDROID__ || (!webUI && !customFrame)) return null;
 
   const runWindowAction = (action: "minimize" | "toggleMaximize" | "close") => {
     // close() sends CloseRequested, preserving the existing system-tray behavior.
@@ -180,15 +187,15 @@ export default function WindowTitlebar() {
     <header
       className="relative z-[1000] flex h-8 w-full shrink-0 select-none items-start pb-2 pt-1 text-[var(--foreground)]"
       style={{ boxSizing: "content-box", height: titlebarHeight - 12 }}
-      aria-label={t("app.windowControls")}
+      aria-label={webUI ? t("menu.bar") : t("app.windowControls")}
       data-window-titlebar=""
       data-focused={focused}
-      data-platform={macOS ? "macos" : "other"}
+      data-platform={webUI ? "webui" : macOS ? "macos" : "other"}
     >
-      {macOS && !fullscreen && (
+      {__WITH_TAURI__ && macOS && !fullscreen && (
         <div className="h-8 w-20 shrink-0" aria-hidden="true" data-native-traffic-lights="" />
       )}
-      {nativeControls.available && nativeControls.startWidth > 0 && (
+      {__WITH_TAURI__ && nativeControls.available && nativeControls.startWidth > 0 && (
         <div
           className="h-8 shrink-0"
           style={{ width: nativeControls.startWidth }}
@@ -242,10 +249,10 @@ export default function WindowTitlebar() {
       {/* Removing the native region also disables double-click maximize in fullscreen. */}
       <div
         ref={dragRegionRef}
-        data-tauri-drag-region={fullscreen ? undefined : ""}
+        data-tauri-drag-region={__WITH_TAURI__ && !fullscreen ? "" : undefined}
         className="h-8 min-w-0 flex-1"
       />
-      {!fullscreen && nativeControls.available && (
+      {__WITH_TAURI__ && !fullscreen && nativeControls.available && (
         <div
           className="h-8 shrink-0"
           style={{ width: nativeControls.endWidth }}
@@ -253,7 +260,7 @@ export default function WindowTitlebar() {
           aria-hidden="true"
         />
       )}
-      {!fullscreen && !macOS && !nativeControls.available && (
+      {__WITH_TAURI__ && !fullscreen && !macOS && !nativeControls.available && (
         <div className="-mt-1 flex h-[35px] shrink-0 items-stretch" data-window-caption-controls="">
           <IconTooltip content={t("app.minimize")} side="bottom">
             <button

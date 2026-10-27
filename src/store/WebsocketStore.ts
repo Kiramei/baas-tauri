@@ -30,27 +30,20 @@ import {
 } from "@/shared/ServiceTransportEvents";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 
+import { resolveBackendAddress } from "@/shared/BackendAddress";
+
 let activeWebSocketBase: string | null = null;
 
-const resolveBase = () => {
-  if (activeWebSocketBase) return activeWebSocketBase;
-  if (import.meta.env.VITE_BAAS_WS_BASE) {
-    return import.meta.env.VITE_BAAS_WS_BASE as string;
-  }
-  const storedAddr = StorageUtil.get<string>("baseBackendAddr");
-  const storedPort = StorageUtil.get<number | string>("baseBackendPort");
-  if (storedAddr && storedPort) {
-    return `ws://${storedAddr}:${Number(storedPort)}`;
-  }
-  if (__WITH_ANDROID__) {
-    return "ws://127.0.0.1:8190";
-  }
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${wsProtocol}//${window.location.hostname}:8190`;
-  }
-  return "ws://127.0.0.1:8190";
-};
+const resolveBase = () =>
+  resolveBackendAddress({
+    activeBase: activeWebSocketBase,
+    configuredBase: import.meta.env.VITE_BAAS_WS_BASE as string | undefined,
+    webui: !__WITH_TAURI__ && !__WITH_ANDROID__,
+    android: __WITH_ANDROID__,
+    storedAddress: StorageUtil.get<string>("baseBackendAddr"),
+    storedPort: StorageUtil.get<number | string>("baseBackendPort"),
+    location: typeof window !== "undefined" ? window.location : undefined,
+  });
 
 export const resolveHttpBase = () => {
   const wsBase = resolveBase();
@@ -589,7 +582,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               ? getAndroidAutoPassword()
               : StorageUtil.get<string>("baasAutoPassword");
             if (!password) {
-              throw new Error("The managed backend password is unavailable");
+              throw new Error("The managed backend Key is unavailable");
             }
             await get().submitPassword(password);
           }
@@ -886,9 +879,7 @@ export const useWebSocketStore = create<WebSocketState>()(
               ...resetDataStores(),
               _auth_phase: "revoked",
               _auth_error:
-                payload.reason === "password_reset"
-                  ? "Password was reset on the server."
-                  : "Password changed. Re-enter the current password.",
+                payload.reason === "password_reset" ? t("auth.keyReset") : t("auth.keyChanged"),
               _server_initialized: true,
               _server_verified: false,
               _pwd_epoch: Number(payload.pwd_epoch ?? 0),
@@ -982,7 +973,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (!secret) {
         set((state) => ({
           ...state,
-          _auth_error: "Password is required.",
+          _auth_error: t("auth.keyRequired"),
         }));
         return;
       }
@@ -1034,6 +1025,46 @@ export const useWebSocketStore = create<WebSocketState>()(
           _session: null,
         }));
       }
+    },
+
+    resetKey: async (newKey: string) => {
+      const state = get();
+      if (
+        __WITH_TAURI__ ||
+        __WITH_ANDROID__ ||
+        state.transportMode !== "websocket" ||
+        state._auth_phase !== "authenticated" ||
+        !state._control ||
+        !state._session
+      ) {
+        throw new Error("An authenticated WebUI session is required to reset the Key");
+      }
+      if (!newKey.trim()) throw new Error("A new Key is required");
+      // Older services accept a change but cannot acknowledge it. Never mutate
+      // their Key while presenting an unconfirmed failure to the user.
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5_000);
+      try {
+        const response = await fetch(`${resolveHttpBase()}/health`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("The backend could not confirm Key reset support");
+        const health = await response.json();
+        if (health?.auth?.key_reset_supported !== true) {
+          throw new Error(t("auth.resetKeyUnsupported"));
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (
+        get()._auth_phase !== "authenticated" ||
+        get()._control !== state._control ||
+        get()._session !== state._session
+      ) {
+        throw new Error("The authenticated session changed before resetting the Key");
+      }
+      await state._control.resetKey(newKey);
     },
 
     connect: async (name: WsName) => {

@@ -3,6 +3,7 @@ import {
   filterSettingsSections,
   resolveSettingsSection,
   SETTINGS_SECTIONS,
+  WEBUI_SETTINGS_SECTIONS,
 } from "../../src/shared/SettingsSections";
 import type { TranslationKey } from "../../src/types/i18n";
 import zh from "../../public/locales/zh.json";
@@ -69,5 +70,48 @@ describe("global settings categories", () => {
     expect(
       filterSettingsSections("select all", translator(en)).map((section) => section.id)
     ).toEqual(["shortcuts"]);
+  });
+
+  test("browser search excludes native controls while preserving local and backend settings", () => {
+    const t = translator(en);
+    for (const key of [
+      "settings.ui.enableSystemNotifications",
+      "workflow.minimizeToTray",
+      "settings.shortcuts.global",
+      "transport.label",
+      "about.clientVersion",
+      "settings.ui.idleAutoUpdate",
+    ] as const) {
+      expect(filterSettingsSections(t(key), t, WEBUI_SETTINGS_SECTIONS)).toHaveLength(0);
+      expect(filterSettingsSections(t(key), t).length).toBeGreaterThan(0);
+    }
+    for (const [key, section] of [
+      ["settings.ui.player", "runtime"],
+      ["settings.ui.enableSafeStream", "runtime"],
+      ["about.backendCommit", "updates"],
+      ["edit.cut", "shortcuts"],
+      ["settings.ui.backgroundImage", "appearance"],
+      ["settings.systemLogs.title", "logs"],
+    ] as const) {
+      expect(
+        filterSettingsSections(t(key), t, WEBUI_SETTINGS_SECTIONS).map(({ id }) => id)
+      ).toContain(section);
+    }
+    expect(WEBUI_SETTINGS_SECTIONS.map(({ id }) => id)).toEqual(
+      SETTINGS_SECTIONS.map(({ id }) => id)
+    );
+  });
+
+  test("Key login settings are searchable only where browser authentication is available", () => {
+    for (const [locale, search] of [
+      [en, "reset key"],
+      [zh, "重置 Key"],
+    ] as const) {
+      const t = translator(locale);
+      expect(
+        filterSettingsSections(search, t, WEBUI_SETTINGS_SECTIONS).map(({ id }) => id)
+      ).toEqual(["general"]);
+      expect(filterSettingsSections(search, t, SETTINGS_SECTIONS)).toHaveLength(0);
+    }
   });
 });

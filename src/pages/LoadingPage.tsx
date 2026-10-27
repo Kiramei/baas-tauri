@@ -6,11 +6,14 @@ import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
+import { createStartupAuthRetry } from "@/shared/StartupAuthRetry";
 
 const baseUrl = import.meta.env.BASE_URL;
 const ANDROID_TERMINAL_DELAY_MS = 2_000;
 const AndroidStartupTerminal = React.lazy(() => import("@/components/AndroidStartupTerminal"));
-const AndroidInstallStepper = React.lazy(() => import("@/android/components/AndroidInstallStepper"));
+const AndroidInstallStepper = React.lazy(
+  () => import("@/android/components/AndroidInstallStepper")
+);
 const PasswordInputModal = React.lazy(() => import("@/components/PasswordInputModal.tsx"));
 
 interface LoadingPageProps {
@@ -66,6 +69,7 @@ const keepRecentLogLines = (text: string, maxLines = 120) => {
 const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => {
   const androidLogCursorRef = useRef(0);
   const androidAuthResetAttemptedRef = useRef(false);
+  const [authRetry] = useState(() => createStartupAuthRetry(__WITH_WEBUI__));
   const globalLogData = useGlobalLogStore((state) => state.globalLogData);
   const [androidStartupLogChunk, setAndroidStartupLogChunk] = useState("");
   const [androidTerminalReady, setAndroidTerminalReady] = useState(!__WITH_ANDROID__);
@@ -88,14 +92,15 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   }, []);
 
   useEffect(() => {
-    if (authPhase === "idle" || authPhase === "revoked") {
-      const delay = 0;
-      const timer = setTimeout(() => {
-        void startAuthFlow();
-      }, delay);
-      return () => clearTimeout(timer);
+    if (authPhase === "authenticated" || authPhase === "waiting_password") {
+      authRetry.reset();
     }
-  }, [authPhase, startAuthFlow]);
+    if (authPhase === "idle" || authPhase === "revoked") {
+      return authRetry.schedule(() => {
+        void startAuthFlow();
+      });
+    }
+  }, [authPhase, authRetry, startAuthFlow]);
 
   useEffect(() => {
     if (!__WITH_ANDROID__) return;
@@ -139,12 +144,19 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
       : authPhase === "resuming"
         ? "Restoring authenticated session..."
         : authPhase === "initializing"
-          ? "Initializing system password..."
+          ? "Initializing BAAS Key..."
           : authPhase === "authenticating"
             ? "Authenticating session..."
             : message;
 
-  if (__WITH_ANDROID__) return <React.Suspense fallback={null}><StartupShellHandoff><AndroidInstallStepper text={androidStartupLogChunk} theme={theme} /></StartupShellHandoff></React.Suspense>;
+  if (__WITH_ANDROID__)
+    return (
+      <React.Suspense fallback={null}>
+        <StartupShellHandoff>
+          <AndroidInstallStepper text={androidStartupLogChunk} theme={theme} />
+        </StartupShellHandoff>
+      </React.Suspense>
+    );
 
   return (
     <>

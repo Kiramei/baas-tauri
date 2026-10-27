@@ -56,6 +56,7 @@ snapshot.entries;
 | `tauri_client_check_update` | `{ request?: { currentVersion? } }` | Desktop updater metadata or Android package-update metadata. |
 | `tauri_client_download_and_install` | `{ onEvent }` | Download/install flow with a Tauri event channel; result handling differs by platform. |
 | `updater_check_version` | `{ request: { channel? } }` | Local/remote backend revision report. |
+| `updater_get_commit_history` | `{ request: { channel?, limit?, refresh? } }` | Reads backend commit metadata on desktop and Android. The channel defaults to the configured channel; the limit defaults to 100 and is clamped to 1–500. |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Multiple source probes; reports can complete out of order. |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Starts an updater terminal session. |
@@ -65,6 +66,10 @@ snapshot.entries;
 | `updater_reset_backend_auth_and_restart` | None | Destructive desktop auth reset/restart; Android currently returns `restarted: false` and `restart_deferred: true`. |
 
 Authentication reset, install/update and cancellation change stored or running state. They are not connectivity probes. See [Updater Internals](./updater-internals) for process ownership, non-atomic replacement and Android's deferred-restart behavior.
+
+Commit history returns `entries` containing only `hash`, `author` and `message`; each hash is a full 40-character SHA, shortened to six characters in the UI. The report also includes `repository`, `reference`, `current`, `source`, `stale`, `partial`, `hasMore` and `issue`. Sources are GitHub, existing local commits, a bundled metadata manifest or cache; inspect the provenance and failure flags before treating the result as complete or current. `refresh` defaults to `false`; `true` bypasses the ten-minute metadata cache.
+
+History requests do not fetch Git objects, deepen shallow clones or change installed code. The bounded metadata cache lives outside `.git`, holds at most 500 entries and 2 MiB, and stores no patches or historical file contents. GitHub metadata and local/cache fallbacks work independently of MirrorC availability; this report does not verify a MirrorC download. WebUI uses `get_commit_history` over its authenticated Trigger channel instead of this native invoke command; unauthenticated requests are rejected. Client release notes in the Help menu are a separate history.
 
 ## Transport Interface
 

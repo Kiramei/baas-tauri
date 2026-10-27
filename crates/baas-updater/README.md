@@ -208,3 +208,20 @@ Raw samples are in `docs/updater-performance-local-2026-10-15.json`.
 Git fetch's [automatic maintenance](https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---auto-maintenance)
 and UV's [cache reuse behavior](https://docs.astral.sh/uv/concepts/cache/)
 explain why explicit full cleanup is unnecessary on every update.
+
+## Commit history
+
+`history::get_commit_history` reads backend commit metadata for the selected stable
+or development channel. Desktop and Android use the same engine with separate HTTP
+adapters. The GitHub list-commits API supplies only the hash, author name and first
+message line to the persistent cache; patches, message bodies, author emails and
+Git objects are not stored. The native commands put this cache in the application
+cache directory, outside the installed repository's `.git`.
+
+The default request returns 100 entries, capped at 500, with a ten-minute cache.
+Refreshing never fetches or deepens a Git repository. If the API is unavailable,
+the engine can read an existing matching `master` checkout, the scoped
+`.baas-commit-history.json` packaged with a Gitless installation, or old cached
+metadata. Shallow checkouts and packaged snapshots are reported as partial, and
+failures remain visible through the report's issue field. MirrorC credentials and
+availability are independent of this read-only operation.
