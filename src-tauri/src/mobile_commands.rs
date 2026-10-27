@@ -2800,7 +2800,8 @@ pub async fn updater_get_commit_history(
     request: baas_updater::history::HistoryRequest,
 ) -> Result<baas_updater::history::HistoryReport, String> {
     let root = android_storage_root(&app)?;
-    let setup_path = ensure_android_setup_toml(&root)?;
+    // Reading history also works before the backend has created its setup file.
+    let setup_path = root.join("setup.toml");
     let configured = android_requested_channel(None, &setup_path)?;
     let channel = request.channel.unwrap_or(configured);
     let current = (channel == configured)
