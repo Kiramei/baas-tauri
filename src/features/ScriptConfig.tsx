@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import {
   ConfigurationGroup,
   ConfigurationInput,
+  ConfigurationRow,
   ConfigurationSelect,
   ConfigurationToggle,
 } from "@/components/configuration/ConfigurationControls";
@@ -10,6 +11,8 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
 import { scriptMethodOptions } from "@/shared/ScriptMethods";
+import { isPcServer, supportsPcServers } from "@/shared/serverOptions";
+import { PC_DEFAULT_METHODS, pcMethodOptions, validPcMethods } from "@/shared/PcProfiles";
 
 interface ScriptConfigProps {
   profileId: string;
@@ -28,6 +31,8 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
   const { t } = useAppTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const pcProfile = isPcServer(settings.server);
+  const pcAvailable = supportsPcServers();
   const initial = useMemo<Draft>(
     () => ({
       screenshot_interval: String(settings.screenshot_interval ?? "0.3"),
@@ -86,8 +91,11 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
       control: t("configurationMethods.pyautoguiControl"),
     },
   };
-  const methodOptions = (methods: unknown, selected: string) => {
-    return scriptMethodOptions(methods, selected, __WITH_WEBUI__).map((option) => ({
+  const methodOptions = (methods: unknown, selected: string, kind: "screenshot" | "control") => {
+    const options = pcProfile
+      ? pcMethodOptions(selected, kind, pcAvailable)
+      : scriptMethodOptions(methods, selected, __WITH_WEBUI__);
+    return options.map((option) => ({
       ...option,
       label: methodCopy[option.value]?.label ?? option.value,
     }));
@@ -121,6 +129,29 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
       <ConfigurationGroup
         title={__WITH_ANDROID__ ? t("script.screenshotInterval") : t("script.screenshotMethod")}
       >
+        {pcProfile && (
+          <ConfigurationRow
+            label={t("server.pcGameWindow")}
+            description={pcAvailable ? t("server.pcMethodsHelp") : t("server.pcWindowsOnly")}
+          >
+            {pcAvailable && !validPcMethods(draft.screenshot_method, draft.control_method) && (
+              <button
+                type="button"
+                className="configuration-action"
+                onClick={() => setDraft((current) => ({ ...current, ...PC_DEFAULT_METHODS }))}
+              >
+                {t("server.pcRecommendedMethods")}
+              </button>
+            )}
+          </ConfigurationRow>
+        )}
+        {pcProfile &&
+          pcAvailable &&
+          !validPcMethods(draft.screenshot_method, draft.control_method) && (
+            <p role="alert" className="px-4 py-3 text-sm text-destructive">
+              {t("server.pcInvalidMethods")}
+            </p>
+          )}
         <ConfigurationInput
           type="number"
           label={t("script.screenshotInterval")}
@@ -140,8 +171,13 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
                 t("configurationHelp.screenshotMethod")
               }
               value={draft.screenshot_method}
+              disabled={pcProfile && !pcAvailable}
               onChange={change("screenshot_method")}
-              options={methodOptions(staticConfig.screenshot_methods, draft.screenshot_method)}
+              options={methodOptions(
+                staticConfig.screenshot_methods,
+                draft.screenshot_method,
+                "screenshot"
+              )}
             />
             <ConfigurationSelect
               label={t("script.controlMethod")}
@@ -149,8 +185,9 @@ const ScriptConfig: React.FC<ScriptConfigProps> = ({ profileId }) => {
                 methodCopy[draft.control_method]?.control ?? t("configurationHelp.controlMethod")
               }
               value={draft.control_method}
+              disabled={pcProfile && !pcAvailable}
               onChange={change("control_method")}
-              options={methodOptions(staticConfig.control_methods, draft.control_method)}
+              options={methodOptions(staticConfig.control_methods, draft.control_method, "control")}
             />
           </>
         )}

@@ -29,7 +29,7 @@ import {
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
-import { buildServerOptions } from "@/shared/serverOptions";
+import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
 import { useAndroidStartGuard } from "@/android/components/AndroidStartGuard";
 import { Modal } from "@/components/ui/Modal";
 import {
@@ -80,7 +80,8 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const settings = useWebSocketStore((state) =>
     activeConfigId ? state.configStore[activeConfigId] : undefined
   );
-  const remoteAvailable = !__WITH_ANDROID__;
+  const pcProfile = isPcServer(settings?.server);
+  const remoteAvailable = !__WITH_ANDROID__ && !pcProfile;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
   const isAndroid = __WITH_ANDROID__;
   const [remoteVisible, setRemoteVisible] = useState<boolean>(false);
@@ -110,7 +111,7 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     androidDisplayBinding?.profileId === activeConfigId &&
     androidDisplayBinding?.packageName === androidGamePackage
   );
-  const serverLabel = buildServerOptions(t).find(
+  const serverLabel = buildServerOptions(t, { selected: settings?.server }).find(
     (server) => server.value === settings?.server
   )?.label;
   const showServerLabel = Boolean(serverLabel && serverLabel !== profile?.name);
@@ -157,7 +158,9 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
       const report = await invoke<{ games: AndroidInstalledGame[] }>("android_list_games");
       const result = resolveAndroidProfileGame(server, report.games);
       if (result.state !== "ready") {
-        const label = buildServerOptions(t).find((item) => item.value === server)?.label;
+        const label = buildServerOptions(t, { selected: server }).find(
+          (item) => item.value === server
+        )?.label;
         setAndroidGameIssue({
           unsupported: result.state === "unsupported",
           server: label ?? String(server ?? ""),
@@ -389,6 +392,11 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     <div
       className={`flex h-full min-h-0 min-w-0 flex-col text-foreground ${isAndroid ? "gap-2" : "gap-5"}`}
     >
+      {pcProfile && !supportsPcServers() && (
+        <p role="status" className="text-sm leading-5 text-muted-foreground">
+          {t("server.pcWindowsOnly")}
+        </p>
+      )}
       {!isAndroid && (
         <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">

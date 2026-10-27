@@ -14,6 +14,7 @@ export interface DynamicConfig {
   emulator_wait_time: string;
   ArenaLevelDiff: number;
   ArenaComponentNumber: number;
+  ArenaStopFightWhenRank1: boolean;
   maxArenaRefreshTimes: number;
   createPriority_phase1: string;
   createPriority_phase2: string;
@@ -45,6 +46,12 @@ export interface DynamicConfig {
   push_after_completion: boolean;
   push_json: string;
   push_serverchan: string;
+  push_feishu: string;
+  push_wecom: string;
+  push_telegram_bot_token: string;
+  push_telegram_chat_id: string;
+  push_telegram_proxy: string;
+  push_telegram_api: string;
   cafe_reward_affection_pat_round: number;
   cafe_reward_lowest_affection_first: boolean;
   cafe_reward_invite1_criterion: string;
@@ -72,6 +79,7 @@ export interface DynamicConfig {
   purchase_lesson_ticket_times: string;
   explore_normal_task_list: string;
   explore_hard_task_list: string;
+  explore_task_use_simple_mode: boolean;
   emulatorIsMultiInstance: boolean;
   emulatorMultiInstanceNumber: number;
   multiEmulatorName: string;

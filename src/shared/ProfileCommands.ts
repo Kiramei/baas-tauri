@@ -60,10 +60,12 @@ export const waitForProfileConfig = async (
   getState: () => ProfileCommandStore,
   serial: string,
   timeoutMs = 10_000,
-  intervalMs = 50
+  intervalMs = 50,
+  signal?: AbortSignal
 ): Promise<any> => {
   if (typeof serial !== "string" || !serial)
     throw new Error("Missing profile ID in command response");
+  if (signal?.aborted) throw new Error("Profile refresh was cancelled");
   const state = getState();
   state.send("sync", { type: "list" });
   for (const resource of ["config", "event"]) {
@@ -71,13 +73,30 @@ export const waitForProfileConfig = async (
   }
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
-    const check = () => {
-      const profile = getState().configStore[serial];
-      if (profile?.name && profile?.ap && profile?._pass) resolve(profile);
-      else if (Date.now() >= deadline) {
-        reject(new Error("Profile was saved, but refreshing its configuration timed out"));
-      } else setTimeout(check, intervalMs);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const finish = (profile?: unknown, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      if (error) reject(error);
+      else resolve(profile);
     };
+    const onAbort = () => finish(undefined, new Error("Profile refresh was cancelled"));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const check = () => {
+      if (settled) return;
+      const profile = getState().configStore[serial];
+      if (profile?.name && profile?.ap && profile?._pass) finish(profile);
+      else if (Date.now() >= deadline) {
+        finish(
+          undefined,
+          new Error("Profile was saved, but refreshing its configuration timed out")
+        );
+      } else timer = setTimeout(check, intervalMs);
+    };
+    if (signal?.aborted) return onAbort();
     check();
   });
 };

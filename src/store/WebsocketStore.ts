@@ -29,6 +29,7 @@ import {
   transportRecoveryDelay,
 } from "@/shared/ServiceTransportEvents";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
+import { remainingSyncOperations, type SyncPatchOperation } from "@/shared/SyncPatchOrdering";
 
 import { resolveBackendAddress } from "@/shared/BackendAddress";
 
@@ -77,6 +78,7 @@ const invalidateTransportGeneration = () => {
   pendingLogBatches.clear();
   transportGeneration += 1;
   connectionOpenPromises.clear();
+  pendingSyncPatches.clear();
 };
 let transportRecoveryEpoch = 0;
 let transportRecoveryPromise: Promise<void> | null = null;
@@ -91,17 +93,23 @@ const MAX_SYNC_PATCH_RETRIES = 3;
 type PendingSyncPatch = {
   resource: string;
   resourceId: string;
-  ops: Array<{ op: string; path: string; value: unknown }>;
+  ops: SyncPatchOperation[];
   retries: number;
+  sequence: number;
+  acknowledgementInvalidated?: boolean;
 };
 
 const pendingSyncPatches = new Map<number, PendingSyncPatch>();
+let lastRequestTimestamp = 0;
 
 const commandTimestamp = (requested: number, state: WebSocketState): number => {
   // Keep IDs exact across JS/native/Python JSON boundaries. Fractional
   // timestamps are not reliable callback keys; concurrent commands share a ms.
   const integer = Math.trunc(requested);
-  let timestamp = Number.isSafeInteger(integer) && integer > 0 ? integer : Date.now();
+  let timestamp = Math.max(
+    Number.isSafeInteger(integer) && integer > 0 ? integer : Date.now(),
+    lastRequestTimestamp + 1
+  );
   while (
     pendingSyncPatches.has(timestamp) ||
     state.pendingCallbacks[timestamp] ||
@@ -109,6 +117,8 @@ const commandTimestamp = (requested: number, state: WebSocketState): number => {
     state.pendingBinaryCallbacks[timestamp]
   )
     timestamp += 1;
+  if (!Number.isSafeInteger(timestamp)) throw new Error("Backend request ID limit reached");
+  lastRequestTimestamp = timestamp;
   return timestamp;
 };
 
@@ -1314,25 +1324,40 @@ export const useWebSocketStore = create<WebSocketState>()(
           },
 
           "patch_ack": (message: WsMessageItem) => {
-            pendingSyncPatches.delete(message.timestamp!);
-            const callback = get().pendingCallbacks[message.timestamp!];
+            const timestamp = Number(message.timestamp);
+            const pending = pendingSyncPatches.get(timestamp);
+            if (
+              !pending ||
+              message.resource !== pending.resource ||
+              message.resource_id !== pending.resourceId
+            )
+              return;
+            pendingSyncPatches.delete(timestamp);
+            const callback = get().pendingCallbacks[timestamp];
             if (callback) {
-              callback();
-              delete get().pendingCallbacks[message.timestamp!];
-            } else {
-              console.warn("CallBack Not Found:", message);
+              delete get().pendingCallbacks[timestamp];
+              // A retry may now contain only the independent part of the write.
+              if (!pending.acknowledgementInvalidated) callback();
             }
           },
 
           "patch_conflict": (message: WsMessageItem) => {
-            resourceCallBack[message.resource!]?.(message);
-
             const requestTimestamp = Number(message.request_timestamp);
-            const pending = pendingSyncPatches.get(requestTimestamp);
+            let pending = pendingSyncPatches.get(requestTimestamp);
+            if (
+              !pending ||
+              message.resource !== pending.resource ||
+              message.resource_id !== pending.resourceId
+            )
+              return;
+            resourceCallBack[message.resource!]?.(message);
+            // Snapshot subscribers may synchronously issue a newer edit.
+            pending = pendingSyncPatches.get(requestTimestamp);
+            if (!pending) return;
+
             const callback = get().pendingCallbacks[requestTimestamp];
             pendingSyncPatches.delete(requestTimestamp);
             delete get().pendingCallbacks[requestTimestamp];
-            if (!pending) return;
 
             if (pending.retries >= MAX_SYNC_PATCH_RETRIES) {
               appendGlobalLog({
@@ -1342,16 +1367,10 @@ export const useWebSocketStore = create<WebSocketState>()(
               return;
             }
 
-            let retryTimestamp = Math.max(
-              getTimestampMs(),
-              Math.ceil(Number(message.timestamp) || 0)
+            const retryTimestamp = commandTimestamp(
+              Math.max(getTimestampMs(), Math.ceil(Number(message.timestamp) || 0)),
+              get()
             );
-            while (
-              pendingSyncPatches.has(retryTimestamp) ||
-              get().pendingCallbacks[retryTimestamp]
-            ) {
-              retryTimestamp += 1;
-            }
 
             pendingSyncPatches.set(retryTimestamp, {
               ...pending,
@@ -1712,10 +1731,9 @@ export const useWebSocketStore = create<WebSocketState>()(
       });
     },
 
-    modify: (path: string, patch: any, showToast = false) => {
+    modify: (path: string, patch: any, showToast = false, onAcknowledged?: () => void) => {
       const [resourceId, scope] = path.split("::");
-      let timestamp = getTimestampMs();
-      while (pendingSyncPatches.has(timestamp) || get().pendingCallbacks[timestamp]) timestamp += 1;
+      const timestamp = commandTimestamp(getTimestampMs(), get());
       const ops = isPlainObject(patch)
         ? Object.entries(patch).map(([key, value]) => ({
             op: "replace",
@@ -1730,27 +1748,70 @@ export const useWebSocketStore = create<WebSocketState>()(
             },
           ];
 
-      get().pendingCallbacks[timestamp] = () => {
-        if (showToast) {
-          toast.success(t("settings.updateSuccess"), {
-            description: t("description.settings.updateSuccess"),
+      // Record newer intent directly in live requests, including requests whose
+      // conflict response has not arrived yet. No completed-write history is kept.
+      for (const [id, previous] of pendingSyncPatches) {
+        if (
+          previous.resource !== scope ||
+          previous.resourceId !== resourceId ||
+          previous.sequence >= timestamp
+        )
+          continue;
+        const remaining = remainingSyncOperations(previous.ops, ops);
+        if (remaining.length)
+          pendingSyncPatches.set(id, {
+            ...previous,
+            ops: remaining,
+            acknowledgementInvalidated:
+              previous.acknowledgementInvalidated || remaining.length !== previous.ops.length,
           });
+        else {
+          pendingSyncPatches.delete(id);
+          delete get().pendingCallbacks[id];
         }
-      };
+      }
+
+      const acknowledged =
+        !showToast && onAcknowledged
+          ? onAcknowledged
+          : () => {
+              if (showToast) {
+                toast.success(t("settings.updateSuccess"), {
+                  description: t("description.settings.updateSuccess"),
+                });
+              }
+              onAcknowledged?.();
+            };
+      get().pendingCallbacks[timestamp] = acknowledged;
       pendingSyncPatches.set(timestamp, {
         resource: scope,
         resourceId,
         ops,
         retries: 0,
+        sequence: timestamp,
       });
 
-      get().send("sync", {
-        type: "patch",
-        resource_id: resourceId,
-        resource: scope,
-        timestamp,
-        ops,
-      });
+      const cancel = () => {
+        // A conflict can move the same callback to a newer request ID.
+        for (const [id, callback] of Object.entries(get().pendingCallbacks)) {
+          if (callback !== acknowledged) continue;
+          pendingSyncPatches.delete(Number(id));
+          delete get().pendingCallbacks[Number(id)];
+        }
+      };
+      try {
+        get().send("sync", {
+          type: "patch",
+          resource_id: resourceId,
+          resource: scope,
+          timestamp,
+          ops,
+        });
+      } catch (error) {
+        cancel();
+        throw error;
+      }
+      return cancel;
     },
 
     trigger: (payload, callback) => {

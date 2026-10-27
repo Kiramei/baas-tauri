@@ -34,6 +34,34 @@ const matches = (query: string, locale: Record<string, unknown>) =>
 const locales = [zh, en, de, fr, ja, ko, ru];
 
 describe("profile configuration navigation", () => {
+  test("new upstream controls are searchable in every supported language", () => {
+    for (const locale of locales) {
+      const translate = translator(locale);
+      for (const [key, section] of [
+        ["push.telegram", "push"],
+        ["push.feishu", "push"],
+        ["push.wecom", "push"],
+        ["push.telegramChatId", "push"],
+        ["arena.stopAtFirstPlace", "arena"],
+        ["stage.simpleMode", "stage"],
+        ["stage.mainStoryEpisodes", "stage"],
+        ["cafe.interactionShotDelay", "cafe"],
+      ] as const) {
+        for (const platform of ["desktop", "android", "webui"] as const) {
+          expect(
+            filterConfigurationSections(translate(key), translate, platform).map(({ id }) => id)
+          ).toContain(section);
+        }
+      }
+      expect(
+        resolveConfigurationSearchTab("stage", translate("stage.mainStoryEpisodes"), translate)
+      ).toBe("explore");
+      expect(
+        resolveConfigurationSearchTab("cafe", translate("cafe.interactionShotDelay"), translate)
+      ).toBe("basic");
+    }
+  });
+
   test("WebUI keeps device configuration without advertising host window actions", () => {
     expect(getConfigurationSections("webui").map(({ id }) => id)).not.toContain("emulator");
     expect(resolveConfigurationSection("emulator", "webui").id).toBe("cafe");

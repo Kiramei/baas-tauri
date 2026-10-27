@@ -166,7 +166,12 @@ interface WebSocketState {
   recoverTransport: () => Promise<void>;
   send: (name: WsName, data: any) => void;
   init: () => Promise<void>;
-  modify: (path: string, value: any, showToast?: boolean) => void;
+  modify: (
+    path: string,
+    value: any,
+    showToast?: boolean,
+    onAcknowledged?: () => void
+  ) => void | (() => void);
   patch: (path: string, value: any) => void;
   trigger: (payload: CommandPayload, callback?: (e: any) => void) => number;
   triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => number;
