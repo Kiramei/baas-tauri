@@ -8,22 +8,31 @@ const isRecord = (value: JsonValue): value is Record<string, JsonValue> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const printCell = (value: JsonValue | undefined): string =>
   value === undefined ? "—" : typeof value === "string" ? value : JSON.stringify(value);
+export type ResultValueFormatter = (value: JsonValue, key?: string) => string | undefined;
 
 function ResultNode({
   value,
   schema,
   depth = 0,
+  formatValue,
+  field,
 }: {
   value: JsonValue;
   schema?: PluginSchema;
   depth?: number;
+  formatValue?: ResultValueFormatter;
+  field?: string;
 }) {
   const { t, i18n } = useTranslation();
   const label = (key: string, child?: PluginSchema) =>
     pluginText(child?.title, i18n.language) ||
     key.replace(/[_-]+/g, " ").replace(/^./u, (character) => character.toLocaleUpperCase());
   if (depth > 4 || value === null || typeof value !== "object")
-    return <span className="whitespace-pre-wrap break-words text-sm">{printCell(value)}</span>;
+    return (
+      <span className="whitespace-pre-wrap break-words text-sm">
+        {formatValue?.(value, field) ?? printCell(value)}
+      </span>
+    );
   if (Array.isArray(value)) {
     if (value.length && value.every(isRecord)) {
       const rows = value.slice(0, 200);
@@ -59,7 +68,7 @@ function ResultNode({
                         key={key}
                         className="max-w-96 whitespace-pre-wrap break-words px-3 py-2 align-top"
                       >
-                        {printCell(row[key])}
+                        {formatValue?.(row[key], key) ?? printCell(row[key])}
                       </td>
                     ))}
                   </tr>
@@ -77,7 +86,13 @@ function ResultNode({
       <ul className="min-w-0 space-y-2">
         {value.slice(0, 200).map((item, index) => (
           <li key={index} className="rounded-md border border-border px-3 py-2">
-            <ResultNode value={item} schema={schema?.items} depth={depth + 1} />
+            <ResultNode
+              value={item}
+              schema={schema?.items}
+              depth={depth + 1}
+              formatValue={formatValue}
+              field={field}
+            />
           </li>
         ))}
       </ul>
@@ -93,7 +108,13 @@ function ResultNode({
               {label(key, schema?.properties?.[key])}
             </dt>
             <dd className="min-w-0">
-              <ResultNode value={item} schema={schema?.properties?.[key]} depth={depth + 1} />
+              <ResultNode
+                value={item}
+                schema={schema?.properties?.[key]}
+                depth={depth + 1}
+                formatValue={formatValue}
+                field={key}
+              />
             </dd>
           </div>
         ))}
@@ -105,9 +126,11 @@ function ResultNode({
 export default function PluginResultView({
   value,
   schema,
+  formatValue,
 }: {
   value: JsonValue;
   schema?: PluginSchema;
+  formatValue?: ResultValueFormatter;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -124,7 +147,7 @@ export default function PluginResultView({
   };
   return (
     <div className="min-w-0 space-y-3" data-plugin-result>
-      <ResultNode value={value} schema={schema} />
+      <ResultNode value={value} schema={schema} formatValue={formatValue} />
       <details className="min-w-0 rounded-lg border border-border bg-background p-3">
         <summary className="cursor-pointer text-xs font-medium">{t("plugins.rawResult")}</summary>
         <div className="mt-3 space-y-2">

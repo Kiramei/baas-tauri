@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
+import { dateTimeInput, dateTimeIso } from "@/shared/PluginTools";
 import {
   pluginDefaults,
   pluginJsonEqual,
@@ -18,57 +19,130 @@ interface FieldProps {
   label: string;
   required?: boolean;
   disabled?: boolean;
+  formatEnum?: (value: JsonValue) => string | undefined;
   onInvalid: (path: string, invalid: boolean) => void;
 }
 
-function ArrayField({ schema, value, onChange, path, label, disabled, onInvalid }: FieldProps) {
+/** Fresh values for repeatable rows, including the minimum rows of nested lists. */
+export function pluginArrayEntryDefault(schema: PluginSchema): JsonValue {
+  if (schema.default !== undefined || schema.enum?.length) return pluginDefaults(schema);
+  if (schema.type === "array")
+    return Array.from({ length: schema.minItems ?? 0 }, () =>
+      pluginArrayEntryDefault(schema.items ?? { type: "string" })
+    );
+  const value = pluginDefaults(schema);
+  if (schema.type === "object" && value && !Array.isArray(value) && typeof value === "object")
+    return Object.fromEntries(
+      Object.keys(value).map((key) => [key, pluginArrayEntryDefault(schema.properties![key])])
+    );
+  return value;
+}
+
+function ArrayField({
+  schema,
+  value,
+  onChange,
+  path,
+  label,
+  disabled,
+  onInvalid,
+  formatEnum,
+}: FieldProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
-  const [raw, setRaw] = useState(() => JSON.stringify(value ?? [], null, 2));
-  const [invalid, setInvalid] = useState(false);
+  const values = Array.isArray(value) ? value : [];
+  const itemSchema = schema.items ?? { type: "string" };
+  const invalidPaths = useRef(new Set<string>());
+  const clearInvalid = useCallback(() => {
+    for (const invalidPath of invalidPaths.current) onInvalid(invalidPath, false);
+    invalidPaths.current.clear();
+  }, [onInvalid]);
+  const trackInvalid = useCallback(
+    (childPath: string, invalid: boolean) => {
+      if (invalid) invalidPaths.current.add(childPath);
+      else invalidPaths.current.delete(childPath);
+      onInvalid(childPath, invalid);
+    },
+    [onInvalid]
+  );
+  useEffect(() => clearInvalid, [clearInvalid]);
+  const minimum = schema.minItems ?? 0;
+  const maximum = schema.maxItems ?? 256;
   return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <Textarea
-        id={id}
-        value={raw}
-        disabled={disabled}
-        rows={4}
-        spellCheck={false}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? `${id}-error` : undefined}
-        className="font-mono text-xs"
-        onChange={(event) => {
-          const next = event.target.value;
-          setRaw(next);
-          try {
-            const parsed: unknown = JSON.parse(next);
-            if (!Array.isArray(parsed)) throw new Error();
-            setInvalid(false);
-            onInvalid(path, false);
-            onChange(parsed as JsonValue[]);
-          } catch {
-            setInvalid(true);
-            onInvalid(path, true);
-          }
-        }}
-      />
-      <p className="text-xs text-muted-foreground">
-        {pluginText(schema.description, i18n.language) || t("plugins.arrayHint")}
-      </p>
-      {invalid && (
-        <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
-          {t("plugins.invalidJson")}
+    <fieldset
+      disabled={disabled}
+      aria-describedby={schema.description ? `${id}-hint` : undefined}
+      className="min-w-0 space-y-3"
+    >
+      <legend className="text-sm font-medium">{label}</legend>
+      {schema.description && (
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {pluginText(schema.description, i18n.language)}
         </p>
       )}
-    </div>
+      {!values.length && <p className="text-xs text-muted-foreground">{t("plugins.emptyArray")}</p>}
+      <div className="min-w-0 space-y-3">
+        {values.map((entry, index) => (
+          <div
+            key={index}
+            className="min-w-0 space-y-2 rounded-lg border border-border bg-background/40 p-3"
+          >
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("plugins.entryLabel", { index: index + 1 })}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled || values.length <= minimum}
+                aria-label={t("plugins.removeEntry", { index: index + 1 })}
+                onClick={() => {
+                  // Indices become new field paths after deletion. Clear old
+                  // draft validation before changing the list's structure.
+                  clearInvalid();
+                  onChange(values.filter((_, row) => row !== index));
+                }}
+              >
+                {t("common.delete")}
+              </Button>
+            </div>
+            <SchemaField
+              schema={itemSchema}
+              value={entry}
+              path={`${path}[${index}]`}
+              label={t("plugins.entryLabel", { index: index + 1 })}
+              required
+              disabled={disabled}
+              formatEnum={formatEnum}
+              onInvalid={trackInvalid}
+              onChange={(next) =>
+                onChange(values.map((item, row) => (row === index ? (next ?? null) : item)))
+              }
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || values.length >= maximum}
+          onClick={() => onChange([...values, pluginArrayEntryDefault(itemSchema)])}
+        >
+          {t("plugins.addEntry")}
+        </Button>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {t("plugins.arrayLimit", { count: values.length, maximum })}
+        </span>
+      </div>
+    </fieldset>
   );
 }
 
 function SchemaField(props: FieldProps) {
-  const { schema, value, onChange, path, label, required, disabled, onInvalid } = props;
+  const { schema, value, onChange, path, label, required, disabled, onInvalid, formatEnum } = props;
   const { t, i18n } = useTranslation();
   const id = useId();
   const fieldLabel = `${pluginText(schema.title, i18n.language) || label}${required ? " *" : ""}`;
@@ -94,6 +168,7 @@ function SchemaField(props: FieldProps) {
             label={key}
             required={schema.required?.includes(key)}
             disabled={disabled}
+            formatEnum={formatEnum}
             onInvalid={onInvalid}
             onChange={(next) => {
               const object = { ...values };
@@ -158,7 +233,7 @@ function SchemaField(props: FieldProps) {
           </option>
           {schema.enum.map((item, index) => (
             <option key={index} value={index}>
-              {typeof item === "string" ? item : JSON.stringify(item)}
+              {formatEnum?.(item) ?? (typeof item === "string" ? item : JSON.stringify(item))}
             </option>
           ))}
         </select>
@@ -167,28 +242,49 @@ function SchemaField(props: FieldProps) {
       ) : (
         <Input
           id={id}
-          type={schema.type === "number" || schema.type === "integer" ? "number" : "text"}
-          value={typeof value === "string" || typeof value === "number" ? value : ""}
+          type={
+            schema.format === "date-time"
+              ? "datetime-local"
+              : schema.type === "number" || schema.type === "integer"
+                ? "number"
+                : "text"
+          }
+          value={
+            schema.format === "date-time"
+              ? dateTimeInput(value)
+              : typeof value === "string" || typeof value === "number"
+                ? value
+                : ""
+          }
           disabled={disabled}
           min={schema.minimum}
           max={schema.maximum}
-          step={schema.type === "integer" ? 1 : "any"}
+          step={schema.format === "date-time" ? 60 : schema.type === "integer" ? 1 : "any"}
           aria-describedby={hintId}
-          onChange={(event) =>
-            onChange(
-              schema.type === "number" || schema.type === "integer"
-                ? event.target.value === ""
-                  ? undefined
-                  : Number(event.target.value)
-                : event.target.value
-            )
-          }
+          onChange={(event) => {
+            const text = event.target.value;
+            if (schema.format === "date-time") {
+              const iso = text ? dateTimeIso(text) : "";
+              onInvalid(path, iso === undefined);
+              if (iso !== undefined) onChange(iso);
+            } else
+              onChange(
+                schema.type === "number" || schema.type === "integer"
+                  ? text === ""
+                    ? undefined
+                    : Number(text)
+                  : text
+              );
+          }}
         />
       )}
       {schema.description && (
         <p id={hintId} className="text-xs text-muted-foreground">
           {pluginText(schema.description, i18n.language)}
         </p>
+      )}
+      {schema.format === "date-time" && (
+        <p className="text-xs text-muted-foreground">{t("plugins.dateTimeHint")}</p>
       )}
     </div>
   );
@@ -201,11 +297,13 @@ export default function PluginSchemaForm({
   onChange,
   disabled,
   onInvalid,
+  formatEnum,
 }: {
   schema: PluginSchema;
   value: JsonValue;
   onChange: (value: JsonValue) => void;
   disabled?: boolean;
+  formatEnum?: (value: JsonValue) => string | undefined;
   onInvalid: (path: string, invalid: boolean) => void;
 }) {
   const { t } = useTranslation();
@@ -219,6 +317,7 @@ export default function PluginSchemaForm({
       label={t("plugins.values")}
       disabled={disabled}
       onChange={(next) => onChange(next ?? pluginDefaults(schema))}
+      formatEnum={formatEnum}
       onInvalid={onInvalid}
     />
   );

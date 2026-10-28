@@ -37,7 +37,7 @@ Python 与 Rust 之间采用 Win32 文件映射、固定 slot、信号量和停�
 
 `restart` 首次包含设备初始化：WS 711–771 ms、Pipe 708–753 ms、SHM 776–845 ms；同一 session 后续四个样本分别为约 48–53、48–51、53–63 ms。远控首个实际呈现帧约 1.54–1.59 秒。完整 `mail` 也分别在三种通道执行成功：初次 WS 7.23 秒、Pipe 6.67 秒、SHM 9.99 秒；邮件状态、初始页面和运行时间不同，SHM 这次从邮件页面经恢复开始，**这些单次耗时仅用于功能验收，不作传输性能排名**。
 
-原始样本：[六轮完整数据](../benchmarks/live-game-transport-windows.json)、[聚合结果](../benchmarks/live-game-summary-windows.json)。原生窗口截图保留在本机验收目录，不随源码提交。
+原始样本：[六轮完整数据](benchmarks/live-game-transport-windows.json)、[聚合结果](benchmarks/live-game-summary-windows.json)。原生窗口截图保留在本机验收目录，不随源码提交。
 
 代码检查能确认的固定成本包括：WS 直接从 WebView 进入 Python；两个原生适配器共同经过 invoke、Rust、raw Channel 和 JS 帧解析。共享内存当前又增加 Rust writer 的 mpsc/oneshot、Python reader 到事件循环的线程桥、Python writer actor，以及 slot 信号量操作。Pipe 使用 Tokio writer 与 Python asyncio.Protocol 分发，调度路径不同。共享内存也仍有组包、重组和桥接复制，当前实现并非端到端零拷贝。
 
@@ -47,7 +47,7 @@ Python 与 Rust 之间采用 Win32 文件映射、固定 slot、信号量和停�
 
 真正的 Rust/Python 两进程往返，排除 WebView 和游戏：1 KiB 报文 100 次，p50 **0.1076 ms**、p95 **0.1629 ms**；1 MiB 报文 20 次，按往返双向字节计算 **995.0 MiB/s**。使用原生 debug 构建；这个结果不能当作 UI 延迟或整体游戏提速倍数。
 
-验证了 100,012 字节 JSON，二进制 0/1 字节、slot 边界前后、4 MiB 与 8 MiB 以上消息的逐字节一致。入口为 `cargo run -p baas-tauri --example shm_native_probe -- <python> <baas-dev>`，含超时 watchdog，不使用游戏设备。原始结果：[native cross-process](../benchmarks/shm-native-cross-process-windows.json)。
+验证了 100,012 字节 JSON，二进制 0/1 字节、slot 边界前后、4 MiB 与 8 MiB 以上消息的逐字节一致。入口为 `cargo run -p baas-tauri --example shm_native_probe -- <python> <baas-dev>`，含超时 watchdog，不使用游戏设备。原始结果：[native cross-process](benchmarks/shm-native-cross-process-windows.json)。
 
 ## 实测发现并修复的问题
 
@@ -55,7 +55,7 @@ Python 与 Rust 之间采用 Win32 文件映射、固定 slot、信号量和停�
 2. **标准单任务名未初始化变量**：`_original_task_name` 只在旧别名分支赋值，`solve restart` 会在 worker 报错；现统一在转换别名前保存。
 3. **MuMu 15 DLL 候选路径缺失**：源码补充 `nx_device/15.0/shell/sdk/external_renderer_ipc.dll`，使用原配置的 Nemu 截图/控制路径进行测试。
 4. **初始化失败仍执行任务**：实测 ADB 10054 连接重置后，初始化返回 False，上层仍运行任务且留下 scheduler 假就绪标记，引起二次异常。现停止本次执行、回滚就绪标记、释放 guard、发布失败状态，下次可重新初始化。
-5. **切换时自动恢复竞争重启后端**：旧版实际日志显示一次 WS 切换内出现三个后端启动，期间自动 init 在没有会话时触发 recovery；刚提交的任务被后来一次重启中断，pending callback 被清空而超时。现切换期间禁止自动 init/recovery，异步初始化与消息绑定代次，旧控制连接不能更新或撤销新会话；心跳检测给新认证连接完整宽限期。详见 [筛选后的竞态证据](../benchmarks/transport-switch-race-2026-10-16.json)。日志没有标明每次 recovery 的调用方，因此不能将某一次重启单独断言为心跳触发。
+5. **切换时自动恢复竞争重启后端**：旧版实际日志显示一次 WS 切换内出现三个后端启动，期间自动 init 在没有会话时触发 recovery；刚提交的任务被后来一次重启中断，pending callback 被清空而超时。现切换期间禁止自动 init/recovery，异步初始化与消息绑定代次，旧控制连接不能更新或撤销新会话；心跳检测给新认证连接完整宽限期。详见 [筛选后的竞态证据](benchmarks/transport-switch-race-2026-10-16.json)。日志没有标明每次 recovery 的调用方，因此不能将某一次重启单独断言为心跳触发。
 
 前置调试还遇到主界面 UI 隐藏和 ROI 条件不正确，相关失败没有计入正式点击延迟，也没有归因于传输机制。首次邮件实测领取了可领取的非体力邮件奖励，未消费体力或购买；两封体力邮件仍保留。
 
@@ -64,7 +64,7 @@ Python 与 Rust 之间采用 Win32 文件映射、固定 slot、信号量和停�
 - Python：138 passed、1 skipped（平台专属），包括共享内存、背压、退出、重试、初始化失败、OCR 启动和行为跟踪相关集合；有两个现有 Pydantic 警告。
 - Rust Tauri：21 passed；updater：65 passed。
 - 前端：51 passed、703 assertions；另通过 Clippy `-D warnings`、TypeScript、i18n 7 种语言、探针额外类型检查及相关 ESLint。
-- `bunx tauri build --no-bundle` 成功生成嵌入正式前端的 release EXE（10,710,528 字节），SHA256 为 `8771FDA879FBFEAFE77872D834D621EFF0BA5B902FE91F0E311335CF767286E0`。完整文件与检查记录见 [构建清单](../benchmarks/build-validation-windows-2026-10-16.json)。没有生成安装器。
+- `bunx tauri build --no-bundle` 成功生成嵌入正式前端的 release EXE（10,710,528 字节），SHA256 为 `8771FDA879FBFEAFE77872D834D621EFF0BA5B902FE91F0E311335CF767286E0`。完整文件与检查记录见 [构建清单](benchmarks/build-validation-windows-2026-10-16.json)。没有生成安装器。
 - 又以这份 release EXE 替换隔离测试目录中的 debug EXE 并实际启动，页面 URL 为 `http://tauri.localhost/`，配置和服务连接均为 `shm`，不依赖 Vite。原有远控开关成功播放 1280×720 视频，3 秒观察到 84 个实际呈现回调，另次为 83 个。生产版鼠标触控通过原始 InteractionHandler 验证；这不是前述精确延迟样本。
 - 生产版原生窗口截图保留在本机验收目录。该轮已关闭测试原生实例、其后端/WebView 子进程与冻结 Vite，检查 9229/8191 均无剩余监听；保留隔离测试文件和生产 EXE，游戏与模拟器继续运行。
 

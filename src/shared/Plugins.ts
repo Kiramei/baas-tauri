@@ -24,12 +24,13 @@ export interface PluginSchema {
   maximum?: number;
   enum?: JsonValue[];
   default?: JsonValue;
+  format?: "date-time";
 }
 export interface PluginAction {
   id: string;
   name: PluginText;
   description?: PluginText;
-  execution: "compute" | "device_task";
+  execution: "compute" | "device_task" | "host_automation";
   input_schema: PluginSchema;
   output_schema?: PluginSchema;
   timeout_seconds?: number;
