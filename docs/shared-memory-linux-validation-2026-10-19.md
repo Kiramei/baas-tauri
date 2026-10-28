@@ -48,7 +48,7 @@ Linux 新配置默认使用共享内存；缺少迁移标记的旧 Pipe 配置�
 
 ## Cargo 成品复测
 
-2026-10-20 00:01 完成正式 `cargo build -p baas-tauri --bin baas-tauri --example shm_native_probe -j 2` 后，再运行 `target/debug/examples/shm_native_probe`，上述数据一致性、重开、进程退出、停止和资源清理检查全部通过。原始数据为 [Linux 原生跨进程结果](../benchmarks/shm-native-cross-process-linux.json)。
+2026-10-20 00:01 完成正式 `cargo build -p baas-tauri --bin baas-tauri --example shm_native_probe -j 2` 后，再运行 `target/debug/examples/shm_native_probe`，上述数据一致性、重开、进程退出、停止和资源清理检查全部通过。原始数据为 [Linux 原生跨进程结果](benchmarks/shm-native-cross-process-linux.json)。
 
 这是 debug 构建的单轮原生观察：100 次 1 KiB 往返，p50 为 1.352 ms、p95 为 1.758 ms、p99 为 29.405 ms；20 次 1 MiB 往返，双向字节吞吐为 218.7 MiB/s。强制退出 Python 后的退出检测为 8.17 ms；停止时唤醒阻塞读取为 30.07 ms。退出和停止的数字包含该次线程调度，不是延迟上限。这组本机样本没有与 WebSocket/Pipe 作同负载对照，也不用于跨系统或与既有 Windows 样本的性能排名。
 
@@ -70,7 +70,7 @@ Linux 新配置默认使用共享内存；缺少迁移标记的旧 Pipe 配置�
 
 各轮配置数量与前端状态项数量均为 1，后端实际 `status` 数据均为空对象；回调对象序列化后均为 44 字节（不是网络帧字节数）。所有请求成功，无重连、模式变化或 ERROR/CRITICAL 日志。WebSocket 第 5 轮的抖动也计入均值，没有删除。此结果比较的是空载控制请求，不代表执行任务或视频帧率。
 
-原始逐次样本、块耗时和状态：[界面对照](../benchmarks/ui-transport-linux-2026-10-20.json)；[机器环境](../benchmarks/ui-transport-linux-2026-10-20-environment.json)。入口为 [WebKit inspector 驱动](../scripts/webkit-probe.mjs) 与 [界面探针](../tests/browser/linux-transport-benchmark.ts)。仅在显式启用本机调试端口时加载探针，结束后已关闭该调试端口并以共享内存模式重新启动应用。
+原始逐次样本、块耗时和状态：[界面对照](benchmarks/ui-transport-linux-2026-10-20.json)；[机器环境](benchmarks/ui-transport-linux-2026-10-20-environment.json)。入口为 [WebKit inspector 驱动](../scripts/webkit-probe.mjs) 与 [界面探针](../tests/browser/linux-transport-benchmark.ts)。仅在显式启用本机调试端口时加载探针，结束后已关闭该调试端口并以共享内存模式重新启动应用。
 
 ```sh
 WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:9230 .codex_tmp/linux-dev/start.sh --no-watch
@@ -95,7 +95,7 @@ Rust 探针同源 `rustc -O` 编译，使用已缓存的 debug 依赖，三种�
 
 8 MiB 下共享内存相对 Pipe 的聚合吞吐约高 42%，典型 RTT 约低 21%；与 Plain WebSocket 的 RTT 中位数接近。Plain WS 有首轮重尾，不能把聚合吞吐差异宣传为稳定的 25% 优势。两次测试和所有慢样本均保留，不能据此推断任意包大小或生产 release 的排名。
 
-原始结果：[首轮 5 轮](../benchmarks/native-transport-linux-2026-10-20.json)、[复测 5 轮](../benchmarks/native-transport-linux-2026-10-20-repeat.json)、[10 轮合并](../benchmarks/native-transport-linux-2026-10-20-combined.json)。合并文件包含编译命令、源码/fixture 哈希与分轮范围；[Rust 探针](../src-tauri/examples/transport_native_probe.rs) 和 [Python fixture](../tests/fixtures/transport_echo_peer.py) 可复测，完成后会清理自己的进程、Unix socket 和 POSIX 名称。
+原始结果：[首轮 5 轮](benchmarks/native-transport-linux-2026-10-20.json)、[复测 5 轮](benchmarks/native-transport-linux-2026-10-20-repeat.json)、[10 轮合并](benchmarks/native-transport-linux-2026-10-20-combined.json)。合并文件包含编译命令、源码/fixture 哈希与分轮范围；[Rust 探针](../src-tauri/examples/transport_native_probe.rs) 和 [Python fixture](../tests/fixtures/transport_echo_peer.py) 可复测，完成后会清理自己的进程、Unix socket 和 POSIX 名称。
 
 当前实现没有显示常用小消息的提速。源码可确认 SHM 经过独立读取线程到 asyncio 的投递、writer actor 队列、slot 信号量和分片/组包复制；这些是可优化路径，但本轮没有分段 profile，不能将差值精确归因到某一步。较大的 8 MiB 报文显示相对 Pipe 的优势，尚无实际游戏或视频性能结论。
 

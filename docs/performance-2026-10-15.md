@@ -73,10 +73,10 @@ UV 基准的后续四轮 HTTP 传输从约 64.2 MiB 降为 0，前提是所需 w
 原始样本与复测入口：
 
 - [更新样本](updater-performance-local-2026-10-15.json)，`python scripts/benchmark-updater.py --help`
-- [前端日志样本](../benchmarks/log-batching-windows.json)，`bun scripts/benchmark-log-batching.ts 10000 7`
-- [二进制编码样本](../benchmarks/pipe-encoding-windows.json)，`bun scripts/benchmark-pipe-encoding.ts`
+- [前端日志样本](benchmarks/log-batching-windows.json)，`bun scripts/benchmark-log-batching.ts 10000 7`
+- [二进制编码样本](benchmarks/pipe-encoding-windows.json)，`bun scripts/benchmark-pipe-encoding.ts`
 - [Python 日志样本](../../baas-dev/docs/performance/log-pump-20261015.json)，在 `baas-dev` 执行 `python develop_tools/benchmark_log_delivery.py --help`
-- [归档共享内存审计样本](../benchmarks/archived-shm-audit-windows.json)，`python scripts/audit-archived-shm.py`；需要本地归档引用和已缓存的 Cargo 依赖
+- [归档共享内存审计样本](benchmarks/archived-shm-audit-windows.json)，`python scripts/audit-archived-shm.py`；需要本地归档引用和已缓存的 Cargo 依赖
 
 Rust 的 1,000 帧突发测试中，266,000 字节数据逐字节、按顺序一致，需过桥的批次数从 1,000 降至 9。该测试使用内存读取 fixture，仅证明合批和内容正确，不衡量真实 WebView 延迟。
 
