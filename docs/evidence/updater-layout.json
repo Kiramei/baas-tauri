@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-27T15:41:32.348Z",
+  "checkedAt": "2026-10-28T03:00:14.068Z",
   "cases": 8,
   "failures": 0,
   "testedSources": {
@@ -20,8 +20,8 @@
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3"
   },
-  "searchIndexPath": "search-index/3e200e07acf5645e9682cda1ada86bafb855ca75710c2af4de783150edbbc210.json",
-  "searchIndexSha256": "640d7198992c98805955d0d9218540d6f9fe7ab40e0eb05c6afa51881e71243e",
+  "searchIndexPath": "search-index/f313807a47dfd84da3ea2d6885d21f1223c37c6ec68b4ec58b26899eb9c9ece8.json",
+  "searchIndexSha256": "9d05759f962900b3b75d544d5d46911c53a29cb8a6c9c87a3a0b776fdb9e8115",
   "results": [
     {
       "locale": "zh",

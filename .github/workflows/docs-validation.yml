@@ -43,7 +43,9 @@ jobs:
           persist-credentials: false
           # Historical protocol evidence is verified against its recorded Git revision.
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
+      - name: Install client types for configuration and API audits
+        # Documentation contracts inspect the real client through its TypeScript project.
+        uses: ./.github/actions/setup-bun-deps
         with:
           bun-version: "1.3.14"
       - uses: actions/setup-python@v6
