@@ -25,6 +25,19 @@ Open **Configuration → Cafe** for the intended profile. Basic controls and inv
 
 Turning Cafe 2 off hides its tab without turning it into a separate delete action. Re-enable it to edit that Cafe's strategy. These switches describe behavior, not proof that a ticket or student is available.
 
+### Drag Gift Timing
+
+Choose **Drag Gift**, then expand **Advanced settings** to edit the interaction
+screenshot delay (`cafe_reward_interaction_shot_delay`). The value is seconds,
+defaults to `1`, and accepts finite non-negative numbers, including fractions
+such as `0.25`. This setting applies to the gift-drag interaction method; it is
+hidden while Normal interaction is selected.
+
+An empty, negative or invalid delay stays in the local draft and is not saved;
+other valid Cafe settings can still save. The backend can adjust this delay
+while interacting. If the connected backend snapshot lacks this field, the
+control is disabled with an update-backend message.
+
 ## Cafe 1 and Cafe 2 Invitations
 
 Each Cafe has an independent invitation mode, starred position and named-student list. Cafe 2's tab exists only while the Basic Cafe 2 switch is enabled.

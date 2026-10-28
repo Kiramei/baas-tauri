@@ -671,7 +671,6 @@
     "unknown": "未知任务"
   },
   "shaMethod": {
-    "baasCdn": "BAAS CDN 加速读取",
     "cnb": "CNB 仓库读取",
     "ghProxy": "gh-proxy.org 加速读取",
     "gitcode": "GitCode仓库读取",
@@ -1192,7 +1191,6 @@
     "stable": "稳定版"
   },
   "updateMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",

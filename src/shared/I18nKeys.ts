@@ -91,7 +91,6 @@ const shaMethodMap: Record<string, TranslationKey> = {
   gh_proxy: "shaMethod.ghProxy",
   sevencdn: "shaMethod.sevencdn",
   githubfast: "shaMethod.githubfast",
-  baas_cdn: "shaMethod.baasCdn",
 };
 
 const updateMethodMap: Record<string, TranslationKey> = {
@@ -106,7 +105,6 @@ const updateMethodMap: Record<string, TranslationKey> = {
   gh_proxy: "updateMethod.ghProxy",
   sevencdn: "updateMethod.sevencdn",
   githubfast: "updateMethod.githubfast",
-  baas_cdn: "updateMethod.baasCdn",
 };
 
 const mirrorcMessageMap: Record<string, TranslationKey> = {

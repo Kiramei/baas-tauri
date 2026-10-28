@@ -671,7 +671,6 @@
     "unknown": "不明なタスク"
   },
   "shaMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCodeリポジトリ",
@@ -1192,7 +1191,6 @@
     "stable": "安定版"
   },
   "updateMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",

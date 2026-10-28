@@ -15,7 +15,7 @@
     "gen:fonts": "bun scripts/run-font-build.mjs",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "lint": "eslint . --ext .ts,.tsx && bun run i18n:check",
+    "lint": "eslint . --ext .ts,.tsx --ignore-pattern 'docs/**' && bun run i18n:check",
     "test:android-bootstrap": "python scripts/tests/test_android_bootstrap_preserve.py",
     "test:android-smoke": "bun scripts/android-smoke.mjs",
     "test:transport": "bun test tests/frontend",

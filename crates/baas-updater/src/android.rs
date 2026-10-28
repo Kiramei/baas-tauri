@@ -1087,7 +1087,6 @@ fn is_allowed_android_git_host(host: &str) -> bool {
             | "gh-proxy.org"
             | "gh.sevencdn.com"
             | "githubfast.com"
-            | "baas-cdn.kiramei.workers.dev"
     )
 }
 

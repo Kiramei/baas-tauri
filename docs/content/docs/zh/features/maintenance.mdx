@@ -49,10 +49,26 @@ description: 好友清理的兼容性与删除风险、白名单校验、推送�
 | 所有任务完成后推送 | `push_after_completion`：本次运行完成后发送       |
 | JSON 推送          | `push_json`：接收端 URL，**不是** JSON 文本       |
 | Server 酱          | `push_serverchan`：填写 SendKey，不是完整接口地址 |
+| 飞书 | `push_feishu`：群机器人 Webhook URL |
+| 企业微信 | `push_wecom`：群机器人 Webhook URL |
+| Telegram Bot Token | `push_telegram_bot_token`：BotFather 提供的 Token |
+| Telegram Chat ID | `push_telegram_chat_id`：接收通知的会话或群组 ID，群组 ID 可以为负数 |
+| Telegram 代理 | `push_telegram_proxy`：后端使用的可选 HTTP/HTTPS 代理 |
+| Telegram API 地址 | `push_telegram_api`：可选 API 基址，留空使用 `https://api.telegram.org` |
 
-这两个文本框不隐藏密钥，前端也不验证网络是否可达。截图、共享配置和公开日志中不要暴露密钥或带签名的 URL。地址或密钥留空会关闭对应渠道；两者都非空时可以同时推送。
+Webhook 地址、Server 酱 SendKey、Telegram Token 和代理默认隐藏，可通过眼睛按钮在本地单独显示；
+Chat ID 与 API 地址直接显示。前端不会测试网络可达性，也没有发送测试通知的按钮。
+截图、共享配置和公开日志中不要暴露密钥或带签名的 URL。地址或密钥留空会关闭对应渠道，
+其他已配置渠道仍可继续接收通知。
 
-核验的后端以 `Content-Type: application/json` 发送 POST。错误内容示例：
+Telegram 通知需要同时填写 Token 与 Chat ID。只填其中一项时会提示配置不完整，但仍保存已有内容；
+清空任一项可关闭 Telegram 通知。这里用于发送任务完成或错误通知，不提供交互式 Bot 命令。
+使用私聊时先给机器人发送消息。Chat ID 以字符串保存，以保留负数或大整数 ID 的精确值。
+
+可选代理由脚本后端使用。在 Docker 中，`127.0.0.1` 指容器；在 Android 中指手机，
+不是打开浏览器的电脑。当前后端配置快照没有新增渠道字段时，对应控件会禁用并提示更新后端。
+
+通用 JSON 接收端会收到 `Content-Type: application/json` 的 POST。错误内容示例：
 
 ```json
 {
@@ -61,7 +77,7 @@ description: 好友清理的兼容性与删除风险、白名单校验、推送�
 }
 ```
 
-完成时标题为 `Baas Completed`，描述为 `all activities finished`。后端按 HTTP 200 判断成功，请求失败会记入日志；保存地址并非发送测试通知。Server 酱接口为 `https://sctapi.ftqq.com/{SendKey}.send`。后端另有高级飞书字段，但当前编辑器没有飞书控件。
+完成时标题为 `Baas Completed`，描述为 `all activities finished`。JSON 与 Server 酱适配器按 HTTP 200 判断成功；飞书和企业微信还检查响应中的成功状态码，Telegram 检查 `ok` 结果。请求失败会记入后端日志，保存地址并非发送测试通知。Server 酱接口为 `https://sctapi.ftqq.com/{SendKey}.send`。
 
 ## 反和谐
 
