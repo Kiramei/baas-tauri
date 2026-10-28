@@ -45,9 +45,9 @@ use crate::mobile_commands::{
     shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
     updater_abort_workflow, updater_check_version, updater_get_commit_history, updater_get_startup_state,
     updater_get_storage_state, updater_path_exists_non_empty,
-    updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
-    updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
-    updater_update_config, updater_validate_mirrorc_cdk,
+    updater_reset_backend_auth_and_restart, updater_resize_term, updater_restart_backend,
+    updater_select_channel, updater_start_workflow, updater_terminal_snapshot, updater_test_sha_method,
+    updater_test_sha_methods, updater_update_config, updater_validate_mirrorc_cdk,
 };
 use crate::native_window_controls::{
     native_window_controls_set_blocked, native_window_controls_state,
@@ -143,6 +143,8 @@ pub fn run() {
             updater_test_sha_method,
             updater_test_sha_methods,
             updater_start_workflow,
+            updater_select_channel,
+            updater_restart_backend,
             updater_reset_backend_auth_and_restart,
             backend_transport_start,
             backend_pipe_open,

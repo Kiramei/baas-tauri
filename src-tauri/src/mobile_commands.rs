@@ -2434,27 +2434,133 @@ fn format_adb_read_error(part: &str, error: std::io::Error) -> String {
 /// Performs the updater get startup state operation.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
-    system_log(
-        "DEBUG",
-        "updater",
-        "Android updater startup state requested",
-    );
     let root = android_storage_root(&app)?;
     let config_path = root.join("setup.toml");
+    let bootstrap = fs::read_to_string(root.join("android-bootstrap-status.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok());
+    let installed = root.join("main.service.py").exists();
+    // The picker is only offered before an install exists; an already installed
+    // backend keeps its channel and changes it from Settings instead.
+    let channel_selected = read_android_channel_selection(&root).is_some()
+        || bootstrap
+            .as_ref()
+            .and_then(|status| status.get("channel"))
+            .is_some()
+        || installed;
     Ok(json!({
         "configPath": config_path,
         "config": mobile_config(&root),
         "defaultInstallPath": "",
         "installPath": root,
         "portable": true,
-        "baasRootExistsNonEmpty": root.join("main.service.py").exists(),
+        "baasRootExistsNonEmpty": installed,
         "platformUnsupported": false,
-        "bootstrap": fs::read_to_string(root.join("android-bootstrap-status.json"))
-            .ok().and_then(|text| serde_json::from_str::<Value>(&text).ok()),
+        "channel": android_persisted_channel(&root),
+        "channelSelected": channel_selected,
+        "bootstrap": bootstrap,
         "startupLog": app.path().app_cache_dir().ok()
             .and_then(|path| fs::read_to_string(path.join("android-startup.log")).ok()).unwrap_or_default(),
         "message": ANDROID_BACKEND_MESSAGE
     }))
+}
+
+/// Restarts the embedded backend so a failed or channel-less bootstrap retries.
+#[tauri::command]
+pub async fn updater_restart_backend(app: AppHandle) -> Result<Value, String> {
+    system_log(
+        "INFO",
+        "updater",
+        "Android backend restart requested from the setup screen",
+    );
+    // The bootstrap owns its restart lifecycle: it exits its own process so the
+    // foreground service starts a fresh install attempt. A second in-process
+    // bootstrap would otherwise be refused by the claim guard.
+    let scheduled = minreq::post("http://127.0.0.1:8190/android/bootstrap-restart")
+        .with_timeout(3)
+        .send()
+        .map(|response| (200..300).contains(&response.status_code))
+        .unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || ensure_android_backend_service(&app))
+        .await
+        .map_err(|error| format!("Android backend restart worker failed: {error}"))??;
+    Ok(json!({ "restartScheduled": scheduled }))
+}
+
+/// Persists the first-run channel choice and unblocks the waiting bootstrap.
+#[tauri::command]
+pub fn updater_select_channel(app: AppHandle, channel: String) -> Result<Value, String> {
+    let parsed = UpdateChannel::parse(&channel).map_err(|error| error.message())?;
+    let normalized = parsed.as_str().to_string();
+    system_log(
+        "INFO",
+        "updater",
+        format!("Android update channel selected: {normalized}"),
+    );
+    let root = android_storage_root(&app)?;
+    fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    let setup_path = ensure_android_setup_toml(&root)?;
+    write_android_channel(&root, &setup_path, &normalized)?;
+    Ok(json!({
+        "channel": normalized,
+        "channelSelected": true,
+    }))
+}
+
+/// Returns the channel persisted in setup.toml, defaulting to stable.
+fn android_persisted_channel(root: &Path) -> String {
+    read_setup_value(&root.join("setup.toml"), "channel")
+        .filter(|value| UpdateChannel::parse(value).is_ok())
+        .unwrap_or_else(|| "stable".to_string())
+}
+
+/// Reads the channel handshake file the Python bootstrap polls.
+fn read_android_channel_selection(root: &Path) -> Option<String> {
+    let text = fs::read_to_string(root.join("android-channel-selection.json")).ok()?;
+    let value: Value = serde_json::from_str(&text).ok()?;
+    let channel = value.get("channel")?.as_str()?.to_string();
+    UpdateChannel::parse(&channel).ok()?;
+    Some(channel)
+}
+
+/// Writes both the persisted channel and the bootstrap handshake file.
+fn write_android_channel(root: &Path, setup_path: &Path, channel: &str) -> Result<(), String> {
+    let current_sha = read_setup_value(setup_path, "current_baas_sha").unwrap_or_default();
+    let current_cpp_sha = read_setup_value(setup_path, "current_baas_cpp_sha").unwrap_or_default();
+    let remote_sha_method =
+        read_setup_value(setup_path, "get_remote_sha_method").unwrap_or_default();
+    let request = UpdaterConfigUpdateRequest {
+        baas_root_path: Some(root.to_path_buf()),
+        mirrorc_cdk: read_setup_value(setup_path, "mirrorc_cdk"),
+        channel: Some(channel.to_string()),
+        runtime_path: read_setup_value(setup_path, "runtime_path"),
+        no_update: read_setup_value(setup_path, "no_update").and_then(|value| value.parse().ok()),
+        git_backend: read_setup_value(setup_path, "git_backend"),
+        transport: read_setup_value(setup_path, "transport"),
+    };
+    fs::write(
+        setup_path,
+        mobile_setup_toml(
+            root,
+            &request,
+            &current_sha,
+            &current_cpp_sha,
+            &remote_sha_method,
+        ),
+    )
+    .map_err(|error| error.to_string())?;
+    fs::write(
+        root.join("android-channel-selection.json"),
+        serde_json::to_string_pretty(&json!({
+            "channel": channel,
+            "selectedAt": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_secs_f64())
+                .unwrap_or_default(),
+        }))
+        .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 /// Performs the updater update config operation.
@@ -3390,7 +3496,10 @@ fn mobile_config_with_request(
 ) -> Value {
     let channel = request
         .and_then(|request| request.channel.as_deref())
-        .unwrap_or("dev");
+        .map(ToOwned::to_owned)
+        .or_else(|| read_setup_value(&root.join("setup.toml"), "channel"))
+        .filter(|value| UpdateChannel::parse(value).is_ok())
+        .unwrap_or_else(|| "stable".to_string());
     let mirrorc_cdk = request
         .and_then(|request| request.mirrorc_cdk.as_deref())
         .unwrap_or("");
@@ -3444,7 +3553,11 @@ fn mobile_setup_toml(
     current_cpp_sha: &str,
     remote_sha_method: &str,
 ) -> String {
-    let channel = request.channel.as_deref().unwrap_or("dev");
+    let channel = request
+        .channel
+        .as_deref()
+        .filter(|value| UpdateChannel::parse(value).is_ok())
+        .unwrap_or("stable");
     let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
     let no_update = request.no_update.unwrap_or(false);
     let git_backend = request.git_backend.as_deref().unwrap_or("auto");
@@ -3510,7 +3623,9 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     let request = UpdaterConfigUpdateRequest {
         baas_root_path: Some(root.to_path_buf()),
         mirrorc_cdk: None,
-        channel: Some("dev".to_string()),
+        // The picker overwrites this before the bootstrap downloads anything;
+        // stable is the safe seed when no choice arrives in time.
+        channel: Some("stable".to_string()),
         runtime_path: Some("embedded-python-3.9".to_string()),
         no_update: Some(false),
         git_backend: Some("auto".to_string()),
