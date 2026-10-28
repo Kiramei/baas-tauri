@@ -3,9 +3,10 @@ import { Plus, X } from "lucide-react";
 import React, { useDeferredValue, useMemo, useState } from "react";
 import { cn } from "@/shared/cn";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import { useTranslation } from "react-i18next";
+import { useAppTranslation as useTranslation } from "@/shared/useAppTranslation";
 import { LabelWithTooltip } from "@/components/ui/LabelWithTooltip.tsx";
 import { FormInput } from "@/components/ui/FormInput.tsx";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { eventNameKey } from "@/shared/I18nKeys";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 
@@ -66,9 +67,11 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   // Client-side filter that honours the free-text search input.
   const filtered = useMemo(() => {
     return alternatives.filter((s) =>
-      translateName(s.toString()).toString().toLowerCase().includes(deferredQuery.toLowerCase())
+      (translatePrefix === "eventName" ? t(eventNameKey(s.toString())) : s.toString())
+        .toLowerCase()
+        .includes(deferredQuery.toLowerCase())
     );
-  }, [alternatives, deferredQuery]);
+  }, [alternatives, deferredQuery, translatePrefix, t]);
 
   const toggleStudent = (name: string) => {
     if (selected.includes(name)) {
@@ -79,27 +82,33 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="w-full max-w-3xl rounded-lg bg-white dark:bg-slate-800 p-6 shadow-lg">
-          <div className="flex justify-between items-center mb-4">
-            <DialogTitle className="text-lg font-semibold">{t("scheduler.selector")}</DialogTitle>
-            <button onClick={onClose}>
-              <X className="w-5 h-5 text-slate-500" />
+    <Dialog open={isOpen} onClose={onClose} className="relative z-[1200]">
+      <div data-modal-backdrop="" className="fixed inset-0 bg-black/40" aria-hidden="true" />
+      <div
+        data-modal-backdrop=""
+        className="fixed inset-0 flex items-center justify-center p-4"
+        style={{ paddingTop: "calc(var(--window-titlebar-height, 0px) + 1rem)" }}
+      >
+        <DialogPanel
+          className="modal-surface w-full max-w-3xl overflow-y-auto overscroll-contain"
+          style={{ maxHeight: "calc(100dvh - var(--window-titlebar-height, 0px) - 2rem)" }}
+        >
+          <div className="modal-header">
+            <DialogTitle className="modal-title">{t("scheduler.selector")}</DialogTitle>
+            <button onClick={onClose} aria-label={t("common.close")} className="modal-close">
+              <X className="size-4" />
             </button>
           </div>
 
-          <input
-            type="text"
+          <SearchInput
             placeholder={t("scheduler.search")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full mb-4 px-3 py-2 border rounded-md focus:ring-primary-500 focus:border-primary-500"
+            containerClassName="mb-4"
           />
 
           {/* Candidate list */}
-          <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto">
+          <div className="ordered-selector-options flex flex-wrap gap-2 max-h-96 overflow-y-auto">
             {filtered.map((s) => {
               const name = s.toString();
               const active = selected.includes(name);
@@ -109,8 +118,8 @@ const SelectorModal: React.FC<SelectorModalProps> = ({
                   onClick={() => toggleStudent(name)}
                   className={`px-3 py-1 rounded-full text-sm border transition ${
                     active
-                      ? "bg-primary-600 text-white border-primary-600"
-                      : "bg-slate-100 dark:bg-slate-700 border-slate-300"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-transparent text-foreground border-input hover:bg-secondary"
                   }`}
                 >
                   {translateName(name)}
@@ -157,7 +166,7 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
   return (
     <>
-      <div>
+      <div className="ordered-selector">
         {label &&
           (tooltip ? (
             <LabelWithTooltip
@@ -170,12 +179,12 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
           ))}
 
         <div className={cn("space-y-2", className)}>
-          <div className="overflow-x-auto pb-1">
+          <div className="ordered-selector-scroll overflow-x-auto pb-1">
             <Reorder.Group
               axis="x"
               values={values}
               onReorder={handleReorder}
-              className="flex gap-1 min-w-max"
+              className="ordered-selector-list flex gap-1 min-w-max"
             >
               {values.map((name, index) => (
                 <Reorder.Item
@@ -184,15 +193,15 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
                   layout={lowPerformanceMode ? undefined : true}
                   transition={{ duration: lowPerformanceMode ? 0 : 0.18 }}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-0.5 shrink-0",
-                    "rounded-full border border-slate-300 dark:border-slate-600",
-                    "bg-slate-100 dark:bg-slate-700",
-                    "shadow-sm hover:shadow-md",
+                    "ordered-selector-item flex items-center gap-2 px-3 py-0.5 shrink-0",
+                    "rounded-lg border border-input",
+                    "bg-secondary/50 text-foreground",
+                    "transition-colors hover:bg-secondary",
                     "cursor-grab"
                   )}
                 >
                   {/* Index badge */}
-                  <span className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-primary text-primary-foreground">
+                  <span className="flex items-center justify-center w-5 h-5 text-xs font-medium rounded-md bg-accent text-muted-foreground">
                     {index + 1}
                   </span>
 
@@ -200,8 +209,10 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
                   {/* Remove button */}
                   <button
+                    type="button"
                     onClick={() => handleRemove(name)}
-                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900 transition"
+                    aria-label={`${t("common.delete")} ${translateName(name)}`}
+                    className="ordered-selector-remove ml-1 inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -210,12 +221,13 @@ export const OrderedMultiSelector: React.FC<MultiSelectorProps> = ({
 
               {/* Add button */}
               <button
+                type="button"
                 onClick={handleAdd}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-0.5 shrink-0",
-                  "rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600",
-                  "text-slate-600 dark:text-slate-200",
-                  "hover:bg-slate-100 dark:hover:bg-slate-600"
+                  "ordered-selector-add flex items-center gap-1 px-3 py-0.5 shrink-0",
+                  "rounded-lg border border-dashed border-input",
+                  "text-muted-foreground",
+                  "hover:bg-secondary hover:text-foreground"
                 )}
               >
                 <Plus className="w-4 h-4" /> {t("common.add")}
@@ -293,7 +305,7 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
   };
 
   return (
-    <div>
+    <div className="time-selector" data-time-mode={mode}>
       {label &&
         (tooltip ? (
           <LabelWithTooltip
@@ -306,15 +318,15 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
         ))}
 
       <div className={cn("space-y-2", className)}>
-        <div className="overflow-x-auto pb-2 flex flex-row gap-1 scroll-embedded">
+        <div className="time-selector-list overflow-x-auto pb-2 flex flex-row gap-1 scroll-embedded">
           {values.map((item, index) => (
             <div
               key={index}
               className={cn(
-                "flex items-center gap-1 px-2 shrink-0",
-                "rounded-full border border-slate-300 dark:border-slate-600",
-                "bg-slate-100 dark:bg-slate-700",
-                "shadow-sm hover:shadow-md"
+                "time-selector-item flex items-center gap-1 px-2 shrink-0",
+                "rounded-lg border border-input",
+                "bg-secondary/50 text-foreground",
+                "transition-colors hover:bg-secondary"
               )}
             >
               {mode === "time" && (
@@ -329,17 +341,19 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
                     newValues[index] = arr;
                     onChange(newValues as any);
                   }}
-                  className="w-20.5 md:w-18.5"
-                  childClassName="h-6 px-1 bg-slate-200 dark:bg-slate-600 shadow-none translate-y-[-1px]"
+                  className="time-selector-field w-20.5 md:w-18.5"
+                  childClassName="h-6 px-1 bg-background shadow-none translate-y-[-1px]"
                 />
               )}
 
               {mode === "range" && (
-                <div className="flex items-center gap-1">
+                <div className="time-selector-range flex items-center gap-1">
                   {(item as number[][]).map((point, i) => (
                     <React.Fragment key={i}>
                       {i === 1 && (
-                        <span className="mx-1 text-slate-500 dark:text-slate-300">~</span>
+                        <span className="time-selector-separator mx-1 text-muted-foreground">
+                          ~
+                        </span>
                       )}
                       <FormInput
                         type="time"
@@ -351,8 +365,8 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
                           newValues[index][i] = arr;
                           onChange(newValues as any);
                         }}
-                        className="w-18.5"
-                        childClassName="h-6 px-1 bg-slate-200 dark:bg-slate-600 shadow-none translate-y-[-1px]"
+                        className="time-selector-field w-18.5"
+                        childClassName="h-6 px-1 bg-background shadow-none translate-y-[-1px]"
                       />
                     </React.Fragment>
                   ))}
@@ -360,9 +374,11 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
               )}
 
               <button
+                type="button"
                 onClick={() => handleRemove(index)}
-                className="inline-flex items-center justify-center w-5 h-5
-                rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900 transition"
+                aria-label={t("common.delete")}
+                className="time-selector-remove inline-flex items-center justify-center w-5 h-5
+                rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -371,12 +387,13 @@ export const TimeSelectorModal: React.FC<TimeModeProps | RangeModeProps> = ({
 
           {/* Add button */}
           <button
+            type="button"
             onClick={mode === "time" ? handleTimeAdd : handleRangeAdd}
             className={cn(
-              "flex items-center gap-1 px-3 py-0.5 shrink-0",
-              "rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600",
-              "text-slate-600 dark:text-slate-200",
-              "hover:bg-slate-100 dark:hover:bg-slate-600"
+              "time-selector-add flex items-center gap-1 px-3 py-0.5 shrink-0",
+              "rounded-lg border border-dashed border-input",
+              "text-muted-foreground",
+              "hover:bg-secondary hover:text-foreground"
             )}
           >
             <Plus className="w-4 h-4" /> {t("common.add")}

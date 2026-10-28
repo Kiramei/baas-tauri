@@ -452,7 +452,9 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
         if !dependencies_changed {
             return Ok(());
         }
-        self.runner.run(&uv_cache_clean_command(config), output)?;
+        // Keep downloaded/built wheels available for the next requirements
+        // change. Clearing the entire cache here adds filesystem work to this
+        // launch and makes the next sync download unchanged packages again.
         save_requirements_cache(config, &requirements, &pypi_index)?;
         Ok(())
     }
@@ -534,6 +536,22 @@ pub fn uv_python_install_command(config: &UpdaterConfig) -> CommandSpec {
     uv_python_install_command_with_mirror(config, CPYTHON_HEAD.main)
 }
 
+/// Requests a native managed interpreter, including legacy Apple Silicon configs.
+fn managed_python_request(version: &str, os: &str, arch: &str) -> String {
+    if os == "macos" && matches!(arch, "aarch64" | "x86_64") {
+        // Python 3.9.0 has no Apple Silicon build. UV otherwise falls back to
+        // x86_64, which fails without Rosetta and mismatches the ARM OCR binary.
+        let version = if arch == "aarch64" && version == "3.9.0" {
+            "3.9"
+        } else {
+            version
+        };
+        format!("cpython-{version}-macos-{arch}-none")
+    } else {
+        version.to_string()
+    }
+}
+
 /// Builds the UV Python install command with an already-ranked CPython mirror.
 pub fn uv_python_install_command_with_mirror(
     config: &UpdaterConfig,
@@ -542,7 +560,11 @@ pub fn uv_python_install_command_with_mirror(
     CommandSpec::new(uv_executable(config))
         .arg("python")
         .arg("install")
-        .arg(&config.python.python_version)
+        .arg(managed_python_request(
+            &config.python.python_version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        ))
         .env(
             "UV_PYTHON_INSTALL_DIR",
             uv_python_install_dir(config).to_string_lossy().as_ref(),
@@ -557,7 +579,11 @@ pub fn uv_venv_command(config: &UpdaterConfig) -> CommandSpec {
         .arg("venv")
         .arg(config.baas_root().join(".venv").to_string_lossy())
         .arg("--python")
-        .arg(&config.python.python_version)
+        .arg(managed_python_request(
+            &config.python.python_version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        ))
         .env(
             "UV_PYTHON_INSTALL_DIR",
             uv_python_install_dir(config).to_string_lossy().as_ref(),
@@ -608,7 +634,9 @@ pub fn uv_sync_command_with_index(config: &UpdaterConfig, pypi_index: &str) -> C
         )
 }
 
-/// Builds the UV cache clean command.
+/// Builds an explicit UV cache clean command for manual maintenance.
+///
+/// Normal dependency synchronization retains the cache for subsequent updates.
 pub fn uv_cache_clean_command(config: &UpdaterConfig) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
         .arg("--no-progress")
@@ -646,6 +674,92 @@ pub fn launch_backend_pipe_command(
     command.args.push("--pipe-name".to_string());
     command.args.push(pipe_name.to_string());
     command
+}
+
+/// Builds the backend launch command for an already-created shared-memory endpoint.
+pub fn launch_backend_shm_command(
+    config: &UpdaterConfig,
+    port: u16,
+    shm_name: &str,
+) -> CommandSpec {
+    let mut command = launch_backend_command(config, port);
+    command.args.push("--shm-name".to_string());
+    command.args.push(shm_name.to_string());
+    command
+}
+
+/// Reject a backend replaced by an older release before waiting for SHM READY.
+/// Remote updates may predate the desktop adapter, even when setup.toml still
+/// retains `transport = "shm"` from the previous local build.
+pub fn validate_backend_shm_support(config: &UpdaterConfig) -> UpdaterResult<()> {
+    let root = config.baas_root();
+    let entry = root.join("main.service.py");
+    let entry_source = fs::read_to_string(&entry).unwrap_or_default();
+    let missing = if !entry_source.contains("--shm-name") {
+        Some("main.service.py --shm-name support".to_string())
+    } else {
+        [
+            "service/transport/shm_native.py",
+            "service/transport/shm_budget.py",
+            "service/transport/shm_endpoint.py",
+            "service/transport/shm_server.py",
+        ]
+        .into_iter()
+        .find(|path| !root.join(path).is_file())
+        .map(str::to_string)
+        .or_else(|| {
+            let app = fs::read_to_string(root.join("service/app.py")).unwrap_or_default();
+            (!app.contains("BAAS_SHM_NAME")).then(|| "service/app.py SHM startup".to_string())
+        })
+    };
+    if let Some(missing) = missing {
+        return Err(UpdaterError::Environment(format!(
+            "Backend at {} does not support shared-memory transport: missing {missing}. \
+             A backend update may have replaced the matching local build. \
+             Restore the matching baas-dev backend, or select WebSocket in setup to use this older backend.",
+            root.display()
+        )));
+    }
+    #[cfg(target_os = "macos")]
+    install_macos_shm_adapter(&root)?;
+    #[cfg(target_os = "linux")]
+    {
+        let native =
+            fs::read_to_string(root.join("service/transport/shm_native.py")).unwrap_or_default();
+        if !native.contains("class _PosixSharedMemorySession") {
+            return Err(UpdaterError::Environment(format!(
+                "Backend at {} does not support Linux shared-memory transport. \
+                 Update the baas-dev backend, or select Pipe or WebSocket in setup.",
+                root.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Keep the Darwin peer with the desktop build, including after backend updates.
+#[cfg(target_os = "macos")]
+fn install_macos_shm_adapter(root: &Path) -> UpdaterResult<()> {
+    let native = root.join("service/transport/shm_native.py");
+    let mut source = fs::read_to_string(&native)?;
+    const DISPATCH: &str = "\n# BAAS desktop macOS shared-memory adapter\nimport sys as _baas_shm_sys\nif _baas_shm_sys.platform == 'darwin':\n    from .shm_macos import MacSharedMemorySession as SharedMemorySession\n";
+    let adapter = root.join("service/transport/shm_macos.py");
+    let bundled = include_str!("../runtime/shm_macos.py");
+    let replace = |path: &Path, content: &str| -> UpdaterResult<()> {
+        use std::io::Write;
+        let mut file = tempfile::NamedTempFile::new_in(path.parent().unwrap())?;
+        file.write_all(content.as_bytes())?;
+        file.persist(path).map_err(|error| error.error)?;
+        Ok(())
+    };
+    if fs::read_to_string(&adapter).ok().as_deref() != Some(bundled) {
+        replace(&adapter, bundled)?;
+    }
+    if !source.contains("# BAAS desktop macOS shared-memory adapter") {
+        source.push_str(DISPATCH);
+        replace(&native, &source)?;
+    }
+    Ok(())
 }
 
 /// Returns the pid file used for the currently launched backend process.
@@ -761,7 +875,6 @@ fn find_file(dir: &Path, filename: &std::ffi::OsStr) -> Option<PathBuf> {
 /// Handles the uv pip command with index workflow.
 fn uv_pip_command_with_index(config: &UpdaterConfig, index: &str) -> CommandSpec {
     CommandSpec::new(uv_executable(config))
-        .arg("--no-progress")
         .arg("pip")
         .env("UV_INDEX", index)
         .env("UV_DEFAULT_INDEX", index)
@@ -908,6 +1021,7 @@ where
                 selector.mark_succeeded(&url)?;
                 return Ok((url, value));
             }
+            Err(UpdaterError::Cancelled) => return Err(UpdaterError::Cancelled),
             Err(error) => {
                 output.line(
                     OutputStyle::Warning,
@@ -1156,6 +1270,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn apple_silicon_python_requests_do_not_fall_back_to_intel() {
+        assert_eq!(
+            managed_python_request("3.9.0", "macos", "aarch64"),
+            "cpython-3.9-macos-aarch64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.11.0", "macos", "aarch64"),
+            "cpython-3.11.0-macos-aarch64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.9.0", "macos", "x86_64"),
+            "cpython-3.9.0-macos-x86_64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.11.0", "macos", "x86_64"),
+            "cpython-3.11.0-macos-x86_64-none"
+        );
+        assert_eq!(
+            managed_python_request("3.9.0", "windows", "x86_64"),
+            "3.9.0"
+        );
+        assert_eq!(managed_python_request("3.9.0", "linux", "aarch64"), "3.9.0");
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let install = uv_python_install_command(&config);
+        let venv = uv_venv_command(&config);
+        let python_arg = venv.args.iter().position(|arg| arg == "--python").unwrap() + 1;
+        assert_eq!(install.args[2], venv.args[python_arg]);
+    }
+
     /// Handles the custom runtime skips prepare and sync workflow.
     #[test]
     fn custom_runtime_skips_prepare_and_sync() {
@@ -1185,6 +1330,99 @@ mod tests {
         let mut expected = websocket.args;
         expected.extend(["--pipe-name".to_string(), "test-pipe-endpoint".to_string()]);
         assert_eq!(pipe.args, expected);
+    }
+
+    #[test]
+    fn shm_launch_keeps_backend_options_and_does_not_enable_pipes() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let websocket = launch_backend_command(&config, 8190);
+        let shm = launch_backend_shm_command(&config, 8190, "baas-shm-test-endpoint");
+        assert_eq!(shm.program, websocket.program);
+        assert_eq!(shm.cwd, websocket.cwd);
+        assert_eq!(shm.env, websocket.env);
+        assert_eq!(shm.detached_pid_file, websocket.detached_pid_file);
+        let mut expected = websocket.args;
+        expected.extend([
+            "--shm-name".to_string(),
+            "baas-shm-test-endpoint".to_string(),
+        ]);
+        assert_eq!(shm.args, expected);
+        assert!(!shm.args.iter().any(|arg| arg == "--pipe-name"));
+    }
+
+    #[test]
+    fn shm_preflight_rejects_a_backend_updated_to_an_older_entry_point() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        fs::write(
+            root.path().join("main.service.py"),
+            "parser.add_argument('--pipe-name')",
+        )
+        .unwrap();
+        let error = validate_backend_shm_support(&config).unwrap_err().message();
+        assert!(error.contains("main.service.py --shm-name support"));
+        assert!(error.contains("backend update"));
+    }
+
+    #[test]
+    fn shm_preflight_detects_partial_overwrite_and_accepts_a_complete_backend() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        fs::create_dir_all(root.path().join("service/transport")).unwrap();
+        fs::write(
+            root.path().join("main.service.py"),
+            "parser.add_argument('--shm-name')",
+        )
+        .unwrap();
+        fs::write(root.path().join("service/app.py"), "BAAS_SHM_NAME").unwrap();
+        for name in ["shm_native", "shm_budget", "shm_endpoint", "shm_server"] {
+            fs::write(root.path().join(format!("service/transport/{name}.py")), "").unwrap();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let error = validate_backend_shm_support(&config).unwrap_err().message();
+            assert!(error.contains("does not support Linux shared-memory"));
+            fs::write(
+                root.path().join("service/transport/shm_native.py"),
+                "class _PosixSharedMemorySession: pass",
+            )
+            .unwrap();
+        }
+        validate_backend_shm_support(&config).unwrap();
+        #[cfg(target_os = "macos")]
+        {
+            let native = root.path().join("service/transport/shm_native.py");
+            let adapter = root.path().join("service/transport/shm_macos.py");
+            let installed = fs::read_to_string(&native).unwrap();
+            validate_backend_shm_support(&config).unwrap();
+            assert_eq!(fs::read_to_string(&native).unwrap(), installed);
+            assert!(
+                fs::read_to_string(&adapter)
+                    .unwrap()
+                    .contains("class MacSharedMemorySession")
+            );
+            // Simulate a repository update replacing both patched files.
+            fs::write(&native, "# upstream update\n").unwrap();
+            fs::write(&adapter, "# stale adapter\n").unwrap();
+            validate_backend_shm_support(&config).unwrap();
+            assert!(
+                fs::read_to_string(&native)
+                    .unwrap()
+                    .contains("from .shm_macos import")
+            );
+            assert_eq!(
+                fs::read_to_string(&adapter).unwrap(),
+                include_str!("../runtime/shm_macos.py")
+            );
+        }
+        fs::remove_file(root.path().join("service/transport/shm_server.py")).unwrap();
+        assert!(
+            validate_backend_shm_support(&config)
+                .unwrap_err()
+                .message()
+                .contains("shm_server.py")
+        );
     }
 
     /// Handles the existing uv and python skip prepare ranking and downloads workflow.
@@ -1219,9 +1457,9 @@ mod tests {
         let clean = uv_cache_clean_command(&config);
 
         assert!(compile.env.iter().any(|(key, _)| key == "UV_CACHE_DIR"));
-        assert!(compile.args.contains(&"--no-progress".to_string()));
+        assert!(!compile.args.contains(&"--no-progress".to_string()));
         assert!(sync.env.iter().any(|(key, _)| key == "VIRTUAL_ENV"));
-        assert!(sync.args.contains(&"--no-progress".to_string()));
+        assert!(!sync.args.contains(&"--no-progress".to_string()));
         assert!(sync.args.contains(&"sync".to_string()));
         assert!(clean.args.contains(&"--no-progress".to_string()));
     }
@@ -1270,6 +1508,65 @@ mod tests {
             !requirements_compile_cached(&config, &requirements, "https://pypi.example/simple")
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn dependency_sync_retains_wheels_and_reuses_requirements_cache() {
+        struct LockfileRunner {
+            commands: Arc<Mutex<Vec<CommandSpec>>>,
+        }
+
+        impl ProcessRunner for LockfileRunner {
+            fn run<O: OutputSink + ?Sized>(
+                &self,
+                command: &CommandSpec,
+                _output: &O,
+            ) -> UpdaterResult<()> {
+                self.commands.lock().unwrap().push(command.clone());
+                if let Some(index) = command.args.iter().position(|arg| arg == "-o") {
+                    fs::write(&command.args[index + 1], "package==1\n")?;
+                }
+                // Model the destructive effect of the old post-sync command.
+                if command.args.iter().any(|arg| arg == "clean") {
+                    return Err(UpdaterError::Environment(
+                        "normal sync must not clear the wheel cache".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+        }
+
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let requirements = config.baas_root().join("requirements.txt");
+        fs::write(&requirements, "package==1\n").unwrap();
+        let wheel = uv_cache_dir(&config).join("cached-wheel");
+        fs::create_dir_all(wheel.parent().unwrap()).unwrap();
+        fs::write(&wheel, "reusable wheel").unwrap();
+        let ranking_dir = root.path().join("ranking");
+        let urls = environment_source_urls(EnvironmentSourceKind::Pypi, &config).unwrap();
+        let mut ranking = SourceRanking::from_urls(&urls);
+        ranking.promote_success(&urls[0]);
+        save_ranking(&ranking_dir.join("pypi.json"), &ranking).unwrap();
+        let commands = Arc::new(Mutex::new(Vec::new()));
+        let manager = EnvironmentManager::new(
+            LockfileRunner {
+                commands: Arc::clone(&commands),
+            },
+            EmptyDownloader,
+        );
+
+        manager
+            .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
+            .unwrap();
+        assert_eq!(commands.lock().unwrap().len(), 2);
+        assert_eq!(fs::read_to_string(&wheel).unwrap(), "reusable wheel");
+        assert!(requirements_compile_cached(&config, &requirements, &urls[0]).unwrap());
+
+        manager
+            .sync_dependencies_with_ranking(&config, Some(&ranking_dir), &crate::NoopOutput)
+            .unwrap();
+        assert_eq!(commands.lock().unwrap().len(), 2);
     }
 
     /// Handles the launch command uses custom runtime when configured workflow.
@@ -1403,6 +1700,33 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(persisted.active_sources()[0].url, selected);
+    }
+
+    #[test]
+    fn cancelled_environment_operation_does_not_retry_or_demote_source() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = config(root.path());
+        config.general.source_list = vec!["https://local-fixture.invalid/simple".to_string()];
+        let path = root.path().join("pypi.json");
+        let mut ranking = SourceRanking::from_urls(&config.general.source_list);
+        ranking.promote_success(&config.general.source_list[0]);
+        save_ranking(&path, &ranking).unwrap();
+        let before = fs::read(&path).unwrap();
+        let mut calls = 0;
+        let result: UpdaterResult<(String, ())> = with_environment_source_failover(
+            EnvironmentSourceKind::Pypi,
+            &config,
+            Some(root.path()),
+            &Probe { ok: Vec::new() },
+            &crate::NoopOutput,
+            |_| {
+                calls += 1;
+                Err(UpdaterError::Cancelled)
+            },
+        );
+        assert_eq!(result, Err(UpdaterError::Cancelled));
+        assert_eq!(calls, 1);
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 
     /// Handles the ranked environment source errors after three all failed cycles workflow.

@@ -122,21 +122,27 @@ pub trait MirrorHttp {
 #[derive(Debug, Clone, Default)]
 pub struct ReqwestMirrorHttp;
 
+fn mirrorc_http_client(timeout: Duration) -> UpdaterResult<reqwest::blocking::Client> {
+    reqwest::blocking::Client::builder()
+        // MirrorC API requests and package redirects must always use a direct connection.
+        .no_proxy()
+        .timeout(timeout)
+        .build()
+        .map_err(mirrorc_network_error)
+}
+
+fn mirrorc_network_error(error: reqwest::Error) -> UpdaterError {
+    // API URLs contain the CDK, and package URLs may contain temporary credentials.
+    UpdaterError::Network(error.without_url().to_string())
+}
+
 impl MirrorHttp for ReqwestMirrorHttp {
     /// Returns the get json result.
     fn get_json(&self, url: &str, timeout: Duration) -> UpdaterResult<serde_json::Value> {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(timeout)
-            .build()
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
-        let response = client
-            .get(url)
-            .send()
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let client = mirrorc_http_client(timeout)?;
+        let response = client.get(url).send().map_err(mirrorc_network_error)?;
         let status = response.status();
-        let body = response
-            .text()
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let body = response.text().map_err(mirrorc_network_error)?;
 
         parse_mirrorc_json_body(status, &body)
     }
@@ -148,15 +154,12 @@ impl MirrorHttp for ReqwestMirrorHttp {
         timeout: Duration,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<Vec<u8>> {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(timeout)
-            .build()
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let client = mirrorc_http_client(timeout)?;
         let mut response = client
             .get(url)
             .send()
             .and_then(reqwest::blocking::Response::error_for_status)
-            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+            .map_err(mirrorc_network_error)?;
         let mut bytes = Vec::new();
         let total = response.content_length().unwrap_or(0).max(1);
         let started = std::time::Instant::now();
@@ -642,7 +645,149 @@ fn format_bytes(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::{io::Write, net::TcpListener, process::Command, thread, time::Instant};
+
+    #[test]
+    fn mirror_http_bypasses_proxy_and_omits_credentials_from_errors() {
+        const CHILD_FLAG: &str = "BAAS_TEST_MIRROR_HTTP_CHILD";
+        if std::env::var_os(CHILD_FLAG).is_none() {
+            // Reqwest caches proxy discovery. Use a fresh process instead of racing other
+            // tests by mutating this process's environment.
+            let unused_port = TcpListener::bind("127.0.0.1:0").unwrap();
+            let proxy = format!("http://{}", unused_port.local_addr().unwrap());
+            drop(unused_port);
+            let mut command = Command::new(std::env::current_exe().unwrap());
+            command.args([
+                "--exact",
+                "mirrorc::tests::mirror_http_bypasses_proxy_and_omits_credentials_from_errors",
+                "--nocapture",
+            ]);
+            command.env(CHILD_FLAG, "1");
+            for key in [
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "ALL_PROXY",
+                "http_proxy",
+                "https_proxy",
+                "all_proxy",
+            ] {
+                command.env(key, &proxy);
+            }
+            command.env("NO_PROXY", "").env("no_proxy", "");
+            let result = command.output().unwrap();
+            assert!(
+                result.status.success(),
+                "MirrorC proxy regression subprocess failed:\n{}\n{}",
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr),
+            );
+            return;
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        listener.set_nonblocking(true).unwrap();
+        let redirect_origin = origin.clone();
+        let server = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let mut paths = Vec::new();
+            while paths.len() < 4 && Instant::now() < deadline {
+                let (mut stream, _) = match listener.accept() {
+                    Ok(connection) => connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                        continue;
+                    }
+                    Err(error) => panic!("loopback accept failed: {error}"),
+                };
+                // Winsock inherits the listener's nonblocking mode; wait for request
+                // bytes within the existing read timeout instead of racing the client.
+                stream.set_nonblocking(false).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                while !request.ends_with(b"\r\n\r\n") {
+                    let mut byte = [0];
+                    assert_eq!(stream.read(&mut byte).unwrap(), 1);
+                    request.push(byte[0]);
+                }
+                let request = String::from_utf8(request).unwrap();
+                let path = request.split_whitespace().nth(1).unwrap().to_string();
+                let response = if path.starts_with("/api?") {
+                    let body = r#"{"code":0,"msg":"ok"}"#;
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                } else if path.starts_with("/redirect?") {
+                    format!(
+                        "HTTP/1.1 302 Found\r\nLocation: {redirect_origin}/package?signature=test-package-token\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
+                } else if path.starts_with("/package?") {
+                    "HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\npackage"
+                        .to_string()
+                } else {
+                    "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+                };
+                stream.write_all(response.as_bytes()).unwrap();
+                paths.push(path);
+            }
+            paths
+        });
+
+        let timeout = Duration::from_secs(2);
+        // Verify that the poisoned proxy environment is effective for an ordinary client.
+        assert!(
+            reqwest::blocking::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap()
+                .get(format!("{origin}/control"))
+                .send()
+                .is_err()
+        );
+        let http = ReqwestMirrorHttp;
+        assert_eq!(
+            http.get_json(&format!("{origin}/api?cdk=test-cdk"), timeout)
+                .unwrap()["code"],
+            0
+        );
+        assert_eq!(
+            http.download(
+                &format!("{origin}/redirect?signature=test-package-token"),
+                timeout,
+                &crate::NoopOutput
+            )
+            .unwrap(),
+            b"package"
+        );
+
+        let download_error = http
+            .download(
+                &format!("{origin}/failure?signature=test-package-token"),
+                timeout,
+                &crate::NoopOutput,
+            )
+            .unwrap_err()
+            .message();
+        assert!(download_error.contains("503"));
+        assert!(!download_error.contains("test-package-token"));
+        assert!(!download_error.contains(&origin));
+        let paths = server.join().unwrap();
+        assert_eq!(paths.len(), 4);
+        assert!(paths.iter().any(|path| path.starts_with("/api?")));
+        assert!(paths.iter().any(|path| path.starts_with("/package?")));
+
+        // The origin is now closed, producing a request error that originally included
+        // the CDK query. The public error must contain neither the token nor the URL.
+        let api_error = http
+            .get_json(&format!("{origin}/api?cdk=test-cdk"), timeout)
+            .unwrap_err()
+            .message();
+        assert!(!api_error.contains("test-cdk"));
+        assert!(!api_error.contains(&origin));
+    }
 
     /// Verifies the parses latest response and cdk state behavior.
     #[test]

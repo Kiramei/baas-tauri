@@ -1,0 +1,158 @@
+.sweep-plan-editor {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+}
+.sweep-plan-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sweep-plan-entry {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+.sweep-plan-entry-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sweep-plan-entry-number,
+.sweep-plan-field-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+.sweep-plan-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+.sweep-plan-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+.sweep-plan-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.sweep-plan-icon:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+.sweep-plan-icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.sweep-plan-icon:focus-visible,
+.sweep-plan-add:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.sweep-plan-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+  gap: 10px;
+}
+.sweep-plan-fields > *,
+.sweep-plan-count-controls > * {
+  min-width: 0;
+}
+.sweep-plan-fields button[role="combobox"] {
+  min-width: 0;
+}
+.sweep-plan-count {
+  min-width: 0;
+}
+.sweep-plan-field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--foreground);
+  font-size: 14px;
+}
+.sweep-plan-count-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sweep-plan-count-input {
+  flex: 1 1 0;
+}
+.sweep-plan-count-mode {
+  flex: 1 1 0;
+}
+.sweep-plan-empty,
+.sweep-plan-hint,
+.sweep-plan-pending {
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--muted-foreground);
+}
+.sweep-plan-empty {
+  padding: 8px 0;
+}
+.sweep-plan-original {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--foreground);
+}
+.sweep-plan-invalid p,
+.sweep-plan-error {
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 20px;
+}
+.sweep-plan-invalid p {
+  margin-top: 6px;
+}
+.sweep-plan-error {
+  grid-column: 1 / -1;
+}
+.sweep-plan-pending,
+.sweep-plan-hint {
+  margin-top: 8px;
+}
+.sweep-plan-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-top: 10px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  color: var(--foreground);
+  background: var(--secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.sweep-plan-add svg {
+  width: 15px;
+  height: 15px;
+}
+.sweep-plan-add:hover {
+  filter: brightness(0.96);
+}
+@container (max-width: 420px) {
+  .sweep-plan-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .sweep-plan-count {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,43 +1,101 @@
 ---
 title: 制造
-description: 制造券、制造次数、制造阶数、材料颜色、学生推荐和优先级。
+description: 制造全局限制、各阶段全部材料选项、优先级编辑与学生礼物推荐操作。
 ---
 
-制造会消耗制造券和材料，属于高风险资源配置。修改后先单独运行一次，看日志里的阶数、颜色和优先级是否正确。
+打开**配置 → 制造**。全局设置决定制造次数与阶段数，
+各阶段选项卡独立配置材料规则和节点优先级。
+修改自动保存，制造调度任务需要单独启用。
 
 <img
   className="baas-screenshot"
-  src="/cn/crafting-global-three-stages.png"
-  alt="制造全局设置，显示使用制造券、制造次数和制造阶数"
+  src="/media/desktop/zh/config-artifact.webp"
+  alt="当前制造全局设置中的加速券、次数与阶段数"
 />
 
-## 阶段与材料
+## 全局控件
+
+| 控件     | 值与效果                                                  | 导出字段                  |
+| -------- | --------------------------------------------------------- | ------------------------- |
+| 加速券   | 允许制造流程使用加速券，不会凭空增加票券                  | `use_acceleration_ticket` |
+| 制造次数 | 整数 1–10，空值、小数或超范围草稿不保存，导出为数字字符串 | `createTime`              |
+| 制造阶段 | 1、2 或 3，显示相应阶段选项卡                             | `create_phase`            |
+
+减少阶段数会隐藏后续选项卡，不会删除已经保存的规则。
+当前打开的阶段变为不可用时，编辑器返回全局。
+更多阶段可能消耗额外材料；提高制造次数不代表空位、票券和材料一定足够。
 
 <img
   className="baas-screenshot"
-  src="/cn/crafting-second-stage-student-recommendation.png"
-  alt="制造第二阶段配置，包含材料选择、按学生推荐、选择学生和优先级"
+  src="/media/desktop/zh/conditional-craft-invalid-count.webp"
+  alt="制造次数超出 1–10 时显示校验提示，原有已保存值保持不变"
+/>
+
+## 各阶段材料选项
+
+| 阶段   | 可用材料规则                                                                                                                                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 一阶段 | 仅默认（`default`）                                                                                                                                                        |
+| 二阶段 | 白（`primary`）、蓝（`normal`）、白蓝（`primary_normal`）、金（`advanced`）、紫（`superior`）、金紫（`advanced_superior`）、全部四档（`primary_normal_advanced_superior`） |
+| 三阶段 | 金（`advanced`）、紫（`superior`）、金紫（`advanced_superior`）                                                                                                            |
+
+对应字段为 `create_phase_1_select_item_rule`、
+`create_phase_2_select_item_rule` 和 `create_phase_3_select_item_rule`。
+一阶段没有提供所有颜色，三阶段也不能套用二阶段的完整选项集合。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-phase2-materials.webp"
+  alt="二阶段制造展开的七种材料规则"
 />
 
 <img
   className="baas-screenshot"
-  src="/cn/crafting-material-dropdown.png"
-  alt="制造第三阶段材料选择下拉框，包含金色、紫色和金紫组合"
+  src="/media/desktop/zh/conditional-craft-phase3-materials.webp"
+  alt="三阶段制造仅提供金、紫和金紫材料规则"
 />
 
-| 材料选择                  | 说明                     |
-| ------------------------- | ------------------------ |
-| 默认                      | 使用默认优先级           |
-| 白色 / 蓝色 / 金色 / 紫色 | 偏向单一颜色节点         |
-| 白蓝组合 / 金紫组合       | 在指定颜色组合中选择     |
-| 全部                      | 不限制颜色，按优先级选择 |
+## 节点优先级
 
-## 指定角色礼物
+各阶段分别使用 `createPriority_phase1`、`createPriority_phase2` 或
+`createPriority_phase3`，选项取自游戏区服的后端数据。
+点击添加打开可搜索节点列表，选择或取消选择节点，
+使用移除图标删除条目。列表靠前的节点优先。
 
-旧文档中的制造策略是：只有二级制造可以稳定指定角色喜欢的礼物。使用时先把制造阶数设为至少二级，再在二级制造配置中使用“按学生推荐”或“一键设置推荐优先级”。
+拖动把手可以排序。键盘排序时先聚焦把手，按 Space 或 Enter 拿起，
+用上下方向键或 Home、End 移动，再按 Space 或 Enter 提交；
+Escape 取消未完成的移动，鼠标释放则提交拖动。
+移动预览尚未保存；提交后才更新配置，可用撤销恢复原顺序。
+未知或旧格式节点标签会保留显示，不会悄悄丢弃。
+空列表不保证后端完全不投入材料，应先确认实际任务行为再调度。
 
-| 目标             | 建议                               |
-| ---------------- | ---------------------------------- |
-| 获取指定角色礼物 | 使用二级制造的学生推荐             |
-| 节省材料         | 先降低制造次数，观察日志和节点选择 |
-| 避免误消耗       | 不确定时不要启用三阶段制造         |
+<MotionDemo locale="zh" variant="priority" />
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-node-picker.webp"
+  alt="制造节点选择器中的搜索与选择状态"
+/>
+
+## 学生推荐
+
+这个操作位于**二阶段**，需要先选择至少两个阶段。
+选择学生会打开后端提供的推荐名称；选中一位学生后，
+二阶段优先级列表会被替换为推荐节点在前、其他默认节点在后的顺序。
+它不会合并任意自定义列表，也不保存一个永久“目标学生”字段。
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/zh/conditional-craft-recommendation.webp"
+  alt="二阶段制造按学生名称查找推荐节点顺序"
+/>
+
+选中后选择器关闭，运行前先核对生成的节点顺序。
+替换不符合预期时可使用配置撤销。这只是节点偏好，
+不保证必定产出某种礼物，也不代表已经将礼物赠送给该学生。
+
+## 首次执行
+
+先使用较少次数，核对加速券许可、阶段数、每阶段材料范围和节点优先级，
+再单独运行制造。检查材料扣除、选中节点、完成的制造位与任务日志。
+只有明确接受额外材料消耗后，才提高阶段数。

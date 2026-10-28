@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-10-20T09:10:47.055Z",
+  "results": [
+    {
+      "locale": "zh",
+      "query": "7912",
+      "expectedRoute": "guide/android",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "query": "7912",
+      "expectedRoute": "guide/android",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "query": "co_detect",
+      "expectedRoute": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "query": "co_detect",
+      "expectedRoute": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "query": "配置迁移",
+      "expectedRoute": "reference/backend-development",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "query": "cooperative stop",
+      "expectedRoute": "reference/backend-development",
+      "passed": true
+    }
+  ]
+}

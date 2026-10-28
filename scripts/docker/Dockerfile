@@ -50,6 +50,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libgl1 \
     libglib2.0-0t64 \
+    libstdc++6 \
+    libgcc-s1 \
+    zlib1g \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
               /usr/share/doc/* \
@@ -66,14 +69,20 @@ COPY dist/ /usr/share/nginx/html/
 
 # ---- Runtime scripts ----
 COPY entrypoint.sh /entrypoint.sh
+COPY container.py /usr/local/bin/baas-container.py
 
-RUN chmod +x /entrypoint.sh \
+RUN git config --system --add safe.directory /app \
+    && chmod +x /entrypoint.sh \
     && nginx -t \
     && test -f /usr/share/nginx/html/index.html
 
 VOLUME ["/app"]
 
-EXPOSE 8190
 EXPOSE 8191
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD ["/opt/venv/bin/python", "/usr/local/bin/baas-container.py", "--healthcheck"]
+
+STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -8,6 +8,7 @@ use baas_term::threader::{ThreadLogStyle, ThreadProgressBar};
 use git2::{FetchOptions, RemoteCallbacks, Repository, build::RepoBuilder};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -17,6 +18,196 @@ use std::{
 };
 
 const DEFAULT_BRANCH: &str = "master";
+
+const DELIVERY_REPOSITORY: &str = "baas.deliveryRepository";
+const DELIVERY_REF: &str = "baas.deliveryRef";
+
+/// Protects an installed delivery ref before a fetched mirror can replace it.
+///
+/// Fetch success only proves availability. A mirror may still advertise an old
+/// tip, so validation must happen between fetch and reset, including for PTYs.
+pub(crate) struct GitUpdateGuard {
+    previous: git2::Oid,
+    repository: String,
+    requested_ref: String,
+    protect_head: bool,
+}
+
+impl GitUpdateGuard {
+    pub(crate) fn capture(url: &str, requested_ref: &str, target: &Path) -> UpdaterResult<Self> {
+        let sources = [
+            &constants::MAIN_REPO_SRC,
+            &constants::MAIN_REPO_SRC_DEV,
+            &constants::CPP_REPO_SRC,
+        ];
+        let source = sources.into_iter().find(|source| {
+            std::iter::once(source.main)
+                .chain(source.proxy.iter().copied())
+                .any(|candidate| {
+                    normalized_repository_url(candidate) == normalized_repository_url(url)
+                })
+        });
+        let canonical = source.map_or(url, |source| source.main);
+        let aliases = source
+            .map(|source| {
+                std::iter::once(source.main)
+                    .chain(source.proxy.iter().copied())
+                    .collect()
+            })
+            .unwrap_or_else(|| vec![url]);
+        Self::capture_delivery(url, requested_ref, target, canonical, &aliases)
+    }
+
+    fn capture_delivery(
+        url: &str,
+        requested_ref: &str,
+        target: &Path,
+        canonical: &str,
+        aliases: &[&str],
+    ) -> UpdaterResult<Self> {
+        let repo = Repository::open(target)?;
+        let head = repo.head()?;
+        let previous = head.peel_to_commit()?.id();
+        let repository = normalized_repository_url(canonical);
+        let mut config = repo.config()?;
+        let installed_repository = config.get_string(DELIVERY_REPOSITORY).ok();
+        let installed_ref = config.get_string(DELIVERY_REF).ok();
+        let installed = installed_repository.zip(installed_ref).or_else(|| {
+            let origin = repo.find_remote("origin").ok()?;
+            let origin = normalized_repository_url(origin.url().ok()?);
+            let old_repository = [
+                &constants::MAIN_REPO_SRC,
+                &constants::MAIN_REPO_SRC_DEV,
+                &constants::CPP_REPO_SRC,
+            ]
+            .into_iter()
+            .find(|source| {
+                std::iter::once(source.main)
+                    .chain(source.proxy.iter().copied())
+                    .any(|alias| normalized_repository_url(alias) == origin)
+            })
+            .map(|source| normalized_repository_url(source.main))
+            .unwrap_or_else(|| {
+                if aliases
+                    .iter()
+                    .any(|alias| normalized_repository_url(alias) == origin)
+                {
+                    repository.clone()
+                } else {
+                    origin
+                }
+            });
+            Some((old_repository, head.shorthand().ok()?.to_string()))
+        });
+        // Preserve the original delivery identity before set-url. A failed
+        // channel change must not turn the next mirror retry into a new install.
+        if let Some((old_repository, old_ref)) = &installed {
+            config.set_str(DELIVERY_REPOSITORY, old_repository)?;
+            config.set_str(DELIVERY_REF, old_ref)?;
+        }
+        let same_delivery = installed.is_some_and(|(old_repository, old_ref)| {
+            old_repository == repository && old_ref == requested_ref
+        });
+        Ok(Self {
+            previous,
+            repository,
+            requested_ref: requested_ref.to_string(),
+            // An explicit channel/ref change or the canonical repository's own
+            // force-push retains its rollback semantics. Mirrors have no such authority.
+            protect_head: same_delivery
+                && normalized_repository_url(url) != normalized_repository_url(canonical),
+        })
+    }
+
+    /// Returns None when shallow objects require one bounded deeper fetch.
+    pub(crate) fn validated_target(&self, target: &Path) -> UpdaterResult<Option<git2::Oid>> {
+        let repo = Repository::open(target)?;
+        let fetched = repo.find_reference("FETCH_HEAD")?.peel_to_commit()?.id();
+        if !self.protect_head || fetched == self.previous {
+            return Ok(Some(fetched));
+        }
+        if commit_contains(&repo, self.previous, fetched) == Some(true) {
+            return Err(UpdaterError::Git(format!(
+                "stale mirror rejected: {} {} would downgrade installed {} to ancestor {}",
+                self.repository, self.requested_ref, self.previous, fetched
+            )));
+        }
+        match commit_contains(&repo, fetched, self.previous) {
+            Some(true) => Ok(Some(fetched)),
+            Some(false) => Err(UpdaterError::Git(format!(
+                "mirror rejected: {} {} does not advance installed {} (fetched {})",
+                self.repository, self.requested_ref, self.previous, fetched
+            ))),
+            None => Ok(None),
+        }
+    }
+
+    pub(crate) fn require_target(&self, target: &Path) -> UpdaterResult<git2::Oid> {
+        self.validated_target(target)?.ok_or_else(|| {
+            UpdaterError::Git(format!(
+                "mirror history could not verify forward update for {} {}; trying another source",
+                self.repository, self.requested_ref
+            ))
+        })
+    }
+
+    pub(crate) fn record_success(&self, target: &Path) -> UpdaterResult<()> {
+        let repo = Repository::open(target)?;
+        let mut config = repo.config()?;
+        config.set_str(DELIVERY_REPOSITORY, &self.repository)?;
+        config.set_str(DELIVERY_REF, &self.requested_ref)?;
+        Ok(())
+    }
+}
+
+fn normalized_repository_url(url: &str) -> String {
+    url.trim_end_matches('/')
+        .trim_end_matches(".git")
+        .to_ascii_lowercase()
+}
+
+/// Read raw parent IDs instead of revwalk: --depth=1 marks old tips shallow
+/// even when the installed repository already contains their parent objects.
+fn commit_contains(repo: &Repository, descendant: git2::Oid, ancestor: git2::Oid) -> Option<bool> {
+    let odb = repo.odb().ok()?;
+    let mut pending = vec![descendant];
+    let mut visited = HashSet::new();
+    let mut incomplete = false;
+    while let Some(oid) = pending.pop() {
+        if oid == ancestor {
+            return Some(true);
+        }
+        if !visited.insert(oid) {
+            continue;
+        }
+        if visited.len() > 10_000 {
+            return None;
+        }
+        match odb.read(oid) {
+            Ok(object) if object.kind() == git2::ObjectType::Commit => {
+                // libgit2's Commit::parent_ids also hides shallow parents. The
+                // stored commit headers retain the exact parents we must verify.
+                for header in object
+                    .data()
+                    .split(|byte| *byte == b'\n')
+                    .take_while(|line| !line.is_empty())
+                {
+                    if let Some(parent) = header.strip_prefix(b"parent ") {
+                        let parent = std::str::from_utf8(parent)
+                            .ok()
+                            .and_then(|oid| git2::Oid::from_str(oid).ok());
+                        match parent {
+                            Some(parent) => pending.push(parent),
+                            None => incomplete = true,
+                        }
+                    }
+                }
+            }
+            _ => incomplete = true,
+        }
+    }
+    if incomplete { None } else { Some(false) }
+}
 
 /// A ranked repository source URL.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -307,6 +498,14 @@ pub trait SourceProbe: Send + Sync {
 
 /// Git backend abstraction used for mock-first tests.
 pub trait GitExecutor {
+    /// Stops source failover after the owning workflow was cancelled.
+    fn check_cancelled(&self) -> UpdaterResult<()> {
+        Ok(())
+    }
+    /// Records the successfully selected delivery even when no reset was needed.
+    fn record_delivery(&self, _url: &str, _branch: &str, _target: &Path) -> UpdaterResult<()> {
+        Ok(())
+    }
     /// Returns whether system Git CLI is available.
     fn has_cli(&self) -> bool;
     /// Runs a shallow CLI clone.
@@ -402,6 +601,9 @@ impl SourceProbe for GitHttpSourceProbe {
 pub struct RealGitExecutor;
 
 impl GitExecutor for RealGitExecutor {
+    fn record_delivery(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+        GitUpdateGuard::capture(url, branch, target)?.record_success(target)
+    }
     /// Returns the has cli result.
     fn has_cli(&self) -> bool {
         let mut command = Command::new("git");
@@ -432,12 +634,8 @@ impl GitExecutor for RealGitExecutor {
 
     /// Performs the update cli operation.
     fn update_cli(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
-        run_git(&["remote", "set-url", "origin", url], Some(target))?;
-        run_git(&["fetch", "--depth", "1", "origin", branch], Some(target))?;
-        run_git(&["reset", "--hard", "FETCH_HEAD"], Some(target))?;
-        let _ = run_git(&["reflog", "expire", "--expire=now", "--all"], Some(target));
-        let _ = run_git(&["gc", "--prune=now"], Some(target));
-        Ok(())
+        let guard = GitUpdateGuard::capture(url, branch, target)?;
+        self.update_cli_guarded(url, branch, target, &guard)
     }
 
     /// Handles the local sha cli workflow.
@@ -515,6 +713,45 @@ impl GitExecutor for RealGitExecutor {
         target: &Path,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<()> {
+        let guard = GitUpdateGuard::capture(url, branch, target)?;
+        self.update_git2_guarded(url, branch, target, output, &guard)
+    }
+
+    /// Handles the local sha git2 workflow.
+    fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String> {
+        let repo = Repository::open(target)?;
+        let head = repo.head()?.peel_to_commit()?;
+        Ok(head.id().to_string())
+    }
+}
+
+impl RealGitExecutor {
+    fn update_cli_guarded(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        guard: &GitUpdateGuard,
+    ) -> UpdaterResult<()> {
+        run_git(&["remote", "set-url", "origin", url], Some(target))?;
+        run_git(&["fetch", "--depth", "1", "origin", branch], Some(target))?;
+        if guard.validated_target(target)?.is_none() {
+            run_git(&["fetch", "--depth", "64", "origin", branch], Some(target))?;
+        }
+        let verified = guard.require_target(target)?;
+        run_git(&["reset", "--hard", &verified.to_string()], Some(target))?;
+        // Keep Git's normal automatic maintenance and recovery reflog.
+        guard.record_success(target)
+    }
+
+    fn update_git2_guarded(
+        &self,
+        url: &str,
+        branch: &str,
+        target: &Path,
+        output: &(impl OutputSink + ?Sized),
+        guard: &GitUpdateGuard,
+    ) -> UpdaterResult<()> {
         let repo = Repository::open(target)?;
         if repo.find_remote("origin").is_ok() {
             repo.remote_set_url("origin", url)?;
@@ -525,18 +762,15 @@ impl GitExecutor for RealGitExecutor {
         let mut fetch_options = git2_fetch_options(output);
         fetch_options.depth(1);
         remote.fetch(&[branch], Some(&mut fetch_options), None)?;
-        let fetch_head = repo.find_reference("FETCH_HEAD")?;
-        let object = fetch_head.peel(git2::ObjectType::Commit)?;
+        if guard.validated_target(target)?.is_none() {
+            fetch_options.depth(64);
+            remote.fetch(&[branch], Some(&mut fetch_options), None)?;
+        }
+        let verified = guard.require_target(target)?;
+        let object = repo.find_object(verified, Some(git2::ObjectType::Commit))?;
         remove_git_index(target)?;
         repo.reset(&object, git2::ResetType::Hard, None)?;
-        Ok(())
-    }
-
-    /// Handles the local sha git2 workflow.
-    fn local_sha_git2(&self, target: &Path) -> UpdaterResult<String> {
-        let repo = Repository::open(target)?;
-        let head = repo.head()?.peel_to_commit()?;
-        Ok(head.id().to_string())
+        guard.record_success(target)
     }
 }
 
@@ -573,6 +807,7 @@ impl<E: GitExecutor> RepoManager<E> {
         let mut selector = SourceSelector::load(options.ranking_path.as_deref(), &expected_urls)?;
 
         loop {
+            self.executor.check_cancelled()?;
             let source_url = match selector.next_source(
                 &probe_urls,
                 probe,
@@ -587,6 +822,7 @@ impl<E: GitExecutor> RepoManager<E> {
                     return Err(UpdaterError::Git(format!("{}{detail}", error.message())));
                 }
             };
+            self.executor.check_cancelled()?;
             output.line(
                 OutputStyle::Info,
                 &format!(
@@ -603,6 +839,11 @@ impl<E: GitExecutor> RepoManager<E> {
                 output,
             ) {
                 Ok(status) => {
+                    self.executor.check_cancelled()?;
+                    if status == UpdateStatus::Installed {
+                        self.executor
+                            .record_delivery(&source_url, &branch, &options.target_dir)?;
+                    }
                     let sha = self.local_sha(&options.target_dir, options.git_backend)?;
                     selector.mark_succeeded(&source_url)?;
                     return Ok(RepoSyncResult {
@@ -612,7 +853,9 @@ impl<E: GitExecutor> RepoManager<E> {
                         sha,
                     });
                 }
+                Err(UpdaterError::Cancelled) => return Err(UpdaterError::Cancelled),
                 Err(error) => {
+                    self.executor.check_cancelled()?;
                     output.line(OutputStyle::Warning, &format!("{error}"));
                     selector.mark_failed(&source_url)?;
                     last_error = Some(error);
@@ -631,6 +874,7 @@ impl<E: GitExecutor> RepoManager<E> {
         git_backend: GitBackend,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<UpdateStatus> {
+        self.executor.check_cancelled()?;
         let is_update = prepare_repository_target(target, output)?;
         let can_check_remote = git_backend != GitBackend::Git2 && self.executor.has_cli();
         if is_update
@@ -639,6 +883,8 @@ impl<E: GitExecutor> RepoManager<E> {
             && let Ok(remote_sha) = self.executor.remote_sha(url, branch)
             && local_sha == remote_sha
         {
+            self.executor.check_cancelled()?;
+            self.executor.record_delivery(url, branch, target)?;
             output.line(
                 OutputStyle::Success,
                 &format!("{} repository already at {local_sha}", target.display()),
@@ -676,6 +922,7 @@ impl<E: GitExecutor> RepoManager<E> {
                                 UpdateStatus::Installed
                             });
                         }
+                        Err(UpdaterError::Cancelled) => return Err(UpdaterError::Cancelled),
                         Err(error) => output.line(
                             OutputStyle::Warning,
                             &format!("Git CLI failed; falling back to git2: {error}"),
@@ -697,6 +944,7 @@ impl<E: GitExecutor> RepoManager<E> {
         is_update: bool,
         output: &(impl OutputSink + ?Sized),
     ) -> UpdaterResult<UpdateStatus> {
+        self.executor.check_cancelled()?;
         if is_update {
             self.executor.update_git2(url, branch, target, output)?;
             Ok(UpdateStatus::Updated)
@@ -1266,6 +1514,7 @@ mod tests {
         cli_results: Mutex<VecDeque<UpdaterResult<()>>>,
         git2_error: Option<String>,
         calls: Arc<Mutex<Vec<String>>>,
+        record_real_delivery: bool,
     }
 
     impl MockGit {
@@ -1279,6 +1528,7 @@ mod tests {
                 cli_results: Mutex::new(cli_results),
                 git2_error: None,
                 calls: Arc::new(Mutex::new(Vec::new())),
+                record_real_delivery: false,
             }
         }
 
@@ -1290,6 +1540,7 @@ mod tests {
                 cli_results: Mutex::new(VecDeque::new()),
                 git2_error: None,
                 calls: Arc::new(Mutex::new(Vec::new())),
+                record_real_delivery: false,
             }
         }
 
@@ -1301,11 +1552,19 @@ mod tests {
                 cli_results: Mutex::new(VecDeque::new()),
                 git2_error: Some(message.to_string()),
                 calls: Arc::new(Mutex::new(Vec::new())),
+                record_real_delivery: false,
             }
         }
     }
 
     impl GitExecutor for MockGit {
+        fn record_delivery(&self, url: &str, branch: &str, target: &Path) -> UpdaterResult<()> {
+            if self.record_real_delivery {
+                RealGitExecutor.record_delivery(url, branch, target)
+            } else {
+                Ok(())
+            }
+        }
         /// Returns the has cli result.
         fn has_cli(&self) -> bool {
             self.has_cli
@@ -1472,6 +1731,21 @@ mod tests {
         assert!(cpp_branch_for("windows", "aarch64").is_err());
     }
 
+    #[test]
+    fn main_repository_channels_include_cnb_mirrors() {
+        assert!(
+            repository_urls(RepositoryKind::Main, UpdateChannel::Stable)
+                .iter()
+                .any(|url| url
+                    == "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git")
+        );
+        assert!(
+            repository_urls(RepositoryKind::Main, UpdateChannel::Dev)
+                .iter()
+                .any(|url| url == "https://cnb.cool/kiramei/baas-dev.git")
+        );
+    }
+
     /// Handles the remove git index before hard reset workflow.
     #[test]
     fn remove_git_index_ignores_missing_index() {
@@ -1564,6 +1838,597 @@ mod tests {
 
         assert_eq!(result.status, UpdateStatus::Skipped);
         assert!(calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn real_cli_update_resets_files_and_retains_recovery_reflog() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let source_dir = dir.path().join("source");
+        let mut init = git2::RepositoryInitOptions::new();
+        init.initial_head("master");
+        let source = Repository::init_opts(&source_dir, &init).unwrap();
+        let commit_file = |content: &str| {
+            fs::write(source_dir.join("app.txt"), content).unwrap();
+            let mut index = source.index().unwrap();
+            index.add_path(Path::new("app.txt")).unwrap();
+            index.write().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = source.find_tree(tree_id).unwrap();
+            let signature =
+                git2::Signature::now("updater test", "updater@example.invalid").unwrap();
+            let parent = source
+                .head()
+                .ok()
+                .map(|head| head.peel_to_commit().unwrap());
+            let parents = parent.iter().collect::<Vec<_>>();
+            source
+                .commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    content,
+                    &tree,
+                    &parents,
+                )
+                .unwrap()
+        };
+        let initial = commit_file("initial");
+        let target = dir.path().join("checkout");
+        let url = source_dir.to_string_lossy().replace('\\', "/");
+        RealGitExecutor.clone_cli(&url, "master", &target).unwrap();
+        fs::write(target.join("app.txt"), "local change").unwrap();
+        let updated = commit_file("updated");
+
+        RealGitExecutor.update_cli(&url, "master", &target).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(target.join("app.txt")).unwrap(),
+            "updated"
+        );
+        assert_eq!(
+            RealGitExecutor.local_sha_cli(&target).unwrap(),
+            updated.to_string()
+        );
+        let checkout = Repository::open(&target).unwrap();
+        let reflog = checkout.reflog("HEAD").unwrap();
+        assert!((0..reflog.len()).any(|index| reflog.get(index).unwrap().id_old() == initial));
+    }
+
+    struct LocalDelivery {
+        _dir: tempfile::TempDir,
+        canonical: PathBuf,
+        mirror: PathBuf,
+        target: PathBuf,
+    }
+
+    struct LocalGitDaemon {
+        child: std::process::Child,
+        url: String,
+    }
+
+    impl Drop for LocalGitDaemon {
+        fn drop(&mut self) {
+            // Git for Windows' cmd/git.exe launches mingw64/bin/git.exe. Kill
+            // the owned test tree so the daemon cannot outlive its launcher or
+            // retain Cargo's inherited output handles after the test completes.
+            #[cfg(windows)]
+            {
+                let mut command = Command::new("taskkill.exe");
+                hide_command_window(&mut command);
+                let _ = command
+                    .args(["/PID", &self.child.id().to_string(), "/T", "/F"])
+                    .output();
+            }
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    impl LocalGitDaemon {
+        fn start(root: &Path) -> Self {
+            let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            drop(listener);
+            let mut command = Command::new("git");
+            hide_command_window(&mut command);
+            configure_git_cli_command(&mut command);
+            let child = command
+                .args([
+                    "daemon",
+                    "--reuseaddr",
+                    "--export-all",
+                    "--listen=127.0.0.1",
+                    &format!("--port={port}"),
+                    &format!("--base-path={}", root.display()),
+                ])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap();
+            let daemon = Self {
+                child,
+                url: format!("git://127.0.0.1:{port}/mirror"),
+            };
+            let started = Instant::now();
+            while std::net::TcpStream::connect(("127.0.0.1", port)).is_err() {
+                assert!(
+                    started.elapsed() < Duration::from_secs(5),
+                    "local Git daemon did not start"
+                );
+                thread::sleep(Duration::from_millis(10));
+            }
+            daemon
+        }
+    }
+
+    impl LocalDelivery {
+        fn new() -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let canonical = dir.path().join("canonical");
+            let mut init = git2::RepositoryInitOptions::new();
+            init.initial_head("master");
+            Repository::init_opts(&canonical, &init).unwrap();
+            Self {
+                canonical,
+                mirror: dir.path().join("mirror"),
+                target: dir.path().join("checkout"),
+                _dir: dir,
+            }
+        }
+
+        fn commit(&self, text: &str) -> git2::Oid {
+            let repo = Repository::open(&self.canonical).unwrap();
+            fs::write(self.canonical.join("app.txt"), text).unwrap();
+            let mut index = repo.index().unwrap();
+            index.add_path(Path::new("app.txt")).unwrap();
+            index.write().unwrap();
+            let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+            let signature = git2::Signature::now("offline test", "test@example.invalid").unwrap();
+            let parent = repo.head().ok().map(|head| head.peel_to_commit().unwrap());
+            repo.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                text,
+                &tree,
+                &parent.iter().collect::<Vec<_>>(),
+            )
+            .unwrap()
+        }
+
+        fn url(path: &Path) -> String {
+            let normalized = path.to_string_lossy().replace('\\', "/");
+            if cfg!(windows) {
+                format!("file:///{normalized}")
+            } else {
+                format!("file://{normalized}")
+            }
+        }
+
+        fn clone_target(&self) {
+            RealGitExecutor
+                .clone_cli(&Self::url(&self.canonical), "master", &self.target)
+                .unwrap();
+        }
+
+        fn clone_mirror(&self, tip: git2::Oid) {
+            let repo = Repository::clone(&Self::url(&self.canonical), &self.mirror).unwrap();
+            repo.find_reference("refs/heads/master")
+                .unwrap()
+                .set_target(tip, "offline mirror tip")
+                .unwrap();
+        }
+
+        fn guard(&self, source: &Path, requested_ref: &str) -> GitUpdateGuard {
+            let canonical = Self::url(&self.canonical);
+            let mirror = Self::url(&self.mirror);
+            GitUpdateGuard::capture_delivery(
+                &Self::url(source),
+                requested_ref,
+                &self.target,
+                &canonical,
+                &[&canonical, &mirror],
+            )
+            .unwrap()
+        }
+
+        fn head(&self) -> git2::Oid {
+            Repository::open(&self.target)
+                .unwrap()
+                .head()
+                .unwrap()
+                .peel_to_commit()
+                .unwrap()
+                .id()
+        }
+    }
+
+    #[test]
+    fn stale_mirror_cannot_downgrade_cli_or_git2_or_retry_after_origin_rewrite() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        for git2 in [false, true] {
+            let fixture = LocalDelivery::new();
+            let old = fixture.commit("old");
+            let installed = fixture.commit("installed");
+            fixture.clone_target();
+            fixture.clone_mirror(old);
+            let daemon = git2.then(|| LocalGitDaemon::start(fixture._dir.path()));
+            let url = daemon.as_ref().map_or_else(
+                || LocalDelivery::url(&fixture.mirror),
+                |daemon| daemon.url.clone(),
+            );
+            let canonical = LocalDelivery::url(&fixture.canonical);
+            let guard = GitUpdateGuard::capture_delivery(
+                &url,
+                "master",
+                &fixture.target,
+                &canonical,
+                &[&canonical, &url],
+            )
+            .unwrap();
+            let result = if git2 {
+                RealGitExecutor.update_git2_guarded(
+                    &url,
+                    "master",
+                    &fixture.target,
+                    &crate::NoopOutput,
+                    &guard,
+                )
+            } else {
+                RealGitExecutor.update_cli_guarded(&url, "master", &fixture.target, &guard)
+            };
+            let error = result.unwrap_err();
+            assert!(
+                error.message().contains("stale mirror rejected"),
+                "{}",
+                error.message()
+            );
+            assert_eq!(fixture.head(), installed);
+            assert_eq!(
+                fs::read_to_string(fixture.target.join("app.txt")).unwrap(),
+                "installed"
+            );
+            // set-url already changed origin, but it must not erase the original identity.
+            let retry = GitUpdateGuard::capture_delivery(
+                &url,
+                "master",
+                &fixture.target,
+                &canonical,
+                &[&canonical, &url],
+            )
+            .unwrap();
+            assert!(
+                retry
+                    .require_target(&fixture.target)
+                    .unwrap_err()
+                    .message()
+                    .contains("stale mirror rejected")
+            );
+            assert_eq!(
+                Repository::open(&fixture.target)
+                    .unwrap()
+                    .config()
+                    .unwrap()
+                    .get_string(DELIVERY_REF)
+                    .unwrap(),
+                "master"
+            );
+        }
+    }
+
+    #[test]
+    fn fresh_mirror_advances_shallow_checkout_after_bounded_deepen() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        for git2 in [false, true] {
+            let fixture = LocalDelivery::new();
+            fixture.commit("base");
+            let installed = fixture.commit("installed");
+            fixture.clone_target();
+            fixture.commit("intermediate");
+            let newest = fixture.commit("newest");
+            fixture.clone_mirror(newest);
+            let daemon = git2.then(|| LocalGitDaemon::start(fixture._dir.path()));
+            let url = daemon.as_ref().map_or_else(
+                || LocalDelivery::url(&fixture.mirror),
+                |daemon| daemon.url.clone(),
+            );
+            let canonical = LocalDelivery::url(&fixture.canonical);
+            let guard = GitUpdateGuard::capture_delivery(
+                &url,
+                "master",
+                &fixture.target,
+                &canonical,
+                &[&canonical, &url],
+            )
+            .unwrap();
+            assert_eq!(guard.previous, installed);
+            let result = if git2 {
+                RealGitExecutor.update_git2_guarded(
+                    &url,
+                    "master",
+                    &fixture.target,
+                    &crate::NoopOutput,
+                    &guard,
+                )
+            } else {
+                RealGitExecutor.update_cli_guarded(&url, "master", &fixture.target, &guard)
+            };
+            result.unwrap();
+            assert_eq!(fixture.head(), newest);
+        }
+    }
+
+    #[test]
+    fn explicit_ref_change_allows_rollback_then_protects_that_ref() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        let fixture = LocalDelivery::new();
+        let oldest = fixture.commit("oldest");
+        let release = fixture.commit("release");
+        fixture.commit("installed");
+        fixture.clone_target();
+        fixture.clone_mirror(release);
+        let mirror = Repository::open(&fixture.mirror).unwrap();
+        mirror
+            .reference("refs/heads/release", release, true, "explicit ref")
+            .unwrap();
+        let guard = fixture.guard(&fixture.mirror, "release");
+        RealGitExecutor
+            .update_cli_guarded(
+                &LocalDelivery::url(&fixture.mirror),
+                "release",
+                &fixture.target,
+                &guard,
+            )
+            .unwrap();
+        assert_eq!(fixture.head(), release);
+        mirror
+            .find_reference("refs/heads/release")
+            .unwrap()
+            .set_target(oldest, "stale release")
+            .unwrap();
+        let guard = fixture.guard(&fixture.mirror, "release");
+        let error = RealGitExecutor
+            .update_cli_guarded(
+                &LocalDelivery::url(&fixture.mirror),
+                "release",
+                &fixture.target,
+                &guard,
+            )
+            .unwrap_err();
+        assert!(error.message().contains("stale mirror rejected"));
+        assert_eq!(fixture.head(), release);
+    }
+
+    #[test]
+    fn explicit_channel_change_and_canonical_rewind_keep_rollback_semantics() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        let fixture = LocalDelivery::new();
+        let old = fixture.commit("old");
+        let installed = fixture.commit("installed");
+        fixture.clone_target();
+        fixture.clone_mirror(old);
+        let canonical = LocalDelivery::url(&fixture.canonical);
+        let mirror = LocalDelivery::url(&fixture.mirror);
+        // Changing delivery repository is deliberate even though both use master.
+        let changed = GitUpdateGuard::capture_delivery(
+            &mirror,
+            "master",
+            &fixture.target,
+            "file:///different-channel",
+            &[&mirror],
+        )
+        .unwrap();
+        RealGitExecutor
+            .update_cli_guarded(&mirror, "master", &fixture.target, &changed)
+            .unwrap();
+        assert_eq!(fixture.head(), old);
+        // The real canonical source remains authoritative for a same-ref rewind.
+        let target_repo = Repository::open(&fixture.target).unwrap();
+        target_repo
+            .reset(
+                &target_repo.find_object(installed, None).unwrap(),
+                git2::ResetType::Hard,
+                None,
+            )
+            .unwrap();
+        let mut config = target_repo.config().unwrap();
+        config
+            .set_str(DELIVERY_REPOSITORY, &normalized_repository_url(&canonical))
+            .unwrap();
+        config.set_str(DELIVERY_REF, "master").unwrap();
+        let repo = Repository::open(&fixture.canonical).unwrap();
+        repo.find_reference("refs/heads/master")
+            .unwrap()
+            .set_target(old, "upstream rewind")
+            .unwrap();
+        let guard = GitUpdateGuard::capture_delivery(
+            &canonical,
+            "master",
+            &fixture.target,
+            &canonical,
+            &[&canonical, &mirror],
+        )
+        .unwrap();
+        assert_eq!(guard.previous, installed);
+        assert!(!guard.protect_head);
+        RealGitExecutor
+            .update_cli_guarded(&canonical, "master", &fixture.target, &guard)
+            .unwrap();
+        assert_eq!(fixture.head(), old);
+    }
+
+    #[test]
+    fn cancelled_cli_does_not_fallback_demote_or_probe_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("checkout");
+        Repository::init(&target).unwrap();
+        let ranking_path = dir.path().join("ranking.json");
+        let urls = repository_urls(RepositoryKind::Main, UpdateChannel::Dev);
+        let mut ranking = SourceRanking::from_urls(&urls);
+        ranking.promote_success(&urls[1]);
+        save_ranking(&ranking_path, &ranking).unwrap();
+        let git = MockGit {
+            has_cli: true,
+            remote_sha: "different".to_string(),
+            cli_results: Mutex::new(VecDeque::from([Err(UpdaterError::Cancelled)])),
+            ..MockGit::default()
+        };
+        let calls = Arc::clone(&git.calls);
+        let error = RepoManager::new(git)
+            .sync(
+                &RepoSyncOptions {
+                    kind: RepositoryKind::Main,
+                    channel: UpdateChannel::Dev,
+                    target_dir: target,
+                    ranking_path: Some(ranking_path.clone()),
+                    git_backend: GitBackend::Auto,
+                },
+                &Probe { ok: vec![] },
+                &crate::NoopOutput,
+            )
+            .unwrap_err();
+        assert!(matches!(error, UpdaterError::Cancelled));
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec![format!("update_cli:{}:master", urls[1])]
+        );
+        let saved: SourceRanking =
+            serde_json::from_slice(&fs::read(&ranking_path).unwrap()).unwrap();
+        assert_eq!(saved, ranking);
+    }
+
+    #[test]
+    fn canonical_matching_is_exact_and_not_a_proxy_substring() {
+        assert_eq!(
+            normalized_repository_url("https://github.com/Kiramei/baas-dev.git/"),
+            normalized_repository_url(constants::MAIN_REPO_SRC_DEV.main)
+        );
+        assert_ne!(
+            normalized_repository_url(constants::MAIN_REPO_SRC_DEV.main),
+            normalized_repository_url(constants::MAIN_REPO_SRC_DEV.proxy[4])
+        );
+    }
+
+    #[test]
+    fn legacy_mirror_origin_uses_configured_delivery_group_before_rewrite() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        let fixture = LocalDelivery::new();
+        fixture.commit("installed");
+        fixture.clone_target();
+        let repo = Repository::open(&fixture.target).unwrap();
+        repo.remote_set_url("origin", constants::MAIN_REPO_SRC_DEV.proxy[1])
+            .unwrap();
+        let guard = GitUpdateGuard::capture(
+            constants::MAIN_REPO_SRC_DEV.proxy[0],
+            "master",
+            &fixture.target,
+        )
+        .unwrap();
+        assert!(guard.protect_head);
+        assert_eq!(
+            guard.repository,
+            normalized_repository_url(constants::MAIN_REPO_SRC_DEV.main)
+        );
+        let config = repo.config().unwrap();
+        assert_eq!(
+            config.get_string(DELIVERY_REPOSITORY).unwrap(),
+            guard.repository
+        );
+        assert_eq!(config.get_string(DELIVERY_REF).unwrap(), "master");
+        let changed_channel =
+            GitUpdateGuard::capture(constants::MAIN_REPO_SRC.proxy[1], "master", &fixture.target)
+                .unwrap();
+        assert!(!changed_channel.protect_head);
+        // A failed attempt in the other channel must leave the installed identity intact.
+        repo.remote_set_url("origin", constants::MAIN_REPO_SRC.proxy[1])
+            .unwrap();
+        let retry = GitUpdateGuard::capture(
+            constants::MAIN_REPO_SRC_DEV.proxy[0],
+            "master",
+            &fixture.target,
+        )
+        .unwrap();
+        assert!(retry.protect_head);
+        let canonical =
+            GitUpdateGuard::capture(constants::MAIN_REPO_SRC_DEV.main, "master", &fixture.target)
+                .unwrap();
+        assert!(!canonical.protect_head);
+    }
+
+    #[test]
+    fn same_tip_channel_or_ref_skip_records_identity_before_next_stale_mirror() {
+        if !RealGitExecutor.has_cli() {
+            return;
+        }
+        for change_ref in [false, true] {
+            let fixture = LocalDelivery::new();
+            let old = fixture.commit("old");
+            let installed = fixture.commit("installed");
+            fixture.clone_target();
+            fixture.clone_mirror(old);
+            let previous_url = if change_ref {
+                constants::MAIN_REPO_SRC_DEV.proxy[1]
+            } else {
+                constants::MAIN_REPO_SRC.proxy[1]
+            };
+            RealGitExecutor
+                .record_delivery(previous_url, "master", &fixture.target)
+                .unwrap();
+            let requested_ref = if change_ref { "release" } else { "master" };
+            let selected_url = constants::MAIN_REPO_SRC_DEV.proxy[1];
+            let mut mock = MockGit::up_to_date();
+            mock.record_real_delivery = true;
+            let result = RepoManager::new(mock)
+                .try_source(
+                    selected_url,
+                    requested_ref,
+                    &fixture.target,
+                    GitBackend::Auto,
+                    &crate::NoopOutput,
+                )
+                .unwrap();
+            assert_eq!(result, UpdateStatus::Skipped);
+            let guard = GitUpdateGuard::capture(
+                constants::MAIN_REPO_SRC_DEV.proxy[0],
+                requested_ref,
+                &fixture.target,
+            )
+            .unwrap();
+            assert!(guard.protect_head);
+            assert_eq!(guard.previous, installed);
+            let mirror = Repository::open(&fixture.mirror).unwrap();
+            mirror
+                .reference(
+                    &format!("refs/heads/{requested_ref}"),
+                    old,
+                    true,
+                    "stale delivery",
+                )
+                .unwrap();
+            let error = RealGitExecutor
+                .update_cli_guarded(
+                    &LocalDelivery::url(&fixture.mirror),
+                    requested_ref,
+                    &fixture.target,
+                    &guard,
+                )
+                .unwrap_err();
+            assert!(error.message().contains("stale mirror rejected"));
+            assert_eq!(fixture.head(), installed);
+        }
     }
 
     /// Performs the sync with git2 uses ranked sources operation.

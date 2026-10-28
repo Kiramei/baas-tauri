@@ -6,12 +6,15 @@ import SchedulerPage from "../../src/pages/SchedulerPage";
 import { AppProvider } from "../../src/context/AppContext";
 import { UISettingsProvider, useUISettings } from "../../src/context/UISettingsProvider";
 import { useWebSocketStore } from "../../src/store/WebsocketStore";
-import { initI18n } from "../../src/shared/I18nTranslator";
+import { initI18n, loadLocale } from "../../src/shared/I18nTranslator";
+import LanguageSelect from "../../src/components/LanguageSelect";
+import PageActivity from "../../src/components/PageActivity";
 import type { EventConfig } from "../../src/types/event";
 import "../../src/styles/index.css";
 
 if (!import.meta.env.DEV) throw new Error("Test fixture is development-only");
-if (!localStorage.getItem("uiSettings")) localStorage.setItem("uiSettings", JSON.stringify({ lang: "zh", theme: "light" }));
+if (!localStorage.getItem("uiSettings"))
+  localStorage.setItem("uiSettings", JSON.stringify({ lang: "zh", theme: "light" }));
 await initI18n();
 const task = (name: string, extra: Partial<EventConfig> = {}): EventConfig => ({
   func_name: name,
@@ -27,7 +30,7 @@ const task = (name: string, extra: Partial<EventConfig> = {}): EventConfig => ({
   ...extra,
 });
 const initial = [
-  task("cafe_reward", { post_task: ["collect_daily_power"] }),
+  task("cafe_reward", { event_name: "咖啡厅", post_task: ["collect_daily_power"] }),
   task("collect_daily_power"),
   task("activity_sweep", { pre_task: ["collect_daily_power"], post_task: ["collect_reward"] }),
   task("collect_reward"),
@@ -69,6 +72,7 @@ useWebSocketStore.setState({
 });
 function Fixture() {
   const [pid, setPid] = useState("alpha");
+  const [active, setActive] = useState(true);
   const { uiSettings, setUiSettings } = useUISettings();
   const dark = uiSettings.theme === "dark";
   return (
@@ -76,10 +80,38 @@ function Fixture() {
       <main className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-3 sm:p-6">
         <div className="flex gap-4 mb-4">
           <button onClick={() => setPid(pid === "alpha" ? "beta" : "alpha")}>Switch account</button>
-          <button onClick={() => setUiSettings((settings) => ({ ...settings, theme: dark ? "light" : "dark" }))}>Toggle dark</button>
+          <button
+            onClick={() =>
+              setUiSettings((settings) => ({ ...settings, theme: dark ? "light" : "dark" }))
+            }
+          >
+            Toggle dark
+          </button>
+          <button onClick={() => setActive((visible) => !visible)}>
+            {active ? "Hide scheduler" : "Show scheduler"}
+          </button>
+          <button
+            onClick={() =>
+              setUiSettings((settings) => ({
+                ...settings,
+                lowPerformanceMode: !settings.lowPerformanceMode,
+              }))
+            }
+          >
+            {uiSettings.lowPerformanceMode ? "Disable low performance" : "Enable low performance"}
+          </button>
+          <LanguageSelect
+            handleLanguageChange={(lang) => {
+              void loadLocale(lang).then(() =>
+                setUiSettings((settings) => ({ ...settings, lang }))
+              );
+            }}
+          />
         </div>
         <div className="max-w-[1500px] mx-auto">
-          <SchedulerPage key={pid} profileId={pid} />
+          <PageActivity active={active} suspendDelayMs={uiSettings.lowPerformanceMode ? 0 : 200}>
+            <SchedulerPage key={pid} profileId={pid} />
+          </PageActivity>
         </div>
         <Toaster />
       </main>

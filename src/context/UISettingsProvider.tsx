@@ -9,6 +9,8 @@ import React, {
 
 import type { UISettings } from "@/types/app";
 import StorageUtil from "@/shared/StorageManager.ts";
+import i18n from "i18next";
+import { toast } from "sonner";
 
 interface UISettingsContextType {
   uiSettings: UISettings;
@@ -25,8 +27,8 @@ interface UISettingsStore {
 
 const DEFAULT_UI_SETTINGS: UISettings = {
   lang: "",
-  theme: "",
-  themeColor: "#0891b2",
+  theme: "system",
+  themeColor: "#1a1c1f",
   backgroundImageBase64: null,
   backgroundImageOpacity: 0.18,
   zoomScale: 100,
@@ -36,7 +38,10 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   lowPerformanceMode: false,
   enableSystemNotifications: true,
   minimizeToTray: false,
+  idleAutoUpdate: true,
+  autoEnterAfterInstall: true,
   schedulerSortMode: "default",
+  applicationShortcuts: {},
   remoteSettings: {
     streamPlayer: "mse",
     enableSafeStream: true,
@@ -49,27 +54,48 @@ const DEFAULT_UI_SETTINGS: UISettings = {
   },
 };
 
+const ANDROID_ZOOM_MIGRATION_KEY = "baasAndroidCompactZoomV1";
+const ANDROID_TOUCH_LAYOUT_MIGRATION_KEY = "baasAndroidTouchLayoutV2";
+
 const loadInitialSettings = (): UISettings => {
   const stored = StorageUtil.get("uiSettings") as UISettings | null;
-  if (!stored) {
-    StorageUtil.set("uiSettings", DEFAULT_UI_SETTINGS);
-    return DEFAULT_UI_SETTINGS;
-  }
-  return {
+  let settings: UISettings = {
     ...DEFAULT_UI_SETTINGS,
-    ...stored,
+    ...(stored ?? {}),
+    // Migrate the former default accent, preserving all explicitly customized
+    // colors and other appearance preferences.
+    themeColor:
+      typeof stored?.themeColor !== "string" ||
+      !stored.themeColor ||
+      stored.themeColor.toLowerCase() === "#0891b2"
+        ? DEFAULT_UI_SETTINGS.themeColor
+        : stored.themeColor,
     remoteSettings: {
       ...DEFAULT_UI_SETTINGS.remoteSettings,
-      ...stored.remoteSettings,
+      ...(stored?.remoteSettings ?? {}),
     },
   };
+  if (__WITH_ANDROID__ && StorageUtil.get(ANDROID_TOUCH_LAYOUT_MIGRATION_KEY) !== true) {
+    if (StorageUtil.get(ANDROID_ZOOM_MIGRATION_KEY) === true && settings.zoomScale === 80) {
+      settings = { ...settings, zoomScale: 100 };
+    }
+    StorageUtil.set(ANDROID_TOUCH_LAYOUT_MIGRATION_KEY, true);
+  }
+  if (
+    !stored ||
+    settings.zoomScale !== stored.zoomScale ||
+    settings.themeColor !== stored.themeColor
+  )
+    StorageUtil.set("uiSettings", settings);
+  return settings;
 };
 
-const createUISettingsStore = (): UISettingsStore => {
+export const createUISettingsStore = (): UISettingsStore => {
   let settings = loadInitialSettings();
   const listeners = new Set<() => void>();
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   const flush = () => {
+    if (!__WITH_TAURI__) return;
     if (persistTimer !== null) clearTimeout(persistTimer);
     persistTimer = null;
     StorageUtil.set("uiSettings", settings);
@@ -87,8 +113,14 @@ const createUISettingsStore = (): UISettingsStore => {
     set: (update) => {
       const next = typeof update === "function" ? update(settings) : update;
       if (Object.is(next, settings)) return;
+      // A large background can exceed the browser quota. Reject that entire
+      // update before publishing it so existing appearance and preferences survive.
+      if (!__WITH_TAURI__ && !StorageUtil.trySet("uiSettings", next)) {
+        toast.error(i18n.t("settings.ui.storageFailed"));
+        return;
+      }
       settings = next;
-      schedulePersist();
+      if (__WITH_TAURI__) schedulePersist();
       listeners.forEach((listener) => listener());
     },
     attach: () => window.addEventListener("pagehide", flush),

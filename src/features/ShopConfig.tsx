@@ -1,228 +1,145 @@
-import React, { useState, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { EllipsisWithTooltip } from "@/components/ui/ETooltip";
-
-// shadcn tabs
+import React, { useMemo, useState } from "react";
+import { Check } from "lucide-react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+} from "@/components/configuration/ConfigurationControls";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import { DynamicConfig } from "@/types/dynamic";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { serverMap } from "@/shared/GlobalUtilities.ts";
+import { serverMap } from "@/shared/GlobalUtilities";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import { toggleShopSlot } from "@/shared/ShopSelection";
+import "./shop-config.css";
 
 type TabKey = "common" | "tactical";
 type ShopCurrency = "creditpoints" | "pyroxene" | "tactical_challenge_coin" | "bounty_coin";
-
+type Goods = [string, number, string?];
 interface Draft {
   CommonShopList: number[];
   CommonShopRefreshTime: number | string;
   TacticalChallengeShopList: number[];
   TacticalChallengeShopRefreshTime: number | string;
 }
+const serialize = (draft: Draft) =>
+  draft.CommonShopRefreshTime === "" || draft.TacticalChallengeShopRefreshTime === ""
+    ? null
+    : { ...draft };
 
-/** Renders the shop config component. */
-const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({
-  profileId,
-  onClose,
-}) => {
-  const { t } = useTranslation();
+/** Item positions follow the game's four-column shop; selection remains an ordered 0/1 array. */
+const ShopConfig: React.FC<{ profileId: string; onClose: () => void }> = ({ profileId }) => {
+  const { t } = useAppTranslation();
   const staticConfig = useWebSocketStore((state) => state.staticStore);
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
-  );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const serverType = serverMap[settings.server!];
-
-  const _default_goods_ = staticConfig.common_shop_price_list[serverType] as Array<
-    [string, number, string]
-  >;
-  const _default_tactical_shop_goods_ = staticConfig.tactical_challenge_shop_price_list[
-    serverType
-  ].map((e: [string, number, string][]) => {
-    return e.length > 2 ? e : [...e, "tactical_challenge_coin"];
-  }) as Array<[string, number, string]>;
-
-  const shopDefs = {
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const server = serverMap[settings.server];
+  const commonGoods: Goods[] = staticConfig.common_shop_price_list?.[server] ?? [];
+  const tacticalGoods: Goods[] = staticConfig.tactical_challenge_shop_price_list?.[server] ?? [];
+  const definitions = {
     common: {
       title: t("commonShop.title"),
       listKey: "CommonShopList",
       refreshKey: "CommonShopRefreshTime",
-      defaultGoods: _default_goods_,
+      goods: commonGoods,
     },
     tactical: {
       title: t("tacticalShop.title"),
       listKey: "TacticalChallengeShopList",
       refreshKey: "TacticalChallengeShopRefreshTime",
-      defaultGoods: _default_tactical_shop_goods_,
+      goods: tacticalGoods,
     },
   } as const;
-
-  const currencyLabelByCoin: Record<ShopCurrency, string> = {
+  const currencyNames: Record<ShopCurrency, string> = {
     creditpoints: t("property.credits"),
     pyroxene: t("property.pyroxene"),
     tactical_challenge_coin: t("property.coin.arena"),
     bounty_coin: t("property.coin.commission"),
   };
-
-  const [activeTab, setActiveTab] = useState<TabKey>("common");
-
-  /** ext = Snapshot */
-  const ext = useMemo(() => {
-    return {
-      CommonShopList: settings.CommonShopList || Array(shopDefs.common.defaultGoods.length).fill(0),
+  const ext = useMemo<Draft>(
+    () => ({
+      CommonShopList: settings.CommonShopList ?? Array(commonGoods.length).fill(0),
       CommonShopRefreshTime: settings.CommonShopRefreshTime ?? 0,
       TacticalChallengeShopList:
-        settings.TacticalChallengeShopList || Array(shopDefs.tactical.defaultGoods.length).fill(0),
+        settings.TacticalChallengeShopList ?? Array(tacticalGoods.length).fill(0),
       TacticalChallengeShopRefreshTime: settings.TacticalChallengeShopRefreshTime ?? 0,
-    };
-  }, [settings]);
-
-  /** draft = local editing state */
-  const [draft, setDraft] = useState<Draft>(ext);
-  const [baseline] = useState<Draft>(ext);
-
-  /** Dirty check. */
-  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
-
-  /** Toggle whether an item is enabled. */
-  const toggleItem = (tab: TabKey, i: number) => {
-    setDraft((d) => {
-      const list = tab === "common" ? [...d.CommonShopList] : [...d.TacticalChallengeShopList];
-      list[i] = list[i] === 1 ? 0 : 1;
-      return tab === "common"
-        ? { ...d, CommonShopList: list }
-        : { ...d, TacticalChallengeShopList: list };
-    });
-  };
-
-  /** Update refresh count. */
-  const handleRefreshChange = (tab: TabKey, e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw === "") {
-      setDraft((d) =>
-        tab === "common"
-          ? { ...d, CommonShopRefreshTime: "" }
-          : { ...d, TacticalChallengeShopRefreshTime: "" }
-      );
-      return;
-    }
-    const n = Number(raw);
-    if (Number.isFinite(n)) {
-      setDraft((d) =>
-        tab === "common"
-          ? { ...d, CommonShopRefreshTime: Math.max(0, Math.min(n, 5)) }
-          : { ...d, TacticalChallengeShopRefreshTime: Math.max(0, Math.min(n, 5)) }
-      );
-    }
-  };
-
-  /** Save */
-  const handleSave = async () => {
-    if (!dirty) {
-      onClose();
-      return;
-    }
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(baseline[k])) {
-        patch[k] = draft[k] as any;
-      }
-    });
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
+    }),
+    [settings, commonGoods.length, tacticalGoods.length]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId, "shop", ext, { serialize });
+  const [tab, setTab] = useState<TabKey>("common");
   return (
-    <div className="space-y-6">
-      <Tabs
-        defaultValue="common"
-        value={activeTab}
-        onValueChange={(val) => setActiveTab(val as TabKey)}
-      >
-        <TabsList className="grid grid-cols-2 w-full">
-          <TabsTrigger value="common">{shopDefs.common.title}</TabsTrigger>
-          <TabsTrigger value="tactical">{shopDefs.tactical.title}</TabsTrigger>
-        </TabsList>
-
-        {(["common", "tactical"] as TabKey[]).map((tab) => {
-          const def = shopDefs[tab];
-          return (
-            <TabsContent key={tab} value={tab} className="space-y-2">
-              {/* Refresh count */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                <div>
-                  <label className="text-slate-700 dark:text-slate-200 font-medium">
-                    {t("commonShop.refreshTimes")}
-                  </label>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {t("description.commonShop.refresh")}
-                  </p>
-                </div>
-                <FormInput
-                  type="number"
-                  min={0}
-                  max={5}
-                  value={
-                    tab === "common"
-                      ? draft.CommonShopRefreshTime
-                      : draft.TacticalChallengeShopRefreshTime
-                  }
-                  onChange={(e) => handleRefreshChange(tab, e)}
-                  className="w-20"
-                />
-              </div>
-
-              {/* Item list */}
-              <div className="max-h-[40vh] overflow-y-auto pr-1 grid grid-cols-2 gap-1">
-                {def.defaultGoods.map(([nameKey, price, coin], i) => {
-                  const enabled =
-                    (tab === "common" ? draft.CommonShopList : draft.TacticalChallengeShopList)[
-                      i
-                    ] === 1;
-                  const priceText = `${price} ${currencyLabelByCoin[coin as ShopCurrency] ?? coin}`;
-
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as TabKey)}
+      className="shop-config space-y-6"
+    >
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="common">{definitions.common.title}</TabsTrigger>
+        <TabsTrigger value="tactical">{definitions.tactical.title}</TabsTrigger>
+      </TabsList>
+      {(["common", "tactical"] as const).map((key) => {
+        const definition = definitions[key];
+        return (
+          <TabsContent key={key} value={key}>
+            <ConfigurationGroup title={definition.title}>
+              <ConfigurationInput
+                label={t("commonShop.refreshTimes")}
+                description={t("description.commonShop.refresh")}
+                type="number"
+                min={0}
+                max={5}
+                value={draft[definition.refreshKey]}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "" || Number.isFinite(Number(value)))
+                    setDraft((current) => ({
+                      ...current,
+                      [definition.refreshKey]:
+                        value === "" ? "" : Math.max(0, Math.min(5, Math.trunc(Number(value)))),
+                    }));
+                }}
+              />
+              <div className="shop-goods-grid" role="group" aria-label={definition.title}>
+                {definition.goods.map(([name, price, rawCurrency], index) => {
+                  const currency = rawCurrency ?? "tactical_challenge_coin";
+                  const enabled = draft[definition.listKey][index] === 1;
                   return (
-                    <div
-                      key={`${nameKey}-${i}`}
-                      className={`${
-                        enabled
-                          ? "bg-primary-600 text-white hover:bg-primary-700"
-                          : "bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                      } p-2 rounded-lg cursor-pointer`}
-                      onClick={() => toggleItem(tab, i)}
+                    <button
+                      type="button"
+                      key={`${name}:${index}`}
+                      className="shop-goods-item"
+                      aria-pressed={enabled}
+                      aria-label={`${name}: ${price} ${currencyNames[currency as ShopCurrency] ?? currency}`}
+                      onClick={() =>
+                        setDraft((current) => {
+                          return {
+                            ...current,
+                            [definition.listKey]: toggleShopSlot(
+                              current[definition.listKey],
+                              index
+                            ),
+                          };
+                        })
+                      }
                     >
-                      <div>
-                        <EllipsisWithTooltip text={nameKey} />
-                        <div
-                          className={`text-sm ${
-                            enabled ? "text-slate-200" : "text-slate-500 dark:text-slate-400"
-                          }`}
-                        >
-                          {priceText}
-                        </div>
-                      </div>
-                    </div>
+                      <span className="shop-goods-heading">
+                        <span className="shop-goods-name">{name}</span>
+                        <span className="shop-goods-selected" aria-hidden="true">
+                          {enabled && <Check size={12} strokeWidth={2.5} />}
+                        </span>
+                      </span>
+                      <span className="shop-goods-price">
+                        <span>{price.toLocaleString()}</span>
+                        <span>{currencyNames[currency as ShopCurrency] ?? currency}</span>
+                      </span>
+                    </button>
                   );
                 })}
               </div>
-            </TabsContent>
-          );
-        })}
-      </Tabs>
-
-      {/* Save Button */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
+            </ConfigurationGroup>
+          </TabsContent>
+        );
+      })}
+    </Tabs>
   );
 };
-
 export default ShopConfig;

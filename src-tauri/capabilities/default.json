@@ -2,24 +2,31 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main", "baas-wiki-viewer"],
-  "webviews": ["main", "baas-wiki-viewer"],
-  "platforms": ["windows", "macOS", "linux"],
+  "windows": ["main"],
+  "webviews": ["main"],
+  "platforms": [
+    "windows",
+    "macOS",
+    "linux"
+  ],
   "permissions": [
     "core:default",
     "default",
     "allow-mobile-commands",
-    "core:webview:allow-create-webview-window",
-    "core:window:allow-center",
-    "core:window:allow-destroy",
+    "allow-open-backend-config-folder",
+    "allow-native-window-controls",
+    "core:window:allow-close",
     "core:window:allow-hide",
-    "core:window:allow-set-always-on-top",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
     "core:window:allow-set-focus",
     "core:window:allow-set-fullscreen",
-    "core:window:allow-set-position",
     "core:window:allow-set-size",
+    "core:window:allow-set-theme",
     "core:window:allow-show",
     "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
     "process:default",
     "opener:default",
     "dialog:default",
@@ -27,11 +34,19 @@
     "dialog:allow-save",
     {
       "identifier": "fs:allow-read-file",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-write-file",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     "store:default",
     "store:allow-get",
@@ -39,7 +54,6 @@
     "store:allow-save",
     "store:allow-load",
     "store:allow-entries",
-    "updater:default",
-    "process:default"
+    "updater:default"
   ]
 }

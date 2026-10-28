@@ -14,6 +14,7 @@ import { useGlobalSelect } from "@/components/ui/SelectGlobal.tsx";
 interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface FormSelectProps {
@@ -71,13 +72,17 @@ export const FormSelect: React.FC<FormSelectProps> = ({
         }}
         {...(global && { open, onOpenChange: handleOpenChange })}
       >
-        <SelectTrigger className="w-full" aria-label={ariaLabel}>
+        <SelectTrigger
+          className="w-full min-w-0"
+          aria-label={ariaLabel}
+          title={options.find((option) => option.value === value)?.label}
+        >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 
         <SelectContent position="popper">
           {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
+            <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}
             </SelectItem>
           ))}

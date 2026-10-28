@@ -2,12 +2,17 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   ReactNode,
 } from "react";
 import type { Theme } from "src/types/app";
+import {
+  readThemePreference,
+  saveThemePreference,
+  watchThemePreference,
+} from "@/shared/ThemePreference";
 
 interface ThemeContextType {
   theme: Theme;
@@ -18,34 +23,18 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 /** Renders the theme provider component. */
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    return savedTheme || "system";
-  });
+  const [theme, setThemeState] = useState<Theme>(() =>
+    readThemePreference(document.documentElement.dataset.themePreference)
+  );
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-    const currentTheme = theme === "system" ? systemTheme : theme;
-
-    root.classList.remove("light", "dark");
-    root.classList.add(currentTheme);
-    localStorage.setItem("theme", theme);
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    /** Handles the handle change interaction. */
-    const handleChange = () => {
-      if (theme === "system") {
-        const newSystemTheme = mediaQuery.matches ? "dark" : "light";
-        root.classList.remove("light", "dark");
-        root.classList.add(newSystemTheme);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+  useLayoutEffect(() => {
+    const stopWatching = watchThemePreference(
+      theme,
+      document.documentElement,
+      window.matchMedia("(prefers-color-scheme: dark)")
+    );
+    saveThemePreference(theme);
+    return stopWatching;
   }, [theme]);
 
   const setTheme = useCallback((newTheme: Theme) => {

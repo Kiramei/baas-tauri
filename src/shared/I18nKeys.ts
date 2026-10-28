@@ -80,6 +80,7 @@ const teamMethodMap: Record<string, TranslationKey> = {
 };
 
 const shaMethodMap: Record<string, TranslationKey> = {
+  cnb: "shaMethod.cnb",
   gitee: "shaMethod.gitee",
   gitcode: "shaMethod.gitcode",
   github: "shaMethod.github",
@@ -90,10 +91,10 @@ const shaMethodMap: Record<string, TranslationKey> = {
   gh_proxy: "shaMethod.ghProxy",
   sevencdn: "shaMethod.sevencdn",
   githubfast: "shaMethod.githubfast",
-  baas_cdn: "shaMethod.baasCdn",
 };
 
 const updateMethodMap: Record<string, TranslationKey> = {
+  cnb: "updateMethod.cnb",
   gitee: "updateMethod.gitee",
   gitcode: "updateMethod.gitcode",
   github: "updateMethod.github",
@@ -104,7 +105,6 @@ const updateMethodMap: Record<string, TranslationKey> = {
   gh_proxy: "updateMethod.ghProxy",
   sevencdn: "updateMethod.sevencdn",
   githubfast: "updateMethod.githubfast",
-  baas_cdn: "updateMethod.baasCdn",
 };
 
 const mirrorcMessageMap: Record<string, TranslationKey> = {
@@ -156,17 +156,6 @@ const featureMap: Record<string, TranslationKey> = {
   whitelistDesc: "description.whitelist",
 };
 
-const wikiCategoryMap: Record<string, TranslationKey> = {
-  all: "wiki.category.all",
-  architecture: "wiki.category.architecture",
-  configuration: "wiki.category.configuration",
-  environment: "wiki.category.environment",
-  formation: "wiki.category.formation",
-  "getting-started": "wiki.category.getting-started",
-  operations: "wiki.category.operations",
-  support: "wiki.category.support",
-};
-
 export const artifactPhaseKey = (phase: number): TranslationKey =>
   i18nKey(`artifact.phase${phase}` as TranslationKey);
 
@@ -196,6 +185,3 @@ export const themeKey = (value: string): TranslationKey =>
 
 export const updateMethodKey = (value: string): TranslationKey =>
   fromRecord(updateMethodMap, value, "updateMethod.github");
-
-export const wikiCategoryKey = (value: string): TranslationKey =>
-  fromRecord(wikiCategoryMap, value, "wiki.category.all");

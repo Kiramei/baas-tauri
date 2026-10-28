@@ -1,183 +1,172 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { X } from "lucide-react";
 import {
-  createFriendCleanupPatch,
-  normalizeFriendCleanupConfig,
-  parseBoundedInteger,
-  type FriendCleanupDraft,
-} from "@/features/issue528Config";
-import { useTranslation } from "react-i18next";
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+} from "@/components/configuration/ConfigurationControls";
+import { FormInput } from "@/components/ui/FormInput";
+import { normalizeFriendCleanupConfig } from "@/features/issue528Config";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { toast } from "sonner";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import { DynamicConfig } from "@/types/dynamic";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { serverMap } from "@/shared/GlobalUtilities.ts";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import { serverMap } from "@/shared/GlobalUtilities";
 
-type WhiteListConfigProps = {
-  onClose: () => void;
+interface WhiteListConfigProps {
   profileId: string;
-};
-
-/** Renders the white list config component. */
-const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ onClose, profileId }) => {
-  const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
-  );
-  const modify = useWebSocketStore((state) => state.modify);
-  const serverMode = serverMap[settings.server!];
-  const current = useMemo(() => normalizeFriendCleanupConfig(settings), [settings]);
-
+  onClose: () => void;
+}
+interface Draft {
+  clearFriendWhiteList: string[];
+  levelLimit: string;
+  lastLoginDays: string;
+  lastTotalAssaultRankLimit: string;
+}
+const WhiteListConfig: React.FC<WhiteListConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const serverMode = serverMap[settings.server];
+  const initial = useMemo<Draft>(() => {
+    const current = normalizeFriendCleanupConfig(settings);
+    return {
+      clearFriendWhiteList: current.clearFriendWhiteList,
+      levelLimit: String(current.levelLimit),
+      lastLoginDays: String(current.lastLoginDays),
+      lastTotalAssaultRankLimit: String(current.lastTotalAssaultRankLimit),
+    };
+  }, [settings]);
+  const [draft, setDraft] = useConfigurationDraft(profileId, "whitelist", initial, {
+    serialize: (value) => {
+      const thresholds = [value.levelLimit, value.lastLoginDays, value.lastTotalAssaultRankLimit];
+      if (
+        thresholds.some(
+          (entry) => !entry.trim() || !Number.isInteger(Number(entry)) || Number(entry) < -1
+        )
+      )
+        return null;
+      return {
+        clear_friend_white_list: value.clearFriendWhiteList,
+        clear_friend_level_limit: Number(value.levelLimit),
+        clear_friend_last_login_time_days: Number(value.lastLoginDays),
+        clear_friend_last_total_assault_rank_limit: Number(value.lastTotalAssaultRankLimit),
+      };
+    },
+  });
   const [inputCode, setInputCode] = useState("");
-  const [draft, setDraft] = useState(current);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(current);
-
-  const validateCode = (code: string): string | null => {
-    let expectedLen = 7;
-    if (serverMode === "JP" || serverMode === "Global") expectedLen = 8;
-
-    if (code.length !== expectedLen) {
-      return t("friend.invalidLength");
-    }
-    if (serverMode === "CN") {
-      if (!/^[0-9a-z]+$/.test(code)) return t("friend.invalidFormatCN");
-    } else if (serverMode === "Global") {
-      if (!/^[A-Z]+$/.test(code)) return t("friend.invalidFormatGlobal");
-    }
-    return null;
-  };
-
-  /** Handles the handle add interaction. */
-  const handleAdd = async () => {
+  const addFriend = () => {
     const code = inputCode.trim();
-    const error = validateCode(code);
+    const expectedLength = serverMode === "JP" || serverMode === "Global" ? 8 : 7;
+    let error: string | null = null;
+    if (code.length !== expectedLength) error = t("friend.invalidLength");
+    else if (serverMode === "CN" && !/^[0-9a-z]+$/.test(code)) error = t("friend.invalidFormatCN");
+    else if (serverMode === "Global" && !/^[A-Z]+$/.test(code))
+      error = t("friend.invalidFormatGlobal");
+    else if (draft.clearFriendWhiteList.includes(code)) error = t("friend.alreadyExists");
     if (error) {
-      toast.error(t("friend.addFailed"), {
-        description: error,
-      });
+      toast.error(t("friend.addFailed"), { description: error });
       return;
     }
-    if (draft.clearFriendWhiteList.includes(code)) {
-      toast.error(t("friend.addFailed"), {
-        description: t("friend.alreadyExists"),
-      });
-      return;
-    }
-    const newList = [...draft.clearFriendWhiteList, code];
-    setDraft((d) => ({ ...d, clearFriendWhiteList: newList }));
+    setDraft((previous) => ({
+      ...previous,
+      clearFriendWhiteList: [...previous.clearFriendWhiteList, code],
+    }));
+    setInputCode("");
   };
-
-  /** Handles the handle delete interaction. */
-  const handleDelete = async (code: string) => {
-    const newList = draft.clearFriendWhiteList.filter((c) => c !== code);
-    setDraft((d) => ({ ...d, clearFriendWhiteList: newList }));
-  };
-
-  const handleThresholdChange = (
-    field: keyof Pick<
-      FriendCleanupDraft,
-      "levelLimit" | "lastLoginDays" | "lastTotalAssaultRankLimit"
-    >,
+  const change = (
+    key: "levelLimit" | "lastLoginDays" | "lastTotalAssaultRankLimit",
     value: string
-  ) => {
-    const parsed = parseBoundedInteger(value, -1);
-    if (parsed !== null) setDraft((currentDraft) => ({ ...currentDraft, [field]: parsed }));
-  };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch = createFriendCleanupPatch(current, draft);
-    if (Object.keys(patch).length > 0) modify(`${profileId}::config`, patch);
-    onClose();
-  };
+  ) => setDraft((previous) => ({ ...previous, [key]: value }));
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold">{t("friend.filters")}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {t("friend.disabledThresholdHint")}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FormInput
-            type="number"
-            min={-1}
-            label={t("friend.levelLimit")}
-            value={draft.levelLimit}
-            onChange={(event) => handleThresholdChange("levelLimit", event.target.value)}
-          />
-          <FormInput
-            type="number"
-            min={-1}
-            label={t("friend.lastLoginDays")}
-            value={draft.lastLoginDays}
-            onChange={(event) => handleThresholdChange("lastLoginDays", event.target.value)}
-          />
-          <FormInput
-            type="number"
-            min={-1}
-            label={t("friend.lastTotalAssaultRankLimit")}
-            value={draft.lastTotalAssaultRankLimit}
-            onChange={(event) =>
-              handleThresholdChange("lastTotalAssaultRankLimit", event.target.value)
-            }
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{t("friend.whitelist")}</h3>
-        <div className="flex items-center gap-2">
-          <FormInput
-            type="text"
-            value={inputCode}
-            onChange={(e) => setInputCode(e.target.value)}
-            placeholder={t("friend.placeholder")}
-            className="flex-1"
-          />
-          <button
-            onClick={handleAdd}
-            className="px-4 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-          >
-            {t("friend.add")}
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {draft.clearFriendWhiteList.map((code) => (
-            <span
-              key={code}
-              className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100 font-mono font-bold"
-            >
-              {code}
-              <button
-                onClick={() => handleDelete(code)}
-                className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400"
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-          {draft.clearFriendWhiteList.length === 0 && (
-            <p className="text-slate-500 text-sm">{t("friend.empty")}</p>
-          )}
-        </div>
-      </section>
-
-      {/* Save Button */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
+    <div className="space-y-7">
+      <ConfigurationGroup title={t("friend.filters")}>
+        <ConfigurationInput
+          type="number"
+          min={-1}
+          label={t("friend.levelLimit")}
+          description={t("configurationHelp.friendLevel")}
+          value={draft.levelLimit}
+          onChange={(event) => change("levelLimit", event.target.value)}
+        />
+        <ConfigurationInput
+          type="number"
+          min={-1}
+          label={t("friend.lastLoginDays")}
+          description={t("configurationHelp.friendLogin")}
+          value={draft.lastLoginDays}
+          onChange={(event) => change("lastLoginDays", event.target.value)}
+        />
+        <ConfigurationInput
+          type="number"
+          min={-1}
+          label={t("friend.lastTotalAssaultRankLimit")}
+          description={t("configurationHelp.friendRank")}
+          value={draft.lastTotalAssaultRankLimit}
+          onChange={(event) => change("lastTotalAssaultRankLimit", event.target.value)}
+        />
+      </ConfigurationGroup>
+      <ConfigurationGroup title={t("friend.whitelist")}>
+        <ConfigurationRow
+          label={t("friend.add")}
+          description={t("configurationHelp.friendCode")}
+          className="configuration-row-stacked"
         >
-          {t("common.save")}
-        </button>
-      </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <FormInput
+              aria-label={t("friend.placeholder")}
+              value={inputCode}
+              onChange={(event) => setInputCode(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  addFriend();
+                }
+              }}
+              placeholder={t("friend.placeholder")}
+              className="min-w-0 flex-1"
+            />
+            <button type="button" onClick={addFriend} className="configuration-action shrink-0">
+              {t("friend.add")}
+            </button>
+          </div>
+        </ConfigurationRow>
+        <ConfigurationRow
+          label={t("friend.whitelist")}
+          description={t("configurationHelp.friendWhitelist")}
+          className="configuration-row-stacked"
+        >
+          <div className="flex min-w-0 flex-wrap gap-2">
+            {draft.clearFriendWhiteList.map((code) => (
+              <span
+                key={code}
+                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5 font-mono text-sm"
+              >
+                {code}
+                <button
+                  type="button"
+                  aria-label={t("common.delete") + " " + code}
+                  onClick={() =>
+                    setDraft((previous) => ({
+                      ...previous,
+                      clearFriendWhiteList: previous.clearFriendWhiteList.filter(
+                        (entry) => entry !== code
+                      ),
+                    }))
+                  }
+                  className="rounded text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </span>
+            ))}
+            {draft.clearFriendWhiteList.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("friend.empty")}</p>
+            )}
+          </div>
+        </ConfigurationRow>
+      </ConfigurationGroup>
     </div>
   );
 };
-
 export default WhiteListConfig;

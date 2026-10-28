@@ -1,0 +1,122 @@
+{
+  "checkedAt": "2026-10-28T06:46:27.851Z",
+  "cases": 8,
+  "scope": "Documentation navigation, diagram rendering and zoom; no emulator or native preview operated",
+  "failures": 0,
+  "testedSources": {
+    "docs/scripts/check-android-docs.mjs": "8207039da6bff4d7b0793280b46c198d52ffa4d3f90672b1f2a69b8eeb7e400d",
+    "docs/components/Mermaid.tsx": "e6ac3f21c6449319abc087511590ec942253be8b7910dd94eac877ae4eb5feb0",
+    "docs/mdx-components.tsx": "bd27de07bae249aaae9c24032f5b84e0cde14ca836da557f4cf237a0c455de67",
+    "docs/app/global.css": "8454a651017fc68e48c01cf6b6a9c4712e9dec77fd2c19d5441e8567aa62fba2",
+    "docs/content/docs/zh/guide/android.mdx": "a4fa3c6babec394b77460acb61a39e97114961eb024bef2ae59a6766104017c6",
+    "docs/content/docs/zh/reference/client-architecture.mdx": "6d7fee1f83f6503ae2b38471b5a89a5ad22cd80c0dab914091113d36a05562ba",
+    "docs/content/docs/en/guide/android.mdx": "1b6b1a4b9154fc067fe43ebb4ae02cfa9f0d2548212264b93c51fd31c5105d58",
+    "docs/content/docs/en/reference/client-architecture.mdx": "d69f510096edbb5bdf79f9453e1a4d952a2dcc173073f21d5b0bbd64a4c8d8b6"
+  },
+  "results": [
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "sourceLinkNavigated": true,
+      "nodes": 9,
+      "zoomAndReset": true,
+      "lastNodeReachable": true,
+      "allCountersPresent": true,
+      "noPageOverflow": true,
+      "pageErrors": [],
+      "passed": true
+    }
+  ]
+}

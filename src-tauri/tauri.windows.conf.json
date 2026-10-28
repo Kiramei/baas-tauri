@@ -3,14 +3,21 @@
   "identifier": "io.github.kiramei.baas-tauri",
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "windows": {
       "timestampUrl": "",
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "nsis": {
         "displayLanguageSelector": true,
-        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
+        "languages": [
+          "SimpChinese",
+          "English",
+          "Japanese",
+          "Korean"
+        ],
         "installMode": "perMachine",
         "compression": "lzma",
         "template": "./packages/windows/installer.nsi",
@@ -24,5 +31,35 @@
         "silent": true
       }
     }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BlueArchiveAutoScript",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 684,
+        "devtools": true,
+        "visible": true,
+        "theme": null,
+        "decorations": false,
+        "shadow": true,
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            28,
+            33,
+            38,
+            210
+          ]
+        }
+      }
+    ]
   }
 }

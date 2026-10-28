@@ -1,0 +1,40 @@
+---
+title: Plugins and Tools
+description: Install and trust plugins, configure the five bundled tools, and inspect job results.
+---
+
+On desktop, open **Plugins** from navigation. On Android and narrow layouts, use **Settings → General → Plugins**. The catalog shows bundled and installed packages, versions, compatibility, and permissions. Browsing or installing a ZIP does not require a selected profile; enabling, trusting, configuring, and running a plugin does.
+
+## Enable and Save
+
+1. Select a profile, open the plugin, and review its source and permissions.
+2. Enable it, edit its settings, and click **Save**. Check the result before leaving.
+3. Run a specific action and inspect its queued, running, succeeded, failed, or cancelled state.
+
+Installed packages are shared by the backend. Enablement, settings, and external-code trust belong to each profile. Importing a profile retains its values but clears external-plugin trust and enablement for review.
+
+If another client changes the settings, saving can report a revision conflict. Reload and compare the changes before overwriting anything. Results from a replaced login session are not applied to the new session.
+
+## Five Bundled Tools
+
+| Plugin | Purpose | Before Running |
+| ------ | ------- | -------------- |
+| AP hoarding `baas.hoard-ap` | Plan AP sources for a target time, build a timeline, scan mail, or execute the plan | Mail scanning reads every page without claiming rewards. Review a snapshot before choosing it as the planning baseline. Execution rereads the live state and stops on incomplete recognition; premium purchases require manual handling |
+| Auto push `baas.auto-push` | Normal, hard, main-story, and event progression, including continuing the current stage or story | Check teams, simple mode, and manual-boss settings. Unsupported current pages stop the action. Cancellation or failure restores the original configuration, not game actions already completed |
+| Equipment farming planner `baas.equipment-planner` | Plan farming from deficits, recalculate edited sweep strings, and calculate Eleph needs | Bundled drop data covers CN. Planning does not run sweeps; CN drop rates must not be assumed valid for other regions |
+| Schale inventory calculator `baas.inventory-calculator` | Solve placement probabilities on a 9×5 search board using revealed rectangles and rotation constraints | This solves a search puzzle; it does not recognize account material inventory. Resource-limit results do not contain invented probability estimates |
+| Home editor `baas.home-editor` | Show, hide, and reorder resources, tasks, and plugin shortcuts per profile | Drag or use movement buttons. Run controls, the Android game panel, and logs remain available |
+
+Future AP income is a forecast, not verified claimed inventory. Recheck and replan after interruption or a backend restart. Large mailboxes can take several minutes to scan. Device actions invalidate previous read caches.
+
+Results can contain timelines, tables, or structured data, with raw JSON available for inspection. Date-time inputs use the device's local time zone; AP daily resets also depend on the configured game time zone and reset hour.
+
+## Local ZIPs and Code Trust
+
+Check the source, version, and permissions before installation. External Python plugins require explicit code trust for the selected profile. Changes to installed code invalidate that trust. Uninstalling removes the backend-wide package and affects other profiles too.
+
+<Callout type="warn" title="Run Only Trusted Code">
+  Plugins run with the backend user's privileges. Separate compute processes handle crashes, timeouts, and cancellation; they are not a security sandbox. Do not install ZIPs from unverified sources.
+</Callout>
+
+API v1 does not install Python dependencies or update plugins automatically. Home shortcuts open a plugin without running an action; disabling or uninstalling it removes the shortcut. If an older backend reports that plugins are unsupported, [update the backend](./update). See the [plugin API](../reference/plugin-api) for development.

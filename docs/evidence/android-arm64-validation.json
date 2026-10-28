@@ -1,0 +1,20 @@
+{
+  "applicationId": "io.github.kiramei.baas_tauri.docs",
+  "sourceRevision": "5ca0ac7ca88ec8523d17bfbd9aca0750d8ba7d78",
+  "abi": "arm64-v8a",
+  "apkSha256": "B67E1559E342A3025A25904D73D11E0639F734CBD06A59195C5AD9BB0CE08606",
+  "apkBytes": 102086504,
+  "buildCommand": "bun scripts/android-build-debug.mjs --abi arm64 --application-id io.github.kiramei.baas_tauri.docs",
+  "buildResult": "Gradle BUILD SUCCESSFUL; tracked application source remained clean",
+  "installResult": "Success: streamed 102086504 bytes",
+  "coldLaunch": "Status ok, TotalTime 1121 ms, WaitTime 1124 ms; one observation, not a benchmark",
+  "verified": [
+    "first-run backend download and preparation",
+    "backend authentication and Home",
+    "Shizuku installed separately and granted through native dialog"
+  ],
+  "gameDisplayResult": "FAILED on this x86_64 MuMu host despite arm64-v8a appearing in the supported ABI list",
+  "error": "UnsatisfiedLinkError: dlopen failed: lib/arm64/libbaas_display_capture.so is for EM_AARCH64 (183) instead of EM_X86_64 (62)",
+  "interpretation": "Installing and running a translated ARM64 app does not make its ARM64 native display library loadable in the x86_64 Shizuku user-service process. A matching existing x86_64 build was tested separately without application source changes.",
+  "notVerified": ["ARM64 game virtual display, preview, input or task execution on this emulator"]
+}

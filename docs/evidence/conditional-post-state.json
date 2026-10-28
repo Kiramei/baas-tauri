@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-10-20T08:39:01.460Z",
+  "results": [
+    {
+      "platform": "desktop",
+      "manifestSha256": "9c6d29eb6c012fcbeb35a07e846f5abfa4af3058cec1e20f33f4118566c78415",
+      "restoredFieldsRechecked": true,
+      "auth": "authenticated",
+      "ready": true,
+      "runningSessions": 0,
+      "autostartProfiles": 0,
+      "profileCount": 1,
+      "demoEnabledTasks": 0,
+      "demoTotalTasks": 26,
+      "enabledCounts": [
+        0
+      ]
+    },
+    {
+      "platform": "android",
+      "manifestSha256": "93ee3b9b32da87f06c5dd9005a20c94f56514035fdf089fe3d6f913dd7c74bcb",
+      "restoredFieldsRechecked": true,
+      "auth": "authenticated",
+      "ready": true,
+      "runningSessions": 0,
+      "autostartProfiles": 0,
+      "profileCount": 2,
+      "demoEnabledTasks": 0,
+      "demoTotalTasks": 26,
+      "enabledCounts": [
+        0,
+        22
+      ]
+    }
+  ]
+}

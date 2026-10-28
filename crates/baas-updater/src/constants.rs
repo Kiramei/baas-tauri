@@ -7,6 +7,7 @@ pub struct Source {
 pub const MAIN_REPO_SRC: Source = Source {
     main: "https://github.com/pur1fying/blue_archive_auto_script.git",
     proxy: &[
+        "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script.git",
         "https://gitee.com/pur1fy/blue_archive_auto_script.git",
         "https://gitcode.com/m0_74686738/blue_archive_auto_script.git",
         "https://v4.gh-proxy.org/https://github.com/pur1fying/blue_archive_auto_script.git",
@@ -15,13 +16,13 @@ pub const MAIN_REPO_SRC: Source = Source {
         "https://gh-proxy.org/https://github.com/pur1fying/blue_archive_auto_script.git",
         "https://gh.sevencdn.com/https://github.com/pur1fying/blue_archive_auto_script.git",
         "https://githubfast.com/pur1fying/blue_archive_auto_script.git",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/pur1fying/blue_archive_auto_script.git",
     ],
 };
 
 pub const MAIN_REPO_SRC_DEV: Source = Source {
     main: "https://github.com/Kiramei/baas-dev.git",
     proxy: &[
+        "https://cnb.cool/kiramei/baas-dev.git",
         "https://gitee.com/kiramei/baas-dev.git",
         "https://gitcode.com/Kiramei/baas-dev",
         "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-dev.git",
@@ -30,7 +31,6 @@ pub const MAIN_REPO_SRC_DEV: Source = Source {
         "https://gh-proxy.org/https://github.com/Kiramei/baas-dev.git",
         "https://gh.sevencdn.com/https://github.com/Kiramei/baas-dev.git",
         "https://githubfast.com/Kiramei/baas-dev.git",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-dev.git",
     ],
 };
 
@@ -44,7 +44,6 @@ pub const CPP_REPO_SRC: Source = Source {
         "https://gh-proxy.org/https://github.com/pur1fying/BAAS_Cpp_prebuild.git",
         "https://gh.sevencdn.com/https://github.com/pur1fying/BAAS_Cpp_prebuild.git",
         "https://githubfast.com/pur1fying/BAAS_Cpp_prebuild.git",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/pur1fying/BAAS_Cpp_prebuild.git",
     ],
 };
 
@@ -57,7 +56,6 @@ pub const UV_SRC_HEAD: Source = Source {
         "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
         "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
         "https://gh.sevencdn.com/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
     ],
 };
 
@@ -70,7 +68,6 @@ pub const CPYTHON_HEAD: Source = Source {
         "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
         "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
         "https://gh.sevencdn.com/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download",
     ],
 };
 

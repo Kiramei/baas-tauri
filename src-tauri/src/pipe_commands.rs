@@ -1,9 +1,11 @@
 #[cfg(any(windows, unix))]
 use crate::system_logs::system_log;
+#[cfg(any(windows, unix))]
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::Value;
 use std::sync::Mutex;
 use tauri::{
-    ipc::{Channel, InvokeResponseBody},
+    ipc::{Channel, InvokeBody, InvokeResponseBody, Request},
     State,
 };
 
@@ -23,6 +25,14 @@ const KIND_ERROR: u8 = 4;
 const HEADER_BYTES: usize = 10;
 #[cfg(any(windows, unix))]
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
+#[cfg(any(windows, unix))]
+const READ_BUFFER_BYTES: usize = 64 * 1024;
+#[cfg(any(windows, unix))]
+const MAX_BATCH_BYTES: usize = 256 * 1024;
+#[cfg(any(windows, unix))]
+const MAX_BATCH_FRAMES: usize = 128;
+#[cfg(any(windows, unix))]
+const BINARY_REQUEST_HEADER_BYTES: usize = 8;
 
 #[cfg(any(windows, unix))]
 use std::sync::Arc;
@@ -34,7 +44,7 @@ use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 use tokio::net::UnixStream;
 #[cfg(any(windows, unix))]
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
+    io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader, WriteHalf},
     sync::Mutex as AsyncMutex,
     task::JoinHandle,
 };
@@ -110,26 +120,65 @@ fn encode_frame(kind: u8, payload: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 #[cfg(any(windows, unix))]
-async fn read_frame(reader: &mut ReadHalf<NativePipeStream>) -> Result<(u8, Vec<u8>), String> {
+fn frame_payload_length(header: &[u8]) -> Result<usize, String> {
+    if &header[..4] != MAGIC || header[4] != VERSION {
+        return Err("invalid pipe frame header".to_string());
+    }
+    let length = u32::from_le_bytes(header[6..10].try_into().unwrap()) as usize;
+    if length > MAX_PAYLOAD_BYTES {
+        return Err("pipe payload exceeds the 64 MiB limit".to_string());
+    }
+    Ok(length)
+}
+
+#[cfg(any(windows, unix))]
+async fn read_frame<R: AsyncRead + Unpin>(reader: &mut R) -> Result<(u8, Vec<u8>), String> {
     let mut header = [0_u8; HEADER_BYTES];
     reader
         .read_exact(&mut header)
         .await
         .map_err(|error| format!("pipe read failed: {error}"))?;
-    if &header[..4] != MAGIC || header[4] != VERSION {
-        return Err("invalid pipe frame header".to_string());
-    }
-    let kind = header[5];
-    let length = u32::from_le_bytes(header[6..10].try_into().unwrap()) as usize;
-    if length > MAX_PAYLOAD_BYTES {
-        return Err("pipe payload exceeds the 64 MiB limit".to_string());
-    }
-    let mut payload = vec![0_u8; length];
+    let length = frame_payload_length(&header)?;
+    // Preserve the wire frame instead of allocating a payload and copying it into
+    // a second frame before handing it to the WebView.
+    let mut frame = vec![0_u8; HEADER_BYTES + length];
+    frame[..HEADER_BYTES].copy_from_slice(&header);
     reader
-        .read_exact(&mut payload)
+        .read_exact(&mut frame[HEADER_BYTES..])
         .await
         .map_err(|error| format!("pipe payload read failed: {error}"))?;
-    Ok((kind, payload))
+    Ok((header[5], frame))
+}
+
+#[cfg(any(windows, unix))]
+async fn read_batch<R: AsyncRead + Unpin>(
+    reader: &mut BufReader<R>,
+    batch_frames: bool,
+) -> Result<(Vec<u8>, usize, bool), String> {
+    let (kind, mut batch) = read_frame(reader).await?;
+    let mut count = 1;
+    let mut terminal = kind == KIND_CLOSE || kind == KIND_ERROR;
+    // Only coalesce complete frames already prefetched by this read. Waiting for
+    // another frame here would trade latency for throughput on quiet channels.
+    while batch_frames && !terminal && count < MAX_BATCH_FRAMES {
+        let buffered = reader.buffer();
+        if buffered.len() < HEADER_BYTES {
+            break;
+        }
+        let Ok(length) = frame_payload_length(&buffered[..HEADER_BYTES]) else {
+            // Deliver earlier valid frames first; the next read reports the error.
+            break;
+        };
+        let frame_bytes = HEADER_BYTES + length;
+        if buffered.len() < frame_bytes || batch.len() + frame_bytes > MAX_BATCH_BYTES {
+            break;
+        }
+        terminal = buffered[5] == KIND_CLOSE || buffered[5] == KIND_ERROR;
+        batch.extend_from_slice(&buffered[..frame_bytes]);
+        reader.consume(frame_bytes);
+        count += 1;
+    }
+    Ok((batch, count, terminal))
 }
 
 #[cfg(windows)]
@@ -179,10 +228,11 @@ pub async fn backend_pipe_open(
     channel: String,
     name: String,
     on_message: Channel<InvokeResponseBody>,
+    batch_frames: Option<bool>,
 ) -> Result<(), String> {
     #[cfg(not(any(windows, unix)))]
     {
-        let _ = (manager, channel, name, on_message);
+        let _ = (manager, channel, name, on_message, batch_frames);
         return Err("Pipe transport is unavailable on this platform".to_string());
     }
 
@@ -202,7 +252,8 @@ pub async fn backend_pipe_open(
             format!("Opening pipe channel channel={channel} name={name} pipe={pipe_name}"),
         );
         let client = connect_pipe(&pipe_name).await?;
-        let (mut reader, mut writer) = tokio::io::split(client);
+        let (reader, mut writer) = tokio::io::split(client);
+        let mut reader = BufReader::with_capacity(READ_BUFFER_BYTES, reader);
         let open = serde_json::to_vec(&serde_json::json!({
             "type": "open",
             "channel": channel,
@@ -218,7 +269,7 @@ pub async fn backend_pipe_open(
             return Err("pipe server did not return an open response".to_string());
         }
         let response: Value =
-            serde_json::from_slice(&payload).map_err(|error| error.to_string())?;
+            serde_json::from_slice(&payload[HEADER_BYTES..]).map_err(|error| error.to_string())?;
         if response.get("type").and_then(Value::as_str) != Some("open_ok") {
             return Err(format!("pipe channel open failed: {response}"));
         }
@@ -232,27 +283,23 @@ pub async fn backend_pipe_open(
         let reader_task = tokio::spawn(async move {
             let mut received_frames = 0_u64;
             loop {
-                match read_frame(&mut reader).await {
-                    Ok((kind, payload)) => {
-                        received_frames += 1;
+                match read_batch(&mut reader, batch_frames.unwrap_or(false)).await {
+                    Ok((frame, count, terminal)) => {
+                        received_frames += count as u64;
                         if received_frames <= 3 {
                             system_log(
                                 "DEBUG",
                                 "pipe_transport",
                                 format!(
-                                    "Pipe frame received channel={channel} name={name} kind={kind} bytes={}",
-                                    payload.len()
+                                    "Pipe batch received channel={channel} name={name} frames={count} bytes={}",
+                                    frame.len()
                                 ),
                             );
                         }
-                        let frame = match encode_frame(kind, &payload) {
-                            Ok(frame) => frame,
-                            Err(_) => break,
-                        };
                         if on_message.send(InvokeResponseBody::Raw(frame)).is_err() {
                             break;
                         }
-                        if kind == KIND_CLOSE || kind == KIND_ERROR {
+                        if terminal {
                             break;
                         }
                     }
@@ -340,17 +387,95 @@ pub async fn backend_pipe_send_json(
 #[tauri::command]
 pub async fn backend_pipe_send_bytes(
     manager: State<'_, BackendPipeManager>,
-    channel: String,
-    name: String,
-    payload: Vec<u8>,
+    request: Request<'_>,
 ) -> Result<(), String> {
     #[cfg(any(windows, unix))]
-    return send_frame(&manager, &channel, &name, KIND_BYTES, &payload).await;
+    {
+        match request.body() {
+            InvokeBody::Raw(raw) => {
+                let (channel, name, payload) = decode_binary_request(raw)?;
+                send_frame(&manager, channel, name, KIND_BYTES, payload).await
+            }
+            InvokeBody::Json(value) => {
+                let (channel, name, payload) = decode_json_binary_request(value)?;
+                send_frame(&manager, &channel, &name, KIND_BYTES, &payload).await
+            }
+        }
+    }
     #[cfg(not(any(windows, unix)))]
     {
-        let _ = (manager, channel, name, payload);
+        let _ = (manager, request);
         Err("Pipe transport is unavailable on this platform".to_string())
     }
+}
+
+#[cfg(any(windows, unix))]
+fn decode_json_binary_request(value: &Value) -> Result<(String, String, Vec<u8>), String> {
+    // Older Android frontends passed BPRQ as raw invoke bytes, but Android's
+    // postMessage IPC converts those bytes into a top-level JSON number array.
+    if value.is_array() {
+        let raw: Vec<u8> =
+            serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
+        let (channel, name, payload) = decode_binary_request(&raw)?;
+        return Ok((channel.to_string(), name.to_string(), payload.to_vec()));
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum JsonBytes {
+        Base64(String),
+        LegacyArray(Vec<u8>),
+    }
+    #[derive(serde::Deserialize)]
+    struct JsonRequest {
+        channel: String,
+        name: String,
+        payload: JsonBytes,
+    }
+    let request: JsonRequest =
+        serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
+    if request.name.len() > u16::MAX as usize {
+        return Err("pipe binary request name exceeds 65535 UTF-8 bytes".to_string());
+    }
+    let payload = match request.payload {
+        JsonBytes::Base64(encoded) => {
+            if encoded.len() > MAX_PAYLOAD_BYTES.div_ceil(3) * 4 {
+                return Err("pipe payload exceeds the 64 MiB limit".to_string());
+            }
+            BASE64
+                .decode(encoded)
+                .map_err(|error| format!("invalid pipe binary base64: {error}"))?
+        }
+        JsonBytes::LegacyArray(bytes) => bytes,
+    };
+    if payload.len() > MAX_PAYLOAD_BYTES {
+        return Err("pipe payload exceeds the 64 MiB limit".to_string());
+    }
+    Ok((request.channel, request.name, payload))
+}
+
+#[cfg(any(windows, unix))]
+pub(crate) fn decode_binary_request(raw: &[u8]) -> Result<(&str, &str, &[u8]), String> {
+    if raw.len() < BINARY_REQUEST_HEADER_BYTES || &raw[..4] != b"BPRQ" || raw[4] != VERSION {
+        return Err("invalid pipe binary request header".to_string());
+    }
+    let channel = match raw[5] {
+        1 => "provider",
+        2 => "sync",
+        3 => "trigger",
+        4 => "remote",
+        _ => return Err("invalid pipe binary request channel".to_string()),
+    };
+    let name_end = BINARY_REQUEST_HEADER_BYTES + u16::from_le_bytes([raw[6], raw[7]]) as usize;
+    if name_end > raw.len() {
+        return Err("truncated pipe binary request name".to_string());
+    }
+    if raw.len() - name_end > MAX_PAYLOAD_BYTES {
+        return Err("pipe payload exceeds the 64 MiB limit".to_string());
+    }
+    let name = std::str::from_utf8(&raw[BINARY_REQUEST_HEADER_BYTES..name_end])
+        .map_err(|error| format!("pipe binary request name is not UTF-8: {error}"))?;
+    Ok((channel, name, &raw[name_end..]))
 }
 
 #[tauri::command]
@@ -395,11 +520,146 @@ pub fn backend_pipe_close_all(manager: State<'_, BackendPipeManager>) -> Result<
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn pipe_batch_preserves_burst_order_with_fewer_webview_callbacks() {
+        let mut wire = Vec::new();
+        for sequence in 0..1000_u32 {
+            let mut payload = vec![0_u8; 256];
+            payload[..4].copy_from_slice(&sequence.to_le_bytes());
+            wire.extend(encode_frame(KIND_BYTES, &payload).unwrap());
+        }
+        let mut reader = BufReader::with_capacity(READ_BUFFER_BYTES, wire.as_slice());
+        let mut received = Vec::new();
+        let mut frames = 0;
+        let mut callbacks = 0;
+        while frames < 1000 {
+            let (batch, count, terminal) = read_batch(&mut reader, true).await.unwrap();
+            assert!(count <= MAX_BATCH_FRAMES);
+            assert!(batch.len() <= MAX_BATCH_BYTES);
+            assert!(!terminal);
+            received.extend(batch);
+            frames += count;
+            callbacks += 1;
+        }
+        assert_eq!(received, wire);
+        eprintln!(
+            "pipe burst fixture: frames={frames} callbacks={callbacks} bytes={}",
+            wire.len()
+        );
+        assert!(
+            callbacks < 12,
+            "expected coalesced callbacks, got {callbacks}"
+        );
+    }
+
+    #[tokio::test]
+    async fn pipe_batch_never_waits_for_an_incomplete_following_frame() {
+        let first = encode_frame(KIND_JSON, b"{}").unwrap();
+        let second = encode_frame(KIND_BYTES, &[1, 2, 3]).unwrap();
+        let (mut writer, stream) = tokio::io::duplex(1024);
+        writer.write_all(&first).await.unwrap();
+        writer.write_all(&second[..HEADER_BYTES + 1]).await.unwrap();
+        let mut reader = BufReader::new(stream);
+        let (batch, count, terminal) =
+            tokio::time::timeout(Duration::from_millis(100), read_batch(&mut reader, true))
+                .await
+                .expect("batch waited for a future frame")
+                .unwrap();
+        assert_eq!(batch, first);
+        assert_eq!(count, 1);
+        assert!(!terminal);
+        writer.write_all(&second[HEADER_BYTES + 1..]).await.unwrap();
+        assert_eq!(read_batch(&mut reader, true).await.unwrap().0, second);
+    }
+
+    #[tokio::test]
+    async fn pipe_batch_stops_at_close_and_supports_legacy_single_frames() {
+        let first = encode_frame(KIND_JSON, b"{}").unwrap();
+        let close = encode_frame(KIND_CLOSE, &[]).unwrap();
+        let wire = [first.clone(), close.clone(), first.clone()].concat();
+        let mut reader = BufReader::new(wire.as_slice());
+        let (batch, count, terminal) = read_batch(&mut reader, true).await.unwrap();
+        assert_eq!(batch, [first.clone(), close].concat());
+        assert_eq!(count, 2);
+        assert!(terminal);
+        assert_eq!(read_batch(&mut reader, false).await.unwrap().0, first);
+
+        let mut legacy = BufReader::new(wire.as_slice());
+        let (batch, count, terminal) = read_batch(&mut legacy, false).await.unwrap();
+        assert_eq!(batch, first);
+        assert_eq!(count, 1);
+        assert!(!terminal);
+    }
+
+    #[tokio::test]
+    async fn pipe_batch_preserves_valid_frame_before_reporting_corrupt_header() {
+        let first = encode_frame(KIND_JSON, b"{}").unwrap();
+        let wire = [first.clone(), vec![0; HEADER_BYTES]].concat();
+        let mut reader = BufReader::new(wire.as_slice());
+        assert_eq!(read_batch(&mut reader, true).await.unwrap().0, first);
+        assert!(read_batch(&mut reader, true).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn pipe_frame_rejects_oversized_payload_before_allocation() {
+        let mut header = encode_frame(KIND_BYTES, &[]).unwrap();
+        header[6..10].copy_from_slice(&((MAX_PAYLOAD_BYTES + 1) as u32).to_le_bytes());
+        assert!(read_frame(&mut header.as_slice()).await.is_err());
+    }
+
+    #[test]
+    fn pipe_binary_request_preserves_utf8_route_and_borrowed_payload() {
+        let name = "remote-配置";
+        let mut raw = b"BPRQ\x01\x04".to_vec();
+        raw.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        raw.extend_from_slice(name.as_bytes());
+        raw.extend_from_slice(&[0, 1, 255]);
+        let (channel, decoded_name, payload) = decode_binary_request(&raw).unwrap();
+        assert_eq!(channel, "remote");
+        assert_eq!(decoded_name, name);
+        assert_eq!(payload, &[0, 1, 255]);
+        assert_eq!(payload.as_ptr(), raw[raw.len() - 3..].as_ptr());
+        for end in 0..BINARY_REQUEST_HEADER_BYTES + name.len() {
+            assert!(decode_binary_request(&raw[..end]).is_err());
+        }
+        raw[5] = 255;
+        assert!(decode_binary_request(&raw).is_err());
+    }
+
+    #[test]
+    fn android_pipe_binary_json_accepts_base64_legacy_arrays_and_raw_fallback() {
+        let name = "trigger-配置";
+        let payload = vec![0, 1, 255, 66, 80];
+        let expected = ("trigger".to_string(), name.to_string(), payload.clone());
+        for value in [
+            serde_json::json!({"channel":"trigger", "name":name, "payload":BASE64.encode(&payload)}),
+            serde_json::json!({"channel":"trigger", "name":name, "payload":payload}),
+        ] {
+            assert_eq!(decode_json_binary_request(&value).unwrap(), expected);
+        }
+        let mut raw = b"BPRQ\x01\x03".to_vec();
+        raw.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        raw.extend_from_slice(name.as_bytes());
+        raw.extend_from_slice(&payload);
+        assert_eq!(
+            decode_json_binary_request(&serde_json::json!(raw)).unwrap(),
+            expected
+        );
+        assert!(decode_json_binary_request(&serde_json::json!({
+            "channel":"trigger", "name":name, "payload":"not base64!"
+        }))
+        .is_err());
+        assert!(decode_json_binary_request(&serde_json::json!([66, 80])).is_err());
+    }
+
     #[test]
     fn pipe_connect_retries_quickly_then_backs_off() {
         assert_eq!(pipe_connect_retry_delay(0), Duration::from_millis(2));
         assert_eq!(pipe_connect_retry_delay(1), Duration::from_millis(4));
         assert_eq!(pipe_connect_retry_delay(6), Duration::from_millis(100));
-        assert_eq!(pipe_connect_retry_delay(u32::MAX), Duration::from_millis(100));
+        assert_eq!(
+            pipe_connect_retry_delay(u32::MAX),
+            Duration::from_millis(100)
+        );
     }
 }

@@ -1,6 +1,6 @@
-import { SiteHome } from "@/components/SiteHome";
+import { LocaleEntry } from "@/components/LocaleEntry";
 
 /** Renders the home page component. */
 export default function HomePage() {
-  return <SiteHome />;
+  return <LocaleEntry />;
 }

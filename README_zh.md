@@ -3,23 +3,19 @@
 <p>
   <a href="README.md"><kbd>English README</kbd></a>
   <a href="https://github.com/Kiramei/baas-tauri/releases/latest"><kbd>下载最新版</kbd></a>
-  <a href="docs"><kbd>文档站</kbd></a>
+  <a href="https://baas.kiramei.moe/docs/zh/"><kbd>文档站</kbd></a>
   <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
 </p>
 
-BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、调度、功能配置、运行日志、远程模拟器画面、更新器和网页文档入口收进一个 Tauri 应用里；BAAS 后端则负责 ADB、截图、识别、模拟器控制和任务执行。
-
-一句话：**Tauri 负责编排，后端负责执行**。你在桌面端管理账号、区服、模拟器、任务策略、日志和文档，后端把这些配置真正跑起来。
+BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script) 的桌面客户端，支持 Windows、macOS 和 Linux。可管理配置档、任务调度、功能配置、日志、更新和远程设备画面，设备连接、识别与任务执行由 BAAS 后端完成。
 
 <p>
-  <img src="docs/public/baas-icon.png" width="72" alt="BAAS 图标" />
+  <img src="docs/public/baas-icon.webp" width="72" alt="BAAS 图标" />
 </p>
 
-## ✨ 第一眼
+## 界面预览
 
-| 深色模式                                                                  | 浅色模式                                                                   |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| <img src="docs/public/cn/home-dark-logs.png" alt="BAAS Tauri 深色主页" /> | <img src="docs/public/cn/home-light-logs.png" alt="BAAS Tauri 浅色主页" /> |
+<img src="docs/public/media/desktop/zh/dark/scheduler-list.webp" alt="BAAS Tauri 任务调度界面" />
 
 ## 🧭 它负责什么
 
@@ -30,17 +26,17 @@ BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、
 | 🗓️ 调度     | 启用任务、编辑下次执行时间、搜索、排序、设置间隔、每日重置、前置任务和后置任务。                             |
 | 🧩 功能配置 | 配置服务器、模拟器、脚本、推图、扫荡、编队、咖啡厅、日程、商店、制造、战斗、维护和推送。                     |
 | 🎛️ 设置     | 调整主题、语言、背景图、UI 缩放、远程解码器、安全流、低性能模式、更新通道、更新源、MirrorC CDK 和 SHA 测试。 |
-| 📚 文档     | 在应用内 Wiki 页面加载网页文档站，也可以弹出为普通 Tauri 独立窗口。                                          |
+| 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                     |
 
 ## 🖼️ 截图
 
-| 调度                                                               | 功能配置                                                                   |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| <img src="docs/public/cn/scheduler-overview.png" alt="调度总览" /> | <img src="docs/public/cn/configuration-overview.png" alt="功能配置总览" /> |
+| 调度工作流 | 功能配置 |
+| ---------- | -------- |
+| <img src="docs/public/media/desktop/zh/dark/scheduler-workflow.webp" alt="任务依赖工作流" /> | <img src="docs/public/media/desktop/zh/dark/config-cafe.webp" alt="咖啡厅功能配置" /> |
 
-| 远程模拟器                                                                  | 设置与更新                                                                      |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| <img src="docs/public/cn/remote-display-player.png" alt="远程模拟器画面" /> | <img src="docs/public/cn/settings-version-overview.png" alt="设置与版本信息" /> |
+| 运行与连接 | 设置与更新 |
+| ---------- | ---------- |
+| <img src="docs/public/media/desktop/zh/dark/settings-runtime.webp" alt="运行与连接设置" /> | <img src="docs/public/media/desktop/zh/dark/settings-updates.webp" alt="更新设置" /> |
 
 ## 📥 下载
 
@@ -61,13 +57,14 @@ BAAS Tauri 是蔚蓝档案自动化体系的桌面控制台。它把配置档、
 
 ## 📚 文档站
 
-文档站位于 `docs/`，使用 Fumadocs、Next.js、Mermaid 和仓库内的 Blueaka 字体子集。
+[中文文档](https://baas.kiramei.moe/docs/zh/) · [English documentation](https://baas.kiramei.moe/docs/en/)
+
+文档站源码位于 [`docs/`](docs/)，使用 Fumadocs 和 Next.js。本地预览：
 
 ```bash
 cd docs
-bun install
+bun install --frozen-lockfile
 bun run dev
-bun run build
 ```
 
 本地路由：
@@ -77,12 +74,11 @@ bun run build
 | 中文    | `http://localhost:3000/docs/zh/` |
 | English | `http://localhost:3000/docs/en/` |
 
-维护规则：
+`bun run build` 将静态站点导出到 `docs/out`，字体子集构建需要 Python、
+`fonttools` 和 `brotli`。GitHub Pages 从 `main` 发布。
+构建与校验命令见 [`docs/README.md`](docs/README.md)。
 
-- 只维护中文和英文文档。
-- 其他应用语言下，文档回退到英文。
-- 截图资源按可见内容命名，分别放在 `docs/public/cn` 和 `docs/public/en`。
-- GitHub Pages 部署由 `.github/workflows/wiki-pages.yml` 处理。
+自建部署可在构建时设置 `VITE_BAAS_DOCS_URL`；旧的 `VITE_BAAS_WIKI_URL` 仍作为回退配置保留。
 
 ## 🛠️ 开发
 
@@ -94,22 +90,47 @@ bun run build
 - 完整运行交互需要 BAAS 后端服务。
 
 ```bash
-bun install
-bun run dev
-bun run dev:tauri
-bun run build
-bun run build:tauri
-bun run lint
+bun install --frozen-lockfile
+bun run tauri dev
+bun run tauri build
 ```
 
 | 命令                  | 作用                       |
 | --------------------- | -------------------------- |
-| `bun run dev`         | 启动 Vite 开发服务器。     |
+| `bun run tauri dev`   | 启动完整桌面应用。         |
+| `bun run tauri build` | 构建完整桌面应用。         |
+| `bun run dev:webui`   | 启动 WebUI 开发服务器。    |
+| `bun run build:webui` | 构建 WebUI。               |
 | `bun run dev:tauri`   | 以 Tauri 模式启动前端。    |
-| `bun run build`       | 类型检查并构建 Web 资源。  |
 | `bun run build:tauri` | 构建 Tauri 模式前端资源。  |
 | `bun run lint`        | 执行 ESLint 和 i18n 检查。 |
 | `bun run i18n:check`  | 检查多语言键一致性。       |
+
+### macOS 本地启动
+
+```bash
+bun install --frozen-lockfile
+bun run tauri dev
+```
+
+`dev:tauri` 只启动前端；`tauri dev` 才启动完整桌面应用。macOS 支持共享内存
+和 WebSocket，安装页不提供命名管道；已有的 WebSocket 选择会保留。
+Apple Silicon 的托管 Python
+明确选择 ARM64；旧的 `3.9.0` 配置使用同系列的可用 ARM64 补丁版本，
+Intel Mac 继续选择 x86_64。
+
+生成可以直接打开的本地调试应用（不要求发布签名密钥）：
+
+```bash
+bun run tauri build --debug --bundles app --no-sign --config '{"bundle":{"createUpdaterArtifacts":false}}'
+open 'target/debug/bundle/macos/BAAS Tauri.app'
+```
+
+首次运行需要安装 BAAS 后端和 OCR 资源，之后复用安装目录内的 `.venv`。
+连接 Android 手机或模拟器还需要 ADB，可通过
+`brew install --cask android-platform-tools` 安装，并用 `adb devices -l` 检查连接。
+桌面启动日志位于 `~/Library/Logs/io.github.kiramei.baas-tauri/baas-tauri.jsonl`，
+后端日志位于安装目录的 `config/logs/baas-service.jsonl`。
 
 ## 🧱 项目结构
 
@@ -118,16 +139,29 @@ baas-tauri/
 ├─ src/                    # React 客户端
 ├─ src-tauri/              # Tauri 2 Rust 外壳、命令、窗口和权限
 ├─ public/locales/         # 应用 UI 多语言文件
-├─ public/docs/            # 旧本地文档兼容内容
 ├─ docs/                   # Fumadocs 文档站
 └─ .github/workflows/      # 发布和文档部署工作流
 ```
 
-## 📖 Wiki 行为
+## 分支与 Android
 
-应用不再把旧本地 Wiki 作为主要文档入口。侧边栏文档页默认加载网页文档站。
+| 分支 | 用途 |
+| ---- | ---- |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | 发布版本与线上文档。 |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | 桌面端、WebUI 和文档开发。 |
+| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。 |
 
-在 Tauri 模式下，“独立窗口”会打开普通系统窗口。中文窗口标题为 `百科文档`，英文窗口标题为 `Wiki Docs`。主窗口会显示文档已在独立窗口打开，并提供聚焦独立窗口或回到主窗口的操作。
+Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 Android 开发。
+最新 debug 候选已在 Android 12 ARM64 真机的 root Shizuku 模式下完成限定验证：
+游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
+Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，
+不代表通用兼容或发布验收通过。详见
+[Android 使用指南](https://baas.kiramei.moe/docs/zh/guide/android/)与
+[故障排查](https://baas.kiramei.moe/docs/zh/reference/troubleshooting/)。
+
+共用[插件工作区](https://baas.kiramei.moe/docs/zh/features/plugins/)提供囤体、自动推图、
+装备规划、搜索棋盘计算器和按配置档编辑主页的工具。浏览器部署与登录 Key 管理见
+[WebUI 与 Docker](https://baas.kiramei.moe/docs/zh/guide/webui/)。
 
 ## 许可证
 

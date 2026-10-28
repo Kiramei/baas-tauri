@@ -1,0 +1,49 @@
+.task-status-row {
+  container: task-status / inline-size;
+}
+
+.task-status-upcoming {
+  display: none;
+}
+
+/* Keep the fixed current task and queue button when the summary is too narrow. */
+@container task-status (min-width: 560px) {
+  .task-status-upcoming {
+    display: flex;
+  }
+}
+
+/* Keep the text and the larger touch action on the same center line on phones. */
+[data-app-platform="android"] .task-status-row {
+  min-height: 44px;
+  align-items: center;
+  gap: 4px;
+}
+
+[data-app-platform="android"] .task-status-content {
+  gap: 12px;
+  padding-top: 0;
+  overflow: hidden;
+}
+
+[data-app-platform="android"] .task-status-current {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+[data-app-platform="android"] .task-status-label {
+  white-space: nowrap;
+}
+
+[data-app-platform="android"] .task-status-name {
+  min-width: 0;
+  width: auto;
+  flex: 1 1 auto;
+  text-align: start;
+}
+
+[data-app-platform="android"] .task-status-overview {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}

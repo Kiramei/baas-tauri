@@ -1,34 +1,81 @@
 ---
 title: Combat
-description: Arena, Total Assault, Joint Drill, and high-risk combat tasks.
+description: Arena opponent rules, Total Assault difficulty, Joint Drill attempts, and formation-copy compatibility.
 ---
 
-Combat tasks spend attempts and depend on team strength and current content mechanics. Do not schedule them unattended before validation.
+Open **Configuration** and select the relevant combat category. Valid edits save automatically; there is no separate Save dialog. Configuration does not start a battle. Enable a task in [Tasks](../guide/scheduler) only after checking teams, tickets and the currently supported boss.
+
+## Arena
 
 <img
   className="baas-screenshot"
-  src="/en/combat-arena-settings.png"
-  alt="Arena configuration dialog with opponent and run parameters"
+  src="/media/desktop/en/config-arena.webp"
+  alt="Current Arena editor with level difference, refresh limit and opponent slot"
 />
+
+| Control           | Values                     | Effect                                                             |
+| ----------------- | -------------------------- | ------------------------------------------------------------------ |
+| Level difference  | Integer from `-89` to `89` | Threshold used when inspecting an opponent                         |
+| Maximum refreshes | Integer `0` or greater     | Bounds the opponent-refresh loop, not the number of battle tickets |
+| Opponent number   | `1`, `2`, `3`              | Opponent slot selected for the challenge                           |
+| Stop fighting at rank 1 | On or off | At rank 1, collect available rewards and skip further challenges without spending battle tickets |
+
+The audited backend accepts an opponent when `opponent level + level difference <= own level`. For example, at level 90, `10` requires an opponent at level 80 or below; `-5` allows up to level 95. Do not interpret a positive value as permission to fight a stronger opponent.
+
+**The threshold is not a guaranteed skip condition.** After exhausting refreshes, the backend still challenges the configured slot. A refresh limit of `0` bypasses the search loop but does not disable fighting. With no tickets it collects the available reward and returns; the audited flow does not automatically buy more tickets.
+
+Blank, fractional or out-of-range numeric input prevents this section's draft from being committed. Exported fields are `ArenaLevelDiff`, `maxArenaRefreshTimes`, `ArenaComponentNumber` and the boolean `ArenaStopFightWhenRank1`. The rank-one switch is disabled with an update-backend message if the connected backend snapshot lacks that field.
 
 ## Total Assault
 
 <img
   className="baas-screenshot"
-  src="/en/combat-total-assault-settings.png"
-  alt="Total Assault configuration selecting difficulty"
+  src="/media/desktop/en/config-tactical.webp"
+  alt="Total Assault difficulty selection in the inline editor"
 />
+
+The only control is difficulty (`totalForceFightDifficulty`). Choices come from the connected backend and current server. Known labels include NORMAL, HARD, VERY HARD, HARDCORE, EXTREME, INSANE and TORMENT, but not every backend exposes every difficulty. An existing saved value can remain visible even when absent from the current list.
+
+A selectable difficulty is not evidence that the current boss strategy, borrowing flow or your team can clear it. Validate a supported fight manually before scheduling; higher difficulty can spend attempts without completing.
 
 ## Joint Drill
 
 <img
   className="baas-screenshot"
-  src="/en/combat-joint-drill-settings.png"
-  alt="Joint Drill configuration with use all tickets, team number, and difficulty"
+  src="/media/desktop/en/config-drill.webp"
+  alt="Joint Drill remaining-ticket switch, formation numbers and difficulty selectors"
 />
 
-| Feature       | Risk                  | Recommendation                     |
-| ------------- | --------------------- | ---------------------------------- |
-| Arena         | Spends attempts       | Confirm rank, opponent, and team   |
-| Total Assault | Mechanic-heavy        | Enable only tested boss flows      |
-| Joint Drill   | Can spend all tickets | Confirm team number and difficulty |
+| Control                 | Operation                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| Sweep remaining tickets | Allows sweeping after the configured fights; it can consume the remaining attempts |
+| Formation numbers       | Select in-game team number `1`–`4` for each displayed attempt                      |
+| Difficulties            | Select difficulty `1`–`4` at the matching attempt position                         |
+
+The first formation and first difficulty belong together, then the second pair, and so on. Existing profile arrays determine how many selectors appear, commonly three; this editor does not add or remove attempt rows. It does not populate students or check that the teams can win.
+
+The saved fields are `drill_enable_sweep`, `drill_fight_formation_list` and `drill_difficulty_list`. Array values must be integers from 1 to 4.
+
+## Final Restriction Release
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/config-finalRestrictionRls.webp"
+  alt="Final Restriction Release formation method with conditional copy settings"
+/>
+
+| Control                      | Values and condition                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| Formation method             | Use current formation (`default`) or copy a clear formation (`copy_clear_unit`) |
+| Maximum unavailable students | Integer `0`–`10`, default `0`; enabled only for copying                         |
+| Maximum refreshes            | Non-negative integer, default `10`; enabled only for copying                    |
+
+Switching back to current formation disables the two number fields but retains their values. Both fields must remain valid even while disabled.
+
+**Backend compatibility:** these controls are present in the audited desktop client, but their corresponding task/fields were not found in the default backend snapshot used for this documentation. Saving them does not establish that formation copying or the task executes. Confirm implementation in your actual backend before enabling it.
+
+Exported keys are `final_restriction_rls_employ_formation_method`, `final_restriction_rls_employ_formation_copy_clear_unit_max_unavailable_student_count` and `final_restriction_rls_employ_formation_copy_clear_unit_max_refresh_count`.
+
+## Before Scheduling
+
+Stop any existing run, confirm the selected profile and server, arrange [Teams](./team), and inspect a supervised run's result. Arena refresh limits, difficulty menus and successful configuration acknowledgements do not prove successful game execution.

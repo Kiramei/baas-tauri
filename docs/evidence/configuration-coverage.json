@@ -1,0 +1,239 @@
+{
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "scope": "17 configuration categories. The original manual audit at the base revision covered controls, choices, validation, conditional visibility, persistence and task side effects. An incremental source review adds the Cafe interaction delay, Arena rank-one stop, exploration simple mode, ordered story selection and six notification fields introduced by dev PR #57. This update does not claim a fresh manual or browser audit of every category.",
+  "automatedCheck": "TypeScript type-checker comparison of the actual useConfigurationDraft initial-value model with this ledger, including local interfaces, imported models and normalization return types; plus field mentions in both localized pages and immediate-command literals. Passing does not prove prose correctness, complete conditional-state coverage, backend implementation, browser appearance or successful game execution.",
+  "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
+  "sections": [
+    {
+      "id": "cafe",
+      "source": "src/features/CafeConfig.tsx",
+      "page": "features/cafe",
+      "fields": {
+        "cafe_reward_collect_hour_reward": "cafe_reward_collect_hour_reward",
+        "cafe_reward_use_invitation_ticket": "cafe_reward_use_invitation_ticket",
+        "cafe_reward_allow_exchange_student": "cafe_reward_allow_exchange_student",
+        "cafe_reward_allow_duplicate_invite": "cafe_reward_allow_duplicate_invite",
+        "cafe_reward_has_no2_cafe": "cafe_reward_has_no2_cafe",
+        "cafe_reward_affection_pat_round": "cafe_reward_affection_pat_round",
+        "patStyle": "patStyle",
+        "cafe_reward_invite1_criterion": "cafe_reward_inviteN_criterion",
+        "cafe_reward_invite2_criterion": "cafe_reward_inviteN_criterion",
+        "cafe_reward_invite1_starred_student_position": "cafe_reward_inviteN_starred_student_position",
+        "cafe_reward_invite2_starred_student_position": "cafe_reward_inviteN_starred_student_position",
+        "favorStudent1": "favorStudentN",
+        "favorStudent2": "favorStudentN",
+        "cafe_reward_interaction_shot_delay": "cafe_reward_interaction_shot_delay"
+      }
+    },
+    {
+      "id": "schedule",
+      "source": "src/features/ScheduleConfig.tsx",
+      "page": "features/lesson",
+      "fields": {
+        "lesson_enableInviteFavorStudent": "lesson_enableInviteFavorStudent",
+        "lesson_favorStudent": "lesson_favorStudent",
+        "lesson_relationship_first": "lesson_relationship_first",
+        "lesson_each_region_object_priority": "lesson_each_region_object_priority",
+        "lesson_times": "lesson_times"
+      }
+    },
+    {
+      "id": "shop",
+      "source": "src/features/ShopConfig.tsx",
+      "page": "features/shop",
+      "fields": {
+        "CommonShopList": "CommonShopList",
+        "CommonShopRefreshTime": "CommonShopRefreshTime",
+        "TacticalChallengeShopList": "TacticalChallengeShopList",
+        "TacticalChallengeShopRefreshTime": "TacticalChallengeShopRefreshTime"
+      }
+    },
+    {
+      "id": "artifact",
+      "source": "src/features/ArtifactConfig.tsx",
+      "page": "features/crafting",
+      "fields": {
+        "use_acceleration_ticket": "use_acceleration_ticket",
+        "createTime": "createTime",
+        "create_phase": "create_phase",
+        "create_phase_1_select_item_rule": "create_phase_1_select_item_rule",
+        "create_phase_2_select_item_rule": "create_phase_2_select_item_rule",
+        "create_phase_3_select_item_rule": "create_phase_3_select_item_rule",
+        "createPriority_phase1": "createPriority_phase1",
+        "createPriority_phase2": "createPriority_phase2",
+        "createPriority_phase3": "createPriority_phase3"
+      }
+    },
+    {
+      "id": "arena",
+      "source": "src/features/ArenaConfig.tsx",
+      "page": "features/combat",
+      "fields": {
+        "ArenaLevelDiff": "ArenaLevelDiff",
+        "ArenaComponentNumber": "ArenaComponentNumber",
+        "maxArenaRefreshTimes": "maxArenaRefreshTimes",
+        "ArenaStopFightWhenRank1": "ArenaStopFightWhenRank1"
+      }
+    },
+    {
+      "id": "dailySweep",
+      "source": "src/features/DailySweep.tsx",
+      "page": "features/sweeps",
+      "fields": {
+        "mainlinePriority": "mainlinePriority",
+        "hardPriority": "hardPriority",
+        "rewardedCounts": "rewarded_task_times",
+        "scrimmage_times": "scrimmage_times",
+        "activity_sweep_task_number": "activity_sweep_task_number",
+        "activity_sweep_times": "activity_sweep_times",
+        "special_task_times": "special_task_times",
+        "purchase_rewarded_task_ticket_times": "purchase_rewarded_task_ticket_times",
+        "purchase_lesson_ticket_times": "purchase_lesson_ticket_times",
+        "purchase_scrimmage_ticket_times": "purchase_scrimmage_ticket_times"
+      }
+    },
+    {
+      "id": "tactical",
+      "source": "src/features/TacticalConfig.tsx",
+      "page": "features/combat",
+      "fields": {
+        "totalForceFightDifficulty": "totalForceFightDifficulty"
+      }
+    },
+    {
+      "id": "finalRestrictionRls",
+      "source": "src/features/FinalRestrictionRlsConfig.tsx",
+      "page": "features/combat",
+      "fields": {
+        "formationMethod": "final_restriction_rls_employ_formation_method",
+        "maxUnavailableStudentCount": "final_restriction_rls_employ_formation_copy_clear_unit_max_unavailable_student_count",
+        "maxRefreshCount": "final_restriction_rls_employ_formation_copy_clear_unit_max_refresh_count"
+      }
+    },
+    {
+      "id": "drill",
+      "source": "src/features/DrillConfig.tsx",
+      "page": "features/combat",
+      "fields": {
+        "drill_enable_sweep": "drill_enable_sweep",
+        "drill_fight_formation_list": "drill_fight_formation_list",
+        "drill_difficulty_list": "drill_difficulty_list"
+      }
+    },
+    {
+      "id": "whitelist",
+      "source": "src/features/WhiteListConfig.tsx",
+      "page": "features/maintenance",
+      "fields": {
+        "clearFriendWhiteList": "clear_friend_white_list",
+        "levelLimit": "clear_friend_level_limit",
+        "lastLoginDays": "clear_friend_last_login_time_days",
+        "lastTotalAssaultRankLimit": "clear_friend_last_total_assault_rank_limit"
+      }
+    },
+    {
+      "id": "server",
+      "source": "src/features/ServerConfig.tsx",
+      "page": "features/server",
+      "fields": {
+        "server": "server",
+        "adbIP": "adbIP",
+        "adbPort": "adbPort"
+      }
+    },
+    {
+      "id": "script",
+      "source": "src/features/ScriptConfig.tsx",
+      "page": "features/script",
+      "fields": {
+        "screenshot_interval": "screenshot_interval",
+        "autostart": "autostart",
+        "then": "then",
+        "screenshot_method": "screenshot_method",
+        "control_method": "control_method"
+      }
+    },
+    {
+      "id": "emulator",
+      "source": "src/features/EmulatorConfig.tsx",
+      "page": "features/emulator",
+      "fields": {
+        "open_emulator_stat": "open_emulator_stat",
+        "emulator_wait_time": "emulator_wait_time",
+        "emulatorIsMultiInstance": "emulatorIsMultiInstance",
+        "program_address": "program_address",
+        "emulatorMultiInstanceNumber": "emulatorMultiInstanceNumber",
+        "multiEmulatorName": "multiEmulatorName"
+      }
+    },
+    {
+      "id": "stage",
+      "source": "src/features/StageConfig.tsx",
+      "page": "features/stages",
+      "fields": {
+        "manual_boss": "manual_boss",
+        "explore_normal_task_list": "explore_normal_task_list",
+        "explore_hard_task_list": "explore_hard_task_list",
+        "explore_task_use_simple_mode": "explore_task_use_simple_mode",
+        "main_story_regions": "main_story_regions"
+      },
+      "commands": [
+        "start_normal_task",
+        "start_hard_task",
+        "start_main_story",
+        "start_group_story",
+        "start_mini_story",
+        "start_explore_activity_story",
+        "start_explore_activity_mission",
+        "start_explore_activity_challenge"
+      ]
+    },
+    {
+      "id": "team",
+      "source": "src/features/TeamConfig.tsx",
+      "page": "features/team",
+      "fields": {
+        "choose_team_method": "choose_team_method",
+        "side_team_attribute": "side_team_attribute",
+        "preset_team_attribute": "preset_team_attribute"
+      }
+    },
+    {
+      "id": "push",
+      "source": "src/features/PushConfig.tsx",
+      "page": "features/maintenance",
+      "fields": {
+        "push_after_error": "push_after_error",
+        "push_after_completion": "push_after_completion",
+        "push_json": "push_json",
+        "push_serverchan": "push_serverchan",
+        "push_feishu": "push_feishu",
+        "push_wecom": "push_wecom",
+        "push_telegram_bot_token": "push_telegram_bot_token",
+        "push_telegram_chat_id": "push_telegram_chat_id",
+        "push_telegram_proxy": "push_telegram_proxy",
+        "push_telegram_api": "push_telegram_api"
+      }
+    },
+    {
+      "id": "other",
+      "source": "src/features/OtherConfig.tsx",
+      "page": "features/maintenance",
+      "fields": {},
+      "commands": ["start_fhx"]
+    }
+  ],
+  "incrementalReview": {
+    "frontendFiles": [
+      "src/features/ArenaConfig.tsx",
+      "src/features/CafeConfig.tsx",
+      "src/features/StageConfig.tsx",
+      "src/features/upstreamConfig.ts",
+      "src/features/PushConfig.tsx",
+      "src/features/pushConfiguration.ts"
+    ],
+    "backendRevision": "4a4fcfda (Telegram identifier fix); notification/game-field behavior follows the upstream UI source review, not a new device run",
+    "addedFields": 10,
+    "frontendRevision": "139281cf993cd9c41c483ba311dc1735ccb8eab7"
+  }
+}

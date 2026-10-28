@@ -20,19 +20,22 @@ const CButton: React.FC<ButtonProps> = ({
     /\bsize-\d+/.test(className) || (/\bw-\d+/.test(className) && /\bh-\d+/.test(className));
   const isIconOnly = iconOnly ?? fixedSquare;
   const baseClasses = cn(
-    "inline-flex items-center justify-center gap-2 text-sm font-semibold rounded-lg shadow-sm focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
+    "inline-flex items-center justify-center gap-2 rounded-[8px] border border-transparent text-sm font-medium outline-none transition-[background-color,color,border-color] duration-150 active:brightness-95 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed",
     isIconOnly ? "p-0 shrink-0 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0" : "px-4 py-2"
   );
 
   const variantClasses = {
-    primary: "bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500",
-    secondary:
-      "bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 focus:ring-slate-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+    secondary: "border-input bg-transparent text-foreground hover:bg-secondary",
+    danger: "bg-destructive text-white hover:bg-destructive/90",
   };
 
   return (
-    <button className={cn(baseClasses, variantClasses[variant], className)} {...props}>
+    <button
+      data-variant={variant}
+      className={cn(baseClasses, variantClasses[variant], className)}
+      {...props}
+    >
       {children}
     </button>
   );

@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-10-23T11:24:12.3208694Z",
+  "method": "Local Windows OCR (zh-Hans-CN), every decoded image/GIF frame, pattern checks and visual review of flagged generic paths. Input hashes must match the current public assets.",
+  "imageFiles": 470,
+  "decodedFrames": 621,
+  "decodingFailures": 0,
+  "unresolvedPatternFindings": 0,
+  "inventorySha256": "63a87436bbba5f8201019320c594787abee0c60882aca231fade19d911fe7101",
+  "reviewedFindings": [
+    {
+      "file": "media/desktop/en/config-emulator.webp",
+      "sha256": "d80cb293bb6b0be1df85ce797da3621f2007c32344899984e2c80b3b77d736c3",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/en/dark/config-emulator.webp",
+      "sha256": "aca76d4740d10d2c05ca315e80d0339847d2b6bd412ad99becfe9fffa8f8a3c2",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/zh/config-emulator.webp",
+      "sha256": "f90599138b121e9fe95386ccaf627ed48f776864dfbeefdfe34e4b5645f46be7",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    },
+    {
+      "file": "media/desktop/zh/dark/config-emulator.webp",
+      "sha256": "ada5038800483066823657ddf1959e937dbd688c18beb9dcf8f3d2b6574f0326",
+      "category": "generic-path-placeholder",
+      "review": "Visually checked: empty emulator-path field with the generic emulator.exe path placeholder."
+    }
+  ],
+  "reviewedRedactions": [
+    {
+      "file": "backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.webp",
+      "sha256": "3adb52fe7160c7bae9a93c5e2bcb85a264687f77e8c288b0f283b89b4e939f88",
+      "category": "legacy-game-nickname",
+      "method": "Local Gaussian blur, visually reviewed; region and pixel checks in legacy-media-blur.json.",
+      "regions": 1
+    }
+  ],
+  "publicationReviewComplete": false,
+  "pendingVisualFindings": [],
+  "webpPublication": {
+    "manifestSha256": "c47441e35fe40bd15fd024db7c7beee3956990022d6b3a767ec51c3ca65f70bb",
+    "files": 470,
+    "decodedFrames": 621,
+    "method": "Lossless local WebP encoding of already reviewed/blurred assets; visible decoded RGBA pixels, frame counts, delays and loop counts verified unchanged. Hidden RGB under zero alpha is canonicalized only for comparison and changes are counted separately. This is a publication transform, not a new capture or benchmark run."
+  },
+  "redaction": "Installer captures use local 12px blur, including low-effects mode and visible tooltips. Legacy images and native Android game media have local Gaussian blur baked into published pixels; separate records bind source/output hashes, regions and pixel checks. Native GIFs are blurred before resizing and palette encoding. Unblurred captures and OCR text are excluded from published assets.",
+  "limits": "OCR and pattern checks can miss account names, QR codes, private hosts or illegible text. This report does not certify every asset as free of sensitive information; new or changed media requires another review.",
+  "nativeGameMedia": {
+    "manifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
+    "reviewedFiles": 6,
+    "reviewedFrames": 124,
+    "pngOutsideChangedPixels": 0,
+    "method": "Local Pillow Gaussian blur before PNG publication and before GIF resizing/palette encoding"
+  }
+}

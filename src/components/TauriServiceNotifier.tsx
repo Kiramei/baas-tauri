@@ -17,7 +17,12 @@ const TauriServiceNotifier: React.FC = () => {
     const onDisconnected = (event: Event) => {
       if (!notificationsEnabled) return;
       const { mode } = (event as CustomEvent<ServiceTransportDisconnectedDetail>).detail;
-      const transport = mode === "pipe" ? t("transport.pipe") : t("transport.websocket");
+      const transport =
+        mode === "shm"
+          ? t("transport.shm")
+          : mode === "pipe"
+            ? t("transport.pipe")
+            : t("transport.websocket");
       void invoke("baas_notify", {
         payload: {
           title: t("notification.service.disconnectedTitle"),

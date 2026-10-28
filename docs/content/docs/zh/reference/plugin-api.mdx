@@ -1,0 +1,41 @@
+---
+title: 插件接口
+description: 插件 manifest、声明式设置、任务协议和 Android 计算进程的边界。
+---
+
+插件由后端加载，桌面、Android 与 WebUI 使用同一套认证命令。用户入口及内置工具见[插件与工具](../features/plugins)。完整格式与可安装示例以[后端插件规范](https://github.com/Kiramei/baas-dev/blob/master/docs/PLUGIN_SYSTEM.md)及 [example.notes](https://github.com/Kiramei/baas-dev/tree/master/examples/plugins/example.notes) 为准。
+
+## Manifest 与设置
+
+`plugin.json` 声明 API 版本、插件 ID、版本、权限、设置 schema、动作和展示信息。API v1 的前端只渲染受支持的声明式数据，不加载任意插件 JavaScript、HTML、CSS 或 Qt 界面。未知版本或不兼容描述应显示错误，不降级执行未知代码。
+
+客户端类型位于 `src/shared/Plugins.ts`。目录项区分内置和外部来源，以及可用、不兼容和错误状态。设置支持宿主实现的布尔、数值、字符串、枚举、数组、对象和日期时间控件，不承诺支持 JSON Schema 的所有扩展。
+
+设置返回 `revision`，写入需携带相应版本。冲突后重新读取，不自动覆盖。日期时间控件以本地时间显示并提交明确的 ISO 时间点；游戏日切时区由插件自身设置处理。
+
+## 认证命令与任务
+
+| 命令 | 用途 |
+| ---- | ---- |
+| `get_plugin_catalog` | 读取目录及兼容性 |
+| `get_plugin_settings` / `update_plugin_settings` | 读取或按版本保存配置档设置 |
+| `set_plugin_enabled` | 修改配置档启用状态及外部代码信任 |
+| `install_plugin` / `uninstall_plugin` | 安装加密传输的 ZIP 或卸载后端共用包 |
+| `run_plugin_action` | 创建动作任务 |
+| `get_plugin_job` / `cancel_plugin_job` | 查询或取消任务 |
+
+所有请求走已认证的 Trigger 会话；连接或身份更换后，丢弃旧请求结果。任务区分 `queued`、`running`、`succeeded`、`failed`、`cancelled`，返回结构化结果。设备自动化动作需要配置档运行所有权；计算动作使用独立计算进程。取消只能中止后续工作，不能回滚设备操作。
+
+## Android 计算进程
+
+Android 通过两个私有 Service 进程 `:baas_plugin_worker0` 和 `:baas_plugin_worker1` 运行 Chaquopy 计算动作，每个进程一次承接一个任务。它们与应用共用 UID，不依赖把 `sys.executable` 当成独立 Python 命令，也不提供权限隔离。
+
+`PluginWorkerBridge` 的启动、状态和停止接口校验槽位、令牌、PID 与进程身份。目录限于应用私有文件、缓存及 no-backup 区域，并拒绝符号链接越界。请求和结果信封限制为 128 KiB，计算结果限制为 64 KiB；结果通过原子 UTF-8 文件交换，不向前端泄漏原始异常、路径或 stderr。
+
+Service 使用 `START_NOT_STICKY`，任务完成、取消或超时后退出；看门狗为包含解释器启动在内的生命周期设置 135 秒上限。停止操作校验任务与进程所有权，旧任务的取消不得终止其他任务或后端。桌面进程和 Android Service 都只用于运行生命周期隔离，外部代码仍须经过用户信任。
+
+## 开发与验证
+
+从后端示例复制包结构，保持插件 ID 稳定，先校验 manifest 和设置迁移，再测试动作成功、异常、超时、取消及会话更换。不要在测试夹具或 ZIP 中加入真实登录凭据、设备标识、私人路径或账号截图。
+
+Android 桥接的本地回归入口为 `python3 scripts/tests/test_android_plugin_worker.py`；静态或模拟进程测试不等于真实设备兼容性验收。客户端协议与平台边界另见[客户端 API](./client-api)和[客户端架构](./client-architecture)。

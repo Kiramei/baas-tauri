@@ -3,6 +3,9 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 import { normalizeLocale, type Locale } from "@/lib/i18n";
 import { LanguageMenu } from "@/components/LanguageMenu";
+import { DocumentLanguage } from "@/components/DocumentLanguage";
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 type LayoutProps = {
   children: ReactNode;
@@ -22,7 +25,7 @@ export default async function Layout({ children, params }: LayoutProps) {
       nav={{
         title: (
           <span className="baas-doc-nav-brand">
-            <img src="/baas-icon.png" alt="" />
+            <img src={`${basePath}/baas-icon.webp`} alt="" />
             <span>{locale === "zh" ? "BAAS 文档" : "BAAS Docs"}</span>
           </span>
         ),
@@ -32,6 +35,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         footer: <LanguageMenu key="baas-sidebar-language-menu" locale={locale as Locale} />,
       }}
     >
+      <DocumentLanguage locale={locale} />
       {children}
     </DocsLayout>
   );

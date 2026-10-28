@@ -1,96 +1,128 @@
 ---
 title: 安装配置 setup.toml
-description: 后端安装器 setup.toml 的用途、常用参数、更新源、MirrorC CDK 和安全注意事项。
+description: 当前 Rust 更新器配置、文件归属、全部持久化字段、旧格式迁移、源与缓存，以及工作流原理。
 ---
 
-`setup.toml` 是 BAAS 后端安装和更新阶段使用的配置文件。Tauri 客户端的安装器会把常用选项做成图形界面，但当你需要排查更新源、MirrorC CDK、运行时路径或跳过更新时，仍然可能需要理解这个文件。
+**Rust 桌面更新器**在普通安装中使用 `<所选后端根目录>/setup.toml`；程序旁已存在该文件则启用便携模式，根目录规范为 `"."`。见 [安装指南](../guide/install#目录选择与启动)。
 
-<Callout type="warn" title="不要公开 setup.toml">
-  如果你填写了 MirrorC CDK、私有源或本机路径，不要把完整 `setup.toml` 直接发给陌生人或公开 Issue。
-</Callout>
+手动编辑前先停止任务并退出管理它的客户端。应用会重写受支持的类型化字段，并发修改可能丢失。包含 MirrorC 密钥、私有源或本机路径的文件不适合公开发布。
 
-## 安装器步骤
+## 当前格式
 
-旧后端安装器的核心步骤可以抽象为：
-
-### 检查 Python 与运行时 [step]
-
-确认本机或内置运行时可用，必要时下载或修补后端需要的 Python 环境。
-
-### 准备 pip 与下载源 [step]
-
-根据 `setup.toml` 中的源配置准备 pip，并在网络失败时按源列表重试。
-
-### 克隆或更新后端源码 [step]
-
-从 GitHub、镜像源或 MirrorC 获取 BAAS 后端代码，并根据 SHA 判断是否需要刷新。
-
-### 安装 Python 依赖 [step]
-
-同步后端运行依赖。依赖未变化时，安装器可能会跳过这一步以节省时间。
-
-### 写入版本与路径状态 [step]
-
-记录当前 BAAS 版本、C++ 组件版本、后端目录和运行时路径，供后续启动和更新复用。
-
-### 启动后端服务 [step]
-
-安装完成后启动后端进程，等待 Tauri 客户端完成本地连接和密钥认证。
-
-当前 Tauri 安装器仍围绕这些动作组织，只是把目录选择、更新源、MirrorC CDK 和日志展示放进桌面界面。
-
-## 常用 General 参数
-
-| 参数                       | 类型   | 作用                   | 建议                         |
-| -------------------------- | ------ | ---------------------- | ---------------------------- |
-| `mirrorc_cdk`              | string | MirrorC 下载加速凭据   | 只在你购买或获得 CDK 后填写  |
-| `current_BAAS_version`     | string | 当前后端版本           | 通常自动维护                 |
-| `current_BAAS_Cpp_version` | string | 当前 C++ 组件版本      | 通常自动维护                 |
-| `get_remote_sha_method`    | string | 获取远程 SHA 的方式    | GitHub 不通时切换到镜像      |
-| `dev`                      | bool   | 不从远程更新代码       | 本地开发或临时冻结版本时使用 |
-| `refresh`                  | bool   | 覆盖本地后端修改       | 会丢弃本地改动，谨慎使用     |
-| `launch`                   | bool   | 跳过安装步骤直接启动   | 已确认环境完整时使用         |
-| `force_launch`             | bool   | 是否关闭已启动的旧进程 | 多实例排查时注意             |
-| `debug`                    | bool   | 更新后保留终端窗口     | 排查安装失败时有用           |
-| `source_list`              | list   | PyPI 源重试列表        | 网络不稳定时调整             |
-| `runtime_path`             | string | 自定义 Python 运行时   | 只有理解后端环境时再改       |
-
-## URL 与路径参数
-
-| 参数                | 说明                                                       |
-| ------------------- | ---------------------------------------------------------- |
-| `REPO_URL_HTTP`     | 后端源码获取地址，可切换 GitHub、Gitee、GitCode 或其他镜像 |
-| `GET_PIP_URL`       | `get-pip.py` 下载地址                                      |
-| `GET_UPX_URL`       | UPX 下载地址                                               |
-| `GET_ENV_PATCH_URL` | 环境补丁下载地址                                           |
-| `GET_PYTHON_URL`    | Python 运行时下载地址                                      |
-| `BAAS_ROOT_PATH`    | 后端安装根目录，修改时必须使用绝对路径                     |
-| `TMP_PATH`          | 临时文件目录                                               |
-| `TOOL_KIT_PATH`     | 工具目录                                                   |
-
-## MirrorC CDK
-
-MirrorC 是第三方分发和下载加速服务。填写 CDK 后，BAAS 后端更新可以走 MirrorC 源；不填写也可以继续使用默认更新源，只是网络质量取决于你所在环境。
+当前格式版本是 `1`。以下完整示例使用 Windows 风格绝对路径，并明确选择 WebSocket，不表示所有平台都支持共享内存。使用前核对路径，便携模式会覆盖它。
 
 ```toml
-[General]
-mirrorc_cdk = "your-cdk"
+schema_version = 1
+
+[general]
+transport = "websocket"
+transport_version = 1
+mirrorc_cdk = ""
+channel = "stable"
+current_baas_sha = ""
+current_baas_cpp_sha = ""
+get_remote_sha_method = ""
+launch = true
+force_launch = false
+debug = false
+no_update = false
+git_backend = "auto"
+source_list = ["https://pypi.org/simple"]
+
+[paths]
+baas_root_path = "D:/BAAS"
+tmp_path = "tmp"
+toolkit_path = "toolkit"
+
+[repositories]
+main_sources = []
+cpp_sources = []
+
+[python]
+runtime_path = "default"
+python_version = "3.9.0"
 ```
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/install/mirrorc_install_success.png"
-  alt="旧安装器日志中 MirrorC 安装成功示例"
-/>
+缺失的受支持字段使用默认值。原始默认配置中的空根目录由桌面适配层的目录选择逻辑解析，不代表可随意在源码工作区运行。当前格式的表名使用小写。
 
-## 何时手动修改
+## general 全部字段
 
-| 场景            | 可以修改                                 |
-| --------------- | ---------------------------------------- |
-| GitHub 访问失败 | `REPO_URL_HTTP`、`get_remote_sha_method` |
-| PyPI 下载慢     | `source_list`                            |
-| 想临时跳过更新  | `launch = true` 或 `dev = true`          |
-| 调试安装失败    | `debug = true`                           |
-| 使用 MirrorC    | `mirrorc_cdk`                            |
+| 字段                    | 类型与含义                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `transport`             | `websocket`、`pipe`、受支持桌面的 `shm`；原生 Windows/Linux/macOS 默认共享内存，Android 默认管道  |
+| `transport_version`     | 原生传输迁移标记，当前为 `1`，不是协议吞吐量设置                                           |
+| `mirrorc_cdk`           | MirrorC 私密分发凭证，默认空；非空选择 MirrorC 而非 Git 路径                               |
+| `channel`               | `stable` / `dev`，默认 stable；后端分发/引用，不是游戏区域或客户端预发布选择               |
+| `current_baas_sha`      | 已记录的后端主仓库版本，初始空，由更新器维护，不能随意伪造                                 |
+| `current_baas_cpp_sha`  | 已记录的 Cpp/OCR 组件版本，初始空                                                          |
+| `get_remote_sha_method` | 偏好的后端元数据方式，初始空；不会将该端点直接变成仓库下载源                               |
+| `launch`                | 是否允许工作流在**准备之后**启动服务；库原始默认 false，桌面设置会明确保存为 true          |
+| `force_launch`          | 保留的兼容布尔字段，默认 false；当前桌面工作流未找到活跃消费者，不承诺它就是强制杀进程开关 |
+| `debug`                 | 保留的兼容布尔字段，默认 false；不是当前桌面终端“保持打开”的控制项                         |
+| `no_update`             | 默认 false；跳过主/Cpp 仓库同步并使用现有文件，不会创建缺失代码，也不跳过所有环境/认证工作 |
+| `git_backend`           | `auto`、`git_cli`、`git2`；auto 优先系统 Git 并可回退 Rust git2，明确选 CLI 需有可用 Git   |
+| `source_list`           | 托管依赖使用的 PyPI 索引列表；内置默认有多个源，本最小示例只列一个                         |
 
-如果你只是普通使用 BAAS Tauri，优先使用安装器里的“高级设置”和“更新源”控件，不要直接编辑 `setup.toml`。
+`no_update = true` 会冻结仓库更新；`launch = true` 控制准备后启动服务，旧 `dev = true` 选择后端 dev 通道。这些字段不会隔离网络或跳过全部环境准备。
+
+### 传输迁移
+
+Windows/Linux 上，未带版本标记的旧 pipe 偏好可能一次性迁移为共享内存；明确带版本的 pipe 和 WebSocket 会保留。macOS 保留明确的 WebSocket 选择，其他值规范为共享内存；Android 不使用桌面共享内存，WebUI 固定 WebSocket。客户端选项仍要求后端实现对应能力，缺少 `--shm-name` 属于后端兼容问题。
+
+普通用户通过 [连接与运行时](../features/system#连接与运行时) 修改。切换会停止/重建受管业务连接并重新同步，不会改变模拟器截图或控制方式。
+
+## 路径、仓库与 Python
+
+| 字段                        | 作用域                                                           |
+| --------------------------- | ---------------------------------------------------------------- |
+| `paths.baas_root_path`      | 后端根目录；便携部署强制 `"."`，工作目录改为可执行文件目录       |
+| `paths.tmp_path`            | 临时/暂存位置，默认 `tmp`；相对根目录解析，绝对路径除外          |
+| `paths.toolkit_path`        | 工具目录，默认 `toolkit`，同样按根目录解析                       |
+| `repositories.main_sources` | 主仓库排序项，每项含 `url` 与整数 `order`                        |
+| `repositories.cpp_sources`  | 同形状的 Cpp 仓库排序项，`order = -1` 表示暂时禁用               |
+| `python.runtime_path`       | `"default"` 或空/仅空白值选择托管运行时，否则为解释器路径        |
+| `python.python_version`     | 托管 Python 版本，当前默认 `"3.9.0"`，不会向自定义解释器安装依赖 |
+
+托管模式将 `.venv` 放在后端根目录，UV 放在 `<toolkit_path>/uv`。**自定义解释器会跳过托管 UV/Python/venv 与依赖同步**，兼容性和依赖由使用者负责；路径字符串不是环境验证。不要指向无关环境并期望更新器自动修复它。
+
+仓库更新会替换受跟踪代码。CLI 路径做受限浅拉取，再硬重置到已验证的目标；镜像回退保护不等于保留本地修改，正式源或引用变更也可能合理改变历史。不能把需要保留工作的源码检出作为一次性安装目录。备份配置档和保存源码修改是两件事。
+
+## 源排序与缓存
+
+运行排序记录位于 `.baas-updater/source-ranking/` 下的 `main.json`、`cpp.json`、`uv.json`、`cpython.json`、`pypi.json`，不是跨环境最快源榜单。真实操作成功可成为偏好 URL，失败会降级/禁用源；URL 集合改变或可用源耗尽时可重建排序并重试。删除前先保留失败源与错误上下文。
+
+有效非空 CDK 选择 MirrorC，空值按 `git_backend` 选择 Git。CDK 验证成功不代表所有归档/OCR 组件都可下载，源/SHA 测试与完整安装也不同。见 [更新](../features/update)。
+
+UV 可复用的下载/构建缓存保留在 `<toolkit_path>/uv/cache`，图中的保留缓存步骤不是自动清空缓存。成功的依赖缓存会在 `.baas-updater/requirements-cache.json` 记录规范化 requirements/lock 路径、两者的 SHA-256 内容和 PyPI 索引，复用还要求锁文件存在。这不是完整的已安装环境校验，不会散列每个已安装包。比较启动耗时时必须保留测量边界，见 [性能](./performance)。
+
+## 旧格式与无效配置
+
+加载器可迁移旧 `[General]`、`[Paths]`：
+
+| 旧字段                                                  | 当前目标与行为                                  |
+| ------------------------------------------------------- | ----------------------------------------------- |
+| 无明确 channel 的 `General.dev = true`                  | `general.channel = "dev"`，**不是** `no_update` |
+| `General.current_BAAS_version` / `current_baas_version` | `general.current_baas_sha`                      |
+| `General.current_BAAS_Cpp_version` / 对应小写形式       | `general.current_baas_cpp_sha`                  |
+| `General.runtime_path`                                  | `python.runtime_path`                           |
+| `Paths.BAAS_ROOT_PATH`                                  | `paths.baas_root_path`                          |
+| `Paths.TMP_PATH` / `TOOL_KIT_PATH`                      | `paths.tmp_path` / `toolkit_path`               |
+| `General.git_backend` / `gitBackend`                    | 当前 Git 实现选择                               |
+
+CDK、源列表、launch/no-update、SHA 方式等受支持通用值也会迁移。旧 `refresh`、`URLs.REPO_URL_HTTP`、`GET_PIP_URL`、`GET_UPX_URL`、`GET_ENV_PATCH_URL`、`GET_PYTHON_URL` **不是等价的当前控制字段**，本迁移不会映射它们。不要将旧 Python 安装器的 URL 表直接复制进新文件。
+
+出现当前格式的表或标记后，加载器主要按当前格式解析，不会合并所有旧表，应避免混用。序列化只保留受支持的类型化模型，不保留任意未知扩展字段。
+
+桌面适配层遇到可恢复的格式错误时，将旧文件保留为 `setup.toml.invalid-YYYYMMDD-HHMMSS` 并写入默认值。这可能改变通道、更新策略、运行时与传输，应核对备份和新的活动配置再重试。文件系统权限/读取错误仍需独立处理；有备份不证明原本希望的值已保留。
+
+## 开发者契约
+
+桌面 `SetupPage` 先请求 `updater_get_startup_state`，通过 `updater_update_config` 保存选项，等终端订阅完成才调用 `updater_start_workflow`。原生 `baas-updater` 生成计划，`baas-term` 管理线程/进程任务和渲染事件，不是 UI 自己执行十四条互不关联的 shell 字符串。
+
+依赖图让主/Cpp 仓库与 UV/Python 准备重叠，再汇合进入落盘和依赖阶段。应以节点 ID 与状态为准，显示顺序、残留 pending 节点或完成计数都不能代替 `updater://backend-ready` 与认证同步。
+
+`updater_abort_workflow` 取消所属任务并清理已登记的临时路径，不回滚原地 Git 更新或已安装包。配置保存当前使用文件系统写入，不是跨进程事务配置仓库，应避免 UI 与手动编辑同时写。
+
+`updater_reset_backend_auth_and_restart` 是独立且有破坏性的凭证恢复操作：停止受管后端、移除认证/记住登录/签名/票据文件，再启动并认证；它不是删除配置档，也不是通用远程服务改密接口。桌面自动使用它的方式和边界见 [安装指南](../guide/install#完成与认证)。
+
+回归应覆盖源/引用变更与过时镜像的区别、失败/迟到终端事件、各并行分支取消、自定义与托管 Python、无效 TOML 保留、后端就绪与认证的区别，以及避免重复启动后端。模拟网络的单元测试不能替代原生包、下载与设备执行验证。

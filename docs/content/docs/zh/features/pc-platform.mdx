@@ -3,7 +3,7 @@ title: PC 客户端平台
 description: Steam 国际服、日服 PC 端、窗口比例、HDR、截图方式和控制方式配置。
 ---
 
-PC 客户端不是 ADB 模拟器场景。BAAS 需要通过桌面截图和鼠标控制识别游戏窗口，因此窗口比例、HDR、权限和控制方式比普通模拟器更敏感。
+Steam 国际服和日服 PC 端通过桌面截图与鼠标控制运行。请先确认窗口比例、HDR、权限、截图方式和控制方式。
 
 <Callout type="warn" title="先确认画面条件">
   PC 客户端必须保持 16:9 画面比例。窗口被拉伸、HDR
@@ -23,17 +23,21 @@ PC 客户端不是 ADB 模拟器场景。BAAS 需要通过桌面截图和鼠标�
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/pc_platform/turn_off_hdr.png"
+  src="/backend-assets/pc_platform/turn_off_hdr.webp"
   alt="Windows 设置中关闭 HDR"
 />
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.png"
+  src="/backend-assets/pc_platform/setting_screen_windowed_ratio_16_9.webp"
   alt="Blue Archive PC 客户端窗口模式和 16:9 比例设置"
 />
 
 ## BAAS 配置
+
+原生 Windows 客户端可在新建配置档时选择 PC 区服，随后自动保存 `mss` 截图和 `pyautogui` 控制。服务器页显示对应游戏进程名并隐藏 ADB 设置。创建后先确认保存成功，再进入脚本页检查方式；截图还可选择 `pyautogui`，控制保持 `pyautogui`。
+
+非 Windows 宿主不能新建可运行的 PC 配置；已有配置仍可显示，但相关控件禁用。Android 与 Linux Docker 无法直接控制 Windows 游戏窗口。升级客户端不会自动修正旧配置中不受支持的方式组合。
 
 PC 客户端场景建议按下面顺序配置：
 
@@ -46,20 +50,14 @@ PC 客户端场景建议按下面顺序配置：
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/pc_platform/BAAS_setting_game_server_steam_global_or_JP_pc.png"
-  alt="旧 BAAS 文档中的 PC 端服务器选择示例"
+  src="/media/desktop/zh/config-server.webp"
+  alt="服务器配置中的区服选择"
 />
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/pc_platform/BAAS_setting_screenshot_method_mss_or_pyautogui.png"
-  alt="旧 BAAS 文档中的 PC 端截图方式示例"
-/>
-
-<img
-  className="baas-screenshot"
-  src="/backend-assets/pc_platform/BAAS_setting_control_method_pyautogui.png"
-  alt="旧 BAAS 文档中的 PC 端控制方式示例"
+  src="/media/desktop/zh/config-script.webp"
+  alt="脚本配置中的截图方式和控制方式"
 />
 
 ## 常见问题
@@ -73,7 +71,7 @@ PC 客户端场景建议按下面顺序配置：
 
 <img
   className="baas-screenshot"
-  src="/backend-assets/pc_platform/BAAS_log_screen_ratio_not_16_9.png"
+  src="/backend-assets/pc_platform/BAAS_log_screen_ratio_not_16_9.webp"
   alt="日志提示 PC 客户端画面比例不是 16:9"
 />
 

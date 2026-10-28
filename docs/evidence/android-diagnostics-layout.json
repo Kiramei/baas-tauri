@@ -1,0 +1,85 @@
+{
+  "checkedAt": "2026-10-28T06:46:27.851Z",
+  "cases": 8,
+  "failures": 0,
+  "testedSources": {
+    "docs/content/docs/zh/guide/android.mdx": "a4fa3c6babec394b77460acb61a39e97114961eb024bef2ae59a6766104017c6",
+    "docs/content/docs/zh/reference/troubleshooting.mdx": "9c8e60b9aa7456bce1f43e8ffb21db9e2fa31d5a73d1ffeae13be580f8419eb0",
+    "docs/content/docs/en/guide/android.mdx": "1b6b1a4b9154fc067fe43ebb4ae02cfa9f0d2548212264b93c51fd31c5105d58",
+    "docs/content/docs/en/reference/troubleshooting.mdx": "1b9db275910fe81dcbf0c03c3eb030c35c3e7844d73cc55310972d54cca826c3"
+  },
+  "results": [
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "linkNavigated": true,
+      "headingFits": true,
+      "pageErrors": [],
+      "passed": true
+    }
+  ]
+}

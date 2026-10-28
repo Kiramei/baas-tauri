@@ -1,9 +1,11 @@
 ---
 title: Development and Documentation Maintenance
-description: Tauri client structure, backend bridge, Fumadocs site, screenshot maintenance, and GitHub Pages deployment.
+description: Tauri client structure, backend bridge, local documentation builds, and GitHub Pages deployment.
 ---
 
-This page is for maintainers. BAAS Tauri user documentation is now maintained under `baas-tauri/docs`. Still-relevant content from the old `baas-dev/docs` should be migrated here instead of maintaining two user-facing documentation surfaces.
+Read [Client Architecture and State](./client-architecture) for the principles behind draft persistence, acknowledgments, scheduler relationship ownership, connection generations and Android process boundaries. [Performance and Benchmarks](./performance) provides reproducible samples and their measurement limits.
+
+[Native Client API](./client-api) lists registered host commands, argument shapes and platform differences. Business messages and transport framing are covered by [Backend Service Interfaces](./backend-service).
 
 ## Client Structure
 
@@ -14,12 +16,12 @@ baas-tauri/
 ├─ src/                    # React client
 ├─ src-tauri/              # Tauri 2 Rust shell, commands, windows
 ├─ public/locales/         # Application UI strings
-├─ public/docs/            # Legacy local docs, English/Chinese compatibility only
+├─ crates/                 # Shared native updater, terminal and integration crates
 ├─ docs/                   # Fumadocs web documentation site
 └─ .github/workflows/      # Release and documentation deployment workflows
 ```
 
-The frontend uses React, Vite, Tailwind CSS, Zustand, i18next, lucide-react, and Tauri 2. The backend synchronizes status, configuration, events, logs, versions, and trigger commands over WebSocket.
+The frontend uses React, Vite, Tailwind CSS, Zustand, i18next, lucide-react, and Tauri 2. The synchronized store carries status, configuration, events, logs, versions and commands through the selected native adapter or authenticated WebSocket.
 
 ## Documentation Site Structure
 
@@ -38,33 +40,14 @@ docs/content/docs/zh
 docs/content/docs/en
 docs/lib/source.ts
 docs/lib/i18n.ts
-docs/public/cn
-docs/public/en
+docs/public/media
 ```
 
 Routes:
 
-- `/docs` redirects to `/docs/zh`.
 - Chinese docs use `/docs/zh/...`.
 - English docs use `/docs/en/...`.
 - Non-Chinese in-app languages should fall back to English.
-
-## Screenshot Maintenance
-
-Screenshots come from the current BAAS Tauri interface. Chinese docs use `docs/public/cn`; English docs use `docs/public/en`.
-
-Rules:
-
-- Home screenshots are only for home, logs, and runtime state.
-- Installer screenshots are only for installation.
-- Cafe screenshots are only for cafe.
-- Shop screenshots are only for shop.
-- Crafting screenshots are only for crafting.
-- Server, script, and emulator screenshots are only for connection and script setup.
-- Stage, sweep, and team screenshots are only for those features.
-- Settings, update, hotkey, and remote display screenshots are only for system settings.
-
-Do not insert unrelated screenshots just to make a page look illustrated.
 
 ## Local Development
 
@@ -90,7 +73,7 @@ Static output is written to `docs/out`.
 
 `.github/workflows/wiki-pages.yml` builds and deploys the docs. It checks out the repository, configures Pages, installs Bun, runs `bun install --frozen-lockfile` in `docs`, passes `NEXT_PUBLIC_BASE_PATH`, builds, uploads `docs/out`, and deploys it.
 
-`NEXT_PUBLIC_BASE_PATH` matters because repository Pages is often not hosted at the domain root. Without it, routes and static assets may 404.
+The current custom-domain deployment uses the root path. `actions/configure-pages` supplies `NEXT_PUBLIC_BASE_PATH` to the build.
 
 ## Migrating from baas-dev/docs
 

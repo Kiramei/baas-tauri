@@ -19,7 +19,13 @@ const PageActivity: React.FC<PageActivityProps> = ({ active, children, suspendDe
     return () => window.clearTimeout(timeout);
   }, [active, suspendDelayMs]);
 
-  return <Activity mode={active || keepVisible ? "visible" : "hidden"}>{children}</Activity>;
+  // Zero-delay panels switch in the same commit; a timeout would leave both
+  // editors visible for a frame and move the scroll position before hiding one.
+  return (
+    <Activity mode={active || (suspendDelayMs > 0 && keepVisible) ? "visible" : "hidden"}>
+      {children}
+    </Activity>
+  );
 };
 
 export default React.memo(PageActivity);

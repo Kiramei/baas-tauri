@@ -1,57 +1,124 @@
 ---
 title: Sweeps
-description: Normal maps, hard maps, bounty, scrimmage, event stages, special commissions, and ticket purchases.
+description: Structured stage plans, bounty and scrimmage counts, event AP shares, legacy values, and paid ticket purchases.
 ---
 
-Sweeps spend AP, tickets, or purchase counts. Test with small targets before adding them to daily scheduling.
+Open **Configuration → Daily Sweeps**. The first tab holds normal/hard stage plans; the second holds bounty, scrimmage, commissions, event sweeps and ticket purchases. Valid changes [save automatically](../guide/configuration). They do not run a task; enable the corresponding task separately in [Tasks](../guide/scheduler).
+
+Sweeping consumes AP/tickets and requires the game's sweep unlock and stage-clear conditions. Test small counts before daily scheduling.
+
+## Normal and Hard Plans
 
 <img
   className="baas-screenshot"
-  src="/en/daily-stage-sweep-settings.png"
-  alt="Daily sweep map tab with normal and hard daily sweeps"
+  src="/media/desktop/en/config-dailySweep.webp"
+  alt="Current daily sweep plan with structured chapter, mission and count controls"
 />
 
-## Sweep Details
+Each ordered row contains chapter, mission and count. Add a stage with the plus command; use up/down arrows to change order and the trash icon to remove it. The first/last row cannot move beyond the list.
+
+Normal and hard plans save to `mainlinePriority` and `hardPriority`, respectively.
+
+| Field          | Allowed values                                                                     |
+| -------------- | ---------------------------------------------------------------------------------- |
+| Chapter        | Positive integer, bounded by the backend's normal/hard chapter range when supplied |
+| Normal mission | `1`–`5`                                                                            |
+| Hard mission   | `1`–`3`                                                                            |
+| Count          | Non-negative integer; `0` skips                                                    |
+| Maximum count  | `max` where supported; uses available AP/attempts rather than reserving resources  |
+
+**CN/Bilibili hard plans do not allow `max` in this client.** Normal plans and Global/JP hard plans do. A stored unsupported `max` is not proof the backend can run it.
+
+Exports retain comma-separated `chapter-mission-count` tokens: for example `15-3-3,20-3-max` for normal. Hard uses the same three-part format, with the server restriction above. This differs from the [Stage exploration](./stages) format.
+
+The editor preserves unrecognized legacy rows and displays their original value and an error. Opening a plan does not rewrite it. Repair/remove invalid entries before expecting an edited plan to commit; temporary invalid input remains local.
 
 <img
   className="baas-screenshot"
-  src="/en/daily-sweep-detail-settings.png"
-  alt="Daily sweep detail tab with bounty, scrimmage, event, special task, and ticket purchase counts"
+  src="/media/desktop/en/conditional-sweep-invalid-count.webp"
+  alt="An empty sweep count shows an error while the saved three-sweep plan stays unchanged"
 />
 
-| Item                      | Impact                               |
-| ------------------------- | ------------------------------------ |
-| Normal / hard daily sweep | Spends AP and daily limits           |
-| Bounty / scrimmage        | Spends corresponding tickets         |
-| Event sweep               | Depends on current event recognition |
-| Ticket purchase count     | Spends extra resources               |
+### Find Hard Stages by Student
 
-## Parameter Format
+Choose the student helper and search/select a name. The selector closes and appends all backend-listed hard stages associated with that student, using three sweeps per newly added stage. Existing stage counts and order remain unchanged, duplicate chapter/mission pairs are not appended, and unknown legacy entries are preserved. Student names come from the backend's server data and may not match the UI language. This does not guarantee the stage is unlocked or that an Eleph drops.
 
-| Type         | Format                                              | Example                              |
-| ------------ | --------------------------------------------------- | ------------------------------------ |
-| Normal sweep | `area-stage-times`                                  | `15-3-3,20-3-max`                    |
-| Hard sweep   | `area-stage-times`                                  | `15-1-3,16-3-max`                    |
-| Event sweep  | stage list and count list are configured separately | stages `9,10,11`, counts `0.5,3,1/3` |
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-sweep-student-stages.webp"
+  alt="Hard stages added by student choice, each with a default count of three"
+/>
 
-Count values can be:
+## Positional Sweep Counts
 
-| Value            | Meaning                                                      |
-| ---------------- | ------------------------------------------------------------ |
-| Positive integer | Fixed sweep count                                            |
-| `max`            | Spend as much available AP as possible                       |
-| Decimal          | Use a fraction of current AP, such as `0.5`                  |
-| Fraction         | Use a fraction of current AP, such as `1/3`                  |
-| `-1`             | For event stages, distribute AP evenly among selected stages |
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/config-dailySweep-tab-2.webp"
+  alt="Sweep detail tab showing bounty and regional count controls"
+/>
 
-Event sweeps use two lists: one for stages and one for counts. For example, stages `9,10,11` and counts `0.5,3,1/3`. If current AP is 999 and event stages 9-12 cost 20 AP each, BAAS roughly runs:
+| Group       | Order / size                                                         | Saved field           |
+| ----------- | -------------------------------------------------------------------- | --------------------- |
+| Bounty      | Follow the region labels; CN/Bilibili and Global have three, JP five | `rewarded_task_times` |
+| Scrimmage   | Trinity, Gehenna, Millennium                                         | `scrimmage_times`     |
+| Commissions | Base Defense, Item Retrieval                                         | `special_task_times`  |
 
-| Stage | Count Value | Result |
-| --- | --- | --- |
-| 9 | `0.5` | `999 * 0.5 / 20`, about 25 sweeps |
-| 10 | `3` | Exactly 3 sweeps |
-| 11 | `1/3` | `999 * 1/3 / 20`, about 16 sweeps |
+Use the mode selector for **Skip** (`0`), a **fixed count**, or **all available** (`max`). Fixed counts are whole numbers; bounty also accepts zero. `max` does not create tickets or AP.
 
-If the count list is `-1`, BAAS distributes available AP across selected event stages and tries to spend as much as possible. Event stages commonly cost 10 AP for stages 1-4, 15 AP for stages 5-8, and 20 AP for stages 9-12; the current event is authoritative.
+Older three-region JP bounty configurations retain the first three values and display zero for the two added regions. A value that cannot be represented by the structured count editor is shown intact with an explicit replacement command. Replacement resets that count group to zeros; it is not a harmless formatting operation. Legacy negative positional counts may display as Skip without being rewritten until edited.
 
-Sweeps spend AP, sweep counts, and sometimes purchase resources. Validate new settings with small counts first.
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-sweep-legacy-count.webp"
+  alt="Unsupported saved scrimmage counts remain intact beside an explicit Reset command"
+/>
+
+Configuration Undo can restore a deleted legacy plan row or reset count string.
+Check the whole group before replacing it; the reset zeros skip that group.
+
+## Event Sweeps
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/config-dailySweep-tab-2-scroll-2.webp"
+  alt="Event sweep stage/mode controls and purchase limits lower in the detail tab"
+/>
+
+The event stage selector uses recognized missions from the current backend event. When no usable mission list is available, it becomes a positive integer input. A previously saved stage outside the current event can remain as a saved option; it is not validation of event availability.
+
+| Mode                      | Stored example        | Meaning                                              |
+| ------------------------- | --------------------- | ---------------------------------------------------- |
+| Skip                      | `0`                   | Do not sweep this entry                              |
+| Fixed count               | `3`                   | Request three sweeps                                 |
+| AP share                  | `0.5` or legacy `1/3` | Request a fraction of the initial AP budget          |
+| All selected event stages | A single `-1`         | Compute the same sweep count for each selected stage |
+
+The percentage input accepts 0–100%. **Integer `1` means one sweep; decimal `1.0` means 100% AP.** Activity counts do not use the normal-plan `max` token. The all-stages mode appears only for a single count entry; `-1` inside a longer legacy count list is not an equal-distribution command.
+
+Advanced profiles can contain stage lists in `activity_sweep_task_number` and positional count lists in `activity_sweep_times`. This UI primarily picks a single current stage; it is not a general multi-stage list builder. Unequal legacy list lengths execute only their matched prefix in the audited backend.
+
+### AP Calculation and Limits
+
+The audited backend reads AP once before the sweep loop and rounds fractional targets down:
+
+```text
+target = floor(initial_AP × share / stage_AP_cost)
+```
+
+With 999 AP and 20 AP per sweep, `0.5` targets 24 sweeps and `1/3` targets 16. These are calculations, not measured game results. Earlier stages consume the same real AP pool, so later entries can run out of AP; shares are not independently replenished.
+
+A single `-1` calculates `floor(AP / sum(selected stage AP costs))` sweeps for **each** stage. With different costs it is equal sweep counts, not equal AP per stage. AP costs come from the current event data; do not assume every event follows a fixed 10/15/20 pattern.
+
+**Current backend caveat:** when an event target exceeds 50 sweeps, the audited implementation replaces it with `floor(initial_AP / stage_AP_cost)`. A large fixed count can therefore consume more AP than the requested count suggests. Use small supervised targets unless this behavior is changed in your backend. Insufficient AP and non-sweepable stages can stop or skip execution.
+
+## Ticket Purchases
+
+| Purchase          | UI choices                  | Saved field                           |
+| ----------------- | --------------------------- | ------------------------------------- |
+| Bounty tickets    | Skip `0`, `1`–`12`, maximum | `purchase_rewarded_task_ticket_times` |
+| Lesson tickets    | Skip `0`, `1`–`4`, maximum  | `purchase_lesson_ticket_times`        |
+| Scrimmage tickets | Skip `0`, `1`–`12`, maximum | `purchase_scrimmage_ticket_times`     |
+
+These are **purchase limits**, not free ticket grants or completed sweep counts. Maximum serializes as `max` and authorizes the backend's available maximum, subject to resources and game limits. Leave purchases at zero unless the spending is deliberate. Lesson purchases are consumed by [Lessons](./lesson), even though configured here.
+
+All these groups share one draft. An invalid bounty count, empty event stage or another invalid changed field can prevent the section's other changes from committing. Resolve invalid inputs and confirm the connection before assuming the backend has accepted the new configuration.

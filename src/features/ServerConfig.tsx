@@ -1,124 +1,129 @@
-import React from "react";
-import { useTranslation } from "react-i18next";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import ADBSeekModal from "@/components/ADBSeekModal.tsx";
+import React, { useMemo } from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+  ConfigurationSelect,
+} from "@/components/configuration/ConfigurationControls";
+import { FormInput } from "@/components/ui/FormInput";
+import ADBSeekModal from "@/components/ADBSeekModal";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { DynamicConfig } from "@/types/dynamic";
-import { buildServerOptions } from "@/shared/serverOptions";
+import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
+import { serverMap } from "@/shared/GlobalUtilities";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
 interface ServerConfigProps {
   profileId: string;
   onClose: () => void;
 }
-
 interface Draft {
   server: string;
   adbIP: string;
   adbPort: string;
 }
 
-/** Renders the server config component. */
-const ServerConfig: React.FC<ServerConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
+const ServerConfig: React.FC<ServerConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
   const settings = useWebSocketStore((state) => state.configStore[profileId]);
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = React.useMemo(() => {
-    return {
+  const processNames = useWebSocketStore(
+    (state) => state.staticStore.PC_app_process_name?.[serverMap[settings.server]]
+  );
+  const pcProfile = isPcServer(settings.server);
+  const initial = useMemo<Draft>(
+    () => ({
       server: settings.server,
       adbIP: settings.adbIP,
-      adbPort: settings.adbPort,
-    };
-  }, [settings]);
-
-  const [draft, setDraft] = React.useState(ext);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle change interaction. */
-  const handleChange = (key: string) => (value: string) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-  };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
+      adbPort: String(settings.adbPort ?? ""),
+    }),
+    [settings]
+  );
+  const [draft, setDraft] = useConfigurationDraft(profileId, "server", initial, {
+    serialize: (value) => {
+      if (isPcServer(value.server)) return { server: value.server };
+      const address = value.adbIP.trim();
+      const portText = value.adbPort.trim();
+      if (!address && !portText) return null;
+      // One populated field is an ADB/USB device serial; both fields form host:port.
+      if (address && portText) {
+        const port = Number(portText);
+        if (!Number.isInteger(port) || port < 0 || port > 65535) return null;
+        return { server: value.server, adbIP: address, adbPort: String(port) };
       }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
-  /** Handles the handle input change interaction. */
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setDraft((prev) => ({ ...prev, [name]: value }));
-  };
+      return { server: value.server, adbIP: address, adbPort: portText };
+    },
+  });
 
   return (
-    <div className="space-y-2">
-      <FormSelect
+    <ConfigurationGroup title={t("server")}>
+      <ConfigurationSelect
         label={t("server.server")}
+        description={t("configurationHelp.server")}
         value={draft.server}
-        disabled={true}
-        onChange={handleChange("server")}
-        options={buildServerOptions(t)}
+        disabled
+        onChange={() => {}}
+        options={buildServerOptions(t, {
+          includePc: supportsPcServers(),
+          selected: settings.server,
+        })}
       />
-
-      <FormInput
-        id="adbIP"
-        name="adbIP"
-        type="text"
-        label={t("server.adbIP")}
-        value={draft.adbIP}
-        onChange={handleInputChange}
-        className="w-full"
-        placeholder="127.0.0.1"
-      />
-
-      <div className="flex items-end justify-end gap-2">
-        <FormInput
-          id="adbPort"
-          name="adbPort"
-          label={t("server.adbPort")}
-          type="number"
-          value={draft.adbPort}
-          onChange={handleInputChange}
-          className="flex-1"
-          min={0}
-          max={65535}
-        />
-
-        <ADBSeekModal
-          onSelect={(address) => {
-            setDraft((prev) => {
-              const [ip, port] = address.split(":");
-              return { ...prev, adbIP: ip, adbPort: port };
-            });
-          }}
-        />
-      </div>
-
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
+      {pcProfile ? (
+        <ConfigurationRow
+          label={t("server.pcGameWindow")}
+          description={supportsPcServers() ? t("server.pcWindowHelp") : t("server.pcWindowsOnly")}
         >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
+          <span className="min-w-0 text-sm [overflow-wrap:anywhere]">
+            {Array.isArray(processNames)
+              ? processNames.join(" / ")
+              : typeof processNames === "string"
+                ? processNames
+                : t("server.pcAutomaticWindow")}
+          </span>
+        </ConfigurationRow>
+      ) : (
+        <>
+          <ConfigurationInput
+            label={t("server.adbIP")}
+            description={t("configurationHelp.adbAddress")}
+            value={draft.adbIP}
+            onChange={(event) => setDraft((value) => ({ ...value, adbIP: event.target.value }))}
+            placeholder="127.0.0.1"
+          />
+          <ConfigurationRow
+            label={t("server.adbPort")}
+            description={t("configurationHelp.adbPort")}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <FormInput
+                type={draft.adbIP.trim() ? "number" : "text"}
+                aria-label={t("server.adbPort")}
+                value={draft.adbPort}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, adbPort: event.target.value }))
+                }
+                min={0}
+                max={65535}
+                className="min-w-0 flex-1"
+              />
+              <ADBSeekModal
+                onSelect={(address) => {
+                  const separator = address.lastIndexOf(":");
+                  if (separator < 0) {
+                    setDraft((value) => ({ ...value, adbIP: address, adbPort: "" }));
+                    return;
+                  }
+                  setDraft((value) => ({
+                    ...value,
+                    adbIP: address.slice(0, separator),
+                    adbPort: address.slice(separator + 1),
+                  }));
+                }}
+              />
+            </div>
+          </ConfigurationRow>
+        </>
+      )}
+    </ConfigurationGroup>
   );
 };
-
 export default ServerConfig;

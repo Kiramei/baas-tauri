@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-20T06:31:08.878Z",
+  "scope": "Desktop browser unit/integration test of the benchmark fixture, not a real Android input measurement",
+  "viewport": {
+    "width": 480,
+    "height": 854,
+    "dpr": 1.5
+  },
+  "checks": [
+    "token update",
+    "untrusted input rejected",
+    "trusted pointer counted",
+    "target bounds",
+    "underlay isolation",
+    "reentry rejected",
+    "invalid token rejected",
+    "removal and underlay restoration"
+  ],
+  "passed": true
+}

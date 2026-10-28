@@ -1,25 +1,46 @@
-# BAAS Documentation Site
+# Documentation
 
-This directory contains the Fumadocs documentation site for BAAS Tauri.
+The bilingual Fumadocs site lives in `content/docs/{en,zh}`. Keep the two language trees and their `meta.json` navigation in sync.
 
-```bash
-bun install
-bun run dev
+## Build and Preview
+
+From the repository root:
+
+```sh
+bun install --frozen-lockfile
+cd docs
+bun install --frozen-lockfile
 bun run build
 ```
 
-Local routes:
+Serve `docs/out` with a static server. For authoring, run `bun run dev` inside `docs`. The export is deployed at the site root; the supported public entry is https://baas.kiramei.moe.
 
-- `http://localhost:3000/docs/zh/`
-- `http://localhost:3000/docs/en/`
+## Validation
 
-Content:
+From the repository root:
 
-- `content/docs/zh`: Simplified Chinese documentation.
-- `content/docs/en`: English documentation.
-- `public/cn`: Chinese UI screenshots.
-- `public/en`: English UI screenshots.
+```sh
+bun test docs/tests
+node docs/scripts/convert-public-media.mjs
+node docs/scripts/check-static-links.mjs
+```
 
-GitHub Pages deployment uses `.github/workflows/wiki-pages.yml`. The workflow passes `NEXT_PUBLIC_BASE_PATH` from `actions/configure-pages`, builds static output into `docs/out`, and uploads it to Pages.
+Browser checks require Playwright. Set `PLAYWRIGHT_MODULE` when it is installed outside the repository. `.github/workflows/docs-validation.yml` contains the Linux static-export checks and their browser setup. Run affected source-bound checks after rebuilding; do not substitute edited hashes for a browser run.
 
-Screenshot rule: identify the screenshot's actual UI before using it. Do not insert unrelated screenshots just to decorate a page.
+## Content and Media
+
+- User guides belong under `content/docs`, not in root-level progress reports.
+- Keep current behavior separate from historical APK, benchmark, and screenshot results. A source inspection is not a device test.
+- Public raster images and animations use WebP. Desktop showcases use the application's dark theme; site themes remain independently selectable.
+- Review text and every published image frame for account data, credentials, private paths, and device identifiers. Use local Gaussian blur on sensitive image regions and retain proof that pixels outside those regions are unchanged.
+- Keep raw captures, OCR text, personal runtimes, APKs, and temporary reports outside tracked/public paths.
+- `evidence/` and `public/benchmarks/` contain sanitized, source-bound fixtures used by tests. Do not remove them as temporary work logs.
+- Publication and capture manifests retain source revision, media hashes, and privacy review provenance. Do not relabel historical media as a new build.
+
+## Useful Pages
+
+- [Chinese manual](content/docs/zh/index.mdx) / [English manual](content/docs/en/index.mdx)
+- [WebUI deployment](content/docs/en/guide/webui.mdx)
+- [Plugin API](content/docs/en/reference/plugin-api.mdx)
+- [Client architecture](content/docs/en/reference/client-architecture.mdx)
+- [Development](content/docs/en/reference/development.mdx)

@@ -1,0 +1,107 @@
+{
+  "scope": "Local fixture timings only; does not measure public network download speed",
+  "platform": "win32",
+  "rounds": 4,
+  "git": {
+    "fixture": "12 MiB binary tree, shallow local file:// remote, small revision changes",
+    "samples": {
+      "legacy": [
+        {
+          "update_ms": 548.4927999787033,
+          "cleanup_ms": 508.77269997727126,
+          "total_ms": 1057.2654999559745
+        },
+        {
+          "update_ms": 453.81519998773,
+          "cleanup_ms": 496.1262999859173,
+          "total_ms": 949.9414999736473
+        },
+        {
+          "update_ms": 435.57820000569336,
+          "cleanup_ms": 488.37690000073053,
+          "total_ms": 923.9551000064239
+        },
+        {
+          "update_ms": 404.09960001125,
+          "cleanup_ms": 463.84059998672456,
+          "total_ms": 867.9401999979746
+        }
+      ],
+      "retained": [
+        {
+          "update_ms": 554.916900000535,
+          "cleanup_ms": 0.0,
+          "total_ms": 554.916900000535
+        },
+        {
+          "update_ms": 465.7060999888927,
+          "cleanup_ms": 0.0,
+          "total_ms": 465.7060999888927
+        },
+        {
+          "update_ms": 416.5402000071481,
+          "cleanup_ms": 0.0,
+          "total_ms": 416.5402000071481
+        },
+        {
+          "update_ms": 406.89579999889247,
+          "cleanup_ms": 0.0,
+          "total_ms": 406.89579999889247
+        }
+      ]
+    },
+    "median_ms": {
+      "legacy": 936.9482999900356,
+      "retained": 441.1231499980204
+    }
+  },
+  "uv": {
+    "fixture": "8 MiB wheel, local HTTP, warmed alternating versions; compile + sync + legacy cleanup",
+    "samples": {
+      "legacy": [
+        {
+          "total_ms": 497.9524000082165,
+          "http_bytes": 16837415
+        },
+        {
+          "total_ms": 536.044899985427,
+          "http_bytes": 16837415
+        },
+        {
+          "total_ms": 514.9298000033014,
+          "http_bytes": 16837415
+        },
+        {
+          "total_ms": 585.7888000027742,
+          "http_bytes": 16837415
+        }
+      ],
+      "retained": [
+        {
+          "total_ms": 181.04440000024624,
+          "http_bytes": 0
+        },
+        {
+          "total_ms": 172.7682999917306,
+          "http_bytes": 0
+        },
+        {
+          "total_ms": 171.35940000298433,
+          "http_bytes": 0
+        },
+        {
+          "total_ms": 178.05119999684393,
+          "http_bytes": 0
+        }
+      ]
+    },
+    "median_ms": {
+      "legacy": 525.4873499943642,
+      "retained": 175.40974999428727
+    },
+    "http_bytes": {
+      "legacy": 67349660,
+      "retained": 0
+    }
+  }
+}

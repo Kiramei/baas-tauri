@@ -24,8 +24,8 @@ pub const PTY_PIXEL_HEIGHT: u16 = 0;
 /// Default total step count used by legacy task constructors.
 pub const DEFAULT_TASK_STEP_TOTAL: u8 = 4;
 
-/// Default maximum number of recent output lines shown per region while tasks run.
-pub const DEFAULT_RUNNING_REGION_MAX_LINES: usize = 3;
+/// Five recent body lines plus the region title occupy six rows while tasks run.
+pub const DEFAULT_RUNNING_REGION_MAX_LINES: usize = 5;
 
 /// Maximum number of historical lines retained per renderer region.
 pub const REGION_MAX_KEPT_LINES: usize = 2_000;

@@ -1,0 +1,479 @@
+package io.github.kiramei.baas_tauri
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.IBinder
+import android.os.Looper
+import android.os.Handler
+import android.util.Log
+import android.os.ParcelFileDescriptor
+import android.os.RemoteException
+import rikka.shizuku.Shizuku
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+
+data class ShizukuState(
+  val installed: Boolean,
+  val running: Boolean,
+  val granted: Boolean,
+  val uid: Int?,
+)
+
+/** Owns Shizuku permission state and the shell-identity user-service connection. */
+object ShizukuController {
+  private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+  private const val PERMISSION_REQUEST_CODE = 7319
+  private val lock = Any()
+  private val initialized = AtomicBoolean(false)
+
+  @Volatile
+  private var service: IShizukuShellService? = null
+  @Volatile
+  private var serviceConnection: ServiceConnection? = null
+  @Volatile
+  private var bindingLatch: CountDownLatch? = null
+  private var bindingAttempt = 0
+
+  private var cachedUserServiceArgs: Shizuku.UserServiceArgs? = null
+
+  private fun userServiceArgs(context: Context): Shizuku.UserServiceArgs = synchronized(lock) {
+    cachedUserServiceArgs ?: Shizuku.UserServiceArgs(
+      ComponentName(BuildConfig.APPLICATION_ID, ShizukuShellService::class.java.name)
+    )
+      .daemon(true)
+      .processNameSuffix("baas_shizuku")
+      // The tag stays stable; each APK install must replace a daemon whose
+      // class loader and native-library paths still point at the removed APK.
+      .tag("baas-game-service-v36")
+      .version(PrivilegedExecution.userServiceVersion(43, context.applicationInfo.sourceDir))
+      .also { cachedUserServiceArgs = it }
+  }
+
+  fun initialize(context: Context) {
+    if (!initialized.compareAndSet(false, true)) return
+    val appContext = context.applicationContext
+    Shizuku.addBinderReceivedListenerSticky { prebind(appContext) }
+    Shizuku.addBinderDeadListener { invalidateService() }
+    Shizuku.addRequestPermissionResultListener { requestCode, grantResult ->
+      if (requestCode == PERMISSION_REQUEST_CODE && grantResult == PackageManager.PERMISSION_GRANTED) {
+        prebind(appContext)
+      }
+    }
+    prebind(appContext)
+  }
+
+  fun state(context: Context): ShizukuState {
+    val installed = try {
+      context.packageManager.getPackageInfo(SHIZUKU_PACKAGE, 0)
+      true
+    } catch (_: PackageManager.NameNotFoundException) {
+      false
+    }
+    val running = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
+    val granted = running && runCatching {
+      Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+    }.getOrDefault(false)
+    val uid = if (running) runCatching { Shizuku.getUid() }.getOrNull() else null
+    return ShizukuState(installed, running, granted, uid)
+  }
+
+  fun requestPermission(context: Context) {
+    val state = state(context)
+    when {
+      !state.installed -> openShizukuDownload(context)
+      !state.running -> openShizuku(context)
+      !state.granted -> {
+        if (Shizuku.isPreV11()) throw IllegalStateException("Shizuku 11 or newer is required")
+        if (Shizuku.shouldShowRequestPermissionRationale()) {
+          throw IllegalStateException("Shizuku permission was denied; grant it in the Shizuku app")
+        }
+        Shizuku.requestPermission(PERMISSION_REQUEST_CODE)
+      }
+    }
+  }
+
+  fun execute(context: Context, command: String): String {
+    return callService(context) { it.execute(command) }
+  }
+
+  /** Starts binding without blocking the Android main thread which delivers connection callbacks. */
+  fun prebind(context: Context) {
+    val state = state(context)
+    if (!state.running || !state.granted || service?.asBinder()?.isBinderAlive == true) return
+    synchronized(lock) {
+      if (service?.asBinder()?.isBinderAlive == true || serviceConnection != null) return
+      val latch = CountDownLatch(1)
+      lateinit var connection: ServiceConnection
+      connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+          service = IShizukuShellService.Stub.asInterface(binder)
+          bindingAttempt = 0
+          Log.i("BaasShizuku", "User service connected")
+          latch.countDown()
+          Thread {
+            runCatching { service?.disableOwnNotifications(context.applicationInfo.uid) }
+              .onFailure { Log.w("BaasShizuku", "Could not disable BAAS notifications", it) }
+            runCatching { LegacyGameAudioSettings.restoreAll(context) }
+              .onFailure { Log.w("BaasShizuku", "Could not restore legacy game audio settings", it) }
+          }.start()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) = clearConnection(connection, latch)
+
+        override fun onBindingDied(name: ComponentName) = clearConnection(connection, latch)
+
+        override fun onNullBinding(name: ComponentName) = clearConnection(connection, latch)
+      }
+      bindingLatch = latch
+      serviceConnection = connection
+      bindingAttempt += 1
+      val args = userServiceArgs(context)
+      Shizuku.bindUserService(args, connection)
+      if (bindingAttempt <= 2) {
+        Handler(Looper.getMainLooper()).postDelayed({
+          synchronized(lock) {
+            if (service == null && serviceConnection === connection) {
+              Log.w("BaasShizuku", "Replacing an unresponsive user service binding")
+              runCatching { Shizuku.unbindUserService(args, connection, true) }
+              serviceConnection = null
+              bindingLatch = null
+              latch.countDown()
+            } else {
+              return@postDelayed
+            }
+          }
+          prebind(context.applicationContext)
+        }, 2_500L)
+      }
+    }
+  }
+
+  fun startVirtualDisplay(context: Context, width: Int, height: Int, density: Int): Int {
+    return PrivilegedExecution.virtualDisplayId(
+      callService(context) { it.startVirtualDisplay(width, height, density) }
+    )
+  }
+
+  fun stopVirtualDisplay(context: Context) {
+    val packageName = currentGamePackage(context)
+    callService(context) { it.stopVirtualDisplay() }
+    if (packageName.isNotEmpty()) {
+      require(packageName.matches(Regex("[A-Za-z0-9_.]+")))
+      execute(context, "am force-stop --user 0 $packageName")
+    }
+  }
+
+  fun takeOverGame(context: Context, packageName: String) {
+    setPreviewSurface(context, null)
+    callService(context) { it.moveGameToDisplay(packageName, android.view.Display.DEFAULT_DISPLAY) }
+    stopVirtualDisplay(context)
+  }
+
+  fun virtualDisplayId(context: Context): Int {
+    val id = callService(context) { it.virtualDisplayId }
+    return if (id > 0) id else -1
+  }
+
+  fun virtualDisplaySize(context: Context): IntArray {
+    return callService(context) { it.virtualDisplaySize }
+  }
+
+  fun captureVirtualDisplay(context: Context): String {
+    return encodeCapture(callService(context) { it.captureVirtualDisplay() })
+  }
+
+  fun captureVirtualDisplayPreview(context: Context): String {
+    return encodeCapture(callService(context) { it.captureVirtualDisplayPreview() })
+  }
+
+  /** Returns a persistent binary H.264 stream. Ownership of the descriptor passes to the caller. */
+  fun openVideoStream(context: Context, fps: Int, bitrate: Int): ParcelFileDescriptor {
+    return callService(context) { it.openVideoStream(fps, bitrate) }
+  }
+
+  fun closeVideoStream(context: Context) {
+    callService(context) { it.closeVideoStream() }
+  }
+
+  fun setPreviewSurface(context: Context, surface: android.view.Surface?) {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      val endpoint = nativeEndpoint(context)
+      endpoint.setPreviewSurface(surface)
+    } else callService(context) { it.setPreviewSurface(surface) }
+  }
+
+  fun nativeFrameCounts(context: Context): Pair<Long, Long> {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      val endpoint = nativeEndpoint(context)
+      return endpoint.frameCount() to endpoint.previewFrameCount()
+    }
+    return callService(context) { it.frameCount() to it.previewFrameCount() }
+  }
+
+  fun previewFocusDisplayId(context: Context): Int = callService(context) { it.previewFocusDisplayId }
+
+  fun hasVisibleFrame(context: Context): Boolean {
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).hasVisibleFrame()
+    return callService(context) { it.hasVisibleFrame() }
+  }
+
+  fun focusPreviewWindow(context: Context, displayId: Int): Boolean =
+    callService(context) { it.focusPreviewWindow(displayId) }
+
+  fun focusGameTask(context: Context, displayId: Int) {
+    callService(context) { it.focusGameTask(displayId) }
+  }
+
+  fun currentGamePackage(context: Context): String {
+    if (virtualDisplayId(context) < 0) return ""
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).currentPackage()
+    return callService(context) { it.currentPackage() }
+  }
+
+  /** Actual display contents; session ownership may remain set after a game exits. */
+  fun topGamePackage(context: Context): String {
+    if (virtualDisplayId(context) < 0) return ""
+    if (state(context).uid == android.os.Process.ROOT_UID) return nativeEndpoint(context).topPackage()
+    return callService(context) { it.topPackage() }
+  }
+
+  fun keyEvent(context: Context, code: Int): Boolean = callService(context) { it.keyEvent(code) }
+
+  @Synchronized private fun nativeEndpoint(context: Context): INativeDisplayEndpoint {
+    NativeDisplayProvider.endpoint?.let { return it }
+    // The privileged capture process outlives the UI process. Re-publish its
+    // Binder after an app restart without recreating the display or game.
+    callService(context) { it.reconnectNativeEndpoint() }
+    return NativeDisplayProvider.endpoint ?: throw IllegalStateException("Native display endpoint has not connected")
+  }
+
+  private fun encodeCapture(descriptor: ParcelFileDescriptor): String = descriptor.use {
+    val bytes = ParcelFileDescriptor.AutoCloseInputStream(it).use { input -> input.readBytes() }
+    android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+  }
+
+  fun launchPackageOnDisplay(context: Context, packageName: String, displayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(displayId)
+    check(virtualDisplayId(context) == displayId) { "The requested game display is no longer active" }
+    return callService(context) { it.launchPackageOnDisplay(packageName, displayId) }
+  }
+
+  fun gesture(
+    context: Context,
+    x1: Int,
+    y1: Int,
+    x2: Int,
+    y2: Int,
+    durationMs: Int,
+  ): Boolean {
+    // Cafe automation captures a frame halfway through a swipe. Binder input
+    // must not hold the command pipe used by screenshots for the whole gesture.
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      return nativeEndpoint(context).gesture(x1, y1, x2, y2, durationMs)
+    }
+    return callService(context) { it.gesture(x1, y1, x2, y2, durationMs) }
+  }
+
+  fun pinch(context: Context, inward: Boolean, percent: Int, durationMs: Int): Boolean {
+    if (state(context).uid == android.os.Process.ROOT_UID) {
+      return nativeEndpoint(context).pinch(inward, percent, durationMs)
+    }
+    return callService(context) { it.pinch(inward, percent, durationMs) }
+  }
+
+  /** Called only by the preview's ordered background touch dispatcher. */
+  fun touch(context: Context, expectedDisplayId: Int, leaseId: Long, event: android.view.MotionEvent): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    // Do not query PackageManager for every MOVE, or retry an ambiguous Binder
+    // failure (a duplicate DOWN can corrupt the stream). The UI dispatcher's
+    // failure path sends CANCEL; only a fresh gesture may retry.
+    check(Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+      "Shizuku permission is unavailable"
+    }
+    return try {
+      if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+        val endpoint = NativeDisplayProvider.endpoint?.takeIf { it.asBinder().isBinderAlive }
+          ?: throw IllegalStateException("The native game input endpoint disconnected")
+        endpoint.touch(expectedDisplayId, leaseId, event)
+      } else {
+        val inputService = service?.takeIf { it.asBinder().isBinderAlive }
+          ?: throw IllegalStateException("The game input service disconnected")
+        inputService.touch(expectedDisplayId, leaseId, event)
+      }
+    } catch (error: RemoteException) {
+      invalidateService()
+      throw error
+    }
+  }
+
+  private val manualInputOwner = android.os.Binder()
+
+  fun acquireManualInput(context: Context, expectedDisplayId: Int): Long {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    requireReady(context)
+    // Never replay an ambiguous acquire: the first transaction may own a lease.
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).acquireManualInput(expectedDisplayId, manualInputOwner)
+    } else ensureBound(context).acquireManualInput(expectedDisplayId, manualInputOwner)
+  }
+
+  fun releaseManualInput(context: Context, expectedDisplayId: Int, leaseId: Long): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).releaseManualInput(expectedDisplayId, leaseId)
+    } else ensureBound(context).releaseManualInput(expectedDisplayId, leaseId)
+  }
+
+  fun resumeAutomation(context: Context, expectedDisplayId: Int): Boolean {
+    PrivilegedExecution.virtualDisplayId(expectedDisplayId)
+    requireReady(context)
+    return if (Shizuku.getUid() == android.os.Process.ROOT_UID) {
+      nativeEndpoint(context).resumeAutomation(expectedDisplayId)
+    } else ensureBound(context).resumeAutomation(expectedDisplayId)
+  }
+
+  private data class LeaseRelease(val context: Context, val displayId: Int, val token: Long)
+  private val releaseLock = Any()
+  private val leaseReleases = BoundedNativeWorker("baas-manual-input-release", 1)
+  private var pendingRelease: LeaseRelease? = null
+  private var releasing = false
+
+  /** One physical worker and one pending latest lease; never wait on the UI. A
+   * newer lease proves older leases were released or their owned VD was replaced. */
+  fun releaseManualInputAsync(context: Context, displayId: Int, token: Long) = synchronized(releaseLock) {
+    pendingRelease = LeaseRelease(context.applicationContext, displayId, token)
+    drainLeaseReleaseLocked()
+  }
+
+  private fun drainLeaseReleaseLocked() {
+    if (releasing) return
+    val next = pendingRelease ?: return
+    pendingRelease = null
+    releasing = true
+    leaseReleases.submit(3000L, {
+      releaseManualInput(next.context, next.displayId, next.token)
+    }, { result ->
+      result.exceptionOrNull()?.let { Log.w("BaasShizuku", "Manual input release is unconfirmed; automation remains protected", it) }
+    }, {
+      synchronized(releaseLock) { releasing = false; drainLeaseReleaseLocked() }
+    })
+  }
+
+  fun openShizuku(context: Context) {
+    val launch = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+    if (launch != null) {
+      launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(launch)
+      return
+    }
+    openShizukuDownload(context)
+  }
+
+  /** Explicit user action: open the installed manager without a browser fallback. */
+  fun openInstalledShizuku(context: Context) {
+    if (!state(context).installed) throw IllegalStateException("Shizuku is not installed")
+    val launch = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+      ?: throw IllegalStateException("The installed Shizuku app cannot be opened")
+    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  }
+
+  /** Shizuku is an external prerequisite, never an installer bundled into BAAS. */
+  private fun openShizukuDownload(context: Context) {
+    context.startActivity(
+      Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/zh-hans/download/"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+  }
+
+  private fun ensureBound(context: Context): IShizukuShellService {
+    service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    prebind(context)
+    service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      throw IllegalStateException("Shizuku user service is still connecting; try again")
+    }
+    bindingLatch?.let { latch ->
+      if (!latch.await(12, TimeUnit.SECONDS)) {
+        throw IllegalStateException("Timed out connecting to the Shizuku user service")
+      }
+      service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+    }
+    synchronized(lock) {
+      service?.takeIf { it.asBinder().isBinderAlive }?.let { return it }
+      val latch = CountDownLatch(1)
+      var connectionError: Throwable? = null
+      val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+          service = IShizukuShellService.Stub.asInterface(binder)
+          latch.countDown()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+          service = null
+        }
+
+        override fun onBindingDied(name: ComponentName) {
+          service = null
+          connectionError = IllegalStateException("Shizuku user service died while binding")
+          latch.countDown()
+        }
+
+        override fun onNullBinding(name: ComponentName) {
+          connectionError = IllegalStateException("Shizuku returned an empty user service")
+          latch.countDown()
+        }
+      }
+      serviceConnection = connection
+      Shizuku.bindUserService(userServiceArgs(context), connection)
+      if (!latch.await(12, TimeUnit.SECONDS)) {
+        throw IllegalStateException("Timed out connecting to the Shizuku user service")
+      }
+      connectionError?.let { throw it }
+      return service ?: throw IllegalStateException("Shizuku user service is unavailable")
+    }
+  }
+
+  private fun requireReady(context: Context) {
+    val state = state(context)
+    if (!state.running) throw IllegalStateException("Shizuku is not running")
+    if (!state.granted) throw IllegalStateException("Shizuku permission is not granted")
+  }
+
+  private fun <T> callService(context: Context, operation: (IShizukuShellService) -> T): T {
+    requireReady(context)
+    return try {
+      operation(ensureBound(context))
+    } catch (error: RemoteException) {
+      invalidateService()
+      operation(ensureBound(context))
+    }
+  }
+
+  private fun clearConnection(connection: ServiceConnection, latch: CountDownLatch) {
+    service = null
+    synchronized(lock) {
+      if (serviceConnection === connection) {
+        serviceConnection = null
+        bindingLatch = null
+      }
+    }
+    latch.countDown()
+  }
+
+  private fun invalidateService() = synchronized(lock) {
+    val connection = serviceConnection
+    service = null
+    serviceConnection = null
+    bindingLatch = null
+    if (connection != null) {
+      cachedUserServiceArgs?.let { args ->
+        runCatching { Shizuku.unbindUserService(args, connection, true) }
+      }
+    }
+  }
+}

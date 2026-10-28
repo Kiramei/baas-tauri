@@ -492,6 +492,13 @@ export class ControlConnection {
   private readonly preauthChannel: JsonSecureChannel;
   private controlChannel: JsonSecureChannel | null = null;
   private session: ControlSessionBundle | null = null;
+  private pendingKeyReset: {
+    requestId: string;
+    expectedEpoch: number;
+    resolve: () => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
 
   private constructor(args: {
     ws: WebSocket;
@@ -623,7 +630,52 @@ export class ControlConnection {
     return this.session;
   }
 
+  /** Change the login Key only over an established, authenticated control channel. */
+  async resetKey(newKey: string): Promise<void> {
+    if (
+      !this.controlChannel ||
+      !this.session ||
+      this.ws.readyState !== WebSocket.OPEN ||
+      this.session.expiresAt <= Date.now() / 1000
+    ) {
+      throw new Error("An authenticated control session is required to reset the Key");
+    }
+    if (!newKey.trim()) throw new Error("A new Key is required");
+    if (this.pendingKeyReset) throw new Error("A Key reset is already in progress");
+    const requestId = randomUUID();
+    const expectedEpoch = this.session.pwdEpoch + 1;
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.failKeyReset("The server did not confirm the Key reset");
+      }, 15_000);
+      this.pendingKeyReset = { requestId, expectedEpoch, resolve, reject, timer };
+      try {
+        // Neither the Key nor a reusable plaintext request is retained or logged.
+        this.ws.send(
+          JSON.stringify(
+            this.controlChannel!.encrypt({
+              type: "change_password",
+              new_password: newKey.trim(),
+              request_id: requestId,
+            })
+          )
+        );
+      } catch {
+        this.failKeyReset("The Key reset request could not be sent");
+      }
+    });
+  }
+
+  private failKeyReset(message: string): void {
+    const pending = this.pendingKeyReset;
+    if (!pending) return;
+    this.pendingKeyReset = null;
+    clearTimeout(pending.timer);
+    pending.reject(new Error(message));
+  }
+
   close(): void {
+    this.failKeyReset("The control connection closed before confirming the Key reset");
     this.ws.close();
   }
 
@@ -634,15 +686,30 @@ export class ControlConnection {
         if (typeof event.data !== "string") return;
         const securePayload = JSON.parse(event.data) as Record<string, any>;
         const payload = this.controlChannel!.decrypt(securePayload);
+        const pending = this.pendingKeyReset;
+        if (
+          payload.type === "key_changed" &&
+          pending &&
+          payload.request_id === pending.requestId &&
+          payload.pwd_epoch === pending.expectedEpoch
+        ) {
+          this.pendingKeyReset = null;
+          clearTimeout(pending.timer);
+          pending.resolve();
+        } else if (payload.type === "auth_revoked") {
+          this.failKeyReset("The session was revoked before confirming the Key reset");
+        }
         this.onSecureMessage?.(payload);
       } catch (error) {
         console.error("[control] Failed to decrypt control frame", error);
       }
     };
     this.ws.onclose = (event) => {
+      this.failKeyReset("The control connection closed before confirming the Key reset");
       this.onClose?.(event);
     };
     this.ws.onerror = (event) => {
+      this.failKeyReset("The control connection failed before confirming the Key reset");
       this.onError?.(event);
     };
   }

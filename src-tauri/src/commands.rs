@@ -1,4 +1,5 @@
 use crate::pipe_commands::BackendPipeManager;
+use crate::shm_commands::BackendShmManager;
 use crate::system_logs::system_log;
 use baas_shortcut::{
     apply_shortcut_bindings, ShortcutBindingRequest, ShortcutRegistrationReport, ShortcutRegistry,
@@ -8,7 +9,8 @@ use baas_updater::{
     app::{TerminalSnapshot, UpdaterTermManager, WorkflowAbortReport, WorkflowAbortRequest},
     config::{exe_adjacent_config_path, BackendTransport, ConfigManager, UpdaterConfig},
     environ::{
-        backend_pid_path, launch_backend_command, launch_backend_pipe_command, HttpSourceProbe,
+        backend_pid_path, launch_backend_command, launch_backend_pipe_command,
+        launch_backend_shm_command, validate_backend_shm_support, HttpSourceProbe,
     },
     mirrorc::{MirrorCClient, ReqwestMirrorHttp},
     repo::{repository_branch, repository_urls, SourceSelector},
@@ -35,7 +37,6 @@ const STORAGE_INSTALL_DIR_KEY: &str = "base_dir";
 const SHA_TEST_TIMEOUT_SECONDS: f64 = 10.0;
 const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
-    "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
 ];
@@ -426,6 +427,83 @@ pub fn android_scrcpy_virtual_display_status(
     })
 }
 
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_list_games() -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_launch_game(_request: serde_json::Value) -> Result<(), String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_screenshot(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_preview(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+#[tauri::command]
+pub fn android_game_stream_info() -> Result<serde_json::Value, String> {
+    Err("Android game streaming is only available in the Android application".to_string())
+}
+
+#[tauri::command]
+pub fn android_game_native_preview(
+    _request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    Err("Native game preview is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_gesture(_request: serde_json::Value) -> Result<(), String> {
+    Err("Android game control is only available in the Android app".to_string())
+}
+
+#[tauri::command]
+pub fn android_game_fullscreen(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Fullscreen game control is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_game_resume_automation(_request: serde_json::Value) -> Result<serde_json::Value, String> {
+    Err("Native game automation is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_shizuku_status() -> Result<serde_json::Value, String> {
+    Err("Shizuku is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_request_shizuku_permission() -> Result<(), String> {
+    Err("Shizuku is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_open_shizuku() -> Result<(), String> {
+    Err("Shizuku is only available in the Android app".to_string())
+}
+
+/// Android-only command placeholder retained so the shared desktop handler compiles.
+#[tauri::command]
+pub fn android_set_system_bars(_background_color: String, _dark_icons: bool) -> Result<(), String> {
+    Err("Android system bars are only available in the Android app".to_string())
+}
+
 /// Simple path probe used by the setup page to recover from older configs
 /// where the install root was lost but the frontend still has a cached path.
 #[tauri::command]
@@ -586,12 +664,12 @@ pub fn updater_update_config(
         Some(value) => Some(GitBackend::parse(value).map_err(|error| error.message())?),
         None => None,
     };
-    let parsed_transport = match request.transport.as_deref() {
-        Some("websocket") => Some(BackendTransport::Websocket),
-        Some("pipe") => Some(BackendTransport::Pipe),
-        Some(value) => return Err(format!("unsupported backend transport: {value}")),
-        None => None,
-    };
+    let parsed_transport = request
+        .transport
+        .as_deref()
+        .map(BackendTransport::parse)
+        .transpose()
+        .map_err(|error| error.message())?;
     manager
         .update(|config| {
             if let Some(path) = request_baas_root_path {
@@ -870,6 +948,36 @@ fn current_time_millis() -> u128 {
         .as_millis()
 }
 
+/// Reads backend commit metadata without extending the installed Git repository.
+#[tauri::command]
+pub async fn updater_get_commit_history(
+    app: AppHandle,
+    request: baas_updater::history::HistoryRequest,
+) -> Result<baas_updater::history::HistoryReport, String> {
+    let manager = ensure_default_config(&app)?;
+    let channel = request.channel.unwrap_or(manager.config.general.channel);
+    let root = manager.config.baas_root();
+    let current = (channel == manager.config.general.channel)
+        .then(|| manager.config.general.current_baas_sha.clone());
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?
+        .join("update-history");
+    tauri::async_runtime::spawn_blocking(move || {
+        baas_updater::history::get_commit_history(
+            &root,
+            &cache,
+            channel,
+            current,
+            &request,
+            baas_updater::history::fetch_github,
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())
+}
+
 /// Performs the updater check version operation.
 #[tauri::command]
 pub fn updater_check_version(
@@ -965,6 +1073,7 @@ pub fn updater_start_workflow(
     manager: State<'_, UpdaterTermManager>,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
+    shm: State<'_, BackendShmManager>,
 ) -> Result<SessionMetadata, String> {
     system_log(
         "INFO",
@@ -1004,22 +1113,39 @@ pub fn updater_start_workflow(
     // Allocate the native endpoint for the first launch. Authentication must
     // attach to this process, not start a second backend after BackendReady.
     pipe.close_all()?;
-    let pipe_name = if config_manager.config.general.transport == BackendTransport::Pipe {
+    shm.close_all()?;
+    let pipe_name = if config_manager.config.general.launch
+        && config_manager.config.general.transport == BackendTransport::Pipe
+    {
         let name = backend_pipe_endpoint();
         pipe.configure(name.clone())?;
         Some(name)
     } else {
         None
     };
-    manager.start(
+    let shm_name = if config_manager.config.general.launch
+        && config_manager.config.general.transport == BackendTransport::Shm
+    {
+        let name = backend_shm_endpoint();
+        shm.configure(name.clone())?;
+        Some(name)
+    } else {
+        None
+    };
+    let session = manager.start(
         app,
         WorkflowOptions {
             config_path: Some(config_manager.config_path),
             install_path: Some(install_path),
             launch: request.launch.unwrap_or(true),
             pipe_name,
+            shm_name,
         },
-    )
+    );
+    if session.is_err() {
+        let _ = shm.close_all();
+    }
+    session
 }
 
 /// Performs the updater reset backend auth and restart operation.
@@ -1028,6 +1154,7 @@ pub fn updater_reset_backend_auth_and_restart(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
+    shm: State<'_, BackendShmManager>,
 ) -> Result<BackendReadyPayload, String> {
     system_log(
         "WARNING",
@@ -1037,18 +1164,21 @@ pub fn updater_reset_backend_auth_and_restart(
     let manager = ensure_default_config(&app)?;
     backend.stop_for_config(&manager.config)?;
     pipe.close_all()?;
+    shm.close_all()?;
     delete_backend_auth_files(&manager.config)?;
 
     let port = available_backend_port()?;
-    if manager.config.general.transport == BackendTransport::Pipe {
-        let name = backend_pipe_endpoint();
-        start_backend_pipe_detached(&manager.config, port, &name)?;
-        pipe.configure(name)?;
-    } else {
-        start_backend_detached(&manager.config, port)?;
+    match manager.config.general.transport {
+        BackendTransport::Shm => start_backend_shm_detached(&manager.config, port, &shm)?,
+        BackendTransport::Pipe => {
+            let name = backend_pipe_endpoint();
+            start_backend_pipe_detached(&manager.config, port, &name)?;
+            pipe.configure(name)?;
+        }
+        BackendTransport::Websocket => start_backend_detached(&manager.config, port)?,
     }
     backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
+    wait_for_backend_transport_ready(port, manager.config.general.transport, &shm)?;
     system_log(
         "INFO",
         "backend_process",
@@ -1067,32 +1197,30 @@ pub fn backend_transport_start(
     app: AppHandle,
     backend: State<'_, BackendProcessManager>,
     pipe: State<'_, BackendPipeManager>,
+    shm: State<'_, BackendShmManager>,
     mode: String,
 ) -> Result<BackendReadyPayload, String> {
-    let transport = match mode.as_str() {
-        "websocket" => BackendTransport::Websocket,
-        "pipe" => BackendTransport::Pipe,
-        _ => return Err(format!("unsupported backend transport: {mode}")),
-    };
+    let transport = BackendTransport::parse(&mode).map_err(|error| error.message())?;
     let mut manager = ensure_default_config(&app)?;
     manager
         .update(|config| config.general.transport = transport)
         .map_err(|error| error.message())?;
     backend.stop_for_config(&manager.config)?;
     pipe.close_all()?;
+    shm.close_all()?;
 
     let port = available_backend_port()?;
-    match mode.as_str() {
-        "websocket" => start_backend_detached(&manager.config, port)?,
-        "pipe" => {
+    match transport {
+        BackendTransport::Websocket => start_backend_detached(&manager.config, port)?,
+        BackendTransport::Pipe => {
             let pipe_name = backend_pipe_endpoint();
             start_backend_pipe_detached(&manager.config, port, &pipe_name)?;
             pipe.configure(pipe_name)?;
         }
-        _ => unreachable!("transport mode was validated before backend restart"),
+        BackendTransport::Shm => start_backend_shm_detached(&manager.config, port, &shm)?,
     }
     backend.remember_config(&manager.config)?;
-    wait_for_backend_auth_endpoint(port)?;
+    wait_for_backend_transport_ready(port, transport, &shm)?;
     system_log(
         "INFO",
         "backend_process",
@@ -1287,6 +1415,7 @@ fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
     vec![
         ("github".to_string(), urls.first().cloned()),
         ("mirrorc".to_string(), None),
+        ("cnb".to_string(), find_url(&urls, "cnb.cool")),
         ("gitee".to_string(), find_url(&urls, "gitee.com")),
         ("gitcode".to_string(), find_url(&urls, "gitcode.com")),
         (
@@ -1304,10 +1433,6 @@ fn sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<String>)> {
         ("gh_proxy".to_string(), find_url(&urls, "://gh-proxy.org")),
         ("sevencdn".to_string(), find_url(&urls, "gh.sevencdn.com")),
         ("githubfast".to_string(), find_url(&urls, "githubfast.com")),
-        (
-            "baas_cdn".to_string(),
-            find_url(&urls, "baas-cdn.kiramei.workers.dev"),
-        ),
     ]
 }
 
@@ -1776,6 +1901,47 @@ fn backend_pipe_endpoint() -> String {
     return format!(r"\\.\pipe\baas-{}", uuid::Uuid::new_v4());
     #[cfg(unix)]
     return format!("/tmp/baas-{}.sock", uuid::Uuid::new_v4());
+}
+
+/// Returns an unguessable per-launch shared-memory endpoint base name.
+fn backend_shm_endpoint() -> String {
+    format!("baas-shm-{}", uuid::Uuid::new_v4())
+}
+
+/// Creates the native resources before Python opens the shared-memory endpoint.
+fn start_backend_shm_detached(
+    config: &UpdaterConfig,
+    port: u16,
+    shm: &BackendShmManager,
+) -> Result<(), String> {
+    validate_backend_shm_support(config).map_err(|error| error.message())?;
+    let name = backend_shm_endpoint();
+    shm.configure(name.clone())?;
+    let command = launch_backend_shm_command(config, port, &name);
+    if let Err(error) = spawn_backend_detached(config, port, command) {
+        let _ = shm.close_all();
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// Verifies the selected native endpoint before reporting a restarted backend ready.
+fn wait_for_backend_transport_ready(
+    port: u16,
+    transport: BackendTransport,
+    shm: &BackendShmManager,
+) -> Result<(), String> {
+    let result = wait_for_backend_auth_endpoint(port).and_then(|_| {
+        if transport == BackendTransport::Shm {
+            shm.wait_ready(Duration::from_secs(10))
+        } else {
+            Ok(())
+        }
+    });
+    if result.is_err() && transport == BackendTransport::Shm {
+        let _ = shm.close_all();
+    }
+    result
 }
 
 /// Starts a managed backend with its Pipe listener enabled.

@@ -29,11 +29,20 @@ android {
     namespace = "io.github.kiramei.baas_tauri"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "io.github.kiramei.baas_tauri"
+        applicationId = providers.gradleProperty("baasAndroidApplicationId")
+            .getOrElse("io.github.kiramei.baas_tauri")
+        manifestPlaceholders["baasAppLabel"] = if (applicationId == "io.github.kiramei.baas_tauri") {
+            "@string/app_name"
+        } else {
+            "BAAS Android Dev"
+        }
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        externalNativeBuild {
+            cmake {}
+        }
     }
     signingConfigs {
         if (hasAndroidReleaseSigning) {
@@ -47,6 +56,9 @@ android {
     }
     buildTypes {
         getByName("debug") {
+            System.getenv("BAAS_ANDROID_DEBUG_APPLICATION_ID_SUFFIX")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { applicationIdSuffix = it }
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
             isJniDebuggable = true
@@ -80,6 +92,13 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        aidl = true
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 }
 
@@ -96,8 +115,6 @@ chaquopy {
             install("tomli")
             install("tomli-w")
             install("rich")
-            install("adbutils==2.2.1")
-            install("uiautomator2==2.16.23")
             install("numpy<2.0")
             install("Pillow")
         }
@@ -109,6 +126,8 @@ rust {
 }
 
 dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.1")

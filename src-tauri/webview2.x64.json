@@ -2,7 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "identifier": "io.github.kiramei.baas-tauri",
   "bundle": {
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
@@ -13,7 +15,12 @@
       },
       "nsis": {
         "displayLanguageSelector": true,
-        "languages": ["SimpChinese", "English", "Japanese", "Korean"],
+        "languages": [
+          "SimpChinese",
+          "English",
+          "Japanese",
+          "Korean"
+        ],
         "installMode": "perMachine",
         "compression": "lzma",
         "template": "./packages/windows/installer.nsi",
@@ -30,11 +37,40 @@
       "dialog": false,
       "endpoints": [
         "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-fixed-webview2-cnb.json",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2-proxy.json",
         "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2-proxy.json",
         "https://github.com/Kiramei/baas-tauri/releases/download/updater/update-fixed-webview2.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NzNGODlERTkxNUJDMDEKUldRQnZCWHBuZmh6eERYUWs0dFowYUNYcFRFNmZIZGk5WStWZWI3Z0dGRmphQnFNbFM2MHhpTloK"
     }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BlueArchiveAutoScript",
+        "label": "main",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 684,
+        "devtools": true,
+        "visible": true,
+        "theme": null,
+        "decorations": false,
+        "shadow": true,
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            28,
+            33,
+            38,
+            210
+          ]
+        }
+      }
+    ]
   }
 }

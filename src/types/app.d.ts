@@ -1,12 +1,10 @@
 import { DynamicConfig } from "@/types/dynamic";
 import { Dispatch, SetStateAction } from "react";
 import { PageKey } from "@/App.tsx";
-import {
-  AuthPhase,
-  ControlConnection,
-  ControlSessionBundle,
-} from "@/shared/SecureWebSocket";
+import { AuthPhase, ControlConnection, ControlSessionBundle } from "@/shared/SecureWebSocket";
 import type { BackendConnection, BackendTransportMode } from "@/transport/types";
+import type { SettingsSection } from "@/shared/SettingsSections";
+import type { ApplicationShortcutOverrides } from "@/shared/ApplicationShortcuts";
 
 export interface ConfigProfile {
   id: string;
@@ -40,7 +38,11 @@ export interface UISettings {
   lowPerformanceMode: boolean;
   enableSystemNotifications: boolean;
   minimizeToTray?: boolean;
+  idleAutoUpdate?: boolean;
+  autoEnterAfterInstall?: boolean;
   schedulerSortMode?: "default" | "time";
+  settingsSection?: SettingsSection;
+  applicationShortcuts?: ApplicationShortcutOverrides;
   remoteSettings: RemoteSettings;
 }
 
@@ -49,7 +51,7 @@ export type Theme = "light" | "dark" | "system";
 /**
  * Identifiers for each primary application route.
  */
-export type PageKey = "home" | "scheduler" | "configuration" | "settings" | "wiki";
+export type PageKey = "home" | "scheduler" | "configuration" | "plugins" | "settings";
 
 export interface ProfileProps {
   profileId?: string;
@@ -156,6 +158,7 @@ interface WebSocketState {
   _receivedSnapshots: Record<string, boolean>;
   startAuthFlow: (backendReady?: boolean) => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
+  resetKey: (newKey: string) => Promise<void>;
   checkTauriUpdater: (notify?: boolean, visible?: boolean) => Promise<void>;
   startTauriUpdaterPolling: () => void;
   connect: (name: WsName) => Promise<void>;
@@ -163,15 +166,20 @@ interface WebSocketState {
   recoverTransport: () => Promise<void>;
   send: (name: WsName, data: any) => void;
   init: () => Promise<void>;
-  modify: (path: string, value: any, showToast?: boolean) => void;
+  modify: (
+    path: string,
+    value: any,
+    showToast?: boolean,
+    onAcknowledged?: () => void
+  ) => void | (() => void);
   patch: (path: string, value: any) => void;
-  trigger: (payload: CommandPayload, callback?: (e: any) => void) => void;
-  triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => void;
+  trigger: (payload: CommandPayload, callback?: (e: any) => void) => number;
+  triggerStream: (payload: CommandPayload, callback?: (e: any) => void) => number;
   triggerBinary: (
     payload: CommandPayload,
     binary: ArrayBuffer | Uint8Array,
     callback?: (e: any) => void
-  ) => void;
+  ) => number;
   connectRemote: () => Promise<BackendConnection>;
   pendingCallbacks: Record<string, (data?: any) => void>;
   pendingStreamCallbacks: Record<string, (data?: any) => void>;
@@ -181,6 +189,7 @@ interface WebSocketState {
   _all_data_initialized: boolean;
   _heartbeat_time: number;
   _initiating: boolean;
+  _android_ui_ready: boolean;
   _auth_phase: AuthPhase;
   _auth_error: string | null;
   _server_initialized: boolean;

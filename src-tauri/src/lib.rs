@@ -8,11 +8,24 @@ mod android_backend_service;
 mod behavior;
 #[cfg(not(mobile))]
 mod commands;
+mod file_commands;
 #[cfg(target_os = "android")]
 mod mobile_commands;
+#[cfg(any(target_os = "android", test))]
+mod mobile_plugin_ack;
+#[cfg(any(target_os = "android", test))]
+mod mobile_update_query;
+mod native_window_controls;
 mod notifier_commands;
 mod pipe_commands;
+mod shm_commands;
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+mod shm_native;
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+mod shm_protocol;
 mod system_logs;
+#[cfg(windows)]
+mod window_material;
 
 #[cfg(all(mobile, not(target_os = "android")))]
 compile_error!("BAAS mobile builds currently support Android only.");
@@ -20,21 +33,33 @@ compile_error!("BAAS mobile builds currently support Android only.");
 use crate::behavior::{
     disable_f5_press_event, set_backend_locale, set_minimize_to_tray, splash_off, BehaviorState,
 };
+use crate::file_commands::open_backend_config_folder;
 #[cfg(target_os = "android")]
 use crate::mobile_commands::{
-    android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
-    android_scrcpy_virtual_display_status, backend_transport_start, open_main_devtools,
+    android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture,
+    android_game_native_preview, android_game_preview, android_game_resume_automation,
+    android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
+    android_open_shizuku, android_prepare_scrcpy_virtual_display,
+    android_request_shizuku_permission, android_scrcpy_virtual_display_status,
+    android_set_system_bars, android_shizuku_status, backend_transport_start, open_main_devtools,
     shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
-    updater_abort_workflow, updater_check_version, updater_get_startup_state,
+    updater_abort_workflow, updater_check_version, updater_get_commit_history, updater_get_startup_state,
     updater_get_storage_state, updater_path_exists_non_empty,
     updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
     updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
     updater_update_config, updater_validate_mirrorc_cdk,
 };
+use crate::native_window_controls::{
+    native_window_controls_set_blocked, native_window_controls_state,
+};
 use crate::notifier_commands::baas_notify;
 use crate::pipe_commands::{
     backend_pipe_close, backend_pipe_close_all, backend_pipe_open, backend_pipe_send_bytes,
     backend_pipe_send_json, BackendPipeManager,
+};
+use crate::shm_commands::{
+    backend_shm_close, backend_shm_close_all, backend_shm_open, backend_shm_send_bytes,
+    backend_shm_send_json, BackendShmManager,
 };
 use crate::system_logs::{
     initialize_system_logs, install_panic_logging, system_log, system_logs_clear,
@@ -44,11 +69,15 @@ use crate::system_logs::{
 use crate::{
     behavior::inject_tray_icon,
     commands::{
-        android_cleanup_scrcpy_virtual_display, android_prepare_scrcpy_virtual_display,
-        android_scrcpy_virtual_display_status, backend_transport_start,
+        android_cleanup_scrcpy_virtual_display, android_game_fullscreen, android_game_gesture,
+        android_game_native_preview, android_game_preview, android_game_resume_automation,
+        android_game_screenshot, android_game_stream_info, android_launch_game, android_list_games,
+        android_open_shizuku, android_prepare_scrcpy_virtual_display,
+        android_request_shizuku_permission, android_scrcpy_virtual_display_status,
+        android_set_system_bars, android_shizuku_status, backend_transport_start,
         configure_portable_working_dir, ensure_default_config, open_main_devtools,
         shortcut_apply_bindings, tauri_client_check_update, tauri_client_download_and_install,
-        updater_abort_workflow, updater_check_version, updater_get_startup_state,
+        updater_abort_workflow, updater_check_version, updater_get_commit_history, updater_get_startup_state,
         updater_get_storage_state, updater_path_exists_non_empty,
         updater_reset_backend_auth_and_restart, updater_resize_term, updater_start_workflow,
         updater_terminal_snapshot, updater_test_sha_method, updater_test_sha_methods,
@@ -68,8 +97,27 @@ use tauri::Manager;
 use tauri::{Manager, RunEvent};
 
 /// Performs the run operation.
+#[cfg(target_os = "android")]
+fn android_startup_trace(stage: &str) {
+    #[link(name = "log")]
+    unsafe extern "C" {
+        fn __android_log_write(
+            priority: i32,
+            tag: *const std::ffi::c_char,
+            text: *const std::ffi::c_char,
+        ) -> i32;
+    }
+    if let Ok(text) = std::ffi::CString::new(stage) {
+        unsafe {
+            __android_log_write(4, c"BAASStartup".as_ptr(), text.as_ptr());
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "android")]
+    android_startup_trace("rust_entry");
     install_panic_logging();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
@@ -77,8 +125,11 @@ pub fn run() {
         .plugin(baas_notifier::init_plugin())
         .invoke_handler(tauri::generate_handler![
             baas_notify,
+            native_window_controls_state,
+            native_window_controls_set_blocked,
             splash_off,
             set_backend_locale,
+            open_backend_config_folder,
             set_minimize_to_tray,
             updater_get_storage_state,
             updater_get_startup_state,
@@ -88,6 +139,7 @@ pub fn run() {
             tauri_client_check_update,
             tauri_client_download_and_install,
             updater_check_version,
+            updater_get_commit_history,
             updater_test_sha_method,
             updater_test_sha_methods,
             updater_start_workflow,
@@ -98,6 +150,11 @@ pub fn run() {
             backend_pipe_send_bytes,
             backend_pipe_close,
             backend_pipe_close_all,
+            backend_shm_open,
+            backend_shm_send_json,
+            backend_shm_send_bytes,
+            backend_shm_close,
+            backend_shm_close_all,
             updater_abort_workflow,
             updater_terminal_snapshot,
             updater_resize_term,
@@ -106,6 +163,19 @@ pub fn run() {
             android_prepare_scrcpy_virtual_display,
             android_cleanup_scrcpy_virtual_display,
             android_scrcpy_virtual_display_status,
+            android_list_games,
+            android_launch_game,
+            android_game_preview,
+            android_game_native_preview,
+            android_game_fullscreen,
+            android_game_resume_automation,
+            android_game_stream_info,
+            android_game_screenshot,
+            android_game_gesture,
+            android_shizuku_status,
+            android_request_shizuku_permission,
+            android_open_shizuku,
+            android_set_system_bars,
             system_logs_snapshot,
             system_logs_clear,
             system_logs_ingest_frontend
@@ -136,6 +206,9 @@ pub fn run() {
             let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
             app.manage(log_state);
             system_log("INFO", "lifecycle", "Desktop setup started");
+            native_window_controls::initialize(app.handle());
+            #[cfg(windows)]
+            window_material::initialize(app.handle());
             configure_portable_working_dir().map_err(std::io::Error::other)?;
             app.manage(ShortcutRegistry::default());
             install_global_shortcut_plugin(app.handle()).map_err(std::io::Error::other)?;
@@ -147,6 +220,7 @@ pub fn run() {
             let config_manager =
                 ensure_default_config(app.handle()).map_err(std::io::Error::other)?;
             app.manage(BackendPipeManager::default());
+            app.manage(BackendShmManager::default());
             app.manage(UpdaterTermManager::default());
             let backend = BackendProcessManager::default();
             let _ = backend.stop_for_config(&config_manager.config);
@@ -161,21 +235,30 @@ pub fn run() {
         .expect("error while building tauri application");
 
     #[cfg(mobile)]
-    let builder = builder
-        .setup(|app| {
-            let log_state = initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
-            app.manage(log_state);
-            system_log("INFO", "lifecycle", "Mobile setup started");
-            app.manage(BehaviorState::default());
-            #[cfg(target_os = "android")]
-            app.manage(AndroidUpdaterTermManager::default());
-            app.manage(BackendPipeManager::default());
-            disable_f5_press_event(app);
-            system_log("INFO", "lifecycle", "Mobile setup completed");
-            Ok(())
-        })
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application");
+    let builder = {
+        #[cfg(target_os = "android")]
+        android_startup_trace("context_start");
+        let context = tauri::generate_context!();
+        #[cfg(target_os = "android")]
+        android_startup_trace("context_ready");
+        builder
+            .setup(|app| {
+                let log_state =
+                    initialize_system_logs(app.handle()).map_err(std::io::Error::other)?;
+                app.manage(log_state);
+                system_log("INFO", "lifecycle", "Mobile setup started");
+                app.manage(BehaviorState);
+                #[cfg(target_os = "android")]
+                app.manage(AndroidUpdaterTermManager::default());
+                app.manage(BackendPipeManager::default());
+                app.manage(BackendShmManager::default());
+                disable_f5_press_event(app);
+                system_log("INFO", "lifecycle", "Mobile setup completed");
+                Ok(())
+            })
+            .build(context)
+            .expect("error while building tauri application")
+    };
 
     #[cfg(not(mobile))]
     builder.run(|app, event| match event {
@@ -191,6 +274,8 @@ pub fn run() {
             let _ = backend.stop_all();
             let pipe = app.state::<BackendPipeManager>();
             let _ = pipe.close_all();
+            let shm = app.state::<BackendShmManager>();
+            let _ = shm.close_all();
         }
         _ => {}
     });

@@ -1,57 +1,59 @@
 ---
 title: Emulator
-description: Emulator path, launch wait time, multi-instance setup, emulator type, and connection issues.
+description: Desktop emulator launch, executable selection, wait-time validation, emulator types and instance identifiers.
 ---
 
-Emulator settings let BAAS start an emulator and target the correct instance.
+Open **Configuration → Emulator** on desktop. This category is absent from the Android client's category list. Settings here control emulator startup; the ADB device is configured separately under [Server](./server).
 
 <img
   className="baas-screenshot"
-  src="/en/emulator-basic-settings.png"
-  alt="Emulator settings with open on launch, multi-instance toggle, wait time, and emulator path"
+  src="/media/desktop/en/config-emulator.webp"
+  alt="Current Emulator editor with launch toggle, startup delay, executable path, emulator type and multi-instance controls"
 />
 
-| Option                         | Purpose                       | Common Issue                 |
-| ------------------------------ | ----------------------------- | ---------------------------- |
-| Open emulator on script launch | Start emulator with scheduler | Wrong path prevents launch   |
-| Startup wait time              | Wait for initialization       | Too short causes ADB failure |
-| Emulator path                  | Executable path               | Avoid helper binaries        |
+## Startup
 
-## Multi-instance
+| Control                 | Saved field          | Values / effect                                                                             |
+| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| Open emulator on launch | `open_emulator_stat` | Allows the backend to launch the configured emulator when initializing the game environment |
+| Startup wait time       | `emulator_wait_time` | Non-negative finite seconds; the UI also accepts fractional values                          |
+| Executable path         | `program_address`    | Actual emulator launch executable/path, not the game APK or ADB program                     |
 
-<img
-  className="baas-screenshot"
-  src="/en/emulator-multi-instance-settings.png"
-  alt="Emulator multi-instance settings with emulator type and instance index"
-/>
+If the emulator is already managed manually, leave automatic launch off. A longer delay does not fix an incorrect executable or wrong device serial.
 
-When multi-instance mode is enabled, emulator type, instance index, and ADB port must match. Supported types include MuMu, MuMu Global, LDPlayer, BlueStacks, BlueStacks Global, Nox, MEmu NAT, and Windows Subsystem for Android.
+In native Tauri, Choose opens a file picker accepting `exe`, `bin`, `app` or other files. Cancel leaves the path unchanged. WebUI has no native picker; enter the path as seen by the machine running the backend. A path accepted by the UI is not proof that it exists or is executable on that machine.
 
-## ADB Port Reference
+## Type and Multi-instance
 
-When automatic scanning cannot find the device, fill the ADB port manually. Common legacy backend defaults:
+| Choice                        | Stored identifier   |
+| ----------------------------- | ------------------- |
+| MuMu                          | `mumu`              |
+| MuMu Global                   | `mumu_global`       |
+| BlueStacks CN                 | `bluestacks_nxt_cn` |
+| BlueStacks Global             | `bluestacks_nxt`    |
+| Nox                           | `yeshen`            |
+| MEmu NAT                      | `xiaoyao_nat`       |
+| LDPlayer                      | `leidian`           |
+| Windows Subsystem for Android | `wsa`               |
 
-| Emulator     | Default Port       |
-| ------------ | ------------------ |
-| MuMu 12 5.0+ | `5555`             |
-| MuMu 12      | `16384`            |
-| Older MuMu   | `7555`             |
-| LDPlayer     | `5555`             |
-| BlueStacks   | `5555`             |
-| MEmu         | `21503`            |
-| Nox          | `62001` or `59865` |
+The type (`multiEmulatorName`) remains visible independently of the multi-instance switch. These are client choices, not a guarantee that every emulator version/platform is supported by the connected backend.
 
-Multi-instance ports usually increase by instance number:
+Enabling `emulatorIsMultiInstance` reveals the instance identifier (`emulatorMultiInstanceNumber`). It must be a non-negative integer and means **which instance to launch**, not how many instances to open. Match it to the emulator manager, executable and ADB endpoint.
 
-| Emulator     | Port Formula                   |
-| ------------ | ------------------------------ |
-| MuMu 12 5.0+ | `5555 + instance number * 2`   |
-| MuMu 12      | `16384 + instance number * 32` |
+Disabling multi-instance hides the number but retains it. A blank/invalid retained number still prevents the section's draft from committing. The wait time is also required even when automatic launch is off. Valid changes save automatically; editing does not launch an emulator.
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/faq/MuMu12_Get_Multi_instance_port.png"
-  alt="Finding the ADB debug port in MuMu 12 multi-instance manager"
-/>
+## Find the Real ADB Port
 
-BlueStacks, LDPlayer, and similar emulators may require enabling ADB debugging in emulator settings. Debug with one instance first, then configure multi-instance.
+Use the emulator's manager/settings and ADB detection rather than relying on historical defaults. For reference only:
+
+| Legacy environment    | Common historical port |
+| --------------------- | ---------------------- |
+| MuMu 12               | `16384`                |
+| Other MuMu versions   | `5555` or `7555`       |
+| LDPlayer / BlueStacks | `5555`                 |
+| MEmu                  | `21503`                |
+| Nox                   | `62001` or `59865`     |
+
+Old MuMu formulas such as `16384 + instance × 32` or `5555 + instance × 2` are version-specific, not universal. This documentation's MuMu test used `127.0.0.1:16384`; that does not establish another machine's port.
+
+If launch succeeds but ADB fails, check debugging, device authorization, instance mapping and startup logs. Validate a single instance first. Capture/control settings are described in [Script](./script).

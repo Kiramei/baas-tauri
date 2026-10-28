@@ -3,14 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blue Archive Auto Script</title>
+    <title>BlueArchiveAutoScript</title>
+    <script id="baas-theme-bootstrap">
+      // This must run before stylesheets and the application bundle can paint.
+      (() => {
+        let theme = "system";
+        try {
+          const saved = localStorage.getItem("theme");
+          if (saved === "light" || saved === "dark" || saved === "system") theme = saved;
+        } catch {
+          // Restricted browser storage still permits following the system theme.
+        }
+        const root = document.documentElement;
+        const dark =
+          theme === "dark" ||
+          (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        root.classList.remove("light", "dark");
+        root.classList.add(dark ? "dark" : "light");
+        root.dataset.themePreference = theme;
+      })();
+    </script>
     <style>
+      :root {
+        color-scheme: light;
+        --baas-startup-background: #ffffff;
+        --baas-startup-foreground: #1a1c1f;
+        --baas-startup-muted: #6a6b6d;
+      }
+
+      :root.dark {
+        color-scheme: dark;
+        --baas-startup-background: #181818;
+        --baas-startup-foreground: #dfdfdf;
+        --baas-startup-muted: #999999;
+      }
+
       html,
       body,
       #root {
         height: 100%;
         margin: 0;
-        background: #0f172a;
+        background: var(--background, var(--baas-startup-background));
+        color: var(--foreground, var(--baas-startup-foreground));
       }
 
       #baas-startup-shell {
@@ -20,48 +54,42 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        background: #0f172a;
-        color: #dbeafe;
+        background: var(--background, var(--baas-startup-background));
+        color: var(--foreground, var(--baas-startup-foreground));
         opacity: 1;
         pointer-events: none;
         transition: opacity 160ms ease-out;
-        font-family:
-          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-family: "Blueaka", "GmarketSans", "Rubik", system-ui, sans-serif;
       }
 
       .baas-startup-content {
         position: relative;
         display: grid;
-        gap: 22px;
+        gap: 16px;
         justify-items: center;
       }
 
       .baas-startup-mark {
         position: relative;
         display: grid;
-        width: 156px;
-        height: 156px;
+        width: 80px;
+        height: 80px;
         place-items: center;
       }
 
       .baas-startup-mark img {
-        width: 112px;
-        height: 112px;
+        width: 48px;
+        height: 48px;
         border-radius: 999px;
-        box-shadow:
-          0 0 28px rgba(34, 211, 238, 0.34),
-          0 0 64px rgba(34, 211, 238, 0.18);
       }
 
       .baas-startup-spinner {
         position: absolute;
         inset: 0;
         box-sizing: border-box;
-        border: 3px solid transparent;
-        border-top-color: #22d3ee;
-        border-bottom-color: #67e8f9;
+        border: 1px solid #8883;
+        border-top-color: #888;
         border-radius: 999px;
-        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.82));
         animation: baas-startup-spin 1.05s linear infinite;
       }
 
@@ -69,7 +97,7 @@
         content: "";
         position: absolute;
         inset: 8px;
-        border: 1px solid rgba(103, 232, 249, 0.2);
+        border: 0;
         border-radius: inherit;
       }
 
@@ -80,7 +108,7 @@
       }
 
       #baas-startup-shell span {
-        color: rgba(219, 234, 254, 0.82);
+        color: var(--muted-foreground, var(--baas-startup-muted));
         font-size: 14px;
       }
 
@@ -93,11 +121,20 @@
           animation-duration: 2.4s;
         }
       }
+      @media (prefers-color-scheme: dark) {
+        /* A safe fallback when scripts are disabled or blocked. */
+        :root:not(.light):not(.dark) {
+          color-scheme: dark;
+          --baas-startup-background: #181818;
+          --baas-startup-foreground: #dfdfdf;
+          --baas-startup-muted: #999999;
+        }
+      }
     </style>
     <link rel="stylesheet" href="/src/styles/index.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   </head>
-  <body class="bg-slate-50 dark:bg-slate-900">
+  <body class="bg-background text-foreground">
     <div id="baas-startup-shell">
       <div class="baas-startup-content">
         <div class="baas-startup-mark">

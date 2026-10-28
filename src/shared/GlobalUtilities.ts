@@ -73,6 +73,7 @@ export const getTimestampMs = (): number => Date.now();
 
 export const serverMap: StringKVMap = {
   日服: "JP",
+  日服PC端: "JP",
   国际服: "Global",
   国际服青少年: "Global",
   韩国ONE: "Global",
@@ -83,6 +84,7 @@ export const serverMap: StringKVMap = {
 
 export const serverMapSpec: StringKVMap = {
   日服: "JP",
+  日服PC端: "JP",
   国际服: "Global_en-us",
   国际服青少年: "Global_en-us",
   韩国ONE: "Global_en-us",

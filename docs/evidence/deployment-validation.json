@@ -1,0 +1,2565 @@
+{
+  "checkedAt": "2026-10-28T06:42:11.590Z",
+  "platform": "win32",
+  "basePath": "",
+  "strictStaticHost": true,
+  "nextVersion": "16.2.9",
+  "testedSources": {
+    "docs/next.config.mjs": "e79c8cb5e6c4031d84baebca75fa0f30b8e93f5eb9cebf95f14d5bf4b62da51d",
+    "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
+    "docs/app/docs/[lang]/layout.tsx": "31f1b8f615678943a5ea3c83e3ac9fdf53dd58321375aa573bdde4dfff58d9e4",
+    "docs/app/global.css": "8454a651017fc68e48c01cf6b6a9c4712e9dec77fd2c19d5441e8567aa62fba2",
+    "docs/lib/remark-doc-links.mjs": "a6cd6384cbdc827010a2ad7bfd1790e9c5ef236995974ff83aa6a7d3c445cf1f",
+    "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
+    "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
+    "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
+    "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
+    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
+    "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
+    "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
+    "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
+    "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
+    "docs/components/LocaleEntry.tsx": "2538dc170d2e50926d6ce65db9901f9d31c63ef2c4f43be9f831eed0dd0ca39c",
+    "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
+    "docs/components/DocumentationLink.tsx": "89d6ba6ae41348653fbbe184908a35deb1b026079748548db8545e1723a9eb40",
+    "docs/mdx-components.tsx": "bd27de07bae249aaae9c24032f5b84e0cde14ca836da557f4cf237a0c455de67",
+    "docs/scripts/static-export-server.mjs": "f5a38b114121acd15f22d7d62eb197897237144e09b56f02940a4b1716305f2f",
+    "docs/scripts/normalize-static-export.mjs": "f1dcc41609adb5deb6d096ded587e0cc53eff2dc32b599c61b2ee65b56634dd7",
+    "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
+    "docs/scripts/check-deployment.mjs": "8254dabf1c1c0cd8f84647014543697e25a0eaf5457b41c0909465d41e55978f",
+    ".github/workflows/docs-validation.yml": "748d9b135f4c34107728c4ed57cbd4194ea8cf2ff8554078069f815205463428"
+  },
+  "cases": [
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "language-switch",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "language-switch",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "language-switch",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "language-switch",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "language-switch",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "language-switch",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "language-switch",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/cafe"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/combat"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/crafting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/emulator"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/home-runtime"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/lesson"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/maintenance"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/pc-platform"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/profile"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/script"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/server"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/shop"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/stages"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/sweeps"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/system"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/team"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "features/update"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/android"
+    },
+    {
+      "kind": "motion-and-zoom",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/interface"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "guide/wiki"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/auto-fight-dev"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/backend-development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/backend-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/cli-service"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/client-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/client-architecture"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/performance"
+    },
+    {
+      "kind": "raw-record-link",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/plugin-api"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/release-history"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/report-uninstall"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/setup-toml"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/updater-internals"
+    },
+    {
+      "kind": "client-navigation",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "search-navigation",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "language-switch",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true
+    },
+    {
+      "kind": "entry",
+      "entry": "/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh"
+    },
+    {
+      "kind": "entry",
+      "entry": "/",
+      "language": "ja-JP",
+      "saved": null,
+      "expected": "en"
+    },
+    {
+      "kind": "entry",
+      "entry": "/",
+      "language": "en-US",
+      "saved": "zh",
+      "expected": "zh"
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh"
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/",
+      "language": "ja-JP",
+      "saved": null,
+      "expected": "en"
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/",
+      "language": "en-US",
+      "saved": "zh",
+      "expected": "zh"
+    },
+    {
+      "kind": "search-artifact",
+      "revision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b"
+    }
+  ],
+  "caseCount": 367,
+  "failures": [],
+  "searchIndexPath": "search-index/77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b.json",
+  "searchIndexRevision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b",
+  "searchIndexSha256": "3ec11e7dbfdb66d4096ab38f19eedae722f36ac2096e67b6fa5c1d6be21cad14"
+}

@@ -1,0 +1,189 @@
+@media (min-width: 1024px) {
+  .profile-pane-content.profile-pane-content--configuration {
+    display: grid;
+    /* The BAAS heading occupies 44px above this grid. Include it in the top third. */
+    grid-template-rows: minmax(80px, calc((100% - 88px) / 3)) minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .configuration-sidebar-navigation {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    margin-inline: -8px;
+    border-top: 1px solid var(--workspace-divider);
+    padding: 14px 8px 0;
+  }
+}
+
+.app-page-scroll[data-page="configuration"] {
+  /* Include the shared 8px scroll track in the page's trailing inset. */
+  scrollbar-gutter: stable;
+  padding-right: 12px;
+}
+
+@media (min-width: 1024px) {
+  .app-page-scroll[data-page="configuration"] {
+    padding-right: 24px;
+  }
+}
+
+.configuration-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 0 16px;
+}
+
+.configuration-compact-navigation {
+  margin-bottom: 28px;
+}
+
+.configuration-detail {
+  min-width: 0;
+}
+
+.configuration-detail-heading {
+  margin-bottom: 32px;
+}
+
+.configuration-detail-heading h2,
+.configuration-editor .settings-label,
+.configuration-editor .settings-description {
+  overflow-wrap: anywhere;
+}
+
+.configuration-editor [data-slot="tabs-list"] {
+  height: auto;
+  align-items: stretch;
+}
+
+.configuration-editor [data-slot="tabs-trigger"] {
+  padding-inline: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.configuration-editor {
+  min-width: 0;
+}
+
+.configuration-editor > div {
+  min-width: 0;
+}
+
+.configuration-editor .settings-group + .settings-group {
+  margin-top: 28px;
+}
+
+.configuration-row > .settings-row-control {
+  width: min(220px, 45%);
+  max-width: 45%;
+}
+
+.configuration-row > .control-switch {
+  flex-shrink: 0;
+}
+
+.configuration-row.configuration-row-action > .settings-row-control {
+  width: auto;
+  max-width: 50%;
+}
+
+.configuration-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.configuration-row-stacked > .settings-row-control {
+  width: 100%;
+  max-width: none;
+  flex-shrink: 1;
+}
+
+.configuration-row .settings-row-control input:not([type="checkbox"]):not([type="radio"]),
+.configuration-row .settings-row-control [data-slot="select-trigger"] {
+  min-width: 0;
+  height: 32px;
+  font-size: 12px;
+  background: transparent;
+}
+
+.configuration-row .settings-row-control [data-slot="select-value"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.configuration-history {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.configuration-history button {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--muted-foreground);
+}
+
+.configuration-history button:hover:enabled {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.configuration-history button:disabled {
+  opacity: 0.3;
+}
+
+.configuration-action {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.configuration-action:hover:enabled {
+  background: var(--secondary);
+}
+
+.configuration-action:disabled {
+  opacity: 0.4;
+}
+
+::highlight(baas-configuration-search) {
+  color: inherit;
+  background: rgb(237 184 49 / 42%);
+}
+
+@media (max-width: 1023px) {
+  .configuration-page {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 479px) {
+  .configuration-row > .settings-row-control {
+    width: 44%;
+    max-width: 44%;
+  }
+
+  .configuration-row-stacked > .settings-row-control {
+    width: 100%;
+    max-width: none;
+  }
+}

@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
         run: |
           set -euo pipefail
 
@@ -141,6 +141,12 @@ jobs:
           echo "OPENSSL_INCLUDE_DIR=$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
+
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
 
       - name: Tauri build
         shell: bash
@@ -309,7 +315,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -419,6 +425,12 @@ jobs:
             echo "CXX_armv7_unknown_linux_gnueabihf=${{ matrix.cxx }}" >> "$GITHUB_ENV"
           fi
 
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Tauri build
         shell: bash
         env:
@@ -478,7 +490,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -557,6 +569,12 @@ jobs:
           printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
           echo "ANDROID_RELEASE_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
 
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
+
       - name: Build Android arm64 release APK
         shell: bash
         run: bun run tauri:android:build:release -- --abi arm64
@@ -593,7 +611,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -639,6 +657,12 @@ jobs:
 
           Remove-Item ".\src-tauri\tauri.windows.conf.json" -Force
           Rename-Item ".\src-tauri\webview2.$arch.json" "tauri.windows.conf.json"
+
+      - name: Refresh bundled release notes
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/update-client-release-history.mjs
 
       - name: Tauri build
         shell: bash
@@ -694,7 +718,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -709,7 +733,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
 
@@ -791,7 +815,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -821,7 +845,7 @@ jobs:
             --silent
 
   release-update:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Publish updater manifests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -846,7 +870,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   sync-to-cnb-release:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
     timeout-minutes: 260
@@ -892,7 +916,7 @@ jobs:
           overwrite-assets: "true"
 
   submit-to-winget:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
     timeout-minutes: 20

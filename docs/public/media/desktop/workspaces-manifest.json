@@ -1,0 +1,250 @@
+{
+  "capturedAt": "2026-10-20T04:26:38.516Z",
+  "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
+  "mode": "Isolated real native desktop release and real backend; light mode; Schale Demo scheduler stopped",
+  "scope": "Read-only dialogs plus rejected/cancelled UI input. No profiles created/deleted, no logs cleared, no task execution or updater applied.",
+  "verified": [
+    {
+      "locale": "en",
+      "check": "profile server locked, empty-name error, delete confirmation cancelled",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "check": "Escape cancels shortcut recording; reserved Copy rejected without replacing Undo",
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "check": "system-log filtering and clear confirmation cancellation; no logs cleared",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "check": "profile server locked, empty-name error, delete confirmation cancelled",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "check": "Escape cancels shortcut recording; reserved Copy rejected without replacing Undo",
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "check": "system-log filtering and clear confirmation cancellation; no logs cleared",
+      "passed": true
+    }
+  ],
+  "shots": [
+    {
+      "file": "media/desktop/en/details-home.png",
+      "locale": "en",
+      "state": "home",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-task-overview.png",
+      "locale": "en",
+      "state": "task-overview",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-profile-menu.png",
+      "locale": "en",
+      "state": "profile-menu",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-profile-edit.png",
+      "locale": "en",
+      "state": "profile-edit",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-profile-create.png",
+      "locale": "en",
+      "state": "profile-create",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-profile-required.png",
+      "locale": "en",
+      "state": "profile-required",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-profile-delete-confirmation.png",
+      "locale": "en",
+      "state": "profile-delete-confirmation",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-theme-color.png",
+      "locale": "en",
+      "state": "theme-color",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-transport-options.png",
+      "locale": "en",
+      "state": "transport-options",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-shortcut-recording.png",
+      "locale": "en",
+      "state": "shortcut-recording",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-shortcut-conflict.png",
+      "locale": "en",
+      "state": "shortcut-conflict",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-global-shortcuts.png",
+      "locale": "en",
+      "state": "global-shortcuts",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-system-logs-filtered.png",
+      "locale": "en",
+      "state": "system-logs-filtered",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-system-log-details.png",
+      "locale": "en",
+      "state": "system-log-details",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/en/details-system-logs-clear-confirmation.png",
+      "locale": "en",
+      "state": "system-logs-clear-confirmation",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-home.png",
+      "locale": "zh",
+      "state": "home",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-task-overview.png",
+      "locale": "zh",
+      "state": "task-overview",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-profile-menu.png",
+      "locale": "zh",
+      "state": "profile-menu",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-profile-edit.png",
+      "locale": "zh",
+      "state": "profile-edit",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-profile-create.png",
+      "locale": "zh",
+      "state": "profile-create",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-profile-required.png",
+      "locale": "zh",
+      "state": "profile-required",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-profile-delete-confirmation.png",
+      "locale": "zh",
+      "state": "profile-delete-confirmation",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-theme-color.png",
+      "locale": "zh",
+      "state": "theme-color",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-transport-options.png",
+      "locale": "zh",
+      "state": "transport-options",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-shortcut-recording.png",
+      "locale": "zh",
+      "state": "shortcut-recording",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-shortcut-conflict.png",
+      "locale": "zh",
+      "state": "shortcut-conflict",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-global-shortcuts.png",
+      "locale": "zh",
+      "state": "global-shortcuts",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-system-logs-filtered.png",
+      "locale": "zh",
+      "state": "system-logs-filtered",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-system-log-details.png",
+      "locale": "zh",
+      "state": "system-log-details",
+      "theme": "light",
+      "native": true
+    },
+    {
+      "file": "media/desktop/zh/details-system-logs-clear-confirmation.png",
+      "locale": "zh",
+      "state": "system-logs-clear-confirmation",
+      "theme": "light",
+      "native": true
+    }
+  ]
+}

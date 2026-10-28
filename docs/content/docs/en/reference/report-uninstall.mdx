@@ -38,13 +38,7 @@ Before opening an issue or asking for help, confirm:
 
 Backend profiles usually live under the backend install directory's `config` folder. Each subdirectory maps to a profile; `config.json` contains the `name` shown in the UI.
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/report/find_config.png"
-  alt="Legacy documentation example for locating BAAS profile files"
-/>
-
-The current Tauri client should use profile export when possible. Export a `.zip`, then review it for secrets before sharing.
+Use File → Open Configuration Folder to open the current backend's configuration directory. A profile's menu can also export a ZIP containing its directory files. Review account data, credentials, paths and logs before sharing. Read the [same-name replacement warning](../features/profile#export-and-import) before importing an archive.
 
 ## Privacy and Safety
 

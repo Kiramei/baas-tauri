@@ -1,35 +1,151 @@
 ---
 title: System Settings
-description: Theme, language, background, UI scale, remote display, low performance mode, and hotkeys.
+description: Every settings category, local persistence, appearance controls, application/global shortcuts, transport and system-log operations.
 ---
 
-System settings affect the Tauri client experience and do not directly change individual game task strategy.
+Open **Settings** from the navigation rail. The desktop sidebar contains General, Appearance, Shortcuts, Connection & runtime, Updates and Logs; narrow windows use a category selector. Android hides Shortcuts and retains the other five categories. Search locates settings and categories.
+
+Most appearance/preferences are **client-wide**, not part of the selected game profile. They update immediately and persist locally (`uiSettings`, batched after about 150 ms). Switching profiles does not provide separate colors or decoder preferences. Profile task changes use a different [configuration history](../guide/configuration).
+
+There are important exceptions to automatic saving: profile dialogs, global-hotkey dialogs and remote advanced settings have explicit Save actions; MirrorC keys require verification. Update settings affect shared backend setup, and changing transport reconnects the backend.
+
+## General
 
 <img
   className="baas-screenshot"
-  src="/en/settings-interface-preferences.png"
-  alt="Settings interface section with background, language, UI scale, remote display decoder, log scrolling, assets, BAComet, and low performance mode"
+  src="/media/desktop/en/settings-general.webp"
+  alt="Current General settings with language, reduced effects and desktop preferences"
 />
 
-| Setting                | Purpose                                            |
-| ---------------------- | -------------------------------------------------- |
-| Theme / accent color   | Adjust client appearance                           |
-| Background / opacity   | Personalize the window                             |
-| Language               | Switch app UI language                             |
-| UI scale               | Resize the interface                               |
-| Remote display decoder | Fix black screen, stutter, or compatibility issues |
-| Low performance mode   | Reduce animation and overhead                      |
+| Control                  | Effect / stored preference                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language                 | English, Chinese, Japanese, Korean, German, Russian or French; `lang`. This is app language, not game server or documentation language              |
+| Reduced effects          | Reduce interface animation/visual effects; `lowPerformanceMode`. It does not change game graphics or prove a measured speedup                       |
+| System notifications     | Native desktop task/service notifications; `enableSystemNotifications`. OS permission/settings can still suppress them                              |
+| Minimize to tray         | Hide the minimized desktop window in the tray while keeping the app running; `minimizeToTray`. This is not Exit or a guarantee against system sleep |
+| Enter after installation | Proceed into the client after successful desktop setup; `autoEnterAfterInstall`. This is not OS startup registration or scheduler autostart         |
 
-## Remote Display and Hotkeys
+The last three are native desktop controls. Android omits the notification/tray/installer group; WebUI lacks native desktop integration. General also provides the [plugin entry](./plugins). For WebUI login and Key reset, see [browser deployment](../guide/webui#sign-in-and-reset-the-key).
+
+## Appearance
 
 <img
   className="baas-screenshot"
-  src="/en/remote-display-advanced-settings.png"
-  alt="Remote emulator advanced settings with size, FPS, bitrate, clipboard, and save action"
+  src="/media/desktop/en/settings-appearance.webp"
+  alt="Current Appearance settings with segmented theme, accent, background and display controls"
 />
+
+| Control            | Operation                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Theme              | Light, Dark or System; `theme`. System follows the OS                                                   |
+| Accent color       | Picker, hue/area controls, supported eyedropper, eight presets, hex input and Reset; `themeColor`       |
+| Background image   | Choose or remove a locally stored image; `backgroundImageBase64`                                        |
+| Background opacity | Slider 0–60%, step 1%; `backgroundImageOpacity`. Zero hides the image without removing its stored bytes |
+| UI scale           | 50–150% in ten-point steps; `zoomScale`. Changes the client UI, not game/device resolution              |
+| Resources          | Show/hide the Home resource strip; `assetsDisplay`. Hiding it does not stop backend collection          |
+| BAComet            | Toggle the optional visual effect; `enableBAComet`                                                      |
 
 <img
   className="baas-screenshot"
-  src="/en/hotkeys-dialog.png"
-  alt="Hotkey settings dialog with start stop shortcut, search, cancel, and save"
+  src="/media/desktop/en/details-theme-color.webp"
+  alt="Accent-color picker and presets"
 />
+
+The outer hex field accepts exactly `#RRGGBB`; blur or Enter commits it. Invalid text reports an error and restores the last stored color. Reset restores `#1a1c1f`, not every appearance preference. Picker changes/presets apply directly; availability of the eyedropper depends on the host.
+
+Backgrounds accept PNG, JPG/JPEG, WebP or GIF, at most **5 MiB**. Native clients read a selected file; WebUI uses the browser's file selector. Cancel leaves the current image unchanged. Bytes are embedded in local settings, not uploaded as a public documentation asset. Remove is disabled without an image and removes it immediately without a confirmation dialog.
+
+The Android initial-zoom migration sets 80% once. Later changes use the same UI scale control.
+
+## Shortcuts
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/settings-shortcuts.webp"
+  alt="Current inline application shortcut editor"
+/>
+
+### Application Shortcuts
+
+These bindings are window-local, not OS-global script triggers. Use a row's record icon, press the intended combination and wait for recording to finish. Modifier-only presses are incomplete; Escape cancels. The clear icon stores an empty binding and disables that action. A valid recording saves immediately, with no Save dialog.
+
+| Action / ID              | Windows/Linux default | macOS default |
+| ------------------------ | --------------------- | ------------- |
+| Undo, `undo`             | Ctrl+Z                | Cmd+Z         |
+| Redo, `redo`             | Ctrl+Y                | Cmd+Shift+Z   |
+| Settings, `settings`     | Ctrl+,                | Cmd+,         |
+| Sidebar, `sidebar`       | Ctrl+Shift+S          | Cmd+Shift+S   |
+| Back, `back`             | Alt+Left              | Alt+Left      |
+| Forward, `forward`       | Alt+Right             | Alt+Right     |
+| Zoom in, `zoomIn`        | Ctrl++                | Cmd++         |
+| Zoom out, `zoomOut`      | Ctrl+-                | Cmd+-         |
+| Reset zoom, `resetZoom`  | Ctrl+0                | Cmd+0         |
+| Fullscreen, `fullscreen` | F11                   | F11           |
+
+Overrides persist in `applicationShortcuts`. The UI rejects invalid combinations, duplicate application bindings, enabled global-profile conflicts, and reserved native editing keys/Escape. It retains the previous valid binding on rejection. Other recording rows and Reset are inactive while a recording is underway.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-shortcut-conflict.webp"
+  alt="Reserved Copy shortcut rejected without replacing the existing Undo binding"
+/>
+
+Reset All restores application defaults, not global profile bindings; an enabled global binding conflicting with a default can block reset. Native Cut/Copy/Paste/Select All/Delete and Escape are displayed as references, not editable rows. Shortcut availability remains context/platform-dependent: configuration Undo targets configuration history, not arbitrary task execution; dialogs, text editing and unsupported window actions can take precedence.
+
+### Global Profile Shortcuts
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-global-shortcuts.webp"
+  alt="Separate global profile hotkey dialog with search, Cancel and Save"
+/>
+
+Native desktop clients show a profile-run section. Edit opens the shared global-hotkey dialog, also reachable from Home's keyboard icon. Each row targets its named profile's scheduler start/stop, even if another app has focus. Search matches profile names or shortcut text without discarding hidden draft rows.
+
+Unlike inline application bindings, these changes remain a dialog draft until **Save**. Cancel/closing discards them. Empty disables a binding. Format/duplicate errors and OS registration rejection must be resolved; Save is not proof an accelerator was registered if the dialog reports errors. The settings entry also checks conflicts with application bindings. Recording suspends shortcuts to prevent the recording itself starting a scheduler. Android/WebUI do not provide desktop OS-global profile hotkeys.
+
+## Connection and Runtime
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/settings-runtime.webp"
+  alt="Connection and runtime settings for backend transport, remote decoder and encrypted preview"
+/>
+
+| Control           | Choices and scope                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| Backend transport | Native desktop supports `shm` and `websocket`; Windows/Linux also support `pipe`                                     |
+| Preview decoder   | `mse`, `broadway`, `tinyh264`, `webcodecs`; `remoteSettings.streamPlayer`                             |
+| Encrypted preview | `remoteSettings.enableSafeStream`; protects the WebSocket preview stream, not a graphics-quality mode |
+
+Transport carries **client/backend** messages independently of ADB and game capture. Changing it closes business connections, starts the managed transport, and resynchronizes state. Wait for reconnection and avoid switching during tasks. Windows/Linux retain explicit pipe or WebSocket choices; otherwise they prefer available shared memory, falling back to pipe. macOS defaults to shared memory and accepts an explicit WebSocket choice. Android uses pipe or WebSocket; WebUI always uses WebSocket. Unsupported stored modes are normalized.
+
+The desktop decoder and encrypted-stream controls do not select Android's native TextureView preview. For desktop, turn Home's remote preview off and on after changing decoder/encryption so the player reconnects. See [Home Runtime](./home-runtime) for video controls and current advanced-setting limitations, [Architecture](../reference/client-architecture) for transport ownership, and [Performance](../reference/performance) for measurement scope.
+
+## Updates
+
+This category separates backend commit state, native client version, source/channel, automatic idle updates, MirrorC verification and SHA diagnostics. Its controls are described fully in [Updates](./update); checking a SHA is not installing an update.
+
+## Logs
+
+The automatic-scroll switch (`scrollToEnd`) is shared with Home's downward-arrow button. It affects task-log scrolling, not the independent follow-tail toggle in the system-log viewer.
+
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/details-system-log-details.webp"
+  alt="Current system-log viewer with filtered lifecycle events and an expanded detail row"
+/>
+
+Open System Logs for diagnostics from `tauri`, `python` and `frontend`. Source buttons show counts for the collected snapshot; the level filter supports All, TRACE, DEBUG, INFO, WARNING and ERROR. Search is case-insensitive across source, level, target, message and details. Expand a row for available details.
+
+| Tool          | Exact scope                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| Refresh       | Collect a new snapshot; a source failure can show a warning while other sources remain available    |
+| Copy / Export | Only the **currently filtered** entries, including their formatted details                          |
+| Auto refresh  | Collect every three seconds while this dialog remains open                                          |
+| Follow tail   | Scroll to the newest displayed row; independent of refreshing                                       |
+| Clear         | After confirmation, clear collected frontend/native/backend system logs, **not just filtered rows** |
+
+The merged viewer keeps at most 4,000 entries per collection; the frontend's in-memory buffer is 1,500 entries and long messages can be truncated. Export is not an unlimited disk-log archive. Native export uses a save dialog, with browser-download fallback; clipboard permissions can affect Copy.
+
+Do not clear logs before preserving a failure. Logs can contain paths, device/account data or secrets: filter/redact before sharing. System logs diagnose the application/service; [Home task logs](./home-runtime) are a different export.

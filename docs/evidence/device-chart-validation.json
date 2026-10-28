@@ -1,0 +1,247 @@
+{
+  "checkedAt": "2026-10-20T07:51:47.312Z",
+  "rawRecordSha256": "9c350af3824f322bc366807ee668491db88862a4c8f054ce5f96a0e93ffd31ca",
+  "scope": "Animated capture and long-press visible-response p95 layout/screenshots; the complete metric/scenario matrix is covered by smoke-docs.mjs",
+  "cases": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "width": 1440,
+      "kind": "capture",
+      "file": "en-light-1440-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "width": 1440,
+      "kind": "control",
+      "file": "en-light-1440-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "width": 390,
+      "kind": "capture",
+      "file": "en-light-390-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "width": 390,
+      "kind": "control",
+      "file": "en-light-390-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "width": 1440,
+      "kind": "capture",
+      "file": "en-dark-1440-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "width": 1440,
+      "kind": "control",
+      "file": "en-dark-1440-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "width": 390,
+      "kind": "capture",
+      "file": "en-dark-390-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "width": 390,
+      "kind": "control",
+      "file": "en-dark-390-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "width": 1440,
+      "kind": "capture",
+      "file": "zh-light-1440-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "width": 1440,
+      "kind": "control",
+      "file": "zh-light-1440-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "width": 390,
+      "kind": "capture",
+      "file": "zh-light-390-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "width": 390,
+      "kind": "control",
+      "file": "zh-light-390-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "width": 1440,
+      "kind": "capture",
+      "file": "zh-dark-1440-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "width": 1440,
+      "kind": "control",
+      "file": "zh-dark-1440-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "width": 390,
+      "kind": "capture",
+      "file": "zh-dark-390-capture.png",
+      "rows": 4,
+      "output": [
+        "77.8 ms",
+        "85.4 ms",
+        "33.0 ms",
+        "4.6 ms"
+      ],
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "width": 390,
+      "kind": "control",
+      "file": "zh-dark-390-control.png",
+      "rows": 4,
+      "output": [
+        "479.9 ms",
+        "2143.2 ms",
+        "448.1 ms",
+        "447.2 ms"
+      ],
+      "passed": true
+    }
+  ]
+}

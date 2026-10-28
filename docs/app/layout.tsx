@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { RootProvider } from "fumadocs-ui/provider/next";
-import { FlexSearchDialog } from "@/components/FlexSearchDialog";
+import { DocsProvider } from "@/components/DocsProvider";
 import { ImageZoom } from "@/components/ImageZoom";
+import { getSearchArtifact } from "@/lib/build-search-index";
 import "fumadocs-ui/style.css";
+import "fumadocs-twoslash/twoslash.css";
 import "./global.css";
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export const metadata: Metadata = {
   title: {
@@ -13,20 +16,25 @@ export const metadata: Metadata = {
   description:
     "Documentation for the BAAS Tauri desktop app and Blue Archive automation workflows.",
   icons: {
-    icon: "/baas-icon.png",
-    apple: "/baas-icon.png",
+    icon: `${basePath}/baas-icon.webp`,
+    apple: `${basePath}/baas-icon.webp`,
   },
 };
 
 /** Renders the root layout component. */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const artifact = await getSearchArtifact();
+  const searchIndex = { revision: artifact.revision, url: `${basePath}/search-index/${artifact.filename}` };
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="baas-search-index" content={searchIndex.url} />
+      </head>
       <body>
-        <RootProvider search={{ SearchDialog: FlexSearchDialog }}>
+        <DocsProvider searchIndex={searchIndex}>
           {children}
           <ImageZoom />
-        </RootProvider>
+        </DocsProvider>
       </body>
     </html>
   );

@@ -1,12 +1,28 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { IconTooltip } from "@/components/ui/Tooltip";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useApp } from "@/context/AppContext";
 import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
 import AssetsDisplay from "@/components/AssetsDisplay";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { FileUp, Keyboard, ListEnd, Logs, Play, Square, Webcam } from "lucide-react";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
+import PluginHomeShortcuts from "@/components/plugins/PluginHomeShortcuts";
+import {
+  ArrowDownToLine,
+  FileDown,
+  Keyboard,
+  Logs,
+  Play,
+  SlidersHorizontal,
+  Square,
+  Webcam,
+} from "lucide-react";
 import { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
@@ -14,17 +30,50 @@ import { formatIsoToReadable, getTimestampMs } from "@/shared/GlobalUtilities.ts
 import { useSetUISettings, useUISetting } from "@/context/UISettingsProvider.tsx";
 import { RemoteDisplay } from "@/components/RemoteDisplay.tsx";
 import StorageUtil from "@/shared/StorageManager.ts";
+import {
+  androidManualControl,
+  resumeAndroidAutomationBeforeStart,
+  verifyAndroidManualControlOwnership,
+} from "@/shared/AndroidManualControl";
 import { HotkeySettingsModal } from "@/components/HotkeyConfig.tsx";
 import { useTauriShortcuts } from "@/context/TauriShortcutProvider.tsx";
 import { toast } from "sonner";
+import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
+import { useAndroidStartGuard } from "@/android/components/AndroidStartGuard";
+import { Modal } from "@/components/ui/Modal";
+import { homeSectionPresentation } from "@/shared/PluginHomeLayout";
+import { usePluginHomeLayout } from "@/shared/usePluginHomeLayout";
+import { requestPluginOpen } from "@/shared/Plugins";
+import {
+  androidPackageForServer,
+  androidProfileGameSession,
+  isAndroidProfileDisplayReady,
+  otherRunningAndroidProfiles,
+  resolveAndroidProfileGame,
+  type AndroidInstalledGame,
+} from "@/shared/AndroidProfileGame";
 
 const EMPTY_LOGS: LogItem[] = [];
+/** High-frequency log batches must not rerender the game panel and whole home. */
+const ProfileLogView: React.FC<{ configId?: string; scrollToEnd: boolean; visible: boolean }> = ({
+  configId,
+  scrollToEnd,
+  visible,
+}) => {
+  const logs = useWebSocketStore((state) =>
+    visible && configId ? (state.logStore[`config:${configId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
+  );
+  return <Logger logs={logs} scrollToEnd={scrollToEnd} />;
+};
+const AndroidGamePanel = React.lazy(() => import("@/android/components/AndroidGamePanel"));
+const TOOL_BUTTON_CLASS =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-40";
 
 /**
  * Landing experience for a profile that provides orchestration controls, status, and live logs.
  */
 const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const scrollToEnd = useUISetting((settings) => settings.scrollToEnd);
   const assetsDisplay = useUISetting((settings) => settings.assetsDisplay);
   const setUiSettings = useSetUISettings();
@@ -36,6 +85,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     [profiles, pid, activeProfile]
   );
   const activeConfigId = profile?.id ?? pid;
+  const pluginHome = usePluginHomeLayout(activeConfigId, activeProfile?.id === activeConfigId);
+  const homePresentation = homeSectionPresentation(
+    pluginHome.layout,
+    assetsDisplay,
+    __WITH_ANDROID__
+  );
 
   const scriptRunning = useWebSocketStore((state) =>
     activeConfigId ? state.statusStore[activeConfigId]?.running || false : false
@@ -43,18 +98,41 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   const settings = useWebSocketStore((state) =>
     activeConfigId ? state.configStore[activeConfigId] : undefined
   );
-  const activeLogs = useWebSocketStore((state) =>
-    activeConfigId ? (state.logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS) : EMPTY_LOGS
-  );
-  const remoteAvailable = !__WITH_ANDROID__;
+  const pcProfile = isPcServer(settings?.server);
+  const remoteAvailable = !__WITH_ANDROID__ && !pcProfile;
   const hotkeyAvailable = __WITH_TAURI__ && !__WITH_ANDROID__;
   const isAndroid = __WITH_ANDROID__;
   const [remoteVisible, setRemoteVisible] = useState<boolean>(false);
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
   const [androidVirtualDisplayBusy, setAndroidVirtualDisplayBusy] = useState(false);
   const [androidVirtualDisplayActive, setAndroidVirtualDisplayActive] = useState(false);
+  const [androidGameIssue, setAndroidGameIssue] = useState<{
+    unsupported: boolean;
+    server: string;
+    packageName?: string;
+  } | null>(null);
+  const [androidBlockingProfiles, setAndroidBlockingProfiles] = useState<string[]>([]);
+  const androidDisplayBinding = useSyncExternalStore(
+    androidProfileGameSession.subscribe,
+    androidProfileGameSession.getSnapshot,
+    androidProfileGameSession.getSnapshot
+  );
+  const androidDisplayOperation = useRef(false);
+  const androidStartGuard = useAndroidStartGuard(
+    isAndroid && __WITH_TAURI__ && activeProfile?.id === activeConfigId
+  );
+  const androidBusy = androidVirtualDisplayBusy || androidStartGuard.busy;
 
-  const scrcpyVirtualDisplayEnabled = __WITH_ANDROID__ && androidVirtualDisplayActive;
+  const androidGamePackage = androidPackageForServer(settings?.server);
+  const androidDisplayMatchesProfile = Boolean(
+    androidVirtualDisplayActive &&
+    androidDisplayBinding?.profileId === activeConfigId &&
+    androidDisplayBinding?.packageName === androidGamePackage
+  );
+  const serverLabel = buildServerOptions(t, { selected: settings?.server }).find(
+    (server) => server.value === settings?.server
+  )?.label;
+  const showServerLabel = Boolean(serverLabel && serverLabel !== profile?.name);
 
   const adbSerial = useMemo(() => {
     if (__WITH_ANDROID__) {
@@ -66,101 +144,110 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     return adbPort || adbIP || "emulator-5556";
   }, [settings?.adbIP, settings?.adbPort]);
 
-  const syncAndroidDeviceMethods = async (useScrcpy: boolean) => {
-    if (!__WITH_ANDROID__ || !activeConfigId) return;
-    const patch = useScrcpy
-      ? {
-          screenshot_method: "adb",
-          control_method: "adb",
-          adbIP: "127.0.0.1",
-          adbPort: "5555",
-        }
-      : {
-          screenshot_method: "android_local",
-          control_method: "android_local",
-        };
-    const timestamp = getTimestampMs();
-    const ops = Object.entries(patch).map(([key, value]) => ({
-      op: "replace",
-      path: `/${key}`,
-      value,
-    }));
-    const store = useWebSocketStore.getState();
-    await new Promise<void>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        delete useWebSocketStore.getState().pendingCallbacks[timestamp];
-        reject(new Error("Android device method patch was not acknowledged"));
-      }, 5000);
-      store.pendingCallbacks[timestamp] = () => {
-        window.clearTimeout(timeoutId);
-        resolve();
-      };
-      store.send("sync", {
-        type: "patch",
-        resource_id: activeConfigId,
-        resource: "config",
-        timestamp,
-        ops,
-      });
-    });
-    const expectedMethod = useScrcpy ? "adb" : "android_local";
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-      const current = useWebSocketStore.getState().configStore[activeConfigId];
-      if (
-        current?.screenshot_method === expectedMethod &&
-        current?.control_method === expectedMethod
-      ) {
-        return;
-      }
-      useWebSocketStore.getState().send("sync", {
-        type: "pull",
-        resource: "config",
-        resource_id: activeConfigId,
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 300));
-    }
-    throw new Error(`Android device methods did not switch to ${expectedMethod}`);
-  };
-
   const refreshAndroidVirtualDisplayStatus = useCallback(async () => {
-    if (!__WITH_ANDROID__) return false;
+    if (!__WITH_ANDROID__ || !__WITH_TAURI__) return false;
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
       const status = await invoke<{ active: boolean; displayId?: number | null }>(
         "android_scrcpy_virtual_display_status",
         { serial: adbSerial }
       );
-      setAndroidVirtualDisplayActive(Boolean(status.active));
-      return Boolean(status.active);
+      const profilePackage = androidPackageForServer(
+        useWebSocketStore.getState().configStore[activeConfigId ?? ""]?.server
+      );
+      const ready = isAndroidProfileDisplayReady(
+        androidProfileGameSession.getSnapshot(),
+        activeConfigId,
+        profilePackage,
+        status
+      );
+      setAndroidVirtualDisplayActive(ready);
+      return ready;
     } catch (error) {
-      console.warn("scrcpy virtual display status failed", error);
+      console.warn("Android background display status failed", error);
       return false;
     }
-  }, [adbSerial]);
+  }, [adbSerial, activeConfigId]);
 
-  const toggleAndroidVirtualDisplay = async (value: boolean) => {
-    if (!__WITH_ANDROID__ || androidVirtualDisplayBusy) return;
+  const requireAndroidProfileGame = async (): Promise<AndroidInstalledGame | null> => {
+    const server = useWebSocketStore.getState().configStore[activeConfigId ?? ""]?.server;
+    try {
+      const { invoke } = await import("@/shared/TauriInvoke");
+      const report = await invoke<{ games: AndroidInstalledGame[] }>("android_list_games");
+      const result = resolveAndroidProfileGame(server, report.games);
+      if (result.state !== "ready") {
+        const label = buildServerOptions(t, { selected: server }).find(
+          (item) => item.value === server
+        )?.label;
+        setAndroidGameIssue({
+          unsupported: result.state === "unsupported",
+          server: label ?? String(server ?? ""),
+          packageName: result.state === "missing" ? result.packageName : undefined,
+        });
+        return null;
+      }
+      return result.game;
+    } catch (error) {
+      toast.error(t("android.game.inspectFailed"), { description: String(error) });
+      return null;
+    }
+  };
+
+  const requireAndroidRunSlot = (): boolean => {
+    const running = otherRunningAndroidProfiles(
+      useWebSocketStore.getState().statusStore,
+      activeConfigId
+    );
+    setAndroidBlockingProfiles(running);
+    return running.length === 0;
+  };
+
+  const changeAndroidVirtualDisplay = async (
+    value: boolean,
+    packageName?: string
+  ): Promise<boolean> => {
+    if (!__WITH_ANDROID__ || !__WITH_TAURI__ || androidDisplayOperation.current) return false;
+    // Recheck after permission/game checks, before native prepare can force-stop
+    // the shared game or cleanup can remove another scheduler's display.
+    if (!requireAndroidRunSlot()) return false;
+    androidDisplayOperation.current = true;
     setAndroidVirtualDisplayBusy(true);
     try {
       const { invoke } = await import("@/shared/TauriInvoke");
       if (value) {
-        const report = await invoke<{
-          displayId: number;
-          serial: string;
-          packageName: string;
-        }>("android_prepare_scrcpy_virtual_display", {
-          request: {
-            serial: adbSerial,
-            configId: activeConfigId,
-            width: 1280,
-            height: 720,
-            density: 240,
-          },
+        let report: { displayId: number; serial: string; packageName: string } | undefined;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          try {
+            report = await invoke("android_prepare_scrcpy_virtual_display", {
+              request: {
+                serial: adbSerial,
+                configId: activeConfigId,
+                packageName,
+                width: 1280,
+                height: 720,
+                density: 240,
+              },
+            });
+            break;
+          } catch (error) {
+            const message = String(error);
+            const connecting =
+              message.includes("still connecting") || message.includes("Timed out connecting");
+            if (!connecting || attempt === 3) throw error;
+            await new Promise((resolve) => window.setTimeout(resolve, 1_200));
+          }
+        }
+        if (!report) throw new Error(t("android.start.displayNotReady"));
+        if (!activeConfigId || report.packageName !== packageName) {
+          throw new Error(t("android.start.displayNotReady"));
+        }
+        androidProfileGameSession.claim({
+          profileId: activeConfigId,
+          packageName: report.packageName,
+          displayId: report.displayId,
         });
         setAndroidVirtualDisplayActive(true);
-        if (activeConfigId) await syncAndroidDeviceMethods(true);
-        toast.success(`scrcpy virtual display #${report.displayId}`);
+        toast.success(t("android.start.displayOpened"));
       } else {
         if (scriptRunning && activeConfigId) {
           useWebSocketStore.getState().trigger({
@@ -171,51 +258,100 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           });
         }
         await invoke("android_cleanup_scrcpy_virtual_display", { serial: adbSerial });
+        androidProfileGameSession.clear();
         setAndroidVirtualDisplayActive(false);
-        if (activeConfigId) await syncAndroidDeviceMethods(false);
-        toast.success("scrcpy virtual display closed");
+        toast.success(t("android.start.displayClosed"));
       }
       void refreshAndroidVirtualDisplayStatus();
+      return true;
     } catch (error) {
-      toast.error(
-        value ? "scrcpy virtual display failed" : "scrcpy virtual display cleanup failed",
-        {
-          description: String(error),
-        }
-      );
+      toast.error(value ? t("android.start.displayFailed") : t("android.start.cleanupFailed"), {
+        description: String(error),
+      });
       void refreshAndroidVirtualDisplayStatus();
+      return false;
     } finally {
+      androidDisplayOperation.current = false;
       setAndroidVirtualDisplayBusy(false);
     }
   };
 
+  const toggleAndroidVirtualDisplay = (value: boolean, packageName?: string): Promise<boolean> => {
+    if (!requireAndroidRunSlot()) return Promise.resolve(false);
+    return value
+      ? androidStartGuard.run(async () => {
+          const game = await requireAndroidProfileGame();
+          if (!game) return false;
+          return changeAndroidVirtualDisplay(true, game.packageName);
+        })
+      : androidStartGuard.run(() => changeAndroidVirtualDisplay(false, packageName), "stop");
+  };
+
   useEffect(() => {
-    void refreshAndroidVirtualDisplayStatus();
-  }, [refreshAndroidVirtualDisplayStatus]);
+    if (activeProfile?.id === activeConfigId) void refreshAndroidVirtualDisplayStatus();
+  }, [
+    activeProfile?.id,
+    activeConfigId,
+    androidDisplayBinding,
+    refreshAndroidVirtualDisplayStatus,
+  ]);
 
   /**
    * Issues the scheduler start command for the active profile.
    * Guarded against duplicate submissions when a run is already active.
    */
   const startScript = async () => {
-    if (!profile || !activeConfigId || scriptRunning || androidVirtualDisplayBusy) return;
-    if (__WITH_ANDROID__) await syncAndroidDeviceMethods(scrcpyVirtualDisplayEnabled);
-    useWebSocketStore.getState().trigger(
-      {
-        timestamp: getTimestampMs(),
-        command: "start_scheduler",
-        config_id: activeConfigId,
-        payload: {},
-      },
-      (response) => {
-        console.debug("start_scheduler acknowledged", response);
-        if ((response as any)?.status === "error") {
-          toast.error("start_scheduler failed", {
-            description: String((response as any)?.message ?? (response as any)?.error ?? ""),
-          });
+    if (!profile || !activeConfigId || scriptRunning || androidBusy) return;
+    const dispatchStart = () => {
+      if (__WITH_ANDROID__ && androidManualControl.isActive()) return;
+      useWebSocketStore.getState().trigger(
+        {
+          timestamp: getTimestampMs(),
+          command: "start_scheduler",
+          config_id: activeConfigId,
+          payload: {},
+        },
+        (response) => {
+          console.debug("start_scheduler acknowledged", response);
+          if ((response as any)?.status === "error") {
+            toast.error(t("android.start.scriptFailed"), {
+              description: String((response as any)?.message ?? (response as any)?.error ?? ""),
+            });
+          }
         }
-      }
-    );
+      );
+    };
+    if (__WITH_ANDROID__ && __WITH_TAURI__) {
+      if (!requireAndroidRunSlot()) return;
+      await androidStartGuard.run(async () => {
+        const game = await requireAndroidProfileGame();
+        if (!game) return false;
+        // An old preview can remain marked active after Shizuku has stopped.
+        // Check its native state only after the fresh permission check passed.
+        if (!(await refreshAndroidVirtualDisplayStatus())) {
+          const prepared = await changeAndroidVirtualDisplay(true, game.packageName);
+          if (!prepared || !(await refreshAndroidVirtualDisplayStatus())) return false;
+        }
+        if (!requireAndroidRunSlot()) return false;
+        const session = androidProfileGameSession.getSnapshot();
+        if (session?.profileId !== activeConfigId || session.packageName !== game.packageName)
+          return false;
+        const { invoke } = await import("@/shared/TauriInvoke");
+        const resumed = await resumeAndroidAutomationBeforeStart(session.displayId, (request) =>
+          invoke<{ resumed: boolean }>("android_game_resume_automation", { request })
+        );
+        if (
+          !resumed ||
+          androidProfileGameSession.getSnapshot() !== session ||
+          !requireAndroidRunSlot()
+        )
+          return false;
+        dispatchStart();
+        return true;
+      });
+      return;
+    }
+    dispatchStart();
   };
 
   /**
@@ -236,11 +372,28 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     );
   };
 
+  useEffect(() => {
+    if (!__WITH_ANDROID__) return;
+    const toggleRun = () => {
+      if (androidManualControl.isActive()) return;
+      // Home stays mounted per profile so the bottom action also works from
+      // Settings and Configuration. Cached profiles must never receive it.
+      if (activeProfile?.id !== activeConfigId) return;
+      if (scriptRunning) stopScript();
+      else void startScript();
+    };
+    window.addEventListener("baas:toggle-primary-run", toggleRun);
+    return () => window.removeEventListener("baas:toggle-primary-run", toggleRun);
+  });
+
   /**
    * Serializes the on-screen log buffer and triggers a local download for auditing or support.
    */
   const pad = (n: number) => n.toString().padStart(2, "0");
   const exportLog = async () => {
+    const activeLogs = activeConfigId
+      ? (useWebSocketStore.getState().logStore[`config:${activeConfigId}`] ?? EMPTY_LOGS)
+      : EMPTY_LOGS;
     const content = activeLogs
       .map((entry) => `[${formatIsoToReadable(entry.time)}] ${entry.level}: ${entry.message}`)
       .join("\n");
@@ -254,114 +407,99 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
   };
 
   return (
-    <div className="h-full flex flex-col min-h-0 gap-2">
-      {/* Header: high-level actions and script controls. */}
-      <div className="flex justify-between items-center shrink-0">
-        <div className="flex">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("nav.home")}</h2>
-          <h2 className="text-2xl ml-3 text-slate-500 dark:text-slate-400">#{profile?.name}</h2>
-        </div>
-        <div className="flex sm:hidden items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="h-8 w-8"
-            iconOnly
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </CButton>
-        </div>
-        <div className="hidden sm:flex items-center gap-2">
-          {remoteAvailable && (
-            <SwitchButton
-              checked={remoteVisible}
-              onChange={(value) => {
-                setRemoteVisible(value);
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          {hotkeyAvailable && (
-            <CButton
-              onClick={() => setHotkeyOpen(true)}
-              variant="secondary"
-              className="h-8 w-8"
-              iconOnly
-            >
-              <Keyboard className="w-4 h-4" />
-            </CButton>
-          )}
-          {isAndroid && (
-            <SwitchButton
-              checked={androidVirtualDisplayActive}
-              onChange={toggleAndroidVirtualDisplay}
-              label=""
-              className="ml-2 h-8 w-8"
-              disabled={androidVirtualDisplayBusy}
-              iconOnly
-            >
-              <Webcam size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-          )}
-          <CButton
-            onClick={scriptRunning ? stopScript : startScript}
-            variant={scriptRunning ? "danger" : "primary"}
-            className="w-25 pl-3 flex items-center justify-center"
-            disabled={androidVirtualDisplayBusy}
-          >
-            {scriptRunning ? (
-              <Square className="w-4 h-4 mr-2" />
-            ) : (
-              <Play className="w-4 h-4 mr-2" />
+    <div
+      className={`flex h-full min-h-0 min-w-0 flex-col text-foreground ${isAndroid ? "gap-2" : "gap-5"}`}
+    >
+      {pcProfile && !supportsPcServers() && (
+        <p role="status" className="text-sm leading-5 text-muted-foreground">
+          {t("server.pcWindowsOnly")}
+        </p>
+      )}
+      {!isAndroid && (
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1 className="min-w-0 truncate text-[16px] font-medium leading-6 tracking-[-0.01em]">
+                {profile?.name ?? t("nav.home")}
+              </h1>
+              {showServerLabel && (
+                <span className="shrink-0 rounded-md bg-secondary/70 px-1.5 py-0.5 text-[10px] leading-4 text-muted-foreground">
+                  {serverLabel}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {homePresentation.edit && (
+              <IconTooltip content={t("plugins.homeEditor.edit")}>
+                <button
+                  type="button"
+                  aria-label={t("plugins.homeEditor.edit")}
+                  onClick={() => requestPluginOpen("baas.home-editor")}
+                  className={TOOL_BUTTON_CLASS}
+                >
+                  <SlidersHorizontal className="size-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
             )}
-            {androidVirtualDisplayBusy
-              ? "准备中"
-              : scriptRunning
-                ? t("common.stop")
-                : t("common.start")}
-          </CButton>
+            {remoteAvailable && (
+              <IconTooltip content={t("remote.emulator")}>
+                <button
+                  type="button"
+                  onClick={() => setRemoteVisible((visible) => !visible)}
+                  aria-label={t("remote.emulator")}
+                  aria-pressed={remoteVisible}
+                  className={`${TOOL_BUTTON_CLASS} ${remoteVisible ? "bg-secondary text-foreground" : ""}`}
+                >
+                  <Webcam className="h-4 w-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            )}
+            {hotkeyAvailable && (
+              <IconTooltip content={t("hotkey")}>
+                <button
+                  type="button"
+                  onClick={() => setHotkeyOpen(true)}
+                  aria-label={t("hotkey")}
+                  className={TOOL_BUTTON_CLASS}
+                >
+                  <Keyboard className="h-4 w-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            )}
+            <CButton
+              onClick={scriptRunning ? stopScript : startScript}
+              aria-label={scriptRunning ? t("common.stop") : t("common.start")}
+              variant={scriptRunning ? "danger" : "primary"}
+              className="ml-2 h-8.5 gap-1.5 rounded-lg px-3.5 py-0 text-xs"
+              disabled={androidBusy}
+            >
+              {scriptRunning ? (
+                <Square className="h-3 w-3" fill="currentColor" strokeWidth={1.6} />
+              ) : (
+                <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.6} />
+              )}
+              {androidBusy
+                ? t("home.preparing")
+                : scriptRunning
+                  ? t("common.stop")
+                  : t("common.start")}
+            </CButton>
+          </div>
         </div>
-      </div>
+      )}
+
+      {isAndroid && homePresentation.edit && (
+        <button
+          type="button"
+          onClick={() => requestPluginOpen("baas.home-editor")}
+          className="ml-auto flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
+          {t("plugins.homeEditor.edit")}
+        </button>
+      )}
 
       {hotkeyAvailable && (
         <HotkeySettingsModal
@@ -390,72 +528,161 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         />
       )}
 
-      {/* Live status for the active task pipeline. */}
-      {activeConfigId && <TaskStatus profileId={activeConfigId} />}
-
-      {/* Optional asset snapshot to provide immediate operational context. */}
-      {assetsDisplay && (
-        <div className="shrink-0">
-          {activeConfigId && <AssetsDisplay profileId={activeConfigId} />}
-        </div>
+      {isAndroid && __WITH_TAURI__ && (
+        <React.Suspense
+          fallback={<div className="h-14 shrink-0 animate-pulse rounded-xl bg-secondary" />}
+        >
+          <AndroidGamePanel
+            active={activeProfile?.id === activeConfigId}
+            configuredPackage={androidGamePackage}
+            virtualDisplayActive={androidDisplayMatchesProfile}
+            virtualDisplayBusy={androidBusy}
+            onBeforeManualControl={async () => {
+              if (!activeConfigId || !requireAndroidRunSlot())
+                throw new Error("The Android game session is unavailable");
+              await verifyAndroidManualControlOwnership(useWebSocketStore.getState, activeConfigId);
+            }}
+            onToggleVirtualDisplay={async (active, packageName) => {
+              await toggleAndroidVirtualDisplay(active, packageName);
+            }}
+          />
+        </React.Suspense>
       )}
 
-      {/* Streaming log viewer with scroll management and export tooling. */}
-      <Card
-        className={
-          isAndroid
-            ? "flex-1 min-h-0 flex flex-col overflow-hidden"
-            : "flex-1 min-h-100 flex flex-col"
+      {androidStartGuard.dialog}
+
+      <Modal
+        isOpen={isAndroid && activeProfile?.id === activeConfigId && androidGameIssue !== null}
+        onClose={() => setAndroidGameIssue(null)}
+        title={
+          androidGameIssue?.unsupported
+            ? t("android.start.unsupportedGameTitle")
+            : t("android.start.missingGameTitle")
         }
       >
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>
-            <div className="flex items-center gap-2">
-              <Logs /> {t("log")}
-            </div>
-          </CardTitle>
-          <div className="sm:flex hidden items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label={t("log.scroll")}
-              className="px-4!"
-            />
-            <CButton onClick={exportLog} className="ml-2">
-              <div className="flex">
-                <FileUp size={20} className="mr-2" />
-                {t("log.export")}
-              </div>
-            </CButton>
-          </div>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {androidGameIssue?.unsupported
+            ? t("android.start.unsupportedGameDescription", {
+                profile: profile?.name,
+                server: androidGameIssue.server,
+              })
+            : t("android.start.missingGameDescription", {
+                profile: profile?.name,
+                server: androidGameIssue?.server,
+              })}
+        </p>
+        {androidGameIssue?.packageName && (
+          <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
+            {androidGameIssue.packageName}
+          </p>
+        )}
+        <div className="modal-footer">
+          <CButton onClick={() => setAndroidGameIssue(null)}>{t("common.close")}</CButton>
+        </div>
+      </Modal>
 
-          <div className="sm:hidden flex items-center justify-center">
-            <SwitchButton
-              checked={scrollToEnd}
-              onChange={(value) => {
-                setUiSettings((state) => ({ ...state, scrollToEnd: value }));
-              }}
-              label=""
-              className="ml-2 h-8 w-8"
-              iconOnly
+      <Modal
+        isOpen={
+          isAndroid && activeProfile?.id === activeConfigId && androidBlockingProfiles.length > 0
+        }
+        onClose={() => setAndroidBlockingProfiles([])}
+        title={t("android.start.otherProfileRunningTitle")}
+      >
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t("android.start.otherProfileRunningDescription", {
+            profiles: androidBlockingProfiles
+              .map((id) => profiles.find((item) => item.id === id)?.name ?? id)
+              .join(", "),
+            profile: profile?.name,
+          })}
+        </p>
+        <div className="modal-footer">
+          <CButton onClick={() => setAndroidBlockingProfiles([])}>{t("common.close")}</CButton>
+        </div>
+      </Modal>
+
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col ${isAndroid ? "gap-2" : "gap-5"}`}
+        data-home-sections
+      >
+        <div
+          className="min-w-0 shrink-0 empty:hidden"
+          hidden={!homePresentation.visible.shortcuts}
+          style={{ order: homePresentation.order.indexOf("shortcuts") }}
+          data-home-section="shortcuts"
+        >
+          <PluginHomeShortcuts cards={pluginHome.cards} />
+        </div>
+        {activeConfigId && (
+          <>
+            <div
+              className="min-w-0 shrink-0"
+              hidden={!homePresentation.visible.assets}
+              style={{ order: homePresentation.order.indexOf("assets") }}
+              data-home-section="assets"
             >
-              <ListEnd size={20} className="rounded w-4 h-4" />
-            </SwitchButton>
-            <CButton onClick={exportLog} className="ml-2 h-8 w-8" iconOnly>
-              <FileUp size={20} className="rounded w-4 h-4" />
-            </CButton>
-          </div>
-        </CardHeader>
+              {homePresentation.visible.assets && <AssetsDisplay profileId={activeConfigId} />}
+            </div>
+            <div
+              className="min-w-0 shrink-0"
+              hidden={!homePresentation.visible.tasks}
+              style={{ order: homePresentation.order.indexOf("tasks") }}
+              data-home-section="tasks"
+            >
+              {homePresentation.visible.tasks && <TaskStatus profileId={activeConfigId} />}
+            </div>
+          </>
+        )}
 
-        <CardContent className="relative flex-1 min-h-0 p-0 flex overflow-hidden">
-          {remoteAvailable && remoteVisible && activeConfigId && (
-            <RemoteDisplay profileId={activeConfigId} />
-          )}
-          <Logger logs={activeLogs} scrollToEnd={scrollToEnd} />
-        </CardContent>
-      </Card>
+        {/* Logs form the main workspace; controls stay quiet until they are needed. */}
+        <section
+          className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-(--log-surface) shadow-(--log-card-shadow) ${isAndroid ? "min-h-40" : "min-h-64"}`}
+          style={{ order: homePresentation.order.indexOf("logs") }}
+          data-home-section="logs"
+        >
+          <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5 border-b border-b-(--workspace-divider)">
+            <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
+              <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
+              {t("log")}
+            </h2>
+            <div className="flex shrink-0 items-center gap-1">
+              <IconTooltip content={t("log.scroll.detail")}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUiSettings((state) => ({ ...state, scrollToEnd: !scrollToEnd }))
+                  }
+                  aria-label={t("log.scroll")}
+                  aria-pressed={scrollToEnd}
+                  className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
+                >
+                  <ArrowDownToLine className="h-3.5 w-3.5" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+              <IconTooltip content={t("log.export")}>
+                <button
+                  type="button"
+                  onClick={exportLog}
+                  aria-label={t("log.export")}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <FileDown className="h-3.5 w-3.5" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            </div>
+          </div>
+          <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden py-2 px-2">
+            {remoteAvailable && remoteVisible && activeConfigId && (
+              <RemoteDisplay profileId={activeConfigId} />
+            )}
+            <ProfileLogView
+              configId={activeConfigId}
+              scrollToEnd={scrollToEnd}
+              visible={activeProfile?.id === activeConfigId}
+            />
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

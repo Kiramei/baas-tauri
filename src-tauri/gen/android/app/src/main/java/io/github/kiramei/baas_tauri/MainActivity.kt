@@ -1,36 +1,178 @@
 package io.github.kiramei.baas_tauri
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnAttach
+import androidx.core.view.updateLayoutParams
 import java.io.File
 
 class MainActivity : TauriActivity() {
   private var foregroundServiceStartScheduled = false
+  private var backRequestInFlight = false
+  private var systemBarBackground = Color.rgb(24, 24, 24)
+  private var systemBarDarkIcons = false
+  private var gameFullscreen = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    android.util.Log.i("BAASStartup", "activity_enter uptime=${android.os.SystemClock.uptimeMillis()} wall=${System.currentTimeMillis()}")
     super.onCreate(savedInstanceState)
-    requestNotificationPermissionIfNeeded()
+    TauriActivityResultCompat.onActivityCreate(this)
+    BackendServicePlugin.activityCreated(this)
+    WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    applySystemBars(systemBarBackground, systemBarDarkIcons)
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        handleAppBack()
+      }
+    })
+    android.util.Log.i("BAASStartup", "activity_created uptime=${android.os.SystemClock.uptimeMillis()}")
+    // Only the dedicated :baas_backend service process owns Python and its ports.
+    // Activity recreation and WebView reloads must reconnect, never bootstrap here.
+    var drawn = false
+    window.decorView.viewTreeObserver.addOnDrawListener {
+      if (!drawn) {
+        drawn = true
+        android.util.Log.i("BAASStartup", "first_draw uptime=${android.os.SystemClock.uptimeMillis()}")
+      }
+    }
+    ShizukuController.initialize(applicationContext)
+    BaasLocalDeviceServer.start(applicationContext)
     scheduleForegroundServiceStart(250L)
   }
 
   override fun onResume() {
     super.onResume()
+    applySystemBars(systemBarBackground, systemBarDarkIcons)
+    BackendServicePlugin.activityResumed(this)
     scheduleForegroundServiceStart(250L)
     scheduleDebugDevUrlLoads()
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    android.util.Log.i("BAASStartup", "webview_created uptime=${android.os.SystemClock.uptimeMillis()}")
     super.onWebViewCreate(webView)
-    webView.setBackgroundColor(Color.rgb(15, 23, 42))
+    applyWebViewInsets(webView)
+    webView.setBackgroundColor(systemBarBackground)
+    webView.settings.setSupportZoom(false)
+    webView.settings.builtInZoomControls = false
+    webView.settings.displayZoomControls = false
     loadDebugDevUrl(webView)
     scheduleDebugDevUrlLoads(webView)
+  }
+
+  private fun applyWebViewInsets(webView: WebView) {
+    webView.doOnAttach {
+      val content = findViewById<View>(android.R.id.content)
+      val margins = webView.layoutParams as ViewGroup.MarginLayoutParams
+      val left = margins.leftMargin
+      val top = margins.topMargin
+      val right = margins.rightMargin
+      val bottom = margins.bottomMargin
+      ViewCompat.setOnApplyWindowInsetsListener(content) { _, windowInsets ->
+        val types = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        val bars = windowInsets.getInsets(types)
+        // Keep the content parent unpadded: native preview coordinates already include the WebView offset.
+        webView.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+          leftMargin = left + bars.left
+          topMargin = top + bars.top
+          rightMargin = right + bars.right
+          bottomMargin = bottom + bars.bottom
+        }
+        WindowInsetsCompat.Builder(windowInsets).setInsets(types, Insets.NONE).build()
+      }
+      ViewCompat.requestApplyInsets(content)
+    }
+  }
+
+  override fun onPause() {
+    BackendServicePlugin.activityPaused(this)
+    super.onPause()
+  }
+
+  override fun onDestroy() {
+    BackendServicePlugin.activityDestroyed(this)
+    super.onDestroy()
+  }
+
+  /** Keeps Android's own bars in the same palette as the selected app theme. */
+  fun applySystemBars(backgroundColor: Int, darkIcons: Boolean) {
+    systemBarBackground = backgroundColor
+    systemBarDarkIcons = darkIcons
+    window.statusBarColor = backgroundColor
+    window.navigationBarColor = backgroundColor
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      window.navigationBarDividerColor = backgroundColor
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      window.isStatusBarContrastEnforced = false
+      window.isNavigationBarContrastEnforced = false
+    }
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+      isAppearanceLightStatusBars = darkIcons
+      isAppearanceLightNavigationBars = darkIcons
+      if (gameFullscreen) hide(WindowInsetsCompat.Type.systemBars())
+    }
+    findViewById<View>(android.R.id.content)?.setBackgroundColor(backgroundColor)
+    findWebView(window.decorView)?.setBackgroundColor(backgroundColor)
+  }
+
+  /** Rotate this Activity only. The game remains on its existing owned virtual display. */
+  fun setGameFullscreen(active: Boolean) {
+    gameFullscreen = active
+    requestedOrientation = if (active) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+      systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      if (active) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars())
+    }
+    applySystemBars(systemBarBackground, systemBarDarkIcons)
+  }
+
+  private fun handleAppBack() {
+    if (NativeGamePreview.forActivity(this)?.consumeFullscreenBack() == true) return
+    if (backRequestInFlight) return
+    val webView = findWebView(window?.decorView)
+    if (webView == null) {
+      moveTaskToBack(true)
+      return
+    }
+    backRequestInFlight = true
+    try {
+      // The SPA consumes Back for dialogs, search and page navigation before
+      // Android backgrounds the task. Its backend service stays alive.
+      webView.evaluateJavascript(
+        """(() => {
+          try {
+            return typeof window.__BAAS_ANDROID_HANDLE_BACK__ === 'function'
+              && window.__BAAS_ANDROID_HANDLE_BACK__() === true;
+          } catch (error) {
+            console.error('Android Back handler failed', error);
+            return false;
+          }
+        })()""".trimIndent(),
+      ) { result ->
+        backRequestInFlight = false
+        if (result != "true" && !isFinishing && !isDestroyed) {
+          moveTaskToBack(true)
+        }
+      }
+    } catch (error: RuntimeException) {
+      backRequestInFlight = false
+      android.util.Log.w("BAAS", "Unable to dispatch Back to the app", error)
+      if (!isFinishing && !isDestroyed) moveTaskToBack(true)
+    }
   }
 
   private fun ensureForegroundService() {
@@ -40,16 +182,6 @@ class MainActivity : TauriActivity() {
     } else {
       startService(intent)
     }
-  }
-
-  private fun requestNotificationPermissionIfNeeded() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-      return
-    }
-    if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-      return
-    }
-    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 8190)
   }
 
   private fun scheduleForegroundServiceStart(delayMs: Long) {

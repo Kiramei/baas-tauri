@@ -1,0 +1,201 @@
+.sha-diagnostics {
+  min-width: 0;
+  padding-block: 16px 8px;
+}
+.sha-diagnostics-toolbar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.sha-diagnostics-method {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 160px;
+}
+.settings-page .sha-diagnostics [data-slot="select-trigger"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 220px;
+  height: 30px;
+}
+.sha-diagnostics .sha-diagnostics-test {
+  height: 30px;
+  min-height: 30px;
+  max-width: 100%;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.sha-diagnostics-icon,
+.sha-diagnostics-chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.sha-diagnostics-results-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-block: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--foreground);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+.sha-diagnostics-results-toggle:hover {
+  color: var(--muted-foreground);
+}
+.sha-diagnostics-results-toggle:focus-visible,
+.sha-diagnostics-table-scroll:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.sha-diagnostics-count {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.sha-diagnostics-chevron {
+  color: var(--muted-foreground);
+  transition: transform 150ms;
+}
+.sha-diagnostics-chevron-expanded {
+  transform: rotate(180deg);
+}
+.sha-diagnostics-table-scroll {
+  /* Contain the absolute screen-reader labels within the table's scroll area. */
+  position: relative;
+  max-width: 100%;
+  max-height: 286px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.sha-diagnostics-table-scroll[hidden] {
+  display: none;
+}
+.sha-diagnostics-table {
+  width: 100%;
+  min-width: 320px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 18px;
+}
+.sha-diagnostics-status-column {
+  width: 48px;
+}
+.sha-diagnostics-time-column {
+  width: 72px;
+}
+.sha-diagnostics-sha-column {
+  width: 76px;
+}
+.sha-diagnostics-table th,
+.sha-diagnostics-table td {
+  height: 36px;
+  overflow: hidden;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sha-diagnostics-table th:first-child,
+.sha-diagnostics-table td:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.sha-diagnostics-table th:last-child,
+.sha-diagnostics-table td:last-child {
+  padding-right: 4px;
+}
+.sha-diagnostics-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 32px;
+  padding-block: 6px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+}
+.sha-diagnostics-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.sha-diagnostics-table tbody tr:hover {
+  background: var(--secondary);
+}
+.sha-diagnostics-status {
+  color: var(--muted-foreground);
+}
+.sha-diagnostics-status svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-inline: auto;
+}
+.sha-diagnostics-status[data-status="success"] {
+  color: #12b981;
+}
+.sha-diagnostics-status[data-status="error"] {
+  color: #f06275;
+}
+.sha-diagnostics-numeric {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 639px) {
+  .sha-diagnostics-table {
+    min-width: 280px;
+  }
+  .sha-diagnostics-status-column {
+    width: 40px;
+  }
+  .sha-diagnostics-time-column {
+    width: 64px;
+  }
+  .sha-diagnostics-sha-column {
+    width: 68px;
+  }
+  .sha-diagnostics-toolbar {
+    gap: 10px;
+  }
+  .sha-diagnostics-method {
+    flex-basis: 140px;
+  }
+  .sha-diagnostics-test {
+    margin-left: auto;
+  }
+}
+
+@supports (color: color-mix(in srgb, black, white)) {
+  .sha-diagnostics-results-toggle,
+  .sha-diagnostics-table th,
+  .sha-diagnostics-table td {
+    border-color: color-mix(in srgb, var(--border) 65%, transparent);
+  }
+  .sha-diagnostics-table thead th {
+    background: color-mix(in srgb, var(--secondary) 70%, var(--background));
+  }
+  .sha-diagnostics-table tbody tr:hover {
+    background: color-mix(in srgb, var(--foreground) 3%, transparent);
+  }
+}

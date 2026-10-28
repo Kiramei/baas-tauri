@@ -1,5 +1,5 @@
 export interface StaticConfig {
-  steam_app_process_name: string;
+  PC_app_process_name: Record<string, string | string[]>;
   main_story_final_episode_num: number;
   main_story_available_episodes: CurrentGameActivity;
   max_region: CurrentGameActivity;

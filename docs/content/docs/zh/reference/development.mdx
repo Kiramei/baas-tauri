@@ -1,9 +1,11 @@
 ---
 title: 开发与文档维护
-description: Tauri 客户端结构、后端通信、Fumadocs 文档站、截图维护和 GitHub Pages 部署。
+description: Tauri 客户端结构、后端通信、文档站本地构建和 GitHub Pages 部署。
 ---
 
-这个页面面向维护者。BAAS Tauri 的用户文档现在集中维护在 `baas-tauri/docs`，旧 `baas-dev/docs` 的仍适用内容需要逐步吸收到这里，而不是继续维护两套用户入口。
+工作区草稿持久化、延迟确认、调度关系归属、连接代次与 Android 进程边界的原理见[客户端架构与状态](./client-architecture)；可复现实验、原始样本与测量限制见[性能与基准测试](./performance)。
+
+[客户端原生 API](./client-api)列出宿主注册命令、参数结构与平台差异；业务消息与传输帧格式见[后端服务接口](./backend-service)。
 
 ## 客户端结构
 
@@ -14,12 +16,12 @@ baas-tauri/
 ├─ src/                    # React 客户端
 ├─ src-tauri/              # Tauri 2 Rust 外壳、命令和窗口能力
 ├─ public/locales/         # 应用 UI 文案
-├─ public/docs/            # 旧本地文档，仅保留中英文兼容内容
+├─ crates/                 # 原生更新器、终端与集成公共 crate
 ├─ docs/                   # Fumadocs 网页文档站
 └─ .github/workflows/      # 发布和文档部署工作流
 ```
 
-前端主要使用 React、Vite、Tailwind CSS、Zustand、i18next、lucide-react 和 Tauri 2。后端通过 WebSocket 同步状态、配置、事件、日志、版本和触发命令。
+前端主要使用 React、Vite、Tailwind CSS、Zustand、i18next、lucide-react 和 Tauri 2。同步状态仓库通过选中的原生适配器或已认证 WebSocket 传递状态、配置、事件、日志、版本和触发命令。
 
 ## 文档站结构
 
@@ -38,33 +40,14 @@ docs/content/docs/zh
 docs/content/docs/en
 docs/lib/source.ts
 docs/lib/i18n.ts
-docs/public/cn
-docs/public/en
+docs/public/media
 ```
 
 路由规则：
 
-- `/docs` 重定向到 `/docs/zh`。
 - 中文文档位于 `/docs/zh/...`。
 - 英文文档位于 `/docs/en/...`。
 - 非中文语言在应用内应回退英文。
-
-## 截图维护规则
-
-截图来自当前 BAAS Tauri 界面。中文文档使用 `docs/public/cn`，英文文档使用 `docs/public/en`。
-
-维护时必须先确认截图语义，再插入文档：
-
-- 主页截图只用于主页、日志、运行状态。
-- 安装器截图只用于安装。
-- 咖啡厅截图只用于咖啡厅。
-- 商店截图只用于商店。
-- 制造截图只用于制造。
-- 服务器、脚本、模拟器截图只用于连接和脚本配置。
-- 推图、扫荡、编队截图只用于对应功能。
-- 设置、更新、快捷键和远程画面截图只用于系统设置章节。
-
-不要为了“图文并茂”把不相关截图插入页面。
 
 ## 本地开发
 
@@ -99,7 +82,7 @@ http://localhost:3000/docs/en/
 7. 上传 `docs/out`。
 8. 部署到 GitHub Pages。
 
-`NEXT_PUBLIC_BASE_PATH` 很重要。仓库 Pages 通常不是部署在域名根路径，如果不传 base path，静态资源和路由可能在 GitHub Pages 上 404。
+当前独立域名部署使用根路径，构建时的 `NEXT_PUBLIC_BASE_PATH` 由 `actions/configure-pages` 提供。
 
 ## 从 baas-dev/docs 迁移
 

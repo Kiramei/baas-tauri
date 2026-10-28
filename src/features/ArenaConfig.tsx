@@ -1,127 +1,82 @@
-import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { FormInput } from "@/components/ui/FormInput.tsx";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
+import React, { useMemo } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationSelect,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { DynamicConfig } from "@/types/dynamic";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import {
+  hasConfigurationField,
+  serializeArenaConfig,
+  type ArenaConfigDraft,
+} from "./upstreamConfig";
 
 interface ArenaConfigProps {
   profileId: string;
   onClose: () => void;
 }
-
-interface Draft {
-  ArenaLevelDiff: number;
-  ArenaComponentNumber: number;
-  maxArenaRefreshTimes: number;
-}
-
-/** Renders the arena config component. */
-const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
+const ArenaConfig: React.FC<ArenaConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const supportsRankOneStop = hasConfigurationField(settings, "ArenaStopFightWhenRank1");
+  const initial = useMemo<ArenaConfigDraft>(
+    () => ({
+      ArenaLevelDiff: String(settings.ArenaLevelDiff ?? 0),
+      ArenaComponentNumber: String(settings.ArenaComponentNumber ?? 1),
+      maxArenaRefreshTimes: String(settings.maxArenaRefreshTimes ?? 0),
+      ArenaStopFightWhenRank1: settings.ArenaStopFightWhenRank1 ?? false,
+    }),
+    [settings]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo(() => {
-    return {
-      ArenaLevelDiff: settings.ArenaLevelDiff,
-      ArenaComponentNumber: settings.ArenaComponentNumber,
-      maxArenaRefreshTimes: settings.maxArenaRefreshTimes,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle change interaction. */
-  const handleChange = (key: string) => (value: string) => {
-    const numValue = parseInt(value, 10);
-    if (!isNaN(numValue)) {
-      setDraft((d) => ({ ...d, [key]: numValue }));
-    }
-  };
-
-  /** Handles the handle numeric change interaction. */
-  const handleNumericChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const numValue = parseInt(value, 10);
-    if (!isNaN(numValue)) {
-      setDraft((d) => ({ ...d, [name]: numValue }));
-    }
-  };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
+  const [draft, setDraft] = useConfigurationDraft(profileId, "arena", initial, {
+    serialize: (value) => serializeArenaConfig(value, settings),
+  });
+  const change =
+    (key: Exclude<keyof ArenaConfigDraft, "ArenaStopFightWhenRank1">) => (value: string) =>
+      setDraft((previous) => ({ ...previous, [key]: value }));
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <FormInput
-          id="ArenaLevelDiff"
-          name="ArenaLevelDiff"
-          label={t("arena.higherLevel")}
-          type="number"
-          className="w-full"
-          value={draft.ArenaLevelDiff}
-          onChange={handleNumericChange}
-          min="-89"
-          max="89"
-        />
-
-        <FormInput
-          id="maxArenaRefreshTimes"
-          name="maxArenaRefreshTimes"
-          label={t("arena.maxRefreshTimes")}
-          type="number"
-          className="w-full"
-          value={draft.maxArenaRefreshTimes}
-          onChange={handleNumericChange}
-          min="0"
-        />
-
-        <FormSelect
-          label={t("arena.opponentNo")}
-          className="w-full"
-          value={draft.ArenaComponentNumber.toString()}
-          onChange={handleChange("ArenaComponentNumber")}
-          options={[
-            { value: "1", label: "1" },
-            { value: "2", label: "2" },
-            { value: "3", label: "3" },
-          ]}
-          placeholder={t("select.placeholder")}
-        />
-      </div>
-
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
+    <ConfigurationGroup title={t("arena")}>
+      <ConfigurationToggle
+        label={t("arena.stopAtFirstPlace")}
+        description={
+          supportsRankOneStop
+            ? t("configurationHelp.arenaStopAtFirstPlace")
+            : t("configurationHelp.backendUpdateRequired")
+        }
+        disabled={!supportsRankOneStop}
+        checked={draft.ArenaStopFightWhenRank1}
+        onChange={(value) =>
+          setDraft((previous) => ({ ...previous, ArenaStopFightWhenRank1: value }))
+        }
+      />
+      <ConfigurationInput
+        type="number"
+        label={t("arena.higherLevel")}
+        description={t("configurationHelp.arenaLevel")}
+        value={draft.ArenaLevelDiff}
+        onChange={(event) => change("ArenaLevelDiff")(event.target.value)}
+        min={-89}
+        max={89}
+      />
+      <ConfigurationInput
+        type="number"
+        label={t("arena.maxRefreshTimes")}
+        description={t("configurationHelp.arenaRefresh")}
+        value={draft.maxArenaRefreshTimes}
+        onChange={(event) => change("maxArenaRefreshTimes")(event.target.value)}
+        min={0}
+      />
+      <ConfigurationSelect
+        label={t("arena.opponentNo")}
+        description={t("configurationHelp.arenaOpponent")}
+        value={draft.ArenaComponentNumber}
+        onChange={change("ArenaComponentNumber")}
+        options={["1", "2", "3"].map((value) => ({ value, label: value }))}
+      />
+    </ConfigurationGroup>
   );
 };
-
 export default ArenaConfig;

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-open-backend-config-folder"
+description = "Opens the active installation's backend config directory without accepting arbitrary paths."
+commands.allow = ["open_backend_config_folder"]

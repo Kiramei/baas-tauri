@@ -1,48 +1,105 @@
 ---
 title: Cafe
-description: Cafe rewards, invitation tickets, student lists, second cafe, and patting settings.
+description: Every Cafe control, independent invitation strategies, conditional tabs, student selection and task setup.
 ---
 
-Cafe automation mostly collects rewards and manages affection. It is low-risk, but invitation strategy still affects training targets.
+Open **Configuration → Cafe** for the intended profile. Basic controls and invitation strategies save automatically; undo/redo follows the [configuration workspace](../guide/configuration). Configuring Cafe does not enable its tasks in Scheduler.
 
 <img
   className="baas-screenshot"
-  src="/en/cafe-base-settings.png"
-  alt="Cafe base settings with reward collection, invitation ticket, outfit change, repeat invite, second cafe, pat count, and pat style"
+  src="/media/desktop/en/config-cafe.webp"
+  alt="Cafe editor, Basic tab, switches, patting rounds and style"
 />
 
-| Option                | Purpose                                      |
-| --------------------- | -------------------------------------------- |
-| Collect rewards       | Collect cafe income                          |
-| Use invitation ticket | Invite students by configured strategy       |
-| Allow outfit change   | Include alternate outfits in invite flow     |
-| Enable second cafe    | Enable cafe 2 settings                       |
-| Pat count             | Higher count reduces misses but takes longer |
+## Basic Settings
 
-## Student List
+| Control               | Meaning and accepted values                                                                                                                        | Exported field                       |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Collect rewards       | Collect accumulated Cafe income when the Cafe task runs                                                                                            | `cafe_reward_collect_hour_reward`    |
+| Use invitation ticket | Permit ticket use during the Cafe reward flow; switching it off is not the same as disabling every independent invitation task                     | `cafe_reward_use_invitation_ticket`  |
+| Student outfit change | Allow an invitation that replaces the student's alternate outfit when the game asks                                                                | `cafe_reward_allow_exchange_student` |
+| Duplicate invite      | Allow inviting a student already present when the duplicate-invite prompt appears                                                                  | `cafe_reward_allow_duplicate_invite` |
+| Cafe 2                | Include the second Cafe and display its separate settings tab; enable only after it is unlocked in game                                            | `cafe_reward_has_no2_cafe`           |
+| Patting rounds        | Integer 4–15; input is clamped to this range. More rounds can reduce missed interactions but take longer. An empty intermediate value is not saved | `cafe_reward_affection_pat_round`    |
+| Patting style         | Normal interaction or Drag Gift; these choose the interaction method, not the crafting material strategy                                           | `patStyle`                           |
+
+Turning Cafe 2 off hides its tab without turning it into a separate delete action. Re-enable it to edit that Cafe's strategy. These switches describe behavior, not proof that a ticket or student is available.
+
+### Drag Gift Timing
+
+Choose **Drag Gift**, then expand **Advanced settings** to edit the interaction
+screenshot delay (`cafe_reward_interaction_shot_delay`). The value is seconds,
+defaults to `1`, and accepts finite non-negative numbers, including fractions
+such as `0.25`. This setting applies to the gift-drag interaction method; it is
+hidden while Normal interaction is selected.
+
+An empty, negative or invalid delay stays in the local draft and is not saved;
+other valid Cafe settings can still save. The backend can adjust this delay
+while interacting. If the connected backend snapshot lacks this field, the
+control is disabled with an update-backend message.
+
+## Cafe 1 and Cafe 2 Invitations
+
+Each Cafe has an independent invitation mode, starred position and named-student list. Cafe 2's tab exists only while the Basic Cafe 2 switch is enabled.
 
 <img
   className="baas-screenshot"
-  src="/en/cafe-one-invite-by-name.png"
-  alt="Cafe 1 setting with invite by student name and student list"
+  src="/media/desktop/en/conditional-cafe-named.webp"
+  alt="Cafe 1 invitation by name with students in selection order"
 />
+
+| Mode              | Behavior                                             | Conditional control                          |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------- |
+| Lowest affection  | Invite by ascending affection order in the game list | No named-student or starred-position control |
+| Highest affection | Invite by descending affection order                 | No named-student or starred-position control |
+| Starred           | Invite from the game's starred list                  | Starred position 1–5                         |
+| By name           | Try configured students in list order                | Student chips and Add Student                |
+
+For Cafe N, the exported fields are `cafe_reward_inviteN_criterion`,
+`cafe_reward_inviteN_starred_student_position` and `favorStudentN`, where N is
+1 or 2. Starred position is a position in the game list, not a student identifier.
+An empty named list falls back to lowest-affection invitation in the inspected
+backend; it does not mean “never invite.”
+
+## Student Selector
+
+Choose By name, then Add Student. Search filters the names supplied by the
+backend for the selected game server. The game-server naming convention is
+independent of the app's interface language; an English UI can show Chinese
+names for a CN profile.
+
+Click a student to add it; click a selected student again to remove it. New
+selections append to the preference list. The chip's remove icon also removes
+that entry. Selections update the automatically saved draft as you click;
+closing the selector does not undo them.
+To put a target first, build the list in the desired order.
 
 <img
   className="baas-screenshot"
-  src="/en/student-picker-cafe.png"
-  alt="Student picker dialog with searchable student tags"
+  src="/media/desktop/en/conditional-cafe-student-search.webp"
+  alt="Student-name search with a selected name highlighted"
 />
 
-Invite modes include student name, highest affection, lowest affection, and favorite students. For fixed training targets, use student names and maintain the list.
+Closing and reopening the selector within this category keeps the search text.
+No matches leaves an empty list; clear the search to show all candidates again.
+Filtering does not remove students already selected.
 
-## Targeted Affection Strategy
+<img
+  className="baas-screenshot"
+  src="/media/desktop/en/conditional-cafe-starred.webp"
+  alt="The five starred-student positions for Cafe 2"
+/>
 
-Legacy guidance still applies:
+## Schedule and Check
 
-| Goal                                        | Method                                                                                                                                          |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invite a target student                     | Use invite-by-name, or favorite only the target student and use favorite-student invite                                                         |
-| Pat a target student multiple times per day | Configure both cafe 1 and cafe 2 for the target; disable automatic invitation-ticket use; enable the related cafe invitation tasks in Scheduler |
-| Reduce wrong invites                        | Avoid long candidate lists; confirm whether alternate outfits are allowed                                                                       |
+The Cafe reward task and the Cafe 1/Cafe 2 invitation tasks are separate scheduler
+entries. Inspect each enabled entry, its next run and pre/post tasks. Setting
+both Cafe strategies to the same student is a preference, not a guarantee of
+two successful invitations or unlimited affection; game availability and
+cooldowns still apply.
 
-To maximize one student's affection, configure cafe, lessons, and crafting together: cafe handles pats and invitations, lessons target the student when possible, and crafting prioritizes preferred gifts.
+For a focused affection plan, align the selected student in Cafe, Lessons and
+stage-two Crafting. Run one configured task first and check the invitation
+method, detected student name, ticket availability and outcome in logs. A
+recognized student in the selector is not evidence that the account owns it
+or can invite it now.

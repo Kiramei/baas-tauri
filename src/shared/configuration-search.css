@@ -1,0 +1,5 @@
+::highlight(baas-configuration-search-active) {
+  color: inherit;
+  background-color: rgba(248, 190, 44, 0.75);
+  text-decoration: underline;
+}

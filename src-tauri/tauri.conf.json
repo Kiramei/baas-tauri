@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BAAS Tauri",
-  "version": "0.0.8-rc",
+  "version": "0.0.9",
   "identifier": "io.github.kiramei.baas-tauri",
   "build": {
     "frontendDist": "../dist",
@@ -12,12 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "Blue Archive Auto Script",
+        "title": "BlueArchiveAutoScript",
         "label": "main",
         "width": 1280,
         "height": 800,
         "minWidth": 360,
-        "minHeight": 640,
+        "minHeight": 684,
         "devtools": true,
         "visible": true,
         "theme": null
@@ -32,7 +32,6 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NzNGODlERTkxNUJDMDEKUldRQnZCWHBuZmh6eERYUWs0dFowYUNYcFRFNmZIZGk5WStWZWI3Z0dGRmphQnFNbFM2MHhpTloK",
       "endpoints": [
         "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
-        "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
         "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
         "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json"
       ],

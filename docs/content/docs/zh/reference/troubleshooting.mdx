@@ -7,11 +7,11 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 ## 安装器卡住或失败
 
-安装器执行时会显示步骤图和 Installation Logs。
+安装器执行时会显示步骤图和日志，失败节点可展开查看命令输出。
 
 <img
   className="baas-screenshot"
-  src="/cn/installer-progress-log-dark.png"
+  src="/media/desktop/zh/installer-error.webp"
   alt="安装器日志页面，显示安装步骤和命令输出"
 />
 
@@ -69,7 +69,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/server-adb-settings.png"
+  src="/media/desktop/zh/config-server.webp"
   alt="服务器配置中的 ADB IP、ADB 端口和检测按钮"
 />
 
@@ -182,7 +182,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/remote-display-advanced-settings.png"
+  src="/media/desktop/zh/details-remote-advanced.webp"
   alt="远程模拟器高级设置，用于调整分辨率、帧率、比特率和剪切板"
 />
 
@@ -201,7 +201,7 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 <img
   className="baas-screenshot"
-  src="/cn/settings-update-source-sha.png"
+  src="/media/desktop/zh/settings-updates.webp"
   alt="更新设置和 SHA 测试表格"
 />
 
@@ -215,13 +215,19 @@ description: 安装、连接、ADB、模拟器、截图识别、调度、更新�
 
 ## Android 客户端异常
 
-v0.0.7 起新增 Android 客户端。如果 Android 端无法启动、无法切换脚本或后端反复重启：
+按故障发生的阶段检查：
 
-- 确认 APK 是最新版本，且 Android 系统允许安装和运行该应用。
-- 打开无障碍服务权限，否则脚本无法完成部分自动化控制。
-- 保持前台服务通知存在；如果系统杀后台，后端和脚本都会中断。
-- 通知栏脚本开关无效时，先打开应用确认后端已启动，再重试通知操作。
-- Android 后端更新后如果界面未恢复，关闭应用后重新打开。
+| 现象 | 检查与处理 |
+| ---- | ---------- |
+| APK 安装失败 | 核对 CPU ABI、Android 版本、安装来源权限和已有包签名；不要通过清除数据处理签名冲突 |
+| 首次准备或更新失败 | 展开失败阶段，保留终端输出，检查下载来源、网络和应用私有存储 |
+| 启动游戏被阻止 | 分别检查 Shizuku 是否安装、运行、已授权；本机控制不要求开启无障碍服务 |
+| 黑屏、画面未更新，或旧版 Live 停在启动图 | 先停止调度，再关闭后台显示；核对实际游戏画面、Activity 显示归属和修复构建，见[后台游戏排查](../guide/android#游戏跳回主屏或预览停在启动图) |
+| 游戏跳回主屏 | 检查 `Not allow to launch ... on display` 日志；更新包含显示任务/焦点恢复的 APK 后重新创建会话，不要通过提高码率处理放置权限失败 |
+| OCR 报 `EM_AARCH64` / `EM_X86_64` 或 `dlopen failed` | 核对报错动态库和实际加载进程的架构；模拟器内核报告值可能不同，见[ABI 兼容](../guide/android#模拟器-abi-兼容) |
+| 后台断连或任务中断 | 检查独立后端服务、系统进程日志和后台限制；BAAS 会尝试抑制自身通知，通知可见性不能单独证明服务健康 |
+
+当前版本没有通知栏任务启动/停止按钮。打开应用后，在底部中间控制调度器；首页游戏区域的播放只启动后台游戏。不要把后台游戏启动成功当作任务执行成功。
 
 ## 传输和系统日志异常
 
@@ -245,8 +251,8 @@ http://localhost:3000/docs/en/
 
 如果图片不显示：
 
-- 确认图片位于 `docs/public/cn` 或 `docs/public/en`。
-- MDX 中使用以 `/cn/...` 或 `/en/...` 开头的路径。
+- 新媒体位于 `docs/public/media`，基准资源位于 `docs/public/benchmarks`；旧资源还保留在 `cn`、`en` 和 `backend-assets` 下。
+- MDX 引用以 public 根目录为起点，例如 `/media/android/zh/game-preview.webp`，不要把 `docs/public` 写入 URL。
 - GitHub Pages 部署时确认 `NEXT_PUBLIC_BASE_PATH` 已传入构建。
 
 ## 反馈问题需要提供

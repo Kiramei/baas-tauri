@@ -1,0 +1,42 @@
+/* Script output only. System diagnostics and exported log text are unchanged. */
+.script-log-message {
+  --script-log-key: #436578;
+  --script-log-identifier: #17677b;
+  --script-log-string: #87591f;
+  --script-log-number: #72549b;
+  --script-log-literal: #72549b;
+}
+
+.dark .script-log-message {
+  --script-log-key: #9aafc2;
+  --script-log-identifier: #8cc6d5;
+  --script-log-string: #d6bb88;
+  --script-log-number: #baa5da;
+  --script-log-literal: #baa5da;
+}
+
+.script-log-message .script-log-token-heading {
+  color: inherit;
+  font-weight: 600;
+}
+
+.script-log-message .script-log-token-key {
+  color: var(--script-log-key);
+}
+
+.script-log-message .script-log-token-identifier {
+  color: var(--script-log-identifier);
+}
+
+.script-log-message .script-log-token-string,
+.script-log-message .script-log-token-path {
+  color: var(--script-log-string);
+}
+
+.script-log-message .script-log-token-number {
+  color: var(--script-log-number);
+}
+
+.script-log-message .script-log-token-literal {
+  color: var(--script-log-literal);
+}

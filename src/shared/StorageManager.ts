@@ -52,6 +52,26 @@ function toBlob(data: DownloadData): Blob {
   });
 }
 
+/** Keep the URL alive while the browser consumes the download navigation. */
+export function downloadBrowserFile(filename: string, data: DownloadData) {
+  const url = URL.createObjectURL(toBlob(data));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+  try {
+    document.body.appendChild(anchor);
+    anchor.click();
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  } finally {
+    anchor.remove();
+  }
+  // Immediate revocation can race the browser's asynchronous download handling.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function dataURLToBlob(dataURL: string): Blob {
   const commaIndex = dataURL.indexOf(",");
   if (commaIndex < 0) {
@@ -71,6 +91,14 @@ export function dataURLToBlob(dataURL: string): Blob {
 }
 
 class StorageUtilWebUI {
+  static async setDurable(key: string, value: any) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  static async removeDurable(key: string) {
+    localStorage.removeItem(key);
+  }
+
   static async init() {
     // For the browser has actually done the LocalStorage initialization,
     // we don't implement the init function and leave it blank.
@@ -87,10 +115,17 @@ class StorageUtilWebUI {
   }
 
   static set(key: string, value: any) {
+    this.trySet(key, value);
+  }
+
+  /** Report browser quota/permission failures without discarding the previous value. */
+  static trySet(key: string, value: any): boolean {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      return true;
     } catch (e) {
       console.error("[StorageUtil:set] error:", e);
+      return false;
     }
   }
 
@@ -111,36 +146,42 @@ class StorageUtilWebUI {
       console.log("No data provided");
       return;
     }
-    const blob = toBlob(data);
-    const url = URL.createObjectURL(blob);
-    try {
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filename;
-      anchor.click();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    downloadBrowserFile(filename, data);
   }
 
   static async upload(_translator: TFunction, accept = ".zip"): Promise<UploadData | null> {
     return await new Promise((resolve, reject) => {
       const input = document.createElement("input");
       let settled = false;
+      let focusTimer: ReturnType<typeof setTimeout> | undefined;
+      const cleanup = () => {
+        clearTimeout(focusTimer);
+        window.removeEventListener("focus", onFocus);
+        input.onchange = null;
+        input.oncancel = null;
+        input.remove();
+      };
       const finish = (value: UploadData | null) => {
         if (settled) return;
         settled = true;
-        window.removeEventListener("focus", onFocus);
+        cleanup();
         resolve(value);
+      };
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
       };
       /** Handles the on focus interaction. */
       const onFocus = () => {
-        setTimeout(() => {
+        focusTimer = setTimeout(() => {
           if (!input.files?.length) finish(null);
         }, 500);
       };
       input.type = "file";
       input.accept = accept;
+      input.style.display = "none";
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) {
@@ -150,12 +191,18 @@ class StorageUtilWebUI {
         try {
           finish(new Uint8Array(await file.arrayBuffer()));
         } catch (error) {
-          reject(error);
+          fail(error);
         }
       };
-      (input as HTMLInputElement & { oncancel?: () => void }).oncancel = () => finish(null);
+      // Some browsers expose oncancel without emitting it for their file picker.
       window.addEventListener("focus", onFocus, { once: true });
-      input.click();
+      input.oncancel = () => finish(null);
+      try {
+        document.body.appendChild(input);
+        input.click();
+      } catch (error) {
+        fail(error);
+      }
     });
   }
 
@@ -169,6 +216,20 @@ class StorageUtilTauri {
   private static store: Store | null = null;
   private static cache: Record<string, any> = {};
   private static initialized = false;
+
+  static async setDurable(key: string, value: any) {
+    if (!this.initialized || !this.store) throw new Error("Storage is not initialized");
+    await this.store.set(key, value);
+    await this.store.save();
+    this.cache[key] = value;
+  }
+
+  static async removeDurable(key: string) {
+    if (!this.initialized || !this.store) throw new Error("Storage is not initialized");
+    await this.store.delete(key);
+    await this.store.save();
+    delete this.cache[key];
+  }
 
   static async init() {
     if (this.initialized) return;
@@ -209,6 +270,13 @@ class StorageUtilTauri {
     }
     this.cache[key] = value;
     this.store!.set(key, value).then(() => this.store!.save());
+  }
+
+  /** Native writes retain their queued behavior; setDurable awaits the actual save. */
+  static trySet(key: string, value: any): boolean {
+    if (!this.initialized) return false;
+    this.set(key, value);
+    return true;
   }
 
   static remove(key: string) {

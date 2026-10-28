@@ -1,111 +1,221 @@
-import React, { useMemo, useState } from "react";
-import SwitchButton from "@/components/ui/SwitchButton";
+import React, { useId, useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import {
+  ConfigurationGroup,
+  ConfigurationInput,
+  ConfigurationRow,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
+import { Button } from "@/components/ui/Button";
 import { FormInput } from "@/components/ui/FormInput";
-import { useTranslation } from "react-i18next";
-import { DynamicConfig } from "@/types/dynamic";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
+import {
+  hasIncompleteTelegramCredentials,
+  normalizePushConfig,
+  serializePushConfig,
+  supportsPushField,
+  type PushConfigValues,
+} from "./pushConfiguration";
+import "@/components/configuration/configuration-forms.css";
 
-type PushConfigProps = {
+interface PushConfigProps {
   profileId: string;
   onClose: () => void;
-};
-
-interface Draft {
-  push_after_error: boolean;
-  push_after_completion: boolean;
-  push_json: string;
-  push_serverchan: string;
 }
-
-/** Renders the push config component. */
-const PushConfig: React.FC<PushConfigProps> = ({ profileId, onClose }) => {
-  const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId]
-  );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const ext = useMemo(() => {
-    return {
-      push_json: settings.push_json,
-      push_serverchan: settings.push_serverchan,
-      push_after_error: settings.push_after_error,
-      push_after_completion: settings.push_after_completion,
-    } as Draft;
-  }, [settings]);
-
-  const [draft, setDraft] = useState<Draft>(ext);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  /** Handles the handle change interaction. */
-  const handleChange =
-    <K extends keyof Draft>(key: K) =>
-    (value: Draft[K]) => {
-      setDraft((prev) => ({ ...prev, [key]: value }));
-    };
-
-  /** Handles the handle save interaction. */
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {};
-    (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
-      if (JSON.stringify(draft[k]) !== JSON.stringify(ext[k])) {
-        (patch as any)[k] = draft[k];
-      }
-    });
-
-    if (Object.keys(patch).length === 0) {
-      onClose();
-      return;
-    }
-    modify(`${profileId}::config`, patch);
-
-    onClose();
-  };
-
+function SecretConfigurationInput({
+  label,
+  description,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  label: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const { t } = useAppTranslation();
+  const [visible, setVisible] = useState(false);
+  const inputId = useId();
   return (
-    <div className="space-y-6">
-      <div className="w-full flex gap-2 lg:flex-row max-lg:flex-col">
-        <SwitchButton
-          label={t("push.afterError")}
-          checked={draft.push_after_error}
-          onChange={handleChange("push_after_error")}
-          className="flex-1"
+    <ConfigurationRow
+      label={label}
+      description={description}
+      className="configuration-row-responsive"
+    >
+      <div className="flex min-w-0 items-center gap-1">
+        <FormInput
+          id={inputId}
+          aria-label={label}
+          type={visible && !disabled ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          className="min-w-0 flex-1"
+          disabled={disabled}
         />
-
-        <SwitchButton
-          label={t("push.afterCompletion")}
-          checked={draft.push_after_completion}
-          onChange={handleChange("push_after_completion")}
-          className="flex-1"
-        />
-      </div>
-
-      <FormInput
-        label={t("push.json")}
-        value={draft.push_json}
-        onChange={(e) => handleChange("push_json")(e.target.value)}
-        placeholder={t("placeholder.config.insert")}
-      />
-
-      <FormInput
-        label={t("push.serverchan")}
-        value={draft.push_serverchan}
-        onChange={(e) => handleChange("push_serverchan")(e.target.value)}
-        placeholder={t("placeholder.config.insert")}
-      />
-
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={
+            visible
+              ? t("push.hideSecret", { field: label })
+              : t("push.showSecret", { field: label })
+          }
+          aria-pressed={visible}
+          aria-controls={inputId}
+          disabled={disabled}
+          onClick={() => setVisible((previous) => !previous)}
         >
-          {t("common.save")}
-        </button>
+          {visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+        </Button>
       </div>
-    </div>
+    </ConfigurationRow>
+  );
+}
+const PushConfig: React.FC<PushConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId]);
+  const initial = useMemo(() => normalizePushConfig(settings), [settings]);
+  const [draft, setDraft] = useConfigurationDraft(profileId, "push", initial, {
+    serialize: (value) => serializePushConfig(value, settings),
+  });
+  const fieldDescription = (field: keyof PushConfigValues, description: string) =>
+    supportsPushField(settings, field)
+      ? description
+      : `${description} ${t("configurationHelp.backendUpdateRequired")}`;
+  const change =
+    <K extends keyof PushConfigValues>(key: K) =>
+    (value: PushConfigValues[K]) =>
+      setDraft((previous) => ({ ...previous, [key]: value }));
+  return (
+    <>
+      <ConfigurationGroup title={t("push.triggers")}>
+        <ConfigurationToggle
+          label={t("push.afterError")}
+          description={t("configurationHelp.pushError")}
+          checked={draft.push_after_error}
+          onChange={change("push_after_error")}
+        />
+        <ConfigurationToggle
+          label={t("push.afterCompletion")}
+          description={t("configurationHelp.pushCompletion")}
+          checked={draft.push_after_completion}
+          onChange={change("push_after_completion")}
+        />
+      </ConfigurationGroup>
+      <ConfigurationGroup title={t("push.channels")}>
+        <SecretConfigurationInput
+          key={`${profileId}:json`}
+          label={t("push.json")}
+          description={t("configurationHelp.pushJson")}
+          value={draft.push_json}
+          onChange={change("push_json")}
+          placeholder={t("placeholder.config.insert")}
+        />
+        <SecretConfigurationInput
+          key={`${profileId}:serverchan`}
+          label={t("push.serverchan")}
+          description={t("configurationHelp.pushServerchan")}
+          value={draft.push_serverchan}
+          onChange={change("push_serverchan")}
+          placeholder={t("placeholder.config.insert")}
+        />
+        <SecretConfigurationInput
+          key={`${profileId}:feishu`}
+          label={t("push.feishu")}
+          description={fieldDescription("push_feishu", t("configurationHelp.pushFeishu"))}
+          value={draft.push_feishu}
+          onChange={change("push_feishu")}
+          disabled={!supportsPushField(settings, "push_feishu")}
+          placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/…"
+        />
+        <SecretConfigurationInput
+          key={`${profileId}:wecom`}
+          label={t("push.wecom")}
+          description={fieldDescription("push_wecom", t("configurationHelp.pushWecom"))}
+          value={draft.push_wecom}
+          onChange={change("push_wecom")}
+          disabled={!supportsPushField(settings, "push_wecom")}
+          placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…"
+        />
+      </ConfigurationGroup>
+      <ConfigurationGroup title={t("push.telegram")}>
+        <div className="settings-block">
+          <p className="settings-description">{t("configurationHelp.pushTelegram")}</p>
+          {supportsPushField(settings, "push_telegram_bot_token") &&
+            supportsPushField(settings, "push_telegram_chat_id") &&
+            hasIncompleteTelegramCredentials(draft) && (
+              <p className="settings-description" role="status">
+                {t("push.telegramIncomplete")}
+              </p>
+            )}
+        </div>
+        <SecretConfigurationInput
+          key={`${profileId}:telegram-token`}
+          label={t("push.telegramToken")}
+          description={fieldDescription(
+            "push_telegram_bot_token",
+            t("configurationHelp.pushTelegramToken")
+          )}
+          value={draft.push_telegram_bot_token}
+          onChange={change("push_telegram_bot_token")}
+          disabled={!supportsPushField(settings, "push_telegram_bot_token")}
+          placeholder={t("placeholder.config.insert")}
+        />
+        <ConfigurationInput
+          label={t("push.telegramChatId")}
+          className="configuration-row-responsive"
+          description={fieldDescription(
+            "push_telegram_chat_id",
+            t("configurationHelp.pushTelegramChatId")
+          )}
+          value={draft.push_telegram_chat_id}
+          onChange={(event) => change("push_telegram_chat_id")(event.target.value)}
+          disabled={!supportsPushField(settings, "push_telegram_chat_id")}
+          placeholder="123456789 / -1001234567890"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+        <SecretConfigurationInput
+          key={`${profileId}:telegram-proxy`}
+          label={t("push.telegramProxy")}
+          description={fieldDescription(
+            "push_telegram_proxy",
+            t("configurationHelp.pushTelegramProxy")
+          )}
+          value={draft.push_telegram_proxy}
+          onChange={change("push_telegram_proxy")}
+          disabled={!supportsPushField(settings, "push_telegram_proxy")}
+          placeholder="http://127.0.0.1:7890"
+        />
+        <ConfigurationInput
+          label={t("push.telegramApi")}
+          className="configuration-row-responsive"
+          description={fieldDescription(
+            "push_telegram_api",
+            t("configurationHelp.pushTelegramApi")
+          )}
+          value={draft.push_telegram_api}
+          onChange={(event) => change("push_telegram_api")(event.target.value)}
+          disabled={!supportsPushField(settings, "push_telegram_api")}
+          placeholder="https://api.telegram.org"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+      </ConfigurationGroup>
+    </>
   );
 };
-
 export default PushConfig;

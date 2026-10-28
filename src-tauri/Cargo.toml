@@ -1,6 +1,6 @@
 [package]
 name = "baas-tauri"
-version = "0.0.8-rc"
+version = "0.0.9"
 description = "Tauri App for pur1fying/blue_archive_auto_script"
 authors = ["Kiramei"]
 edition = "2021"
@@ -22,6 +22,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
+serde_json = { workspace = true }
 
 [dependencies]
 # Borrow from workspace
@@ -32,6 +33,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
+base64 = "0.22.1"
 
 # Main App Specified Packages
 tauri-plugin-opener = "2"
@@ -53,8 +55,8 @@ url = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 baas-updater = { workspace = true }
-base64 = "0.22.1"
 minreq = { version = "3.0.0", features = ["https-rustls"] }
+minisign-verify = "0.2.4"
 rand = "0.8.5"
 rsa = { version = "0.9.8", features = ["pem"] }
 sha1 = { version = "0.10.6", features = ["oid"] }
@@ -62,8 +64,22 @@ sha1 = { version = "0.10.6", features = ["oid"] }
 [dev-dependencies]
 tempfile = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+sha2 = "0.11.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gdkx11 = "0.18"
+gtk = "0.18.2"
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Security",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
   "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
 ] }

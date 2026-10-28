@@ -36,8 +36,19 @@ export default defineConfig(({ mode }) => {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",
       port: withTauri ? 8191 : 8192,
       strictPort: true,
+      proxy: !withTauri
+        ? Object.fromEntries(
+            ["/ws", "/auth/remember", "/auth/logout", "/health"].map((route) => [
+              route,
+              {
+                target: process.env.VITE_BAAS_PROXY_TARGET || "http://127.0.0.1:8190",
+                ws: route === "/ws",
+              },
+            ])
+          )
+        : undefined,
       watch: {
-        ignored: ["**/target/**", "**/.git/**"],
+        ignored: ["**/target/**", "**/.git/**", "**/src-tauri/gen/**"],
       },
       warmup: {
         clientFiles: [

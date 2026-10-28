@@ -1,0 +1,76 @@
+---
+title: WebUI 与 Docker
+description: 通过浏览器使用 BAAS，部署 Docker、保存数据并管理登录 Key。
+---
+
+WebUI 在浏览器运行共用工作区，自动化由服务端执行。它可以管理配置档、调度、插件和后端更新，无需安装 Tauri 桌面客户端；游戏设备必须能从服务端访问。
+
+## 启动 Docker
+
+在仓库根目录运行：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+打开 `http://127.0.0.1:8191`。默认只绑定本机，后端 `127.0.0.1:8190` 位于容器内部，不对外暴露。
+
+`scripts/docker/app/` 挂载到容器的 `/app`，保留配置档、登录数据、后端代码和日志。升级镜像前备份此目录；不要用删除卷的方式处理一般更新错误。首次启动会准备后端和 OCR，网络失败时查看容器日志：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml logs --tail=100
+docker compose -f scripts/docker/docker-compose.yml pull
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+镜像包含 WebUI 和 Python 依赖。应用内后端 Git 更新不会更新浏览器界面或镜像依赖；这些内容需要拉取新镜像并重建容器。
+
+## 登录与重置 Key
+
+首次打开时按页面提示设置 **Key**，之后使用 Key 登录或使用已记住的会话。Key 是后端登录凭据，不是 Mirror 酱密钥或游戏账号密码。
+
+已登录时可在**设置 → 通用 → 登录 / Key → 重置 Key**中输入并确认新 Key。成功后所有会话和已记住的登录失效，需要重新登录；配置档保留。重置需要后端 `/health` 声明 `auth.key_reset_supported: true`，缺少该能力时先更新后端。
+
+不要把 Key、Cookie、Telegram Token 或包含它们的日志发到公开问题中。
+
+## 连接设备
+
+容器中的 `127.0.0.1` 指向容器自身。填写宿主机的 ADB TCP 设备时，可使用 `host.docker.internal:5555`，或设备可达的局域网地址，例如 `192.168.1.42:5555`。是否可连仍取决于模拟器监听地址、防火墙和 Docker 网络；仅监听宿主机回环的端口可能无法经网关访问。
+
+`5037` 通常是 ADB server 端口，不能直接当作设备 TCP 端口。先确认服务端能发现设备，再运行少量任务。PC 原生窗口控制依赖 Windows 桌面，Linux Docker 不提供该能力。
+
+Linux 如需共享宿主机网络，可使用仓库的覆盖文件：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml -f scripts/docker/docker-compose.host.yml up -d
+```
+
+此时直接使用宿主机端口 `8191` 和 `8190`；桥接模式的 `BAAS_WEBUI_PORT`、`BAAS_WEBUI_BIND` 不控制这些监听。先检查端口占用及访问范围。
+
+## 局域网与 HTTPS
+
+桥接模式通过 `BAAS_WEBUI_PORT` 调整发布端口；需要局域网访问时将 `BAAS_WEBUI_BIND` 设为 `0.0.0.0`，并设置防火墙和 HTTPS 反向代理。不要把未经保护的服务直接暴露到公网。
+
+反向代理需要转发 WebSocket 的 `Upgrade`、`Connection` 和正确的 Host；覆盖来自外部的 `X-Forwarded-Proto`，只传入真实的 `http` 或 `https`。浏览器剪贴板等功能还受安全上下文与权限限制。WebUI 使用同源连接，不应把页面连接地址改成容器内部的 `127.0.0.1:8190`。
+
+## 后端与 OCR 准备
+
+默认后端为 `Kiramei/baas-dev` 的 `master`，可用 `BRANCH` 选择分支。已有 Git 工作区只进行快进更新，不自动丢弃或暂存本地修改。完整 OCR 安装会保留；缺少文件时按启动配置尝试修复，已有配置和输出保留。
+
+完全离线部署可在 `/app/setup.toml` 中使用：
+
+```toml
+[general]
+no_update = true
+```
+
+这会禁止启动阶段 Git 更新及 OCR 下载，空目录无法靠它完成安装。需要先准备有效后端 `main.service.py`、Python 依赖及匹配架构的 OCR。`BAAS_SERVICE_OCR_UPDATE_CHECK=0` 只跳过后端 OCR 更新检查，不能代替完整的离线文件准备。
+
+## 本地开发
+
+```sh
+bun install --frozen-lockfile
+bun run dev:webui
+```
+
+开发代理默认连接 `127.0.0.1:8190`；隔离测试后端时设置 `VITE_BAAS_PROXY_TARGET`。`bun run build:webui` 构建浏览器资源。WebUI 不提供桌面托盘、原生全局快捷键或 Android 本机设备桥接；系统日志页显示浏览器端日志，不会通过 `/system/` 或 `/android/` 公开宿主接口。

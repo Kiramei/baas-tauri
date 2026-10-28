@@ -1,0 +1,262 @@
+{
+  "checkedAt": "2026-10-28T06:45:28.485Z",
+  "cases": 24,
+  "failures": 0,
+  "testedSources": {
+    "docs/scripts/check-search-recovery.mjs": "0481079627b28f4b5def11feb10af05f730b6147b49a7d06671ed4c841dd81bd",
+    "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
+    "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
+    "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
+    "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
+    "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
+    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
+    "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
+    "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
+    "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
+    "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d"
+  },
+  "searchIndexPath": "search-index/77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b.json",
+  "searchIndexSha256": "3ec11e7dbfdb66d4096ab38f19eedae722f36ac2096e67b6fa5c1d6be21cad14",
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "http",
+      "retryMethod": "button-after-reopen",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "network",
+      "retryMethod": "query-change",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    },
+    {
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "failure": "json",
+      "retryMethod": "keyboard",
+      "requests": 2,
+      "navigated": true,
+      "passed": true
+    }
+  ]
+}

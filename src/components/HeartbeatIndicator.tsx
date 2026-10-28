@@ -1,98 +1,70 @@
-import React, { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useRef, type ComponentProps } from "react";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import { useTranslation } from "react-i18next";
-import { useUISetting } from "@/context/UISettingsProvider.tsx";
+import { HeartbeatWatchdog } from "@/shared/HeartbeatWatchdog";
+import { formatBackendConnectionStatus } from "@/shared/BackendConnectionStatus";
+import {
+  markBackendHeartbeatTimeout,
+  useBackendConnectionStatus,
+} from "@/shared/useBackendConnectionStatus";
+import { cn } from "@/shared/cn";
 
-interface IndicatorProps {
-  onStateChanged: (state: boolean) => void;
-}
-
-/** Renders the indicator base component. */
-export const IndicatorBase: React.FC<IndicatorProps> = ({ onStateChanged }) => {
-  const [connected, setConnected] = useState(true);
-  const heartbeatTime = useWebSocketStore((s) => s._heartbeat_time);
-  const transportMode = useWebSocketStore((s) => s.transportMode);
-  const pipeConnected = useWebSocketStore(
-    (s) =>
-      s._auth_phase === "authenticated" &&
-      Boolean(s.connections.provider) &&
-      Boolean(s.connections.sync)
-  );
-  const recoverTransport = useWebSocketStore((s) => s.recoverTransport);
-  const lastBeatRef = useRef<number>(0);
+/** One persistent logo badge also owns heartbeat recovery, including on small screens. */
+export default function HeartbeatIndicator({ className, ...props }: ComponentProps<"span">) {
+  const { t } = useTranslation();
+  const status = useBackendConnectionStatus();
+  const recoverTransport = useWebSocketStore((state) => state.recoverTransport);
+  const watchdog = useRef(new HeartbeatWatchdog(0));
 
   useEffect(() => {
-    lastBeatRef.current = Date.now();
-  }, []);
-
-  useEffect(() => {
-    if (transportMode !== "pipe") return;
-    setConnected(pipeConnected);
-    onStateChanged(pipeConnected);
-  }, [onStateChanged, pipeConnected, transportMode]);
-
-  useEffect(() => {
-    if (transportMode === "pipe") return;
-    if (!heartbeatTime) return;
-    lastBeatRef.current = Date.now();
-    setConnected(true);
-    onStateChanged(true);
-  }, [heartbeatTime, onStateChanged, transportMode]);
-
-  useEffect(() => {
+    let previousMode: string | undefined;
+    let previousAuth: string | undefined;
+    let previousHeartbeat: number | undefined;
+    const updateWatchdog = () => {
+      const state = useWebSocketStore.getState();
+      if (
+        state.transportMode !== previousMode ||
+        state._auth_phase !== previousAuth ||
+        state._heartbeat_time !== previousHeartbeat
+      ) {
+        markBackendHeartbeatTimeout(null);
+        previousMode = state.transportMode;
+        previousAuth = state._auth_phase;
+        previousHeartbeat = state._heartbeat_time;
+      }
+      watchdog.current.update(
+        state.transportMode,
+        state._auth_phase,
+        state._heartbeat_time,
+        Date.now()
+      );
+    };
+    updateWatchdog();
+    const unsubscribe = useWebSocketStore.subscribe(updateWatchdog);
     const checkInterval = setInterval(async () => {
-      if (transportMode === "pipe") return;
-      if (Date.now() - lastBeatRef.current > 5000) {
-        setConnected(false);
-        onStateChanged(false);
+      updateWatchdog();
+      if (watchdog.current.shouldRecover(Date.now())) {
+        markBackendHeartbeatTimeout(useWebSocketStore.getState()._heartbeat_time);
         await recoverTransport();
       }
     }, 1000);
-    return () => clearInterval(checkInterval);
-  }, [onStateChanged, recoverTransport, transportMode]);
-
-  const color = connected ? "var(--color-primary-500)" : "var(--color-slate-500)";
+    return () => {
+      clearInterval(checkInterval);
+      unsubscribe();
+    };
+  }, [recoverTransport]);
 
   return (
-    <div
-      className="w-4 h-4 rounded-full mx-auto"
+    <span
+      {...props}
+      role="status"
+      className={cn("size-1.5 shrink-0 rounded-full", className)}
       style={{
-        backgroundColor: color,
-        boxShadow: connected ? "0 0 10px var(--color-primary-400)" : "none",
+        ...props.style,
+        backgroundColor: status === "connected" ? "#30a46c" : "var(--muted-foreground)",
       }}
-    />
+    >
+      <span className="sr-only">{formatBackendConnectionStatus(status, t)}</span>
+    </span>
   );
-};
-
-/** Renders the heartbeat indicator component. */
-const HeartbeatIndicator = () => {
-  const { t } = useTranslation();
-  const [connected, setConnected] = useState(false);
-  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  const textColor = connected ? "var(--color-primary-400)" : "var(--color-slate-400)";
-
-  return (
-    <div className="flex flex-row items-center justify-center p-4 bg-slate-100/50 dark:bg-slate-700/50 w-full rounded-xl self-start">
-      <IndicatorBase onStateChanged={setConnected} />
-      {lowPerformanceMode ? (
-        <div className="ml-4 text-sm font-bold rounded-lg" style={{ color: textColor }}>
-          {connected ? t("heartbeat.connected") : t("heartbeat.connecting")}
-        </div>
-      ) : (
-        <motion.div
-          className="ml-4 text-sm font-bold rounded-lg"
-          animate={{
-            color: textColor,
-          }}
-          transition={{ duration: 0.4 }}
-        >
-          {connected ? t("heartbeat.connected") : t("heartbeat.connecting")}
-        </motion.div>
-      )}
-      <div className="grow" />
-    </div>
-  );
-};
-
-export default HeartbeatIndicator;
+}

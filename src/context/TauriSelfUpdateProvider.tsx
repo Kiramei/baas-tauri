@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getTimestampMs } from "@/shared/GlobalUtilities";
 import { isTauriNoUpdateEnabled, useWebSocketStore, waitForNormal } from "@/store/WebsocketStore";
+import IdleBackendUpdater from "@/components/IdleBackendUpdater";
 
 interface TauriSelfUpdateContextType {
   updating: boolean;
@@ -39,18 +40,6 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
 
   const runUpdate = useCallback(async (): Promise<void> => {
     if (!__WITH_TAURI__) return;
-    if (__WITH_ANDROID__) {
-      const state = useWebSocketStore.getState();
-      const updateUrl = state.versionStore?.tauri?.url;
-      if (updateUrl) {
-        const { openUrl } = await import("@tauri-apps/plugin-opener");
-        await openUrl(updateUrl);
-        return;
-      }
-      await state.checkTauriUpdater(false, true);
-      toast.info(t("update.tauriUpToDate"));
-      return;
-    }
     if (await isTauriNoUpdateEnabled()) {
       toast.info(t("update.tauriUpToDate"));
       return;
@@ -64,7 +53,6 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
         import("@/shared/TauriInvoke"),
         import("@tauri-apps/api/core"),
       ]);
-      const { relaunch } = await import("@tauri-apps/plugin-process");
       const version = useWebSocketStore.getState().versionStore?.tauri?.version;
       if (!version) {
         setStatus(t("update.tauriUpToDate"));
@@ -97,6 +85,12 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
         toast.success(t("update.tauriUpToDate"));
         return;
       }
+      if (__WITH_ANDROID__) {
+        setStatus(t("update.tauriInstalling"));
+        toast.success(t("update.tauriInstalling"));
+        return;
+      }
+      const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
     } catch (error) {
       setStatus(t("update.tauriFailed"));
@@ -114,7 +108,10 @@ export const TauriSelfUpdateProvider: React.FC<{ children: ReactNode }> = ({ chi
   );
 
   return (
-    <TauriSelfUpdateContext.Provider value={value}>{children}</TauriSelfUpdateContext.Provider>
+    <TauriSelfUpdateContext.Provider value={value}>
+      <IdleBackendUpdater clientUpdating={updating} />
+      {children}
+    </TauriSelfUpdateContext.Provider>
   );
 };
 

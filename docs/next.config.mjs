@@ -11,7 +11,9 @@ const withMDX = createMDX();
 export default function config(phase) {
   return withMDX({
     output: phase === PHASE_DEVELOPMENT_SERVER ? undefined : "export",
+    distDir: process.env.DOCS_EXPORT_DIR || ".next",
     trailingSlash: true,
+    serverExternalPackages: ["twoslash", "typescript"],
     basePath,
     assetPrefix: basePath ? `${basePath}/` : undefined,
     turbopack: {

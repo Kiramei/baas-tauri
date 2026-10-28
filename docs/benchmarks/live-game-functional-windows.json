@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-16 Asia/Shanghai",
+  "device": "127.0.0.1:16384",
+  "configId": "1783070312368",
+  "scope": "Actual Bilibili game mail task, functional verification only; different initial pages and mail state, not comparable performance samples",
+  "mail": [
+    {"mode": "websocket", "completeMs": 7225.1, "success": true, "note": "Initial collection included non-AP mail rewards"},
+    {"mode": "pipe", "acceptedMs": 657.5, "completeMs": 6665.5, "success": true},
+    {"mode": "shm", "acceptedMs": 638.1000000238419, "completeMs": 9993.700000017881, "success": true, "note": "Started from mail page after modal dismissal; task recovered navigation"}
+  ],
+  "resources": {"APSpent": 0, "purchases": 0, "APMailRemaining": 2},
+  "productionSmoke": {"transport": "shm", "url": "http://tauri.localhost/", "videoSize": [1280,720], "presentationCallbacksIn3Seconds": [84,83], "usesVite": false}
+}

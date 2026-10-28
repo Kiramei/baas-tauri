@@ -1,132 +1,106 @@
-import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import SwitchButton from "@/components/ui/SwitchButton.tsx";
-import { Separator } from "@/components/ui/Separator";
+import React, { useMemo } from "react";
+import {
+  ConfigurationGroup,
+  ConfigurationRow,
+  ConfigurationToggle,
+} from "@/components/configuration/ConfigurationControls";
+import { FormSelect } from "@/components/ui/FormSelect";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import { useWebSocketStore } from "@/store/WebsocketStore";
-import { DynamicConfig } from "@/types/dynamic";
+import { useConfigurationDraft } from "@/shared/useConfigurationDraft";
 
-type DrillConfigProps = {
-  onClose: () => void;
+interface DrillConfigProps {
   profileId?: string;
-};
-
-/** Renders the drill config component. */
-const DrillConfig: React.FC<DrillConfigProps> = ({ onClose, profileId }) => {
-  const { t } = useTranslation();
-  const settings: Partial<DynamicConfig> = useWebSocketStore(
-    (state) => state.configStore[profileId!]
+  onClose: () => void;
+}
+interface Draft {
+  drill_enable_sweep: boolean;
+  drill_fight_formation_list: string[];
+  drill_difficulty_list: string[];
+}
+const DrillConfig: React.FC<DrillConfigProps> = ({ profileId }) => {
+  const { t } = useAppTranslation();
+  const settings = useWebSocketStore((state) => state.configStore[profileId!]);
+  const initial = useMemo<Draft>(
+    () => ({
+      drill_enable_sweep: settings.drill_enable_sweep ?? false,
+      drill_fight_formation_list: (settings.drill_fight_formation_list ?? []).map(String),
+      drill_difficulty_list: (settings.drill_difficulty_list ?? []).map(String),
+    }),
+    [settings]
   );
-  const modify = useWebSocketStore((state) => state.modify);
-
-  const party_nos = ["1", "2", "3", "4"];
-  const total_assault_difficulties = ["1", "2", "3", "4"];
-
-  // Hydrate the form with the latest drill configuration pulled from the server.
-  const ext = useMemo(() => {
-    return {
-      drill_enable_sweep: settings.drill_enable_sweep,
-      drill_fight_formation_list: settings.drill_fight_formation_list!.map(String),
-      drill_difficulty_list: settings.drill_difficulty_list!.map(String),
-    };
-  }, [settings]);
-
-  const [draft, setDraft] = useState(ext);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(ext);
-
-  // Generic updater for list-based selectors (party formation and difficulty).
-  const handleListChange =
-    (key: "drill_fight_formation_list" | "drill_difficulty_list", idx: number) =>
-    (value: string) => {
-      setDraft((prev) => {
-        const list = [...prev[key]];
-        list[idx] = value;
-        return { ...prev, [key]: list };
-      });
-    };
-
-  // Persist current draft back to the backend if any values changed.
-  const handleSave = async () => {
-    const patch: Partial<DynamicConfig> = {
-      drill_enable_sweep: draft.drill_enable_sweep,
-      drill_fight_formation_list: draft.drill_fight_formation_list.map(Number),
-      drill_difficulty_list: draft.drill_difficulty_list.map(Number),
-    };
-    modify(`${profileId}::config`, patch);
-    onClose();
-  };
-
+  const [draft, setDraft] = useConfigurationDraft(profileId!, "drill", initial, {
+    serialize: (value) => {
+      const formation = value.drill_fight_formation_list.map(Number);
+      const difficulty = value.drill_difficulty_list.map(Number);
+      if (
+        [...formation, ...difficulty].some(
+          (entry) => !Number.isInteger(entry) || entry < 1 || entry > 4
+        )
+      )
+        return null;
+      return {
+        drill_enable_sweep: value.drill_enable_sweep,
+        drill_fight_formation_list: formation,
+        drill_difficulty_list: difficulty,
+      };
+    },
+  });
+  const change = (
+    key: "drill_fight_formation_list" | "drill_difficulty_list",
+    index: number,
+    value: string
+  ) =>
+    setDraft((previous) => ({
+      ...previous,
+      [key]: previous[key].map((entry, i) => (i === index ? value : entry)),
+    }));
+  const options = ["1", "2", "3", "4"].map((value) => ({ value, label: value }));
   return (
-    <div className="space-y-2">
-      {/* Sweep toggle */}
-      <SwitchButton
+    <ConfigurationGroup title={t("drill")}>
+      <ConfigurationToggle
         label={t("drill.useAllAfterSweep")}
-        checked={draft.drill_enable_sweep!}
-        onChange={(val) => setDraft((prev) => ({ ...prev, drill_enable_sweep: val }))}
-        className="w-full"
+        description={t("configurationHelp.drillSweep")}
+        checked={draft.drill_enable_sweep}
+        onChange={(value) => setDraft((previous) => ({ ...previous, drill_enable_sweep: value }))}
       />
-
-      <Separator />
-
-      {/* Party lineup configuration */}
-      <div>
-        <label className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-          {t("drill.outPartyNo")}
-        </label>
-        <div className="flex items-center gap-2">
-          {draft.drill_fight_formation_list.map((val, i) => (
-            <React.Fragment key={i}>
-              <FormSelect
-                value={val}
-                onChange={handleListChange("drill_fight_formation_list", i)}
-                options={party_nos.map((p) => ({ value: p, label: p }))}
-                className="flex-1"
-              />
-              {i !== draft.drill_fight_formation_list.length - 1 && (
-                <span className="text-slate-400">/</span>
-              )}
-            </React.Fragment>
+      <ConfigurationRow
+        label={t("drill.outPartyNo")}
+        description={t("configurationHelp.drillFormation")}
+        className="configuration-row-stacked"
+      >
+        <div className="grid min-w-0 grid-cols-3 gap-2">
+          {draft.drill_fight_formation_list.map((value, index) => (
+            <FormSelect
+              key={index}
+              value={value}
+              onChange={(next) => change("drill_fight_formation_list", index, next)}
+              options={options}
+              ariaLabel={t("drill.outPartyNo") + " " + (index + 1)}
+              className="min-w-0"
+            />
           ))}
         </div>
-      </div>
-
-      {/* Difficulty sequencing */}
-      <div>
-        <label className="block mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-          {t("drill.difficulty")}
-        </label>
-        <div className="flex items-center gap-2">
-          {draft.drill_difficulty_list.map((val, i) => (
-            <React.Fragment key={i}>
-              <FormSelect
-                value={val}
-                onChange={handleListChange("drill_difficulty_list", i)}
-                options={total_assault_difficulties.map((d) => ({
-                  value: d,
-                  label: d,
-                }))}
-                className="flex-1"
-              />
-              {i !== draft.drill_difficulty_list.length - 1 && (
-                <span className="text-slate-400">/</span>
-              )}
-            </React.Fragment>
+      </ConfigurationRow>
+      <ConfigurationRow
+        label={t("drill.difficulty")}
+        description={t("configurationHelp.drillDifficulty")}
+        className="configuration-row-stacked"
+      >
+        <div className="grid min-w-0 grid-cols-3 gap-2">
+          {draft.drill_difficulty_list.map((value, index) => (
+            <FormSelect
+              key={index}
+              value={value}
+              onChange={(next) => change("drill_difficulty_list", index, next)}
+              options={options}
+              ariaLabel={t("drill.difficulty") + " " + (index + 1)}
+              className="min-w-0"
+            />
           ))}
         </div>
-      </div>
-
-      {/* Save action */}
-      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700 mt-4">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className="px-6 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-60"
-        >
-          {t("common.save")}
-        </button>
-      </div>
-    </div>
+      </ConfigurationRow>
+    </ConfigurationGroup>
   );
 };
-
 export default DrillConfig;

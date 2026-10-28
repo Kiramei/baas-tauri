@@ -2,20 +2,64 @@ name: Code Quality
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [dev, main]
+    paths: &client-paths
+      - "src/**"
+      - "public/**"
+      - "tests/frontend/**"
+      - "scripts/**"
+      - "src-tauri/**"
+      - "crates/**"
+      - ".cargo/**"
+      - "Cargo.*"
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig*.json"
+      - "vite.config.*"
+      - "eslint.config.*"
+      - ".github/actions/**"
+      - ".github/workflows/code-quality.yml"
   push:
-    branches:
-      - main
+    branches: [dev, main]
+    paths: *client-paths
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: code-quality-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Identify native changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.paths.outputs.native }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check native build inputs
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          changed_paths="$(git diff --name-only "$BASE_SHA" HEAD)"
+          if grep -Eq '^(src-tauri/|crates/|\.cargo/|Cargo\.|scripts/(android|prepare-android|tests/test_android)|\.github/(actions/|workflows/code-quality\.yml))' <<< "$changed_paths"; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
   generate-fonts:
     name: Generate font assets
     runs-on: ubuntu-latest
@@ -46,14 +90,27 @@ jobs:
       - name: Setup Bun dependencies
         uses: ./.github/actions/setup-bun-deps
 
-      - name: Lint frontend
-        run: bun run lint
+      - name: Setup Android runtime Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.9"
 
-      - name: Test transport handshake
+      - name: Validate client source and translations
+        run: |
+          bunx eslint src tests/frontend --ext .ts,.tsx
+          bun run i18n:check
+
+      - name: Test client behavior and authenticated transport
         run: bun run test:transport
 
       - name: Test Android bootstrap preservation
         run: bun run test:android-bootstrap
+
+      - name: Verify Android private worker protocol and redaction
+        run: python scripts/tests/test_android_plugin_worker.py
+
+      - name: Build WebUI frontend
+        run: bun run build:webui
 
       - name: Build desktop frontend
         run: bun run build:tauri
@@ -63,6 +120,8 @@ jobs:
 
   desktop-rust:
     name: ${{ matrix.name }} Rust tests
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +168,8 @@ jobs:
     name: Android arm64 debug APK
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    needs: generate-fonts
+    needs: [changes, generate-fonts]
+    if: needs.changes.outputs.native == 'true'
     env:
       NODE_OPTIONS: --max_old_space_size=4096
     steps:

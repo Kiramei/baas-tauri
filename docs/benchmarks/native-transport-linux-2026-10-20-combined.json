@@ -1,0 +1,611 @@
+{
+  "scope": "Linux Rust/Python carrier-only round-trip benchmark; excludes WebView, game and product SecureWS encryption",
+  "method": "One Python process and identical EchoHandler. Sequential request/echo (one outstanding), identical payloads and warmup/count. RTT includes sender framing, mask/copy, peer JSON parse/dump and complete reply receive. Exact payload validation outside each RTT timer. Throughput counts both payload directions (2 * payloadBytes), computed from sum of RTT samples; excludes warmup and validation.",
+  "build": {
+    "debugAssertions": false,
+    "nativeProbeOptimized": true,
+    "note": "Measurement binary compiled with rustc -O from this source and existing debug dependency rlibs; all three modes in the same binary. Production SHM source included unchanged; Rust Pipe/WS are minimal blocking clients, not product managers.",
+    "compileCommand": [
+      "rustc",
+      "--edition=2021",
+      "-C",
+      "opt-level=3",
+      "-C",
+      "debuginfo=0",
+      "src-tauri/examples/transport_native_probe.rs",
+      "-L",
+      "dependency=target/debug/deps",
+      "-o",
+      ".codex_tmp/linux-dev/transport-native-probe-optimized",
+      "--extern",
+      "serde_json=target/debug/deps/libserde_json-9d8f0a3f59a184a8.rlib",
+      "--extern",
+      "uuid=target/debug/deps/libuuid-2eae6fdc534a2315.rlib",
+      "--extern",
+      "libc=target/debug/deps/liblibc-9aa65ced1e9c5438.rlib"
+    ],
+    "sourceSha256": "b6a6eb5c3cefc1f15a865cdd365297dc2ce0945b634076ef03b9d9b57ae9cff9",
+    "fixtureSha256": "f97e69693f442a9e159d01f3411cdaad7f68aff76a65c8ae034ac89869cea711"
+  },
+  "aggregation": "All samples pooled from two independent five-round runs. Neither run nor outliers discarded; initial run had large 8 MiB variance, so an identical repeat was performed. Summary throughput uses sum of RTT durations, not mean of per-round throughput.",
+  "sources": [
+    {
+      "path": "benchmarks/native-transport-linux-2026-10-20.json",
+      "sha256": "50b22c5a5c4da7e207c949ffc96fd7459cbbc3dddc003a087d5a288e58a08bd0",
+      "rounds": 5,
+      "environmentBefore": {
+        "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+        "dateUtc": "2026-10-20T00:45:02Z",
+        "kernel": "7.0.0-31-generic",
+        "loadavg": "2.74 3.90 2.57 4/3896 1638347",
+        "logicalCpus": 16,
+        "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "uptime": "2912739.99 43224455.93"
+      },
+      "environmentAfter": {
+        "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+        "dateUtc": "2026-10-20T00:45:09Z",
+        "kernel": "7.0.0-31-generic",
+        "loadavg": "2.76 3.89 2.58 1/3900 1639033",
+        "logicalCpus": 16,
+        "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "uptime": "2912747.10 43224547.40"
+      }
+    },
+    {
+      "path": "benchmarks/native-transport-linux-2026-10-20-repeat.json",
+      "sha256": "b01d46f4b085486dfbe6df4c12c7007b04867aa3d37beeda3273e7b054c3240e",
+      "rounds": 5,
+      "environmentBefore": {
+        "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+        "dateUtc": "2026-10-20T00:45:24Z",
+        "kernel": "7.0.0-31-generic",
+        "loadavg": "2.51 3.78 2.56 3/3896 1640669",
+        "logicalCpus": 16,
+        "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "uptime": "2912762.51 43224777.44"
+      },
+      "environmentAfter": {
+        "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
+        "dateUtc": "2026-10-20T00:45:31Z",
+        "kernel": "7.0.0-31-generic",
+        "loadavg": "2.59 3.75 2.57 2/3893 1641357",
+        "logicalCpus": 16,
+        "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "uptime": "2912769.62 43224868.25"
+      }
+    }
+  ],
+  "summary": [
+    {
+      "workload": "json1KiB",
+      "mode": "shm",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.232606,
+      "p95Ms": 0.317647,
+      "p99Ms": 1.229792,
+      "meanMs": 0.2591029166666667,
+      "roundtripMiBs": 7.538027842861669,
+      "perRoundP50Ms": [
+        0.22648300000000002,
+        0.232891,
+        0.235195,
+        0.24541,
+        0.218721,
+        0.242393,
+        0.270524,
+        0.235412,
+        0.217465,
+        0.22269799999999998
+      ],
+      "perRoundP50RangeMs": [
+        0.217465,
+        0.270524
+      ],
+      "perRoundRoundtripMiBs": [
+        8.270263495270417,
+        8.334300201055866,
+        8.054604441133797,
+        7.509755039624784,
+        8.752895709984255,
+        7.672888117711935,
+        6.916933535119988,
+        7.682460930060303,
+        8.770732458527599,
+        5.126597505747519
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        5.126597505747519,
+        8.770732458527599
+      ]
+    },
+    {
+      "workload": "json1KiB",
+      "mode": "pipe",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.036053999999999996,
+      "p95Ms": 0.058863,
+      "p99Ms": 0.081729,
+      "meanMs": 0.03972602766666667,
+      "roundtripMiBs": 49.16487035623823,
+      "perRoundP50Ms": [
+        0.035307,
+        0.039157,
+        0.036628,
+        0.033825999999999995,
+        0.033195,
+        0.035882,
+        0.055797,
+        0.034232,
+        0.032649,
+        0.03893
+      ],
+      "perRoundP50RangeMs": [
+        0.032649,
+        0.055797
+      ],
+      "perRoundRoundtripMiBs": [
+        50.90029731202995,
+        47.79308606609527,
+        49.579976420767984,
+        53.58459752211559,
+        56.62039340102986,
+        49.06025769765124,
+        34.324638158634684,
+        55.10534990833292,
+        56.36319352519835,
+        47.781351069662165
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        34.324638158634684,
+        56.62039340102986
+      ]
+    },
+    {
+      "workload": "json1KiB",
+      "mode": "websocketPlain",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.090424,
+      "p95Ms": 0.544716,
+      "p99Ms": 0.788304,
+      "meanMs": 0.141014184,
+      "roundtripMiBs": 13.85055704750949,
+      "perRoundP50Ms": [
+        0.08208,
+        0.093069,
+        0.090906,
+        0.080417,
+        0.08053,
+        0.094182,
+        0.10179,
+        0.080359,
+        0.082523,
+        0.544716
+      ],
+      "perRoundP50RangeMs": [
+        0.080359,
+        0.544716
+      ],
+      "perRoundRoundtripMiBs": [
+        22.279682811463555,
+        20.24317688985897,
+        20.96269533743862,
+        23.340952484144587,
+        23.61101356089686,
+        20.016833698087368,
+        16.939155003325144,
+        23.13805013176078,
+        22.960555083995406,
+        3.3439819129036956
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        3.3439819129036956,
+        23.61101356089686
+      ]
+    },
+    {
+      "workload": "binary1KiB",
+      "mode": "shm",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.214928,
+      "p95Ms": 1.51071,
+      "p99Ms": 1.9811680000000003,
+      "meanMs": 0.3563958786666667,
+      "roundtripMiBs": 5.480212081315163,
+      "perRoundP50Ms": [
+        0.217592,
+        0.205909,
+        0.202026,
+        0.216532,
+        0.210815,
+        0.2024,
+        0.24651900000000002,
+        0.22901,
+        0.20461700000000002,
+        1.51071
+      ],
+      "perRoundP50RangeMs": [
+        0.202026,
+        1.51071
+      ],
+      "perRoundRoundtripMiBs": [
+        8.622309491787048,
+        9.118687695192438,
+        9.551358888486632,
+        8.919698486295106,
+        8.927677776528542,
+        9.382666013439621,
+        7.787511226310049,
+        8.61297293829811,
+        9.214743375520499,
+        1.2335504449484749
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        1.2335504449484749,
+        9.551358888486632
+      ]
+    },
+    {
+      "workload": "binary1KiB",
+      "mode": "pipe",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.021483000000000002,
+      "p95Ms": 0.057519999999999995,
+      "p99Ms": 0.073269,
+      "meanMs": 0.027483293333333332,
+      "roundtripMiBs": 71.06590088427055,
+      "perRoundP50Ms": [
+        0.021709,
+        0.020441,
+        0.021257,
+        0.031189,
+        0.021366,
+        0.030244,
+        0.019792999999999998,
+        0.019892,
+        0.020525,
+        0.056912
+      ],
+      "perRoundP50RangeMs": [
+        0.019792999999999998,
+        0.056912
+      ],
+      "perRoundRoundtripMiBs": [
+        84.10586929242771,
+        91.19327612860995,
+        89.95874966722461,
+        66.59409106474517,
+        86.31022437454502,
+        61.75962886303677,
+        91.9049601347163,
+        92.11884787590739,
+        87.37539848773731,
+        32.50206626469267
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        32.50206626469267,
+        92.11884787590739
+      ]
+    },
+    {
+      "workload": "binary1KiB",
+      "mode": "websocketPlain",
+      "payloadBytes": 1024,
+      "samples": 3000,
+      "rounds": 10,
+      "p50Ms": 0.070912,
+      "p95Ms": 0.282105,
+      "p99Ms": 0.387818,
+      "meanMs": 0.09519974666666667,
+      "roundtripMiBs": 20.516073502156377,
+      "perRoundP50Ms": [
+        0.073114,
+        0.068863,
+        0.071455,
+        0.07059800000000001,
+        0.071045,
+        0.075227,
+        0.068803,
+        0.06826900000000001,
+        0.068808,
+        0.282105
+      ],
+      "perRoundP50RangeMs": [
+        0.06826900000000001,
+        0.282105
+      ],
+      "perRoundRoundtripMiBs": [
+        24.790312300289244,
+        27.870195511249797,
+        26.61667195422828,
+        27.312934454830692,
+        27.03878495228021,
+        26.25728801487308,
+        26.415750082873608,
+        28.216186588793217,
+        26.777398908763995,
+        6.608937194920883
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        6.608937194920883,
+        28.216186588793217
+      ]
+    },
+    {
+      "workload": "binary1MiB",
+      "mode": "shm",
+      "payloadBytes": 1048576,
+      "samples": 400,
+      "rounds": 10,
+      "p50Ms": 1.974439,
+      "p95Ms": 3.754519,
+      "p99Ms": 4.783156,
+      "meanMs": 2.2897234525,
+      "roundtripMiBs": 873.4679281099778,
+      "perRoundP50Ms": [
+        2.922052,
+        1.826498,
+        2.045727,
+        1.865787,
+        2.20587,
+        1.8606740000000002,
+        1.91188,
+        1.891406,
+        1.944459,
+        3.294556
+      ],
+      "perRoundP50RangeMs": [
+        1.826498,
+        3.294556
+      ],
+      "perRoundRoundtripMiBs": [
+        626.6509510963479,
+        1070.1302788640455,
+        931.2306533194151,
+        1047.9269110800744,
+        864.6882347654498,
+        1077.4943934599537,
+        892.8204036961112,
+        1028.5606477864676,
+        1006.1769074576714,
+        581.5477388577035
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        581.5477388577035,
+        1077.4943934599537
+      ]
+    },
+    {
+      "workload": "binary1MiB",
+      "mode": "pipe",
+      "payloadBytes": 1048576,
+      "samples": 400,
+      "rounds": 10,
+      "p50Ms": 0.5684140000000001,
+      "p95Ms": 2.970574,
+      "p99Ms": 3.953374,
+      "meanMs": 0.9071299825,
+      "roundtripMiBs": 2204.755700487499,
+      "perRoundP50Ms": [
+        1.442301,
+        0.542494,
+        0.467633,
+        0.464913,
+        0.5853160000000001,
+        2.952286,
+        0.516716,
+        0.5500820000000001,
+        0.487911,
+        0.6705399999999999
+      ],
+      "perRoundP50RangeMs": [
+        0.464913,
+        2.952286
+      ],
+      "perRoundRoundtripMiBs": [
+        1227.4645562704889,
+        3646.1967660969326,
+        3911.8451992882196,
+        4274.024142787026,
+        3306.4353440414175,
+        692.8035524610638,
+        3383.0175984152597,
+        3132.7178665282845,
+        4022.7180993300626,
+        2874.77177905539
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        692.8035524610638,
+        4274.024142787026
+      ]
+    },
+    {
+      "workload": "binary1MiB",
+      "mode": "websocketPlain",
+      "payloadBytes": 1048576,
+      "samples": 400,
+      "rounds": 10,
+      "p50Ms": 1.05597,
+      "p95Ms": 1.711473,
+      "p99Ms": 2.46452,
+      "meanMs": 1.1592680450000001,
+      "roundtripMiBs": 1725.226541545877,
+      "perRoundP50Ms": [
+        1.621524,
+        0.922966,
+        0.9820869999999999,
+        0.9690089999999999,
+        1.110804,
+        1.171942,
+        1.044524,
+        0.997499,
+        0.957396,
+        1.2041870000000001
+      ],
+      "perRoundP50RangeMs": [
+        0.922966,
+        1.621524
+      ],
+      "perRoundRoundtripMiBs": [
+        1100.6923093211208,
+        2121.1343784233127,
+        1908.7489176797149,
+        1991.8178612034098,
+        1783.3586599985692,
+        1632.7357976119486,
+        1741.1752558624391,
+        1809.9463565836406,
+        2069.794398525768,
+        1646.7893022426106
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        1100.6923093211208,
+        2121.1343784233127
+      ]
+    },
+    {
+      "workload": "binary8MiB",
+      "mode": "shm",
+      "payloadBytes": 8388608,
+      "samples": 100,
+      "rounds": 10,
+      "p50Ms": 16.438515000000002,
+      "p95Ms": 21.350721999999998,
+      "p99Ms": 22.255543,
+      "meanMs": 17.20035359,
+      "roundtripMiBs": 930.2134352227581,
+      "perRoundP50Ms": [
+        19.589916,
+        16.432456000000002,
+        18.320254000000002,
+        15.28821,
+        17.024152,
+        19.250209,
+        15.224108,
+        16.443693,
+        15.560643,
+        15.653206999999998
+      ],
+      "perRoundP50RangeMs": [
+        15.224108,
+        19.589916
+      ],
+      "perRoundRoundtripMiBs": [
+        797.8935689568896,
+        945.6092922661129,
+        847.548262708814,
+        1040.329091983148,
+        915.4043593363515,
+        802.9672732169367,
+        1043.0176937325998,
+        975.3295034907165,
+        1014.6674620814013,
+        1009.1795921810658
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        797.8935689568896,
+        1043.0176937325998
+      ]
+    },
+    {
+      "workload": "binary8MiB",
+      "mode": "pipe",
+      "payloadBytes": 8388608,
+      "samples": 100,
+      "rounds": 10,
+      "p50Ms": 20.702053000000003,
+      "p95Ms": 41.82743,
+      "p99Ms": 72.94503200000001,
+      "meanMs": 24.40214549,
+      "roundtripMiBs": 655.6800510248905,
+      "perRoundP50Ms": [
+        41.82743,
+        20.631556,
+        21.407314,
+        18.906458,
+        17.958662,
+        20.938403,
+        28.23291,
+        20.033112,
+        21.832131,
+        21.841469
+      ],
+      "perRoundP50RangeMs": [
+        17.958662,
+        41.82743
+      ],
+      "perRoundRoundtripMiBs": [
+        319.81635249553926,
+        796.814820405061,
+        719.6793317604681,
+        812.6518887647579,
+        873.685227277499,
+        748.049726830006,
+        579.9144765326588,
+        793.2870699552369,
+        721.1765400279911,
+        716.0639311902662
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        319.81635249553926,
+        873.685227277499
+      ]
+    },
+    {
+      "workload": "binary8MiB",
+      "mode": "websocketPlain",
+      "payloadBytes": 8388608,
+      "samples": 100,
+      "rounds": 10,
+      "p50Ms": 16.007765,
+      "p95Ms": 66.829043,
+      "p99Ms": 70.537997,
+      "meanMs": 21.44202013,
+      "roundtripMiBs": 746.1983480564897,
+      "perRoundP50Ms": [
+        66.829043,
+        13.081646000000001,
+        21.255414000000002,
+        13.102479,
+        13.505431999999999,
+        20.325574,
+        14.024358000000001,
+        15.281168,
+        13.096586,
+        12.732164000000001
+      ],
+      "perRoundP50RangeMs": [
+        12.732164000000001,
+        66.829043
+      ],
+      "perRoundRoundtripMiBs": [
+        236.7963607240913,
+        1150.5428595587914,
+        752.036538447257,
+        1137.9411153167123,
+        1115.2398607358166,
+        667.6995533624148,
+        1070.2123873271203,
+        990.5241384479856,
+        1098.256544505601,
+        1174.0881389433516
+      ],
+      "perRoundRoundtripRangeMiBs": [
+        236.7963607240913,
+        1174.0881389433516
+      ]
+    }
+  ],
+  "exactPayloadValidation": true,
+  "fixtureAndResourcesCleaned": true
+}
