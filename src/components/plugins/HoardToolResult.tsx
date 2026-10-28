@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import PluginResultView from "@/components/plugins/PluginResultView";
+import HoardMailboxResult from "./HoardMailboxResult";
+import HoardExecutionResult from "./HoardExecutionResult";
+import { hoardHistory, hoardResultDetails, readHoardMailSnapshot } from "@/shared/HoardMailbox";
 import type { JsonValue } from "@/shared/Plugins";
 
 const isRecord = (value: JsonValue | undefined): value is Record<string, JsonValue> =>
@@ -9,8 +12,27 @@ const isRecord = (value: JsonValue | undefined): value is Record<string, JsonVal
 /** Estimates only: a successful plan job has not performed any game action. */
 export default function HoardToolResult({ value }: { value: JsonValue }) {
   const { t, i18n } = useTranslation();
+  const snapshot = readHoardMailSnapshot(value);
+  if (snapshot) return <HoardMailboxResult snapshot={snapshot} />;
+  if (
+    isRecord(value) &&
+    value.kind === "hoard_execution" &&
+    value.inventory_kind === "verified" &&
+    value.completed === true
+  ) {
+    const mailbox = readHoardMailSnapshot(value.mailbox);
+    if (
+      mailbox &&
+      value.actual_ap === mailbox.character_ap &&
+      value.actual_mail_ap === mailbox.total_ap &&
+      value.actual_total_ap === mailbox.character_ap + mailbox.total_ap &&
+      Array.isArray(value.steps)
+    )
+      return <HoardExecutionResult value={value} snapshot={mailbox} />;
+    return <PluginResultView value={hoardResultDetails(value)} />;
+  }
   if (!isRecord(value) || typeof value.executable !== "boolean" || !Array.isArray(value.steps)) {
-    return <PluginResultView value={value} />;
+    return <PluginResultView value={hoardResultDetails(value)} />;
   }
 
   const locale = i18n.resolvedLanguage || i18n.language;
@@ -48,18 +70,30 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
     MAIL_REQUIRES_SELECTIVE_COLLECTION: t("plugins.hoardPlan.warnings.selective"),
     CAFE_CAPACITY_LOSS: t("plugins.hoardPlan.warnings.cafeCapacity"),
     MAIL_IS_COLLECTED_AS_A_WHOLE: t("plugins.hoardPlan.warnings.wholeMailbox"),
+    MAILBOX_SCAN_REQUIRED: t("plugins.hoardPlan.warnings.scanRequired"),
+    MAILBOX_SNAPSHOT_REVALIDATED_ON_START: t("plugins.hoardPlan.warnings.revalidated"),
+    SOURCE_DELIVERY_WILL_BE_VERIFIED: t("plugins.hoardPlan.warnings.sourceVerified"),
+    CLUB_MAIL_WILL_BE_VERIFIED: t("plugins.hoardPlan.warnings.clubVerified"),
+    MAIL_EXPIRY_ESTIMATED: t("plugins.hoardPlan.warnings.expiryEstimated"),
   };
   const warnings = Array.isArray(value.warnings)
     ? [...new Set(value.warnings.filter((item): item is string => typeof item === "string"))]
     : [];
   const assets = isRecord(value.available_at_target) ? value.available_at_target : undefined;
+  const inventory = isRecord(value.inventory) ? value.inventory : undefined;
+  const provenance = {
+    estimate: t("plugins.hoardPlan.inventory.estimate"),
+    provided_snapshot: t("plugins.hoardPlan.inventory.provided"),
+    live_scan: t("plugins.hoardPlan.inventory.live"),
+  };
   const assetLabels = [
     ["character_ap", t("plugins.hoardPlan.character")],
     ["cafe_ap", t("plugins.hoardPlan.cafe")],
     ["mail_ap", t("plugins.hoardPlan.mail")],
     ["total_ap", t("plugins.hoardPlan.total")],
   ];
-  const steps = value.steps.filter(isRecord).slice(0, 200);
+  const steps = value.steps.filter(isRecord);
+  const history = hoardHistory(value, steps.length);
   const StatusIcon = value.executable ? CheckCircle2 : AlertCircle;
 
   return (
@@ -81,6 +115,32 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
           </div>
         </div>
       </div>
+
+      {inventory && (
+        <section className="min-w-0 space-y-2" aria-label={t("plugins.hoardPlan.inventory.title")}>
+          <h4 className="text-sm font-medium">{t("plugins.hoardPlan.inventory.title")}</h4>
+          <p className="break-words text-xs text-muted-foreground">
+            {typeof inventory.provenance === "string" &&
+            Object.hasOwn(provenance, inventory.provenance)
+              ? provenance[inventory.provenance as keyof typeof provenance]
+              : provenance.estimate}
+            {typeof inventory.observed_at === "string" && ` · ${localTime(inventory.observed_at)}`}
+          </p>
+          <dl className="grid min-w-0 grid-cols-2 gap-2">
+            {[
+              ["verified_mail_ap", t("plugins.hoardPlan.inventory.verified")],
+              ["estimated_mail_ap", t("plugins.hoardPlan.inventory.entered")],
+              ["estimated_overflow_ap", t("plugins.hoardPlan.inventory.overflow")],
+              ["pending_source_mail_ap", t("plugins.hoardPlan.inventory.pending")],
+            ].map(([key, label]) => (
+              <div key={key} className="min-w-0 rounded-lg border border-border p-3">
+                <dt className="break-words text-xs text-muted-foreground">{label}</dt>
+                <dd className="mt-1 font-medium tabular-nums">{number(inventory[key])}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
 
       <div className="min-w-0 space-y-2">
         <h4 className="break-words text-sm font-medium">
@@ -157,6 +217,15 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
                       {Object.hasOwn(actionLabels, action)
                         ? actionLabels[action]
                         : t("plugins.hoardPlan.unknownAction")}
+                      {step.verification && (
+                        <p className="mt-1 text-muted-foreground">
+                          {step.verification === "verified"
+                            ? t("plugins.hoardPlan.inventory.verifiedStep")
+                            : step.verification === "estimated"
+                              ? t("plugins.hoardPlan.inventory.estimatedStep")
+                              : t("plugins.hoardPlan.inventory.scanStep")}
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-2 align-top tabular-nums">
                       {action === "ready" || amount === "—"
@@ -179,13 +248,18 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
       {value.steps.length > steps.length && (
         <p className="text-xs text-muted-foreground">{t("plugins.hoardPlan.truncated")}</p>
       )}
+      {history.truncated && (
+        <p className="text-xs text-muted-foreground" data-hoard-history-limit>
+          {t("plugins.hoardPlan.inventory.history", history)}
+        </p>
+      )}
 
       <details className="min-w-0 rounded-lg border border-border p-3" data-hoard-details>
         <summary className="cursor-pointer text-xs font-medium">
           {t("plugins.hoardPlan.fullData")}
         </summary>
         <div className="mt-3 min-w-0">
-          <PluginResultView value={value} />
+          <PluginResultView value={hoardResultDetails(value)} />
         </div>
       </details>
     </section>

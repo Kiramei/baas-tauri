@@ -1100,6 +1100,41 @@
       "unsupported": "Dieses Backend unterstützt Plugin-API v1 nicht. Aktualisiere das Skript-Backend."
     },
     "external": "Extern",
+    "hoardExecution": {
+      "action": "Ausgeführte Aktion",
+      "actualOnly": "Diese Bestände und Schritte wurden während der Ausführung geprüft. Die anfängliche Prognose steht separat unten.",
+      "finalMailbox": "Vollständiger Postbestand nach der Ausführung geprüft.",
+      "history": "Die letzten {{shown}} von {{total}} geprüften Aktionen werden angezeigt.",
+      "initialOmitted": "Der ursprüngliche Ablauf ist ausgelassen. Dieser Abschnitt enthält die anfängliche Prognose, keine abgeschlossenen Aktionen.",
+      "initialPlan": "Ursprünglicher Plan (Prognose)",
+      "mailDelivery": "Post +{{amount}}",
+      "otherStep": "Andere geprüfte Aktion",
+      "steps": "Geprüfte Aktionen",
+      "title": "Geprüftes Ausführungsergebnis",
+      "total": "Tatsächliche Charakter- und Post-AP",
+      "unverifiedHidden": "Ungeprüfte Einträge werden in dieser Tabelle ausgelassen; Details stehen im vollständigen Ergebnis."
+    },
+    "hoardMail": {
+      "apLetters": "AP-Nachrichten",
+      "character": "Charakter-AP",
+      "complete": "Der gesamte Posteingang wurde geprüft. Es wurden keine Belohnungen abgeholt.",
+      "empty": "Bei dieser vollständigen Prüfung wurden keine AP-Nachrichten gefunden.",
+      "expiry": "Ablaufzeitraum",
+      "expiryHint": "Zeiten gelten in deiner lokalen Zeitzone. Gerundete Spielzeiten geben einen Zeitraum statt einer exakten Frist an. Eine Untergrenze von null ist sofort dringend.",
+      "expiryRange": "Frühestens {{earliest}} · vor {{latest}}",
+      "letter": "Nachricht",
+      "letters": "Einzelne AP-Nachrichten",
+      "mailAp": "AP in der Post",
+      "mailboxCount": "Alle Nachrichten",
+      "observed": "Erfasst: {{time}}",
+      "received": "Empfangen (Spieldatum)",
+      "revalidate": "Diese Auswahl liefert nur die Planungsgrundlage. Beim Start wird der Posteingang immer erneut geprüft.",
+      "scanFirst": "Prüfe zuerst den Posteingang dieses Profils. Ergebnisse anderer Profile oder Anmeldesitzungen stehen nicht zur Verfügung.",
+      "selectedSnapshot": "{{count}} AP-Nachrichten · {{amount}} AP in der Post",
+      "title": "Geprüfter Posteingang",
+      "urgent": "Kann sofort ablaufen – jetzt bearbeiten",
+      "useLatest": "Letzte Prüfung für diesen Plan verwenden"
+    },
     "hoardPlan": {
       "action": "Geplante Aktion",
       "actions": {
@@ -1123,6 +1158,20 @@
       "estimateOnly": "Dies ist eine Schätzung. Das Erstellen des Plans hat keine Spielaktionen ausgeführt.",
       "executable": "Plan automatisch ausführbar",
       "fullData": "Vollständige Plandaten",
+      "inventory": {
+        "entered": "Eingegebene Post-AP (Schätzung)",
+        "estimate": "Manuell eingegebene Schätzwerte",
+        "estimatedStep": "Geschätzter Schritt",
+        "history": "{{shown}} von {{total}} geplanten Schritten ab Schritt {{start}} werden angezeigt.",
+        "live": "Beim Start frisch geprüfter Bestand",
+        "overflow": "Prognostizierter AP-Überlauf",
+        "pending": "Ausstehende Belohnungs-AP in der Post",
+        "provided": "Letzte Prüfung als Planungsgrundlage",
+        "scanStep": "Prüfung erforderlich",
+        "title": "Planungsbestand",
+        "verified": "Geprüfte Post-AP",
+        "verifiedStep": "Geprüfte Grundlage"
+      },
       "localTime": "Alle Zeiten werden in der lokalen Zeitzone dieses Geräts angezeigt.",
       "mail": "Postfach",
       "mailAfter": "Postfach-AP nach dem Schritt",
@@ -1140,9 +1189,14 @@
       "warnings": {
         "cafeCapacity": "Das Café erreicht voraussichtlich seine Kapazität und verliert Produktion. Prüfe Kapazität und Abholzeiten.",
         "clubMail": "Club-AP werden per Post geliefert. Belohnung und Ablauf prüfen, den vorhandenen Postbestand eintragen und neu planen.",
+        "clubVerified": "Club-Belohnungen kommen per Post und werden im Posteingang geprüft.",
+        "expiryEstimated": "Ablauffristen werden aus der Spielanzeige vorsichtig geschätzt. Unsichere Nachrichten werden früh bearbeitet.",
         "overflow": "Diese Version kann ins Postfach übergelaufene AP nicht automatisch prüfen. Prüfe das Postfach für diesen Plan manuell.",
         "premium": "AP-Käufe werden nur kalkuliert. Diese Version gibt keine Pyroxene automatisch aus. Kaufe manuell, aktualisiere den Bestand und plane neu.",
+        "revalidated": "Der bereitgestellte Postbestand wird beim Start erneut geprüft.",
+        "scanRequired": "Vor der automatischen Ausführung ist eine vollständige Posteingangsprüfung erforderlich.",
         "selective": "Der Dienst kann Briefe nicht einzeln abholen. Bearbeite diese große Postmenge manuell in mehreren Teilen und plane neu.",
+        "sourceVerified": "Nach jeder Belohnung werden die AP-Änderung und neue Nachrichten geprüft.",
         "wholeMailbox": "Beim Abholen wird die gesamte Post einschließlich langfristiger AP-Vorräte abgeholt. Einzelne Briefe müssen manuell ausgewählt werden."
       }
     },

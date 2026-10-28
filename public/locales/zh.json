@@ -1100,6 +1100,41 @@
       "unsupported": "此后端尚不支持插件 API v1，请更新脚本后端后使用。"
     },
     "external": "外部",
+    "hoardExecution": {
+      "action": "实际动作",
+      "actualOnly": "这里显示执行中核对的实际余额和步骤。初始预测单独折叠展示。",
+      "finalMailbox": "执行后已重新核对完整邮箱库存。",
+      "history": "仅显示最近 {{shown}} 步已核对动作，总计 {{total}} 步。",
+      "initialOmitted": "初始时间轴已省略；此处保留初始预测摘要，不代表已执行动作。",
+      "initialPlan": "初始计划（预测）",
+      "mailDelivery": "邮件 +{{amount}}",
+      "otherStep": "其他已核对动作",
+      "steps": "已核对的动作",
+      "title": "已核对的执行结果",
+      "total": "实际角色与邮件体力合计",
+      "unverifiedHidden": "表格未显示未核对的记录，详情见完整结果。"
+    },
+    "hoardMail": {
+      "apLetters": "体力邮件封数",
+      "character": "角色体力",
+      "complete": "已扫描完整邮箱。本次扫描没有领取奖励。",
+      "empty": "本次完整扫描没有发现体力邮件。",
+      "expiry": "到期时间区间",
+      "expiryHint": "时间按本机时区显示。游戏的粗略倒计时只能确定区间，不能当作精确过期时间；下界为零即按立即临期处理。",
+      "expiryRange": "最早 {{earliest}} · 最晚早于 {{latest}}",
+      "letter": "邮件",
+      "letters": "逐封体力邮件",
+      "mailAp": "邮件体力",
+      "mailboxCount": "邮箱总封数",
+      "observed": "扫描时间：{{time}}",
+      "received": "收件日期（游戏日期）",
+      "revalidate": "此选择只提供规划基准；开始执行时仍会重新扫描邮箱。",
+      "scanFirst": "请先扫描当前配置的邮箱。其他配置或登录会话的扫描结果不可复用。",
+      "selectedSnapshot": "共 {{count}} 封体力邮件，合计 {{amount}} 体力",
+      "title": "已核对的邮箱库存",
+      "urgent": "可能立即到期，请尽快处理",
+      "useLatest": "在本次规划中使用最近扫描结果"
+    },
     "hoardPlan": {
       "action": "计划步骤",
       "actions": {
@@ -1123,6 +1158,20 @@
       "estimateOnly": "此处为规划预估，生成计划尚未执行任何游戏操作。",
       "executable": "计划可自动执行",
       "fullData": "完整计划数据",
+      "inventory": {
+        "entered": "手填邮件体力（估算）",
+        "estimate": "用户填写的估算值",
+        "estimatedStep": "预测步骤",
+        "history": "显示 {{total}} 步计划中的 {{shown}} 步，从第 {{start}} 步开始。",
+        "live": "执行开始时重新扫描的库存",
+        "overflow": "预测溢出体力",
+        "pending": "待核对来源邮件体力",
+        "provided": "本次规划提供的最近扫描结果",
+        "scanStep": "需要扫描核对",
+        "title": "规划所用库存",
+        "verified": "已核对邮件体力",
+        "verifiedStep": "已核对基准"
+      },
       "localTime": "时间均按当前设备的本地时区显示。",
       "mail": "邮箱",
       "mailAfter": "步骤后邮箱体力",
@@ -1140,9 +1189,14 @@
       "warnings": {
         "cafeCapacity": "咖啡厅预计触及容量上限并损失部分产量，请检查容量与领取安排。",
         "clubMail": "小组签到会将体力发到邮箱。请手动核对奖励及期限，录入现有邮件后重新生成计划。",
+        "clubVerified": "小组奖励通过邮件发放，将在邮箱中核对。",
+        "expiryEstimated": "邮件到期时间按显示的倒计时保守估算，不确定的邮件会提前处理。",
         "overflow": "当前版本无法自动核验溢出到邮箱的体力，本计划需要手动核对邮箱。",
         "premium": "购体费用仅用于预算，当前版本不会自动花青辉石。请手动购买、更新现状后重新规划。",
+        "revalidated": "开始执行时会重新核对提供的邮箱快照。",
+        "scanRequired": "自动执行前需要完整扫描邮箱。",
         "selective": "现有接口无法逐封领取邮件。此邮箱体力超过整箱领取容量，请手动分批处理后重新规划。",
+        "sourceVerified": "每次领取后都会核对体力变化及新增邮件。",
         "wholeMailbox": "邮箱操作会一键领取全部邮件，包含长时囤货邮件；需要逐封选择时请手动处理。"
       }
     },

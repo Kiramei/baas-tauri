@@ -1100,6 +1100,41 @@
       "unsupported": "Ce serveur ne prend pas en charge l'API v1 des extensions. Mettez-le à jour."
     },
     "external": "Externe",
+    "hoardExecution": {
+      "action": "Action effectuée",
+      "actualOnly": "Ces soldes et actions ont été vérifiés pendant l’exécution. La prévision initiale figure séparément ci-dessous.",
+      "finalMailbox": "Inventaire complet du courrier vérifié après l’exécution.",
+      "history": "Affichage des {{shown}} dernières actions vérifiées sur {{total}}.",
+      "initialOmitted": "La chronologie initiale est omise ; cette section contient la prévision initiale, pas les actions effectuées.",
+      "initialPlan": "Plan initial (prévision)",
+      "mailDelivery": "Courrier +{{amount}}",
+      "otherStep": "Autre action vérifiée",
+      "steps": "Actions vérifiées",
+      "title": "Résultat d’exécution vérifié",
+      "total": "AP réels du personnage + courrier",
+      "unverifiedHidden": "Les entrées non vérifiées sont omises du tableau ; consultez le résultat complet."
+    },
+    "hoardMail": {
+      "apLetters": "Courriers AP",
+      "character": "AP du personnage",
+      "complete": "La boîte entière a été examinée. Aucune récompense n’a été réclamée.",
+      "empty": "Aucun courrier AP trouvé dans cet examen complet.",
+      "expiry": "Plage d’expiration",
+      "expiryHint": "Les heures suivent votre fuseau local. Un compte à rebours arrondi indique une plage, pas une expiration exacte ; une borne basse nulle est immédiatement urgente.",
+      "expiryRange": "Au plus tôt {{earliest}} · avant {{latest}}",
+      "letter": "Courrier",
+      "letters": "Courriers AP individuels",
+      "mailAp": "AP du courrier",
+      "mailboxCount": "Tous les courriers",
+      "observed": "Observé le {{time}}",
+      "received": "Reçu le (date du jeu)",
+      "revalidate": "Ce choix fournit seulement la base du plan. Le lancement de l’automatisation examine toujours la boîte à nouveau.",
+      "scanFirst": "Examinez d’abord la boîte de ce profil. Les résultats d’un autre profil ou d’une autre session ne sont pas disponibles.",
+      "selectedSnapshot": "{{count}} courriers AP · {{amount}} AP en courrier",
+      "title": "Inventaire de courrier vérifié",
+      "urgent": "Peut expirer immédiatement : à traiter maintenant",
+      "useLatest": "Utiliser le dernier examen pour ce plan"
+    },
     "hoardPlan": {
       "action": "Action prévue",
       "actions": {
@@ -1123,6 +1158,20 @@
       "estimateOnly": "Il s’agit d’une estimation. Créer ce plan n’a effectué aucune action dans le jeu.",
       "executable": "Plan exécutable automatiquement",
       "fullData": "Données complètes du plan",
+      "inventory": {
+        "entered": "AP du courrier saisis (estimation)",
+        "estimate": "Estimations saisies",
+        "estimatedStep": "Action estimée",
+        "history": "Affichage de {{shown}} étapes prévues sur {{total}}, à partir de l’étape {{start}}.",
+        "live": "Inventaire réexaminé au lancement",
+        "overflow": "AP excédentaires prévus",
+        "pending": "AP de courrier en attente de vérification",
+        "provided": "Dernier examen fourni pour le plan",
+        "scanStep": "Examen requis",
+        "title": "Inventaire utilisé pour le plan",
+        "verified": "AP du courrier vérifiés",
+        "verifiedStep": "Base vérifiée"
+      },
       "localTime": "Toutes les heures utilisent le fuseau horaire local de cet appareil.",
       "mail": "Courrier",
       "mailAfter": "PA du courrier après l’étape",
@@ -1140,9 +1189,14 @@
       "warnings": {
         "cafeCapacity": "Le café devrait atteindre sa capacité et perdre une partie de sa production. Vérifiez sa capacité et les horaires de récupération.",
         "clubMail": "Les PA du club sont envoyés par courrier. Vérifiez la récompense et l’expiration, renseignez le courrier reçu puis recalculez.",
+        "clubVerified": "Les récompenses du club arrivent par courrier et seront vérifiées dans la boîte.",
+        "expiryEstimated": "L’expiration est estimée prudemment à partir du compte à rebours ; les courriers incertains sont traités tôt.",
         "overflow": "Cette version ne peut pas vérifier automatiquement les PA excédentaires envoyés au courrier. Vérifiez la boîte manuellement.",
         "premium": "Les achats de PA sont uniquement budgétés. Cette version ne dépense pas automatiquement de pyroxènes ; achetez manuellement, actualisez le stock et recalculez.",
+        "revalidated": "L’état fourni de la boîte sera vérifié à nouveau au lancement.",
+        "scanRequired": "Un examen complet de la boîte est requis avant l’exécution automatique.",
         "selective": "Le service ne peut pas récupérer les courriers individuellement. Traitez manuellement cette quantité en plusieurs lots, puis recalculez.",
+        "sourceVerified": "Chaque récompense AP et tout nouveau courrier seront vérifiés après réception.",
         "wholeMailbox": "La récupération prend tous les courriers à la fois, y compris les réserves à longue durée. La sélection individuelle est manuelle."
       }
     },

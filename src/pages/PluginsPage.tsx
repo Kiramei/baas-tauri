@@ -21,6 +21,12 @@ import { InventoryToolResult } from "@/components/plugins/InventoryTool";
 import HoardToolResult from "@/components/plugins/HoardToolResult";
 import EquipmentToolResult from "@/components/plugins/EquipmentToolResult";
 import { isBuiltinTool, isDeviceAction } from "@/shared/PluginTools";
+import {
+  hoardActionInput,
+  hoardPlanInputSchema,
+  nextHoardMailSnapshot,
+  type HoardMailSnapshot,
+} from "@/shared/HoardMailbox";
 import { useApp } from "@/context/AppContext";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import {
@@ -126,6 +132,7 @@ function ActionPanel({
   onJob,
   blocked,
   onPending,
+  mailboxSnapshot,
 }: {
   action: PluginAction;
   plugin: PluginDescriptor;
@@ -134,9 +141,13 @@ function ActionPanel({
   onJob: (job: PluginJob) => void;
   blocked: boolean;
   onPending: (pending: boolean) => void;
+  mailboxSnapshot: HoardMailSnapshot | null;
 }) {
   const { t, i18n } = useTranslation();
-  const [values, setValues] = useState(() => pluginDefaults(action.input_schema));
+  const isHoardPlan = isBuiltinTool(plugin, "baas.hoard-ap") && action.id === "plan";
+  const inputSchema = isHoardPlan ? hoardPlanInputSchema(action.input_schema) : action.input_schema;
+  const [values, setValues] = useState(() => pluginDefaults(inputSchema));
+  const [useSnapshot, setUseSnapshot] = useState(false);
   const [invalidPaths, setInvalidPaths] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -146,7 +157,10 @@ function ActionPanel({
     []
   );
   const invalid = Object.values(invalidPaths).some(Boolean);
-  const issues = validatePluginValue(action.input_schema, values);
+  const input = isBuiltinTool(plugin, "baas.hoard-ap")
+    ? hoardActionInput(action.id, values, mailboxSnapshot, useSnapshot)
+    : values;
+  const issues = validatePluginValue(action.input_schema, input);
   const canRun = Boolean(
     configId && plugin.enabled && plugin.state === "available" && !blocked && !pending
   );
@@ -155,14 +169,14 @@ function ActionPanel({
     setPending(true);
     onPending(true);
     setError(null);
-    const serialized = JSON.stringify(values);
+    const serialized = JSON.stringify(input);
     if (attempt.current?.input !== serialized)
       attempt.current = { input: serialized, id: createPluginRequestId() };
     try {
       const job = await request<PluginJob>("run_plugin_action", configId, {
         plugin_id: plugin.id,
         action_id: action.id,
-        input: values,
+        input,
         request_id: attempt.current.id,
       });
       attempt.current = null;
@@ -190,12 +204,37 @@ function ActionPanel({
       <BuiltinToolForm
         plugin={plugin}
         actionId={action.id}
-        schema={action.input_schema}
+        schema={inputSchema}
         value={values}
         onChange={setValues}
         onInvalid={onInvalid}
         disabled={!canRun}
       />
+      {isHoardPlan && (
+        <div className="min-w-0 space-y-2 rounded-lg border border-border bg-secondary/20 p-3">
+          <label className="flex cursor-pointer items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+              checked={useSnapshot && mailboxSnapshot !== null}
+              disabled={!canRun || mailboxSnapshot === null}
+              onChange={(event) => setUseSnapshot(event.target.checked)}
+            />
+            <span className="min-w-0 break-words">{t("plugins.hoardMail.useLatest")}</span>
+          </label>
+          <p className="break-words text-xs text-muted-foreground">
+            {mailboxSnapshot
+              ? t("plugins.hoardMail.selectedSnapshot", {
+                  count: mailboxSnapshot.parcels.length,
+                  amount: mailboxSnapshot.total_ap,
+                })
+              : t("plugins.hoardMail.scanFirst")}
+          </p>
+          <p className="break-words text-xs text-muted-foreground">
+            {t("plugins.hoardMail.revalidate")}
+          </p>
+        </div>
+      )}
       <ValidationNotice issues={issues} invalid={invalid} />
       {error ? <ErrorNotice error={error} /> : null}
       <Button onClick={() => void run()} disabled={!canRun || invalid || issues.length > 0}>
@@ -292,7 +331,7 @@ function JobPanel({
         )}
       </p>
       {job.result !== undefined &&
-        (isBuiltinTool(plugin, "baas.hoard-ap") && job.action_id === "plan" ? (
+        (isBuiltinTool(plugin, "baas.hoard-ap") ? (
           <HoardToolResult value={job.result} />
         ) : isBuiltinTool(plugin, "baas.equipment-planner") ? (
           <EquipmentToolResult value={job.result} schema={schema} />
@@ -341,6 +380,7 @@ function PluginDetail({
   canUninstall,
   job,
   onJob,
+  mailboxSnapshot,
 }: {
   plugin: PluginDescriptor;
   configId?: string;
@@ -349,6 +389,7 @@ function PluginDetail({
   canUninstall: boolean;
   job: PluginJob | null;
   onJob: (job: PluginJob) => void;
+  mailboxSnapshot: HoardMailSnapshot | null;
 }) {
   const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<PluginSettings | null>(null);
@@ -605,6 +646,7 @@ function PluginDetail({
               request={request}
               onJob={onJob}
               onPending={setActionPending}
+              mailboxSnapshot={mailboxSnapshot}
               blocked={busy || loading || settingsDirty || (hasSettings && !settings)}
             />
           )}
@@ -684,10 +726,11 @@ function PluginsWorkspaceContent({
   const { t, i18n } = useTranslation();
   const [catalog, setCatalog] = useState<PluginCatalog | null>(null);
   const [jobs, setJobs] = useState<Record<string, PluginJob>>({});
-  const onJob = useCallback(
-    (job: PluginJob) => setJobs((previous) => ({ ...previous, [job.plugin_id]: job })),
-    []
-  );
+  const [mailboxSnapshot, setMailboxSnapshot] = useState<HoardMailSnapshot | null>(null);
+  const onJob = useCallback((job: PluginJob) => {
+    setJobs((previous) => ({ ...previous, [job.plugin_id]: job }));
+    setMailboxSnapshot((previous) => nextHoardMailSnapshot(previous, job));
+  }, []);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -896,6 +939,7 @@ function PluginsWorkspaceContent({
                   canUninstall={catalog.capabilities.includes("uninstall")}
                   job={jobs[selected.id] ?? null}
                   onJob={onJob}
+                  mailboxSnapshot={mailboxSnapshot}
                 />
               </div>
             )}
@@ -910,8 +954,14 @@ export function PluginsWorkspace(props: {
   configId?: string;
   profileName?: string;
   request?: PluginRequester;
+  sessionKey?: string;
 }) {
-  return <PluginsWorkspaceContent key={props.configId ?? "none"} {...props} />;
+  return (
+    <PluginsWorkspaceContent
+      key={`${props.configId ?? "none"}:${props.sessionKey ?? "none"}`}
+      {...props}
+    />
+  );
 }
 
 export default function PluginsPage() {
@@ -919,11 +969,24 @@ export default function PluginsPage() {
   const connected = useWebSocketStore(
     (state) => state._auth_phase === "authenticated" && state.connections.trigger?.readyState === 1
   );
+  const sessionId = useWebSocketStore((state) => state._session?.sessionId);
+  const request = useCallback(
+    <T,>(...args: Parameters<PluginRequester>): Promise<T> => {
+      if (useWebSocketStore.getState()._session?.sessionId !== sessionId)
+        return Promise.reject(
+          new PluginRequestError("session_changed", "Authentication session changed")
+        );
+      return pluginRequest<T>(...args);
+    },
+    [sessionId]
+  );
   return (
     <PluginsWorkspace
-      key={`${activeProfile?.id ?? "none"}:${connected}`}
+      key={`${activeProfile?.id ?? "none"}:${connected}:${sessionId ?? "none"}`}
       configId={activeProfile?.id}
       profileName={activeProfile?.name}
+      sessionKey={sessionId}
+      request={request}
     />
   );
 }
