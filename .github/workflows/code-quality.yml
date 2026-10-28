@@ -19,6 +19,7 @@ on:
       - "eslint.config.*"
       - ".github/actions/**"
       - ".github/workflows/code-quality.yml"
+      - ".github/workflows/release-app.yml"
   push:
     branches: [dev, main]
     paths: *client-paths
