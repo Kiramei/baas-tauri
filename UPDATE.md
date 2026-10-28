@@ -1,3 +1,52 @@
+## v0.0.9
+
+> Stable release with cross-platform plugins, authenticated WebUI operations, backend and client history, expanded configuration coverage, native desktop transports, and a substantially upgraded Android client.
+
+### New Features
+
+1. **Cross-platform plugin workspace**
+   Added a shared plugin manager for desktop, Android, and WebUI with declarative interfaces, trusted external ZIP installation, per-profile enablement and settings, disposable Android worker processes, and five built-in tools: AP hoarding, automatic stage progression, equipment planning, the inventory search-board calculator, and Home editing.
+
+2. **Authenticated WebUI operation**
+   Added browser login, authenticated Key reset, hardened Docker startup, and consistent client terminology. Resetting the Key invalidates existing browser sessions while preserving profiles.
+
+3. **Release and backend history**
+   Added backend commit history across desktop, Android, and WebUI, plus client release history in Help. The bundled history is refreshed during release builds.
+
+4. **Expanded gameplay and notification settings**
+   Added Arena rank-1 stopping, simple-mode stage exploration and story episodes, Cafe interaction delay, and Feishu, WeCom, and Telegram notification options. Controls remain disabled when the connected backend does not expose the corresponding field.
+
+5. **Native platform capabilities**
+   Added Windows desktop capture and control defaults for new PC profiles, macOS shared-memory transport, Linux native window controls, and corrected Linux rendering. Existing WebSocket and named-pipe transports remain available.
+
+6. **Android runtime and manual control**
+   Added same-session native fullscreen manual control, automation-priority input, native TextureView preview with shared virtual-display capture, virtual-display lifecycle recovery, compute-plugin workers, clearer run/update controls, and mobile navigation and configuration coverage.
+
+### Improvements
+
+1. Refined desktop and Android configuration, scheduling, settings, profile navigation, update history, logs, and responsive layouts.
+2. Improved updater safety with streamed UV output, idle backend updates, scheduler state recovery, stale-mirror rejection, CNB source support, and removal of the obsolete `baas-cdn` source.
+3. Expanded bilingual user and API documentation, repaired portable search indexing, replaced showcase media with reviewed dark WebP images, and removed obsolete process reports while retaining reusable validation fixtures.
+4. Added broader frontend, browser, native transport, Android worker, documentation export, and cross-platform build coverage.
+
+### Fixes
+
+1. Fixed Linux focus, native IPC, rendering, and window chrome behavior, and added macOS shared-memory compatibility.
+2. Fixed Android startup and backend lifecycle races, virtual-display focus and orientation, short-tap input, OCR ABI selection, preview buffer accounting, system-bar layout, and upgrade-time service replacement.
+3. Fixed WebUI authentication recovery, Docker runtime handling, backend Key reset, and login terminology.
+4. Fixed desktop scheduler, configuration, settings, transport recovery, profile initialization, and localization regressions.
+5. Removed stale CDN update paths from desktop, Android, WebUI, and Docker flows.
+
+### Upgrade Notes
+
+- Export important profiles before upgrading.
+- Plugins and newly added script fields require a compatible backend; unavailable fields remain disabled on older backends.
+- External plugin ZIPs execute code and require explicit trust for each profile.
+- Android support varies by device and automation task; consult the Android guide for the current validation boundaries.
+- Pull the new WebUI Docker image to update both the interface and its runtime dependencies.
+- Android continues using the existing release signing identity.
+- This is a stable release: updater manifests, stable Docker images, CNB release synchronization, and Winget submission are enabled after successful artifact publication.
+
 ## v0.0.8-rc
 
 > Release candidate for changes since v0.0.7, focused on editable scheduling, configuration coverage, resilient downloads, and startup/UI stability.

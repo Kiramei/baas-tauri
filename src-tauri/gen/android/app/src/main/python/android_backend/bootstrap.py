@@ -545,6 +545,7 @@ def _ensure_android_support_files(root):
     _apply_bundled_android_overlay(root)
     _patch_android_ocr_module_injection(root)
     _patch_android_ocr_process_abi(root)
+    _patch_android_plugin_worker_paths(root)
     _reuse_android_ocr_prebuild(root)
     _patch_android_ocr_session_readiness(root)
     _patch_android_cafe_swipe_timing(root)
@@ -612,10 +613,11 @@ def _patch_android_inventory_full(root):
              "    # BAAS_ANDROID_INVENTORY_FULL_WAIT_LOADING_V1\n"
              "    handle_inventory_full(self)\n"
              "    startTime = time.time()\n"),
-            ("        self.update_screenshot_array()\n        loadingTime = ",
+            # Newer backends check stop/main-page state before measuring loading
+            # time. Inspect the fresh frame before those checks without replacing them.
+            ("        self.update_screenshot_array()\n",
              "        self.update_screenshot_array()\n"
-             "        handle_inventory_full(self)\n"
-             "        loadingTime = "),
+             "        handle_inventory_full(self)\n"),
         )),
         ("core/Baas_thread.py", "BAAS_ANDROID_INVENTORY_FULL_TASK_V1", (
             ("import time\n",
@@ -816,6 +818,18 @@ def _patch_android_ocr_process_abi(root):
             "    from android_backend.process_abi import machine\n"
             '    arch = machine()\n    if arch in {"aarch64", "arm64"}:\n',
         )
+
+
+def _patch_android_plugin_worker_paths(root):
+    """Pass canonical private paths to the native worker's strict directory checks."""
+    _replace_once(
+        root / "service" / "plugins" / "android.py",
+        "BAAS_ANDROID_PLUGIN_CANONICAL_PATHS_V1",
+        "            starting = asyncio.create_task(asyncio.to_thread(bridge.start, slot, str(directory), str(package_dir)))\n",
+        "            # BAAS_ANDROID_PLUGIN_CANONICAL_PATHS_V1\n"
+        "            # Android exposes /data/data as an alias of /data/user/0.\n"
+        "            starting = asyncio.create_task(asyncio.to_thread(bridge.start, slot, str(directory.resolve()), str(package_dir.resolve())))\n",
+    )
 
 
 def _reuse_android_ocr_prebuild(root):
@@ -2799,7 +2813,9 @@ def _android_scrcpy_virtual_display_enabled(root):
         str(root / "config" / "scrcpy_display_id.txt"),
         f"/storage/emulated/0/Android/data/{PACKAGE_NAME}/config/scrcpy_display_id.txt",
     ]
-    return any(path and Path(path).exists() for path in candidates)
+    # Legacy external storage may belong to another install or be inaccessible
+    # under scoped storage. An optional marker must not prevent service startup.
+    return any(path and os.path.exists(path) for path in candidates)
 
 
 # Starts the Android direct ADB smart-socket shim for virtual-display scrcpy mode.

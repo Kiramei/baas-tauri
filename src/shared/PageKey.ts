@@ -17,12 +17,19 @@ export const MOBILE_PAGE_KEYS: readonly PageKey[] = [
   "settings",
 ];
 
-/** Plugins remain a stable route while belonging to Settings on mobile. */
-export function mobileNavigationPage(page: unknown): PageKey {
+/** Android embeds plugins in profile configuration; mobile WebUI keeps Settings. */
+export function mobileNavigationPage(
+  page: unknown,
+  platform: "android" | "webui" = "webui"
+): PageKey {
   const normalized = normalizePageKey(page);
-  return normalized === "plugins" ? "settings" : normalized;
+  return normalized === "plugins"
+    ? platform === "android"
+      ? "configuration"
+      : "settings"
+    : normalized;
 }
 
 export function androidBackDestination(page: PageKey): PageKey | null {
-  return page === "home" ? null : page === "plugins" ? "settings" : "home";
+  return page === "home" ? null : page === "plugins" ? "configuration" : "home";
 }
