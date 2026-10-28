@@ -85,10 +85,13 @@ test("README language entries agree with the application's default documentation
   }
 });
 
-test("READMEs link the current Android handoff without exposing private validation data", async () => {
-  for (const { content } of documents) {
+test("READMEs link localized user guides without exposing private validation data", async () => {
+  for (const { file, content } of documents) {
     const urls = (await references(content)).map(ref => ref.url);
-    expect(urls).toContain("https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md");
+    const locale = file === "README.md" ? "en" : "zh";
+    for (const page of ["guide/android", "guide/webui", "features/plugins", "reference/troubleshooting"])
+      expect(urls).toContain(`https://baas.kiramei.moe/docs/${locale}/${page}/`);
+    expect(content).not.toMatch(/docs\/(?:ANDROID_[A-Z_0-9]+|refresh-audit|repository-cleanup)\.md/);
     for (const branch of ["main", "dev", "android-dev"])
       expect(urls).toContain(`https://github.com/Kiramei/baas-tauri/tree/${branch}`);
     expect(content).not.toMatch(/(?:[a-z]:[\\/]+(?:workspace|users)[\\/]|\.cache\/|\.codex_tmp|file:\/\/)/i);

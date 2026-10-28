@@ -35,6 +35,10 @@ Steam Global and JP PC clients use desktop screenshots and mouse control. Check 
 
 ## BAAS Configuration
 
+The native Windows client offers PC servers when creating a profile, then saves `mss` capture and `pyautogui` control. The Server page shows the game process name and hides ADB settings. Confirm that creation and saving succeeded, then check the methods under Script. Capture can also use `pyautogui`; control remains `pyautogui`.
+
+Non-Windows hosts cannot create runnable PC profiles. Existing profiles remain visible with unsupported controls disabled. Android and Linux Docker cannot directly control a Windows game window. Updating the client does not automatically repair unsupported method combinations in older profiles.
+
 Recommended PC-client setup:
 
 | Location                   | Recommended Setting                   | Notes                                                          |

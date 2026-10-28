@@ -1,0 +1,41 @@
+---
+title: Plugin API
+description: Plugin manifests, declarative settings, jobs, and Android compute-process boundaries.
+---
+
+The backend loads plugins; desktop, Android, and WebUI use the same authenticated commands. See [Plugins and Tools](../features/plugins) for the user interface. The [backend specification](https://github.com/Kiramei/baas-dev/blob/master/docs/PLUGIN_SYSTEM.md) and [example.notes](https://github.com/Kiramei/baas-dev/tree/master/examples/plugins/example.notes) define the package format and installable example.
+
+## Manifest and Settings
+
+`plugin.json` declares the API version, plugin ID, version, permissions, settings schema, actions, and presentation data. API v1 renders supported declarative data; it does not load arbitrary plugin JavaScript, HTML, CSS, or Qt interfaces. Unknown versions or incompatible descriptors must report errors rather than execute unknown code.
+
+Client types live in `src/shared/Plugins.ts`. Catalog entries distinguish bundled and external sources, with available, incompatible, or error states. Settings support host-implemented boolean, numeric, string, enum, array, object, and date-time controls, not every JSON Schema extension.
+
+Settings return a `revision`; updates must include the matching version. Reread after conflicts rather than overwriting automatically. Date-time controls show local time and submit an explicit ISO instant. Plugins handle game-reset time zones separately.
+
+## Authenticated Commands and Jobs
+
+| Command | Purpose |
+| ------- | ------- |
+| `get_plugin_catalog` | Read the catalog and compatibility |
+| `get_plugin_settings` / `update_plugin_settings` | Read or revision-check profile settings |
+| `set_plugin_enabled` | Change profile enablement and external-code trust |
+| `install_plugin` / `uninstall_plugin` | Install an encrypted ZIP upload or remove a backend-wide package |
+| `run_plugin_action` | Create an action job |
+| `get_plugin_job` / `cancel_plugin_job` | Inspect or cancel a job |
+
+Requests use the authenticated Trigger session. Discard results after connection or identity replacement. Jobs distinguish `queued`, `running`, `succeeded`, `failed`, and `cancelled`, with structured results. Device automation requires profile run ownership; compute actions use separate worker processes. Cancellation stops subsequent work but cannot undo device actions.
+
+## Android Compute Processes
+
+Android runs Chaquopy compute actions in two private Service processes, `:baas_plugin_worker0` and `:baas_plugin_worker1`, with one action per process. They share the app UID and do not treat `sys.executable` as a standalone Python command. They provide no privilege isolation.
+
+`PluginWorkerBridge` start, status, and stop interfaces validate slot, token, PID, and process identity. Directories are restricted to app-private files, cache, and no-backup storage with symlink traversal rejected. Request/result envelopes are limited to 128 KiB and compute results to 64 KiB. Atomic UTF-8 files exchange results without exposing raw exceptions, paths, or stderr to the frontend.
+
+Services use `START_NOT_STICKY` and exit after completion, cancellation, or timeout. A watchdog caps lifetime, including interpreter startup, at 135 seconds. Stop operations verify job and process ownership; stale cancellation must not kill another job or the backend. Desktop workers and Android Services provide lifecycle isolation only. External code still requires user trust.
+
+## Development and Verification
+
+Start with the backend example and retain a stable plugin ID. Validate manifests and settings migrations, then test success, exceptions, timeout, cancellation, and session replacement. Do not include real credentials, device identifiers, private paths, or account screenshots in fixtures or ZIPs.
+
+The local Android bridge regression entry is `python3 scripts/tests/test_android_plugin_worker.py`. Static or simulated-process checks do not establish physical-device compatibility. See [Client API](./client-api) and [Client Architecture](./client-architecture) for other platform boundaries.

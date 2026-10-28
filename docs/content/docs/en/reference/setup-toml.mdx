@@ -49,7 +49,7 @@ Missing supported fields take their defaults. Empty root paths in a raw default 
 
 | Field                   | Type / meaning                                                                                                                                                  |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transport`             | `websocket`, `pipe`, or supported desktop `shm`; Windows/Linux default to shared memory, other native platforms to pipe                                         |
+| `transport`             | `websocket`, `pipe`, or supported desktop `shm`; native Windows/Linux/macOS default to shared memory, Android to pipe                                         |
 | `transport_version`     | Native transport migration marker; current value `1`, not a protocol throughput setting                                                                         |
 | `mirrorc_cdk`           | Secret MirrorC delivery key, empty by default; nonempty selects MirrorC rather than the Git path                                                                |
 | `channel`               | `stable` or `dev`, default stable; backend delivery/ref selection, not game region or client prerelease selection                                               |
@@ -67,7 +67,7 @@ Missing supported fields take their defaults. Empty root paths in a raw default 
 
 ### Transport Migration
 
-On Windows/Linux, an old unversioned pipe choice can migrate once to shared memory. Explicit versioned pipe and WebSocket choices are retained. Shared-memory configuration copied to unsupported native platforms normalizes to pipe. A supported client choice still requires the corresponding backend implementation; missing `--shm-name` support is a compatibility failure, not an ADB failure.
+On Windows/Linux, an old unversioned pipe choice can migrate once to shared memory. Explicit versioned pipe and WebSocket choices are retained. macOS retains explicit WebSocket and normalizes other values to shared memory. Android does not use desktop shared memory; WebUI always uses WebSocket. Client choices still require backend support; missing `--shm-name` is a backend compatibility failure.
 
 Use the [client runtime controls](../features/system#connection-and-runtime) for normal changes. Switching transport stops/restarts owned business connections and requires synchronization; it does not change emulator screenshot/control methods.
 

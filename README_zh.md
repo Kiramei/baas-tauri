@@ -156,9 +156,12 @@ Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 And
 游戏冷启动至邮件流程、预览横屏进入/返回、Activity 重建及配置 ZIP 往返。
 Android 15 shell 模式输入、完整手势矩阵、release 构建及整体提速尚未通过验收，
 不代表通用兼容或发布验收通过。详见
-[目标与当前状态](docs/ANDROID_GOALS_AND_STATUS_20261024.md)、
-[各版本验证记录](docs/ANDROID_RUNTIME_VALIDATION.md)与
-[历史 Android 交接文档](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md)。
+[Android 使用指南](https://baas.kiramei.moe/docs/zh/guide/android/)与
+[故障排查](https://baas.kiramei.moe/docs/zh/reference/troubleshooting/)。
+
+共用[插件工作区](https://baas.kiramei.moe/docs/zh/features/plugins/)提供囤体、自动推图、
+装备规划、搜索棋盘计算器和按配置档编辑主页的工具。浏览器部署与登录 Key 管理见
+[WebUI 与 Docker](https://baas.kiramei.moe/docs/zh/guide/webui/)。
 
 ## 许可证
 

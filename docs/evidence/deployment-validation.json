@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-23T11:32:03.590Z",
+  "checkedAt": "2026-10-28T06:42:11.590Z",
   "platform": "win32",
   "basePath": "",
   "strictStaticHost": true,
@@ -27,7 +27,7 @@
     "docs/scripts/normalize-static-export.mjs": "f1dcc41609adb5deb6d096ded587e0cc53eff2dc32b599c61b2ee65b56634dd7",
     "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
     "docs/scripts/check-deployment.mjs": "8254dabf1c1c0cd8f84647014543697e25a0eaf5457b41c0909465d41e55978f",
-    ".github/workflows/docs-validation.yml": "eb259a914aae16518e4b5369ab0319b4ae6f6b5bad9173c3e521e250bc524863"
+    ".github/workflows/docs-validation.yml": "748d9b135f4c34107728c4ed57cbd4194ea8cf2ff8554078069f815205463428"
   },
   "cases": [
     {
@@ -98,6 +98,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
       "route": "features/profile"
     },
     {
@@ -202,6 +209,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
       "route": "guide/wiki"
     },
     {
@@ -265,6 +279,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -387,6 +408,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
       "route": "features/profile"
     },
     {
@@ -491,6 +519,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
       "route": "guide/wiki"
     },
     {
@@ -554,6 +589,13 @@
       "locale": "en",
       "theme": "light",
       "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -676,6 +718,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
       "route": "features/profile"
     },
     {
@@ -780,6 +829,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
       "route": "guide/wiki"
     },
     {
@@ -843,6 +899,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -965,6 +1028,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
       "route": "features/profile"
     },
     {
@@ -1069,6 +1139,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
       "route": "guide/wiki"
     },
     {
@@ -1132,6 +1209,13 @@
       "locale": "en",
       "theme": "dark",
       "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -1254,6 +1338,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
       "route": "features/profile"
     },
     {
@@ -1358,6 +1449,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
       "route": "guide/wiki"
     },
     {
@@ -1421,6 +1519,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -1543,6 +1648,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
       "route": "features/profile"
     },
     {
@@ -1647,6 +1759,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
       "route": "guide/wiki"
     },
     {
@@ -1710,6 +1829,13 @@
       "locale": "zh",
       "theme": "light",
       "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -1832,6 +1958,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": false,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
       "route": "features/profile"
     },
     {
@@ -1936,6 +2069,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": false,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
       "route": "guide/wiki"
     },
     {
@@ -1999,6 +2139,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": false
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -2121,6 +2268,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": true,
+      "route": "features/plugins"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
       "route": "features/profile"
     },
     {
@@ -2225,6 +2379,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": true,
+      "route": "guide/webui"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
       "route": "guide/wiki"
     },
     {
@@ -2288,6 +2449,13 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": true
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "reference/plugin-api"
     },
     {
       "kind": "render",
@@ -2386,12 +2554,12 @@
     },
     {
       "kind": "search-artifact",
-      "revision": "0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b"
+      "revision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b"
     }
   ],
-  "caseCount": 343,
+  "caseCount": 367,
   "failures": [],
-  "searchIndexPath": "search-index/0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b.json",
-  "searchIndexRevision": "0b17bb562d35dd5930c6c43f35d143a0431c21eed0e0d6a2226a08f6c459707b",
-  "searchIndexSha256": "92023d01258588d139df7239a80bc956126a513bb635c8ce0341bb03bb16ffa2"
+  "searchIndexPath": "search-index/77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b.json",
+  "searchIndexRevision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b",
+  "searchIndexSha256": "3ec11e7dbfdb66d4096ab38f19eedae722f36ac2096e67b6fa5c1d6be21cad14"
 }

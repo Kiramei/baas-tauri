@@ -3,7 +3,7 @@ title: System Settings
 description: Every settings category, local persistence, appearance controls, application/global shortcuts, transport and system-log operations.
 ---
 
-Open **Settings** from the navigation rail. The sidebar contains General, Appearance, Shortcuts, Connection & runtime, Updates and Logs; narrow windows and Android use a category selector. Search locates settings/categories rather than searching game tasks.
+Open **Settings** from the navigation rail. The desktop sidebar contains General, Appearance, Shortcuts, Connection & runtime, Updates and Logs; narrow windows use a category selector. Android hides Shortcuts and retains the other five categories. Search locates settings and categories.
 
 Most appearance/preferences are **client-wide**, not part of the selected game profile. They update immediately and persist locally (`uiSettings`, batched after about 150 ms). Switching profiles does not provide separate colors or decoder preferences. Profile task changes use a different [configuration history](../guide/configuration).
 
@@ -25,7 +25,7 @@ There are important exceptions to automatic saving: profile dialogs, global-hotk
 | Minimize to tray         | Hide the minimized desktop window in the tray while keeping the app running; `minimizeToTray`. This is not Exit or a guarantee against system sleep |
 | Enter after installation | Proceed into the client after successful desktop setup; `autoEnterAfterInstall`. This is not OS startup registration or scheduler autostart         |
 
-The last three are desktop/native controls. The audited Android General page shows language and reduced effects, not the desktop notification/tray/installer group. WebUI lacks native desktop integration.
+The last three are native desktop controls. Android omits the notification/tray/installer group; WebUI lacks native desktop integration. General also provides the [plugin entry](./plugins). For WebUI login and Key reset, see [browser deployment](../guide/webui#sign-in-and-reset-the-key).
 
 ## Appearance
 
@@ -114,11 +114,11 @@ Unlike inline application bindings, these changes remain a dialog draft until **
 
 | Control           | Choices and scope                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------- |
-| Backend transport | `websocket`, `pipe`, plus `shm` on supported native Windows/Linux                                     |
+| Backend transport | Native desktop supports `shm` and `websocket`; Windows/Linux also support `pipe`                                     |
 | Preview decoder   | `mse`, `broadway`, `tinyh264`, `webcodecs`; `remoteSettings.streamPlayer`                             |
 | Encrypted preview | `remoteSettings.enableSafeStream`; protects the WebSocket preview stream, not a graphics-quality mode |
 
-Transport is the **client/backend** channel, not ADB or the game's screenshot method. Choosing it closes business connections, starts the managed transport and resynchronizes state; wait for reconnection and avoid changing it during a task. WebUI normalizes to WebSocket; native shared memory is not available on macOS/Android. Unsupported stored modes are normalized rather than proving native support.
+Transport carries **client/backend** messages independently of ADB and game capture. Changing it closes business connections, starts the managed transport, and resynchronizes state. Wait for reconnection and avoid switching during tasks. Windows/Linux retain explicit pipe or WebSocket choices; otherwise they prefer available shared memory, falling back to pipe. macOS defaults to shared memory and accepts an explicit WebSocket choice. Android uses pipe or WebSocket; WebUI always uses WebSocket. Unsupported stored modes are normalized.
 
 The desktop decoder and encrypted-stream controls do not select Android's native TextureView preview. For desktop, turn Home's remote preview off and on after changing decoder/encryption so the player reconnects. See [Home Runtime](./home-runtime) for video controls and current advanced-setting limitations, [Architecture](../reference/client-architecture) for transport ownership, and [Performance](../reference/performance) for measurement scope.
 

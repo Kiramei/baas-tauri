@@ -5,6 +5,26 @@ description: BAAS Tauri release notes, affected areas, upgrade guidance, and tro
 
 This page tracks BAAS Tauri changes across the desktop client, Android client, updater, docs site, and runtime integration. When an issue appears after upgrading, first confirm the version, then check the affected areas and upgrade notes below.
 
+## v0.0.9
+
+Use [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases) for published assets, signatures, and release status.
+
+- A shared plugin workspace adds AP hoarding, auto push, equipment planning, the inventory search-board calculator, and Home editing. External ZIPs require per-profile code trust.
+- WebUI adds browser login, authenticated Key reset, and Docker deployment. Reset invalidates all existing logins while retaining profiles.
+- Desktop, Android, and WebUI gain backend commit history; Help provides client release history. The obsolete `baas-cdn` source is removed.
+- Additional settings cover stopping Arena at rank 1, simple-mode stage exploration and story episodes, Cafe interaction delay, and Feishu/WeCom/Telegram notifications. New controls are disabled if the backend lacks their fields.
+- Native Windows PC profiles initialize desktop capture/control methods. macOS gains shared-memory transport; Linux window styling and rendering are corrected.
+- Android adds same-session native fullscreen manual control, automation-priority input, compute-plugin processes, and navigation/run/update control adjustments. See the [Android guide](../guide/android) for physical-device and emulator validation limits; not every device or task has passed acceptance.
+- Bilingual user/API guides are expanded, search is repaired, and desktop showcases use dark WebP images.
+
+Export profiles before upgrading. Plugins and new script fields require a matching backend. Update Docker UI and dependencies by pulling a new image.
+
+## v0.0.8-rc
+
+Prerelease: 2026-09-04. Adds the editable scheduler workflow, minimize to tray, expanded combat and friend-cleanup editors, Windows shared memory, download recovery, and startup/UI fixes. The workflow edits existing scheduler data and persists its layout separately.
+
+See the [RC release notes](https://github.com/Kiramei/baas-tauri/releases/tag/v0.0.8-rc) for Android, WebUI, and updater publication scope. Friend-cleanup filters still depend on the actual backend; read the [deletion warning](../features/maintenance#friend-cleanup) before use.
+
 ## v0.0.7
 
 Release date: 2026-07-14

@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-28T03:47:46.753Z",
+  "checkedAt": "2026-10-28T06:41:42.146Z",
   "verificationKind": "code inspection and pinned Git-content comparison",
   "runtimeUpdateExecuted": false,
   "sources": [
@@ -668,10 +668,10 @@
   ],
   "testedPages": {
     "docs/content/docs/zh/reference/updater-internals.mdx": "b4a9edaea4592966793a0379e87f393b2bc39585997c40d60fa46f695111adc7",
-    "docs/content/docs/zh/features/update.mdx": "17f6cf58d122fe2d3899a7ae83986cf28ead28fdd302a92444acb034c0a86934",
+    "docs/content/docs/zh/features/update.mdx": "21237955def3507e9a675b2915c80af364689975b9da3c214cecf6f5c2850c92",
     "docs/content/docs/zh/reference/client-architecture.mdx": "6d7fee1f83f6503ae2b38471b5a89a5ad22cd80c0dab914091113d36a05562ba",
     "docs/content/docs/en/reference/updater-internals.mdx": "561e0a3939e1547b403865eb30363c18e1ac6ec6d368c61ac1b126d6a2709ac3",
-    "docs/content/docs/en/features/update.mdx": "75f3de9b8fab481c8b11f09e8154f38fc4d38eb07ee49171a9c14f09ee01c5ed",
+    "docs/content/docs/en/features/update.mdx": "feb979707da62abcbdf764252342b419ca1e2b1e2e62fc06bb49065164fcf0e2",
     "docs/content/docs/en/reference/client-architecture.mdx": "d69f510096edbb5bdf79f9453e1a4d952a2dcc173073f21d5b0bbd64a4c8d8b6"
   },
   "inspectedBehavior": [
@@ -690,5 +690,28 @@
   "limitations": [
     "No updater was executed against the shared workspaces or device",
     "Source comparison does not establish successful runtime recovery"
-  ]
+  ],
+  "historySupplement": {
+    "revision": "7cb82895bcb78adb82b8f185199f51ef18b57cfa",
+    "verificationKind": "source inspection; no runtime update or device operation",
+    "scope": [
+      "backend commit history pagination, provenance and refresh",
+      "authenticated WebUI Trigger query",
+      "separate client release-history menu"
+    ],
+    "sources": [
+      {
+        "file": "src/components/settings/CommitHistory.tsx",
+        "sha256": "c3419ddd01375e3e1a47a03d990f66641e067a9c604b4169fac0ffe6dcdae0b8"
+      },
+      {
+        "file": "src/shared/CommitHistory.ts",
+        "sha256": "acb2e0f4aaefc0c3a552c21079df600f01a8e83d4498ed6cc76a9cc162fc354e"
+      },
+      {
+        "file": "src/components/layout/HelpMenu.tsx",
+        "sha256": "2143314b616707f52f4347d6214edfcb1a038ba3db21b4b680044bbb6fa60395"
+      }
+    ]
+  }
 }
