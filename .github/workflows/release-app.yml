@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
         run: |
           set -euo pipefail
 
@@ -315,7 +315,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -490,7 +490,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -611,7 +611,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -718,7 +718,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -733,7 +733,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           overwrite_files: true
           files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
 
@@ -815,7 +815,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ startsWith(github.ref_name, 'v0.') || contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -845,7 +845,7 @@ jobs:
             --silent
 
   release-update:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Publish updater manifests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -870,7 +870,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   sync-to-cnb-release:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
     timeout-minutes: 260
@@ -916,7 +916,7 @@ jobs:
           overwrite-assets: "true"
 
   submit-to-winget:
-    if: ${{ !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
     timeout-minutes: 20
