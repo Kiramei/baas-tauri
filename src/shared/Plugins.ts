@@ -113,10 +113,20 @@ export function createPluginRequestId(
   const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-type PluginStore = Pick<
+type PluginConnectionState = Pick<
   WebSocketState,
-  "trigger" | "triggerBinary" | "connections" | "pendingCallbacks" | "_auth_phase" | "_session"
+  "transportMode" | "connections" | "_auth_phase" | "_session"
 >;
+type PluginStore = PluginConnectionState &
+  Pick<WebSocketState, "trigger" | "triggerBinary" | "pendingCallbacks">;
+
+/** Native transports authenticate locally and do not create a WebSocket session. */
+export function pluginCommandConnection(state: PluginConnectionState) {
+  const connection = state.connections.trigger;
+  if (state._auth_phase !== "authenticated" || connection?.readyState !== 1) return null;
+  if (state.transportMode === "pipe" || state.transportMode === "shm") return connection;
+  return state.transportMode === "websocket" && state._session?.sessionId ? connection : null;
+}
 
 /** Keep commands on the authenticated transport and discard replies from a replaced session. */
 export async function requestPluginCommand<T>(
@@ -128,12 +138,10 @@ export async function requestPluginCommand<T>(
   timeoutMs = 30_000
 ): Promise<T> {
   const state = getState();
+  const connection = pluginCommandConnection(state);
+  const transportMode = state.transportMode;
   const sessionId = state._session?.sessionId;
-  if (
-    state._auth_phase !== "authenticated" ||
-    !sessionId ||
-    state.connections.trigger?.readyState !== 1
-  )
+  if (!connection)
     throw new PluginRequestError(
       "connection_unavailable",
       "Authenticated command connection is unavailable"
@@ -155,9 +163,11 @@ export async function requestPluginCommand<T>(
       if (settled) return;
       settled = true;
       cleanup();
+      const current = getState();
       if (
-        getState()._auth_phase !== "authenticated" ||
-        getState()._session?.sessionId !== sessionId
+        current.transportMode !== transportMode ||
+        pluginCommandConnection(current) !== connection ||
+        (transportMode === "websocket" && current._session?.sessionId !== sessionId)
       ) {
         reject(new PluginRequestError("session_changed", "Authentication session changed"));
       } else if (response?.status !== "ok") {

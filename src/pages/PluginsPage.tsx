@@ -32,6 +32,7 @@ import { useWebSocketStore } from "@/store/WebsocketStore";
 import {
   pluginDefaults,
   pluginJsonEqual,
+  pluginCommandConnection,
   pluginRequest,
   PluginRequestError,
   pluginText,
@@ -964,27 +965,34 @@ export function PluginsWorkspace(props: {
   );
 }
 
-export default function PluginsPage() {
-  const { activeProfile } = useApp();
-  const connected = useWebSocketStore(
-    (state) => state._auth_phase === "authenticated" && state.connections.trigger?.readyState === 1
-  );
+export default function PluginsPage({ profileId }: { profileId?: string } = {}) {
+  const { activeProfile, profiles } = useApp();
+  const profile = profileId ? profiles.find(({ id }) => id === profileId) : activeProfile;
+  const connection = useWebSocketStore(pluginCommandConnection);
   const sessionId = useWebSocketStore((state) => state._session?.sessionId);
   const request = useCallback(
     <T,>(...args: Parameters<PluginRequester>): Promise<T> => {
-      if (useWebSocketStore.getState()._session?.sessionId !== sessionId)
+      const current = useWebSocketStore.getState();
+      if (!connection || !pluginCommandConnection(current))
+        return Promise.reject(
+          new PluginRequestError("connection_unavailable", "Command connection is unavailable")
+        );
+      if (
+        pluginCommandConnection(current) !== connection ||
+        current._session?.sessionId !== sessionId
+      )
         return Promise.reject(
           new PluginRequestError("session_changed", "Authentication session changed")
         );
       return pluginRequest<T>(...args);
     },
-    [sessionId]
+    [connection, sessionId]
   );
   return (
     <PluginsWorkspace
-      key={`${activeProfile?.id ?? "none"}:${connected}:${sessionId ?? "none"}`}
-      configId={activeProfile?.id}
-      profileName={activeProfile?.name}
+      key={`${profile?.id ?? "none"}:${Boolean(connection)}:${sessionId ?? "none"}`}
+      configId={profile?.id}
+      profileName={profile?.name}
       sessionKey={sessionId}
       request={request}
     />

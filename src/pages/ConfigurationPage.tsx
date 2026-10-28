@@ -59,6 +59,8 @@ export interface FeatureComponentProps {
   setActivePage?: Dispatch<SetStateAction<PageKey>>;
 }
 
+const PluginsConfig = React.lazy(() => import("@/pages/PluginsPage"));
+
 const featureComponents: Record<ConfigurationSection, React.FC<FeatureComponentProps>> = {
   cafe: CafeConfig,
   schedule: ScheduleConfig,
@@ -77,6 +79,7 @@ const featureComponents: Record<ConfigurationSection, React.FC<FeatureComponentP
   team: TeamConfig,
   push: PushConfig,
   other: OtherConfig,
+  plugins: PluginsConfig,
 };
 const stayOnSection = () => {};
 
@@ -116,6 +119,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
     const onKeyDown = (event: KeyboardEvent) => {
       const root = detailRef.current;
       if (
+        selected.id === "plugins" ||
         !root?.getClientRects().length ||
         root.closest("[aria-hidden='true']") ||
         event.defaultPrevented ||
@@ -157,7 +161,7 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [applicationShortcuts.bindings, history.undo, history.redo, select]);
+  }, [applicationShortcuts.bindings, history.undo, history.redo, select, selected.id]);
   if (!pid || !profile) return null;
 
   return (
@@ -173,52 +177,56 @@ const ConfigurationPage: React.FC<ProfileProps> = ({ profileId, setActivePage })
         />
       </div>
       <div ref={detailRef} className="configuration-detail">
-        <header className="configuration-detail-heading">
-          <div className="flex min-w-0 items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-2xl font-semibold tracking-tight">
-                {t(i18nKey(selected.title))}
-              </h2>
-              <span className="min-w-0 truncate text-sm text-muted-foreground">{profile.name}</span>
-            </div>
-            <div
-              className="configuration-history"
-              role="group"
-              aria-label={t("configuration.history")}
-            >
-              <IconTooltip
-                content={`${t("edit.undo")}${applicationShortcuts.bindings.undo ? ` (${applicationShortcuts.shortcutLabel("undo")})` : ""}`}
+        {selected.id !== "plugins" && (
+          <header className="configuration-detail-heading">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {t(i18nKey(selected.title))}
+                </h2>
+                <span className="min-w-0 truncate text-sm text-muted-foreground">
+                  {profile.name}
+                </span>
+              </div>
+              <div
+                className="configuration-history"
+                role="group"
+                aria-label={t("configuration.history")}
               >
-                <button
-                  type="button"
-                  aria-label={t("edit.undo")}
-                  disabled={!history.canUndo}
-                  onClick={() => {
-                    const section = history.undo();
-                    if (section) select(section);
-                  }}
+                <IconTooltip
+                  content={`${t("edit.undo")}${applicationShortcuts.bindings.undo ? ` (${applicationShortcuts.shortcutLabel("undo")})` : ""}`}
                 >
-                  <Undo2 size={16} />
-                </button>
-              </IconTooltip>
-              <IconTooltip
-                content={`${t("edit.redo")}${applicationShortcuts.bindings.redo ? ` (${applicationShortcuts.shortcutLabel("redo")})` : ""}`}
-              >
-                <button
-                  type="button"
-                  aria-label={t("edit.redo")}
-                  disabled={!history.canRedo}
-                  onClick={() => {
-                    const section = history.redo();
-                    if (section) select(section);
-                  }}
+                  <button
+                    type="button"
+                    aria-label={t("edit.undo")}
+                    disabled={!history.canUndo}
+                    onClick={() => {
+                      const section = history.undo();
+                      if (section) select(section);
+                    }}
+                  >
+                    <Undo2 size={16} />
+                  </button>
+                </IconTooltip>
+                <IconTooltip
+                  content={`${t("edit.redo")}${applicationShortcuts.bindings.redo ? ` (${applicationShortcuts.shortcutLabel("redo")})` : ""}`}
                 >
-                  <Redo2 size={16} />
-                </button>
-              </IconTooltip>
+                  <button
+                    type="button"
+                    aria-label={t("edit.redo")}
+                    disabled={!history.canRedo}
+                    onClick={() => {
+                      const section = history.redo();
+                      if (section) select(section);
+                    }}
+                  >
+                    <Redo2 size={16} />
+                  </button>
+                </IconTooltip>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
+        )}
         {!hasResults && query.trim() && (
           <p role="status" className="mb-5 text-sm text-muted-foreground">
             {t("configuration.noResults")}

@@ -80,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const hasAnyUpdate = hasBackendUpdate || hasTauriUpdate;
   const sidebarToggleLabel = desktopExpanded ? t("app.collapseSidebar") : t("app.expandSidebar");
   const profilePaneVisible = desktopExpanded || peek;
-  const mobilePage = mobileNavigationPage(activePage);
+  const mobilePage = mobileNavigationPage(activePage, __WITH_ANDROID__ ? "android" : "webui");
 
   const cancelClose = React.useCallback(() => {
     if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
@@ -193,6 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
     { id: "plugins", label: t("nav.plugins"), compactLabel: t("nav.mobilePlugins") },
     { id: "settings", label: t("nav.settings"), compactLabel: t("nav.mobileSettings") },
   ];
+  const visibleNavItems = navItems.filter((item) => !__WITH_ANDROID__ || item.id !== "plugins");
 
   const stopAllTasks = async () => {
     trigger({
@@ -399,7 +400,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
           </IconTooltip>
         )}
         <nav className="flex flex-col gap-2">
-          {navItems
+          {visibleNavItems
             .filter((item) => item.id !== "settings")
             .map((item) => (
               <IconTooltip key={item.id} content={item.label} side="right">
@@ -600,7 +601,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       >
         {navItems
           .filter((item) => MOBILE_PAGE_KEYS.includes(item.id))
-          .map((item) => (
+          .map((item, index) => (
             <React.Fragment key={item.id}>
               <IconTooltip content={item.label} side="top">
                 <button
@@ -614,7 +615,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                       : "text-muted-foreground/75 hover:text-foreground"
                   }`}
                 >
-                  <span className="mobile-navigation-icon flex h-8 w-9 items-center justify-center">
+                  <span className="mobile-navigation-icon flex h-8 w-12 items-center justify-center">
                     <NavigationIcon page={item.id} selected={mobilePage === item.id} size={24} />
                   </span>
                   <span
@@ -624,23 +625,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
                   </span>
                 </button>
               </IconTooltip>
+              {__WITH_ANDROID__ && index === 1 && (
+                <button
+                  type="button"
+                  aria-label={primaryRunning ? t("common.stop") : t("common.start")}
+                  disabled={!activeProfile}
+                  onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
+                  className={`mobile-primary-run mx-2 grid h-14 w-14 shrink-0 -translate-y-2.5 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
+                >
+                  {primaryRunning ? (
+                    <Square className="h-6 w-6 fill-current" />
+                  ) : (
+                    <Play className="h-7 w-7 -translate-y-px fill-current" />
+                  )}
+                </button>
+              )}
             </React.Fragment>
           ))}
-        {__WITH_ANDROID__ && (
-          <button
-            type="button"
-            aria-label={primaryRunning ? t("common.stop") : t("common.start")}
-            disabled={!activeProfile}
-            onClick={() => window.dispatchEvent(new Event("baas:toggle-primary-run"))}
-            className={`mobile-primary-run absolute -top-16 right-3 grid h-12 w-12 shrink-0 place-items-center rounded-full border-4 border-background shadow-xl transition active:scale-95 disabled:opacity-50 ${primaryRunning ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}
-          >
-            {primaryRunning ? (
-              <Square className="h-6 w-6 fill-current" />
-            ) : (
-              <Play className="h-7 w-7 -translate-y-px fill-current" />
-            )}
-          </button>
-        )}
       </nav>
 
       {/* Mobile floating update buttons */}

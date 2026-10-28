@@ -12,10 +12,15 @@ describe("mobile plugin navigation", () => {
     expect(MOBILE_PAGE_KEYS).toEqual(["home", "scheduler", "configuration", "settings"]);
     expect(normalizePageKey("plugins")).toBe("plugins");
     expect(mobileNavigationPage("plugins")).toBe("settings");
-    for (const page of MOBILE_PAGE_KEYS) expect(mobileNavigationPage(page)).toBe(page);
+    expect(mobileNavigationPage("plugins", "webui")).toBe("settings");
+    expect(mobileNavigationPage("plugins", "android")).toBe("configuration");
+    for (const page of MOBILE_PAGE_KEYS) {
+      expect(mobileNavigationPage(page, "webui")).toBe(page);
+      expect(mobileNavigationPage(page, "android")).toBe(page);
+    }
   });
 
-  test("visiting plugins from settings can return without a game profile", () => {
+  test("mobile WebUI plugins can return to settings without a game profile", () => {
     const history = new NavigationHistory();
     let current: Readonly<NavigationView> = { page: "settings" };
     history.attach((next) => {
@@ -31,8 +36,9 @@ describe("mobile plugin navigation", () => {
     expect(current).toEqual({ page: "plugins" });
   });
 
-  test("native Back returns from plugins to settings before returning home", () => {
-    expect(androidBackDestination("plugins")).toBe("settings");
+  test("native legacy plugins belong to configuration and Back returns home", () => {
+    expect(androidBackDestination("plugins")).toBe("configuration");
+    expect(androidBackDestination(mobileNavigationPage("plugins", "android"))).toBe("home");
     expect(androidBackDestination("settings")).toBe("home");
     expect(androidBackDestination("configuration")).toBe("home");
     expect(androidBackDestination("scheduler")).toBe("home");

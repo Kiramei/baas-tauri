@@ -9,6 +9,7 @@ import {
   Dices,
   FileCode2,
   Map,
+  Puzzle,
   ScrollText,
   Server,
   Settings2,
@@ -46,6 +47,7 @@ const sectionIcons = {
   team: Users2Icon,
   push: ArrowUpFromLine,
   other: Settings2,
+  plugins: Puzzle,
 };
 
 export interface ConfigurationNavigationProps {

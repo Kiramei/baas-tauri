@@ -7,12 +7,13 @@ import socket
 import sys
 import tempfile
 import threading
+import types
 import urllib.error
 import urllib.request
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 JAVA = ROOT / "src-tauri/gen/android/app/src/main/java/io/github/kiramei/baas_tauri"
@@ -155,6 +156,42 @@ class AndroidBackendLifecycleTest(unittest.TestCase):
                 status = bootstrap.start(files, root, 0)
             self.assertFalse(status["ok"])
             self.assertIn("local backend service stopped", status["error"])
+
+    def test_inaccessible_legacy_marker_does_not_block_service_or_local_marker(self):
+        for local_marker in (False, True):
+            with self.subTest(local_marker=local_marker), tempfile.TemporaryDirectory() as directory:
+                bootstrap = load_bootstrap()
+                root = Path(directory)
+                if local_marker:
+                    (root / "config").mkdir()
+                    (root / "config/scrcpy_display_id.txt").write_text("1")
+                legacy = f"/storage/emulated/0/Android/data/{bootstrap.PACKAGE_NAME}/config/scrcpy_display_id.txt"
+                real_stat = os.stat
+                denied = []
+
+                def stat(path, *args, **kwargs):
+                    if os.fspath(path) == legacy:
+                        denied.append(path)
+                        raise PermissionError("legacy package storage is inaccessible")
+                    return real_stat(path, *args, **kwargs)
+
+                uvicorn = Mock()
+                direct_adb = types.SimpleNamespace(start=Mock(return_value=12345))
+                modules = {"uvicorn": uvicorn, "android_direct_adb_server": direct_adb,
+                           "android_runtime_injection": types.SimpleNamespace(install=Mock()),
+                           "service": types.SimpleNamespace(set_log_format=Mock())}
+                with patch.dict(os.environ, {"BAAS_SCRCPY_DISPLAY_ID_FILE": "", "BAAS_SERVICE_OVERLAY_ROOT": "", "BAAS_ANDROID_ADB_SERIAL": ""}), \
+                        patch.dict(sys.modules, modules), \
+                        patch.object(bootstrap, "_clear_backend_modules"), \
+                        patch.object(bootstrap, "_build_baas_asgi_app"), \
+                        patch.object(os, "stat", side_effect=stat):
+                    bootstrap._run_baas_service(root, 8190)
+                uvicorn.Server.return_value.run.assert_called_once()
+                if local_marker:
+                    direct_adb.start.assert_called_once_with("127.0.0.1:5555")
+                else:
+                    self.assertTrue(denied)
+                    direct_adb.start.assert_not_called()
 
     def test_diagnostic_server_reuses_only_its_own_root_and_allows_explicit_process_restart(self):
         with self.environment() as (bootstrap, files, root):

@@ -1,4 +1,6 @@
 """Portable boundary tests for the APK helper; real Chaquopy lifecycle is tested on Android."""
+import asyncio
+import importlib.util
 import json
 from pathlib import Path
 import shutil
@@ -6,9 +8,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 
 HELPER = Path(__file__).resolve().parents[2] / "src-tauri/gen/android/app/src/main/python/android_backend/plugin_worker.py"
+BOOTSTRAP = HELPER.with_name("bootstrap.py")
 DRIVER = """import importlib.util, sys
 spec = importlib.util.spec_from_file_location('android_plugin_helper', sys.argv[1])
 module = importlib.util.module_from_spec(spec)
@@ -18,6 +22,55 @@ module.run(sys.argv[2], sys.argv[3], sys.argv[4])
 
 
 class AndroidPluginWorkerTest(unittest.TestCase):
+    def bootstrap(self):
+        spec = importlib.util.spec_from_file_location("android_plugin_bootstrap_test", BOOTSTRAP)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_native_worker_receives_canonical_private_paths_from_android_aliases(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            storage = root / "data/user/0/app"
+            job = storage / "cache/job"
+            package = storage / "files/plugin"
+            job.mkdir(parents=True)
+            package.mkdir(parents=True)
+            legacy = root / "data/data"
+            legacy.symlink_to(root / "data/user/0", target_is_directory=True)
+            adapter = root / "service/plugins/android.py"
+            adapter.parent.mkdir(parents=True)
+            adapter.write_text(
+                "import asyncio\n"
+                "class Worker:\n"
+                "    async def launch(self, bridge, slot, directory, package_dir):\n"
+                "        try:\n"
+                "            starting = asyncio.create_task(asyncio.to_thread(bridge.start, slot, str(directory), str(package_dir)))\n"
+                "            return await starting\n"
+                "        finally:\n"
+                "            pass\n"
+            )
+            bootstrap = self.bootstrap()
+            bootstrap._patch_android_plugin_worker_paths(root)
+            patched = adapter.read_text()
+            bootstrap._patch_android_plugin_worker_paths(root)
+            self.assertEqual(adapter.read_text(), patched)
+            namespace = {}
+            exec(compile(patched, str(adapter), "exec"), namespace)
+            bridge = Mock()
+            bridge.start.return_value = "native-lease"
+            result = asyncio.run(namespace["Worker"]().launch(
+                bridge, 1, legacy / "app/cache/job", legacy / "app/files/plugin"
+            ))
+            self.assertEqual(result, "native-lease")
+            bridge.start.assert_called_once_with(1, str(job.resolve()), str(package.resolve()))
+
+    def test_older_backend_without_plugin_workers_is_untouched(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.bootstrap()._patch_android_plugin_worker_paths(root)
+            self.assertEqual(list(root.iterdir()), [])
+
     def execute(self, request, worker):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
