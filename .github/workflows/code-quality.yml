@@ -210,3 +210,7 @@ jobs:
 
       - name: Build Android debug APK
         run: bun run tauri:android:build:debug -- --abi arm64
+
+      - name: Run Android release lint
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :app:lintVitalArm64Release -x rustBuildArm64Release
