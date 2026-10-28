@@ -18,12 +18,13 @@ Open **Configuration** and select the relevant combat category. Valid edits save
 | Level difference  | Integer from `-89` to `89` | Threshold used when inspecting an opponent                         |
 | Maximum refreshes | Integer `0` or greater     | Bounds the opponent-refresh loop, not the number of battle tickets |
 | Opponent number   | `1`, `2`, `3`              | Opponent slot selected for the challenge                           |
+| Stop fighting at rank 1 | On or off | At rank 1, collect available rewards and skip further challenges without spending battle tickets |
 
 The audited backend accepts an opponent when `opponent level + level difference <= own level`. For example, at level 90, `10` requires an opponent at level 80 or below; `-5` allows up to level 95. Do not interpret a positive value as permission to fight a stronger opponent.
 
 **The threshold is not a guaranteed skip condition.** After exhausting refreshes, the backend still challenges the configured slot. A refresh limit of `0` bypasses the search loop but does not disable fighting. With no tickets it collects the available reward and returns; the audited flow does not automatically buy more tickets.
 
-Blank, fractional or out-of-range input prevents this section's draft from being committed. Exported fields are `ArenaLevelDiff`, `maxArenaRefreshTimes` and `ArenaComponentNumber`.
+Blank, fractional or out-of-range numeric input prevents this section's draft from being committed. Exported fields are `ArenaLevelDiff`, `maxArenaRefreshTimes`, `ArenaComponentNumber` and the boolean `ArenaStopFightWhenRank1`. The rank-one switch is disabled with an update-backend message if the connected backend snapshot lacks that field.
 
 ## Total Assault
 

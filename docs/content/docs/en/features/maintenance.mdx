@@ -49,10 +49,33 @@ Each accepted code appears as a chip. Its remove icon removes whitelist protecti
 | Push after completion | `push_after_completion`: send when the backend finishes the run              |
 | JSON push             | `push_json`: receiving URL, **not** a JSON document                          |
 | ServerChan            | `push_serverchan`: SendKey, not the full endpoint URL                        |
+| Feishu | `push_feishu`: group-bot Webhook URL |
+| WeCom | `push_wecom`: group-bot Webhook URL |
+| Telegram Bot Token | `push_telegram_bot_token`: Token issued by BotFather |
+| Telegram Chat ID | `push_telegram_chat_id`: destination chat or group ID, including negative group IDs |
+| Telegram proxy | `push_telegram_proxy`: optional HTTP/HTTPS proxy used by the backend |
+| Telegram API address | `push_telegram_api`: optional API base address; blank uses `https://api.telegram.org` |
 
-The text inputs are not password-masked and the frontend does not validate their network reachability. Keep keys and signed URLs out of screenshots, shared profiles and public logs. Empty endpoint/key values disable their respective destination. Both nonempty destinations can receive a push.
+Webhook URLs, ServerChan SendKey, Telegram Token and proxy are hidden by default;
+the eye control reveals one value locally. Chat ID and API address remain
+visible. The frontend does not test network reachability or send a test push.
+Keep keys and signed URLs out of screenshots, shared profiles and public logs.
+Empty endpoint/key values disable the corresponding destination, while other
+configured channels can continue to receive notifications.
 
-The audited backend POSTs JSON with `Content-Type: application/json`. Example error payload:
+Telegram notifications require both Token and Chat ID. Filling only one shows
+an incomplete-credentials hint while still saving the current values; clearing
+either disables Telegram notifications. This integration sends completion/error
+notifications, not interactive bot commands. Send the bot a message first when
+using a private chat. Chat IDs remain strings so signed and large IDs retain
+their exact value.
+
+The optional proxy runs on the script backend. In Docker, `127.0.0.1` means the
+container; on Android it means the phone, rather than the browser's computer.
+Newer channel controls are disabled with an update-backend message when their
+fields are absent from the connected backend snapshot.
+
+The generic JSON destination receives a POST with `Content-Type: application/json`. Example error payload:
 
 ```json
 {
@@ -61,7 +84,7 @@ The audited backend POSTs JSON with `Content-Type: application/json`. Example er
 }
 ```
 
-Successful completion uses title `Baas Completed` and description `all activities finished`. The backend treats HTTP 200 as success and logs request failures; saving the URL is not a test push. ServerChan uses `https://sctapi.ftqq.com/{SendKey}.send`. The backend also contains an advanced Feishu field, but this editor has no Feishu control.
+Successful completion uses title `Baas Completed` and description `all activities finished`. JSON and ServerChan adapters treat HTTP 200 as success; Feishu and WeCom also check their response's success code, while Telegram checks its `ok` result. Request failures appear in backend logs; saving a URL is not a test push. ServerChan uses `https://sctapi.ftqq.com/{SendKey}.send`.
 
 ## Uncensoring
 

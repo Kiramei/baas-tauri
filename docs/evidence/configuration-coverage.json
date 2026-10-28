@@ -1,7 +1,7 @@
 {
   "sourceRevision": "be186c524ab9f7a91c41582aec3a5fef06614751",
-  "scope": "17 desktop configuration categories. Manual audit includes controls, choices, validation, conditional visibility, persistence and task side effects. This is not the entire documentation refresh.",
-  "automatedCheck": "Compiler-API comparison of current Draft/initial field names with this ledger, plus mentions in both localized pages and immediate-command literals. Passing does not prove prose correctness, complete conditional-state coverage, backend implementation or successful game execution.",
+  "scope": "17 configuration categories. The original manual audit at the base revision covered controls, choices, validation, conditional visibility, persistence and task side effects. An incremental source review adds the Cafe interaction delay, Arena rank-one stop, exploration simple mode, ordered story selection and six notification fields introduced by dev PR #57. This update does not claim a fresh manual or browser audit of every category.",
+  "automatedCheck": "TypeScript type-checker comparison of the actual useConfigurationDraft initial-value model with this ledger, including local interfaces, imported models and normalization return types; plus field mentions in both localized pages and immediate-command literals. Passing does not prove prose correctness, complete conditional-state coverage, backend implementation, browser appearance or successful game execution.",
   "backendRevision": "d0a86a089068766ff53682b501b90bee99857a71",
   "sections": [
     {
@@ -21,7 +21,8 @@
         "cafe_reward_invite1_starred_student_position": "cafe_reward_inviteN_starred_student_position",
         "cafe_reward_invite2_starred_student_position": "cafe_reward_inviteN_starred_student_position",
         "favorStudent1": "favorStudentN",
-        "favorStudent2": "favorStudentN"
+        "favorStudent2": "favorStudentN",
+        "cafe_reward_interaction_shot_delay": "cafe_reward_interaction_shot_delay"
       }
     },
     {
@@ -70,7 +71,8 @@
       "fields": {
         "ArenaLevelDiff": "ArenaLevelDiff",
         "ArenaComponentNumber": "ArenaComponentNumber",
-        "maxArenaRefreshTimes": "maxArenaRefreshTimes"
+        "maxArenaRefreshTimes": "maxArenaRefreshTimes",
+        "ArenaStopFightWhenRank1": "ArenaStopFightWhenRank1"
       }
     },
     {
@@ -171,7 +173,9 @@
       "fields": {
         "manual_boss": "manual_boss",
         "explore_normal_task_list": "explore_normal_task_list",
-        "explore_hard_task_list": "explore_hard_task_list"
+        "explore_hard_task_list": "explore_hard_task_list",
+        "explore_task_use_simple_mode": "explore_task_use_simple_mode",
+        "main_story_regions": "main_story_regions"
       },
       "commands": [
         "start_normal_task",
@@ -202,7 +206,13 @@
         "push_after_error": "push_after_error",
         "push_after_completion": "push_after_completion",
         "push_json": "push_json",
-        "push_serverchan": "push_serverchan"
+        "push_serverchan": "push_serverchan",
+        "push_feishu": "push_feishu",
+        "push_wecom": "push_wecom",
+        "push_telegram_bot_token": "push_telegram_bot_token",
+        "push_telegram_chat_id": "push_telegram_chat_id",
+        "push_telegram_proxy": "push_telegram_proxy",
+        "push_telegram_api": "push_telegram_api"
       }
     },
     {
@@ -212,5 +222,18 @@
       "fields": {},
       "commands": ["start_fhx"]
     }
-  ]
+  ],
+  "incrementalReview": {
+    "frontendFiles": [
+      "src/features/ArenaConfig.tsx",
+      "src/features/CafeConfig.tsx",
+      "src/features/StageConfig.tsx",
+      "src/features/upstreamConfig.ts",
+      "src/features/PushConfig.tsx",
+      "src/features/pushConfiguration.ts"
+    ],
+    "backendRevision": "4a4fcfda (Telegram identifier fix); notification/game-field behavior follows the upstream UI source review, not a new device run",
+    "addedFields": 10,
+    "frontendRevision": "139281cf993cd9c41c483ba311dc1735ccb8eab7"
+  }
 }
