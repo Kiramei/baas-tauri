@@ -44,7 +44,7 @@ export default function EquipmentToolResult({
           return Object.hasOwn(labels, item) ? labels[item] : undefined;
         if (key === "equipment_id") {
           const match =
-            /^(necklace|watch|charm|hairpin|badge|bag|shoes|gloves|hat)_(bp_t([1-9]\d*)|univ|t([1-9]\d*))$/.exec(
+            /^(necklace|watch|charm|hairpin|badge|bag|shoes|gloves|hat)_(bp_t([1-9]\d*)|univ|[t]([1-9]\d*))$/.exec(
               item
             );
           if (match)

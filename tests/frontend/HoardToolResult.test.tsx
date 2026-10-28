@@ -14,6 +14,7 @@ import ru from "../../public/locales/ru.json";
 
 const languages = { en, zh, ja, ko, fr, de, ru };
 const warningKeys = {
+  CLUB_REWARD_REQUIRES_MAIL_VERIFICATION: "clubMail",
   PREMIUM_PURCHASES_ARE_MANUAL: "premium",
   OVERFLOW_REQUIRES_MAIL_VERIFICATION: "overflow",
   MAIL_REQUIRES_SELECTIVE_COLLECTION: "selective",
@@ -52,6 +53,31 @@ async function render(value: JsonValue, language: keyof typeof languages = "en")
 }
 
 describe("hoarding plan results", () => {
+  test("club delivery is pending mail, not a verified character AP increase", async () => {
+    const { primary } = await render(
+      plan({
+        executable: false,
+        warnings: ["CLUB_REWARD_REQUIRES_MAIL_VERIFICATION"],
+        available_at_target: { character_ap: 999, cafe_ap: 0, mail_ap: 0, total_ap: 999 },
+        steps: [
+          {
+            at: target,
+            action: "club",
+            amount: 10,
+            ap_after: 999,
+            mail_ap: 0,
+            delivery: "mail",
+            verification: "manual_mail",
+          },
+        ],
+      })
+    );
+    expect(primary).toContain("Pending mail +10");
+    expect(primary).toContain("Check in to club (AP sent by mail)");
+    expect(primary).toContain("Verify the reward and expiry manually");
+    expect(primary).not.toContain("1,009");
+  });
+
   test("a successful plan displays estimates rather than claiming game execution", async () => {
     const { markup, primary } = await render(plan());
     expect(primary).toContain("Plan can run automatically");

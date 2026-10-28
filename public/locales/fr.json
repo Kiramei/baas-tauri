@@ -1106,7 +1106,7 @@
       "actions": {
         "cafe": "Récupérer les PA du café",
         "clear": "Dépenser les PA sur le parcours choisi",
-        "club": "Récupérer les PA du club",
+        "club": "Présence au club (PA par courrier)",
         "daily": "Récupérer les PA des missions quotidiennes",
         "free": "Récupérer les PA gratuits quotidiens",
         "jjc": "Acheter des PA à la boutique d’arène",
@@ -1127,6 +1127,7 @@
       "localTime": "Toutes les heures utilisent le fuseau horaire local de cet appareil.",
       "mail": "Courrier",
       "mailAfter": "PA du courrier après l’étape",
+      "mailDelivery": "Courrier à vérifier +{{amount}}",
       "manual": "Étapes manuelles nécessaires",
       "noSteps": "Aucune étape prévue à afficher.",
       "targetIncomplete": "Le plan s’arrête à une étape manuelle ; le total disponible à l’heure cible reste indéterminé.",
@@ -1139,6 +1140,7 @@
       "unknownWarning": "Ce client ne peut pas expliquer un avis du plan. Consultez les données complètes avant de lancer.",
       "warnings": {
         "cafeCapacity": "Le café devrait atteindre sa capacité et perdre une partie de sa production. Vérifiez sa capacité et les horaires de récupération.",
+        "clubMail": "Les PA du club sont envoyés par courrier. Vérifiez la récompense et l’expiration, renseignez le courrier reçu puis recalculez.",
         "overflow": "Cette version ne peut pas vérifier automatiquement les PA excédentaires envoyés au courrier. Vérifiez la boîte manuellement.",
         "premium": "Les achats de PA sont uniquement budgétés. Cette version ne dépense pas automatiquement de pyroxènes ; achetez manuellement, actualisez le stock et recalculez.",
         "selective": "Le service ne peut pas récupérer les courriers individuellement. Traitez manuellement cette quantité en plusieurs lots, puis recalculez.",

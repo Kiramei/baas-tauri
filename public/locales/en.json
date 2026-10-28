@@ -1106,7 +1106,7 @@
       "actions": {
         "cafe": "Claim cafe AP",
         "clear": "Spend AP using the selected route",
-        "club": "Claim club AP",
+        "club": "Check in to club (AP sent by mail)",
         "daily": "Claim daily mission AP",
         "free": "Claim free daily AP",
         "jjc": "Buy tactical challenge shop AP",
@@ -1127,6 +1127,7 @@
       "localTime": "All times are shown in this device’s local time zone.",
       "mail": "Mailbox",
       "mailAfter": "Mail AP after step",
+      "mailDelivery": "Pending mail +{{amount}}",
       "manual": "Manual steps required",
       "noSteps": "No timeline steps to display.",
       "targetIncomplete": "The plan stops at a manual step, so the AP available at the target time is not yet determined.",
@@ -1139,6 +1140,7 @@
       "unknownWarning": "This client cannot explain one of the plan notices. Review the full data before running.",
       "warnings": {
         "cafeCapacity": "The cafe is expected to reach capacity and lose some production. Check its capacity and collection schedule.",
+        "clubMail": "Club check-in sends AP by mail. Verify the reward and expiry manually, enter the existing mail inventory, then replan.",
         "overflow": "This version cannot automatically verify AP overflow into mail. This plan needs manual mailbox verification.",
         "premium": "AP purchase costs are budget estimates only. This version does not spend pyroxene automatically; purchase manually, update the inventory and replan.",
         "selective": "The host cannot collect individual mail items. Handle this oversized mailbox manually in batches, then replan.",

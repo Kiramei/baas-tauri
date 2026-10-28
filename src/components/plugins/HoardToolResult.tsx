@@ -42,6 +42,7 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
     manual_mail: t("plugins.hoardPlan.actions.manualMail"),
   };
   const warningLabels: Record<string, string> = {
+    CLUB_REWARD_REQUIRES_MAIL_VERIFICATION: t("plugins.hoardPlan.warnings.clubMail"),
     PREMIUM_PURCHASES_ARE_MANUAL: t("plugins.hoardPlan.warnings.premium"),
     OVERFLOW_REQUIRES_MAIL_VERIFICATION: t("plugins.hoardPlan.warnings.overflow"),
     MAIL_REQUIRES_SELECTIVE_COLLECTION: t("plugins.hoardPlan.warnings.selective"),
@@ -158,7 +159,11 @@ export default function HoardToolResult({ value }: { value: JsonValue }) {
                         : t("plugins.hoardPlan.unknownAction")}
                     </td>
                     <td className="px-3 py-2 align-top tabular-nums">
-                      {action === "ready" || amount === "—" ? "—" : `${sign}${amount}`}
+                      {action === "ready" || amount === "—"
+                        ? "—"
+                        : step.delivery === "mail" || action === "club"
+                          ? t("plugins.hoardPlan.mailDelivery", { amount })
+                          : `${sign}${amount}`}
                     </td>
                     <td className="px-3 py-2 align-top tabular-nums">{number(step.ap_after)}</td>
                     <td className="px-3 py-2 align-top tabular-nums">{number(step.mail_ap)}</td>

@@ -1106,7 +1106,7 @@
       "actions": {
         "cafe": "Café-AP abholen",
         "clear": "AP auf der gewählten Route verbrauchen",
-        "club": "Club-AP abholen",
+        "club": "Club-Anmeldung (AP per Post)",
         "daily": "AP aus täglichen Missionen abholen",
         "free": "Tägliche kostenlose AP abholen",
         "jjc": "AP im Taktik-Shop kaufen",
@@ -1127,6 +1127,7 @@
       "localTime": "Alle Zeiten werden in der lokalen Zeitzone dieses Geräts angezeigt.",
       "mail": "Postfach",
       "mailAfter": "Postfach-AP nach dem Schritt",
+      "mailDelivery": "Ungeprüfte Post +{{amount}}",
       "manual": "Manuelle Schritte erforderlich",
       "noSteps": "Keine geplanten Schritte zum Anzeigen.",
       "targetIncomplete": "Der Plan endet bei einem manuellen Schritt. Die AP-Gesamtmenge zum Zielzeitpunkt ist noch nicht bestimmt.",
@@ -1139,6 +1140,7 @@
       "unknownWarning": "Dieser Client kann einen Planhinweis nicht erklären. Prüfe vor dem Start die vollständigen Daten.",
       "warnings": {
         "cafeCapacity": "Das Café erreicht voraussichtlich seine Kapazität und verliert Produktion. Prüfe Kapazität und Abholzeiten.",
+        "clubMail": "Club-AP werden per Post geliefert. Belohnung und Ablauf prüfen, den vorhandenen Postbestand eintragen und neu planen.",
         "overflow": "Diese Version kann ins Postfach übergelaufene AP nicht automatisch prüfen. Prüfe das Postfach für diesen Plan manuell.",
         "premium": "AP-Käufe werden nur kalkuliert. Diese Version gibt keine Pyroxene automatisch aus. Kaufe manuell, aktualisiere den Bestand und plane neu.",
         "selective": "Der Dienst kann Briefe nicht einzeln abholen. Bearbeite diese große Postmenge manuell in mehreren Teilen und plane neu.",
