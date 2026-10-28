@@ -671,7 +671,6 @@
     "unknown": "알 수 없는 작업"
   },
   "shaMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode 리포지토리",
@@ -1310,7 +1309,6 @@
     "stable": "안정 버전"
   },
   "updateMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",

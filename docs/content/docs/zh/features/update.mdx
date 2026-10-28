@@ -60,7 +60,6 @@ Android 会重新检查远端版本高于当前客户端，下载 HTTPS APK 并�
 | gh-proxy.org                       | `gh_proxy`                                               |
 | SevenCDN                           | `sevencdn`                                               |
 | GitHubFast                         | `githubfast`                                             |
-| BAAS CDN                           | `baas_cdn`                                               |
 | 有已验证存储密钥时启用的 Mirror 酱 | `mirrorc`                                                |
 
 列出镜像不保证可达、数据新鲜或对应通道一致。桌面同仓库/引用的镜像更新有祖先关系保护；Android 抓取后直接硬重置，没有这项保护。Android Git 对允许列表中的主机直接返回 `CertificateOk`，回调不检查证书，检测到系统 CA 目录也不能证明执行了证书链校验。Stable/dev 选择后端仓库/引用，两条主仓库分支目前均为 `master`，与游戏区服无关。

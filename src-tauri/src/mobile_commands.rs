@@ -46,7 +46,6 @@ static ANDROID_BACKEND_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android bac
 static ANDROID_CLIENT_UPDATE_QUERY: UpdateQuery = UpdateQuery::new("Android client update check");
 const TAURI_UPDATE_ENDPOINTS: &[&str] = &[
     "https://cnb.cool/kiramei/baas-tauri/-/releases/download/updater/update-cnb.json",
-    "https://baas-cdn.kiramei.workers.dev/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/updater/update-proxy.json",
     "https://github.com/Kiramei/baas-tauri/releases/download/updater/update.json",
 ];
@@ -3281,10 +3280,6 @@ fn android_sha_method_sources(channel: UpdateChannel) -> Vec<(String, Option<Str
         ("gh_proxy".to_string(), find_url(&urls, "://gh-proxy.org")),
         ("sevencdn".to_string(), find_url(&urls, "gh.sevencdn.com")),
         ("githubfast".to_string(), find_url(&urls, "githubfast.com")),
-        (
-            "baas_cdn".to_string(),
-            find_url(&urls, "baas-cdn.kiramei.workers.dev"),
-        ),
     ]
 }
 

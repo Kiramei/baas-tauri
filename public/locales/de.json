@@ -671,7 +671,6 @@
     "unknown": "Unbekannte Aufgabe"
   },
   "shaMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode-Repository",
@@ -1310,7 +1309,6 @@
     "stable": "Stabil"
   },
   "updateMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",

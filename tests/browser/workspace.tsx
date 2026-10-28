@@ -404,7 +404,6 @@ const trigger: ReturnType<typeof useWebSocketStore.getState>["trigger"] = (paylo
       "gh_proxy",
       "sevencdn",
       "githubfast",
-      "baas_cdn",
     ];
     for (const [index, name] of methods.entries()) {
       callback?.({
