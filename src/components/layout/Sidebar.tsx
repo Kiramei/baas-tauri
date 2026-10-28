@@ -32,6 +32,7 @@ import { useAboutBaas } from "@/context/AboutBaasProvider";
 import { useApp } from "@/context/AppContext";
 import WorkspaceSwitcher from "@/components/layout/WorkspaceSwitcher";
 import { resolveSidebarPane, type SidebarPeekContext } from "@/shared/SidebarPane";
+import { MOBILE_PAGE_KEYS, mobileNavigationPage } from "@/shared/PageKey";
 
 const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
@@ -79,6 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const hasAnyUpdate = hasBackendUpdate || hasTauriUpdate;
   const sidebarToggleLabel = desktopExpanded ? t("app.collapseSidebar") : t("app.expandSidebar");
   const profilePaneVisible = desktopExpanded || peek;
+  const mobilePage = mobileNavigationPage(activePage);
 
   const cancelClose = React.useCallback(() => {
     if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
@@ -596,32 +598,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
       <nav
         className={`mobile-bottom-navigation fixed bottom-0 left-0 z-40 flex w-full items-center justify-between border-t border-border bg-background px-3 lg:hidden ${__WITH_ANDROID__ ? "h-[var(--android-bottom-navigation-height)] pb-[env(safe-area-inset-bottom,0px)]" : "h-[70px]"}`}
       >
-        {navItems.map((item) => (
-          <React.Fragment key={item.id}>
-            <IconTooltip content={item.label} side="top">
-              <button
-                type="button"
-                aria-label={item.label}
-                aria-current={activePage === item.id ? "page" : undefined}
-                onClick={() => setActivePage(item.id)}
-                className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
-                  activePage === item.id
-                    ? "text-foreground"
-                    : "text-muted-foreground/75 hover:text-foreground"
-                }`}
-              >
-                <span className="mobile-navigation-icon flex h-8 w-9 items-center justify-center">
-                  <NavigationIcon page={item.id} selected={activePage === item.id} size={24} />
-                </span>
-                <span
-                  className={`mobile-navigation-label block max-w-full truncate text-center text-xs leading-4 ${activePage === item.id ? "font-semibold" : "font-normal"}`}
+        {navItems
+          .filter((item) => MOBILE_PAGE_KEYS.includes(item.id))
+          .map((item) => (
+            <React.Fragment key={item.id}>
+              <IconTooltip content={item.label} side="top">
+                <button
+                  type="button"
+                  aria-label={item.label}
+                  aria-current={mobilePage === item.id ? "page" : undefined}
+                  onClick={() => setActivePage(item.id)}
+                  className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 ${
+                    mobilePage === item.id
+                      ? "text-foreground"
+                      : "text-muted-foreground/75 hover:text-foreground"
+                  }`}
                 >
-                  {__WITH_ANDROID__ ? (item.compactLabel ?? item.label) : item.label}
-                </span>
-              </button>
-            </IconTooltip>
-          </React.Fragment>
-        ))}
+                  <span className="mobile-navigation-icon flex h-8 w-9 items-center justify-center">
+                    <NavigationIcon page={item.id} selected={mobilePage === item.id} size={24} />
+                  </span>
+                  <span
+                    className={`mobile-navigation-label block max-w-full truncate text-center text-xs leading-4 ${mobilePage === item.id ? "font-semibold" : "font-normal"}`}
+                  >
+                    {__WITH_ANDROID__ ? (item.compactLabel ?? item.label) : item.label}
+                  </span>
+                </button>
+              </IconTooltip>
+            </React.Fragment>
+          ))}
         {__WITH_ANDROID__ && (
           <button
             type="button"

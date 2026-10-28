@@ -32,6 +32,7 @@ import LanguageSelect from "@/components/LanguageSelect.tsx";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearanceEffects";
 import { SystemLogSettings } from "@/components/SystemLogSettings";
+import { PluginSettingsEntry } from "@/components/settings/PluginSettingsEntry";
 
 const TauriUpdateProgressModal = React.lazy(() =>
   import("@/components/updater/TauriUpdateProgressModal").then((module) => ({
@@ -777,6 +778,7 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                   </SettingsGroup>
+                  <PluginSettingsEntry />
                   {__WITH_TAURI__ && !__WITH_ANDROID__ && (
                     <SettingsGroup title={t("settings.groups.desktop")}>
                       {__WITH_TAURI__ && (

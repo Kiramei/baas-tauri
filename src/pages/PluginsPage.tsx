@@ -16,11 +16,16 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import PluginResultView from "@/components/plugins/PluginResultView";
-import PluginSchemaForm from "@/components/plugins/PluginSchemaForm";
+import BuiltinToolForm from "@/components/plugins/BuiltinToolForm";
+import { InventoryToolResult } from "@/components/plugins/InventoryTool";
+import HoardToolResult from "@/components/plugins/HoardToolResult";
+import EquipmentToolResult from "@/components/plugins/EquipmentToolResult";
+import { isBuiltinTool, isDeviceAction } from "@/shared/PluginTools";
 import { useApp } from "@/context/AppContext";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import {
   pluginDefaults,
+  pluginJsonEqual,
   pluginRequest,
   PluginRequestError,
   pluginText,
@@ -35,6 +40,7 @@ import {
   type PluginJob,
   type PluginSettings,
   type PluginSchema,
+  type PluginValidationIssue,
 } from "@/shared/Plugins";
 
 type PluginRequester = typeof pluginRequest;
@@ -67,12 +73,10 @@ function ErrorNotice({ error }: { error: unknown }) {
 }
 
 function ValidationNotice({
-  schema,
-  value,
+  issues,
   invalid,
 }: {
-  schema: PluginAction["input_schema"];
-  value: JsonValue;
+  issues: PluginValidationIssue[];
   invalid: boolean;
 }) {
   const { t } = useTranslation();
@@ -98,11 +102,10 @@ function ValidationNotice({
         return t("plugins.validation.maxItems", { count });
     }
   };
-  const issues = validatePluginValue(schema, value);
   if (!issues.length && !invalid) return null;
   return (
     <ul className="space-y-1 text-xs text-destructive" aria-live="polite">
-      {invalid && <li>{t("plugins.invalidJson")}</li>}
+      {invalid && <li>{t("plugins.invalidValue")}</li>}
       {issues.slice(0, 8).map((issue, index) => (
         <li key={index} className="break-words">
           {issue.path}:{" "}
@@ -143,11 +146,12 @@ function ActionPanel({
     []
   );
   const invalid = Object.values(invalidPaths).some(Boolean);
+  const issues = validatePluginValue(action.input_schema, values);
   const canRun = Boolean(
     configId && plugin.enabled && plugin.state === "available" && !blocked && !pending
   );
   const run = async () => {
-    if (!canRun || invalid || validatePluginValue(action.input_schema, values).length) return;
+    if (!canRun || invalid || issues.length) return;
     setPending(true);
     onPending(true);
     setError(null);
@@ -175,7 +179,7 @@ function ActionPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-medium">{pluginText(action.name, i18n.language)}</h4>
         <span className="rounded-md bg-secondary px-2 py-1 text-xs text-muted-foreground">
-          {action.execution === "device_task" ? t("plugins.deviceTask") : t("plugins.compute")}
+          {isDeviceAction(action) ? t("plugins.deviceTask") : t("plugins.compute")}
         </span>
       </div>
       {action.description && (
@@ -183,19 +187,18 @@ function ActionPanel({
           {pluginText(action.description, i18n.language)}
         </p>
       )}
-      <PluginSchemaForm
+      <BuiltinToolForm
+        plugin={plugin}
+        actionId={action.id}
         schema={action.input_schema}
         value={values}
         onChange={setValues}
         onInvalid={onInvalid}
         disabled={!canRun}
       />
-      <ValidationNotice schema={action.input_schema} value={values} invalid={invalid} />
+      <ValidationNotice issues={issues} invalid={invalid} />
       {error ? <ErrorNotice error={error} /> : null}
-      <Button
-        onClick={() => void run()}
-        disabled={!canRun || invalid || validatePluginValue(action.input_schema, values).length > 0}
-      >
+      <Button onClick={() => void run()} disabled={!canRun || invalid || issues.length > 0}>
         {pending ? <Loader2 className="animate-spin" /> : <Play />}
         {t("plugins.run")}
       </Button>
@@ -209,14 +212,16 @@ function JobPanel({
   request,
   onChange,
   schema,
+  plugin,
 }: {
   job: PluginJob;
   schema?: PluginSchema;
+  plugin: PluginDescriptor;
   configId: string;
   request: PluginRequester;
   onChange: (job: PluginJob) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [error, setError] = useState<unknown>(null);
   const [cancelling, setCancelling] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -280,10 +285,30 @@ function JobPanel({
           </Button>
         )}
       </div>
-      <p className="break-all font-mono text-xs text-muted-foreground">
-        {job.action_id} · {job.id}
+      <p className="text-xs text-muted-foreground">
+        {pluginText(
+          plugin.actions.find((action) => action.id === job.action_id)?.name,
+          i18n.language
+        )}
       </p>
-      {job.result !== undefined && <PluginResultView value={job.result} schema={schema} />}
+      {job.result !== undefined &&
+        (isBuiltinTool(plugin, "baas.hoard-ap") && job.action_id === "plan" ? (
+          <HoardToolResult value={job.result} />
+        ) : isBuiltinTool(plugin, "baas.equipment-planner") ? (
+          <EquipmentToolResult value={job.result} schema={schema} />
+        ) : isBuiltinTool(plugin, "baas.inventory-calculator") ? (
+          <>
+            <InventoryToolResult value={job.result} />
+            <details className="min-w-0">
+              <summary className="cursor-pointer text-xs text-muted-foreground">
+                {t("plugins.rawResult")}
+              </summary>
+              <PluginResultView value={job.result} schema={schema} />
+            </details>
+          </>
+        ) : (
+          <PluginResultView value={job.result} schema={schema} />
+        ))}
       {job.error && (
         <p className="whitespace-pre-wrap break-words text-sm text-destructive">
           {job.error.message}
@@ -337,6 +362,7 @@ function PluginDetail({
   const [saved, setSaved] = useState(false);
   const [confirmation, setConfirmation] = useState<"trust" | "uninstall" | null>(null);
   const [reload, setReload] = useState(0);
+  const [selectedActionId, setSelectedActionId] = useState(plugin.actions[0]?.id ?? "");
   useEffect(() => {
     if (!configId || plugin.state !== "available") {
       setLoading(false);
@@ -371,6 +397,12 @@ function PluginDetail({
   );
   const invalid = Object.values(invalidPaths).some(Boolean);
   const busy = pending || actionPending || isJobActive(job);
+  const hasSettings = Object.keys(plugin.settings_schema.properties ?? {}).length > 0;
+  const settingsIssues = validatePluginValue(plugin.settings_schema, draft);
+  const settingsDirty =
+    hasSettings && settings !== null && !pluginJsonEqual(draft, settings.values);
+  const selectedAction =
+    plugin.actions.find((action) => action.id === selectedActionId) ?? plugin.actions[0];
   const mutate = async (command: string, payload: Record<string, unknown>, global = false) => {
     setPending(true);
     setError(null);
@@ -385,13 +417,7 @@ function PluginDetail({
     }
   };
   const save = async () => {
-    if (
-      !settings ||
-      !configId ||
-      invalid ||
-      validatePluginValue(plugin.settings_schema, draft).length
-    )
-      return;
+    if (!settings || !configId || invalid || settingsIssues.length) return;
     setPending(true);
     setSaved(false);
     setError(null);
@@ -402,6 +428,8 @@ function PluginDetail({
         values: draft,
       });
       setSettings(next);
+      setDraft(next.values);
+      setInvalidPaths({});
       setSaved(true);
     } catch (failure) {
       setError(failure);
@@ -483,7 +511,7 @@ function PluginDetail({
         </p>
       )}
       {error ? <ErrorNotice error={error} /> : null}
-      {configId && plugin.state === "available" && (
+      {configId && hasSettings && plugin.state === "available" && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">{t("plugins.settings")}</h3>
@@ -506,8 +534,9 @@ function PluginDetail({
           ) : (
             settings && (
               <>
-                <PluginSchemaForm
+                <BuiltinToolForm
                   key={`${settings.revision}:${formGeneration}`}
+                  plugin={plugin}
                   schema={plugin.settings_schema}
                   value={draft}
                   onChange={(value) => {
@@ -517,17 +546,12 @@ function PluginDetail({
                   onInvalid={onInvalid}
                   disabled={busy}
                 />
-                <ValidationNotice schema={plugin.settings_schema} value={draft} invalid={invalid} />
+                <ValidationNotice issues={settingsIssues} invalid={invalid} />
                 {Object.keys(plugin.settings_schema.properties ?? {}).length > 0 && (
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
                       variant="outline"
-                      disabled={
-                        busy ||
-                        invalid ||
-                        validatePluginValue(plugin.settings_schema, draft).length > 0 ||
-                        JSON.stringify(draft) === JSON.stringify(settings.values)
-                      }
+                      disabled={busy || invalid || settingsIssues.length > 0 || !settingsDirty}
                       onClick={() => void save()}
                     >
                       {t("common.save")}
@@ -550,23 +574,46 @@ function PluginDetail({
           {!plugin.enabled && configId && (
             <p className="text-sm text-muted-foreground">{t("plugins.enableToRun")}</p>
           )}
-          {plugin.actions.map((action) => (
+          {settingsDirty && (
+            <p role="status" className="text-sm text-muted-foreground">
+              {t("pluginTools.saveBeforeRun")}
+            </p>
+          )}
+          {plugin.actions.length > 1 && (
+            <label className="block min-w-0 space-y-2 text-sm">
+              <span>{t("pluginTools.chooseAction")}</span>
+              <select
+                className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-2"
+                value={selectedAction?.id}
+                disabled={busy}
+                onChange={(event) => setSelectedActionId(event.target.value)}
+              >
+                {plugin.actions.map((action) => (
+                  <option key={action.id} value={action.id}>
+                    {pluginText(action.name, i18n.language)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {selectedAction && (
             <ActionPanel
-              key={action.id}
-              action={action}
+              key={selectedAction.id}
+              action={selectedAction}
               plugin={plugin}
               configId={configId}
               request={request}
               onJob={onJob}
               onPending={setActionPending}
-              blocked={busy}
+              blocked={busy || loading || settingsDirty || (hasSettings && !settings)}
             />
-          ))}
+          )}
         </section>
       )}
       {job && configId && (
         <JobPanel
           job={job}
+          plugin={plugin}
           configId={configId}
           request={request}
           onChange={onJob}

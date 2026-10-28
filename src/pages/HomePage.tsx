@@ -13,7 +13,16 @@ import CButton from "@/components/ui/CButton.tsx";
 import Logger from "@/components/ui/Logger";
 import AssetsDisplay from "@/components/AssetsDisplay";
 import PluginHomeShortcuts from "@/components/plugins/PluginHomeShortcuts";
-import { ArrowDownToLine, FileDown, Keyboard, Logs, Play, Square, Webcam } from "lucide-react";
+import {
+  ArrowDownToLine,
+  FileDown,
+  Keyboard,
+  Logs,
+  Play,
+  SlidersHorizontal,
+  Square,
+  Webcam,
+} from "lucide-react";
 import { LogItem, ProfileProps } from "@/types/app";
 import { TaskStatus } from "@/components/HomeTaskStatus.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
@@ -32,6 +41,9 @@ import { toast } from "sonner";
 import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
 import { useAndroidStartGuard } from "@/android/components/AndroidStartGuard";
 import { Modal } from "@/components/ui/Modal";
+import { homeSectionPresentation } from "@/shared/PluginHomeLayout";
+import { usePluginHomeLayout } from "@/shared/usePluginHomeLayout";
+import { requestPluginOpen } from "@/shared/Plugins";
 import {
   androidPackageForServer,
   androidProfileGameSession,
@@ -73,6 +85,12 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
     [profiles, pid, activeProfile]
   );
   const activeConfigId = profile?.id ?? pid;
+  const pluginHome = usePluginHomeLayout(activeConfigId, activeProfile?.id === activeConfigId);
+  const homePresentation = homeSectionPresentation(
+    pluginHome.layout,
+    assetsDisplay,
+    __WITH_ANDROID__
+  );
 
   const scriptRunning = useWebSocketStore((state) =>
     activeConfigId ? state.statusStore[activeConfigId]?.running || false : false
@@ -413,6 +431,18 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {homePresentation.edit && (
+              <IconTooltip content={t("plugins.homeEditor.edit")}>
+                <button
+                  type="button"
+                  aria-label={t("plugins.homeEditor.edit")}
+                  onClick={() => requestPluginOpen("baas.home-editor")}
+                  className={TOOL_BUTTON_CLASS}
+                >
+                  <SlidersHorizontal className="size-4" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            )}
             {remoteAvailable && (
               <IconTooltip content={t("remote.emulator")}>
                 <button
@@ -460,12 +490,15 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         </div>
       )}
 
-      {activeConfigId && (
-        <PluginHomeShortcuts
-          key={activeConfigId}
-          configId={activeConfigId}
-          active={activeProfile?.id === activeConfigId}
-        />
+      {isAndroid && homePresentation.edit && (
+        <button
+          type="button"
+          onClick={() => requestPluginOpen("baas.home-editor")}
+          className="ml-auto flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
+          {t("plugins.homeEditor.edit")}
+        </button>
       )}
 
       {hotkeyAvailable && (
@@ -568,59 +601,88 @@ const HomePage: React.FC<ProfileProps> = ({ profileId }) => {
         </div>
       </Modal>
 
-      {/* Account data and task context share one compact summary area. */}
-      {activeConfigId && (
-        <div className={`min-w-0 shrink-0 ${isAndroid ? "space-y-2" : "space-y-5"}`}>
-          {isAndroid && <TaskStatus profileId={activeConfigId} />}
-          {assetsDisplay && <AssetsDisplay profileId={activeConfigId} />}
-          {!isAndroid && <TaskStatus profileId={activeConfigId} />}
-        </div>
-      )}
-
-      {/* Logs form the main workspace; controls stay quiet until they are needed. */}
-      <section
-        className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-(--log-surface) shadow-(--log-card-shadow) ${isAndroid ? "min-h-0" : "min-h-64"}`}
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col ${isAndroid ? "gap-2" : "gap-5"}`}
+        data-home-sections
       >
-        <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5 border-b border-b-(--workspace-divider)">
-          <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
-            <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
-            {t("log")}
-          </h2>
-          <div className="flex shrink-0 items-center gap-1">
-            <IconTooltip content={t("log.scroll.detail")}>
-              <button
-                type="button"
-                onClick={() => setUiSettings((state) => ({ ...state, scrollToEnd: !scrollToEnd }))}
-                aria-label={t("log.scroll")}
-                aria-pressed={scrollToEnd}
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
-              >
-                <ArrowDownToLine className="h-3.5 w-3.5" strokeWidth={1.6} />
-              </button>
-            </IconTooltip>
-            <IconTooltip content={t("log.export")}>
-              <button
-                type="button"
-                onClick={exportLog}
-                aria-label={t("log.export")}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <FileDown className="h-3.5 w-3.5" strokeWidth={1.6} />
-              </button>
-            </IconTooltip>
+        <div
+          className="min-w-0 shrink-0 empty:hidden"
+          hidden={!homePresentation.visible.shortcuts}
+          style={{ order: homePresentation.order.indexOf("shortcuts") }}
+          data-home-section="shortcuts"
+        >
+          <PluginHomeShortcuts cards={pluginHome.cards} />
+        </div>
+        {activeConfigId && (
+          <>
+            <div
+              className="min-w-0 shrink-0"
+              hidden={!homePresentation.visible.assets}
+              style={{ order: homePresentation.order.indexOf("assets") }}
+              data-home-section="assets"
+            >
+              {homePresentation.visible.assets && <AssetsDisplay profileId={activeConfigId} />}
+            </div>
+            <div
+              className="min-w-0 shrink-0"
+              hidden={!homePresentation.visible.tasks}
+              style={{ order: homePresentation.order.indexOf("tasks") }}
+              data-home-section="tasks"
+            >
+              {homePresentation.visible.tasks && <TaskStatus profileId={activeConfigId} />}
+            </div>
+          </>
+        )}
+
+        {/* Logs form the main workspace; controls stay quiet until they are needed. */}
+        <section
+          className={`home-log-workspace home-log-surface flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-(--log-surface) shadow-(--log-card-shadow) ${isAndroid ? "min-h-40" : "min-h-64"}`}
+          style={{ order: homePresentation.order.indexOf("logs") }}
+          data-home-section="logs"
+        >
+          <div className="home-log-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5 border-b border-b-(--workspace-divider)">
+            <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-medium leading-5">
+              <Logs className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.6} />
+              {t("log")}
+            </h2>
+            <div className="flex shrink-0 items-center gap-1">
+              <IconTooltip content={t("log.scroll.detail")}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUiSettings((state) => ({ ...state, scrollToEnd: !scrollToEnd }))
+                  }
+                  aria-label={t("log.scroll")}
+                  aria-pressed={scrollToEnd}
+                  className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scrollToEnd ? "bg-secondary/70 text-foreground" : "text-muted-foreground"}`}
+                >
+                  <ArrowDownToLine className="h-3.5 w-3.5" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+              <IconTooltip content={t("log.export")}>
+                <button
+                  type="button"
+                  onClick={exportLog}
+                  aria-label={t("log.export")}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <FileDown className="h-3.5 w-3.5" strokeWidth={1.6} />
+                </button>
+              </IconTooltip>
+            </div>
           </div>
-        </div>
-        <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden py-2 px-2">
-          {remoteAvailable && remoteVisible && activeConfigId && (
-            <RemoteDisplay profileId={activeConfigId} />
-          )}
-          <ProfileLogView
-            configId={activeConfigId}
-            scrollToEnd={scrollToEnd}
-            visible={activeProfile?.id === activeConfigId}
-          />
-        </div>
-      </section>
+          <div className="home-log-body relative flex min-h-0 min-w-0 flex-1 overflow-hidden py-2 px-2">
+            {remoteAvailable && remoteVisible && activeConfigId && (
+              <RemoteDisplay profileId={activeConfigId} />
+            )}
+            <ProfileLogView
+              configId={activeConfigId}
+              scrollToEnd={scrollToEnd}
+              visible={activeProfile?.id === activeConfigId}
+            />
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

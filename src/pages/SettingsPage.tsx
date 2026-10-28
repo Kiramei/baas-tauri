@@ -39,6 +39,7 @@ import { DEFAULT_THEME_COLOR, HEX_COLOR_RE } from "@/components/GlobalAppearance
 import { SystemLogSettings } from "@/components/SystemLogSettings";
 import { ShortcutSettings } from "@/components/settings/ShortcutSettings";
 import { KeyResetSettings } from "@/components/settings/KeyResetSettings";
+import { PluginSettingsEntry } from "@/components/settings/PluginSettingsEntry";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -778,6 +779,7 @@ const SettingsPage: React.FC = () => {
                       }
                     />
                   </SettingsGroup>
+                  <PluginSettingsEntry />
                   {__WITH_WEBUI__ && <KeyResetSettings />}
                   {__WITH_TAURI__ && (
                     <SettingsGroup title={t("settings.groups.desktop")}>

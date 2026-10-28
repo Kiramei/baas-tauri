@@ -18,6 +18,11 @@ Open **Configuration → Stages**. Exploration and Events are two tabs in the sa
 | Manual boss   | Expects you to handle boss combat rather than assume an unattended clear; `manual_boss` |
 | Normal stages | Ordered exploration list; `explore_normal_task_list`                                    |
 | Hard stages   | Independent ordered list; `explore_hard_task_list`                                      |
+| Simple battle mode | Use the first team and skip challenge objectives while exploring normal or hard missions; `explore_task_use_simple_mode` |
+
+Simple mode changes the exploration method; it does not turn exploration into
+sweeping or guarantee a clear. The toggle is disabled with an update-backend
+message if the connected backend snapshot lacks this setting.
 
 Use **Add chapter**, then choose a chapter and either the whole chapter or an individual mission. New normal choices have missions 1–5; hard choices 1–3. Normal chapters divisible by three also offer mission A. Chapter choices come from the backend's supported range and server maximum, not an unlimited list.
 
@@ -44,7 +49,7 @@ repairing the plan, check its chapters, missions and formation before running.
 
 These are **not** three-part sweep tokens. `1-1-1` is not the exploration format. [Sweeps](./sweeps) has a separate count-bearing editor.
 
-The normal/hard Execute button rejects an empty corresponding list with an error. Otherwise the client flushes its draft, sends `start_normal_task` or `start_hard_task`, and opens Home. A request acknowledgement is not evidence that the stages completed.
+The normal/hard Execute button rejects an empty corresponding list with an error. Otherwise the client flushes its draft and waits for the backend to confirm the saved settings before sending `start_normal_task` or `start_hard_task`. Once the backend accepts the launch, it opens Home. If a task is already running, the client reports that state instead of claiming a new task started. An unconfirmed launch requires checking Home and logs before retrying; neither a save nor a launch acknowledgement proves the stages completed.
 
 ### Prerequisites
 
@@ -60,7 +65,19 @@ The backend checks stars, challenges and gifts where its route supports them, an
 | Group story | `start_group_story`    |
 | Mini story  | `start_mini_story`     |
 
-There is **no main-story chapter-number input in this editor**. Advanced backend profiles can set `main_story_regions`; an empty parsed list makes the audited backend use its server-specific `main_story_available_episodes`. Numeric IDs are backend episode identifiers, not the normal-stage list. Do not paste old episode tables into a nonexistent UI field.
+**Main story episodes** provides an ordered selector and a text field saved as
+`main_story_regions`. Enter distinct positive episode IDs separated by commas,
+for example `3,1`, to run episode 3 before episode 1. Ranges such as `1-3` are
+not accepted. Choices come from the connected backend's server-specific
+`main_story_available_episodes`; these IDs are story episodes, not normal-stage
+chapters.
+
+Leave the selection empty to use all available episodes in the backend's
+default order. Invalid, duplicate or unavailable IDs remain visible for repair,
+are not saved, and block **Main story** execution; unrelated valid exploration
+settings can still save. A backend without this field disables the selector
+and asks for an update. Main story execution uses the same save-confirmation
+step as normal and hard exploration.
 
 Special story battles and final-chapter mechanics can still require manual play. Stop other tasks before issuing a one-shot story command and watch Home/logs for its actual result.
 

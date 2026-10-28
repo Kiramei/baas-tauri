@@ -1,52 +1,43 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { CONFIGURATION_SECTIONS } from "../../src/shared/ConfigurationSections";
 import coverage from "../evidence/configuration-coverage.json";
 
 const root = new URL("../../", import.meta.url);
+const configPath = fileURLToPath(new URL("tsconfig.json", root));
+const config = ts.readConfigFile(configPath, ts.sys.readFile);
+if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
+const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, fileURLToPath(root));
+if (parsed.errors.length)
+  throw new Error("The configuration audit could not read the project types");
+const program = ts.createProgram(parsed.fileNames, parsed.options);
+const checker = program.getTypeChecker();
 
-function draftFields(source: string): string[] {
-  const ast = ts.createSourceFile(
-    "editor.tsx",
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX
-  );
-  let fields: string[] | undefined;
-  let initial: ts.VariableDeclaration | undefined;
+/** Inspect the actual saved draft, including imported models and helper return types. */
+function draftFields(path: string): string[] {
+  const ast = program.getSourceFile(fileURLToPath(new URL(path, root)));
+  if (!ast) throw new Error("Configuration editor source is missing: " + path);
+  const fields = new Set<string>();
   function visit(node: ts.Node) {
     if (
-      (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) &&
-      node.name.text === "Draft"
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "useConfigurationDraft"
     ) {
-      const members = ts.isInterfaceDeclaration(node)
-        ? node.members
-        : ts.isTypeLiteralNode(node.type)
-          ? node.type.members
-          : undefined;
-      if (!members) throw new Error("Unrecognized Draft shape; review the coverage checker");
-      fields = members.map((member) => member.name!.getText(ast));
+      const initial = node.arguments[2];
+      if (!initial) throw new Error("Configuration draft has no initial value: " + path);
+      const model = checker.getTypeAtLocation(initial);
+      const properties = checker.getPropertiesOfType(model);
+      if (model.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown) || !properties.length)
+        throw new Error("Cannot resolve the saved draft's fields: " + path);
+      for (const property of properties) fields.add(property.getName());
     }
-    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === "initial") initial = node;
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  if (fields) return fields;
-  // Total Assault uses an inferred inline object instead of a named Draft.
-  if (initial?.initializer && ts.isCallExpression(initial.initializer)) {
-    const factory = initial.initializer.arguments[0];
-    if (factory && ts.isArrowFunction(factory)) {
-      let body = factory.body;
-      while (ts.isParenthesizedExpression(body)) body = body.expression;
-      if (ts.isObjectLiteralExpression(body)) {
-        return body.properties.map((property) => property.name!.getText(ast));
-      }
-    }
-    throw new Error("Unrecognized initial shape; review the coverage checker");
-  }
-  return [];
+  return [...fields];
 }
 
 test("configuration audit covers every registered category and current editor draft field", () => {
@@ -55,7 +46,9 @@ test("configuration audit covers every registered category and current editor dr
   );
   for (const section of coverage.sections) {
     const source = readFileSync(new URL(section.source, root), "utf8");
-    expect(draftFields(source).sort(), section.id).toEqual(Object.keys(section.fields).sort());
+    expect(draftFields(section.source).sort(), section.id).toEqual(
+      Object.keys(section.fields).sort()
+    );
     for (const locale of ["en", "zh"]) {
       const document = readFileSync(
         new URL("docs/content/docs/" + locale + "/" + section.page + ".mdx", root),

@@ -6,7 +6,7 @@ import i18n from "@/shared/I18nTranslator.ts";
 import { UISettingsProvider, useUISetting } from "@/context/UISettingsProvider.tsx";
 import LoadingPage from "@/pages/LoadingPage";
 import StartupShellHandoff from "@/components/StartupShellHandoff";
-import { normalizePageKey } from "@/shared/PageKey";
+import { androidBackDestination, normalizePageKey } from "@/shared/PageKey";
 import { PLUGIN_OPEN_EVENT } from "@/shared/Plugins";
 import { AboutBaasProvider } from "@/context/AboutBaasProvider";
 import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
@@ -145,8 +145,9 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
         focused.blur();
         return true;
       }
-      if (activePage !== "home") {
-        setActivePage("home");
+      const destination = androidBackDestination(activePage);
+      if (destination) {
+        setActivePage(destination);
         return true;
       }
       return false;
