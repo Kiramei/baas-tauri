@@ -5,7 +5,7 @@
 ### New Features
 
 1. **Cross-platform plugin workspace**
-   Added a shared plugin manager for desktop, Android, and WebUI with declarative interfaces, trusted external ZIP installation, per-profile permissions, disposable Android worker processes, and five built-in tools: AP hoarding, automatic stage progression, equipment planning, the inventory search-board calculator, and Home editing.
+   Added a shared plugin manager for desktop, Android, and WebUI with declarative interfaces, trusted external ZIP installation, per-profile enablement and settings, disposable Android worker processes, and five built-in tools: AP hoarding, automatic stage progression, equipment planning, the inventory search-board calculator, and Home editing.
 
 2. **Authenticated WebUI operation**
    Added browser login, authenticated Key reset, hardened Docker startup, and consistent client terminology. Resetting the Key invalidates existing browser sessions while preserving profiles.
@@ -20,7 +20,7 @@
    Added Windows desktop capture and control defaults for new PC profiles, macOS shared-memory transport, Linux native window controls, and corrected Linux rendering. Existing WebSocket and named-pipe transports remain available.
 
 6. **Android runtime and manual control**
-   Added same-session native fullscreen manual control, automation-priority input, native H.264 display, virtual-display lifecycle recovery, compute-plugin workers, clearer run/update controls, and mobile navigation and configuration coverage.
+   Added same-session native fullscreen manual control, automation-priority input, native TextureView preview with shared virtual-display capture, virtual-display lifecycle recovery, compute-plugin workers, clearer run/update controls, and mobile navigation and configuration coverage.
 
 ### Improvements
 
