@@ -13,6 +13,7 @@ function transport() {
   const calls: unknown[] = [];
   const binaries: Uint8Array[] = [];
   const state: any = {
+    transportMode: "websocket",
     _auth_phase: "authenticated",
     _session: { sessionId: "initial" },
     connections: { trigger: { readyState: 1 } },
@@ -100,6 +101,85 @@ describe("plugin authenticated command boundary", () => {
     const fixture = transport();
     const pending = requestPluginCommand(() => fixture.state, "get_plugin_settings", "one");
     fixture.state._session.sessionId = "replacement";
+    fixture.reply({ status: "ok", data: {} });
+    await expect(pending).rejects.toMatchObject({ code: "session_changed" });
+  });
+  test("native pipe and shared-memory transports send catalog and binary commands without a WebSocket session", async () => {
+    for (const transportMode of ["pipe", "shm"]) {
+      const fixture = transport();
+      fixture.state.transportMode = transportMode;
+      fixture.state._session = null;
+      const catalog = requestPluginCommand(() => fixture.state, "get_plugin_catalog");
+      fixture.reply({ status: "ok", data: { api_version: 1, plugins: [] } });
+      expect(await catalog).toEqual({ api_version: 1, plugins: [] });
+      const bytes = new Uint8Array([80, 75, 3, 4]);
+      const installed = requestPluginCommand(
+        () => fixture.state,
+        "install_plugin",
+        undefined,
+        { filename: "plugin.zip" },
+        bytes
+      );
+      expect(fixture.binaries[0]).toBe(bytes);
+      fixture.reply({ status: "ok", data: { installed: true } });
+      expect(await installed).toEqual({ installed: true });
+      expect(fixture.state.pendingCallbacks[42]).toBeUndefined();
+    }
+  });
+  test("native commands still require an authenticated open command connection", async () => {
+    for (const transportMode of ["pipe", "shm"]) {
+      for (const change of [
+        (state: any) => {
+          state._auth_phase = "idle";
+        },
+        (state: any) => {
+          state.connections.trigger.readyState = 3;
+        },
+        (state: any) => {
+          delete state.connections.trigger;
+        },
+      ]) {
+        const fixture = transport();
+        fixture.state.transportMode = transportMode;
+        fixture.state._session = null;
+        change(fixture.state);
+        await expect(
+          requestPluginCommand(() => fixture.state, "get_plugin_catalog")
+        ).rejects.toMatchObject({ code: "connection_unavailable" });
+        expect(fixture.calls).toHaveLength(0);
+      }
+    }
+  });
+  test("native replies from a replaced, closed or differently configured connection cannot update plugin state", async () => {
+    for (const transportMode of ["pipe", "shm"]) {
+      for (const change of [
+        (state: any) => {
+          state.connections.trigger = { readyState: 1 };
+        },
+        (state: any) => {
+          state.connections.trigger.readyState = 3;
+        },
+        (state: any) => {
+          state.transportMode = transportMode === "pipe" ? "shm" : "pipe";
+        },
+        (state: any) => {
+          state._auth_phase = "idle";
+        },
+      ]) {
+        const fixture = transport();
+        fixture.state.transportMode = transportMode;
+        fixture.state._session = null;
+        const pending = requestPluginCommand(() => fixture.state, "get_plugin_settings", "one");
+        change(fixture.state);
+        fixture.reply({ status: "ok", data: {} });
+        await expect(pending).rejects.toMatchObject({ code: "session_changed" });
+      }
+    }
+  });
+  test("WebSocket replies cannot cross replacement command connections within the same session", async () => {
+    const fixture = transport();
+    const pending = requestPluginCommand(() => fixture.state, "get_plugin_settings", "one");
+    fixture.state.connections.trigger = { readyState: 1 };
     fixture.reply({ status: "ok", data: {} });
     await expect(pending).rejects.toMatchObject({ code: "session_changed" });
   });

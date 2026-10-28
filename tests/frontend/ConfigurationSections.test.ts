@@ -93,12 +93,13 @@ describe("profile configuration navigation", () => {
     }
   });
 
-  test("Android retains its original 16 panels and excludes emulator setup", () => {
+  test("Android keeps plugin management inside configuration and excludes emulator setup", () => {
     const android = getConfigurationSections("android");
-    expect(android.map(({ id }) => id)).toEqual(
-      CONFIGURATION_SECTIONS.filter(({ id }) => id !== "emulator").map(({ id }) => id)
-    );
-    expect(android).toHaveLength(16);
+    expect(android.map(({ id }) => id)).toEqual([
+      ...CONFIGURATION_SECTIONS.filter(({ id }) => id !== "emulator").map(({ id }) => id),
+      "plugins",
+    ]);
+    expect(android).toHaveLength(17);
     expect(android.filter(({ group }) => group === "general").map(({ id }) => id)).toEqual([
       "server",
       "script",
@@ -106,8 +107,18 @@ describe("profile configuration navigation", () => {
       "team",
       "push",
       "other",
+      "plugins",
     ]);
     expect(getConfigurationSections("desktop")).toBe(CONFIGURATION_SECTIONS);
+    expect(getConfigurationSections("webui").map(({ id }) => id)).not.toContain("plugins");
+    for (const locale of locales) {
+      const translate = translator(locale);
+      expect(
+        filterConfigurationSections(translate("plugins.title"), translate, "android").map(
+          ({ id }) => id
+        )
+      ).toContain("plugins");
+    }
   });
 
   test("an unavailable saved Android panel safely falls back to Cafe", () => {

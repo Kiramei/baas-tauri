@@ -70,6 +70,23 @@ def wait_loading(self):
         loadingTime = time.time() - startTime
         time.sleep(0.1)
 '''
+# wait_loading from baas-dev master 5658a048: a fresh frame may end loading
+# before loadingTime is measured. Keep both the stop and confirmed-page exits.
+COLOR_HOME_GUARD = '''import time
+def wait_loading(self):
+    startTime = time.time()
+    # Home artwork can match the sparse loading colors. A confirmed page
+    # must take precedence so navigation can inspect its own end conditions.
+    while (self.flag_run and not match_rgb_feature(self, "main_page") and
+           match_rgb_feature(self, "loadingNotWhite") and match_rgb_feature(self, "loadingWhite")):
+        self.update_screenshot_array()
+        if not self.flag_run or match_rgb_feature(self, "main_page"):
+            break
+        loadingTime = round(time.time() - startTime, 3)
+        self.logger.info("Detected loading, loading time: " + str(loadingTime))
+        time.sleep(self.screenshot_interval)
+    return
+'''
 PICTURE = '''import time
 def co_detect(self):
     while self.flag_run:
@@ -438,6 +455,43 @@ class AndroidInventoryFullTest(unittest.TestCase):
             instance.update_screenshot_array.assert_called_once()
             self.assertEqual(check.call_count, 2)
             namespace["time"].sleep.assert_not_called()
+
+    def test_current_backend_wait_loading_preserves_fresh_home_and_stop_exits(self):
+        bootstrap = load("bootstrap")
+        guard = load("inventory_full")
+        for exit_condition in ("home", "stop", "inventory"):
+            with self.subTest(exit_condition=exit_condition), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "core").mkdir()
+                for name, text in (("picture", PICTURE), ("color", COLOR_HOME_GUARD), ("Baas_thread", THREAD)):
+                    (root / "core" / (name + ".py")).write_text(text)
+                bootstrap._patch_android_inventory_full(root)
+                source = (root / "core/color.py").read_text()
+                bootstrap._patch_android_inventory_full(root)
+                self.assertEqual((root / "core/color.py").read_text(), source)
+                function = next(node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef))
+                instance = baas()
+                instance.at_home = False
+
+                def capture():
+                    instance.at_home = exit_condition == "home"
+                    instance.flag_run = exit_condition != "stop"
+
+                instance.update_screenshot_array.side_effect = capture
+                check = Mock(side_effect=(False, guard.InventoryFull(True) if exit_condition == "inventory" else False))
+                namespace = {"handle_inventory_full": check, "time": Mock(),
+                             "match_rgb_feature": lambda value, feature: value.at_home if feature == "main_page" else True}
+                namespace["time"].time.return_value = 1
+                exec(compile(ast.Module(body=[function], type_ignores=[]), "current_backend_loading", "exec"), namespace)
+                if exit_condition == "inventory":
+                    with self.assertRaises(guard.InventoryFull):
+                        namespace["wait_loading"](instance)
+                else:
+                    namespace["wait_loading"](instance)
+                instance.update_screenshot_array.assert_called_once()
+                self.assertEqual(check.call_count, 2)
+                namespace["time"].sleep.assert_not_called()
+                instance.logger.info.assert_not_called()
 
 
 if __name__ == "__main__":

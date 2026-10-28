@@ -17,7 +17,8 @@ export type ConfigurationSection =
   | "stage"
   | "team"
   | "push"
-  | "other";
+  | "other"
+  | "plugins";
 
 export type ConfigurationPlatform = "desktop" | "android" | "webui";
 
@@ -636,16 +637,23 @@ const ANDROID_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
   "server.pcMethodsHelp",
   "server.pcRecommendedMethods",
 ]);
-const ANDROID_CONFIGURATION_SECTIONS = CONFIGURATION_SECTIONS.filter(
-  (section) => section.id !== "emulator"
-).map((section) =>
-  section.id === "script"
-    ? {
-        ...section,
-        keywords: section.keywords.filter((key) => !ANDROID_HIDDEN_SCRIPT_KEYWORDS.has(key)),
-      }
-    : section
-);
+const ANDROID_CONFIGURATION_SECTIONS: readonly ConfigurationSectionDefinition[] = [
+  ...CONFIGURATION_SECTIONS.filter((section) => section.id !== "emulator").map((section) =>
+    section.id === "script"
+      ? {
+          ...section,
+          keywords: section.keywords.filter((key) => !ANDROID_HIDDEN_SCRIPT_KEYWORDS.has(key)),
+        }
+      : section
+  ),
+  {
+    id: "plugins",
+    group: "general",
+    title: "plugins.title",
+    description: "plugins.description",
+    keywords: ["plugins.settings", "plugins.install", "plugins.actions", "plugins.permissions"],
+  },
+];
 
 const WEBUI_HIDDEN_SCRIPT_KEYWORDS = new Set<TranslationKey>([
   "script.then",
