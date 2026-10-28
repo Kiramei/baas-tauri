@@ -204,7 +204,7 @@ On Windows (Git 2.54.0, UV 0.9.11), four local rounds on 2026-10-15 produced:
 The wheel test transferred 64.2 MiB over loopback in the previous behavior
 and zero bytes in the retained-cache runs. These are local fixture results,
 not an estimate of overall updater speed or public network throughput.
-Raw samples are in `docs/updater-performance-local-2026-10-15.json`.
+Raw samples are in [`docs/evidence/updater-performance-local-2026-10-15.json`](../../docs/evidence/updater-performance-local-2026-10-15.json).
 Git fetch's [automatic maintenance](https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---auto-maintenance)
 and UV's [cache reuse behavior](https://docs.astral.sh/uv/concepts/cache/)
 explain why explicit full cleanup is unnecessary on every update.

@@ -1,0 +1,76 @@
+---
+title: WebUI and Docker
+description: Use BAAS in a browser, deploy Docker, persist data, and manage the login Key.
+---
+
+WebUI runs the shared workspace in a browser while automation executes on the server. It provides profiles, scheduling, plugins, and backend updates without a Tauri desktop installation. The game device must be reachable from the server.
+
+## Start Docker
+
+From the repository root:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+Open `http://127.0.0.1:8191`. The default binding is local only. Backend `127.0.0.1:8190` is internal to the container and is not published.
+
+`scripts/docker/app/` is mounted at `/app` and retains profiles, authentication, backend code, and logs. Back it up before upgrading; deleting volumes is not a routine update fix. Initial startup prepares the backend and OCR. Inspect container logs on network failure:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml logs --tail=100
+docker compose -f scripts/docker/docker-compose.yml pull
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+The image contains the WebUI and Python dependencies. An in-app backend Git update does not update the browser interface or image dependencies; pull a new image and recreate the container for those changes.
+
+## Sign In and Reset the Key
+
+On first use, follow the page to set a **Key**. Later, sign in with that Key or a remembered session. This is the backend login credential, separate from a MirrorChyan key or game account password.
+
+While signed in, open **Settings → General → Login / Key → Reset Key**, enter the new value twice, and confirm. Success invalidates all sessions and remembered logins; profiles remain. Reset requires `/health` to advertise `auth.key_reset_supported: true`. Update an older backend if that capability is missing.
+
+Never post Keys, cookies, Telegram tokens, or logs containing them in public issues.
+
+## Connect a Device
+
+Inside the container, `127.0.0.1` refers to the container. For an ADB TCP device on the host, use `host.docker.internal:5555` or a reachable LAN address such as `192.168.1.42:5555`. Reachability depends on the emulator's listening address, firewall, and Docker network. A host-loopback-only listener may not be reachable through the gateway.
+
+`5037` is normally the ADB server port, not the device TCP port. Confirm that the server can discover the device before running a small set of tasks. Native PC window control requires a Windows desktop and is unavailable in Linux Docker.
+
+On Linux, the repository provides a host-network override:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml -f scripts/docker/docker-compose.host.yml up -d
+```
+
+This uses host ports `8191` and `8190` directly. Bridge-mode `BAAS_WEBUI_PORT` and `BAAS_WEBUI_BIND` do not control those listeners. Check port conflicts and exposure first.
+
+## LAN Access and HTTPS
+
+In bridge mode, `BAAS_WEBUI_PORT` changes the published port. Set `BAAS_WEBUI_BIND=0.0.0.0` for LAN access and configure a firewall and HTTPS reverse proxy. Do not expose an unprotected service directly to the Internet.
+
+Forward WebSocket `Upgrade`, `Connection`, and the correct Host. Overwrite untrusted `X-Forwarded-Proto` with the actual `http` or `https` scheme. Clipboard features also depend on browser permissions and secure contexts. WebUI uses same-origin connections; do not point the page at the container's internal `127.0.0.1:8190`.
+
+## Backend and OCR Preparation
+
+The default backend is `Kiramei/baas-dev` on `master`; `BRANCH` selects another branch. Existing Git checkouts update by fast-forward only, without automatically discarding or stashing local changes. Complete OCR installations are retained; missing files trigger repair according to startup configuration while preserving configuration and output.
+
+For a fully offline deployment, set `/app/setup.toml`:
+
+```toml
+[general]
+no_update = true
+```
+
+This disables startup Git updates and OCR downloads; it cannot install an empty directory. Prepare a valid backend `main.service.py`, Python dependencies, and architecture-matched OCR first. `BAAS_SERVICE_OCR_UPDATE_CHECK=0` only skips the backend OCR update check, not the need for complete offline files.
+
+## Local Development
+
+```sh
+bun install --frozen-lockfile
+bun run dev:webui
+```
+
+The development proxy targets `127.0.0.1:8190` by default; set `VITE_BAAS_PROXY_TARGET` for an isolated backend. `bun run build:webui` builds browser assets. WebUI has no desktop tray, native global shortcuts, or Android local device bridge. Its system-log viewer shows browser logs; `/system/` and `/android/` do not expose host interfaces.

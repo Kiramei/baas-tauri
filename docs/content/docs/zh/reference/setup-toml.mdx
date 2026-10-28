@@ -49,7 +49,7 @@ python_version = "3.9.0"
 
 | 字段                    | 类型与含义                                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------------------ |
-| `transport`             | `websocket`、`pipe`、受支持桌面的 `shm`；Windows/Linux 默认共享内存，其他原生平台默认管道  |
+| `transport`             | `websocket`、`pipe`、受支持桌面的 `shm`；原生 Windows/Linux/macOS 默认共享内存，Android 默认管道  |
 | `transport_version`     | 原生传输迁移标记，当前为 `1`，不是协议吞吐量设置                                           |
 | `mirrorc_cdk`           | MirrorC 私密分发凭证，默认空；非空选择 MirrorC 而非 Git 路径                               |
 | `channel`               | `stable` / `dev`，默认 stable；后端分发/引用，不是游戏区域或客户端预发布选择               |
@@ -67,7 +67,7 @@ python_version = "3.9.0"
 
 ### 传输迁移
 
-Windows/Linux 上，未带版本标记的旧 pipe 偏好可能一次性迁移为共享内存；明确带版本的 pipe 和 WebSocket 会保留。共享内存配置复制到不支持的原生平台时规范为管道。客户端出现选项仍要求后端实现对应能力，缺少 `--shm-name` 是兼容问题而非 ADB 问题。
+Windows/Linux 上，未带版本标记的旧 pipe 偏好可能一次性迁移为共享内存；明确带版本的 pipe 和 WebSocket 会保留。macOS 保留明确的 WebSocket 选择，其他值规范为共享内存；Android 不使用桌面共享内存，WebUI 固定 WebSocket。客户端选项仍要求后端实现对应能力，缺少 `--shm-name` 属于后端兼容问题。
 
 普通用户通过 [连接与运行时](../features/system#连接与运行时) 修改。切换会停止/重建受管业务连接并重新同步，不会改变模拟器截图或控制方式。
 

@@ -35,6 +35,12 @@ Android rechecks that the remote version is newer than the current client, downl
 
 Some Android service files come first from APK-matched `backend-service-overlay` storage. Updating the backend repository does not replace them; even after a process restart, check the client version and actual module origins. See the [Android service overlay](../reference/updater-internals#android-service-overlay).
 
+## View Update History
+
+Open the history group in Settings to inspect commits, authors, and messages for the selected backend channel. The current commit is marked; click a message for its full text. The first request loads 100 entries, with more available up to 500. Refresh bypasses the metadata cache.
+
+The list identifies remote, local, or cached data and warns when it is stale or partial. Reading history does not fetch Git objects, deepen a shallow clone, replace installed code, or validate download-source availability. Client release history in the Help menu is a separate release-note feed. Authenticated WebUI sessions can also query backend history.
+
 ## Sources and Channel
 
 These are shared backend setup fields, not per-profile game strategies:

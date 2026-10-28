@@ -28,7 +28,7 @@ Ordinary runtime/profile data lives in app-private storage; granting broad share
 <img
   className="baas-screenshot baas-mobile-screenshot"
   src="/media/android/en/home.webp"
-  alt="Fresh native Android light-mode Home with documentation-only profile and bottom navigation"
+  alt="Android Home example with profiles and bottom navigation"
 />
 
 The top strip selects profiles; the add icon creates/imports one. Give a new profile a name and choose the server that matches the installed game. Server selection is locked afterward; use another profile for another package. Edit, Copy, Export and Delete are in the profile menu.
@@ -68,12 +68,12 @@ After authorization, choose the matching profile and tap the play icon on Home's
 
 <AndroidGameDemo locale="en" />
 
-The native preview is **read-only**. Tapping it opens three native icons:
+The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tapping it opens native controls:
 
 | Icon action | Behavior                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
 | Close       | Request a scheduler stop, release the background display and end its game process                        |
-| Take over   | Move the existing game task to the main display for manual operation, then release the embedded session |
+| Fullscreen / Take over | Control the same background display and game process in native fullscreen, retaining the embedded session |
 | Restart     | Close the session, create a display and launch the selected game again; does not restart the scheduler   |
 
 <img
@@ -82,9 +82,9 @@ The native preview is **read-only**. Tapping it opens three native icons:
   alt="Native preview controls: Close, Take over and Restart from left to right"
 />
 
-Do not tap the preview expecting a game button to receive input. Take over for manual operation. Menus/dialogs hide the native preview to prevent it covering controls; returning to a visible Home restores its preview ownership. Switching to another page hides the view, not necessarily the background game or Python service.
+The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Menus and dialogs hide the embedded preview so it cannot cover controls; a visible Home restores it. Changing pages does not automatically stop the background game or Python service.
 
-The close path sends a stop request without waiting for backend confirmation. Before taking over, restarting or closing, use the bottom Stop control and check the runtime state and logs, then operate the game session. That Stop control alone leaves the game display open. Take over preserves the existing game process for manual operation.
+The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
 
 ### Preview States
 
@@ -146,9 +146,11 @@ Tasks contains the shared single-list scheduler, per-task switches, timing/detai
   alt="Fresh Android Appearance settings with light, dark and system theme controls"
 />
 
-Settings has General, Appearance, Shortcuts, Connection & runtime, Updates and Logs. The Appearance resource switch controls Home's resource strip.
+Settings has five categories: General, Appearance, Connection & runtime, Updates, and Logs. Android no longer exposes desktop Shortcuts. General provides [Plugins](../features/plugins); Appearance controls Home's resource strip. Task running and backend updating have separate floating controls.
 
 ## Lifecycle and Notifications
+
+Recent ARM64 physical-device debug candidates passed scoped cold-start navigation, fullscreen return, and configuration ZIP round-trip checks. The full gesture matrix, Android 15 shell-mode input, release builds, and long-running background operation still require separate validation. One device's result does not establish compatibility with every phone. The older emulator failures above remain diagnostic examples, not a claim that all current devices exhibit them.
 
 Python is owned by the dedicated backend service, not the Activity. WebView reloads and Activity recreation reconnect instead of starting another Python owner. System Back dismisses overlays/navigation first, then can background the Activity; it is not the scheduler Stop command.
 

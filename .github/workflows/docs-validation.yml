@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - "docs/**"
-      - "!docs/refresh-audit.md"
       - "!docs/README.md"
       - "!docs/evidence/deployment-validation.json"
       - "!docs/evidence/android-diagnostics-layout.json"

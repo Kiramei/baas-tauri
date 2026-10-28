@@ -30,6 +30,9 @@ test("updater documentation pins inspected sources without claiming a runtime up
     expect(reference.endLine).toBeLessThanOrEqual(source!.lines);
   }
   for (const [file, expected] of Object.entries(audit.testedPages)) expect(sha(read(file))).toBe(expected);
+  expect(audit.historySupplement.revision).toBe("7cb82895bcb78adb82b8f185199f51ef18b57cfa");
+  expect(audit.historySupplement.sources).toHaveLength(3);
+  for (const source of audit.historySupplement.sources) expect(sha(read(source.file))).toBe(source.sha256);
   expect(JSON.stringify(audit)).not.toMatch(/WorkSpace|\.codex_tmp|[A-Z]:\\|accessToken|accountId|pngBase64/);
 });
 

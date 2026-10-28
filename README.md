@@ -188,10 +188,14 @@ Android 12 ARM64 physical-device validation with root Shizuku: cold game startup
 through the mail flow, preview fullscreen entry/return, Activity recreation, and
 configuration ZIP round trips. Android 15 shell-mode input, the full gesture
 matrix, release builds, and overall performance gains remain unverified. These
-results do not establish general compatibility or release acceptance. See
-[goals and current status](docs/ANDROID_GOALS_AND_STATUS_20261024.md),
-[version-specific validation](docs/ANDROID_RUNTIME_VALIDATION.md), and the
-[historical Android handoff](https://github.com/Kiramei/baas-tauri/blob/android-dev/docs/ANDROID_PREVIEW_HANDOFF.md).
+results do not establish general compatibility or release acceptance. See the
+[Android guide](https://baas.kiramei.moe/docs/en/guide/android/) and
+[troubleshooting](https://baas.kiramei.moe/docs/en/reference/troubleshooting/).
+
+The shared [plugin workspace](https://baas.kiramei.moe/docs/en/features/plugins/)
+includes AP hoarding, auto push, equipment planning, a search-board calculator,
+and per-profile Home editing. For browser deployment and login Key management,
+see [WebUI and Docker](https://baas.kiramei.moe/docs/en/guide/webui/).
 
 ## License
 

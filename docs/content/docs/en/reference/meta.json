@@ -8,6 +8,7 @@
     "cli-service",
     "backend-service",
     "client-api",
+    "plugin-api",
     "backend-development",
     "auto-fight-dev",
     "performance",

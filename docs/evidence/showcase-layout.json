@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-27T15:38:55.377Z",
+  "checkedAt": "2026-10-28T06:44:07.135Z",
   "cases": 40,
   "failures": 0,
   "staticReferences": 148,
@@ -11,8 +11,8 @@
     "docs/lib/remark-doc-links.mjs": "a6cd6384cbdc827010a2ad7bfd1790e9c5ef236995974ff83aa6a7d3c445cf1f",
     "docs/components/MotionDemo.tsx": "b8e35756c1170e00bb4cfcd31820f64a1abab2263dd836f1ab0ce98c0805216b",
     "docs/public/media/desktop/dark-manifest.json": "be34f2c21779833d49e348ed98cdeb0ab98df75d51ed46fbb7f4f81a6c852a82",
-    "README.md": "36712e848629edbbe591e7c9736606cb0fa5b00cb68ce678ce3a29f85349dea3",
-    "README_zh.md": "afe0cfd971c3b9f4ec4093bfb870fa2d96c902fc209c1ba53fc2cabc45d1c46e"
+    "README.md": "f0f72d52785a3009d30d92cb72adf0ab14f28ce4273df1c80c967fc7e6a869c7",
+    "README_zh.md": "9b3321db07fd43940c119287d2b7362c6da23b2e3ca7cfb4c9498af8d9b50913"
   },
   "results": [
     {
