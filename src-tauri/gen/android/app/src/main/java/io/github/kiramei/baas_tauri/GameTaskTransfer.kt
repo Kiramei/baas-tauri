@@ -1,5 +1,6 @@
 package io.github.kiramei.baas_tauri
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.os.Build
 
@@ -75,6 +76,7 @@ object GameTaskTransfer {
     }.onFailure { android.util.Log.w("BaasGameTransfer", "Task moved, but explicit focus was rejected", it) }
   }
 
+  @SuppressLint("BlockedPrivateApi")
   private fun taskManager(): Any = checkNotNull(
     if (Build.VERSION.SDK_INT >= 29)
       Class.forName("android.app.ActivityTaskManager").getDeclaredMethod("getService").invoke(null)
