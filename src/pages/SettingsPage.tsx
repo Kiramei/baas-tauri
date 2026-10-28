@@ -114,10 +114,6 @@ const reposInit: RepoConfig[] = [
     label: "updateMethod.githubfast",
     method: "githubfast",
   },
-  {
-    label: "updateMethod.baasCdn",
-    method: "baas_cdn",
-  },
 ];
 
 let hybrid = true;
@@ -177,7 +173,6 @@ const shaMethodsInit = [
   { label: "shaMethod.ghProxy", value: "gh_proxy" },
   { label: "shaMethod.sevencdn", value: "sevencdn" },
   { label: "shaMethod.githubfast", value: "githubfast" },
-  { label: "shaMethod.baasCdn", value: "baas_cdn" },
 ];
 
 const availableSections = __WITH_TAURI__ ? SETTINGS_SECTIONS : WEBUI_SETTINGS_SECTIONS;

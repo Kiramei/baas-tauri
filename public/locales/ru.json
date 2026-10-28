@@ -671,7 +671,6 @@
     "unknown": "Неизвестная задача"
   },
   "shaMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "Репозиторий GitCode",
@@ -1192,7 +1191,6 @@
     "stable": "Стабильная"
   },
   "updateMethod": {
-    "baasCdn": "BAAS CDN",
     "cnb": "CNB",
     "ghProxy": "gh-proxy.org",
     "gitcode": "GitCode",
