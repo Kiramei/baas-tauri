@@ -1,5 +1,6 @@
 package io.github.kiramei.baas_tauri
 
+import android.annotation.SuppressLint
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.InputEvent
@@ -111,9 +112,11 @@ object DisplayInput {
   private val inject by lazy {
     manager.javaClass.getMethod("injectInputEvent", InputEvent::class.java, Int::class.javaPrimitiveType)
   }
-  private val setDisplay by lazy {
+  private val setDisplay by lazy(::resolveSetDisplayMethod)
+
+  @SuppressLint("BlockedPrivateApi")
+  private fun resolveSetDisplayMethod() =
     InputEvent::class.java.getDeclaredMethod("setDisplayId", Int::class.javaPrimitiveType).apply { isAccessible = true }
-  }
 
   internal fun touchFrame(event: MotionEvent): OwnedDisplayTouch.Frame = OwnedDisplayTouch.Frame(
     event.action, event.downTime, event.eventTime,
