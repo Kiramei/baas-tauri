@@ -700,6 +700,9 @@ mod tests {
                     }
                     Err(error) => panic!("loopback accept failed: {error}"),
                 };
+                // Winsock inherits the listener's nonblocking mode; wait for request
+                // bytes within the existing read timeout instead of racing the client.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
