@@ -5,9 +5,10 @@ documentation's Android benchmark fixtures. These files are documentation
 evidence and are not imported by the desktop, Android or WebUI application.
 
 The JSON records moved from the repository's former root `benchmarks/`
-directory retain their original file names, bytes and hashes. Source paths and
-commands inside a historical record describe the checkout used at measurement
-time; they are provenance, not paths that need rewriting after a directory move.
+directory retain their original file names and measurement data. Personal
+machine paths in historical records are redacted; source hashes in aggregate
+records refer to the sanitized files. Other source paths and commands describe
+the checkout used at measurement time, not the current directory layout.
 For example, `benchmarks/native-transport-linux-2026-10-20.json` recorded inside
 the combined result now lives at
 `docs/benchmarks/native-transport-linux-2026-10-20.json`.
