@@ -262,6 +262,7 @@ dependencies = [
  "baas-term",
  "baas-updater",
  "ctrlc",
+ "reqwest",
  "serde",
  "serde_json",
  "tempfile",

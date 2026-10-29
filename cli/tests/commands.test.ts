@@ -64,14 +64,50 @@ describe("shared action capability boundary", () => {
     ).rejects.toThrow("路径");
     await expect(executeAction("logs", { limit: 0 }, ctx)).rejects.toThrow("整数");
   });
-  test("config updates require an existing field and preserve JSON values", async () => {
+  test("config updates require an existing desktop-editable field and preserve typed wire values", async () => {
     const ctx = context({ approve: async () => true });
-    await executeAction("config_set", { path: "/name", value: "测试夏莱" }, ctx);
-    expect(await executeAction("config_get", { path: "/name" }, ctx)).toBe("测试夏莱");
+    await executeAction("config_set", { path: "/program_address", value: "/demo/emulator" }, ctx);
+    expect(await executeAction("config_get", { path: "/program_address" }, ctx)).toBe(
+      "/demo/emulator"
+    );
+    await executeAction("config_set", { path: "/favorStudent1", value: ["优香", "爱丽丝"] }, ctx);
+    expect(await executeAction("config_get", { path: "/favorStudent1" }, ctx)).toEqual([
+      "优香",
+      "爱丽丝",
+    ]);
+    await expect(
+      executeAction("config_set", { path: "/server", value: "日服" }, ctx)
+    ).rejects.toThrow();
+    await expect(
+      executeAction("config_set", { path: "/name", value: "unsupported" }, ctx)
+    ).rejects.toThrow();
+    await expect(
+      executeAction("config_set", { path: "/cafe_reward_affection_pat_round", value: 100 }, ctx)
+    ).rejects.toThrow();
+    expect(
+      await executeAction("config_get", { path: "/cafe_reward_affection_pat_round" }, ctx)
+    ).toBe(5);
     await expect(
       executeAction("config_set", { path: "/missing", value: true }, ctx)
     ).rejects.toThrow("不存在");
     expect(readPointer({ "a/b": { "~": 3 } }, "/a~1b/~0")).toBe(3);
+  });
+  test("configuration conditions are rechecked after approval before any write", async () => {
+    const client = new DemoClient();
+    const ctx = context({
+      client: async () => client,
+      approve: async () => {
+        await client.patchConfig("sensei-cn", "/cafe_reward_invite1_criterion", "lowest_affection");
+        return true;
+      },
+    });
+    await expect(
+      executeAction("config_set", { path: "/favorStudent1", value: ["优香"] }, ctx)
+    ).rejects.toThrow();
+    expect((await client.config("sensei-cn")).favorStudent1).toEqual(["爱丽丝"]);
+    expect(
+      (await client.logs()).filter((entry) => entry.message.includes("favorStudent1"))
+    ).toHaveLength(0);
   });
 });
 
@@ -122,6 +158,19 @@ describe("CLI subprocess contract", () => {
     ]);
     return { stdout, stderr, code };
   }
+  test("help and version consistently identify the baax program", async () => {
+    const version = await run(["--version"]);
+    expect(version.code).toBe(0);
+    expect(version.stdout).toMatch(/^baax \d/);
+    const json = await run(["--json", "--version"]);
+    expect(json.code).toBe(0);
+    expect(JSON.parse(json.stdout)).toMatchObject({ name: "baax" });
+    const usage = await run(["--lang", "en", "--help"]);
+    expect(usage.code).toBe(0);
+    expect(usage.stdout).toContain("Usage: baax [options] [command]");
+    expect(usage.stdout).not.toContain("BAAS CLI");
+    expect(usage.stdout).not.toContain("Usage: baas ");
+  });
   test("JSON contains exactly one document without banners or ANSI", async () => {
     const result = await run(["--demo", "--json", "profiles"]);
     expect(result.code).toBe(0);

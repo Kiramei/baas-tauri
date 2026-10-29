@@ -53,6 +53,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
     import { encodePipeFrame, PipeFrameDecoder } from ${JSON.stringify(protocol)};
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await writeFile(${JSON.stringify(pidFile)}, String(process.pid));
+    if (mode.backendLine) console.log(mode.backendLine);
     if (mode.exitBackend) process.exit(8);
     const pipe = process.argv[process.argv.indexOf('--pipe-name') + 1];
     if (mode.stallBackend) { setInterval(() => {}, 1000); await new Promise(() => {}); }
@@ -66,6 +67,12 @@ async function fixture(mode: Record<string, unknown> = {}) {
           if (message.type === 'open') {
             void appendFile(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
             socket.write(encodePipeFrame(1, Buffer.from(JSON.stringify({type:'open_ok',channel:message.channel}))));
+          } else if (message.command === 'status') {
+            void (async () => {
+              const current = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
+              const data = current.unknownStatus ? {fixture:{}} : {fixture:{running:!!current.running,current_task:current.running?'mail':null,waiting_tasks:[]}};
+              socket.write(encodePipeFrame(1, Buffer.from(JSON.stringify({type:'command_response',command:message.command,timestamp:message.timestamp,status:'ok',data}))));
+            })();
           }
         }
       });
@@ -94,7 +101,12 @@ async function fixture(mode: Record<string, unknown> = {}) {
     if (mode.malformed) { console.log('not JSON'); process.exit(0); }
     if (mode.large) { console.log('x'.repeat(70000)); process.exit(0); }
     if (mode.error) { output({type:'error',code:'fixture_error',message:'api_key=fixture-secret'}); process.exit(1); }
-    if (command === 'install') {
+    if (command === 'lease') {
+      output({type:'result',data:{root,leased:true}});
+      for await (const _ of Bun.stdin.stream()) {}
+      process.exit(0);
+    }
+    if (command === 'install' || command === 'update') {
       if (mode.stallInstall) {
         const child = spawn(process.execPath, ['-e', 'setTimeout(() => Bun.write('+JSON.stringify(${JSON.stringify(lateFile)})+', "late"),600); setInterval(()=>{},1000)'], {stdio:'ignore', detached: !!mode.detachedChild});
         await writeFile(${JSON.stringify(childPidFile)},String(child.pid));
@@ -102,6 +114,8 @@ async function fixture(mode: Record<string, unknown> = {}) {
         setInterval(()=>{},1000); await new Promise(()=>{});
       }
       output({type:'progress',stage:'python',message:'准备 Python 环境'});
+      if (mode.progress) output({type:'progress',stage:'uv',message:'download 50%',...mode.progress});
+      if (mode.stderrCR) process.stderr.write('download 10%\\rdownload 20%\\rready\\n');
       await mkdir(root,{recursive:true});
       await writeFile(join(root,'.installed'),'ready');
     }
@@ -111,7 +125,12 @@ async function fixture(mode: Record<string, unknown> = {}) {
       await new Promise(done=>setTimeout(done,20));
       process.stderr.write('credential\\n');
     }
-    const data = command === 'launch-spec' ? {
+    const data = command === 'check-update' ? mode.checkResult || {
+      root,channel:'dev',available:true,repositories:[
+        {name:'backend',localVersion:'a'.repeat(40),remoteVersion:'b'.repeat(40),available:true},
+        {name:'ocr',localVersion:'c'.repeat(40),remoteVersion:'c'.repeat(40),available:false},
+      ]
+    } : command === 'launch-spec' ? {
       program:mode.wrongProgram ? '/bin/sh' : ${JSON.stringify(process.execPath)},
       args:[${JSON.stringify(backend)},'--pipe-name',mode.wrongPipe ? 'other-pipe' : value('--pipe')],
       cwd:root,env:{PYTHONUNBUFFERED:'1'},
@@ -270,6 +289,7 @@ describe("owned local backend", () => {
         "toolkit/uv/uv",
         "core/ocr/baas_ocr_client/bin/BAAS_ocr_server",
         "requirements.service.lock",
+        ".baas-cli-install.lock",
       ]) {
         await mkdir(join(root, file, ".."), { recursive: true });
         await writeFile(join(root, file), "# --pipe-name fixture\n", { mode: 0o700 });
@@ -303,6 +323,61 @@ describe("owned local backend", () => {
         });
         const connection = await manager.start();
         expect(await exists(connection.pipe)).toBe(true);
+        const marker = await readFile(join(root, ".baas-cli-runtime.json"), "utf8");
+        const competing = Bun.spawn([actualHelper, "update", "--root", root], {
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const competingOutput = await new Response(competing.stdout).text();
+        expect(await competing.exited).toBe(1);
+        expect(JSON.parse(competingOutput).message).toContain("another installer");
+        expect(await readFile(join(root, ".baas-cli-runtime.json"), "utf8")).toBe(marker);
+        await manager.stopWhenIdle();
+
+        // Simulate a CLI losing its stdin while its detached backend is alive.
+        const detachedBackend = Bun.spawn([process.execPath, "-e", "setInterval(()=>{},1000)"], {
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+        const orphanLease = Bun.spawn([actualHelper, "lease", "--root", root], {
+          stdin: "pipe",
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        try {
+          const reader = orphanLease.stdout.getReader();
+          let response = "";
+          while (!response.includes("\n")) {
+            const chunk = await reader.read();
+            if (chunk.done) throw new Error("Lease exited without acknowledging ownership");
+            response += new TextDecoder().decode(chunk.value);
+          }
+          expect(JSON.parse(response.trim()).data.leased).toBe(true);
+          reader.releaseLock();
+          orphanLease.stdin.write(`${detachedBackend.pid}\n`);
+          await orphanLease.stdin.end();
+          await Bun.sleep(150);
+          expect(orphanLease.exitCode).toBeNull();
+          const blocked = Bun.spawn([actualHelper, "update", "--root", root], {
+            stdout: "pipe",
+            stderr: "pipe",
+          });
+          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(
+            "another installer"
+          );
+          expect(await blocked.exited).toBe(1);
+          detachedBackend.kill();
+          await detachedBackend.exited;
+          expect(
+            await Promise.race([
+              orphanLease.exited,
+              Bun.sleep(3000).then(() => "lease did not release"),
+            ])
+          ).toBe(0);
+        } finally {
+          detachedBackend.kill();
+          if (orphanLease.exitCode === null) orphanLease.kill();
+        }
       } finally {
         manager.close();
       }
@@ -310,11 +385,22 @@ describe("owned local backend", () => {
   );
 
   test("start waits for all BAAS pipe handshakes, reuses its owned process, and close removes it", async () => {
-    const target = await fixture();
+    const target = await fixture({ backendLine: "backend initialization" });
     await target.manager.install();
-    const connection = await target.manager.start();
+    const events: RuntimeEvent[] = [];
+    const connection = await target.manager.start((event) => events.push(event));
     const again = await target.manager.start();
     expect(again).toEqual(connection);
+    expect(events[0]).toMatchObject({ taskId: "launch-backend", status: "running" });
+    expect(events.find((event) => event.message === "backend initialization")).toMatchObject({
+      taskId: "launch-backend",
+    });
+    expect(events.at(-1)).toMatchObject({
+      taskId: "launch-backend",
+      status: "complete",
+      stage: "ready",
+      percent: 100,
+    });
     await until(async () => (await readFile(target.opens, "utf8")).trim().split("\n").length >= 3);
     expect(
       (await readFile(target.opens, "utf8"))
@@ -349,6 +435,7 @@ describe("owned local backend", () => {
       code: "backend_exit",
     });
     expect(events.some((event) => event.stage === "ready")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ taskId: "launch-backend", status: "failed" });
   });
 
   test("cancelling readiness stops only the manager's own backend", async () => {
@@ -369,5 +456,119 @@ describe("owned local backend", () => {
     await expect(starting).rejects.toMatchObject({ name: "AbortError" });
     await until(() => !alive(pid));
     expect(other.pid && alive(other.pid)).toBe(true);
+  });
+
+  test("a null cancellation reason still cleans up the owned backend and finishes its launch step", async () => {
+    const target = await fixture({ stallBackend: true });
+    await target.manager.install();
+    const controller = new AbortController();
+    const events: RuntimeEvent[] = [];
+    const starting = target.manager.start((event) => events.push(event), controller.signal);
+    await until(async () => exists(target.pidFile));
+    const pid = Number(await readFile(target.pidFile, "utf8"));
+    controller.abort(null);
+    expect(
+      await starting.then(
+        () => false,
+        () => true
+      )
+    ).toBe(true);
+    await until(() => !alive(pid));
+    expect(events.at(-1)).toMatchObject({ taskId: "launch-backend", status: "failed" });
+  });
+});
+
+describe("managed runtime updates and structured progress", () => {
+  test("structured progress preserves true metrics and stderr CR frames request replacement", async () => {
+    const target = await fixture({
+      progress: {
+        taskId: "uv-install",
+        status: "running",
+        percent: 50,
+        current: 5,
+        total: 10,
+        unit: "bytes",
+        downloadedBytes: 5,
+        totalBytes: 10,
+        currentLine: "api_key=private",
+        replace: true,
+      },
+      stderrCR: true,
+    });
+    const events: RuntimeEvent[] = [];
+    await target.manager.install({}, (event) => events.push(event));
+    expect(events.find((event) => event.taskId === "uv-install")).toMatchObject({
+      percent: 50,
+      current: 5,
+      total: 10,
+      downloadedBytes: 5,
+      replace: true,
+      currentLine: "api_key=[REDACTED]",
+    });
+    expect(events.filter((event) => event.stage === "installer")).toMatchObject([
+      { message: "download 10%", replace: true },
+      { message: "download 20%", replace: true },
+      { message: "ready", replace: false },
+    ]);
+  });
+
+  test.each([
+    { percent: 101 },
+    { percent: -1 },
+    { current: 20, total: 10 },
+    { unit: "seconds" },
+    { replace: "true" },
+    { status: "success" },
+    { taskId: 5 },
+    { downloadedBytes: 11, totalBytes: 10 },
+  ])("invalid progress is rejected: %j", async (progress) => {
+    const target = await fixture({ progress });
+    await expect(target.manager.install()).rejects.toMatchObject({ code: "runtime_protocol" });
+  });
+
+  test("version checks are read-only and managed updates re-inspect completion", async () => {
+    const target = await fixture();
+    await target.manager.install();
+    const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
+    const result = await target.manager.checkUpdates();
+    expect(result).toMatchObject({
+      channel: "dev",
+      available: true,
+      repositories: [
+        { name: "backend", available: true },
+        { name: "ocr", available: false },
+      ],
+    });
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(metadata);
+    expect(await target.manager.update()).toMatchObject({ installed: true, managed: true });
+  });
+
+  test("update failures never publish an installed state or stop an owned backend", async () => {
+    const target = await fixture();
+    await expect(target.manager.update()).rejects.toMatchObject({ code: "runtime_missing" });
+    await target.manager.install();
+    await target.manager.start();
+    const pid = Number(await readFile(target.pidFile, "utf8"));
+    await expect(target.manager.update()).rejects.toMatchObject({ code: "runtime_busy" });
+    expect(alive(pid)).toBe(true);
+    await target.mode({ running: true });
+    await expect(target.manager.stopWhenIdle()).rejects.toMatchObject({ code: "runtime_busy" });
+    expect(alive(pid)).toBe(true);
+    await target.mode({ unknownStatus: true });
+    await expect(target.manager.stopWhenIdle()).rejects.toMatchObject({ code: "runtime_busy" });
+    expect(alive(pid)).toBe(true);
+    await target.mode({});
+    await target.manager.stopWhenIdle();
+    await until(() => !alive(pid));
+    expect(await target.manager.update()).toMatchObject({ installed: true });
+    const restarted = await target.manager.start();
+    expect(restarted.pipe).toBeTruthy();
+  });
+
+  test("malformed update summaries cannot claim an available or completed update", async () => {
+    const target = await fixture({
+      checkResult: { root: "/other", channel: "dev", available: false, repositories: [] },
+    });
+    await expect(target.manager.checkUpdates()).rejects.toMatchObject({ code: "runtime_protocol" });
   });
 });

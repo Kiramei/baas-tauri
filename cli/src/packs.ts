@@ -72,6 +72,8 @@ const CORE_NAMES = new Set([
   "new",
   "context",
   "reload",
+  "check-update",
+  "update",
 ]);
 const NAME = /^[a-z][a-z0-9-]{0,63}$/;
 // eslint-disable-next-line no-control-regex -- Pack metadata and argument text cannot contain terminal controls.

@@ -33,6 +33,11 @@ export interface BaasPatchOptions {
   expectedValue?: unknown;
   checkExpected?: boolean;
 }
+export interface BaasEventChange {
+  func_name: string;
+  fields: Record<string, unknown>;
+  expected?: Record<string, unknown>;
+}
 
 export class BaasCommandError extends Error {
   constructor(
@@ -470,6 +475,13 @@ export class BaasClient {
     return (await this.snapshot("config", id)).data;
   }
 
+  /** Desktop configuration catalogs use the shared static sync resource. */
+  async staticData(): Promise<Record<string, unknown>> {
+    const data = (await this.snapshot("static")).data;
+    if (!isRecord(data)) throw new Error("Invalid BAAS static resource");
+    return clone(data);
+  }
+
   /** Event resources are arrays on the wire; expose them keyed by runnable func_name. */
   async tasks(id: string): Promise<Record<string, any>> {
     const data = (await this.snapshot("event", id)).data;
@@ -477,6 +489,110 @@ export class BaasClient {
     return Object.fromEntries(
       data.map((task: Message, index: number) => [String(task.func_name ?? index), task])
     );
+  }
+
+  /** Preserve the event array and ordering used by Desktop's scheduler editor. */
+  async events(id: string): Promise<Record<string, any>[]> {
+    const data = (await this.snapshot("event", id)).data;
+    if (
+      !Array.isArray(data) ||
+      data.some((task) => !isRecord(task) || typeof task.func_name !== "string")
+    )
+      throw new Error("Invalid BAAS event document");
+    return clone(data);
+  }
+
+  patchEvents(id: string, changes: BaasEventChange[]): Promise<Record<string, any>[]> {
+    const generation = this.generation;
+    const safe = clone(changes);
+    const operation = this.patchQueue.then(async () => {
+      if (generation !== this.generation)
+        throw new Error("Connection changed before scheduler edit");
+      const snapshot = await this.snapshot("event", id);
+      if (generation !== this.generation)
+        throw new Error("Connection changed before scheduler edit");
+      if (!Array.isArray(snapshot.data) || !Number.isFinite(Number(snapshot.timestamp)))
+        throw new Error("Invalid scheduler snapshot");
+      const seen = new Set<string>();
+      const ops: { op: "replace"; path: string; value: unknown }[] = [];
+      for (const change of safe) {
+        if (
+          typeof change.func_name !== "string" ||
+          seen.has(change.func_name) ||
+          !isRecord(change.fields) ||
+          (change.expected !== undefined && !isRecord(change.expected))
+        )
+          throw new Error("Invalid scheduler changes");
+        seen.add(change.func_name);
+        const indices = snapshot.data.flatMap((task: Message, index: number) =>
+          task?.func_name === change.func_name ? [index] : []
+        );
+        if (indices.length !== 1)
+          throw new BaasConflictError({
+            ...snapshot,
+            type: "patch_conflict",
+            error: "Scheduler task was removed or duplicated",
+          });
+        const index = indices[0],
+          task = snapshot.data[index];
+        for (const key of ["pre_task", "post_task"])
+          if (Object.hasOwn(change.fields, key)) {
+            const references = change.fields[key];
+            if (
+              !Array.isArray(references) ||
+              references.some(
+                (reference) =>
+                  typeof reference !== "string" ||
+                  reference === change.func_name ||
+                  !snapshot.data.some((candidate: Message) => candidate?.func_name === reference)
+              ) ||
+              new Set(references).size !== references.length
+            )
+              throw new BaasConflictError({
+                ...snapshot,
+                type: "patch_conflict",
+                error: "Referenced scheduler task changed or was removed",
+              });
+          }
+        for (const [key, expected] of Object.entries(change.expected || {}))
+          if (!jsonEqual(task[key], expected))
+            throw new BaasConflictError({
+              ...snapshot,
+              type: "patch_conflict",
+              error: "Event changed while awaiting approval",
+            });
+        for (const [key, value] of Object.entries(change.fields)) {
+          if (
+            !Object.hasOwn(task, key) ||
+            ["__proto__", "constructor", "prototype", "func_name"].includes(key)
+          )
+            throw new Error("Scheduler field is missing or immutable");
+          ops.push({
+            op: "replace",
+            path: `/${index}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`,
+            value,
+          });
+        }
+      }
+      if (!ops.length) return clone(snapshot.data);
+      const timestamp = Number(snapshot.timestamp);
+      const response = await this.exchange(
+        "sync",
+        { type: "patch", resource: "event", resource_id: id, timestamp, ops },
+        (message) =>
+          message.resource === "event" &&
+          message.resource_id === id &&
+          ((message.type === "patch_ack" && message.timestamp === timestamp) ||
+            (message.type === "patch_conflict" && message.request_timestamp === timestamp))
+      );
+      if (response.type === "patch_conflict") throw new BaasConflictError(response);
+      return this.events(id);
+    });
+    this.patchQueue = operation.then(
+      () => undefined,
+      () => undefined
+    );
+    return operation;
   }
 
   async logs(limit = 100, profile?: string): Promise<BaasLogEntry[]> {

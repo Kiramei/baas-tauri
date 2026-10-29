@@ -6,6 +6,7 @@ describe("seven-language CLI help", () => {
   test("every locale has translated prose and the same executable commands and flags", () => {
     const examples = [
       "init, connect [URL], login, logout, doctor, devices",
+      "check-update, update",
       "profiles, use <ID>, profile create <name> <server>",
       "status, tasks, run <task>, start, stop",
       "wait [run_id], logs [count] [--follow], watch",
@@ -34,9 +35,9 @@ describe("seven-language CLI help", () => {
     ];
     for (const { id } of LANGUAGES) {
       const output = help(id, "9.8.7-test");
-      expect(output).toStartWith(`BAAS CLI 9.8.7-test · ${translate("自动化终端", id)}`);
-      expect(output).toContain(translate("用法：baas [选项] [命令]", id));
-      expect(output).toContain(translate("脚本和管道输入必须指定 BAAS 命令。", id));
+      expect(output).toStartWith(`baax 9.8.7-test · ${translate("自动化终端", id)}`);
+      expect(output).toContain(translate("用法：baax [选项] [命令]", id));
+      expect(output).toContain(translate("脚本和管道输入必须指定 baax 命令。", id));
       expect(output).toContain(
         translate("服务 Key 使用 BAAS_KEY 或隐藏输入，不保存到偏好文件。", id)
       );
@@ -49,6 +50,8 @@ describe("seven-language CLI help", () => {
       );
       expect(output).toContain("15000");
       expect(output).toContain("zh, en, ja, ko, de, fr, ru");
+      expect(output).not.toContain("BAAS CLI");
+      expect(output).not.toContain("Usage: baas ");
       expect(output).toEndWith("\n");
       expect(output).not.toContain("\u001b");
       expect(output).not.toMatch(/chat|chatbot|language model|BAAS\.md|sessions|resume/i);

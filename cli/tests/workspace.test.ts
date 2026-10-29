@@ -10,7 +10,8 @@ import {
 } from "@baas/client";
 import { DemoClient } from "../src/demo";
 import { Workspace, type WorkspaceSnapshot } from "../src/workspace";
-import { RuntimeManager } from "../src/runtime";
+import { RuntimeManager, type RuntimeState, type RuntimeUpdateCheck } from "../src/runtime";
+import { configurationFields } from "../src/configuration";
 
 const cleanup: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
@@ -115,6 +116,169 @@ function serviceFixture() {
   });
   return state;
 }
+
+function runtimeFixture() {
+  const order: string[] = [];
+  const update: RuntimeUpdateCheck = {
+    root: "/fixture-runtime",
+    channel: "dev",
+    available: true,
+    repositories: [
+      {
+        name: "backend",
+        localVersion: "a".repeat(40),
+        remoteVersion: "b".repeat(40),
+        available: true,
+      },
+      {
+        name: "ocr",
+        localVersion: "c".repeat(40),
+        remoteVersion: "c".repeat(40),
+        available: false,
+      },
+    ],
+  };
+  const installed: RuntimeState = {
+    installed: true,
+    managed: true,
+    root: update.root,
+    backendPath: "/fixture-runtime/backend",
+    pythonPath: "/fixture-runtime/python",
+    cppPath: "/fixture-runtime/ocr",
+    channel: "dev",
+    missing: [],
+  };
+  const check = spyOn(RuntimeManager.prototype, "checkUpdates").mockImplementation(
+    async (onEvent) => {
+      order.push("check");
+      onEvent?.({
+        type: "progress",
+        stage: "check-backend",
+        taskId: "backend",
+        message: "Checking fixture",
+        status: "running",
+        currentLine: "checking 50%",
+        replace: true,
+        percent: 50,
+      });
+      onEvent?.({
+        type: "progress",
+        stage: "check-backend",
+        taskId: "backend",
+        message: "Fixture checked",
+        status: "complete",
+      });
+      return structuredClone(update);
+    }
+  );
+  const stop = spyOn(RuntimeManager.prototype, "stopWhenIdle").mockImplementation(async () => {
+    order.push("stop-idle");
+  });
+  const apply = spyOn(RuntimeManager.prototype, "update").mockImplementation(async () => {
+    order.push("update");
+    return installed;
+  });
+  const start = spyOn(RuntimeManager.prototype, "start").mockImplementation(async () => {
+    order.push("start");
+    return { pipe: "/fixture-runtime/service.sock" };
+  });
+  cleanup.push(() => {
+    check.mockRestore();
+    stop.mockRestore();
+    apply.mockRestore();
+    start.mockRestore();
+  });
+  return { order, update, check, stop, apply, start };
+}
+
+describe("local runtime updates in the workspace", () => {
+  test("read-only checks retain real structured progress without adding repaint frames as log lines", async () => {
+    const runtime = runtimeFixture();
+    const workspace = await Workspace.create({ directory: await directory(), readOnly: true });
+    cleanup.push(() => workspace.close());
+    await workspace.checkUpdates();
+    expect(workspace.snapshot.update).toEqual(runtime.update);
+    expect(workspace.snapshot.installation?.tasks).toMatchObject([
+      { id: "backend", status: "complete", percent: 100, currentLine: "checking 50%" },
+    ]);
+    expect(workspace.snapshot.installation?.lines).toEqual(["Fixture checked"]);
+    expect(runtime.order).toEqual(["check"]);
+  });
+  test("denial, read-only and preview do not stop, update or restart any backend", async () => {
+    const runtime = runtimeFixture();
+    const denied = await Workspace.create({ directory: await directory() });
+    cleanup.push(() => denied.close());
+    const pending = denied.updateRuntime();
+    await until(denied, (state) => state.prompt?.title === "确认更新本地环境");
+    denied.answerPrompt(false);
+    await pending;
+    expect(runtime.order).toEqual(["check"]);
+    const readonly = await Workspace.create({
+      directory: await directory(),
+      readOnly: true,
+      yes: true,
+    });
+    cleanup.push(() => readonly.close());
+    await readonly.updateRuntime();
+    expect(readonly.snapshot.activity.at(-1)?.detail).toContain("只读");
+    const preview = await Workspace.create({ directory: await directory(), dryRun: true });
+    cleanup.push(() => preview.close());
+    await preview.updateRuntime();
+    expect(preview.snapshot.activity.at(-1)?.title).toContain("预演");
+    expect(preview.snapshot.prompt).toBeUndefined();
+    expect(runtime.order).toEqual(["check", "check"]);
+  });
+  test("a busy owned backend refuses an update before it can stop or replace the connection", async () => {
+    const runtime = runtimeFixture();
+    runtime.stop.mockRejectedValue(new Error("仍有任务正在运行"));
+    serviceFixture();
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.startLocal();
+    const endpoint = workspace.snapshot.endpoint;
+    await workspace.updateRuntime();
+    expect(workspace.snapshot.activity.at(-1)?.detail).toContain("仍有任务");
+    expect(workspace.snapshot).toMatchObject({ connected: true, endpoint });
+    expect(runtime.apply).not.toHaveBeenCalled();
+    expect(runtime.start).toHaveBeenCalledTimes(1);
+  });
+  test("idle local updates reconnect after updating while remote connections stay remote", async () => {
+    const runtime = runtimeFixture();
+    const service = serviceFixture();
+    const local = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => local.close());
+    await local.startLocal();
+    await local.updateRuntime();
+    expect(runtime.order).toEqual(["start", "check", "stop-idle", "update", "start"]);
+    expect(local.snapshot.connected).toBe(true);
+    expect(local.snapshot.update).toBeUndefined();
+    const remote = await Workspace.create({
+      directory: await directory(),
+      server: "ws://fixture.invalid:8190",
+      profile: "alpha",
+      key: "fixture",
+      yes: true,
+    });
+    cleanup.push(() => remote.close());
+    await remote.connect();
+    const connects = service.connects;
+    await remote.execute("/update");
+    expect(remote.snapshot).toMatchObject({
+      connected: true,
+      endpoint: "ws://fixture.invalid:8190",
+    });
+    expect(service.connects).toBe(connects);
+    expect(runtime.start).toHaveBeenCalledTimes(2);
+  });
+});
 
 test("explicit endpoints override saved local mode and language switching keeps the connection", async () => {
   const folder = await directory();
@@ -254,6 +418,71 @@ describe("creating the first BAAS profile", () => {
 });
 
 describe("deterministic BAAS workspace", () => {
+  test("demo configuration exposes desktop switches, numbers, rows and catalogs with server wire values", async () => {
+    const workspace = await demo({ yes: true });
+    await workspace.connect();
+    const config = await workspace.getConfig();
+    expect(config.server).toBe("官服");
+    const fields = configurationFields(config, {
+      staticData: workspace.snapshot.staticData,
+      language: "en",
+    });
+    expect(fields.find((field) => field.path === "/cafe_reward_use_invitation_ticket")?.type).toBe(
+      "switch"
+    );
+    expect(fields.find((field) => field.path === "/cafe_reward_affection_pat_round")?.type).toBe(
+      "number"
+    );
+    expect(fields.find((field) => field.path === "/mainlinePriority")?.type).toBe("rows");
+    expect(
+      fields
+        .find((field) => field.path === "/favorStudent1")
+        ?.options?.map((option) => option.value)
+    ).toContain("优香");
+    expect(await workspace.setConfig("/favorStudent1", ["优香", "爱丽丝"])).toBe(true);
+    expect((await workspace.getConfig()).favorStudent1).toEqual(["优香", "爱丽丝"]);
+    expect(await workspace.setConfig("/cafe_reward_affection_pat_round", 100)).toBe(false);
+    expect(workspace.snapshot.activity.at(-1)?.tone).toBe("error");
+    expect((await workspace.getConfig()).cafe_reward_affection_pat_round).toBe(5);
+    await workspace.setConfig("/server", "日服");
+    expect((await workspace.getConfig()).server).toBe("官服");
+    await workspace.selectProfile("sensei-jp");
+    expect((await workspace.getConfig()).server).toBe("日服");
+    await workspace.execute("logout");
+    expect(workspace.snapshot.staticData).toBeUndefined();
+  });
+  test("an invalid typed configuration step fails whole-pack preflight before any earlier mutation", async () => {
+    const path = await directory();
+    await mkdir(join(path, "commands"));
+    await writeFile(
+      join(path, "commands", "invalid-config.json"),
+      JSON.stringify({
+        id: "invalid-config",
+        name: "Invalid config",
+        description: "Typed validation",
+        version: 1,
+        commands: [
+          {
+            name: "invalid-config",
+            description: "must stop",
+            steps: [
+              { action: "scheduler_start", args: {} },
+              {
+                action: "config_set",
+                args: { path: "/cafe_reward_affection_pat_round", value: 100 },
+              },
+            ],
+          },
+        ],
+      })
+    );
+    const workspace = await demo({ directory: path, yes: true });
+    await workspace.connect();
+    await workspace.execute("/invalid-config");
+    expect(workspace.snapshot.status["sensei-cn"].running).toBe(false);
+    expect(workspace.snapshot.activity.at(-1)?.tone).toBe("error");
+    expect(workspace.snapshot.logs.some((entry) => entry.message.includes("演示开始"))).toBe(false);
+  });
   test("loads standalone packs and displays live demo profiles, tasks and status", async () => {
     const workspace = await demo();
     expect(workspace.snapshot.connected).toBe(false);
@@ -334,8 +563,8 @@ describe("deterministic BAAS workspace", () => {
     expect(readOnly.snapshot.prompt).toBeUndefined();
     const dryRun = await demo({ dryRun: true });
     await dryRun.connect();
-    await dryRun.setConfig("/name", "Preview only");
-    expect((await dryRun.getConfig()).name).toBe("夏莱 · 国服");
+    await dryRun.setConfig("/program_address", "Preview only");
+    expect((await dryRun.getConfig()).program_address).toBe("");
     expect(dryRun.snapshot.activity.some((item) => item.title.includes("预演"))).toBe(true);
     expect(dryRun.snapshot.prompt).toBeUndefined();
   });
@@ -343,12 +572,12 @@ describe("deterministic BAAS workspace", () => {
   test("configuration changed during approval is never silently overwritten", async () => {
     const workspace = await demo();
     await workspace.connect();
-    const setting = workspace.setConfig("/name", "Requested name");
+    const setting = workspace.setConfig("/program_address", "Requested path");
     await until(workspace, (state) => state.prompt?.kind === "confirm");
-    await internalClient(workspace).patchConfig("sensei-cn", "/name", "External change");
+    await internalClient(workspace).patchConfig("sensei-cn", "/program_address", "External change");
     workspace.answerPrompt(true);
     await setting;
-    expect((await workspace.getConfig()).name).toBe("External change");
+    expect((await workspace.getConfig()).program_address).toBe("External change");
     expect(
       workspace.snapshot.activity.some(
         (item) => item.tone === "error" && item.detail?.includes("确认期间")
@@ -449,6 +678,58 @@ describe("deterministic BAAS workspace", () => {
     expect(workspace.snapshot.status).toEqual({});
     expect(workspace.snapshot.logs).toEqual([]);
   });
+  test("task completion refreshes effective scheduling and ignores reads completed after logout", async () => {
+    const fixture = serviceFixture();
+    const tasks = spyOn(BaasClient.prototype, "tasks").mockResolvedValue({
+      arena: { func_name: "arena", event_name: "Arena", enabled: true, next_tick: 1, priority: 0 },
+    });
+    cleanup.push(() => tasks.mockRestore());
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      key: "fixture",
+      profile: "alpha",
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.connect();
+    tasks.mockResolvedValue({
+      arena: {
+        func_name: "arena",
+        event_name: "Arena",
+        enabled: true,
+        next_tick: 400,
+        priority: 0,
+      },
+    });
+    fixture.status(
+      { full: false, configId: "alpha", status: { running: true, run_id: "fresh" } },
+      { alpha: { running: true, run_id: "fresh", current_task: "arena" } }
+    );
+    fixture.status(
+      { full: false, configId: "alpha", status: { running: false, run_id: "fresh", exit_code: 0 } },
+      { alpha: { running: false, run_id: "fresh", exit_code: 0, current_task: null } }
+    );
+    await until(workspace, (state) => state.scheduler?.tasks[0]?.next_tick === 400);
+    let finish: (value: Record<string, unknown>) => void = () => {};
+    tasks.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    fixture.status(
+      { full: false, configId: "alpha", status: { running: true, run_id: "later" } },
+      { alpha: { running: true, run_id: "later", current_task: "arena" } }
+    );
+    fixture.status(
+      { full: false, configId: "alpha", status: { running: false, run_id: "later", exit_code: 0 } },
+      { alpha: { running: false, run_id: "later", exit_code: 0, current_task: null } }
+    );
+    await workspace.execute("logout");
+    finish({ arena: { func_name: "arena", event_name: "Late", enabled: true, next_tick: 999 } });
+    await Bun.sleep(0);
+    expect(workspace.snapshot.scheduler).toBeUndefined();
+    expect(workspace.snapshot.tasks).toEqual({});
+  });
 
   test("pack preflight catches an invalid later task before starting any step", async () => {
     const path = await directory();
@@ -500,37 +781,37 @@ describe("deterministic BAAS workspace", () => {
     const secret = "fixture-known-secret";
     const workspace = await demo({ key: secret });
     await workspace.connect();
-    const pending = workspace.setConfig("/name", secret);
+    const pending = workspace.setConfig("/program_address", secret);
     await until(workspace, (state) => state.prompt?.kind === "confirm");
     expect(JSON.stringify(workspace.snapshot)).not.toContain(secret);
     workspace.answerPrompt(true);
     await pending;
-    expect((await workspace.getConfig()).name).toBe("[REDACTED]");
+    expect((await workspace.getConfig()).program_address).toBe("[REDACTED]");
     expect(JSON.stringify(workspace.snapshot)).not.toContain(secret);
   });
   test("each confirmation has a fresh prompt ID and hidden placeholders never become real values", async () => {
     const workspace = await demo();
     await workspace.connect();
-    const first = workspace.setConfig("/name", "First value");
+    const first = workspace.setConfig("/program_address", "First value");
     const firstPrompt = await until(workspace, (state) => state.prompt?.kind === "confirm");
     workspace.answerPrompt(false);
     await first;
-    const second = workspace.setConfig("/name", "Second value");
+    const second = workspace.setConfig("/program_address", "Second value");
     const secondPrompt = await until(workspace, (state) => state.prompt?.kind === "confirm");
     expect(secondPrompt.prompt?.id).not.toBe(firstPrompt.prompt?.id);
     workspace.answerPrompt(false);
     await second;
-    await workspace.setConfig("/name", { nested: ["[REDACTED]"] });
+    await workspace.setConfig("/program_address", { nested: ["[REDACTED]"] });
     expect(workspace.snapshot.prompt).toBeUndefined();
-    expect((await workspace.getConfig()).name).toBe("夏莱 · 国服");
-    await workspace.execute("config set /name '\"[REDACTED]\"'");
+    expect((await workspace.getConfig()).program_address).toBe("");
+    await workspace.execute("config set /program_address '\"[REDACTED]\"'");
     expect(workspace.snapshot.prompt).toBeUndefined();
     expect(workspace.snapshot.activity.at(-1)?.detail).toContain("占位符");
-    const clear = workspace.setConfig("/name", "");
+    const clear = workspace.setConfig("/program_address", "");
     await until(workspace, (state) => state.prompt?.kind === "confirm");
     workspace.answerPrompt(true);
     await clear;
-    expect((await workspace.getConfig()).name).toBe("");
+    expect((await workspace.getConfig()).program_address).toBe("");
   });
 
   test("task activities describe actual submission and completion without JSON envelopes", async () => {

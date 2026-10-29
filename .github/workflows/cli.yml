@@ -1,4 +1,4 @@
-name: BAAS CLI
+name: baax
 
 on:
   push:
@@ -14,7 +14,9 @@ on:
         "Cargo.lock",
         "rust-toolchain*",
         ".cargo/**",
-        "src/shared/SecureWebSocket.ts",
+        "src/shared/**",
+        "src/features/rewardedTaskConfig.ts",
+        "public/locales/*.json",
         "package.json",
         "bun.lock",
         ".github/workflows/cli.yml",
@@ -31,7 +33,9 @@ on:
         "Cargo.lock",
         "rust-toolchain*",
         ".cargo/**",
-        "src/shared/SecureWebSocket.ts",
+        "src/shared/**",
+        "src/features/rewardedTaskConfig.ts",
+        "public/locales/*.json",
         "package.json",
         "bun.lock",
         ".github/workflows/cli.yml",
@@ -49,13 +53,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            executable: baas
+            executable: baax
             helper: baas-cli-runtime
           - os: macos-latest
-            executable: baas
+            executable: baax
             helper: baas-cli-runtime
           - os: windows-latest
-            executable: baas.exe
+            executable: baax.exe
             helper: baas-cli-runtime.exe
     runs-on: ${{ matrix.os }}
     steps:
@@ -83,7 +87,7 @@ jobs:
       - run: bun run cli:test
       - run: bunx eslint cli/src cli/tests packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
       - run: bun run cli:build
-      - run: bun cli/bin/baas.mjs --demo --json status
+      - run: bun cli/bin/baax.mjs --demo --json status
       - run: bun run cli:binary
       - name: Check the compiled program and its bundled installer
         shell: bash
@@ -93,10 +97,10 @@ jobs:
       - run: bun run cli:pack
       - name: Archive the native program with its matching helper
         shell: bash
-        run: tar -czf "cli/dist/baas-cli-${{ runner.os }}-${{ runner.arch }}.tar.gz" -C cli/dist "${{ matrix.executable }}" runtime
+        run: tar -czf "cli/dist/baax-${{ runner.os }}-${{ runner.arch }}.tar.gz" -C cli/dist "${{ matrix.executable }}" runtime
       - uses: actions/upload-artifact@v4
         with:
-          name: baas-cli-${{ runner.os }}-${{ runner.arch }}
+          name: baax-${{ runner.os }}-${{ runner.arch }}
           path: |
             cli/dist/*.tgz
             cli/dist/*.tar.gz

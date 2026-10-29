@@ -4,6 +4,8 @@
 //! its launch specification only after a complete, CLI-owned installation.
 
 use baas_term::types::{RendererEvent, TaskHandle, TermState};
+mod progress;
+mod updates;
 use baas_updater::{
     UpdateChannel, UpdaterError, UpdaterResult, WorkflowOptions,
     config::{BackendTransport, ConfigManager, UpdaterConfig},
@@ -11,6 +13,8 @@ use baas_updater::{
     repo::cpp_branch_for,
     workflow::{new_workflow_cleanup_state, run_terminal_workflow_flow},
 };
+pub use progress::Progress;
+use progress::TaskOutput;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -26,6 +30,8 @@ use std::{
     thread,
     time::Duration,
 };
+pub use updates::acquire_lease;
+pub use updates::{RepositoryUpdate, UpdateCheck, check_update, update};
 
 pub const MARKER_FILE: &str = ".baas-cli-runtime.json";
 const OWNER: &str = "baas-cli-runtime";
@@ -67,12 +73,6 @@ pub struct LaunchSpec {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Progress {
-    pub stage: String,
-    pub message: String,
 }
 
 /// Normalize without following symlinks, so the protocol preserves the root
@@ -343,10 +343,11 @@ fn install_with(
     manager.config.general.launch = false;
     manager.config.general.no_update = false;
     manager.save()?;
-    emit(Progress {
-        stage: "prepare".into(),
-        message: "Installing a private BAAS backend and Python environment".into(),
-    });
+    emit(Progress::status(
+        "prepare",
+        "Preparing the private BAAS runtime",
+        "running",
+    ));
     workflow(&root, emit)?;
     if cancelled.load(Ordering::Relaxed) {
         return Err(UpdaterError::Cancelled);
@@ -365,10 +366,11 @@ fn install_with(
         )));
     }
     write_marker(&root, channel, true)?;
-    emit(Progress {
-        stage: "complete".into(),
-        message: "BAAS backend, Cpp, Python and dependencies are ready".into(),
-    });
+    emit(Progress::status(
+        "complete",
+        "BAAS backend, OCR, Python and dependencies are ready",
+        "complete",
+    ));
     inspect(&root)
 }
 
@@ -414,23 +416,28 @@ fn run_workflow(
         run_terminal_workflow_flow(state, session_id, tx, options, new_workflow_cleanup_state())
     });
     let mut last_error = None;
+    let mut outputs = BTreeMap::<String, TaskOutput>::new();
     loop {
         if cancelled.load(Ordering::Relaxed) {
             cancel_tasks(&inner);
             return Err(UpdaterError::Cancelled);
         }
         match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(RendererEvent::TaskStarted(spec)) => emit(Progress {
-                stage: spec.task_id,
-                message: spec.name,
-            }),
+            Ok(RendererEvent::WorkflowPlanned(plan)) => {
+                for task in plan.nodes {
+                    emit(Progress::status(&task.task_id, task.name, "pending"));
+                }
+            }
+            Ok(RendererEvent::TaskStarted(spec)) => {
+                emit(Progress::status(&spec.task_id, spec.name, "running"))
+            }
             Ok(RendererEvent::Output { task_id, chunk, .. }) => {
-                let message = plain_output(&String::from_utf8_lossy(&chunk));
-                if !message.is_empty() {
-                    emit(Progress {
-                        stage: task_id,
-                        message,
-                    });
+                for event in outputs
+                    .entry(task_id.clone())
+                    .or_default()
+                    .feed(&task_id, &chunk)
+                {
+                    emit(event);
                 }
             }
             Ok(RendererEvent::TaskFinished {
@@ -443,13 +450,22 @@ fn run_workflow(
                 if let Some(error) = &error {
                     last_error = Some(error.clone());
                 }
-                emit(Progress {
-                    stage: task_id,
-                    message: error.unwrap_or_else(|| match exit_code {
+                let final_status = match status.as_str() {
+                    "success" => "complete",
+                    "skipped" => "skipped",
+                    "failed" | "stopped" => "failed",
+                    _ if error.is_some() || exit_code.is_some_and(|code| code != 0) => "failed",
+                    _ => "complete",
+                };
+                outputs.remove(&task_id);
+                emit(Progress::status(
+                    &task_id,
+                    error.unwrap_or_else(|| match exit_code {
                         Some(code) => format!("{status} (exit {code})"),
                         None => status,
                     }),
-                });
+                    final_status,
+                ));
             }
             Ok(RendererEvent::SessionFinished { success }) => {
                 worker
@@ -476,6 +492,7 @@ fn run_workflow(
 }
 
 /// Strip terminal controls from the desktop workflow before emitting NDJSON.
+#[cfg(test)]
 fn plain_output(value: &str) -> String {
     let mut result = String::new();
     let mut chars = value.chars();
@@ -569,7 +586,7 @@ mod tests {
         assert_eq!(fs::read_dir(parent.path()).unwrap().count(), 0);
     }
 
-    fn fixture(root: &Path) {
+    pub(super) fn fixture(root: &Path) {
         let config = private_config(root, UpdateChannel::Dev);
         for path in [
             root.join("main.service.py"),
@@ -798,11 +815,11 @@ mod tests {
             progress.push(item)
         })
         .unwrap();
-        assert!(progress.iter().any(|item| item.stage == "updater-config"));
+        assert!(progress.iter().any(|item| item.stage == "configuration"));
         assert!(
             progress
                 .iter()
-                .any(|item| item.stage == "launch-backend" && item.message.contains("disabled"))
+                .any(|item| item.stage == "launch" && item.message.contains("disabled"))
         );
         assert!(!root.path().join(".pid").exists());
         assert!(progress.iter().all(|item| !item.message.contains('\u{1b}')));

@@ -36,6 +36,27 @@ export interface RuntimeEvent {
   type: "progress";
   stage: string;
   message: string;
+  taskId?: string;
+  status?: "pending" | "running" | "complete" | "failed" | "skipped";
+  percent?: number;
+  current?: number;
+  total?: number;
+  unit?: "bytes" | "objects" | "items";
+  downloadedBytes?: number;
+  totalBytes?: number;
+  currentLine?: string;
+  replace?: boolean;
+}
+export interface RuntimeUpdateCheck {
+  root: string;
+  channel: RuntimeChannel;
+  available: boolean;
+  repositories: Array<{
+    name: "backend" | "ocr";
+    localVersion: string;
+    remoteVersion: string;
+    available: boolean;
+  }>;
 }
 export interface RuntimeManagerOptions {
   directory: string;
@@ -65,6 +86,7 @@ const MAX_STDERR = 16_384;
 const INSPECT_TIMEOUT = 15_000;
 const INSTALL_TIMEOUT = 60 * 60 * 1000;
 const START_TIMEOUT = 45_000;
+const CHECK_TIMEOUT = 60_000;
 const CHANNELS = new Set(["stable", "dev"]);
 
 export class RuntimeError extends Error {
@@ -238,6 +260,132 @@ export class RuntimeManager {
     });
   }
 
+  async checkUpdates(
+    onEvent?: (event: RuntimeEvent) => void,
+    signal?: AbortSignal
+  ): Promise<RuntimeUpdateCheck> {
+    return this.operation(signal, CHECK_TIMEOUT, async (operationSignal) => {
+      const root = await this.getConfigRoot();
+      const value = await this.helper(["check-update", "--root", root], operationSignal, onEvent);
+      if (
+        !record(value) ||
+        !string(value.root) ||
+        !isAbsolute(value.root) ||
+        !CHANNELS.has(String(value.channel)) ||
+        typeof value.available !== "boolean" ||
+        !Array.isArray(value.repositories) ||
+        value.repositories.length !== 2 ||
+        (await canonical(root)) !== (await canonical(value.root))
+      )
+        throw new RuntimeError("runtime_protocol", "安装组件返回的更新信息无效");
+      const names = new Set<string>();
+      const repositories: RuntimeUpdateCheck["repositories"] = value.repositories.map((item) => {
+        if (
+          !record(item) ||
+          !["backend", "ocr"].includes(String(item.name)) ||
+          names.has(String(item.name)) ||
+          typeof item.available !== "boolean" ||
+          typeof item.localVersion !== "string" ||
+          (item.localVersion !== "unknown" && !/^[a-f0-9]{40}$/i.test(item.localVersion)) ||
+          typeof item.remoteVersion !== "string" ||
+          !/^[a-f0-9]{40}$/i.test(item.remoteVersion) ||
+          item.available !== (item.localVersion.toLowerCase() !== item.remoteVersion.toLowerCase())
+        )
+          throw new RuntimeError("runtime_protocol", "安装组件返回的仓库版本信息无效");
+        names.add(String(item.name));
+        return {
+          name: item.name as "backend" | "ocr",
+          localVersion: item.localVersion,
+          remoteVersion: item.remoteVersion,
+          available: item.available,
+        };
+      });
+      if (value.available !== repositories.some((repository) => repository.available))
+        throw new RuntimeError("runtime_protocol", "安装组件返回的更新状态冲突");
+      return {
+        root: value.root,
+        channel: value.channel as RuntimeChannel,
+        available: value.available,
+        repositories,
+      };
+    });
+  }
+
+  /** Stop only our backend, after two successful full idle snapshots. */
+  async stopWhenIdle(signal?: AbortSignal): Promise<void> {
+    return this.operation(signal, INSPECT_TIMEOUT, async (operationSignal) => {
+      const owned = this.backend;
+      if (!owned) return;
+      const client = new BaasClient({ pipe: owned.pipe, timeoutMs: 5000 });
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const statuses = await abortable(client.status(), operationSignal);
+          if (
+            !record(statuses) ||
+            Object.values(statuses).some(
+              (status) =>
+                !record(status) ||
+                typeof status.running !== "boolean" ||
+                status.running ||
+                !!status.current_task ||
+                (Array.isArray(status.waiting_tasks) && status.waiting_tasks.length > 0)
+            )
+          )
+            throw new RuntimeError(
+              "runtime_busy",
+              "仍有任务或调度正在运行，请先停止后再更新本地环境"
+            );
+          if (attempt === 0)
+            await abortable(new Promise((done) => setTimeout(done, 250)), operationSignal);
+        }
+        operationSignal.throwIfAborted();
+        if (this.backend !== owned)
+          throw new RuntimeError("runtime_busy", "本地后端连接已改变，请重新检查运行状态");
+        await owned.stop();
+        if (this.backend === owned) this.backend = undefined;
+      } finally {
+        client.close();
+      }
+    });
+  }
+
+  /** Applying an update never silently stops a backend or its running tasks. */
+  async update(
+    onEvent?: (event: RuntimeEvent) => void,
+    signal?: AbortSignal
+  ): Promise<RuntimeState> {
+    return this.operation(signal, INSTALL_TIMEOUT, async (operationSignal) => {
+      if (this.backend)
+        throw new RuntimeError("runtime_busy", "请先检查并关闭空闲本地后端，再更新环境");
+      const root = await this.getConfigRoot();
+      const before = await this.inspectRoot(root, operationSignal);
+      if (!before.installed || !before.managed || before.channel !== "dev")
+        throw new RuntimeError("runtime_missing", "只能更新安装完整的 CLI 托管 dev 环境");
+      const updated = await this.state(
+        await this.helper(["update", "--root", root], operationSignal, onEvent),
+        root
+      );
+      if (
+        !updated.installed ||
+        !updated.managed ||
+        updated.missing.length ||
+        updated.channel !== before.channel
+      )
+        throw new RuntimeError("install_incomplete", "更新后的本地环境校验未通过，请重试安装");
+      const verified = await this.inspectRoot(root, operationSignal);
+      if (
+        !verified.installed ||
+        !verified.managed ||
+        verified.missing.length ||
+        verified.channel !== before.channel
+      )
+        throw new RuntimeError("install_incomplete", "更新后的本地环境校验未通过，请重试安装");
+      operationSignal.throwIfAborted();
+      await this.saveMetadata({ schemaVersion: 1, root: verified.root, channel: verified.channel });
+      return verified;
+    });
+  }
+
   async start(
     onEvent?: (event: RuntimeEvent) => void,
     signal?: AbortSignal
@@ -264,7 +412,9 @@ export class RuntimeManager {
         throw new RuntimeError("runtime_pipe", "系统临时目录过长，无法创建本地服务套接字");
       }
       let owned: OwnedBackend | undefined;
+      let lease: { child: ChildProcess; stop: () => Promise<void> } | undefined;
       try {
+        lease = await this.acquireLease(state.root, operationSignal);
         const spec = this.launchSpec(
           await this.helper(
             ["launch-spec", "--root", state.root, "--pipe", pipe],
@@ -275,7 +425,12 @@ export class RuntimeManager {
           pipe
         );
         operationSignal.throwIfAborted();
-        this.emit(onEvent, "backend", "正在启动私有 BAAS 后端并等待连接握手");
+        if (lease.child.exitCode !== null || lease.child.signalCode !== null)
+          throw new RuntimeError("runtime_lease", "本地后端运行租约已失效，请重试启动");
+        this.emit(onEvent, "backend", "正在启动私有 BAAS 后端并等待连接握手", {
+          taskId: "launch-backend",
+          status: "running",
+        });
         const child = spawn(spec.program, spec.args, {
           cwd: spec.cwd,
           env: { ...process.env, ...spec.env },
@@ -283,6 +438,7 @@ export class RuntimeManager {
           windowsHide: true,
           stdio: ["ignore", "pipe", "pipe"],
         });
+        if (child.pid) lease.child.stdin?.write(`${child.pid}\n`);
         let stopped: Promise<void> | undefined;
         owned = {
           child,
@@ -290,11 +446,18 @@ export class RuntimeManager {
           socketDirectory,
           stop: () =>
             (stopped ||= stopTree(child).finally(async () => {
+              await lease?.stop();
               if (socketDirectory) await rm(socketDirectory, { recursive: true, force: true });
             })),
         };
         this.backend = owned;
         const owner = owned;
+        lease.child.once("close", () => {
+          if (this.backend === owner) {
+            this.backend = undefined;
+            void owner.stop().catch(() => {});
+          }
+        });
         let exited: Error | undefined;
         child.once("error", (error) => {
           exited = error;
@@ -316,7 +479,11 @@ export class RuntimeManager {
             await abortable(client.connect(), operationSignal);
             if (exited) throw exited;
             operationSignal.throwIfAborted();
-            this.emit(onEvent, "ready", "本地 BAAS 后端已就绪");
+            this.emit(onEvent, "ready", "本地 BAAS 后端已就绪", {
+              taskId: "launch-backend",
+              status: "complete",
+              percent: 100,
+            });
             return { pipe };
           } catch {
             operationSignal.throwIfAborted();
@@ -327,10 +494,17 @@ export class RuntimeManager {
           await abortable(new Promise((done) => setTimeout(done, 100)), operationSignal);
         }
       } catch (error) {
+        this.emit(onEvent, "backend", error instanceof Error ? error.message : String(error), {
+          taskId: "launch-backend",
+          status: "failed",
+        });
         if (owned) {
           if (this.backend === owned) this.backend = undefined;
           await owned.stop();
-        } else if (socketDirectory) await rm(socketDirectory, { recursive: true, force: true });
+        } else {
+          await lease?.stop();
+          if (socketDirectory) await rm(socketDirectory, { recursive: true, force: true });
+        }
         throw error;
       }
     });
@@ -522,9 +696,9 @@ export class RuntimeManager {
       stderr = "",
       total = 0;
     const stdoutDecoder = new StringDecoder("utf8");
-    const diagnostics = this.diagnosticLines((line) => {
+    const diagnostics = this.diagnosticLines((line, replace) => {
       stderr = (stderr + line + "\n").slice(-MAX_STDERR);
-      this.emit(onEvent, "installer", line);
+      this.emit(onEvent, "installer", line, { replace, currentLine: line });
     });
     let result: unknown,
       hasResult = false,
@@ -551,7 +725,7 @@ export class RuntimeManager {
           typeof value.message === "string" &&
           value.message.length <= MAX_LINE
         )
-          this.emit(onEvent, value.stage, value.message);
+          this.emit(onEvent, value.stage, value.message, this.progressFields(value));
         else if (value.type === "result" && !hasResult) {
           result = value.data;
           hasResult = true;
@@ -632,16 +806,146 @@ export class RuntimeManager {
     }
   }
 
+  private progressFields(value: Record<string, unknown>): Partial<RuntimeEvent> {
+    const fields: Partial<RuntimeEvent> = {};
+    for (const key of ["percent", "current", "total", "downloadedBytes", "totalBytes"] as const) {
+      if (value[key] === undefined) continue;
+      if (
+        !Number.isSafeInteger(value[key]) ||
+        (value[key] as number) < 0 ||
+        (key === "percent" && (value[key] as number) > 100)
+      )
+        throw new RuntimeError("runtime_protocol", "安装组件返回的进度数值无效");
+      fields[key] = value[key] as number;
+    }
+    for (const [current, total] of [
+      ["current", "total"],
+      ["downloadedBytes", "totalBytes"],
+    ] as const)
+      if (
+        fields[current] !== undefined &&
+        fields[total] !== undefined &&
+        fields[current]! > fields[total]!
+      )
+        throw new RuntimeError("runtime_protocol", "安装组件返回的进度范围无效");
+    if (value.status !== undefined) {
+      if (!["pending", "running", "complete", "failed", "skipped"].includes(String(value.status)))
+        throw new RuntimeError("runtime_protocol", "安装组件返回的阶段状态无效");
+      fields.status = value.status as RuntimeEvent["status"];
+    }
+    if (value.unit !== undefined) {
+      if (!["bytes", "objects", "items"].includes(String(value.unit)))
+        throw new RuntimeError("runtime_protocol", "安装组件返回的进度单位无效");
+      fields.unit = value.unit as RuntimeEvent["unit"];
+    }
+    if (value.replace !== undefined) {
+      if (typeof value.replace !== "boolean")
+        throw new RuntimeError("runtime_protocol", "安装组件返回的重绘标记无效");
+      fields.replace = value.replace;
+    }
+    for (const key of ["taskId", "currentLine"] as const) {
+      if (value[key] === undefined) continue;
+      if (!string(value[key], key === "taskId" ? 128 : MAX_LINE))
+        throw new RuntimeError("runtime_protocol", "安装组件返回的阶段文本无效");
+      fields[key] = this.safe(value[key] as string);
+    }
+    return fields;
+  }
+
+  private async acquireLease(root: string, signal: AbortSignal) {
+    const executable = await this.executable();
+    signal.throwIfAborted();
+    const child = spawn(executable, ["lease", "--root", root], {
+      stdio: ["pipe", "pipe", "pipe"],
+      detached: process.platform !== "win32",
+      windowsHide: true,
+    });
+    const closed = new Promise<void>((done) => child.once("close", () => done()));
+    child.stdin?.on("error", () => {
+      child.kill();
+    });
+    let stopped: Promise<void> | undefined;
+    const stop = () =>
+      (stopped ||= (async () => {
+        child.stdin?.end();
+        const timer = setTimeout(() => {
+          void stopTree(child);
+        }, 1000);
+        try {
+          await closed;
+        } finally {
+          clearTimeout(timer);
+        }
+      })());
+    let buffer = "",
+      diagnostics = "",
+      ready = false;
+    const decoder = new StringDecoder("utf8");
+    child.stderr!.on("data", (chunk: Buffer) => {
+      diagnostics = (diagnostics + decoder.write(chunk)).slice(-MAX_STDERR);
+    });
+    const opening = new Promise<void>((done, reject) => {
+      child.once("error", (error) =>
+        reject(new RuntimeError("runtime_lease", this.safe(error.message)))
+      );
+      child.once("close", () => {
+        if (!ready)
+          reject(
+            new RuntimeError("runtime_lease", this.safe(diagnostics) || "本地后端运行租约未建立")
+          );
+      });
+      const outputDecoder = new StringDecoder("utf8");
+      child.stdout!.on("data", (chunk: Buffer) => {
+        if (ready) return;
+        buffer += outputDecoder.write(chunk);
+        if (Buffer.byteLength(buffer) > MAX_LINE)
+          return reject(new RuntimeError("runtime_protocol", "运行租约响应过长"));
+        const newline = buffer.indexOf("\n");
+        if (newline < 0) return;
+        try {
+          const value: unknown = JSON.parse(buffer.slice(0, newline));
+          if (record(value) && value.type === "error" && string(value.message))
+            throw new RuntimeError("runtime_busy", this.safe(value.message));
+          if (
+            !record(value) ||
+            value.type !== "result" ||
+            !record(value.data) ||
+            value.data.leased !== true ||
+            value.data.root !== root
+          )
+            throw new RuntimeError("runtime_protocol", "安装组件返回的运行租约无效");
+          ready = true;
+          done();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    try {
+      await abortable(opening, signal);
+      signal.throwIfAborted();
+      return { child, stop };
+    } catch (error) {
+      await stop();
+      throw error;
+    }
+  }
+
   private drainBackend(child: ChildProcess, onEvent?: (event: RuntimeEvent) => void) {
     let window = Date.now(),
       emitted = 0;
     for (const stream of [child.stdout, child.stderr]) {
-      const diagnostics = this.diagnosticLines((line) => {
+      const diagnostics = this.diagnosticLines((line, replace) => {
         if (Date.now() - window >= 1000) {
           window = Date.now();
           emitted = 0;
         }
-        if (emitted++ < 20) this.emit(onEvent, "backend", line);
+        if (emitted++ < 20)
+          this.emit(onEvent, "backend", line, {
+            taskId: "launch-backend",
+            replace,
+            currentLine: line,
+          });
       });
       stream?.on("data", (chunk: Buffer) => diagnostics.push(chunk));
       stream?.once("end", () => diagnostics.end());
@@ -649,32 +953,45 @@ export class RuntimeManager {
   }
 
   /** Keep diagnostic lines together so UTF-8, terminal escapes and credentials cannot leak across chunks. */
-  private diagnosticLines(consume: (line: string) => void) {
+  private diagnosticLines(consume: (line: string, replace: boolean) => void) {
     const decoder = new StringDecoder("utf8");
     const sanitizer = new TerminalTextSanitizer();
     let buffer = "",
       discarding = false;
-    const append = (text: string) => {
+    const appendText = (text: string) => {
       for (const character of sanitizer.write(text)) {
-        if (character === "\n") {
-          if (!discarding && buffer) consume(this.redactor.text(buffer));
-          buffer = "";
-          discarding = false;
-        } else if (!discarding) {
+        if (!discarding) {
           buffer += character;
           if (buffer.length > MAX_LINE) {
             buffer = "";
             discarding = true;
-            consume("单行进程输出过长，已省略。");
+            consume("单行进程输出过长，已省略。", false);
           }
         }
       }
+    };
+    const append = (text: string) => {
+      let start = 0;
+      for (let index = 0; index < text.length; index++) {
+        if (text[index] !== "\r" && text[index] !== "\n") continue;
+        appendText(text.slice(start, index));
+        // Keep OSC/CSI parser state: a newline inside a terminal command is not a visible line.
+        if (sanitizer.write("\n") === "\n") {
+          if (!discarding && buffer)
+            consume(this.redactor.text(buffer), text[index] === "\r" && text[index + 1] !== "\n");
+          buffer = "";
+          discarding = false;
+        }
+        if (text[index] === "\r" && text[index + 1] === "\n") index++;
+        start = index + 1;
+      }
+      appendText(text.slice(start));
     };
     return {
       push: (chunk: Buffer) => append(decoder.write(chunk)),
       end: () => {
         append(decoder.end());
-        if (!discarding && buffer) consume(this.redactor.text(buffer));
+        if (!discarding && buffer) consume(this.redactor.text(buffer), false);
         buffer = "";
         sanitizer.flush();
       },
@@ -687,10 +1004,16 @@ export class RuntimeManager {
   private emit(
     onEvent: ((event: RuntimeEvent) => void) | undefined,
     stage: string,
-    message: string
+    message: string,
+    fields: Partial<RuntimeEvent> = {}
   ) {
     try {
-      onEvent?.({ type: "progress", stage: this.safe(stage), message: this.safe(message) });
+      onEvent?.({
+        ...fields,
+        type: "progress",
+        stage: this.safe(stage),
+        message: this.safe(message),
+      });
     } catch {
       /* View observers cannot interrupt installation or process cleanup. */
     }

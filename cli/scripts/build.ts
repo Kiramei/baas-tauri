@@ -59,7 +59,7 @@ const result = await Bun.build({
   entrypoints: [join(cli, "src/index.ts")],
   target: "bun",
   outdir: join(cli, "dist"),
-  naming: "baas.js",
+  naming: "baax.js",
   define: {
     "process.env.DEV": '"false"',
     "process.env.NODE_ENV": '"production"',
@@ -73,9 +73,9 @@ if (binary) {
     [
       process.execPath,
       "build",
-      "dist/baas.js",
+      "dist/baax.js",
       "--compile",
-      `--outfile=dist/baas${process.platform === "win32" ? ".exe" : ""}`,
+      `--outfile=dist/baax${process.platform === "win32" ? ".exe" : ""}`,
     ],
     { cwd: cli, stdout: "inherit", stderr: "inherit" }
   );

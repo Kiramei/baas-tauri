@@ -47,6 +47,31 @@ const core = [
   "↑↓ 选择",
   "Shift+Tab 切换页",
   "Ctrl+C 取消当前操作；空闲时退出",
+  "配置分类",
+  "编辑条目",
+  "添加条目",
+  "请输入有效数字",
+  "调度设置",
+  "下次执行时间",
+  "新增任务默认状态",
+  "选择下载源",
+  "清理缓存",
+  "检查并更新本地后端",
+  "待执行",
+  "队列",
+  "步骤",
+  "耗时",
+  "进行中",
+  "已完成",
+  "失败",
+  "等待中",
+  "已跳过",
+  "滚轮查看步骤 · 点击展开日志 · Esc 取消",
+  "暂无日志",
+  "安装进度",
+  "更新进度",
+  "baax 工作台",
+  "baax 操作指南",
 ];
 
 describe("CLI language selection", () => {
@@ -84,28 +109,39 @@ describe("CLI language selection", () => {
 });
 
 describe("source-key translations", () => {
-  test("every static Chinese workbench UI string is translated", () => {
-    const filename = new URL("../src/workspace-view.tsx", import.meta.url);
-    const source = ts.createSourceFile(
-      filename.pathname,
-      readFileSync(filename, "utf8"),
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TSX
-    );
+  test("all workbench, typed editor, scheduling and runtime UI strings are covered", () => {
     const missing = new Set<string>();
-    const visit = (node: ts.Node) => {
-      if (
-        ts.isStringLiteral(node) ||
-        ts.isJsxText(node) ||
-        ts.isNoSubstitutionTemplateLiteral(node)
-      ) {
-        const text = node.text.trim().replace(/\s+/g, " ");
-        if (/[\p{Script=Han}]/u.test(text) && translate(text, "en") === text) missing.add(text);
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
+    for (const file of [
+      "workspace-view.tsx",
+      "field-editor.tsx",
+      "scheduler.ts",
+      "workspace.ts",
+      "runtime.ts",
+      "installation.ts",
+      "installation-view.tsx",
+    ]) {
+      const filename = new URL(`../src/${file}`, import.meta.url);
+      const source = ts.createSourceFile(
+        filename.pathname,
+        readFileSync(filename, "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        file.endsWith("tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      );
+      const visit = (node: ts.Node) => {
+        if (
+          ts.isStringLiteral(node) ||
+          ts.isJsxText(node) ||
+          ts.isNoSubstitutionTemplateLiteral(node)
+        ) {
+          const text = node.text.trim().replace(/\s+/g, " ");
+          if (/[\p{Script=Han}]/u.test(text) && translate(text, "en") === text)
+            missing.add(`${file}: ${text}`);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
     expect([...missing]).toEqual([]);
   });
 
@@ -182,5 +218,37 @@ describe("source-key translations", () => {
   test("unsupported translation locale falls back to English", () => {
     expect(translate("总览", "es")).toBe("Overview");
     expect(translate("安装完成", "ja-JP")).toBe("インストール完了");
+  });
+
+  test("schedule validation and runtime errors translate dynamic details without altering IDs", () => {
+    expect(translate("优先级需要有效整数", "en")).toBe("Priority requires a valid integer");
+    expect(translate("interval需要非负整数", "en")).toBe("interval requires a nonnegative integer");
+    expect(translate("任务不存在：mail_1", "en")).toBe("Task not found: mail_1");
+    expect(translate("调度字段不可编辑：next_tick", "en")).toBe(
+      "Schedule field cannot be edited: next_tick"
+    );
+    expect(translate("安装组件返回的进度范围无效", "en")).toBe(
+      "Runtime helper returned invalid progress range"
+    );
+    expect(translate("安装组件响应无效：安装组件返回的文件路径无效", "en")).toBe(
+      "Invalid runtime helper response: Runtime helper returned invalid file paths"
+    );
+    expect(translate("安装组件退出（2）：custom backend error", "en")).toBe(
+      "Runtime helper exited (2): custom backend error"
+    );
+    expect(translate("本地环境尚未安装完整：Python, Cpp", "en")).toBe(
+      "Local runtime installation is incomplete: Python, Cpp"
+    );
+    for (const language of ["ja", "ko", "de", "fr", "ru"]) {
+      for (const text of [
+        "编辑条目",
+        "调度设置",
+        "当前为只读模式，不能修改调度",
+        "安装组件返回的进度范围无效",
+      ]) {
+        expect(translate(text, language)).not.toBe(text);
+        expect(translate(text, language)).not.toBe(translate(text, "en"));
+      }
+    }
   });
 });

@@ -2,6 +2,8 @@ import type { BaasClient } from "@baas/client";
 import type { DemoClient } from "./demo";
 import Ajv from "ajv";
 import { waitForRun, type MonitorEvent } from "./monitor";
+import { validateConfigurationStoredValue } from "./configuration";
+import { validateNewEventState } from "./scheduler";
 
 export interface ActionDefinition {
   name: string;
@@ -18,6 +20,7 @@ export type Client =
       | "profiles"
       | "status"
       | "config"
+      | "staticData"
       | "tasks"
       | "logs"
       | "request"
@@ -41,6 +44,7 @@ export interface ActionContext {
   lastRun?: { profile: string; run_id: string };
   onEvent?: (event: MonitorEvent) => void;
   approvalBaselines?: Map<string, unknown>;
+  language?: string;
 }
 
 const profile = {
@@ -189,6 +193,36 @@ export async function resolveProfile(client: Client, requested?: string): Promis
   throw new Error(`配置档不存在：${requested}`);
 }
 
+/** Shared typed configuration validation for commands, workspace controls and full pack preflight. */
+export async function prepareConfigurationChange(
+  client: Client,
+  profile: string,
+  path: string,
+  value: unknown,
+  language?: string
+): Promise<{ before: unknown; value: unknown }> {
+  if (
+    !path.startsWith("/") ||
+    path
+      .split("/")
+      .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"))
+      .some((part) => ["__proto__", "constructor", "prototype"].includes(part))
+  )
+    throw new Error("无效或不支持的配置路径");
+  const config = await client.config(profile);
+  const before = structuredClone(readPointer(config, path));
+  return {
+    before,
+    value:
+      path === "/new_event_enable_state"
+        ? validateNewEventState(value)
+        : validateConfigurationStoredValue(config, path, value, {
+            language,
+            staticData: await client.staticData(),
+          }),
+  };
+}
+
 /** Terminal commands, workspace controls and command packs share this boundary. */
 export async function executeAction(
   name: string,
@@ -209,20 +243,25 @@ export async function executeAction(
     ? await resolveProfile(client, String(args.profile ?? context.profile ?? ""))
     : undefined;
   context.signal?.throwIfAborted();
-  const effectiveArgs = selected ? { ...args, profile: selected } : args;
+  let effectiveArgs = selected ? { ...args, profile: selected } : args;
   let before: unknown;
   if (action.mutating) {
     if (name === "config_set") {
       const path = String(args.path);
-      if (
-        !path.startsWith("/") ||
-        path.split("/").some((part) => ["__proto__", "constructor", "prototype"].includes(part))
-      )
-        throw new Error("无效或不支持的配置路径");
+      const prepared = await prepareConfigurationChange(
+        client,
+        selected!,
+        path,
+        args.value,
+        context.language
+      );
+      context.signal?.throwIfAborted();
+      args = { ...args, value: prepared.value };
+      effectiveArgs = { ...effectiveArgs, value: prepared.value };
       const baselineKey = `${selected}\0${path}`;
       before = context.approvalBaselines?.has(baselineKey)
         ? context.approvalBaselines.get(baselineKey)
-        : structuredClone(readPointer(await client.config(selected!), path));
+        : prepared.before;
       context.approvalBaselines?.delete(baselineKey);
     }
     if (name === "task_run") {
@@ -258,11 +297,22 @@ export async function executeAction(
       return client.tasks(selected!);
     case "config_get":
       return readPointer(await client.config(selected!), String(args.path ?? ""));
-    case "config_set":
-      return client.patchConfig(selected!, String(args.path), args.value, {
+    case "config_set": {
+      // Conditions and catalogs can change while approval is open. Check them again
+      // before the client's field-level CAS; the original field value remains the baseline.
+      const prepared = await prepareConfigurationChange(
+        client,
+        selected!,
+        String(args.path),
+        args.value,
+        context.language
+      );
+      context.signal?.throwIfAborted();
+      return client.patchConfig(selected!, String(args.path), prepared.value, {
         checkExpected: true,
         expectedValue: before,
       });
+    }
     case "scheduler_stop": {
       const result = await client.request("stop_scheduler", selected!);
       if (

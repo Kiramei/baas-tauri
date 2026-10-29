@@ -1,12 +1,13 @@
 import { BaasClient, type BaasLogEntry } from "@baas/client";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { RuntimeManager, type RuntimeEvent } from "./runtime";
+import { RuntimeManager, type RuntimeEvent, type RuntimeUpdateCheck } from "./runtime";
+import { reduceInstallationProgress, type InstallationProgress } from "./installation";
 import { detectLanguage } from "./i18n";
 import { DemoClient } from "./demo";
 import {
   executeAction,
-  readPointer,
+  prepareConfigurationChange,
   resolveProfile,
   validateAction,
   type ActionContext,
@@ -26,6 +27,15 @@ import {
 import { abortable } from "./monitor";
 import { terminalText } from "./ui";
 import manifest from "../package.json";
+import {
+  changedSchedulerFields,
+  schedulerState,
+  validateSchedulerChanges,
+  validateNewEventState,
+  type SchedulerChanges,
+  type SchedulerState,
+} from "./scheduler";
+import type { BaasEventChange } from "@baas/client";
 
 export interface WorkspaceOptions {
   demo?: boolean;
@@ -74,7 +84,10 @@ export interface WorkspaceSnapshot {
   language?: string;
   chooseLanguage?: boolean;
   setupNeeded?: boolean;
-  installation?: { stage: string; message: string; lines: string[] };
+  installation?: InstallationProgress;
+  update?: RuntimeUpdateCheck;
+  scheduler?: SchedulerState;
+  staticData?: Record<string, unknown>;
 }
 
 const MAX_LOGS = 300;
@@ -112,6 +125,8 @@ export class Workspace {
   private redactor: Redactor;
   private secrets: string[] = [];
   private client?: Client;
+  private localAttached = false;
+  private scheduleRead = 0;
   private clientEpoch = 0;
   private offClient: (() => void)[] = [];
   private listeners = new Set<(snapshot: WorkspaceSnapshot) => void>();
@@ -155,7 +170,7 @@ export class Workspace {
     };
     this.configure(this.preferences);
     this.activity(
-      "BAAS 工作台",
+      "baax 工作台",
       options.demo
         ? "演示环境：操作仅作用于本进程的示例数据。"
         : "连接 BAAS 服务后选择配置档，查看任务并执行自动化。",
@@ -263,12 +278,13 @@ export class Workspace {
         )) !== true
       )
         return;
+      this.state.installation = undefined;
       await this.runtime.install({ root, channel }, (event) => this.runtimeEvent(event), signal);
       this.preferences.connectionMode = "local";
       this.preferences.pipe = undefined;
       await saveSettings(this.preferences, this.directory);
       this.state.setupNeeded = false;
-      await this.attachLocal(signal);
+      await this.attachLocal(signal, true);
       this.activity("安装完成", root, "success");
     });
   }
@@ -283,26 +299,82 @@ export class Workspace {
     });
   }
 
-  private async attachLocal(signal: AbortSignal): Promise<void> {
+  private async attachLocal(signal: AbortSignal, preserveProgress = false): Promise<void> {
     this.disposeClient();
+    this.state.connected = false;
     const { pipe } = await this.runtime.start((event) => this.runtimeEvent(event), signal);
+    this.localAttached = true;
     this.pipe = pipe;
     this.state.endpoint = pipe;
     this.configurationError = undefined;
     await this.ensureConnected(signal);
     await this.refreshData(signal);
-    this.state.installation = undefined;
+    if (!preserveProgress) this.state.installation = undefined;
     this.activity("连接已建立", "本地后端", "success");
   }
 
   private runtimeEvent(event: RuntimeEvent): void {
-    const message = typeof event.message === "string" ? event.message : "";
-    this.state.installation = {
-      stage: event.stage || "runtime",
-      message,
-      lines: [...(this.state.installation?.lines || []), message].slice(-100),
-    };
+    this.state.installation = reduceInstallationProgress(this.state.installation, event);
     this.publish();
+  }
+
+  async checkUpdates(): Promise<void> {
+    await this.operation("检查本地环境更新", async (signal) => {
+      if (this.state.demo) throw new Error("演示环境不检查真实后端更新");
+      this.state.installation = undefined;
+      this.state.update = await this.runtime.checkUpdates(
+        (event) => this.runtimeEvent(event),
+        signal
+      );
+      this.activity(
+        this.state.update.available ? "发现本地环境更新" : "本地环境已是最新",
+        this.describe(this.state.update.repositories),
+        "info"
+      );
+    });
+  }
+
+  async updateRuntime(): Promise<void> {
+    await this.operation("更新本地环境", async (signal) => {
+      if (this.state.readOnly) throw new Error("当前为只读模式，不能更新运行环境");
+      if (this.state.demo) throw new Error("演示环境不更新真实后端");
+      this.state.installation = undefined;
+      const update = await this.runtime.checkUpdates((event) => this.runtimeEvent(event), signal);
+      this.state.update = update;
+      if (!update.available) {
+        this.activity("本地环境已是最新", undefined, "success");
+        return;
+      }
+      if (this.state.dryRun) {
+        this.activity("更新本地环境 · 预演", this.describe(update.repositories), "info");
+        return;
+      }
+      if (
+        this.options.yes !== true &&
+        (await this.ask(
+          {
+            kind: "confirm",
+            title: "确认更新本地环境",
+            detail: `${update.root}\n${this.describe(update.repositories)}\n仅在全部本地任务空闲时更新。`,
+          },
+          signal
+        )) !== true
+      ) {
+        this.activity("已取消更新本地环境", undefined, "info");
+        return;
+      }
+      signal.throwIfAborted();
+      const reconnectLocal = this.localAttached;
+      await this.runtime.stopWhenIdle(signal);
+      if (reconnectLocal) {
+        this.disposeClient();
+        this.state.connected = false;
+      }
+      await this.runtime.update((event) => this.runtimeEvent(event), signal);
+      if (reconnectLocal) await this.attachLocal(signal, true);
+      this.state.update = undefined;
+      this.activity("本地环境更新完成", update.root, "success");
+    });
   }
 
   get snapshot(): WorkspaceSnapshot {
@@ -486,13 +558,149 @@ export class Workspace {
       (await this.operation("读取配置", async (signal) => {
         const context = this.context(signal);
         const result = await abortable(executeAction("config_get", {}, context), signal);
+        const client = (await this.ensureConnected(signal)) as Client &
+          Pick<BaasClient, "staticData">;
+        try {
+          this.state.staticData = await abortable(client.staticData(), signal);
+        } catch (error) {
+          signal.throwIfAborted();
+          this.state.staticData = {};
+          this.activity("配置选项数据不可用", errorText(error), "info");
+        }
+        this.publish();
         return this.redactor.result("config_get", {}, result) as Record<string, any>;
       })) ?? {}
     );
   }
 
-  async setConfig(path: string, value: unknown): Promise<void> {
-    await this.action("修改配置", "config_set", { path, value });
+  async setConfig(path: string, value: unknown): Promise<boolean> {
+    return (
+      (await this.operation("修改配置", async (signal) => {
+        await this.showAction("修改配置", "config_set", { path, value }, signal);
+        return true;
+      })) ?? false
+    );
+  }
+
+  async loadScheduler(): Promise<SchedulerState | undefined> {
+    return this.operation("读取调度", (signal) => this.readScheduler(signal));
+  }
+
+  async saveScheduler(taskId: string, fields: SchedulerChanges): Promise<boolean> {
+    return this.changeScheduler("修改任务调度", (tasks) => [
+      { taskId, fields: validateSchedulerChanges(taskId, fields, tasks) },
+    ]);
+  }
+
+  async setAllSchedulerEnabled(enabled: boolean): Promise<boolean> {
+    return this.changeScheduler(enabled ? "启用全部调度" : "禁用全部调度", (tasks) =>
+      tasks.map((task) => ({ taskId: task.func_name, fields: { enabled } }))
+    );
+  }
+
+  async resetSchedulerTimes(): Promise<boolean> {
+    const next_tick = Math.floor(Date.now() / 1000);
+    return this.changeScheduler("重置全部执行时间", (tasks) =>
+      tasks.map((task) => ({ taskId: task.func_name, fields: { next_tick } }))
+    );
+  }
+
+  async setNewEventState(value: string): Promise<boolean> {
+    return (
+      (await this.operation("修改新增任务默认状态", async (signal) => {
+        const next = validateNewEventState(value);
+        await abortable(
+          executeAction(
+            "config_set",
+            { path: "/new_event_enable_state", value: next },
+            this.context(signal)
+          ),
+          signal
+        );
+        await this.readScheduler(signal);
+        this.activity(
+          this.state.dryRun ? "新增任务默认状态 · 预演" : "新增任务默认状态已保存",
+          next,
+          this.state.dryRun ? "info" : "success"
+        );
+        return true;
+      })) ?? false
+    );
+  }
+
+  private async readScheduler(signal: AbortSignal): Promise<SchedulerState> {
+    const client = (await this.ensureConnected(signal)) as Client &
+      Pick<BaasClient, "events" | "patchEvents">;
+    const profile = await abortable(resolveProfile(client, this.state.profile), signal);
+    const [tasks, config] = await abortable(
+      Promise.all([client.events(profile), client.config(profile)]),
+      signal
+    );
+    signal.throwIfAborted();
+    const next = schedulerState(profile, tasks, config.new_event_enable_state ?? "default");
+    this.state.scheduler = next;
+    this.state.tasks = Object.fromEntries(
+      next.tasks.map((task) => [task.func_name, structuredClone(task)])
+    );
+    this.publish();
+    return structuredClone(next);
+  }
+
+  private async changeScheduler(
+    title: string,
+    plan: (tasks: SchedulerState["tasks"]) => { taskId: string; fields: SchedulerChanges }[]
+  ): Promise<boolean> {
+    return (
+      (await this.operation(title, async (signal) => {
+        if (this.state.readOnly) throw new Error("当前为只读模式，不能修改调度");
+        const active = this.state.scheduler;
+        const baseline =
+          active && active.profile === this.state.profile
+            ? structuredClone(active)
+            : await this.readScheduler(signal);
+        const changes: BaasEventChange[] = plan(baseline.tasks)
+          .map(({ taskId, fields }) => {
+            const task = baseline.tasks.find((item) => item.func_name === taskId)!;
+            const changed = changedSchedulerFields(
+              task,
+              validateSchedulerChanges(taskId, fields, baseline.tasks)
+            );
+            return {
+              func_name: taskId,
+              fields: changed,
+              expected: Object.fromEntries(
+                Object.keys(changed).map((key) => [key, structuredClone(task[key])])
+              ),
+            };
+          })
+          .filter((change) => Object.keys(change.fields).length > 0);
+        if (!changes.length) {
+          this.activity("调度没有变化", undefined, "info");
+          return true;
+        }
+        const detail = this.describe(
+          changes.map(({ func_name, fields }) => ({ task: func_name, ...fields }))
+        );
+        if (this.state.dryRun) {
+          this.activity(`${title} · 预演`, detail, "info");
+          return true;
+        }
+        if (
+          this.options.yes !== true &&
+          (await this.ask({ kind: "confirm", title: "确认修改调度", detail }, signal)) !== true
+        ) {
+          this.activity("已取消修改调度", "未提交到后端。", "info");
+          return false;
+        }
+        signal.throwIfAborted();
+        const client = (await this.ensureConnected(signal)) as Client &
+          Pick<BaasClient, "events" | "patchEvents">;
+        await abortable(client.patchEvents(baseline.profile, changes), signal);
+        await this.readScheduler(signal);
+        this.activity("调度已保存", detail, "success");
+        return true;
+      })) ?? false
+    );
   }
 
   /** Execute explicit commands only; arbitrary prose is never sent to a model. */
@@ -506,6 +714,15 @@ export class Workspace {
     }
     const [command, ...args] = tokens;
     if (!command) return;
+    if (command === "update" || command === "check-update") {
+      if (args.length) {
+        this.activity("命令格式有误", "用法：update 或 check-update", "error");
+        return;
+      }
+      if (command === "update") await this.updateRuntime();
+      else await this.checkUpdates();
+      return;
+    }
     if (command === "new-profile" && !args.length) {
       await this.addProfile();
       return;
@@ -771,6 +988,17 @@ export class Workspace {
         controller.signal.aborted ||
         (error as Error)?.name === "AbortError" ||
         errorText(error).includes("操作已取消");
+      if (
+        this.state.installation &&
+        ["正在安装运行环境", "启动本地后端", "更新本地环境", "检查本地环境更新"].includes(title)
+      ) {
+        this.runtimeEvent({
+          type: "progress",
+          stage: cancelled ? "cancelled" : "error",
+          status: "failed",
+          message: errorText(error),
+        });
+      }
       this.activity(
         cancelled ? "操作已取消" : `${title}失败`,
         cancelled ? "未提交的新操作已取消；已经提交的后端任务会继续运行。" : errorText(error),
@@ -836,8 +1064,37 @@ export class Workspace {
           }),
           client.onStatus((_update, snapshot) => {
             if (!current()) return;
+            const profile = this.state.profile,
+              before = profile ? this.state.status[profile] : undefined,
+              after = profile ? snapshot[profile] : undefined;
             this.recordStatus(snapshot);
             this.publish();
+            if (
+              profile &&
+              before?.running === true &&
+              after &&
+              (after.running === false || after.current_task !== before.current_task)
+            ) {
+              const read = ++this.scheduleRead;
+              void client
+                .tasks(profile)
+                .then((tasks) => {
+                  if (!current() || read !== this.scheduleRead || profile !== this.state.profile)
+                    return;
+                  this.state.tasks = this.redactor.value(tasks) as Record<string, any>;
+                  this.state.scheduler = schedulerState(
+                    profile,
+                    this.state.tasks,
+                    this.state.scheduler?.profile === profile
+                      ? this.state.scheduler.newEventState
+                      : "default"
+                  );
+                  this.publish();
+                })
+                .catch(() => {
+                  // Status/log streaming stays usable if a read-only refresh fails.
+                });
+            }
           }),
           client.onDisconnect((error) => {
             if (!current()) return;
@@ -884,6 +1141,15 @@ export class Workspace {
           any
         >)
       : {};
+    this.state.scheduler = this.state.profile
+      ? schedulerState(
+          this.state.profile,
+          this.state.tasks,
+          this.state.scheduler?.profile === this.state.profile
+            ? this.state.scheduler.newEventState
+            : "default"
+        )
+      : undefined;
     const revision = this.liveLogRevision;
     const history = await abortable(client.logs(MAX_LOGS), signal);
     const known = new Map<string, number>();
@@ -909,6 +1175,7 @@ export class Workspace {
       signal,
       lastRun: this.lastRun,
       approvalBaselines: new Map(),
+      language: this.state.language,
       approve: async (name, args) =>
         this.options.yes === true ||
         (await this.ask(
@@ -972,7 +1239,16 @@ export class Workspace {
         )
           throw new Error(`指令包任务不存在：${step.args.task}；未执行任何步骤`);
         if (step.action === "config_set")
-          readPointer(await abortable(client.config(profile), signal), String(step.args.path));
+          await abortable(
+            prepareConfigurationChange(
+              client,
+              profile,
+              String(step.args.path),
+              step.args.value,
+              this.state.language
+            ),
+            signal
+          );
       }
     }
     if (this.state.dryRun) {
@@ -1210,6 +1486,10 @@ export class Workspace {
     return this.packs.flatMap((pack) => pack.commands);
   }
   private disposeClient(): void {
+    this.localAttached = false;
+    this.scheduleRead++;
+    this.state.staticData = undefined;
+    this.state.scheduler = undefined;
     this.clientEpoch++;
     for (const off of this.offClient.splice(0)) off();
     const client = this.client;

@@ -28,7 +28,7 @@ from pathlib import Path
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend-path", "--backend", dest="backend", type=Path, required=True)
-    parser.add_argument("--cli-path", type=Path, help="Bun CLI entry or compiled executable; defaults to cli/bin/baas.mjs")
+    parser.add_argument("--cli-path", type=Path, help="Bun CLI entry or compiled executable; defaults to cli/bin/baax.mjs")
     parser.add_argument("--bun", default="bun")
     return parser.parse_args()
 
@@ -38,8 +38,8 @@ async def run(args) -> None:
     if not (backend / "service" / "app.py").is_file():
         raise RuntimeError("--backend must point to a BAAS service checkout")
     root = Path(__file__).resolve().parents[1]
-    entry = args.cli_path.resolve() if args.cli_path else root / "cli" / "bin" / "baas.mjs"
-    if not args.cli_path and not (root / "cli" / "dist" / "baas.js").is_file():
+    entry = args.cli_path.resolve() if args.cli_path else root / "cli" / "bin" / "baax.mjs"
+    if not args.cli_path and not (root / "cli" / "dist" / "baax.js").is_file():
         raise RuntimeError("Build the CLI first: bun run cli:build")
     if not entry.is_file():
         raise RuntimeError("CLI entry does not exist")

@@ -6,7 +6,7 @@ import type { RuntimeManager } from "./runtime";
 import { parseArguments } from "./arguments";
 import {
   executeAction,
-  readPointer,
+  prepareConfigurationChange,
   resolveProfile,
   validateAction,
   type ActionContext,
@@ -48,7 +48,7 @@ async function main() {
   }
   if (values.version) {
     ui.result(
-      values.json ? { name: "baas", version: manifest.version } : `BAAS CLI ${manifest.version}`
+      values.json ? { name: "baax", version: manifest.version } : `baax ${manifest.version}`
     );
     return;
   }
@@ -73,7 +73,7 @@ async function main() {
     return;
   }
   if (!options.positionals.length)
-    throw new Error("请指定 BAAS 命令；使用 --help 查看帮助。管道输入不会自动执行任务。");
+    throw new Error("请指定 baax 命令；使用 --help 查看帮助。管道输入不会自动执行任务。");
   const preferences = await loadSettings(directory);
   const settings = { ...preferences };
   settings.url = normalizeEndpoint(
@@ -112,6 +112,8 @@ async function main() {
     "pack",
     "settings",
     "reload",
+    "check-update",
+    "update",
   ]);
   for (const command of packCommands)
     if (builtinNames.has(command.name))
@@ -154,6 +156,7 @@ async function main() {
     waitTimeoutMs:
       useLocalRuntime && values["wait-timeout"] === undefined ? 86_400_000 : options.waitTimeoutMs,
     approvalBaselines: new Map(),
+    language: settings.language,
     onEvent: (event) => monitorEvent(event),
     client: async (signal) => {
       signal?.throwIfAborted();
@@ -352,6 +355,37 @@ async function main() {
             note: "健康检查成功不代表已认证或设备任务执行成功",
           });
         }
+        break;
+      }
+      case "check-update":
+      case "update": {
+        expect(0);
+        if (values.demo) throw new Error("演示环境不检查或更新真实后端");
+        if (command === "update" && context.readOnly)
+          throw new Error("当前为只读模式，不能更新运行环境");
+        const result = await withOperation(async (signal) => {
+          const { RuntimeManager } = await import("./runtime");
+          ownedRuntime ||= new RuntimeManager({ directory });
+          const progress = (event: { message: string }) => {
+            if (event.message) ui.info(redactor.text(event.message));
+          };
+          const check = await ownedRuntime.checkUpdates(progress, signal);
+          if (command === "check-update") return check;
+          if (!check.available) return { updated: false, reason: "already-current", ...check };
+          if (context.dryRun) return { dry_run: true, action: "update", ...check };
+          if (
+            !(await context.approve("update", {
+              root: check.root,
+              repositories: check.repositories,
+            }))
+          )
+            throw new Error("操作已取消，未更新运行环境");
+          signal.throwIfAborted();
+          await ownedRuntime.stopWhenIdle(signal);
+          const runtime = await ownedRuntime.update(progress, signal);
+          return { updated: true, runtime };
+        });
+        ui.result(result);
         break;
       }
       case "profiles":
@@ -575,7 +609,13 @@ async function main() {
             )
               throw new Error(`指令包任务不存在：${step.args.task}；未执行任何步骤`);
             if (step.action === "config_set")
-              readPointer(await service.config(profile), String(step.args.path));
+              await prepareConfigurationChange(
+                service,
+                profile,
+                String(step.args.path),
+                step.args.value,
+                context.language
+              );
           }
         }
         if (context.dryRun) {
@@ -612,7 +652,7 @@ async function main() {
       default:
         if (packCommands.some((pack) => pack.name === command))
           return execute(["pack", command, ...args]);
-        throw new Error(`未知命令：${command}；使用 --help 查看 BAAS 命令`);
+        throw new Error(`未知命令：${command}；使用 baax --help 查看命令`);
     }
   };
   try {

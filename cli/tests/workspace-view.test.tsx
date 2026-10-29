@@ -88,7 +88,7 @@ async function mounted(
     new Writable({
       write(chunk, _encoding, callback) {
         const frame = terminalText(String(chunk));
-        if (frame.includes("BAAS")) {
+        if (frame.includes("baax")) {
           frames.push(frame);
           rawFrames.push(String(chunk));
         }
@@ -154,51 +154,50 @@ describe("workspace choices", () => {
     expect(items).toHaveLength(2);
   });
 
-  test("configuration leaves retain JSON types and use valid escaped JSON pointers", () => {
+  test("configuration choices expose desktop controls, not arbitrary backend JSON", () => {
+    const choices = configChoices({
+      server: "官服",
+      screenshot_method: "adb",
+      internal_token: "private",
+      nested: { secret: true },
+    });
+    expect(choices.some((choice) => choice.id === "/screenshot_method")).toBe(true);
     expect(
-      configChoices({ "a/b": { "~name": false }, n: null, list: [1, "中"], empty: {} })
-    ).toEqual([
-      { id: "/a~1b/~0name", label: "/a~1b/~0name", detail: "false" },
-      { id: "/n", label: "/n", detail: "null" },
-      { id: "/list", label: "/list", detail: '[1,"中"]' },
-      { id: "/empty", label: "/empty", detail: "{}" },
-    ]);
-    expect(
-      configChoices(Object.fromEntries(Array.from({ length: 2100 }, (_, i) => [i, i])))
-    ).toHaveLength(2000);
+      choices.some((choice) => choice.id.includes("internal") || choice.id.includes("secret"))
+    ).toBe(false);
   });
 });
 
 describe("workspace input", () => {
-  test("Enter rejects confirmation unless the user explicitly chooses yes", async () => {
+  test("Enter uses the requested yes default while no remains selectable", async () => {
     const target = fixture({ prompt: { kind: "confirm", title: "确认提交 BAAS 操作" } });
     const ui = await mounted(target);
     try {
       expect(ui.frame).toContain("取消 [n]");
       await ui.send("\r");
-      expect(target.answers).toEqual([false]);
+      expect(target.answers).toEqual([true]);
       await ui.update({ prompt: { kind: "confirm", title: "确认提交 BAAS 操作" } });
-      await ui.send("y");
+      await ui.send("n");
       await ui.send("\r");
-      expect(target.answers).toEqual([false, true]);
+      expect(target.answers).toEqual([true, false]);
     } finally {
       ui.close();
     }
   });
 
-  test("a new confirmation cannot inherit a yes selection from the previous prompt", async () => {
+  test("a new confirmation resets a previous no selection back to yes", async () => {
     const title = "确认提交 BAAS 操作";
     const firstPrompt = { id: "first-prompt", kind: "confirm" as const, title };
     const nextPrompt = { id: "next-prompt", kind: "confirm" as const, title };
     const target = fixture({ prompt: firstPrompt });
     const ui = await mounted(target);
     try {
-      await ui.send("y");
+      await ui.send("n");
       // React can batch the controller's old-prompt cleanup and next-prompt publication.
       target.publish({ prompt: undefined });
       await ui.update({ prompt: nextPrompt });
       await ui.send("\r");
-      expect(target.answers).toEqual([false]);
+      expect(target.answers).toEqual([true]);
     } finally {
       ui.close();
     }
@@ -312,18 +311,15 @@ describe("workspace input", () => {
     }
   });
 
-  test("replacement configuration secrets are masked without changing the submitted JSON value", async () => {
+  test("unexposed internal configuration secrets never become selectable", async () => {
     const target = fixture();
     target.setConfig({ service: { api_key: "[REDACTED]" } });
     const ui = await mounted(target);
     try {
       await ui.send("/config");
       await ui.send("\r");
-      await ui.send("\r");
-      await ui.send('"new-secret-with-界"');
-      expect(ui.frames.join("\n")).not.toContain("new-secret-with-");
-      await ui.send("\r");
-      expect(target.writes).toEqual([{ path: "/service/api_key", value: "new-secret-with-界" }]);
+      expect(ui.frame).not.toContain("/service/api_key");
+      expect(target.writes).toEqual([]);
     } finally {
       ui.close();
     }

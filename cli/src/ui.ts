@@ -231,7 +231,7 @@ export class TerminalUI {
 
   welcome(options: WelcomeOptions): void {
     if (this.json) return;
-    const title = `BAAS CLI v${terminalText(options.version)}`;
+    const title = `baax v${terminalText(options.version)}`;
     this.line();
     if (this.width >= 58) {
       const mark = ["   ◇   ", " ╭─┴─╮ ", " │• •│ ", " ╰─⌄─╯ "];
@@ -584,9 +584,9 @@ export class TerminalUI {
   async confirm(message: string, signal?: AbortSignal): Promise<boolean> {
     signal?.throwIfAborted();
     if (this.json || !process.stdin.isTTY) return false;
-    const answer = await this.prompt(`${message} [y/N] `, signal);
+    const answer = await this.prompt(`${message} [Y/n] `, signal);
     signal?.throwIfAborted();
-    return /^(y|yes|是|确认)$/i.test(answer.trim());
+    return answer.trim() === "" || /^(y|yes|是|确认)$/i.test(answer.trim());
   }
 
   private async ask(question: string, hidden: boolean, signal?: AbortSignal): Promise<string> {

@@ -55,7 +55,7 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
     try {
       await until("连接已建立");
       terminal.write("/");
-      await until("选择并运行任务");
+      await until("编辑任务调度");
       terminal.write("\x1b");
       await Bun.sleep(70);
       await command("/profiles");
@@ -71,6 +71,8 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       await Bun.sleep(70);
       terminal.write("\r");
       await until("确认提交 BAAS 操作");
+      terminal.write("n");
+      await Bun.sleep(70);
       terminal.write("\r");
       await until("未提交");
       await command("/run mail");
@@ -86,7 +88,7 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       terminal.write("\x1b");
       await Bun.sleep(70);
       await command("status");
-      await until("空闲");
+      await until("运行状态");
       terminal.write("\x04");
       expect(await child.exited).toBe(0);
       const text = terminalText(output);

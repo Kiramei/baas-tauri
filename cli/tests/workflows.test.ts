@@ -84,6 +84,7 @@ async function localFixture(
     invalidCreatedId?: boolean;
     duplicateDuringApproval?: string;
     completeAfterMs?: number;
+    updatesAvailable?: boolean;
   } = {}
 ) {
   const root = await directory(),
@@ -148,6 +149,8 @@ async function localFixture(
     const [command,...args]=process.argv.slice(2);
     await appendFile(${JSON.stringify(calls)},JSON.stringify({command,args})+"\\n");
     const value=name=>args[args.indexOf(name)+1];
+    if(command==="lease"){console.log(JSON.stringify({type:"result",data:{root:value("--root"),leased:true}}));for await(const _ of Bun.stdin.stream()){};process.exit(0);}
+    if(command==="check-update"){console.log(JSON.stringify({type:"progress",stage:"check-backend",message:"Checking fixture backend",status:"complete"}));console.log(JSON.stringify({type:"result",data:{root:value("--root"),channel:"dev",available:${options.updatesAvailable ?? true},repositories:[{name:"backend",localVersion:"${"a".repeat(40)}",remoteVersion:"${(options.updatesAvailable ?? true) ? "b".repeat(40) : "a".repeat(40)}",available:${options.updatesAvailable ?? true}},{name:"ocr",localVersion:"${"c".repeat(40)}",remoteVersion:"${"c".repeat(40)}",available:false}]}}));process.exit(0);}
     const data=command==="launch-spec"?{program:${JSON.stringify(process.execPath)},args:[${JSON.stringify(backend)},"--pipe-name",value("--pipe")],cwd:value("--root"),env:{}}:{installed:${options.installed ?? true},managed:true,root:value("--root"),backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:${JSON.stringify(join(managed, "ocr"))},channel:"dev",missing:[]};
     console.log(JSON.stringify({type:"result",data}));
   `,
@@ -203,6 +206,62 @@ async function localFixture(
 }
 
 describe("complete CLI workflows", () => {
+  test("scriptable update checks and confirmed updates use local metadata without connecting or changing saved remote mode", async () => {
+    const target = await localFixture({ metadata: true });
+    await saveSettings(
+      { url: "ws://remote.invalid:8190", connectionMode: "remote", profile: "remote-id" },
+      target.root
+    );
+    const check = await cli(target.root, ["--read-only", "check-update"], target.environment);
+    expect(check.code).toBe(0);
+    expect(check.data).toMatchObject({ available: true, root: join(target.root, "managed") });
+    expect((await target.helperCalls()).map((call) => call.command)).toEqual(["check-update"]);
+    expect(existsSync(target.pidFile)).toBe(false);
+    const update = await cli(target.root, ["--yes", "update"], target.environment);
+    expect(update.code).toBe(0);
+    expect(update.data).toMatchObject({
+      updated: true,
+      runtime: { installed: true, managed: true },
+    });
+    expect((await target.helperCalls()).map((call) => call.command)).toEqual([
+      "check-update",
+      "check-update",
+      "inspect",
+      "update",
+      "inspect",
+    ]);
+    expect(existsSync(target.pidFile)).toBe(false);
+    expect(await target.submitted()).toEqual([]);
+    expect(JSON.parse(await readFile(join(target.root, "settings.json"), "utf8"))).toMatchObject({
+      url: "ws://remote.invalid:8190",
+      connectionMode: "remote",
+      profile: "remote-id",
+    });
+  });
+  test("local updates require confirmation, honor dry-run and read-only, and skip already-current environments", async () => {
+    for (const args of [["update"], ["--dry-run", "update"], ["--read-only", "--yes", "update"]]) {
+      const target = await localFixture({ metadata: true });
+      const result = await cli(target.root, args, target.environment);
+      expect(result.code).toBe(args.includes("--dry-run") ? 0 : 1);
+      if (args.includes("--dry-run"))
+        expect(result.data).toMatchObject({ dry_run: true, action: "update", available: true });
+      expect((await target.helperCalls()).map((call) => call.command)).toEqual(
+        args.includes("--read-only") ? [] : ["check-update"]
+      );
+      expect(existsSync(target.pidFile)).toBe(false);
+    }
+    const current = await localFixture({ metadata: true, updatesAvailable: false });
+    const result = await cli(current.root, ["update"], current.environment);
+    expect(result.code).toBe(0);
+    expect(result.data).toMatchObject({
+      updated: false,
+      reason: "already-current",
+      available: false,
+    });
+    expect((await current.helperCalls()).map((call) => call.command)).toEqual(["check-update"]);
+    const demo = await cli(await directory(), ["--demo", "update"]);
+    expect(demo.code).toBe(1);
+  });
   test("profile creation requires approval and respects readonly, dry-run and name/server validation", async () => {
     const root = await directory();
     const dry = await cli(root, ["--demo", "--dry-run", "profile", "create", "新主号", "官服"]);
@@ -256,6 +315,7 @@ describe("complete CLI workflows", () => {
         if (args[0] === "profiles") expect(result.data).toEqual({ "local-id": "本地配置" });
         expect((await target.helperCalls()).map((call) => call.command)).toEqual([
           "inspect",
+          "lease",
           "launch-spec",
         ]);
         await target.stopped();
@@ -702,7 +762,7 @@ describe("complete CLI workflows", () => {
     child.stdin.end();
     const [stdout, code] = await Promise.all([new Response(child.stdout).text(), child.exited]);
     expect(code).toBe(1);
-    expect(JSON.parse(stdout).error).toContain("请指定 BAAS 命令");
+    expect(JSON.parse(stdout).error).toContain("请指定 baax 命令");
     expect(await readdir(root)).toEqual([]);
   });
 

@@ -6,6 +6,7 @@ export type {
   BaasStatusSnapshot,
   BaasStatusUpdate,
   BaasPatchOptions,
+  BaasEventChange,
 } from "./client";
 export {
   ControlConnection,

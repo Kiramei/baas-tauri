@@ -121,7 +121,7 @@ describe("terminal safety and layout", () => {
         ["国际服", "空闲", "—"],
       ]
     );
-    expect(output.text()).toContain("BAAS CLI");
+    expect(output.text()).toContain("baax");
     expect(output.text()).not.toContain("\x1b");
     for (const line of output.text().split("\n"))
       expect(displayWidth(line)).toBeLessThanOrEqual(28);
