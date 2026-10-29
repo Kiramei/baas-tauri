@@ -7,6 +7,13 @@ on:
       [
         "cli/**",
         "packages/baas-client/**",
+        "crates/baas-cli-runtime/**",
+        "crates/baas-updater/**",
+        "crates/baas-term/**",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain*",
+        ".cargo/**",
         "src/shared/SecureWebSocket.ts",
         "package.json",
         "bun.lock",
@@ -17,6 +24,13 @@ on:
       [
         "cli/**",
         "packages/baas-client/**",
+        "crates/baas-cli-runtime/**",
+        "crates/baas-updater/**",
+        "crates/baas-term/**",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain*",
+        ".cargo/**",
         "src/shared/SecureWebSocket.ts",
         "package.json",
         "bun.lock",
@@ -29,25 +43,61 @@ permissions:
 
 jobs:
   cli:
+    timeout-minutes: 45
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            executable: baas
+            helper: baas-cli-runtime
+          - os: macos-latest
+            executable: baas
+            helper: baas-cli-runtime
+          - os: windows-latest
+            executable: baas.exe
+            helper: baas-cli-runtime.exe
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "baas-cli-runtime"
+          cache-all-crates: true
+      - name: Install headless Rust build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
+      - run: cargo test --locked -p baas-cli-runtime
       - run: bun run cli:check
       - run: bun run cli:test
       - run: bunx eslint cli/src cli/tests packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
       - run: bun run cli:build
       - run: bun cli/bin/baas.mjs --demo --json status
       - run: bun run cli:binary
+      - name: Check the compiled program and its bundled installer
+        shell: bash
+        run: |
+          ./cli/dist/${{ matrix.executable }} --demo --json status
+          ./cli/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baas-cli-not-installed"
+      - run: bun run cli:pack
+      - name: Archive the native program with its matching helper
+        shell: bash
+        run: tar -czf "cli/dist/baas-cli-${{ runner.os }}-${{ runner.arch }}.tar.gz" -C cli/dist "${{ matrix.executable }}" runtime
       - uses: actions/upload-artifact@v4
         with:
           name: baas-cli-${{ runner.os }}-${{ runner.arch }}
           path: |
-            cli/dist/baas
-            cli/dist/baas.exe
+            cli/dist/*.tgz
+            cli/dist/*.tar.gz
+          if-no-files-found: error

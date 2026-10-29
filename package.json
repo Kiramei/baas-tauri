@@ -3,9 +3,12 @@
   "version": "0.0.9",
   "license": "GPL-3.0-only",
   "type": "module",
-  "workspaces": ["cli", "packages/*"],
+  "workspaces": [
+    "cli",
+    "packages/*"
+  ],
   "scripts": {
-    "cli": "bun cli/src/index.ts",
+    "cli": "bun cli/scripts/dev.ts",
     "cli:build": "bun run --cwd cli build",
     "cli:binary": "bun run --cwd cli build:binary",
     "cli:pack": "bun run --cwd cli pack",

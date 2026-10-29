@@ -11,7 +11,7 @@ const PALETTE = {
 };
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-/** Strip terminal commands even when a model splits them between text deltas. */
+/** Strip terminal commands even when streamed chunks split control sequences. */
 export class TerminalTextSanitizer {
   private state: "text" | "escape" | "intermediate" | "csi" | "osc" | "string" | "string-escape" =
     "text";
@@ -81,7 +81,7 @@ export class TerminalTextSanitizer {
   }
 }
 
-/** Keep data from services, models and command packs from issuing terminal commands. */
+/** Keep data from services and command packs from issuing terminal commands. */
 export function terminalText(value: unknown): string {
   const sanitizer = new TerminalTextSanitizer();
   return sanitizer.write(value) + sanitizer.flush();
@@ -255,7 +255,7 @@ export class TerminalUI {
       "dim"
     );
     this.divider();
-    this.line("输入 /help 浏览指令，或描述你要完成的 BAAS 任务。", "dim");
+    this.line("输入 /help 浏览指令，或 /tasks 选择 BAAS 任务。", "dim");
     this.line();
   }
 

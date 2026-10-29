@@ -33,6 +33,13 @@ export interface CommandPack {
 }
 
 const CORE_NAMES = new Set([
+  "home",
+  "language",
+  "setup",
+  "install",
+  "local",
+  "new-profile",
+  "profile",
   "help",
   "quit",
   "exit",

@@ -6,11 +6,15 @@ readme = "README.md"
 description = "Package used for baas-tauri backend update"
 authors = ["Kiramei"]
 
+[features]
+default = ["desktop"]
+desktop = ["dep:tauri", "baas-term/desktop"]
+
 [dependencies]
 # Borrow from workspace
-baas-term = { workspace = true }
+baas-term = { path = "../baas-term", default-features = false }
 serde = { workspace = true }
-tauri = { workspace = true }
+tauri = { workspace = true, optional = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 # Updater Specified Packages

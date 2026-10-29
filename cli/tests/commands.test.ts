@@ -25,7 +25,7 @@ describe("shared action capability boundary", () => {
     await expect(resolveProfile(client)).rejects.toThrow("选择");
     await expect(resolveProfile(client, "__proto__")).rejects.toThrow("不存在");
   });
-  test("read-only applies to commands, agent and command pack executor even when approved", async () => {
+  test("read-only applies to commands and command pack executor even when approved", async () => {
     await expect(
       executeAction("scheduler_start", {}, context({ readOnly: true }), true)
     ).rejects.toThrow("只读");
@@ -96,7 +96,7 @@ describe("preferences and arguments", () => {
   test("tokenization preserves quoted names and never evaluates shell syntax", () => {
     expect(tokenize("use '夏莱 · 国服'")).toEqual(["use", "夏莱 · 国服"]);
     expect(tokenize("config set /name '\"测试\"'")).toEqual(["config", "set", "/name", '"测试"']);
-    expect(tokenize("agent $(touch /tmp/nope)")).toEqual(["agent", "$(touch", "/tmp/nope)"]);
+    expect(tokenize("run $(touch /tmp/nope)")).toEqual(["run", "$(touch", "/tmp/nope)"]);
     expect(() => tokenize("use 'broken")).toThrow("引号");
     expect(() => parseArguments(["--server", "ws://host", "--pipe", "/tmp/baas"])).toThrow("只能");
     expect(() => parseArguments(["--timeout", "NaN"])).toThrow("timeout");

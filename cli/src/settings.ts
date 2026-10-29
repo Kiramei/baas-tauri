@@ -6,8 +6,8 @@ export interface Settings {
   url: string;
   pipe?: string;
   profile?: string;
-  model?: string;
-  aiBaseUrl?: string;
+  language?: string;
+  connectionMode?: "local" | "remote";
   packsDirectory?: string;
 }
 
@@ -46,15 +46,17 @@ export async function loadSettings(directory = settingsDirectory()): Promise<Set
   const settings: Settings = {
     url: normalizeEndpoint(typeof data.url === "string" ? data.url : DEFAULT_URL),
   };
-  for (const field of ["pipe", "profile", "model", "aiBaseUrl", "packsDirectory"] as const) {
+  for (const field of ["pipe", "profile", "packsDirectory", "language"] as const) {
     if (data[field] !== undefined && typeof data[field] !== "string")
       throw new Error(`CLI 配置 ${field} 必须是字符串`);
     if (typeof data[field] === "string" && data[field]) settings[field] = data[field];
   }
+  if (data.connectionMode === "local" || data.connectionMode === "remote")
+    settings.connectionMode = data.connectionMode;
   return settings;
 }
 
-/** Persist preferences only. Backend and model credentials are deliberately environment-only. */
+/** Persist preferences only. Backend credentials stay in the process environment. */
 export async function saveSettings(
   settings: Settings,
   directory = settingsDirectory()
@@ -63,7 +65,7 @@ export async function saveSettings(
   const file = join(directory, "settings.json");
   const temporary = `${file}.${process.pid}.tmp`;
   const preferences = Object.fromEntries(
-    ["url", "pipe", "profile", "model", "aiBaseUrl", "packsDirectory"].flatMap((key) => {
+    ["url", "pipe", "profile", "packsDirectory", "language", "connectionMode"].flatMap((key) => {
       const value = settings[key as keyof Settings];
       return typeof value === "string" && value ? [[key, value]] : [];
     })

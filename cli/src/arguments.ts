@@ -16,19 +16,14 @@ export function parseArguments(args: string[]) {
       wait: { type: "boolean" },
       follow: { type: "boolean", short: "f" },
       "wait-timeout": { type: "string" },
-      resume: { type: "string" },
-      "no-session": { type: "boolean" },
-      instructions: { type: "string" },
       "no-color": { type: "boolean" },
       server: { type: "string" },
       pipe: { type: "string" },
       profile: { type: "string" },
+      lang: { type: "string" },
       "server-key": { type: "string" },
       timeout: { type: "string" },
-      model: { type: "string" },
-      "ai-url": { type: "string" },
       "config-home": { type: "string" },
-      print: { type: "string", short: "p" },
     },
   });
   const timeout = Number(parsed.values.timeout ?? 15000);
@@ -42,8 +37,6 @@ export function parseArguments(args: string[]) {
   const waitTimeoutMs = Number(parsed.values["wait-timeout"] ?? 300) * 1000;
   if (!Number.isFinite(waitTimeoutMs) || waitTimeoutMs < 1000 || waitTimeoutMs > 86400000)
     throw new Error("--wait-timeout 必须是 1–86400 之间的秒数");
-  if (parsed.values.resume && parsed.values["no-session"])
-    throw new Error("--resume 和 --no-session 不能同时使用");
   return { ...parsed, timeout, waitTimeoutMs };
 }
 

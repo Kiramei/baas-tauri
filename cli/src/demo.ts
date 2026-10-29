@@ -47,7 +47,9 @@ export class DemoClient {
     this.timers.clear();
   }
   async profiles() {
-    return { "sensei-cn": "夏莱 · 国服", "sensei-jp": "夏莱 · 日服" };
+    return Object.fromEntries(
+      Object.entries(this.configs).map(([id, config]) => [id, String(config.name || id)])
+    );
   }
   get statusSnapshot() {
     return structuredClone(this.state);
@@ -125,6 +127,31 @@ export class DemoClient {
   }
   async request(command: string, profile?: string, payload: Record<string, unknown> = {}) {
     if (command === "detect_adb") return { addresses: ["127.0.0.1:5555 (demo)"] };
+    if (command === "add_config") {
+      if (
+        typeof payload.name !== "string" ||
+        !payload.name.trim() ||
+        typeof payload.server !== "string" ||
+        !payload.server.trim()
+      )
+        throw new Error("配置档名称和服务器不能为空");
+      const serial = `demo-${randomUUID()}`;
+      this.configs[serial] = {
+        name: payload.name,
+        server: payload.server,
+        screenshot_method: "adb",
+        control_method: "adb",
+      };
+      this.state[serial] = {
+        running: false,
+        current_task: null,
+        waiting_tasks: [],
+        exit_code: null,
+        run_id: null,
+      };
+      this.publish(serial);
+      return { serial, demo: true };
+    }
     if (!profile) throw new Error("需要选择配置档");
     this.check(profile);
     const state = this.state[profile];

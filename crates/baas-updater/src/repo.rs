@@ -555,6 +555,8 @@ impl SourceProbe for GitSourceProbe {
             .arg(url)
             .arg(DEFAULT_BRANCH)
             .env("GIT_TERMINAL_PROMPT", "0")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .map_err(|error| UpdaterError::Git(error.to_string()))?;
         if status.success() {

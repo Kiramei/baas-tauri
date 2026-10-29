@@ -7,8 +7,9 @@
 
 use std::{fmt, path::PathBuf};
 
+#[cfg(feature = "desktop")]
 pub mod android;
-#[cfg(not(target_os = "android"))]
+#[cfg(all(feature = "desktop", not(target_os = "android")))]
 pub mod app;
 pub mod config;
 pub mod constants;

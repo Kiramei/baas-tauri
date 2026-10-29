@@ -1,8 +1,14 @@
 import type { BaasClient } from "@baas/client";
-import type { AgentConfig, ActionDefinition } from "./agent";
 import type { DemoClient } from "./demo";
 import Ajv from "ajv";
 import { waitForRun, type MonitorEvent } from "./monitor";
+
+export interface ActionDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  mutating: boolean;
+}
 
 export type Client =
   | Pick<
@@ -27,7 +33,6 @@ export interface ActionContext {
   profile?: string;
   readOnly: boolean;
   approve: (name: string, args: Record<string, unknown>) => Promise<boolean>;
-  agentConfig?: AgentConfig;
   signal?: AbortSignal;
   dryRun?: boolean;
   wait?: boolean;
@@ -184,7 +189,7 @@ export async function resolveProfile(client: Client, requested?: string): Promis
   throw new Error(`配置档不存在：${requested}`);
 }
 
-/** All entry points (commands, packs and model tools) share this capability boundary. */
+/** Terminal commands, workspace controls and command packs share this boundary. */
 export async function executeAction(
   name: string,
   args: Record<string, unknown>,

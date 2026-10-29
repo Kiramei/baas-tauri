@@ -75,7 +75,7 @@ bun run cli --profile default_config --follow logs 50
 Cancellation and wait timeouts stop observation; use an explicit `stop` command to
 stop the backend worker. Reconnection reads status and logs without replaying a
 mutation. See [the CLI guide](../../cli/README.md) for dry runs, command packs,
-private local sessions and BAAS.md domain instructions.
+local runtime setup and terminal workspaces.
 
 A later read can reconnect and authenticate again. Lost in-flight requests reject;
 mutations are never automatically submitted again. Inspect status before deciding

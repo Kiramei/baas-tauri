@@ -1,0 +1,16 @@
+[package]
+name = "baas-cli-runtime"
+version = "0.0.9"
+edition = "2024"
+description = "Headless managed backend installer and launch specifications for BAAS CLI"
+
+[dependencies]
+baas-updater = { path = "../baas-updater", default-features = false }
+baas-term = { path = "../baas-term", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+ctrlc = { version = "3.4", features = ["termination"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
