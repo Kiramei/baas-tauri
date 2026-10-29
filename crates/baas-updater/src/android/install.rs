@@ -603,7 +603,7 @@ mod tests {
     use std::{
         collections::HashMap,
         io::{Read, Write},
-        net::{TcpListener, TcpStream},
+        net::{Shutdown, TcpListener, TcpStream},
         process::{Command, Stdio},
     };
 
@@ -613,6 +613,7 @@ mod tests {
         stop: Arc<AtomicBool>,
         server: Option<thread::JoinHandle<()>>,
         sha: String,
+        trace: Arc<Mutex<Vec<String>>>,
     }
 
     impl GitHttpFixture {
@@ -669,6 +670,8 @@ mod tests {
             let server_stop = Arc::clone(&stop);
             let root = directory.path().to_path_buf();
             let posts = Arc::new(Mutex::new(HashMap::<String, usize>::new()));
+            let trace = Arc::new(Mutex::new(Vec::new()));
+            let server_trace = Arc::clone(&trace);
             let server = thread::spawn(move || {
                 let mut workers = Vec::new();
                 while !server_stop.load(Ordering::Relaxed) {
@@ -676,8 +679,21 @@ mod tests {
                         Ok((stream, _)) => {
                             let root = root.clone();
                             let posts = Arc::clone(&posts);
+                            let trace = Arc::clone(&server_trace);
                             workers.push(thread::spawn(move || {
-                                let _ = serve_git(stream, &root, &posts);
+                                if let Err(error) = serve_git(stream, &root, &posts, &trace) {
+                                    trace
+                                        .lock()
+                                        .unwrap()
+                                        .push(format!("request failed: {error}"));
+                                    if !matches!(
+                                        error.kind(),
+                                        std::io::ErrorKind::BrokenPipe
+                                            | std::io::ErrorKind::ConnectionReset
+                                    ) {
+                                        eprintln!("Git HTTP fixture request failed: {error}");
+                                    }
+                                }
                             }));
                         }
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -696,6 +712,7 @@ mod tests {
                 stop,
                 server: Some(server),
                 sha: oid.to_string(),
+                trace,
             }
         }
 
@@ -713,12 +730,110 @@ mod tests {
         }
     }
 
+    fn read_http_line(reader: &mut impl Read) -> std::io::Result<Vec<u8>> {
+        let mut line = Vec::new();
+        let mut byte = [0_u8; 1];
+        while !line.ends_with(b"\r\n") {
+            reader.read_exact(&mut byte)?;
+            line.push(byte[0]);
+            if line.len() > 32 * 1024 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "fixture HTTP line exceeds 32 KiB",
+                ));
+            }
+        }
+        line.truncate(line.len() - 2);
+        Ok(line)
+    }
+
+    fn read_chunked_body(reader: &mut impl Read) -> std::io::Result<Vec<u8>> {
+        let mut body = Vec::new();
+        loop {
+            let line = read_http_line(reader)?;
+            let size = std::str::from_utf8(line.split(|byte| *byte == b';').next().unwrap())
+                .ok()
+                .and_then(|value| usize::from_str_radix(value.trim(), 16).ok())
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "invalid fixture HTTP chunk",
+                    )
+                })?;
+            if size == 0 {
+                // Consume all trailers before closing the request socket. Leaving
+                // these bytes unread can turn a complete response into a TCP reset.
+                while !read_http_line(reader)?.is_empty() {}
+                return Ok(body);
+            }
+            let end = body
+                .len()
+                .checked_add(size)
+                .filter(|end| *end <= 16 * 1024 * 1024)
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "fixture HTTP body exceeds 16 MiB",
+                    )
+                })?;
+            let start = body.len();
+            body.resize(end, 0);
+            reader.read_exact(&mut body[start..])?;
+            let mut ending = [0_u8; 2];
+            reader.read_exact(&mut ending)?;
+            if ending != *b"\r\n" {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "fixture HTTP chunk is missing its trailing CRLF",
+                ));
+            }
+        }
+    }
+
+    fn finish_http_response(stream: &mut TcpStream) -> std::io::Result<()> {
+        stream.flush()?;
+        // Finish the response before waiting for the client's FIN, consuming
+        // any remaining input instead of dropping a socket with unread bytes.
+        match stream.shutdown(Shutdown::Write) {
+            Ok(()) => {}
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotConnected | std::io::ErrorKind::ConnectionReset
+                ) =>
+            {
+                return Ok(())
+            }
+            Err(error) => return Err(error),
+        }
+        let mut discard = [0_u8; 4096];
+        loop {
+            match stream.read(&mut discard) {
+                Ok(0) => return Ok(()),
+                Ok(_) => {}
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::WouldBlock
+                            | std::io::ErrorKind::TimedOut
+                            | std::io::ErrorKind::ConnectionReset
+                    ) =>
+                {
+                    return Ok(())
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
     fn serve_git(
         mut stream: TcpStream,
         root: &Path,
         posts: &Mutex<HashMap<String, usize>>,
+        trace: &Mutex<Vec<String>>,
     ) -> std::io::Result<()> {
         stream.set_read_timeout(Some(Duration::from_secs(3)))?;
+        stream.set_nodelay(true)?;
         let mut request = Vec::new();
         let mut byte = [0_u8; 1];
         while !request.ends_with(b"\r\n\r\n") {
@@ -734,26 +849,40 @@ mod tests {
         let path = first.next().unwrap();
         let (path, query) = path.split_once('?').unwrap_or((path, ""));
         let (kind, git_path) = path.trim_start_matches('/').split_once('/').unwrap();
-        let content_length: usize = headers
-            .lines()
-            .find_map(|line| {
-                line.to_ascii_lowercase()
-                    .strip_prefix("content-length:")
-                    .map(|value| value.trim().parse().unwrap())
+        let header = |name: &str| {
+            headers.lines().skip(1).find_map(|line| {
+                let (key, value) = line.split_once(':')?;
+                key.eq_ignore_ascii_case(name).then_some(value.trim())
             })
-            .unwrap_or(0);
-        let content_type = headers
-            .lines()
-            .find_map(|line| {
-                line.strip_prefix("Content-Type: ")
-                    .or_else(|| line.strip_prefix("content-type: "))
-            })
-            .unwrap_or("");
-        let mut body = vec![0; content_length];
-        stream.read_exact(&mut body)?;
+        };
+        let content_type = header("content-type").unwrap_or("");
+        trace.lock().unwrap().push(format!(
+            "{method} {path}; length={:?} transfer={:?} expect={:?} connection={:?} content_type={content_type}",
+            header("content-length"), header("transfer-encoding"), header("expect"), header("connection")
+        ));
+        if header("expect").is_some_and(|value| value.eq_ignore_ascii_case("100-continue")) {
+            stream.write_all(b"HTTP/1.1 100 Continue\r\n\r\n")?;
+        }
+        // CGI needs decoded request bytes and their length even when the HTTP
+        // client used chunked framing instead of a Content-Length header.
+        let body = if header("transfer-encoding").is_some_and(|value| {
+            value
+                .split(',')
+                .any(|part| part.trim().eq_ignore_ascii_case("chunked"))
+        }) {
+            read_chunked_body(&mut stream)?
+        } else {
+            let length = header("content-length")
+                .unwrap_or("0")
+                .parse::<usize>()
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body)?;
+            body
+        };
         if kind == "invalid" {
             stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 18\r\nConnection: close\r\n\r\n<html>error</html>\n")?;
-            return Ok(());
+            return finish_http_response(&mut stream);
         }
         if method == "GET" && kind != "slow" && kind != "broken" {
             thread::sleep(Duration::from_millis(35));
@@ -764,7 +893,7 @@ mod tests {
             *count += 1;
             if kind == "broken" && *count > 2 {
                 stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
-                return Ok(());
+                return finish_http_response(&mut stream);
             }
         }
         let mut command = Command::new("git");
@@ -776,14 +905,20 @@ mod tests {
             .env("QUERY_STRING", query)
             .env("REQUEST_METHOD", method)
             .env("CONTENT_TYPE", content_type)
-            .env("CONTENT_LENGTH", content_length.to_string())
+            .env("CONTENT_LENGTH", body.len().to_string())
             .env("REMOTE_ADDR", "127.0.0.1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(Stdio::piped());
         let mut backend = command.spawn()?;
         backend.stdin.take().unwrap().write_all(&body)?;
         let result = backend.wait_with_output()?;
+        if !result.status.success() {
+            return Err(std::io::Error::other(format!(
+                "git http-backend failed: {}",
+                String::from_utf8_lossy(&result.stderr)
+            )));
+        }
         let split = result
             .stdout
             .windows(4)
@@ -791,14 +926,29 @@ mod tests {
             .unwrap();
         let cgi_headers = String::from_utf8_lossy(&result.stdout[..split]);
         let response_body = &result.stdout[split + 4..];
+        trace.lock().unwrap().push(format!(
+            "{method} {path}; decoded={} response={} CGI headers={}",
+            body.len(),
+            response_body.len(),
+            cgi_headers.replace("\r\n", " | ")
+        ));
         stream.write_all(format!("HTTP/1.1 200 OK\r\n{cgi_headers}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response_body.len()).as_bytes())?;
-        for chunk in response_body.chunks(4096) {
-            if kind == "slow" && method == "POST" {
-                thread::sleep(Duration::from_millis(3));
+        if kind == "slow" && method == "POST" && response_body.len() > 128 * 1024 {
+            for (index, chunk) in response_body.chunks(16 * 1024).enumerate() {
+                // Throttle beyond the bounded 128 KiB probe, not all 2 MiB of
+                // a clone: coarse Windows/macOS timers must not manufacture a
+                // source timeout after throughput has already been measured.
+                // The delay must exceed per-request CGI startup/compression
+                // noise, otherwise concurrent jobs can make "slow" win.
+                if index < 256 * 1024 / (16 * 1024) {
+                    thread::sleep(Duration::from_millis(100));
+                }
+                stream.write_all(chunk)?;
             }
-            stream.write_all(chunk)?;
+        } else {
+            stream.write_all(response_body)?;
         }
-        Ok(())
+        finish_http_response(&mut stream)
     }
 
     fn options(urls: Vec<String>) -> AndroidMainInstallOptions {
@@ -807,11 +957,82 @@ mod tests {
             expected_sha: None,
             source_urls: Some(urls),
             probe_sample_bytes: 128 * 1024,
-            probe_sample_timeout: Duration::from_secs(1),
-            probe_timeout: Duration::from_secs(5),
-            source_timeout: Duration::from_secs(5),
-            total_timeout: Duration::from_secs(15),
+            probe_sample_timeout: Duration::from_secs(3),
+            probe_timeout: Duration::from_secs(10),
+            source_timeout: Duration::from_secs(15),
+            total_timeout: Duration::from_secs(45),
             heartbeat_interval: Duration::from_millis(50),
+        }
+    }
+
+    #[test]
+    fn git_http_fixture_serves_complete_packs_for_length_and_chunked_requests() {
+        let fixture = GitHttpFixture::new(true);
+        let want = format!("want {} side-band-64k ofs-delta\n", fixture.sha);
+        let body = format!("{:04x}{want}00000009done\n", want.len() + 4);
+        for chunked in [false, true] {
+            let address = fixture.address.strip_prefix("http://").unwrap();
+            let mut stream = TcpStream::connect(address).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            stream.set_nodelay(true).unwrap();
+            let framing = if chunked {
+                "tRaNsFeR-EnCoDiNg: cHuNkEd\r\nExPeCt: 100-continue\r\n".to_string()
+            } else {
+                format!("Content-Length: {}\r\n", body.len())
+            };
+            stream.write_all(format!(
+                "POST /fast/repo.git/git-upload-pack HTTP/1.1\r\nHost: {address}\r\ncOnTeNt-TyPe: application/x-git-upload-pack-request\r\n{framing}Connection: close\r\n\r\n"
+            ).as_bytes()).unwrap();
+            if chunked {
+                assert_eq!(
+                    read_http_line(&mut stream).unwrap(),
+                    b"HTTP/1.1 100 Continue"
+                );
+                assert!(read_http_line(&mut stream).unwrap().is_empty());
+                let mut wire = Vec::new();
+                for chunk in body.as_bytes().chunks(7) {
+                    wire.extend_from_slice(
+                        format!("{:x};fixture=true\r\n", chunk.len()).as_bytes(),
+                    );
+                    wire.extend_from_slice(chunk);
+                    wire.extend_from_slice(b"\r\n");
+                }
+                wire.extend_from_slice(b"0\r\nFixture-Trailer: consumed\r\n\r\n");
+                stream.write_all(&wire).unwrap();
+            } else {
+                stream.write_all(body.as_bytes()).unwrap();
+            }
+            let mut response = Vec::new();
+            stream.read_to_end(&mut response).unwrap_or_else(|error| {
+                panic!(
+                    "chunked={chunked}: {error}; HTTP trace: {:?}",
+                    fixture.trace.lock().unwrap()
+                )
+            });
+            let end = response
+                .windows(4)
+                .position(|bytes| bytes == b"\r\n\r\n")
+                .unwrap();
+            let headers = String::from_utf8_lossy(&response[..end]);
+            assert!(headers.starts_with("HTTP/1.1 200 OK"), "{headers}");
+            assert!(
+                headers.contains("application/x-git-upload-pack-result"),
+                "{headers}"
+            );
+            let length = headers
+                .lines()
+                .find_map(|line| line.strip_prefix("Content-Length: "))
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            let pack = &response[end + 4..];
+            assert_eq!(pack.len(), length, "chunked={chunked}");
+            assert!(
+                pack.windows(4).any(|bytes| bytes == b"PACK"),
+                "CGI did not receive a valid Git upload-pack request"
+            );
         }
     }
 
@@ -839,19 +1060,15 @@ mod tests {
             canonical.sha
         );
         let messages = output.lines.lock().unwrap();
-        assert!(
-            messages
-                .iter()
-                .any(|(_, line)| line.contains("excluded mismatched mirror")
-                    && line.contains(&old_mirror.sha)
-                    && line.contains(&canonical.sha))
-        );
-        assert!(
-            !messages
-                .iter()
-                .any(|(_, line)| line.starts_with("[git2 transfer] selecting")
-                    && line.contains(&old_mirror.address))
-        );
+        assert!(messages
+            .iter()
+            .any(|(_, line)| line.contains("excluded mismatched mirror")
+                && line.contains(&old_mirror.sha)
+                && line.contains(&canonical.sha)));
+        assert!(!messages
+            .iter()
+            .any(|(_, line)| line.starts_with("[git2 transfer] selecting")
+                && line.contains(&old_mirror.address)));
     }
 
     #[test]
@@ -868,11 +1085,9 @@ mod tests {
             settings,
         )
         .unwrap_err();
-        assert!(
-            error
-                .message()
-                .contains("Could not verify the trusted GitHub master commit")
-        );
+        assert!(error
+            .message()
+            .contains("Could not verify the trusted GitHub master commit"));
         assert!(!target.exists());
     }
 
@@ -890,7 +1105,9 @@ mod tests {
             Arc::new(crate::NoopOutput),
             settings,
         )
-        .unwrap();
+        .unwrap_or_else(|error| {
+            panic!("{error:?}; HTTP trace: {:?}", fixture.trace.lock().unwrap())
+        });
         assert_eq!(report.sha, fixture.sha);
     }
 
@@ -944,7 +1161,9 @@ mod tests {
         assert!(
             error
                 .message()
-                .contains("mirror HEAD changed or mismatched after probing")
+                .contains("mirror HEAD changed or mismatched after probing"),
+            "{error:?}; HTTP trace: {:?}",
+            fixture.trace.lock().unwrap()
         );
         assert!(error.message().contains(&fixture.sha));
         assert!(!target.exists());
@@ -970,7 +1189,13 @@ mod tests {
             ]),
         )
         .unwrap();
-        assert_eq!(report.source_url, fixture.url("fast"));
+        assert_eq!(
+            report.source_url,
+            fixture.url("fast"),
+            "Git progress: {:?}; HTTP trace: {:?}",
+            output.lines.lock().unwrap(),
+            fixture.trace.lock().unwrap()
+        );
         assert_eq!(report.sha, fixture.sha);
         assert_eq!(
             head_sha(&Repository::open(&target).unwrap()).unwrap(),
@@ -982,11 +1207,9 @@ mod tests {
             "user config"
         );
         let messages = output.lines.lock().unwrap();
-        assert!(
-            messages
-                .iter()
-                .any(|(_, line)| line.contains("valid=false") && line.contains("invalid"))
-        );
+        assert!(messages
+            .iter()
+            .any(|(_, line)| line.contains("valid=false") && line.contains("invalid")));
         for phase in ["[probe]", "[git2 transfer]", "[checkout]", "[verify]"] {
             assert!(
                 messages.iter().any(|(_, line)| line.contains(phase)),
@@ -1031,17 +1254,19 @@ mod tests {
             options(vec![fixture.url("fast")]),
         )
         .unwrap_err();
-        assert!(error.message().contains("main.service.py"));
-        assert!(!target.exists());
         assert!(
-            !fs::read_dir(fixture.directory.path())
-                .unwrap()
-                .any(|entry| entry
-                    .unwrap()
-                    .file_name()
-                    .to_string_lossy()
-                    .starts_with(".android-git2-"))
+            error.message().contains("main.service.py"),
+            "{error:?}; HTTP trace: {:?}",
+            fixture.trace.lock().unwrap()
         );
+        assert!(!target.exists());
+        assert!(!fs::read_dir(fixture.directory.path())
+            .unwrap()
+            .any(|entry| entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".android-git2-")));
     }
 
     #[test]
@@ -1065,14 +1290,12 @@ mod tests {
         canceller.join().unwrap();
         assert_eq!(error, UpdaterError::Cancelled);
         assert!(!target.exists());
-        assert!(
-            !fs::read_dir(fixture.directory.path())
+        assert!(!fs::read_dir(fixture.directory.path())
+            .unwrap()
+            .any(|entry| entry
                 .unwrap()
-                .any(|entry| entry
-                    .unwrap()
-                    .file_name()
-                    .to_string_lossy()
-                    .starts_with(".android-git2-"))
-        );
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".android-git2-")));
     }
 }
