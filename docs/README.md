@@ -39,6 +39,7 @@ Browser checks require Playwright. Set `PLAYWRIGHT_MODULE` when it is installed 
 
 ## Useful Pages
 
+- [Release policy](development/RELEASING.md)
 - [Chinese manual](content/docs/zh/index.mdx) / [English manual](content/docs/en/index.mdx)
 - [WebUI deployment](content/docs/en/guide/webui.mdx)
 - [Plugin API](content/docs/en/reference/plugin-api.mdx)

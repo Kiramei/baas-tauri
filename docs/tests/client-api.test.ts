@@ -19,9 +19,9 @@ function* nodes(node: any): Generator<any> {
 }
 
 test("both native API pages cover the current registered command names", () => {
-  const registry = read("src-tauri/src/lib.rs").match(/generate_handler!\[([\s\S]*?)\]/)?.[1];
+  const registry = read("src-tauri/src/lib.rs").match(/generate_handler!\[([\s\S]*?)\]\s*\)/)?.[1];
   expect(registry).toBeDefined();
-  const commands = registry!.split(",").map(value => value.trim()).filter(Boolean);
+  const commands = registry!.replace(/#\[cfg\([^\]]+\)\]/g, "").split(",").map(value => value.trim()).filter(Boolean);
   expect(commands.length).toBeGreaterThan(40);
   for (const page of pages) {
     const names = [...nodes(parse(page))].filter(node => node.type === "inlineCode").map(node => node.value);

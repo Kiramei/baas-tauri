@@ -17,13 +17,21 @@
         "decorations": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 14, "y": 22 }
+        "trafficLightPosition": {
+          "x": 14,
+          "y": 22
+        }
       }
     ]
   },
   "bundle": {
-    "icon": ["icons/macos/icon.icns"],
-    "targets": ["app", "dmg"],
+    "icon": [
+      "icons/macos/icon.icns"
+    ],
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "macOS": {
       "minimumSystemVersion": "11.0",
       "exceptionDomain": "",
@@ -47,7 +55,9 @@
           "x": 200,
           "y": 180
         }
-      }
+      },
+      "bundleVersion": "1.95.3",
+      "infoPlist": "packages/macos/release-version.plist"
     }
   }
 }

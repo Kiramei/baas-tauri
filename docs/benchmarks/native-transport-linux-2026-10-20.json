@@ -1,5 +1,5 @@
 {
-  "backendPath": "/home/kiramei/Workspace/Idle/.codex_tmp/linux-shm-backend",
+  "backendPath": "<redacted>/linux-shm-backend",
   "backendRevision": "a183e1c9b4e5848c3db56e50210b95c64adf13fb",
   "build": {
     "debugAssertions": false,
@@ -11189,7 +11189,7 @@
     "pid": 1638291,
     "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.43",
     "python": "3.9.0 (default, Oct 20 2020, 07:41:32) \n[Clang 11.0.0 ]",
-    "pythonExecutable": "/home/kiramei/.baas/.venv/bin/python",
+    "pythonExecutable": "<redacted>/.venv/bin/python",
     "ready": true,
     "websocket": "plain RFC6455 binary messages, compression=None, no SecureWS encryption",
     "websockets": "15.0.1",
