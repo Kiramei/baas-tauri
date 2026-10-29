@@ -153,6 +153,8 @@ jobs:
         shell: bash
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
+          # This key signs updater archives. The macOS config signs the .app
+          # ad hoc before Tauri creates the DMG, archive and updater signature.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: bun tauri build --target ${{ matrix.target }}
@@ -263,6 +265,16 @@ jobs:
           fi
 
           find "$DST" -maxdepth 1 -type f -print | sort
+
+      - name: Verify macOS release bundles
+        if: contains(matrix.target, 'apple-darwin')
+        shell: bash
+        run: |
+          python3 scripts/verify-macos-bundles.py \
+            --target "${{ matrix.target }}" \
+            --bundle-dir "target/${{ matrix.target }}/release/bundle" \
+            --assets-dir release-assets \
+            --version "${GITHUB_REF_NAME#v}"
 
       - name: Normalize Linux artifacts
         if: matrix.os == 'ubuntu-22.04'

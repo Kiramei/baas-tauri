@@ -35,7 +35,7 @@
     "macOS": {
       "minimumSystemVersion": "11.0",
       "exceptionDomain": "",
-      "signingIdentity": null,
+      "signingIdentity": "-",
       "entitlements": "packages/macos/entitlements.plist",
       "dmg": {
         "background": "packages/macos/background.png",
