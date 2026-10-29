@@ -2,27 +2,7 @@ name: Code Quality
 
 on:
   pull_request:
-    branches: [dev, main]
-    paths: &client-paths
-      - "src/**"
-      - "public/**"
-      - "tests/frontend/**"
-      - "scripts/**"
-      - "src-tauri/**"
-      - "crates/**"
-      - ".cargo/**"
-      - "Cargo.*"
-      - "package.json"
-      - "bun.lock"
-      - "tsconfig*.json"
-      - "vite.config.*"
-      - "eslint.config.*"
-      - ".github/actions/**"
-      - ".github/workflows/code-quality.yml"
-      - ".github/workflows/release-app.yml"
-  push:
-    branches: [dev, main]
-    paths: *client-paths
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -39,6 +19,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       native: ${{ steps.paths.outputs.native }}
+      client: ${{ steps.paths.outputs.client }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -51,6 +32,7 @@ jobs:
           set -euo pipefail
           if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
             echo "native=true" >> "$GITHUB_OUTPUT"
+            echo "client=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
@@ -60,9 +42,16 @@ jobs:
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
+          if grep -Eq '^(src/|public/|tests/frontend/|scripts/|src-tauri/|crates/|\.cargo/|Cargo\.|package\.json$|bun\.lock$|tsconfig[^/]*\.json$|vite\.config\.|eslint\.config\.|\.github/actions/|\.github/workflows/(code-quality|release-app)\.yml$)' <<< "$changed_paths"; then
+            echo "client=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "client=false" >> "$GITHUB_OUTPUT"
+          fi
 
   generate-fonts:
     name: Generate font assets
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -78,7 +67,8 @@ jobs:
     name: Frontend checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    needs: generate-fonts
+    needs: [changes, generate-fonts]
+    if: needs.changes.outputs.client == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -150,7 +140,7 @@ jobs:
           target: ${{ matrix.target }}
           download-fonts: "false"
           install-frontend: "false"
-          save-cache: ${{ github.event_name == 'push' }}
+          save-cache: "false"
 
       - name: Install Linux Tauri dependencies
         if: matrix.name == 'Linux'
@@ -189,7 +179,7 @@ jobs:
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: aarch64-linux-android
-          save-cache: ${{ github.event_name == 'push' }}
+          save-cache: "false"
 
       - name: Install Android build dependencies
         shell: bash
@@ -215,3 +205,34 @@ jobs:
       - name: Run Android release lint
         working-directory: src-tauri/gen/android
         run: ./gradlew :app:lintVitalArm64Release -x rustBuildArm64Release
+
+  quality-gate:
+    name: Dev quality gate
+    if: always()
+    needs: [changes, generate-fonts, frontend, desktop-rust, android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          CLIENT_CHANGED: ${{ needs.changes.outputs.client }}
+          NATIVE_CHANGED: ${{ needs.changes.outputs.native }}
+          FONTS: ${{ needs.generate-fonts.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          RUST: ${{ needs.desktop-rust.result }}
+          ANDROID: ${{ needs.android.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGES" == success ]]
+          if [[ "$CLIENT_CHANGED" == true ]]; then
+            [[ "$FONTS" == success && "$FRONTEND" == success ]]
+          else
+            [[ "$CLIENT_CHANGED" == false && "$FONTS" == skipped && "$FRONTEND" == skipped ]]
+          fi
+          if [[ "$NATIVE_CHANGED" == true ]]; then
+            [[ "$RUST" == success && "$ANDROID" == success ]]
+          else
+            [[ "$NATIVE_CHANGED" == false && "$RUST" == skipped && "$ANDROID" == skipped ]]
+          fi
