@@ -155,7 +155,17 @@
     "clientHistory.source.github",
     "clientHistory.source.cache",
     "clientHistory.source.bundled",
-    "clientHistory.source.current"
+    "clientHistory.source.current",
+    "androidSetup.stepStorage",
+    "androidSetup.stepChannel",
+    "androidSetup.stepDownload",
+    "androidSetup.stepExtract",
+    "androidSetup.stepAdapt",
+    "androidSetup.stepService",
+    "androidSetup.statePending",
+    "androidSetup.stateRunning",
+    "androidSetup.stateDone",
+    "androidSetup.stateFailed"
   ],
   "allowedDynamicFunctions": [
     "artifactPhaseKey",

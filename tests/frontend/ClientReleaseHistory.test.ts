@@ -48,6 +48,24 @@ const bundled = JSON.parse(
 );
 
 describe("client release-note sources", () => {
+  test("new dotted releases and historical tags retain their original history links", async () => {
+    const tags = ["0.0.9.post2", "0.0.9.rc1", "v0.0.8-rc"];
+    const result = await loadClientReleaseHistory({
+      bundledUrl,
+      currentMarkdown: "## 0.0.9.post2\n\nCurrent post release\n\n## 0.0.9.rc1\n\nOlder notes",
+      readCache: () => null,
+      saveCache: () => {},
+      fetcher: (async (url) => String(url) === bundledUrl
+        ? Response.json(bundled)
+        : Response.json(tags.map((tag) => githubRelease(tag)))) as typeof fetch,
+    });
+    expect(result.snapshot.releases.map(({ tag }) => tag)).toEqual(tags);
+    expect(result.snapshot.releases.at(-1)?.url).toEndWith("/v0.0.8-rc");
+    const current = currentClientRelease("## 0.0.9.post2\n\nCurrent\n\n## 0.0.9.rc1\n\nOlder");
+    expect(current.releases[0].tag).toBe("0.0.9.post2");
+    expect(current.releases[0].body).toBe("Current");
+  });
+
   test("the bundled snapshot contains actual published early and prerelease notes", () => {
     const parsed = parseClientReleaseSnapshot(bundled);
     expect(parsed?.complete).toBe(true);

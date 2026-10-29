@@ -131,7 +131,7 @@ async function resolvePortable() {
 
   const mainExe = await resolveMainExe(releaseDir);
   const packageJson = await readJsonIfExists(path.join(process.cwd(), "package.json"));
-  const version = packageJson?.version;
+  const version = packageJson?.releaseVersion ?? packageJson?.version;
 
   if (!version) {
     throw new Error("Could not read version from package.json");

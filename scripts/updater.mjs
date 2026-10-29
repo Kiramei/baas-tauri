@@ -1,6 +1,11 @@
 import { context, getOctokit } from "@actions/github";
 
 import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
+import {
+  listPublishedReleases,
+  releaseFeedVersion,
+  selectPublishedReleases,
+} from "./release-feed.mjs";
 
 // Add stable update JSON filenames
 const UPDATE_TAG_NAME = "updater";
@@ -23,71 +28,24 @@ async function resolveUpdater() {
   const options = { owner: context.repo.owner, repo: context.repo.repo };
   const github = getOctokit(process.env.GITHUB_TOKEN);
 
-  // Fetch all tags using pagination
-  let allTags = [];
-  let page = 1;
-  const perPage = 100;
-
-  while (true) {
-    const { data: pageTags } = await github.rest.repos.listTags({
-      ...options,
-      per_page: perPage,
-      page: page,
-    });
-
-    allTags = allTags.concat(pageTags);
-
-    // Break if we received fewer tags than requested (last page)
-    if (pageTags.length < perPage) {
-      break;
-    }
-
-    page++;
-  }
-
-  const tags = allTags;
-  console.log(`Retrieved ${tags.length} tags in total`);
-
-  // More flexible tag detection with regex patterns
-  const stableTagRegex = /^v\d+\.\d+\.\d+$/; // Matches vX.Y.Z format
-  const preReleaseRegex = /^v\d+\.\d+\.\d+-(alpha|beta|rc|pre)(?:[.-]\d+)?$/i; // Matches vX.Y.Z-alpha/beta/rc/pre format
-
-  // Get the latest stable tag and pre-release tag
-  const stableTag = tags.find((t) => stableTagRegex.test(t.name));
-  const preReleaseTag = tags.find((t) => preReleaseRegex.test(t.name));
-
-  console.log("All tags:", tags.map((t) => t.name).join(", "));
-  console.log("Stable tag:", stableTag ? stableTag.name : "None found");
-  console.log("Pre-release tag:", preReleaseTag ? preReleaseTag.name : "None found");
-  console.log();
-
-  // Process stable release
-  if (stableTag) {
-    await processRelease(github, options, stableTag, false);
-  }
-
-  // Process pre-release if found
-  if (preReleaseTag) {
-    await processRelease(github, options, preReleaseTag, true);
-  }
+  const releases = await listPublishedReleases(github, options);
+  const selected = selectPublishedReleases(releases);
+  if (selected.stable) await processRelease(github, options, selected.stable, false);
+  if (selected.preview) await processRelease(github, options, selected.preview, true);
 }
 
 // Process a release (stable or alpha) and generate update files
-async function processRelease(github, options, tag, isAlpha) {
-  if (!tag) return;
+async function processRelease(github, options, release, isAlpha) {
+  if (!release) return;
+  const tag = { name: release.tag_name };
 
   try {
-    const { data: release } = await github.rest.repos.getReleaseByTag({
-      ...options,
-      tag: tag.name,
-    });
-
     const updateData = {
-      name: tag.name,
+      ...releaseFeedVersion(tag.name),
       notes: await resolveUpdateLog(tag.name).catch(() =>
         resolveUpdateLogDefault().catch(() => "No changelog available")
       ),
-      pub_date: new Date().toISOString(),
+      pub_date: release.published_at ?? new Date().toISOString(),
       platforms: {
         win64: { signature: "", url: "" }, // compatible with older formats
         linux: { signature: "", url: "" }, // compatible with older formats
@@ -238,6 +196,7 @@ async function processRelease(github, options, tag, isAlpha) {
             name: isAlpha ? "Auto-update Alpha Channel" : "Auto-update Stable Channel",
             body: `This release contains the update information for ${isAlpha ? "alpha" : "stable"} channel.`,
             prerelease: isAlpha,
+            make_latest: "false",
           });
           updateRelease = createResponse.data;
           console.log(`Created new ${releaseTag} release with ID: ${updateRelease.id}`);

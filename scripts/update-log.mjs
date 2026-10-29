@@ -1,84 +1,42 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { normalizeReleaseVersion } from "../src/shared/ReleaseVersion.mjs";
 
 const UpdateLog = "UPDATE.md";
 
-// parse the UPDATE.md
+export function parseUpdateLog(data) {
+  const sections = new Map();
+  let current;
+  for (const line of data.split("\n")) {
+    const heading = /^##\s+(\S+)/.exec(line);
+    const version = heading && normalizeReleaseVersion(heading[1]);
+    if (version) {
+      current = version;
+      if (sections.has(current)) throw new Error(`Duplicate release notes for ${current}`);
+      sections.set(current, []);
+    } else if (/^---/.test(line)) current = null;
+    else if (current) sections.get(current).push(line);
+  }
+  return new Map([...sections].map(([tag, lines]) => [tag, lines.join("\n").trim()]));
+}
+
+async function readSections() {
+  const file = path.join(process.cwd(), UpdateLog);
+  if (!fs.existsSync(file)) throw new Error("could not find UPDATE.md");
+  return parseUpdateLog(await fsp.readFile(file, "utf-8"));
+}
+
 export async function resolveUpdateLog(tag) {
-  const cwd = process.cwd();
-
-  const reTitle = /^## v\d+\.\d+\.\d+(?:[-+][\w.-]+)?/;
-  const reEnd = /^---/;
-
-  const file = path.join(cwd, UpdateLog);
-
-  if (!fs.existsSync(file)) {
-    throw new Error("could not find UPDATE.md");
-  }
-
-  const data = await fsp.readFile(file, "utf-8");
-
-  const map = {};
-  let p = "";
-
-  data.split("\n").forEach((line) => {
-    if (reTitle.test(line)) {
-      p = line.slice(3).trim();
-      if (!map[p]) {
-        map[p] = [];
-      } else {
-        throw new Error(`Tag ${p} dup`);
-      }
-    } else if (reEnd.test(line)) {
-      p = "";
-    } else if (p) {
-      map[p].push(line);
-    }
-  });
-
-  if (!map[tag]) {
+  const canonical = normalizeReleaseVersion(tag);
+  const sections = await readSections();
+  if (!canonical || !sections.has(canonical))
     throw new Error(`could not find "${tag}" in UPDATE.md`);
-  }
-
-  return map[tag].join("\n").trim();
+  return sections.get(canonical);
 }
 
 export async function resolveUpdateLogDefault() {
-  const cwd = process.cwd();
-  const file = path.join(cwd, UpdateLog);
-
-  if (!fs.existsSync(file)) {
-    throw new Error("could not find UPDATE.md");
-  }
-
-  const data = await fsp.readFile(file, "utf-8");
-
-  const reTitle = /^## v\d+\.\d+\.\d+(?:[-+][\w.-]+)?/;
-  const reEnd = /^---/;
-
-  let isCapturing = false;
-  const content = [];
-  let firstTag = "";
-
-  for (const line of data.split("\n")) {
-    if (reTitle.test(line) && !isCapturing) {
-      isCapturing = true;
-      firstTag = line.slice(3).trim();
-      continue;
-    }
-
-    if (isCapturing) {
-      if (reEnd.test(line)) {
-        break;
-      }
-      content.push(line);
-    }
-  }
-
-  if (!firstTag) {
-    throw new Error("could not find any version tag in UPDATE.md");
-  }
-
-  return content.join("\n").trim();
+  const sections = await readSections();
+  if (!sections.size) throw new Error("could not find any version tag in UPDATE.md");
+  return sections.values().next().value;
 }

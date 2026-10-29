@@ -10,7 +10,9 @@ import { androidBackDestination, mobileNavigationPage, normalizePageKey } from "
 import { PLUGIN_OPEN_EVENT } from "@/shared/Plugins";
 import { useConfigurationWorkspace } from "@/shared/useConfigurationWorkspace";
 import { AboutBaasProvider } from "@/context/AboutBaasProvider";
-import { ProfileActionsProvider } from "@/context/ProfileActionsProvider";
+import { ProfileActionsProvider, useProfileActions } from "@/context/ProfileActionsProvider";
+import CButton from "@/components/ui/CButton";
+import { useAppTranslation } from "@/shared/useAppTranslation";
 import PageActivity from "@/components/PageActivity";
 import "./mobile.css";
 import { useAndroidSystemBars } from "./useAndroidSystemBars";
@@ -86,6 +88,18 @@ const PageLoadingFallback: React.FC = () => (
     <div className="h-8 w-8 rounded-full border-2 border-slate-300 border-t-primary-500 animate-spin" />
   </div>
 );
+
+const CreateFirstProfile: React.FC = () => {
+  const actions = useProfileActions();
+  const { t } = useAppTranslation();
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <CButton type="button" onClick={() => actions?.create()} disabled={!actions}>
+        {t("profile.create")}
+      </CButton>
+    </div>
+  );
+};
 
 /** Preserve each profile's pages and pause inactive editors in the same render. */
 export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady }) => {
@@ -198,6 +212,7 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
   if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
+        <CreateFirstProfile />
         <HomeReadyMarker onReady={onReady} />
       </MainLayout>
     );

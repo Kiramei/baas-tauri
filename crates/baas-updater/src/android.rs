@@ -45,6 +45,11 @@ use uuid::Uuid;
 
 const ANDROID_STEP_TOTAL: u8 = 4;
 
+mod install;
+pub use install::{
+    AndroidMainInstallOptions, AndroidMainInstallReport, install_android_main_repository,
+};
+
 #[derive(Clone)]
 struct AndroidGitSourceProbe {
     root: PathBuf,
@@ -926,7 +931,13 @@ fn configure_android_git2_ssl(output: &(dyn OutputSink + Send + Sync)) -> Update
 /// Handles the configure android git2 ssl workflow.
 #[cfg(not(target_os = "android"))]
 fn configure_android_git2_ssl(_output: &(dyn OutputSink + Send + Sync)) -> UpdaterResult<()> {
-    Ok(())
+    static TIMEOUTS: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+    TIMEOUTS.get_or_init(|| unsafe {
+        git2::opts::set_server_connect_timeout_in_milliseconds(8_000)
+            .map_err(|error| error.to_string())?;
+        git2::opts::set_server_timeout_in_milliseconds(20_000)
+            .map_err(|error| error.to_string())
+    }).clone().map_err(UpdaterError::Git)
 }
 
 /// Returns the can clone into result.

@@ -7,6 +7,7 @@ import { androidCssCompatPlugin } from "./scripts/android-css-compat-vite";
 import { asciiJsOutputPlugin } from "./scripts/vite/ascii-js-output";
 import { manualChunks } from "./scripts/vite/manual-chunks";
 import packageMetadata from "./package.json";
+import { releaseVersionFromPackage } from "./src/shared/ReleaseVersion.mjs";
 // KEEP(bundle-analysis): Uncomment this import together with the plugin block below when a
 // release needs an interactive chunk report. Keeping the recipe here makes ad-hoc analysis
 // reproducible without adding the visualizer to every normal build.
@@ -30,7 +31,7 @@ export default defineConfig(({ mode }) => {
         ? "(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)"
         : false,
       __WITH_ANDROID__: isAndroid,
-      __APP_VERSION__: JSON.stringify(packageMetadata.version),
+      __APP_VERSION__: JSON.stringify(releaseVersionFromPackage(packageMetadata).canonical),
     },
     server: {
       host: mode === "tauri" ? "127.0.0.1" : "0.0.0.0",

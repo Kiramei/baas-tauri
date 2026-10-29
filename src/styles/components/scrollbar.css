@@ -57,3 +57,22 @@
   height: 0;
   width: 0;
 }
+
+/* Keep touch, wheel and terminal scrolling while hiding every installer track. */
+[data-android-setup],
+[data-android-setup] *,
+[data-android-startup-terminal],
+[data-android-startup-terminal] * {
+  -ms-overflow-style: none;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+[data-android-setup]::-webkit-scrollbar,
+[data-android-setup] ::-webkit-scrollbar,
+[data-android-startup-terminal]::-webkit-scrollbar,
+[data-android-startup-terminal] ::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

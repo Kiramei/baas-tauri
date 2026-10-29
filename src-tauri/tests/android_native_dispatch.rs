@@ -25,6 +25,27 @@ const NATIVE_COMMANDS: &[&str] = &[
     "android_game_gesture",
 ];
 
+fn handler_source() -> &'static str {
+    REGISTRATION
+        .split("generate_handler![")
+        .nth(1)
+        .expect("Tauri command registry")
+        .split("])")
+        .next()
+        .unwrap()
+}
+
+fn handler_entries() -> Vec<&'static str> {
+    handler_source()
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.starts_with("#["))
+        .flat_map(|line| line.split(','))
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .collect()
+}
+
 fn command(name: &str) -> &'static str {
     let signature = format!("pub async fn {name}(");
     let offset = COMMANDS
@@ -78,13 +99,10 @@ fn native_queries_and_actions_wait_off_the_command_dispatch_thread() {
 
 #[test]
 fn command_registration_keeps_every_public_native_entry_point() {
-    let handlers = REGISTRATION
-        .split("generate_handler![")
-        .nth(1)
-        .expect("Tauri command registry");
-    let handlers = handlers.split("])").next().unwrap();
-    let entries: Vec<_> = handlers.split(',').map(str::trim).collect();
+    let entries = handler_entries();
     for name in NATIVE_COMMANDS.iter().copied().chain([
+        "updater_select_channel",
+        "updater_restart_backend",
         "updater_reset_backend_auth_and_restart",
         "backend_transport_start",
     ]) {
@@ -96,14 +114,22 @@ fn command_registration_keeps_every_public_native_entry_point() {
 }
 
 #[test]
+fn android_only_install_handlers_are_excluded_from_desktop_compilation() {
+    let lines: Vec<_> = handler_source().lines().map(str::trim).collect();
+    for name in ["updater_select_channel", "updater_restart_backend"] {
+        let index = lines
+            .iter()
+            .position(|line| line.trim_end_matches(',') == name)
+            .unwrap_or_else(|| panic!("{name} must remain in the handler registry"));
+        assert!(
+            index > 0 && lines[index - 1] == "#[cfg(target_os = \"android\")]",
+            "{name} has no desktop implementation and must be Android-only"
+        );
+    }
+}
+
+#[test]
 fn registered_android_commands_are_reachable_through_the_mobile_acl() {
-    let handlers = REGISTRATION
-        .split("generate_handler![")
-        .nth(1)
-        .expect("Tauri command registry")
-        .split("])")
-        .next()
-        .unwrap();
     let allowed = MOBILE_ACL
         .split("commands.allow = [")
         .nth(1)
@@ -116,10 +142,10 @@ fn registered_android_commands_are_reachable_through_the_mobile_acl() {
         .filter_map(|line| line.trim().strip_prefix('"')?.split('"').next())
         .collect();
     assert!(!allowed.contains(&"*"), "Keep mobile permissions explicit");
-    for name in handlers
-        .split(',')
-        .map(str::trim)
+    for name in handler_entries()
+        .into_iter()
         .filter(|name| name.starts_with("android_"))
+        .chain(["updater_select_channel", "updater_restart_backend"])
     {
         assert!(
             allowed.contains(&name),

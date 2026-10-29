@@ -337,7 +337,7 @@ const SettingsPage: React.FC = () => {
   const [versionChecking, setVersionChecking] = useState(false);
 
   const [updateMethod, setUpdateMethod] = useState<string>(updateConfig["updateMethod"]);
-  const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "stable");
+  const [updateChannel, setUpdateChannel] = useState<string>(updateConfig["channel"] ?? "dev");
   const [dueDate, setDueDate] = useState("");
   const tauriVersion = versionStore["tauri"] ?? {};
   const tauriCurrentVersion = resolveClientVersion(tauriVersion.currentVersion);
@@ -505,7 +505,7 @@ const SettingsPage: React.FC = () => {
       setUpdateMethod(updateConfig["updateMethod"]);
       setReposInitState(reposInit.filter((ele) => ele.method !== "mirrorc"));
     }
-    setUpdateChannel(updateConfig["channel"] ?? "stable");
+    setUpdateChannel(updateConfig["channel"] ?? "dev");
   }, [updateConfig]);
 
   useEffect(() => {
@@ -1067,7 +1067,7 @@ const SettingsPage: React.FC = () => {
                         value={updateChannel}
                         onChange={handleUpdateChannel}
                         options={[
-                          { value: "stable", label: t("updateChannel.stable") },
+                          { value: "stable", label: t("updateChannel.stable"), disabled: true },
                           { value: "dev", label: t("updateChannel.dev") },
                         ]}
                       />

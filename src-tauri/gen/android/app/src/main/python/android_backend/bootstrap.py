@@ -1,9 +1,11 @@
 import json
+import codecs
 import http.client
 import hashlib
 import types
 import os
 import shutil
+import socket
 import sys
 import tempfile
 import threading
@@ -13,13 +15,36 @@ import urllib.request
 import urllib.error
 import zipfile
 import subprocess
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
 STATUS_FILE = "android-bootstrap-status.json"
+CHANNEL_SELECTION_FILE = "android-channel-selection.json"
+GIT_INSTALL_REQUEST_FILE = "android-git-install-request.json"
+GIT_INSTALL_PROGRESS_FILE = "android-git-install-progress.json"
+GIT_INSTALL_RESULT_FILE = "android-git-install-result.json"
+GIT_INSTALL_WAIT_SECONDS = 900
+GIT_INSTALL_POLL_SECONDS = 0.2
+INSTALL_HEARTBEAT_SECONDS = 5
 PACKAGE_NAME = "io.github.kiramei.baas_tauri"
 DEFAULT_CHANNEL = "dev"
+CHANNEL_OPTIONS = (
+    {"id": "stable", "available": False},
+    {"id": "dev", "available": True},
+)
+# The first install waits for a real channel decision, but a timeout keeps a
+# dismissed sheet from leaving a correctly provisioned device unable to start.
+CHANNEL_WAIT_SECONDS = 900
+CHANNEL_POLL_SECONDS = 0.4
+MIN_FREE_BYTES = 320 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
+ARCHIVE_MAGIC = b"PK\x03\x04"
+SOURCE_ATTEMPTS = 2
+SOURCE_TIMEOUT_SECONDS = 45
+DOWNLOAD_DEADLINE_SECONDS = 900
+STEP_IDS = ("storage", "channel", "download", "extract", "adapt", "service")
 _ATX_PROCESSES = []
 _BACKEND_MODULE_ROOTS = (
     "android_runtime_injection",
@@ -55,6 +80,7 @@ SERVICE_TRANSPORT_OVERLAY_FILES = (
 _SERVER = None
 _HOT_RESTART_DONE = False
 _SERVER_LOCK = threading.RLock()
+_STATUS_WRITE_LOCK = threading.RLock()
 _BOOTSTRAP_CLAIMED = False
 _BOOTSTRAP_STATUS = {"ok": False, "stage": "starting"}
 _BOOTSTRAP_HTTP_SERVER = None
@@ -67,13 +93,34 @@ REPOSITORIES = {
         "owner": "Kiramei",
         "repo": "baas-dev",
         "branch": "master",
+        "mirrors": (
+            ("github", "https://github.com/Kiramei/baas-dev"),
+            ("cnb", "https://cnb.cool/kiramei/baas-dev"),
+            ("gitee", "https://gitee.com/kiramei/baas-dev"),
+            ("gitcode", "https://gitcode.com/Kiramei/baas-dev"),
+        ),
     },
     "stable": {
         "owner": "pur1fying",
         "repo": "blue_archive_auto_script",
         "branch": "master",
+        "mirrors": (
+            ("github", "https://github.com/pur1fying/blue_archive_auto_script"),
+            ("cnb", "https://cnb.cool/BlueArchiveAutoScript/blue_arhchive_auto_script"),
+            ("gitee", "https://gitee.com/pur1fy/blue_archive_auto_script"),
+            ("gitcode", "https://gitcode.com/m0_74686738/blue_archive_auto_script"),
+        ),
     },
 }
+# Proxies prepended to a GitHub archive URL. They are tried after the direct
+# codeload host and before repository-host archives, because they preserve the
+# pinned commit while requiring no extra repository metadata.
+GITHUB_ARCHIVE_PROXIES = (
+    ("gh-proxy", "https://gh-proxy.org/"),
+    ("gh-proxy-v4", "https://v4.gh-proxy.org/"),
+    ("gh-proxy-v6", "https://v6.gh-proxy.org/"),
+    ("gh-proxy-cdn", "https://cdn.gh-proxy.org/"),
+)
 
 
 # Requests the embedded backend server to restart in the current app process.
@@ -104,6 +151,58 @@ def start(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     return _start_once(files_dir, storage_root_or_port, port, native_library_dir)
 
 
+class _StartupLogSink:
+    def __init__(self, path, max_bytes=4 * 1_048_576):
+        self.path = path
+        self.max_bytes = max_bytes
+        self.written = 0
+        self.lock = threading.RLock()
+        self.handle = path.open("w", encoding="utf-8", buffering=1)
+
+    def write(self, text):
+        # stdout and stderr must share both the handle and rotation count. A
+        # per-stream handle can be closed by the other stream during rotation,
+        # losing the original error just when the startup log is most useful.
+        with self.lock:
+            if self.written > self.max_bytes:
+                self.handle.close()
+                try:
+                    os.replace(str(self.path), str(self.path) + ".1")
+                except OSError:
+                    # Keep the existing output if a backup cannot be created.
+                    self.handle = self.path.open("a", encoding="utf-8", buffering=1)
+                else:
+                    self.handle = self.path.open("w", encoding="utf-8", buffering=1)
+                    self.written = 0
+            self.handle.write(text)
+            self.written += len(text.encode("utf-8"))
+
+    def flush(self):
+        with self.lock:
+            self.handle.flush()
+
+    def close(self):
+        with self.lock:
+            self.handle.close()
+
+
+class _StartupOutput:
+    def __init__(self, original, sink):
+        self.original = original
+        self.sink = sink
+
+    def write(self, text):
+        self.sink.write(text)
+        return self.original.write(text)
+
+    def flush(self):
+        self.sink.flush()
+        self.original.flush()
+
+    def __getattr__(self, name):
+        return getattr(self.original, name)
+
+
 def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=None):
     global _BOOTSTRAP_STATUS
 
@@ -116,28 +215,9 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
     root.mkdir(parents=True, exist_ok=True)
     startup_log_path = Path(files_dir).parent / "cache" / "android-startup.log"
     startup_log_path.parent.mkdir(parents=True, exist_ok=True)
-    startup_log = startup_log_path.open("w", encoding="utf-8", buffering=1)
-
-    class StartupOutput:
-        def __init__(self, original):
-            self.original = original
-
-        def write(self, text):
-            if startup_log.tell() > 1_048_576:
-                startup_log.seek(0)
-                startup_log.truncate()
-            startup_log.write(text)
-            return self.original.write(text)
-
-        def flush(self):
-            startup_log.flush()
-            self.original.flush()
-
-        def __getattr__(self, name):
-            return getattr(self.original, name)
-
-    sys.stdout = StartupOutput(sys.stdout)
-    sys.stderr = StartupOutput(sys.stderr)
+    startup_log = _StartupLogSink(startup_log_path)
+    sys.stdout = _StartupOutput(sys.stdout, startup_log)
+    sys.stderr = _StartupOutput(sys.stderr, startup_log)
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
 
@@ -150,13 +230,15 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         "storageRoot": str(storage_root),
         "source": "runtime-repository",
         "startedAt": time.time(),
+        "steps": _initial_steps(),
+        "updatedAt": time.time(),
     }
     _BOOTSTRAP_STATUS = status
 
     try:
         status["stage"] = "runtime"
         status["installMessage"] = "Checking embedded runtime and backend files."
-        _write_status(root, status)
+        _set_step(root, status, "storage", "running", f"Private directory: {root}")
         print("[runtime] Checking embedded Python and backend installation", flush=True)
         installed = _ensure_backend_files(root, status)
         status["backendInstalled"] = True
@@ -165,12 +247,17 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         _write_status(root, status)
         status["stage"] = "service"
         status["installMessage"] = "Starting local backend service."
-        _write_status(root, status)
+        _set_step(root, status, "service", "running", "Starting the embedded Python service.")
         print("[service] Starting local backend service", flush=True)
         _activate_bundled_service_transport(root)
         _run_baas_service(root, port)
         raise RuntimeError("The local backend service stopped; explicitly restart the Android backend to recover.")
     except Exception as error:
+        steps = status.get("steps", [])
+        for step in steps:
+            if step.get("state") == "running":
+                step["state"] = "failed"
+                step["detail"] = str(error)
         status.update(
             {
                 "ok": False,
@@ -233,13 +320,159 @@ def _exit_backend_process():
     os._exit(0)
 
 
+# Builds the ordered step list shown by the Android setup screen.
+def _initial_steps(channel=None):
+    titles = {
+        "storage": "Prepare private storage",
+        "channel": "Choose update channel",
+        "download": "Download backend",
+        "extract": "Install backend files",
+        "adapt": "Apply Android compatibility patches",
+        "service": "Start local service",
+    }
+    steps = [
+        {"id": step_id, "title": titles[step_id], "state": "pending", "detail": ""}
+        for step_id in STEP_IDS
+    ]
+    if channel:
+        for step in steps:
+            if step["id"] == "channel":
+                step["state"] = "done"
+                step["detail"] = f"Channel: {channel}"
+    return steps
+
+
+# Updates one step and persists the status document so the UI never guesses.
+def _set_step(root, status, step_id, state, detail=""):
+    steps = status.setdefault("steps", _initial_steps(status.get("channel")))
+    found = False
+    for step in steps:
+        if step.get("id") == step_id:
+            step["state"] = state
+            step["detail"] = detail
+            step["updatedAt"] = time.time()
+            found = True
+            break
+    if not found:
+        steps.append(
+            {"id": step_id, "title": step_id.title(), "state": state, "detail": detail, "updatedAt": time.time()}
+        )
+    status["currentStep"] = step_id
+    status["updatedAt"] = time.time()
+    _write_status(root, status)
+
+
+# Reads the explicit channel choice written by the app, if the user made one.
+def _selected_channel(root):
+    path = root / CHANNEL_SELECTION_FILE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    channel = str(payload.get("channel", "")).strip().lower()
+    return channel if channel in REPOSITORIES else None
+
+
+# Blocks the first install until the setup screen reports a channel, keeping
+# the status file current so the UI can show a real waiting state.
+def _await_channel_selection(root, status):
+    selected = _selected_channel(root)
+    if selected:
+        _record_channel(root, status, selected)
+        return selected
+
+    status["stage"] = "channel"
+    status["awaitingChannel"] = True
+    status["channelOptions"] = [dict(option) for option in CHANNEL_OPTIONS]
+    status["installMessage"] = "Waiting for you to confirm the Development channel for Android."
+    _set_step(root, status, "channel", "running", "Waiting for the update channel chosen in the app.")
+    print(
+        "[channel] Awaiting your Continue installation confirmation; no download has started.",
+        flush=True,
+    )
+
+    started = time.monotonic()
+    deadline = started + CHANNEL_WAIT_SECONDS
+    next_heartbeat = started + INSTALL_HEARTBEAT_SECONDS
+    while time.monotonic() < deadline:
+        selected = _selected_channel(root)
+        if selected:
+            _record_channel(root, status, selected)
+            return selected
+        now = time.monotonic()
+        if now >= next_heartbeat:
+            elapsed = int(now - started)
+            print(
+                f"[channel] {elapsed}s elapsed: awaiting your Continue installation confirmation; "
+                "no download has started.",
+                flush=True,
+            )
+            next_heartbeat = now + INSTALL_HEARTBEAT_SECONDS
+        time.sleep(CHANNEL_POLL_SECONDS)
+
+    # The screen may never appear (headless start, process restored in the
+    # background). Falling back to the persisted channel keeps startup possible,
+    # and the timestamp makes the decision visible instead of silent.
+    fallback = _setup_channel(root)
+    _record_channel(root, status, fallback)
+    status["channelFallback"] = True
+    _write_status(root, status)
+    print(
+        f"[channel] No choice after {CHANNEL_WAIT_SECONDS}s; continuing with saved channel '{fallback}'",
+        flush=True,
+    )
+    return fallback
+
+
+# Records the chosen channel in the status document and the setup file.
+def _record_channel(root, status, channel):
+    if channel == "stable":
+        error = (
+            "The Stable channel lacks the Android service (main.service.py). "
+            "Choose Development (Dev) to install BAAS on Android."
+        )
+        _set_step(root, status, "storage", "done", f"Private directory: {root}")
+        _set_step(root, status, "channel", "failed", error)
+        raise RuntimeError(error)
+    status["channel"] = channel
+    status["awaitingChannel"] = False
+    status["stage"] = "runtime"
+    setup_path = root / "setup.toml"
+    if not setup_path.exists():
+        _write_default_setup(root, channel)
+    else:
+        _write_installed_backend_sha(
+            setup_path, _read_setup_text(setup_path, "current_baas_sha"), channel
+        )
+    _set_step(root, status, "channel", "done", f"Channel: {channel}")
+
+
+# Reads one value from setup.toml without importing the full parser.
+def _read_setup_text(setup_path, key):
+    try:
+        for line in setup_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            stripped = line.strip()
+            if stripped.startswith(key):
+                return stripped.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
 # Handles the ensure backend files workflow.
 def _ensure_backend_files(root, status):
     if _service_path(root).exists():
+        status["channel"] = _setup_channel(root)
+        status.setdefault("steps", _initial_steps(status["channel"]))
+        # An installed backend already made its channel decision in an earlier
+        # run; leaving those two rows "running" would misreport the current state.
+        _set_step(root, status, "storage", "done", f"Private directory: {root}")
+        _set_step(root, status, "channel", "done", f"Channel: {status['channel']}")
         if _bundled_backend_changed(root):
             if _backend_is_git_managed(root):
                 status["installing"] = False
                 status["installMessage"] = "Using git-managed backend; APK bundle will not replace repository metadata."
+                _set_step(root, status, "extract", "done", "Existing git-managed backend kept in place.")
                 _write_status(root, status)
                 _ensure_android_support_files(root)
                 _start_local_atx_agent_async_if_enabled(root)
@@ -248,35 +481,185 @@ def _ensure_backend_files(root, status):
             shutil.rmtree(tmp_root, ignore_errors=True)
             status["installing"] = True
             status["installMessage"] = "Updating BAAS backend from bundled APK archive."
-            _write_status(root, status)
+            _set_step(root, status, "extract", "running", "Replacing the backend with the archive bundled in this APK.")
             remote_sha = _install_bundled_backend_archive(tmp_root)
+            _set_step(root, status, "adapt", "running", "Applying Android compatibility patches.")
             _ensure_android_support_files(tmp_root)
             _replace_backend_files(root, tmp_root)
             _start_local_atx_agent_async_if_enabled(root)
             if remote_sha:
                 _write_installed_backend_sha(root / "setup.toml", remote_sha, _setup_channel(root))
+            _set_step(root, status, "extract", "done", "Bundled backend installed.")
+            _set_step(root, status, "adapt", "done", "Android patches applied.")
             status["installing"] = False
             return True
+        _set_step(root, status, "download", "done", "Backend already installed; nothing to download.")
+        _set_step(root, status, "extract", "done", "Backend already installed.")
+        _set_step(root, status, "adapt", "running", "Verifying Android compatibility patches.")
         _ensure_android_support_files(root)
+        _set_step(root, status, "adapt", "done", "Android patches are current.")
         _start_local_atx_agent_async_if_enabled(root)
         return False
 
+    _require_free_space(root)
+    _set_step(root, status, "storage", "done", f"Private directory is ready: {root}")
+    print(f"[storage] Private directory ready: {root}; free-space check passed.", flush=True)
+    channel = _await_channel_selection(root, status)
     tmp_root = root / ".baas-next"
     shutil.rmtree(tmp_root, ignore_errors=True)
     status["installing"] = True
-    status["installMessage"] = "Downloading BAAS backend repository."
-    _write_status(root, status)
-    channel = _setup_channel(root)
-    remote_sha = _install_bundled_backend_archive(tmp_root)
-    if remote_sha is None:
-        remote_sha = _download_backend_archive(tmp_root, channel)
+    status["installMessage"] = f"Installing the {channel} backend with Rust git2."
+    _set_step(root, status, "download", "running", "Requesting Rust git2 mirror speed tests.")
+    remote_sha = _await_git2_backend_install(root, status, channel)
+    if not _service_path(tmp_root).is_file():
+        raise RuntimeError("Rust git2 completed without main.service.py; refusing an incomplete backend checkout.")
+    _set_step(root, status, "download", "done", f"Git2 transfer completed from {status.get('downloadSource') or 'the selected mirror'}.")
+    _set_step(root, status, "extract", "done", "Git2 checkout verified; ready for Android compatibility patches.")
+    _set_step(root, status, "adapt", "running", "Applying Android compatibility patches.")
+    print("[adapt] Applying Android compatibility patches to the verified git2 checkout.", flush=True)
     _ensure_android_support_files(tmp_root)
-    _replace_backend_files(root, tmp_root)
+    print("[install] Android patches passed; publishing the checked-out worktree.", flush=True)
+    _replace_backend_files(root, tmp_root, preserve_git=False)
     _start_local_atx_agent_async_if_enabled(root)
     if remote_sha:
         _write_installed_backend_sha(root / "setup.toml", remote_sha, channel)
+    _set_step(root, status, "extract", "done", "Backend files installed.")
+    _set_step(root, status, "adapt", "done", "Android patches applied.")
     status["installing"] = False
     return True
+
+
+def _read_git_install_document(path, request_id):
+    """Ignore incomplete writes and documents from an older installation attempt."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(document, dict) or document.get("requestId") != request_id:
+        return None
+    return document
+
+
+def _drain_git_install_log(path, offset, decoder):
+    """Only Python writes the rotating startup log; Rust has a per-request log."""
+    try:
+        with path.open("rb") as output:
+            output.seek(offset)
+            while True:
+                content = output.read(65_536)
+                if not content:
+                    break
+                offset += len(content)
+                decoded = decoder.decode(content)
+                if decoded:
+                    print(decoded, end="", flush=True)
+    except OSError:
+        pass
+    return offset
+
+
+def _await_git2_backend_install(root, status, channel):
+    """Publish a native install request, then own all public bootstrap status writes."""
+    request_id = uuid.uuid4().hex
+    request_path = root / GIT_INSTALL_REQUEST_FILE
+    progress_path = root / GIT_INSTALL_PROGRESS_FILE
+    result_path = root / GIT_INSTALL_RESULT_FILE
+    log_path = root / f"android-git-install-{request_id}.log"
+    request = {
+        "version": 1,
+        "requestId": request_id,
+        "channel": channel,
+        "requestedAt": time.time(),
+    }
+    status["gitInstallRequestId"] = request_id
+    status["installPhase"] = "native-start"
+    _set_step(root, status, "download", "running", "Waiting for the Rust git2 installer to acknowledge the request.")
+    temporary_request = request_path.with_suffix(".json.tmp")
+    temporary_request.write_text(json.dumps(request), encoding="utf-8")
+    os.replace(str(temporary_request), str(request_path))
+    print(
+        f"[git2] Requested native installation {request_id}; mirror tests, transfer and checkout "
+        "will report progress below. No ZIP archive will be downloaded.",
+        flush=True,
+    )
+
+    started = time.monotonic()
+    deadline = started + GIT_INSTALL_WAIT_SECONDS
+    next_heartbeat = started + INSTALL_HEARTBEAT_SECONDS
+    decoder = codecs.getincrementaldecoder("utf-8")("replace")
+    offset = 0
+    last_progress = None
+    try:
+        while time.monotonic() < deadline:
+            offset = _drain_git_install_log(log_path, offset, decoder)
+            progress = _read_git_install_document(progress_path, request_id)
+            if progress is not None and progress != last_progress:
+                last_progress = progress
+                step = "extract" if progress.get("step") == "extract" else "download"
+                detail = str(progress.get("detail") or "The Rust git2 installer is running.")
+                status["installPhase"] = str(progress.get("phase") or "git2")
+                if progress.get("source"):
+                    status["downloadSource"] = str(progress["source"])
+                if isinstance(progress.get("metrics"), dict):
+                    status["gitInstallMetrics"] = progress["metrics"]
+                if step == "extract":
+                    download_step = next((item for item in status["steps"] if item.get("id") == "download"), {})
+                    if download_step.get("state") != "done":
+                        _set_step(root, status, "download", "done", "Git objects received; checking out backend files.")
+                _set_step(root, status, step, "running", detail)
+
+            result = _read_git_install_document(result_path, request_id)
+            if result is not None:
+                _drain_git_install_log(log_path, offset, decoder)
+                final_text = decoder.decode(b"", final=True)
+                if final_text:
+                    print(final_text, end="", flush=True)
+                if result.get("ok") is not True:
+                    raise RuntimeError(str(result.get("error") or "The Rust git2 installer failed without reporting an error."))
+                if not (root / ".baas-next" / "main.service.py").is_file():
+                    raise RuntimeError("Rust git2 reported success but the backend checkout is missing main.service.py.")
+                sha = str(result.get("sha") or "").strip()
+                if len(sha) != 40 or any(character not in "0123456789abcdefABCDEF" for character in sha):
+                    raise RuntimeError("Rust git2 reported success without a valid repository commit SHA.")
+                if result.get("source"):
+                    status["downloadSource"] = str(result["source"])
+                status["installPhase"] = "git2-complete"
+                print(f"[git2] Verified native checkout at commit {sha} from {status.get('downloadSource', 'the selected mirror')}.", flush=True)
+                return sha
+
+            now = time.monotonic()
+            if now >= next_heartbeat:
+                elapsed = int(now - started)
+                phase = status.get("installPhase", "native-start")
+                print(f"[git2] {elapsed}s elapsed; phase={phase}; waiting for native progress/result.", flush=True)
+                next_heartbeat = now + INSTALL_HEARTBEAT_SECONDS
+            time.sleep(GIT_INSTALL_POLL_SECONDS)
+
+        raise RuntimeError(
+            f"Rust git2 installation timed out after {GIT_INSTALL_WAIT_SECONDS}s during "
+            f"{status.get('installPhase', 'native-start')}. Last progress: "
+            f"{(last_progress or {}).get('detail', 'the native installer did not acknowledge the request')}"
+        )
+    finally:
+        # Removing only our own request prevents a restored UI process from
+        # replaying a completed/failed transfer and lets the native worker cancel.
+        if _read_git_install_document(request_path, request_id) is not None:
+            request_path.unlink(missing_ok=True)
+
+
+# Refuses to start a multi-hundred-megabyte install that cannot fit.
+def _require_free_space(root):
+    probe = root if root.exists() else root.parent
+    try:
+        free = shutil.disk_usage(str(probe)).free
+    except OSError:
+        return
+    if free < MIN_FREE_BYTES:
+        raise RuntimeError(
+            "Not enough free storage for the BAAS backend: "
+            f"{free / 1048576:.0f} MiB available, at least {MIN_FREE_BYTES / 1048576:.0f} MiB required. "
+            "Free some space and restart the app."
+        )
 
 
 # Returns the bundled backend zip path if the APK contains one.
@@ -339,8 +722,10 @@ def _backend_is_git_managed(root):
 
 
 # Handles the replace backend files workflow.
-def _replace_backend_files(root, tmp_root):
-    preserved_names = {".app_storage.json", ".baas-updater", ".git", "config", "files", "setup.toml"}
+def _replace_backend_files(root, tmp_root, preserve_git=True):
+    preserved_names = {".app_storage.json", ".baas-updater", ".git", "config", "files", "setup.toml", STATUS_FILE}
+    if not preserve_git:
+        preserved_names.remove(".git")
     for path in root.iterdir():
         if path.name in preserved_names or path == tmp_root:
             continue
@@ -385,7 +770,7 @@ def _write_default_setup(root, channel):
         'mirrorc_cdk = ""\n'
         'no_update = false\n'
         'launch = true\n'
-        'git_backend = "auto"\n'
+        'git_backend = "git2"\n'
         'current_baas_sha = ""\n'
         'current_baas_cpp_sha = ""\n'
         'get_remote_sha_method = "github"\n'
@@ -405,52 +790,110 @@ def _write_default_setup(root, channel):
 
 
 # Handles the download backend archive workflow.
-def _download_backend_archive(target_root, channel):
+def _download_backend_archive(target_root, channel, root=None, status=None):
     repo = REPOSITORIES.get(channel, REPOSITORIES[DEFAULT_CHANNEL])
     owner = repo["owner"]
     name = repo["repo"]
     branch = repo["branch"]
-    print(f"[runtime] Resolving backend revision: {owner}/{name}@{branch}", flush=True)
+    print(f"[download] Resolving backend revision: {owner}/{name}@{branch} ({channel})", flush=True)
     remote_sha = _get_github_branch_sha(owner, name, branch)
     archive_ref = remote_sha or f"refs/heads/{branch}"
-    archive_url = f"https://codeload.github.com/{owner}/{name}/zip/{archive_ref}"
     target_root.parent.mkdir(parents=True, exist_ok=True)
-    for attempt in range(1, 4):
+    sources = _archive_sources(repo, archive_ref)
+    last_error = None
+    deadline = time.monotonic() + DOWNLOAD_DEADLINE_SECONDS
+    for label, archive_url in sources:
+        for attempt in range(1, SOURCE_ATTEMPTS + 1):
+            if time.monotonic() > deadline:
+                raise RuntimeError(
+                    f"Backend download exceeded {DOWNLOAD_DEADLINE_SECONDS}s across all sources; last error: {last_error}"
+                )
+            try:
+                print(f"[download] {label}: GET {archive_url} (attempt {attempt}/{SOURCE_ATTEMPTS})", flush=True)
+                if status is not None and root is not None:
+                    _set_step(root, status, "download", "running", f"{label}: attempt {attempt}")
+                _archive_into(archive_url, target_root, remote_sha, channel, label, root, status)
+                if status is not None:
+                    status["downloadSource"] = label
+                print(f"[download] {label}: download and verification completed", flush=True)
+                return remote_sha
+            except _UnusableArchive as error:
+                # A body that arrived but is not this repository's zip is not a
+                # transfer problem: retrying the same host cannot help, and
+                # another mirror may hold the same content under a bad URL.
+                last_error = error
+                print(f"[download] {label}: rejected ({error}); trying the next source", flush=True)
+                if status is not None and root is not None:
+                    _set_step(root, status, "download", "running", f"{label} rejected: {error}")
+                break
+            except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError,
+                    zipfile.BadZipFile, OSError) as error:
+                last_error = error
+                permanent = isinstance(error, urllib.error.HTTPError) and error.code not in (408, 429, 500, 502, 503, 504)
+                print(
+                    f"[download] {label}: {type(error).__name__}: {error}"
+                    + (" (not retryable)" if permanent else "; retrying"),
+                    flush=True,
+                )
+                if permanent:
+                    break
+                if attempt == SOURCE_ATTEMPTS:
+                    break
+                time.sleep(attempt)
+    raise RuntimeError(
+        "Backend download failed on every configured source. "
+        f"Last error: {last_error}. Check the device network, or select the other update channel."
+    )
+
+
+class _UnusableArchive(RuntimeError):
+    """A response arrived but its contents are not installable."""
+
+
+# Builds one ordered list of archive URLs, direct host first and mirrors after.
+def _archive_sources(repo, archive_ref):
+    owner = repo["owner"]
+    name = repo["repo"]
+    branch = repo["branch"]
+    codeload = f"https://codeload.github.com/{owner}/{name}/zip/{archive_ref}"
+    sources = [("codeload.github.com", codeload)]
+    for label, prefix in GITHUB_ARCHIVE_PROXIES:
+        sources.append((label, f"{prefix}{codeload}"))
+    for label, base in repo.get("mirrors", ()):
+        if label == "github":
+            sources.append((label, f"{base}/archive/refs/heads/{branch}.zip"))
+        elif label == "gitcode":
+            sources.append((label, f"{base}/-/archive/{branch}/{name}-{branch}.zip"))
+        elif label == "cnb":
+            sources.append((label, f"{base}/-/archive/{branch}.zip"))
+        else:
+            sources.append((label, f"{base}/repository/archive/{branch}.zip"))
+    return sources
+
+
+# Downloads one archive, validates it is the BAAS backend, then installs it.
+def _archive_into(archive_url, target_root, remote_sha, channel, label, root, status):
+    with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
+        archive_path = Path(tmp_dir) / "repo.zip"
+        downloaded = _stream_download(archive_url, archive_path, root, status, label)
         try:
-            with tempfile.TemporaryDirectory(dir=str(target_root.parent)) as tmp_dir:
-                archive_path = Path(tmp_dir) / "repo.zip"
-                print(f"[runtime] GET {archive_url} (attempt {attempt}/3)", flush=True)
-                with urllib.request.urlopen(archive_url, timeout=90) as response, archive_path.open("wb") as output:
-                    downloaded = 0
-                    last_report = time.monotonic()
-                    while True:
-                        chunk = response.read(256 * 1024)
-                        if not chunk:
-                            break
-                        output.write(chunk)
-                        downloaded += len(chunk)
-                        if time.monotonic() - last_report >= 1:
-                            print(f"[runtime] Downloaded {downloaded / 1048576:.1f} MiB", flush=True)
-                            last_report = time.monotonic()
-                with zipfile.ZipFile(archive_path) as archive:
-                    if archive.testzip() is not None:
-                        raise zipfile.BadZipFile("Downloaded backend failed ZIP CRC verification")
-                    print(f"[runtime] Download complete: {downloaded} bytes; extracting backend", flush=True)
-                    archive.extractall(tmp_dir)
-                candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
-                source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
-                if source_root is None:
-                    raise RuntimeError("Downloaded BAAS backend archive does not contain main.service.py")
-                shutil.copytree(source_root, target_root)
-            break
-        except (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError,
-                zipfile.BadZipFile) as error:
-            if isinstance(error, urllib.error.HTTPError) and error.code not in (408, 429, 500, 502, 503, 504):
-                raise
-            if attempt == 3:
-                raise
-            print(f"[runtime] Backend download interrupted ({type(error).__name__}); retrying", flush=True)
-            time.sleep(attempt)
+            with zipfile.ZipFile(archive_path) as archive:
+                names = archive.namelist()
+                if not any(name.endswith("/main.service.py") or name == "main.service.py" for name in names):
+                    raise _UnusableArchive("archive does not contain main.service.py")
+                if archive.testzip() is not None:
+                    raise zipfile.BadZipFile("Downloaded backend failed ZIP CRC verification")
+                print(f"[download] {label}: {downloaded} bytes verified as the BAAS backend", flush=True)
+                _safe_extract(archive, tmp_dir)
+        except zipfile.BadZipFile:
+            raise
+        candidates = [path for path in Path(tmp_dir).iterdir() if path.is_dir()]
+        source_root = next((path for path in candidates if (path / "main.service.py").exists()), None)
+        if source_root is None:
+            raise _UnusableArchive("archive does not contain main.service.py")
+        if target_root.exists():
+            shutil.rmtree(target_root, ignore_errors=True)
+        shutil.copytree(source_root, target_root)
     if remote_sha:
         _write_installed_backend_sha(target_root / "setup.toml", remote_sha, channel)
     (target_root / "android-backend-source.json").write_text(
@@ -466,29 +909,92 @@ def _download_backend_archive(target_root, channel):
         ),
         encoding="utf-8",
     )
-    return remote_sha
+
+
+# Streams a response to disk, reporting real byte progress to the status file.
+def _stream_download(archive_url, archive_path, root, status, label):
+    with urllib.request.urlopen(archive_url, timeout=SOURCE_TIMEOUT_SECONDS) as response, archive_path.open("wb") as output:
+        expected = response.headers.get("Content-Length") if hasattr(response, "headers") else None
+        downloaded = 0
+        last_report = time.monotonic()
+        while True:
+            chunk = response.read(256 * 1024)
+            if not chunk:
+                break
+            output.write(chunk)
+            downloaded += len(chunk)
+            if downloaded > MAX_ARCHIVE_BYTES:
+                raise _UnusableArchive(f"archive exceeded {MAX_ARCHIVE_BYTES // 1048576} MiB")
+            if time.monotonic() - last_report >= 1:
+                print(f"[download] {label}: {downloaded / 1048576:.1f} MiB received", flush=True)
+                if status is not None and root is not None:
+                    detail = f"{label}: {downloaded / 1048576:.1f} MiB"
+                    if expected:
+                        detail += f" / {int(expected) / 1048576:.1f} MiB"
+                    _set_step(root, status, "download", "running", detail)
+                last_report = time.monotonic()
+    head = archive_path.read_bytes()[:4]
+    if head != ARCHIVE_MAGIC:
+        raise _UnusableArchive(f"response is not a ZIP archive (starts with {head!r})")
+    return downloaded
+
+
+# Extracts only regular files that stay inside the destination directory.
+def _safe_extract(archive, destination):
+    destination = Path(destination).resolve()
+    for member in archive.infolist():
+        name = member.filename
+        target = (destination / name).resolve()
+        if target != destination and destination not in target.parents:
+            raise _UnusableArchive(f"archive member escapes the install directory: {name}")
+        if name.startswith("/") or ".." in Path(name).parts:
+            raise _UnusableArchive(f"archive member has an unsafe path: {name}")
+        mode = (member.external_attr >> 16) & 0o170000
+        if mode == 0o120000:
+            raise _UnusableArchive(f"archive member is a symbolic link: {name}")
+    archive.extractall(destination)
 
 
 # Handles the get github branch sha workflow.
 def _get_github_branch_sha(owner, name, branch):
     api_url = f"https://api.github.com/repos/{owner}/{name}/branches/{branch}"
-    try:
-        request = urllib.request.Request(
-            api_url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "BAAS-Tauri-Android",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        with urllib.request.urlopen(request, timeout=20) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        sha = payload.get("commit", {}).get("sha")
-        if sha:
-            return str(sha)
-    except Exception:
-        pass
+    for prefix in [""] + [prefix for _, prefix in GITHUB_ARCHIVE_PROXIES]:
+        try:
+            request = urllib.request.Request(
+                f"{prefix}{api_url}",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "BAAS-Tauri-Android",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=15) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            sha = payload.get("commit", {}).get("sha")
+            if sha:
+                return str(sha)
+        except Exception:
+            continue
     return _get_git_smart_http_branch_sha(owner, name, branch)
+
+
+# Handles the get git smart http branch sha workflow.
+def _get_git_smart_http_branch_sha(owner, name, branch):
+    refs_url = f"https://github.com/{owner}/{name}.git/info/refs?service=git-upload-pack"
+    try:
+        request = urllib.request.Request(refs_url, headers={"User-Agent": "git/2.0"})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            text = response.read().decode("utf-8", errors="replace")
+        ref_name = f"refs/heads/{branch}"
+        for line in text.splitlines():
+            if ref_name in line:
+                start = 4 if len(line) > 44 else 0
+                sha = line[start:start + 40]
+                if len(sha) == 40 and all(ch in "0123456789abcdef" for ch in sha.lower()):
+                    return sha
+    except Exception:
+        return ""
+    return ""
 
 
 # Handles the get git smart http branch sha workflow.
@@ -552,6 +1058,7 @@ def _ensure_android_support_files(root):
     _patch_scrcpy_virtual_display(root)
     _patch_android_scrcpy_mediacodec(root)
     _patch_android_scrcpy_config_manager(root)
+    _patch_android_template_profile_filter(root)
     _patch_android_scrcpy_service_injection(root)
     _patch_android_virtual_display_loading_detection(root)
     _write_android_runtime_injection(root)
@@ -572,6 +1079,59 @@ def _ensure_android_support_files(root):
     _write_desktop_only_stub(root, "pyautogui")
     _write_desktop_only_stub(root, "mss")
     cache.write_text(json.dumps(_android_support_fingerprint(root)), encoding="utf-8")
+
+
+def _patch_android_template_profile_filter(root):
+    """Keep the reserved template on disk without advertising it as a user profile."""
+    patches = (
+        ("service/conf/manager.py", (
+            ("BAAS_ANDROID_TEMPLATE_PROFILE_LIST_V1",
+             "        for child in self._config_root.iterdir():\n",
+             "        for child in self._config_root.iterdir():\n"
+             "            # BAAS_ANDROID_TEMPLATE_PROFILE_LIST_V1\n"
+             "            if child.name == 'default_config':\n"
+             "                continue\n"),
+            ("BAAS_ANDROID_TEMPLATE_PROFILE_WATCH_V1",
+             "        if not relative_parts:\n"
+             "            return True, None\n",
+             "        if not relative_parts:\n"
+             "            return True, None\n\n"
+             "        # BAAS_ANDROID_TEMPLATE_PROFILE_WATCH_V1\n"
+             "        if relative_parts[0] == 'default_config':\n"
+             "            return False, None\n"),
+        )),
+        ("service/runtime.py", (
+            ("BAAS_ANDROID_TEMPLATE_RUNTIME_LIST_V1",
+             "        for child in config_root.iterdir():\n",
+             "        for child in config_root.iterdir():\n"
+             "            # BAAS_ANDROID_TEMPLATE_RUNTIME_LIST_V1\n"
+             "            if child.name == 'default_config':\n"
+             "                continue\n"),
+        )),
+    )
+    updates = []
+    for relative, replacements in patches:
+        path = root / relative
+        if not path.exists():
+            continue
+        original = path.read_text(encoding="utf-8")
+        text = original.replace("\r\n", "\n")
+        for marker, needle, replacement in replacements:
+            if marker in text:
+                continue
+            if text.count(needle) != 1:
+                raise RuntimeError(
+                    "Unsupported Android backend revision: Cannot safely filter template profiles in "
+                    + relative
+                )
+            text = text.replace(needle, replacement, 1)
+        compile(text, str(path), "exec")
+        if "\r\n" in original:
+            text = text.replace("\n", "\r\n")
+        if text != original:
+            updates.append((path, text))
+    for path, text in updates:
+        path.write_text(text, encoding="utf-8")
 
 
 def _patch_android_game_resource_update(root):
@@ -653,7 +1213,12 @@ def _patch_android_inventory_full(root):
         next_text = text.replace("\r\n", "\n")
         for needle, replacement in replacements:
             if next_text.count(needle) != 1:
-                raise RuntimeError("Cannot safely install Android inventory-full guard in " + relative)
+                raise RuntimeError(
+                    "Unsupported Android backend revision: Cannot safely install Android inventory-full guard in "
+                    + relative
+                    + ". Its task/loading structure does not match this Android runtime; "
+                    "retry with an up-to-date mirror."
+                )
             next_text = next_text.replace(needle, replacement, 1)
         compile(next_text, str(path), "exec")
         if "\r\n" in text:
@@ -3194,6 +3759,25 @@ def _service_path(root):
     return root / "main.service.py"
 
 
+# Confirms the service really accepts connections before reporting the step done.
+def _report_service_ready(root, port):
+    status = _read_status(root, {})
+
+    def probe():
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", int(port)), timeout=0.5):
+                    _set_step(root, status, "service", "done", f"Listening on 127.0.0.1:{port}")
+                    print(f"[service] Backend listening on 127.0.0.1:{port}", flush=True)
+                    return
+            except OSError:
+                time.sleep(0.25)
+        _set_step(root, status, "service", "failed", f"Port {port} did not accept connections within 60s")
+
+    threading.Thread(target=probe, name="baas-service-ready", daemon=True).start()
+
+
 # Handles the run baas service workflow.
 def _run_baas_service(root, port):
     global _SERVER
@@ -3247,6 +3831,7 @@ def _run_baas_service(root, port):
         with _SERVER_LOCK:
             _SERVER = server
         (root / ".pid").write_text(str(os.getpid()), encoding="utf-8")
+        _report_service_ready(root, port)
         server.run()
     finally:
         with _SERVER_LOCK:
@@ -3408,8 +3993,17 @@ def _build_baas_asgi_app(root, port):
 
 # Handles the write status workflow.
 def _write_status(root, status):
-    root.mkdir(parents=True, exist_ok=True)
-    (root / STATUS_FILE).write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Progress polling and the service-ready thread must publish a complete
+    # document. Truncating the visible file made frontend reads briefly empty.
+    with _STATUS_WRITE_LOCK:
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / STATUS_FILE
+        temporary = path.with_name(path.name + ".tmp")
+        try:
+            temporary.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(str(temporary), str(path))
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 # Handles the read status workflow.

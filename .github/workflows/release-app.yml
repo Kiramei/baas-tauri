@@ -5,7 +5,8 @@ name: Release App
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "[0-9]*.[0-9]*.[0-9]*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: write
@@ -46,7 +47,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '.rc') }}
         run: |
           set -euo pipefail
 
@@ -162,7 +163,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ github.ref_name }}" -replace '^v', ''
           $arch = "${{ matrix.dist_arch }}"
           $src = "target\${{ matrix.target }}\release\bundle\nsis"
           $dst = "release-assets"
@@ -315,7 +316,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -490,7 +491,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -611,7 +612,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -677,7 +678,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ github.ref_name }}" -replace '^v', ''
           $arch = "${{ matrix.arch }}"
           $src = "target\${{ matrix.target }}\release\bundle\nsis"
           $dst = "release-assets"
@@ -718,7 +719,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
           files: release-assets/*
 
@@ -733,7 +734,7 @@ jobs:
           body: "Draft release, will be updated later."
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '.rc') }}
           overwrite_files: true
           files: BAAS.Tauri_*_${{ matrix.arch }}_fixed_webview2_portable.zip
 
@@ -815,7 +816,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
+          PRERELEASE: ${{ contains(github.ref_name, '.rc') }}
+          MAKE_LATEST: ${{ contains(github.ref_name, '.rc') && 'false' || 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -842,10 +844,10 @@ jobs:
             -F body=@release.txt \
             -F draft=false \
             -F prerelease="$PRERELEASE" \
+            -f make_latest="$MAKE_LATEST" \
             --silent
 
   release-update:
-    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Publish updater manifests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -865,12 +867,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish fixed WebView2 updater manifest
+        if: ${{ !contains(github.ref_name, '.rc') }}
         run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   sync-to-cnb-release:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '.rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
     timeout-minutes: 260
@@ -894,7 +897,7 @@ jobs:
           wait-timeout-minutes: "240"
           poll-interval-seconds: "60"
           minimum-assets: "1"
-          make-latest: legacy
+          make-latest: "true"
           sync-tag: "true"
           upload-assets: "true"
           overwrite-assets: "true"
@@ -910,13 +913,14 @@ jobs:
           wait-timeout-minutes: "240"
           poll-interval-seconds: "60"
           minimum-assets: "1"
-          make-latest: legacy
+          make-latest: "false"
           sync-tag: "true"
           upload-assets: "true"
           overwrite-assets: "true"
 
   submit-to-winget:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+    # Do not submit 0.x previews or release candidates to Winget.
+    if: ${{ !startsWith(github.ref_name, '0.') && !startsWith(github.ref_name, 'v0.') && !contains(github.ref_name, '.rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -932,7 +936,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(node -pe 'require("./package.json").version')"
+          VERSION="$(node -pe '(require("./package.json").releaseVersion ?? require("./package.json").version)')"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Check Winget package registration
@@ -968,6 +972,6 @@ jobs:
         with:
           identifier: Kiramei.BAASTauri
           version: ${{ env.VERSION }}
-          release-tag: v${{ env.VERSION }}
+          release-tag: ${{ github.ref_name }}
           installers-regex: '_(arm64|x64)-setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}

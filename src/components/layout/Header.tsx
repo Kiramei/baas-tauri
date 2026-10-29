@@ -31,7 +31,11 @@ import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
 import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
-import { reconcileProfileTabs, type ProfileTab as Tab } from "@/shared/ProfileTabs";
+import {
+  reconcileProfileTabs,
+  userProfileTabs,
+  type ProfileTab as Tab,
+} from "@/shared/ProfileTabs";
 
 const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -45,7 +49,9 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   const { activeProfile, setActiveProfile } = useApp();
   const profileActions = useProfileActionsController();
   const canManageProfiles = useWebSocketStore(
-    (state) => state._auth_phase === "authenticated" && state._all_data_initialized
+    (state) =>
+      state._auth_phase === "authenticated" &&
+      (__WITH_ANDROID__ ? state._android_ui_ready : state._all_data_initialized)
   );
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const [desktop, setDesktop] = React.useState(
@@ -65,13 +71,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
 
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
-      Object.entries(state.configStore).map(([id, config]: [string, any]) =>
-        JSON.stringify([
-          id,
-          profileDisplayName(String(config.name ?? "")),
-          String(config.server ?? ""),
-        ])
-      )
+      userProfileTabs(state.configStore).map((profile) => JSON.stringify(profile))
     )
   );
   const modify = useWebSocketStore((s) => s.modify);
@@ -128,7 +128,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     tabsRef.current = list;
     setTabs(list);
     const exists = list.find((p) => p.id === activeProfile?.id);
-    const nextActive = exists ?? list[0];
+    const nextActive = exists ?? list[0] ?? null;
     setActiveProfile(nextActive);
     (async () => {
       setTimeout(() => {

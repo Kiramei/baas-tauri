@@ -35,6 +35,12 @@ ${StrLoc}
 !define PRODUCTNAME "{{product_name}}"
 !define VERSION "{{version}}"
 !define VERSIONWITHBUILD "{{version_with_build}}"
+!ifndef BAAS_RELEASE_VERSION
+!define BAAS_RELEASE_VERSION "${VERSION}"
+!endif
+!ifndef BAAS_PLATFORM_VERSION
+!define BAAS_PLATFORM_VERSION "${VERSIONWITHBUILD}"
+!endif
 !define HOMEPAGE "{{homepage}}"
 !define INSTALLMODE "{{install_mode}}"
 !define LICENSE "{{license}}"
@@ -79,12 +85,12 @@ OutFile "${OUTFILE}"
 !define PLACEHOLDER_INSTALL_DIR "placeholder\${PRODUCTNAME}"
 InstallDir "${PLACEHOLDER_INSTALL_DIR}"
 
-VIProductVersion "${VERSIONWITHBUILD}"
+VIProductVersion "${BAAS_PLATFORM_VERSION}"
 VIAddVersionKey "ProductName" "${PRODUCTNAME}"
 VIAddVersionKey "FileDescription" "${PRODUCTNAME}"
 VIAddVersionKey "LegalCopyright" "${COPYRIGHT}"
-VIAddVersionKey "FileVersion" "${VERSION}"
-VIAddVersionKey "ProductVersion" "${VERSION}"
+VIAddVersionKey "FileVersion" "${BAAS_RELEASE_VERSION}"
+VIAddVersionKey "ProductVersion" "${BAAS_RELEASE_VERSION}"
 
 # additional plugins
 !addplugindir "${ADDITIONALPLUGINSPATH}"
@@ -204,7 +210,10 @@ Function PageReinstall
   ${If} $WixMode = 1
     ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
   ${Else}
-    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "BAASInternalVersion"
+    ${If} $R0 == ""
+      ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+    ${EndIf}
   ${EndIf}
   ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
 
@@ -678,7 +687,8 @@ Section Install
   ; Registry information for add/remove programs
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${BAAS_RELEASE_VERSION}"
+  WriteRegStr SHCTX "${UNINSTKEY}" "BAASInternalVersion" "${VERSION}"
   WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
   WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
   WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
