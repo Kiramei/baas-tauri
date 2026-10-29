@@ -1,6 +1,7 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseReleaseVersion } from "../src/shared/ReleaseVersion.mjs";
 
 // Only public version release notes are shipped. No assets, credentials or Git objects.
 const repository = "Kiramei/baas-tauri";
@@ -47,13 +48,13 @@ for (let page = 1; page <= 5; page++) {
   if (!Array.isArray(rows) || rows.length > 100)
     throw new Error("Invalid release history response");
   for (const row of rows) {
-    if (
-      !row ||
-      row.draft ||
-      typeof row.tag_name !== "string" ||
-      !/^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(row.tag_name)
-    )
+    if (!row || row.draft || typeof row.tag_name !== "string")
       continue;
+    // Reject oversized release metadata before stricter version parsing can
+    // discard an unsupported historical suffix as a non-version tag.
+    if (row.tag_name.length > 128 && /^v?\d+\.\d+\.\d+(?:[.+-]|$)/.test(row.tag_name))
+      throw new Error("Invalid version release metadata");
+    if (!parseReleaseVersion(row.tag_name, { allowLegacy: true })) continue;
     if (seen.has(row.tag_name)) continue;
     const name = typeof row.name === "string" && row.name ? row.name : row.tag_name;
     const body = typeof row.body === "string" ? row.body : "";

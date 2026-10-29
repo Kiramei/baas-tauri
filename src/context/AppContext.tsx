@@ -2,7 +2,7 @@ import React, { createContext, ReactNode, useContext, useEffect, useMemo, useSta
 import type { ConfigProfileSummary } from "@/types/app";
 import { GlobalSelectProvider } from "@/components/ui/SelectGlobal";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
-import { profileDisplayName } from "@/shared/ProfileName";
+import { userProfileTabs, type ProfileTab } from "@/shared/ProfileTabs";
 import { useShallow } from "zustand/react/shallow";
 
 import StorageUtil from "@/shared/StorageManager.ts";
@@ -28,15 +28,13 @@ export const AppProvider: React.FC<{ children: ReactNode; setReady: (value: bool
   const initiating = useWebSocketStore((s) => s._initiating);
   const profileEntries = useWebSocketStore(
     useShallow((state) =>
-      Object.entries(state.configStore).map(([id, config]: [string, any]) =>
-        JSON.stringify([id, profileDisplayName(String(config.name ?? ""))])
-      )
+      userProfileTabs(state.configStore).map((profile) => JSON.stringify(profile))
     )
   );
   const unsortedProfiles = useMemo<ConfigProfileSummary[]>(
     () =>
       profileEntries.map((entry) => {
-        const [id, name] = JSON.parse(entry) as [string, string];
+        const { id, name } = JSON.parse(entry) as ProfileTab;
         return { id, name };
       }),
     [profileEntries]

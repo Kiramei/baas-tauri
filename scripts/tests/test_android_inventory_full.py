@@ -434,6 +434,28 @@ class AndroidInventoryFullTest(unittest.TestCase):
             self.assertFalse(instance.flag_run)
             self.assertFalse(instance.logger.warning.called)
 
+    def test_old_gitcode_round_end_without_false_return_is_rejected_without_partial_patches(self):
+        bootstrap = load("bootstrap")
+        # GitCode's stale 31194a6f revision has a bare return in this exception
+        # boundary; canonical 5658a048 propagates an explicit False to its caller.
+        old_thread = THREAD.replace("            return False\n", "            return\n", 1)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "core").mkdir()
+            sources = {"picture": PICTURE, "color": COLOR, "Baas_thread": old_thread}
+            for name, source in sources.items():
+                (root / "core" / (name + ".py")).write_text(source)
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Unsupported Android backend revision: Cannot safely install .*core/Baas_thread.py",
+            ):
+                bootstrap._patch_android_inventory_full(root)
+            self.assertEqual(
+                sources,
+                {name: (root / "core" / (name + ".py")).read_text() for name in sources},
+                "a rejected compatibility boundary must not publish any of the three patches",
+            )
+
     def test_wait_loading_detects_a_notice_that_arrives_inside_its_loop(self):
         bootstrap = load("bootstrap")
         guard = load("inventory_full")

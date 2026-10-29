@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useGlobalLogStore } from "@/store/GlobalLogStore";
 import { formatIsoToReadableTime } from "@/shared/GlobalUtilities.ts";
-import { useTheme } from "@/context/ThemeProvider.tsx";
 import { resolveHttpBase, useWebSocketStore } from "@/store/WebsocketStore";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
@@ -81,7 +80,6 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
   const initiating = useWebSocketStore((state) => state._initiating);
   const startAuthFlow = useWebSocketStore((state) => state.startAuthFlow);
   const submitPassword = useWebSocketStore((state) => state.submitPassword);
-  const { theme } = useTheme();
 
   useEffect(() => {
     if (!__WITH_ANDROID__) return;
@@ -153,7 +151,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
     return (
       <React.Suspense fallback={null}>
         <StartupShellHandoff>
-          <AndroidInstallStepper text={androidStartupLogChunk} theme={theme} />
+          <AndroidInstallStepper text={androidStartupLogChunk} />
         </StartupShellHandoff>
       </React.Suspense>
     );
@@ -204,7 +202,6 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ message = "Loading..." }) => 
               {androidTerminalReady ? (
                 <AndroidStartupTerminal
                   text={androidStartupLogChunk || "Waiting for backend startup logs..."}
-                  theme={theme}
                 />
               ) : (
                 <pre className="h-full w-full overflow-hidden whitespace-pre-wrap p-4 font-mono text-xs leading-5 text-muted-foreground">

@@ -1,3 +1,5 @@
+import { parseReleaseVersion } from "./ReleaseVersion.mjs";
+
 export interface ClientRelease {
   tag: string;
   name: string;
@@ -22,7 +24,7 @@ export interface ClientReleaseResult {
 
 const repository = "Kiramei/baas-tauri";
 const cacheKey = "baas.clientReleaseHistory.v1";
-const versionTag = /^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const isVersionTag = (value: string) => parseReleaseVersion(value, { allowLegacy: true }) !== null;
 const maxPages = 5;
 const pageSize = 100;
 export const CLIENT_RELEASE_HISTORY_MAX_BYTES = 2 * 1024 * 1024;
@@ -41,7 +43,7 @@ function validRelease(value: unknown): value is ClientRelease {
   if (!record(value)) return false;
   return (
     typeof value.tag === "string" &&
-    versionTag.test(value.tag) &&
+    isVersionTag(value.tag) &&
     value.tag.length <= 128 &&
     typeof value.name === "string" &&
     value.name.length <= 512 &&
@@ -108,10 +110,10 @@ export function saveClientReleaseCache(
 
 /** UPDATE.md supplements the current version only; it is not the entire release history. */
 export function currentClientRelease(markdown: string): ClientReleaseSnapshot {
-  const heading = /^## (v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/m.exec(markdown);
+  const heading = [...markdown.matchAll(/^## (\S+)\s*$/gm)].find((match) => isVersionTag(match[1]));
   if (!heading) return snapshot([], false);
   const remainder = markdown.slice(heading.index + heading[0].length).trim();
-  const nextVersion = /^## v\d+\.\d+\.\d+/m.exec(remainder);
+  const nextVersion = [...remainder.matchAll(/^## (\S+)\s*$/gm)].find((match) => isVersionTag(match[1]));
   return snapshot(
     [
       {
@@ -242,7 +244,7 @@ export async function loadClientReleaseHistory(
         throw new Error("Invalid release notes response");
       for (const value of values) {
         if (!record(value) || value.draft === true || typeof value.tag_name !== "string") continue;
-        if (!versionTag.test(value.tag_name) || tags.has(value.tag_name)) continue;
+        if (!isVersionTag(value.tag_name) || tags.has(value.tag_name)) continue;
         const release = {
           tag: value.tag_name,
           name: typeof value.name === "string" && value.name ? value.name : value.tag_name,

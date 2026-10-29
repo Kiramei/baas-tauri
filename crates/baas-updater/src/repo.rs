@@ -1907,6 +1907,7 @@ mod tests {
     struct LocalGitDaemon {
         child: std::process::Child,
         url: String,
+        log: PathBuf,
     }
 
     impl Drop for LocalGitDaemon {
@@ -1924,6 +1925,11 @@ mod tests {
             }
             let _ = self.child.kill();
             let _ = self.child.wait();
+            if let Ok(log) = fs::read_to_string(&self.log) {
+                if !log.is_empty() {
+                    eprintln!("Local Git daemon output:\n{log}");
+                }
+            }
         }
     }
 
@@ -1932,12 +1938,14 @@ mod tests {
             let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
             let port = listener.local_addr().unwrap().port();
             drop(listener);
+            let log = root.join("git-daemon.log");
             let mut command = Command::new("git");
             hide_command_window(&mut command);
             configure_git_cli_command(&mut command);
             let child = command
                 .args([
                     "daemon",
+                    "--verbose",
                     "--reuseaddr",
                     "--export-all",
                     "--listen=127.0.0.1",
@@ -1945,12 +1953,13 @@ mod tests {
                     &format!("--base-path={}", root.display()),
                 ])
                 .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
+                .stderr(fs::File::create(&log).unwrap())
                 .spawn()
                 .unwrap();
             let daemon = Self {
                 child,
                 url: format!("git://127.0.0.1:{port}/mirror"),
+                log,
             };
             let started = Instant::now();
             while std::net::TcpStream::connect(("127.0.0.1", port)).is_err() {

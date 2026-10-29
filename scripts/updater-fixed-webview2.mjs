@@ -1,6 +1,11 @@
 import { context, getOctokit } from "@actions/github";
 
 import { resolveUpdateLog, resolveUpdateLogDefault } from "./update-log.mjs";
+import {
+  listPublishedReleases,
+  releaseFeedVersion,
+  selectPublishedReleases,
+} from "./release-feed.mjs";
 
 const UPDATE_TAG_NAME = "updater";
 const UPDATE_JSON_FILE = "update-fixed-webview2.json";
@@ -17,48 +22,19 @@ async function resolveUpdater() {
   const options = { owner: context.repo.owner, repo: context.repo.repo };
   const github = getOctokit(process.env.GITHUB_TOKEN);
 
-  let allTags = [];
-  let page = 1;
-  const perPage = 100;
-
-  while (true) {
-    const { data: pageTags } = await github.rest.repos.listTags({
-      ...options,
-      per_page: perPage,
-      page,
-    });
-
-    allTags = allTags.concat(pageTags);
-
-    if (pageTags.length < perPage) {
-      break;
-    }
-
-    page++;
-  }
-
-  // Get the latest stable publish tag only.
-  const stableTagRegex = /^v\d+\.\d+\.\d+$/;
-  const tag = allTags.find((t) => stableTagRegex.test(t.name));
-
-  if (!tag) {
+  const releases = await listPublishedReleases(github, options);
+  const latestRelease = selectPublishedReleases(releases).stable;
+  if (!latestRelease) {
     throw new Error("No stable release tag found.");
   }
-
-  console.log(tag);
-  console.log();
-
-  const { data: latestRelease } = await github.rest.repos.getReleaseByTag({
-    ...options,
-    tag: tag.name,
-  });
+  const tag = { name: latestRelease.tag_name };
 
   const updateData = {
-    name: tag.name,
+    ...releaseFeedVersion(tag.name),
     notes: await resolveUpdateLog(tag.name).catch(() =>
       resolveUpdateLogDefault().catch(() => "No changelog available")
     ),
-    pub_date: new Date().toISOString(),
+    pub_date: latestRelease.published_at ?? new Date().toISOString(),
     platforms: {
       "windows-x86_64": { signature: "", url: "" },
       "windows-aarch64": { signature: "", url: "" },
