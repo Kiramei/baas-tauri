@@ -1,3 +1,25 @@
+## 0.0.9.post1
+
+> Stable maintenance release focused on Android first-run setup, plugin execution, and release version handling.
+
+### Improvements
+
+1. Added Android first-run update channel selection and more resilient backend installation, with clearer installation progress and startup logs.
+2. Improved profile initialization, configuration navigation, plugin settings, and localization across the client.
+3. Standardized public release versions and native package version ordering across Android, Windows, macOS, and updater feeds.
+
+### Fixes
+
+1. Restored Android first-run installation and native plugin execution, including backend download and Git installation recovery.
+2. Improved Android backend lifecycle handling, profile templates, and startup diagnostics.
+3. Added regression coverage for installation, version ordering, release workflows, and profile initialization.
+
+### Upgrade Notes
+
+- This is a stable post release. Back up important profiles before upgrading.
+- Android retains the existing release signing identity.
+- Winget publication is skipped for 0.x releases.
+
 ## v0.0.9
 
 > Stable release with cross-platform plugins, authenticated WebUI operations, backend and client history, expanded configuration coverage, native desktop transports, and a substantially upgraded Android client.

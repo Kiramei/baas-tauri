@@ -1,6 +1,6 @@
 {
   "name": "baas-tauri",
-  "version": "0.0.9",
+  "version": "0.0.10-0.post.1",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -96,5 +96,6 @@
     "typescript-eslint": "^8.59.1",
     "vite": "8.0.5",
     "vite-plugin-compression": "^0.5.1"
-  }
+  },
+  "releaseVersion": "0.0.9.post1"
 }

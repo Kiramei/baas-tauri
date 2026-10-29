@@ -1,6 +1,6 @@
 [package]
 name = "baas-term"
-version = "0.0.9"
+version = "0.0.10-0.post.1"
 edition = "2024"
 readme = "README.md"
 description = "Package used for baas-updater terminal display"
