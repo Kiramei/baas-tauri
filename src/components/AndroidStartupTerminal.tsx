@@ -6,11 +6,10 @@ import { observeResizeOnAnimationFrame } from "@/shared/AnimationFrameResizeObse
 
 interface AndroidStartupTerminalProps {
   text: string;
-  theme: string;
 }
 
 /** Renders the Android startup log with xterm after the first loading paint. */
-const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, theme }) => {
+const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text }) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -20,7 +19,6 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, t
   useEffect(() => {
     if (!hostRef.current) return;
 
-    const isLight = theme === "light";
     const term = new Terminal({
       allowProposedApi: false,
       convertEol: true,
@@ -30,10 +28,10 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, t
       lineHeight: 1.18,
       scrollback: 160,
       theme: {
-        background: "#00000000",
-        foreground: isLight ? "#334155" : "#dbe7f3",
+        background: "#0b1220",
+        foreground: "#dbe7f3",
         cursor: "transparent",
-        selectionBackground: isLight ? "#cbd5e1" : "#38506b",
+        selectionBackground: "#38506b",
       },
     });
     const fit = new FitAddon();
@@ -67,18 +65,6 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, t
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
-    const isLight = theme === "light";
-    term.options.theme = {
-      background: "#00000000",
-      foreground: isLight ? "#334155" : "#dbe7f3",
-      cursor: "transparent",
-      selectionBackground: isLight ? "#cbd5e1" : "#38506b",
-    };
-  }, [theme]);
-
-  useEffect(() => {
-    const term = termRef.current;
-    if (!term) return;
     if (text.length < writtenLengthRef.current || !text.startsWith(previousTextRef.current)) {
       term.reset();
       term.clear();
@@ -92,7 +78,13 @@ const AndroidStartupTerminal: React.FC<AndroidStartupTerminalProps> = ({ text, t
     term.scrollToBottom();
   }, [text]);
 
-  return <div ref={hostRef} className="terminal-host h-full w-full" />;
+  return (
+    <div
+      ref={hostRef}
+      data-android-startup-terminal
+      className="terminal-host h-full w-full bg-[#0b1220]"
+    />
+  );
 };
 
 export default AndroidStartupTerminal;

@@ -11,6 +11,7 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "nsis": {
+        "installerHooks": "./packages/windows/release-version.nsh",
         "displayLanguageSelector": true,
         "languages": [
           "SimpChinese",

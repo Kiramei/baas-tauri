@@ -8,6 +8,8 @@ commands.allow = [
   "set_minimize_to_tray",
   "updater_get_storage_state",
   "updater_get_startup_state",
+  "updater_select_channel",
+  "updater_restart_backend",
   "updater_path_exists_non_empty",
   "updater_update_config",
   "updater_validate_mirrorc_cdk",

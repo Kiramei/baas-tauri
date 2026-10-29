@@ -9,7 +9,7 @@ inputs:
     description: CNB access token with repo-code read/write permissions.
     required: true
   tag-name:
-    description: Release tag to sync. Defaults to the current tag ref, then package.json version, then the latest GitHub release.
+    description: Release tag to sync. Defaults to the current tag ref, then package.json releaseVersion/version, then the latest GitHub release. Explicit historical tags remain supported.
     required: false
     default: ""
   cnb-repo-slug:
@@ -132,9 +132,20 @@ runs:
         fi
 
         if [ -z "$tag" ] && [ -f package.json ]; then
-          version="$(jq -r '.version // empty' package.json)"
+          version="$(jq -r '.releaseVersion // .version // empty' package.json)"
           if [ -n "$version" ]; then
-            tag="v${version}"
+            # New metadata stores the canonical version. Reuse either existing
+            # spelling so syncing never renames a historical release tag.
+            canonical_ref="refs/tags/${version}"
+            prefixed_ref="refs/tags/v${version}"
+            refs="$(git ls-remote --tags origin "$canonical_ref" "$prefixed_ref")"
+            if awk -v target="$canonical_ref" '$2 == target { found = 1 } END { exit !found }' <<< "$refs"; then
+              tag="$version"
+            elif awk -v target="$prefixed_ref" '$2 == target { found = 1 } END { exit !found }' <<< "$refs"; then
+              tag="v${version}"
+            else
+              tag="$version"
+            fi
           fi
         fi
 
@@ -147,7 +158,7 @@ runs:
           exit 1
         fi
 
-        git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+        git fetch origin "refs/tags/${tag}:refs/tags/${tag}"
         target_commit="$(git rev-list -n 1 "$tag")"
 
         {
@@ -250,7 +261,7 @@ runs:
         chmod 700 "$askpass"
 
         GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-          git push --force "$cnb_repo_url" "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          git push "$cnb_repo_url" "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
 
     - name: Create or update CNB release
       id: cnb-release

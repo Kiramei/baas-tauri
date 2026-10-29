@@ -1,3 +1,4 @@
+use crate::client_version::display_version;
 use crate::pipe_commands::BackendPipeManager;
 use crate::shm_commands::BackendShmManager;
 use crate::system_logs::system_log;
@@ -778,7 +779,8 @@ pub async fn tauri_client_check_update(
     let current_version = request
         .current_version
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| app.package_info().version.to_string());
+        .map(|value| display_version(&value))
+        .unwrap_or_else(|| display_version(&app.package_info().version.to_string()));
     let endpoints = TAURI_UPDATE_ENDPOINTS
         .iter()
         .map(|endpoint| endpoint.to_string())
@@ -819,7 +821,7 @@ pub async fn tauri_client_check_update(
                         "updateAvailable": true,
                         "checking": false,
                         "currentVersion": current_version,
-                        "version": update.version,
+                        "version": display_version(&update.version),
                         "body": update.body.unwrap_or_default(),
                         "date": update.date.map(|date| date.to_string()).unwrap_or_default(),
                         "endpoint": endpoint,

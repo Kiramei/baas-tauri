@@ -5,7 +5,10 @@
 
 #[cfg(target_os = "android")]
 mod android_backend_service;
+#[cfg(target_os = "android")]
+mod android_bootstrap_installer;
 mod behavior;
+mod client_version;
 #[cfg(not(mobile))]
 mod commands;
 mod file_commands;
@@ -143,7 +146,9 @@ pub fn run() {
             updater_test_sha_method,
             updater_test_sha_methods,
             updater_start_workflow,
+            #[cfg(target_os = "android")]
             updater_select_channel,
+            #[cfg(target_os = "android")]
             updater_restart_backend,
             updater_reset_backend_auth_and_restart,
             backend_transport_start,
@@ -252,6 +257,9 @@ pub fn run() {
                 app.manage(BehaviorState);
                 #[cfg(target_os = "android")]
                 app.manage(AndroidUpdaterTermManager::default());
+                #[cfg(target_os = "android")]
+                mobile_commands::start_android_bootstrap_installer(app.handle())
+                    .map_err(std::io::Error::other)?;
                 app.manage(BackendPipeManager::default());
                 app.manage(BackendShmManager::default());
                 disable_f5_press_event(app);

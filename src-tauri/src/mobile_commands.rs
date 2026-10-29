@@ -1,3 +1,4 @@
+use crate::client_version::{compare_versions, display_version, normalize_version};
 use crate::pipe_commands::BackendPipeManager;
 use crate::mobile_update_query::{QueryDeadline, QueryProbeLease, QueryProbeScope, UpdateQuery};
 use crate::system_logs::system_log;
@@ -33,7 +34,7 @@ use tauri::{ipc::Channel, AppHandle, Manager, State};
 use tokio::{task::JoinSet, time};
 
 const ANDROID_BACKEND_MESSAGE: &str =
-    "Android embeds Python 3.9 through Chaquopy and does not use uv. The Android application layer starts a Python bootstrap which unpacks the bundled BAAS service backend into app-private storage and reports missing Android-compatible runtime dependencies through /health.";
+    "Android embeds Python 3.9 through Chaquopy. Rust git2 tests repository mirrors and installs the backend into app-private storage; Python applies Android compatibility patches and starts the local service.";
 const ANDROID_PACKAGE_NAME: &str = "io.github.kiramei.baas_tauri";
 const ANDROID_STORAGE_ROOT_MARKER: &str = "baas-android-storage-root.txt";
 const ANDROID_ADB_PRIVATE_KEY: &str = "adbkey";
@@ -2431,7 +2432,14 @@ fn format_adb_read_error(part: &str, error: std::io::Error) -> String {
     }
 }
 
-/// Performs the updater get startup state operation.
+/// Listen at the same private root that the Kotlin backend resolves before Python starts.
+pub(crate) fn start_android_bootstrap_installer(app: &AppHandle) -> Result<(), String> {
+    let root = app.path().app_data_dir().map_err(|error| error.to_string())?
+        .join("files").join("baas");
+    crate::android_bootstrap_installer::start(root)
+}
+
+/// Returns the real Python bootstrap state and the live Rust git2 output.
 #[tauri::command]
 pub fn updater_get_startup_state(app: AppHandle) -> Result<Value, String> {
     let root = android_storage_root(&app)?;
@@ -2491,6 +2499,12 @@ pub async fn updater_restart_backend(app: AppHandle) -> Result<Value, String> {
 #[tauri::command]
 pub fn updater_select_channel(app: AppHandle, channel: String) -> Result<Value, String> {
     let parsed = UpdateChannel::parse(&channel).map_err(|error| error.message())?;
+    if parsed != UpdateChannel::Dev {
+        return Err(
+            "Stable does not provide the Android service backend. Choose Development (Dev)."
+                .to_string(),
+        );
+    }
     let normalized = parsed.as_str().to_string();
     system_log(
         "INFO",
@@ -2507,11 +2521,11 @@ pub fn updater_select_channel(app: AppHandle, channel: String) -> Result<Value, 
     }))
 }
 
-/// Returns the channel persisted in setup.toml, defaulting to stable.
+/// Returns the persisted channel, defaulting to Android's supported backend.
 fn android_persisted_channel(root: &Path) -> String {
     read_setup_value(&root.join("setup.toml"), "channel")
         .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or_else(|| "stable".to_string())
+        .unwrap_or_else(|| "dev".to_string())
 }
 
 /// Reads the channel handshake file the Python bootstrap polls.
@@ -2630,7 +2644,8 @@ pub async fn tauri_client_check_update(
     let current_version = request
         .current_version
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+        .map(|value| display_version(&value))
+        .unwrap_or_else(|| display_version(env!("CARGO_PKG_VERSION")));
     ANDROID_CLIENT_UPDATE_QUERY
         .run(current_version.clone(), ANDROID_UPDATE_QUERY_TIMEOUT, move |deadline| {
             // Declaration order ensures probe leases drop before their scope, including unwinding.
@@ -2683,7 +2698,7 @@ fn tauri_client_check_update_blocking(
                         .and_then(Value::as_str)
                         .unwrap_or_default(),
                 )
-                .unwrap_or_else(|| "0.0.0".to_string());
+                .ok_or_else(|| "Invalid client update release version".to_string())?;
                 let platform = android_update_platform(&update);
                 let update_url = platform
                     .and_then(|value| value.get("url"))
@@ -2732,7 +2747,7 @@ fn tauri_client_download_and_install_blocking(
     app: AppHandle,
     on_event: Channel<ClientUpdateEvent>,
 ) -> Result<bool, String> {
-    let current_version = app.package_info().version.to_string();
+    let current_version = display_version(&app.package_info().version.to_string());
     let endpoints = TAURI_UPDATE_ENDPOINTS
         .iter()
         .map(|endpoint| endpoint.to_string())
@@ -2766,7 +2781,7 @@ fn tauri_client_download_and_install_blocking(
                     .and_then(Value::as_str)
                     .unwrap_or_default(),
             )
-            .unwrap_or_else(|| "0.0.0".to_string());
+            .ok_or_else(|| "Invalid client update release version".to_string())?;
             if !compare_versions(&remote_version, &current_version).is_gt() {
                 return Ok(false);
             }
@@ -3432,50 +3447,6 @@ fn android_update_platform(update: &Value) -> Option<&Value> {
         })
 }
 
-/// Returns the normalize version result.
-fn normalize_version(value: &str) -> Option<String> {
-    let mut started = false;
-    let mut output = String::new();
-    for ch in value.chars() {
-        if ch.is_ascii_digit() || (started && ch == '.') {
-            started = true;
-            output.push(ch);
-        } else if started {
-            break;
-        }
-    }
-    if output.is_empty() {
-        None
-    } else {
-        Some(output.trim_matches('.').to_string())
-    }
-}
-
-/// Handles the compare versions workflow.
-fn compare_versions(left: &str, right: &str) -> std::cmp::Ordering {
-    let parse = |value: &str| {
-        normalize_version(value)
-            .unwrap_or_default()
-            .split('.')
-            .filter_map(|part| part.parse::<u64>().ok())
-            .collect::<Vec<_>>()
-    };
-    let left = parse(left);
-    let right = parse(right);
-    let len = left.len().max(right.len()).max(3);
-    for index in 0..len {
-        let order = left
-            .get(index)
-            .copied()
-            .unwrap_or(0)
-            .cmp(&right.get(index).copied().unwrap_or(0));
-        if !order.is_eq() {
-            return order;
-        }
-    }
-    std::cmp::Ordering::Equal
-}
-
 /// Handles the current time millis workflow.
 fn current_time_millis() -> u128 {
     std::time::SystemTime::now()
@@ -3499,7 +3470,7 @@ fn mobile_config_with_request(
         .map(ToOwned::to_owned)
         .or_else(|| read_setup_value(&root.join("setup.toml"), "channel"))
         .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or_else(|| "stable".to_string());
+        .unwrap_or_else(|| "dev".to_string());
     let mirrorc_cdk = request
         .and_then(|request| request.mirrorc_cdk.as_deref())
         .unwrap_or("");
@@ -3508,7 +3479,7 @@ fn mobile_config_with_request(
         .unwrap_or(false);
     let git_backend = request
         .and_then(|request| request.git_backend.as_deref())
-        .unwrap_or("auto");
+        .unwrap_or("git2");
     let runtime_path = request
         .and_then(|request| request.runtime_path.as_deref())
         .unwrap_or("embedded-python-3.9");
@@ -3539,7 +3510,7 @@ fn mobile_config_with_request(
         "android": {
             "embedded_python": true,
             "uses_uv": false,
-            "backend_install_source": "apk_bundle",
+            "backend_install_source": "rust_git2",
             "message": ANDROID_BACKEND_MESSAGE
         }
     })
@@ -3553,14 +3524,16 @@ fn mobile_setup_toml(
     current_cpp_sha: &str,
     remote_sha_method: &str,
 ) -> String {
+    let persisted_channel = read_setup_value(&root.join("setup.toml"), "channel");
     let channel = request
         .channel
         .as_deref()
+        .or(persisted_channel.as_deref())
         .filter(|value| UpdateChannel::parse(value).is_ok())
-        .unwrap_or("stable");
+        .unwrap_or("dev");
     let mirrorc_cdk = request.mirrorc_cdk.as_deref().unwrap_or("");
     let no_update = request.no_update.unwrap_or(false);
-    let git_backend = request.git_backend.as_deref().unwrap_or("auto");
+    let git_backend = request.git_backend.as_deref().unwrap_or("git2");
     let requested_transport = request
         .transport
         .as_deref()
@@ -3623,12 +3596,12 @@ fn ensure_android_setup_toml(root: &Path) -> Result<PathBuf, String> {
     let request = UpdaterConfigUpdateRequest {
         baas_root_path: Some(root.to_path_buf()),
         mirrorc_cdk: None,
-        // The picker overwrites this before the bootstrap downloads anything;
-        // stable is the safe seed when no choice arrives in time.
-        channel: Some("stable".to_string()),
+        // The picker confirms this before downloading. Only Dev currently
+        // provides the service entry point required by the Android runtime.
+        channel: Some("dev".to_string()),
         runtime_path: Some("embedded-python-3.9".to_string()),
         no_update: Some(false),
-        git_backend: Some("auto".to_string()),
+        git_backend: Some("git2".to_string()),
         transport: Some("pipe".to_string()),
     };
     fs::write(

@@ -30,6 +30,8 @@ import {
 } from "@/shared/ServiceTransportEvents";
 import { getAndroidAutoPassword } from "@/shared/AndroidAuth";
 import { remainingSyncOperations, type SyncPatchOperation } from "@/shared/SyncPatchOrdering";
+import { isUserProfileId } from "@/shared/ProfileTabs";
+import { resolveClientVersion } from "@/shared/ClientVersion";
 
 import { resolveBackendAddress } from "@/shared/BackendAddress";
 
@@ -658,7 +660,7 @@ export const useWebSocketStore = create<WebSocketState>()(
         tauriUpdaterChecking = true;
         try {
           const { getVersion } = await import("@tauri-apps/api/app");
-          const currentVersion = await getVersion().catch(() => __APP_VERSION__);
+          const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
           const nextTauriVersion = await checkAndroidClientUpdate(currentVersion);
           set((state) => ({
             ...state,
@@ -729,7 +731,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
-        const currentVersion = await getVersion().catch(() => __APP_VERSION__);
+        const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
         const update = await invoke<any>("tauri_client_check_update", {
           request: { currentVersion },
         });
@@ -1101,6 +1103,7 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         const resourceCallBack: WsCallBackDict = {
           config: (message: WsMessageItem) => {
+            if (!isUserProfileId(message.resource_id)) return;
             set((state) => ({
               configStore: {
                 ...state.configStore,
@@ -1109,6 +1112,7 @@ export const useWebSocketStore = create<WebSocketState>()(
             }));
           },
           event: (message: WsMessageItem) => {
+            if (!isUserProfileId(message.resource_id)) return;
             set((state) => ({
               eventStore: {
                 ...state.eventStore,
@@ -1130,54 +1134,58 @@ export const useWebSocketStore = create<WebSocketState>()(
 
         const callbackDict: WsCallBackDict = {
           "config_list": (message: WsMessageItem) => {
+            if (!Array.isArray(message.data)) return;
+            const ids = [...new Set<string>(message.data.filter(isUserProfileId))];
             flushPendingLogBatches();
             set((state): Partial<WebSocketState> => {
               const config_added = Object.fromEntries(
-                message.data
-                  .filter((id: string) => !(id in state.configStore))
-                  .map((id: string) => [id, {}])
+                ids.filter((id: string) => !(id in state.configStore)).map((id: string) => [id, {}])
               );
 
               const event_added = Object.fromEntries(
-                message.data
-                  .filter((id: string) => !(id in state.eventStore))
-                  .map((id: string) => [id, []])
+                ids.filter((id: string) => !(id in state.eventStore)).map((id: string) => [id, []])
               );
 
               const log_added: { [key: string]: LogItem[] } = Object.fromEntries(
-                message.data
-                  .map((id: string) => {
-                    const key = `config:${id}`;
-                    if (key in state.logStore) return null;
-                    return [key, []];
-                  })
-                  .filter((item: any): item is [string, LogItem[]] => Boolean(item))
+                ids
+                  .filter((id) => !(`config:${id}` in state.logStore))
+                  .map((id): [string, LogItem[]] => [`config:${id}`, []])
               );
 
               const status_added = Object.fromEntries(
-                message.data
-                  .filter((id: string) => !(id in state.statusStore))
-                  .map((id: string) => [id, {}])
+                ids
+                  .filter((id) => !(id in state.statusStore))
+                  .map((id): [string, StatusItem] => [
+                    id,
+                    {
+                      running: false,
+                      config_id: id,
+                      current_task: null,
+                      waiting_tasks: [],
+                      timestamp: 0,
+                    },
+                  ])
               );
 
               const config_kept = Object.fromEntries(
-                Object.entries(state.configStore).filter(([id]) => message.data.includes(id))
+                Object.entries(state.configStore).filter(([id]) => ids.includes(id))
               );
               const event_kept = Object.fromEntries(
-                Object.entries(state.eventStore).filter(([id]) => message.data.includes(id))
+                Object.entries(state.eventStore).filter(([id]) => ids.includes(id))
               );
               const log_kept = Object.fromEntries(
                 Object.entries(state.logStore).filter(([key]) => {
                   // Keep provider-owned scopes such as global logs while pruning removed config scopes.
                   if (!key.startsWith("config:")) return true;
-                  return message.data.some((id: string) => key === `config:${id}`);
+                  return ids.some((id: string) => key === `config:${id}`);
                 })
               );
               const status_kept = Object.fromEntries(
-                Object.entries(state.statusStore).filter(([id]) => message.data.includes(id))
+                Object.entries(state.statusStore).filter(([id]) => ids.includes(id))
               );
 
               return {
+                _receivedSnapshots: { ...state._receivedSnapshots, config_list: true },
                 configStore: { ...config_kept, ...config_added },
                 eventStore: { ...event_kept, ...event_added },
                 logStore: { ...log_kept, ...log_added },
@@ -1188,6 +1196,11 @@ export const useWebSocketStore = create<WebSocketState>()(
 
           "snapshot": (message: WsMessageItem) => {
             if (connectionGeneration !== transportGeneration) return;
+            if (
+              ["config", "event"].includes(message.resource ?? "") &&
+              !isUserProfileId(message.resource_id)
+            )
+              return;
             resourceCallBack[message.resource!]?.(message);
             set((state) => ({
               _receivedSnapshots: {
@@ -1299,22 +1312,21 @@ export const useWebSocketStore = create<WebSocketState>()(
             if (resource === "gui") return;
             const resourceId = message.resource_id ?? null;
             if (!resourceId || !Array.isArray(ops)) return;
+            if (["config", "event"].includes(resource ?? "") && !isUserProfileId(resourceId))
+              return;
 
             ops.forEach((op) => {
-              if (op.op === "add") {
+              const membershipChange =
+                ["config", "event"].includes(resource ?? "") && (op.path === "" || op.path === "/");
+              if (membershipChange && op.op === "add") {
                 get().send("sync", { type: "list" });
-                const prevLength = Object.keys(get().configStore).length;
-                waitFor(
-                  get,
-                  api.subscribe,
-                  (state: WebSocketState) => Object.keys(state.configStore).length,
-                  (length) => length === prevLength + 1
-                ).then(() => {
-                  get().send("sync", { type: "pull", resource: "config", resource_id: resourceId });
-                  get().send("sync", { type: "pull", resource: "event", resource_id: resourceId });
-                });
+                get().send("sync", { type: "pull", resource: "config", resource_id: resourceId });
+                get().send("sync", { type: "pull", resource: "event", resource_id: resourceId });
+                // The add notification may only contain {}. The pulled snapshot
+                // owns the new document and can arrive synchronously above.
+                return;
               }
-              if (op.op === "remove") {
+              if (membershipChange && op.op === "remove") {
                 get().send("sync", { type: "list" });
               } else {
                 const path = `${resourceId}::${resource}${op.path}`;
@@ -1576,8 +1588,8 @@ export const useWebSocketStore = create<WebSocketState>()(
         if (!isCurrent()) return;
 
         await waitForInitialization(
-          (state: WebSocketState) => Object.keys(state.configStore).length,
-          (length) => length > 0
+          (state: WebSocketState) => state._receivedSnapshots.config_list === true,
+          (received) => received
         );
         if (!isCurrent()) return;
 

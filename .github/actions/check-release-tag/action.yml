@@ -1,5 +1,5 @@
 name: Check Release Tag
-description: Validate release tag ancestry and package.json version consistency.
+description: Validate release tags with an optional v prefix, mapped native versions and release branch ancestry.
 
 inputs:
   branch:
@@ -16,10 +16,12 @@ runs:
   steps:
     - name: Check if tag is from release branch
       shell: bash
+      env:
+        RELEASE_BRANCH: ${{ inputs.branch }}
       run: |
         set -euo pipefail
 
-        if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+        if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
           if [[ "${{ inputs.allow-non-tag }}" = "true" ]]; then
             echo "Current ref is not a release tag: ${GITHUB_REF}"
             echo "Skip release tag branch check."
@@ -29,46 +31,18 @@ runs:
           echo "::error::Current ref is not a release tag: ${GITHUB_REF}"
           exit 1
         fi
-
         TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
-        echo "Checking if tag ${TAG_REF} is from ${{ inputs.branch }} branch..."
+        # Public versions use x.y.z, x.y.z.rcN or x.y.z.postN. A tag may
+        # have one leading v; legacy -rc spellings cannot create a release.
+        node scripts/check-release-version.mjs "$TAG_REF"
+        echo "Checking if tag ${TAG_REF} is from ${RELEASE_BRANCH} branch..."
 
-        git fetch origin ${{ inputs.branch }} --tags --force
+        git fetch origin "$RELEASE_BRANCH" --tags
         TAG_COMMIT="$(git rev-list -n 1 "${TAG_REF}")"
 
-        if git merge-base --is-ancestor "${TAG_COMMIT}" "origin/${{ inputs.branch }}"; then
-          echo "Tag ${TAG_REF} is from ${{ inputs.branch }} branch."
+        if git merge-base --is-ancestor "${TAG_COMMIT}" "origin/${RELEASE_BRANCH}"; then
+          echo "Tag ${TAG_REF} is from ${RELEASE_BRANCH} branch."
         else
-          echo "::error::Tag ${TAG_REF} is not from ${{ inputs.branch }} branch."
+          echo "::error::Tag ${TAG_REF} is not from ${RELEASE_BRANCH} branch."
           exit 1
         fi
-
-    - name: Check tag and package.json version
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
-          if [[ "${{ inputs.allow-non-tag }}" = "true" ]]; then
-            echo "Current ref is not a release tag: ${GITHUB_REF}"
-            echo "Skip package.json version check."
-            exit 0
-          fi
-
-          echo "::error::Current ref is not a release tag: ${GITHUB_REF}"
-          exit 1
-        fi
-
-        TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
-        PKG_VERSION="$(jq -r .version package.json)"
-        EXPECTED_TAG="v${PKG_VERSION}"
-
-        echo "Current tag: ${TAG_REF}"
-        echo "package.json version: ${PKG_VERSION}"
-
-        if [[ "${TAG_REF}" != "${EXPECTED_TAG}" ]]; then
-          echo "::error::Version mismatch. Git tag is ${TAG_REF}, package.json expects ${EXPECTED_TAG}."
-          exit 1
-        fi
-
-        echo "Tag and package.json version are consistent."

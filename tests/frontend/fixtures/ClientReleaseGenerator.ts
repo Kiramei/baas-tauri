@@ -18,6 +18,11 @@ await writeFile(
   scriptPath,
   await readFile(new URL("../../../scripts/update-client-release-history.mjs", import.meta.url))
 );
+await mkdir(join(tempRoot, "src", "shared"), { recursive: true });
+await writeFile(
+  join(tempRoot, "src", "shared", "ReleaseVersion.mjs"),
+  await readFile(new URL("../../../src/shared/ReleaseVersion.mjs", import.meta.url))
+);
 const rows =
   mode === "nullable"
     ? [
