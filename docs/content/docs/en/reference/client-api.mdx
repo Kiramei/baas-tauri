@@ -60,6 +60,8 @@ snapshot.entries;
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | Multiple source probes; reports can complete out of order. |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | Starts an updater terminal session. |
+| `updater_select_channel` | `{ channel }` | Android first-run selection; only `dev` is currently supported. Persists the selection and resumes bootstrap. |
+| `updater_restart_backend` | None | Android setup restart; schedules a bootstrap restart and returns `restartScheduled`. |
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | Requests cancellation; inspect the abort report and cleanup limits. |
 | `updater_terminal_snapshot` | None | Structured terminal restore data. |
 | `updater_resize_term` | `{ rows, cols }` | Resizes the terminal model. |

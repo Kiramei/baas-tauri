@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BAAS Tauri",
-  "version": "0.0.9",
+  "version": "0.0.10-0.post.1",
   "identifier": "io.github.kiramei.baas-tauri",
   "build": {
     "frontendDist": "../dist",
@@ -41,7 +41,10 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["baas-tauri", "baas-tauri-app"]
+        "schemes": [
+          "baas-tauri",
+          "baas-tauri-app"
+        ]
       }
     }
   },
@@ -59,6 +62,9 @@
     "copyright": "GNU General Public License v3.0",
     "publisher": "Kiramei",
     "category": "Utility",
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "android": {
+      "versionCode": 9503
+    }
   }
 }
