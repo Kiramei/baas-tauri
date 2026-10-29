@@ -6,7 +6,7 @@ initializes OCR, ADB, emulators, game tasks or the user's backend configuration.
 
 Run from the repository root with the service's Python dependencies installed:
     python scripts/backend-smoke.py --backend-path ../baas-dev
-Build the CLI first with `bun run cli:build`.
+Build the CLI first with `bun run baasx:build`.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from pathlib import Path
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend-path", "--backend", dest="backend", type=Path, required=True)
-    parser.add_argument("--cli-path", type=Path, help="Bun CLI entry or compiled executable; defaults to cli/bin/baax.mjs")
+    parser.add_argument("--cli-path", type=Path, help="Bun CLI entry or compiled executable; defaults to baasx/bin/baasx.mjs")
     parser.add_argument("--bun", default="bun")
     return parser.parse_args()
 
@@ -38,9 +38,9 @@ async def run(args) -> None:
     if not (backend / "service" / "app.py").is_file():
         raise RuntimeError("--backend must point to a BAAS service checkout")
     root = Path(__file__).resolve().parents[1]
-    entry = args.cli_path.resolve() if args.cli_path else root / "cli" / "bin" / "baax.mjs"
-    if not args.cli_path and not (root / "cli" / "dist" / "baax.js").is_file():
-        raise RuntimeError("Build the CLI first: bun run cli:build")
+    entry = args.cli_path.resolve() if args.cli_path else root / "baasx" / "bin" / "baasx.mjs"
+    if not args.cli_path and not (root / "baasx" / "dist" / "baasx.js").is_file():
+        raise RuntimeError("Build the CLI first: bun run baasx:build")
     if not entry.is_file():
         raise RuntimeError("CLI entry does not exist")
     sys.path.insert(0, str(backend))

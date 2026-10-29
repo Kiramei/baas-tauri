@@ -1,11 +1,11 @@
-name: baax
+name: baasx
 
 on:
   push:
-    branches: [cli-dev, dev, main]
+    branches: [baasx-dev, dev, main]
     paths:
       [
-        "cli/**",
+        "baasx/**",
         "packages/baas-client/**",
         "crates/baas-cli-runtime/**",
         "crates/baas-updater/**",
@@ -24,7 +24,7 @@ on:
   pull_request:
     paths:
       [
-        "cli/**",
+        "baasx/**",
         "packages/baas-client/**",
         "crates/baas-cli-runtime/**",
         "crates/baas-updater/**",
@@ -53,13 +53,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            executable: baax
+            executable: baasx
             helper: baas-cli-runtime
           - os: macos-latest
-            executable: baax
+            executable: baasx
             helper: baas-cli-runtime
           - os: windows-latest
-            executable: baax.exe
+            executable: baasx.exe
             helper: baas-cli-runtime.exe
     runs-on: ${{ matrix.os }}
     steps:
@@ -83,25 +83,25 @@ jobs:
           bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
       - run: cargo test --locked -p baas-cli-runtime
-      - run: bun run cli:check
-      - run: bun run cli:test
-      - run: bunx eslint cli/src cli/tests packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
-      - run: bun run cli:build
-      - run: bun cli/bin/baax.mjs --demo --json status
-      - run: bun run cli:binary
+      - run: bun run baasx:check
+      - run: bun run baasx:test
+      - run: bunx eslint baasx/src baasx/tests packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - run: bun run baasx:build
+      - run: bun baasx/bin/baasx.mjs --demo --json status
+      - run: bun run baasx:binary
       - name: Check the compiled program and its bundled installer
         shell: bash
         run: |
-          ./cli/dist/${{ matrix.executable }} --demo --json status
-          ./cli/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baas-cli-not-installed"
-      - run: bun run cli:pack
+          ./baasx/dist/${{ matrix.executable }} --demo --json status
+          ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baas-cli-not-installed"
+      - run: bun run baasx:pack
       - name: Archive the native program with its matching helper
         shell: bash
-        run: tar -czf "cli/dist/baax-${{ runner.os }}-${{ runner.arch }}.tar.gz" -C cli/dist "${{ matrix.executable }}" runtime
+        run: tar -czf "baasx/dist/baasx-${{ runner.os }}-${{ runner.arch }}.tar.gz" -C baasx/dist "${{ matrix.executable }}" runtime -C .. README.md README_zh.md LICENSE
       - uses: actions/upload-artifact@v4
         with:
-          name: baax-${{ runner.os }}-${{ runner.arch }}
+          name: baasx-${{ runner.os }}-${{ runner.arch }}
           path: |
-            cli/dist/*.tgz
-            cli/dist/*.tar.gz
+            baasx/dist/*.tgz
+            baasx/dist/*.tar.gz
           if-no-files-found: error

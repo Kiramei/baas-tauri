@@ -26,16 +26,16 @@ BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_arch
 | 🗓️ 调度     | 启用任务、编辑下次执行时间、搜索、排序、设置间隔、每日重置、前置任务和后置任务。                             |
 | 🧩 功能配置 | 配置服务器、模拟器、脚本、推图、扫荡、编队、咖啡厅、日程、商店、制造、战斗、维护和推送。                     |
 | 🎛️ 设置     | 调整主题、语言、背景图、UI 缩放、远程解码器、安全流、低性能模式、更新通道、更新源、MirrorC CDK 和 SHA 测试。 |
-| 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                     |
+| 📚 文档     | 通过标题栏“帮助 → 文档”，使用系统默认浏览器打开文档站。                                                      |
 
 ## 🖼️ 截图
 
-| 调度工作流 | 功能配置 |
-| ---------- | -------- |
+| 调度工作流                                                                                   | 功能配置                                                                              |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | <img src="docs/public/media/desktop/zh/dark/scheduler-workflow.webp" alt="任务依赖工作流" /> | <img src="docs/public/media/desktop/zh/dark/config-cafe.webp" alt="咖啡厅功能配置" /> |
 
-| 运行与连接 | 设置与更新 |
-| ---------- | ---------- |
+| 运行与连接                                                                                 | 设置与更新                                                                           |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | <img src="docs/public/media/desktop/zh/dark/settings-runtime.webp" alt="运行与连接设置" /> | <img src="docs/public/media/desktop/zh/dark/settings-updates.webp" alt="更新设置" /> |
 
 ## 📥 下载
@@ -82,19 +82,19 @@ bun run dev
 
 ## 🛠️ 开发
 
-### BAAS CLI
+### baasx 自动化终端
 
-`cli-dev` 分支新增独立 BAAS 终端和 Agent，直接连接后端 Service，无需启动桌面端。支持配置档、调度、单任务、日志、配置读写、独立指令包和可选自然语言工具调用。
+`baasx-dev` 分支包含 `baasx` 自动化终端，直接连接 BAAS 后端 Service，无需启动桌面端。支持配置档、任务与调度编辑、类型化配置、实时日志、本地环境安装与更新，以及独立指令包。安装后的命令名为 `baasx`，Bun 包名为 `@baas/baasx`，源码位于 `baasx/`。
 
 ```bash
 bun install --frozen-lockfile
-bun run cli --demo       # 无后端体验终端
-bun run cli --help
-bun run cli:build        # Bun 可执行包
-bun run cli:binary       # 本机独立可执行程序
+bun run baasx --demo       # 无后端体验终端
+bun run baasx --help
+bun run baasx:build        # Bun 可执行包
+bun run baasx:binary       # 本机独立可执行程序
 ```
 
-连接、模型配置、自定义指令包和验证方式见 [CLI 使用说明](cli/README.md)。共用协议位于 `packages/baas-client`，CLI 配置和指令集独立于桌面端。
+连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。原有 `cli`、`cli:*` 开发脚本仍可作为兼容别名使用。共用协议位于 `packages/baas-client`，CLI 配置和指令集独立于桌面端。
 
 前置条件：
 
@@ -159,12 +159,12 @@ baas-tauri/
 
 ## 分支与 Android
 
-| 分支 | 用途 |
-| ---- | ---- |
-| [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | 发布版本与线上文档。 |
-| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | 桌面端、WebUI 和文档开发。 |
-| [`cli-dev`](https://github.com/Kiramei/baas-tauri/tree/cli-dev) | 独立 CLI、终端交互与 BAAS Agent。 |
-| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。 |
+| 分支                                                                    | 用途                                       |
+| ----------------------------------------------------------------------- | ------------------------------------------ |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | 发布版本与线上文档。                       |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | 桌面端、WebUI 和文档开发。                 |
+| [`baasx-dev`](https://github.com/Kiramei/baas-tauri/tree/baasx-dev)     | baasx 自动化终端、任务工作台与独立指令包。 |
+| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。                        |
 
 Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 Android 开发。
 最新 debug 候选已在 Android 12 ARM64 真机的 root Shizuku 模式下完成限定验证：

@@ -6,7 +6,7 @@
 
   <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
 
-  <p>The <code>cli-dev</code> branch includes <strong>baax</strong>, the independent automation terminal for BAAS. Try <code>bun run cli --demo</code> from source or <code>baax --demo</code> after installation. See the <a href="cli/README.md">baax documentation</a> for profiles, task scheduling, typed settings, live logs, local runtime installation, standalone builds and command packs.</p>
+  <p>The <code>baasx-dev</code> branch includes <strong>baasx</strong>, the independent automation terminal for BAAS. Try <code>bun run baasx --demo</code> from source or <code>baasx --demo</code> after installation. See the <a href="baasx/README.md">baasx documentation</a> for profiles, task scheduling, typed settings, live logs, local runtime installation, standalone builds and command packs.</p>
 
   <p>
     <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
@@ -164,20 +164,20 @@ bun run i18n:check
 | `bun run lint`        | Run ESLint and i18n checks.                       |
 | `bun run i18n:check`  | Verify locale key consistency.                    |
 
-### baax Automation Terminal
+### baasx Automation Terminal
 
-The installed command is `baax`, distributed as `@baas/baax`. Repository scripts retain the `cli` prefix:
+The installed command is `baasx`, distributed as `@baas/baasx`, with source in `baasx/`. Use the `baasx` development scripts; the existing `cli` scripts remain available as compatibility aliases:
 
 ```bash
-bun run cli --demo
-bun run cli:build
-bun cli/bin/baax.mjs --help
-bun run cli:binary
-./cli/dist/baax --demo
-bun run cli:pack
+bun run baasx --demo
+bun run baasx:build
+bun baasx/bin/baasx.mjs --help
+bun run baasx:binary
+./baasx/dist/baasx --demo
+bun run baasx:pack
 ```
 
-Keep the native executable together with its `runtime/` directory. baax continues to use the existing `baas` configuration directory and `BAAS_*` environment variables, so existing CLI settings and local installations need no migration. See [CLI setup and packaging](cli/README.md) for platform archives and Bun package installation.
+Keep the native executable together with its `runtime/` directory. baasx continues to use the existing `baas` configuration directory and `BAAS_*` environment variables, so existing CLI settings and local installations need no migration. See [CLI setup and packaging](baasx/README.md) for platform archives and Bun package installation.
 
 ## 🧱 Project Layout
 
@@ -193,12 +193,12 @@ baas-tauri/
 
 ## Branches and Android
 
-| Branch                                                                  | Purpose                                                              |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | Release line and published documentation.                            |
-| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | Desktop, WebUI and documentation development.                        |
-| [`cli-dev`](https://github.com/Kiramei/baas-tauri/tree/cli-dev)         | baax automation terminal for BAAS, task workspace and command packs. |
-| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development.                                          |
+| Branch                                                                  | Purpose                                                               |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | Release line and published documentation.                             |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | Desktop, WebUI and documentation development.                         |
+| [`baasx-dev`](https://github.com/Kiramei/baas-tauri/tree/baasx-dev)     | baasx automation terminal for BAAS, task workspace and command packs. |
+| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development.                                           |
 
 The Android implementation is also integrated into `dev`; `android-dev` remains
 available for native Android development. The latest debug candidate has scoped
