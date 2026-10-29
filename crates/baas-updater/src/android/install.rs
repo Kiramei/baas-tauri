@@ -677,6 +677,9 @@ mod tests {
                 while !server_stop.load(Ordering::Relaxed) {
                     match listener.accept() {
                         Ok((stream, _)) => {
+                            // Reproduce inherited nonblocking sockets on every
+                            // host so fragmented-request regressions also fail on Linux.
+                            stream.set_nonblocking(true).unwrap();
                             let root = root.clone();
                             let posts = Arc::clone(&posts);
                             let trace = Arc::clone(&server_trace);
@@ -832,6 +835,9 @@ mod tests {
         posts: &Mutex<HashMap<String, usize>>,
         trace: &Mutex<Vec<String>>,
     ) -> std::io::Result<()> {
+        // Accepted sockets can inherit the nonblocking listener mode outside
+        // Linux. The fixture's request parser requires blocking reads.
+        stream.set_nonblocking(false)?;
         stream.set_read_timeout(Some(Duration::from_secs(3)))?;
         stream.set_nodelay(true)?;
         let mut request = Vec::new();
