@@ -6,6 +6,8 @@
 
   <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
 
+  <p>The <code>cli-dev</code> branch includes an independent BAAS CLI and automation agent. Try <code>bun run cli --demo</code> or see the <a href="cli/README.md">CLI documentation</a> for direct service connections, optional models, standalone builds and command packs.</p>
+
   <p>
     <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
     <img alt="React 19.2" src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" />
@@ -180,6 +182,7 @@ baas-tauri/
 | ------ | ------- |
 | [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | Release line and published documentation. |
 | [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | Desktop, WebUI and documentation development. |
+| [`cli-dev`](https://github.com/Kiramei/baas-tauri/tree/cli-dev) | Independent CLI, terminal interface and BAAS agent. |
 | [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development. |
 
 The Android implementation is also integrated into `dev`; `android-dev` remains

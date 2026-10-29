@@ -82,6 +82,20 @@ bun run dev
 
 ## 🛠️ 开发
 
+### BAAS CLI
+
+`cli-dev` 分支新增独立 BAAS 终端和 Agent，直接连接后端 Service，无需启动桌面端。支持配置档、调度、单任务、日志、配置读写、独立指令包和可选自然语言工具调用。
+
+```bash
+bun install --frozen-lockfile
+bun run cli --demo       # 无后端体验终端
+bun run cli --help
+bun run cli:build        # Bun 可执行包
+bun run cli:binary       # 本机独立可执行程序
+```
+
+连接、模型配置、自定义指令包和验证方式见 [CLI 使用说明](cli/README.md)。共用协议位于 `packages/baas-client`，CLI 配置和指令集独立于桌面端。
+
 前置条件：
 
 - Bun 1.3 或更高版本。
@@ -149,6 +163,7 @@ baas-tauri/
 | ---- | ---- |
 | [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | 发布版本与线上文档。 |
 | [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | 桌面端、WebUI 和文档开发。 |
+| [`cli-dev`](https://github.com/Kiramei/baas-tauri/tree/cli-dev) | 独立 CLI、终端交互与 BAAS Agent。 |
 | [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | 原生 Android 开发。 |
 
 Android 实现也已集成到 `dev`，`android-dev` 继续保留用于原生 Android 开发。

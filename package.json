@@ -3,7 +3,14 @@
   "version": "0.0.9",
   "license": "GPL-3.0-only",
   "type": "module",
+  "workspaces": ["cli", "packages/*"],
   "scripts": {
+    "cli": "bun cli/src/index.ts",
+    "cli:build": "bun run --cwd cli build",
+    "cli:binary": "bun run --cwd cli build:binary",
+    "cli:pack": "bun run --cwd cli pack",
+    "cli:check": "bun run --cwd cli check",
+    "cli:test": "bun test cli/tests packages/baas-client/tests",
     "dev": "vite",
     "dev:android": "vite --mode android --host 0.0.0.0 --port 8191",
     "dev:webui": "vite --mode webui",
@@ -76,6 +83,7 @@
   "devDependencies": {
     "@actions/github": "^9.1.1",
     "@eslint/js": "^9.39.4",
+    "@tailwindcss/node": "4.2.4",
     "@tailwindcss/typography": "^0.5.19",
     "@tauri-apps/cli": "^2",
     "@types/node": "^22.14.0",

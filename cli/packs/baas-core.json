@@ -1,0 +1,37 @@
+{
+  "id": "baas-core",
+  "name": "BAAS 日常工作台",
+  "description": "独立 CLI 指令包：查看服务与配置档状态，或启动当前配置档的已有调度。",
+  "version": 1,
+  "commands": [
+    {
+      "name": "briefing",
+      "description": "查看服务状态和当前配置档的任务安排。",
+      "steps": [
+        { "action": "status", "args": {} },
+        { "action": "tasks", "args": {} }
+      ]
+    },
+    {
+      "name": "connection-check",
+      "description": "查看服务状态与设备列表，不启动游戏任务。",
+      "steps": [
+        { "action": "status", "args": {} },
+        { "action": "devices", "args": {} }
+      ]
+    },
+    {
+      "name": "daily",
+      "description": "启动当前配置档的已有调度；启动确认不代表任务已完成。",
+      "steps": [{ "action": "scheduler_start", "args": {} }]
+    },
+    {
+      "name": "daily-wait",
+      "description": "启动当前配置档的已有调度，并等待本次运行最多 120 秒；超时不代表运行已结束。",
+      "steps": [
+        { "action": "scheduler_start", "args": {} },
+        { "action": "wait_run", "args": { "timeout_seconds": 120 } }
+      ]
+    }
+  ]
+}
