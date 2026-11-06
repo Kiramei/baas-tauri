@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-06T18:51:24.824Z",
+  "checkedAt": "2026-11-06T19:36:31.215Z",
   "cases": 8,
   "failures": 0,
   "nativeCommandsExecuted": false,
@@ -20,7 +20,7 @@
     "src-tauri/src/lib.rs": "d9a5cf3be37e223fe85bb5c100c2c99adb6a59bd55af0bd59844d61d1ada79a4",
     "src-tauri/src/commands.rs": "5e92310987a11349c5fe01e8adfd327e71c256d4495f3c7db197bf2b82220028",
     "src-tauri/src/mobile_commands.rs": "484db459c4f4b1f7ae2de90e1e64d4904786c7a7f226e0d42c874a2ec2e2714b",
-    ".github/workflows/docs-validation.yml": "84f60a30e0b53e71a675cac13f73b571f781c65560ddacddb822c62e33f012c8",
+    ".github/workflows/docs-validation.yml": "a563448879f20ccb25e7aa2b47a1c59936d26e55c4f84af765fc5e18599e9e3a",
     "docs/content/docs/en/reference/client-api.mdx": "49db9e1adc7b8050569beed13e20e9297f8cf019e04964542229021f1309b442",
     "docs/content/docs/zh/reference/client-api.mdx": "c5c230d1cd6b181a24c16ceed238727dfb761f92c6420774d5f580d435aea031"
   },
