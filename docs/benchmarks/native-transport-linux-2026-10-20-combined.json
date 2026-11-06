@@ -31,7 +31,7 @@
   "sources": [
     {
       "path": "benchmarks/native-transport-linux-2026-10-20.json",
-      "sha256": "50b22c5a5c4da7e207c949ffc96fd7459cbbc3dddc003a087d5a288e58a08bd0",
+      "sha256": "80c9837433e3b9926d436cdacd4d9fb0657d8975590949091578d517faf928b3",
       "rounds": 5,
       "environmentBefore": {
         "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",
@@ -54,7 +54,7 @@
     },
     {
       "path": "benchmarks/native-transport-linux-2026-10-20-repeat.json",
-      "sha256": "b01d46f4b085486dfbe6df4c12c7007b04867aa3d37beeda3273e7b054c3240e",
+      "sha256": "9cb8fbe02660adfdcc3bfc59ef107348d256671f42714229414ab2978087936c",
       "rounds": 5,
       "environmentBefore": {
         "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz",

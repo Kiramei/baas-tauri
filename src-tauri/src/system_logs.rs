@@ -204,7 +204,7 @@ pub fn initialize_system_logs(app: &AppHandle) -> Result<SystemLogState, String>
         "lifecycle",
         format!(
             "Tauri system logging initialized version={} os={} arch={} debug={}",
-            app.package_info().version,
+            crate::client_version::display_version(&app.package_info().version.to_string()),
             std::env::consts::OS,
             std::env::consts::ARCH,
             cfg!(debug_assertions)

@@ -611,6 +611,7 @@ mod tests {
         directory: tempfile::TempDir,
         address: String,
         stop: Arc<AtomicBool>,
+        connections: Arc<Mutex<HashMap<usize, TcpStream>>>,
         server: Option<thread::JoinHandle<()>>,
         sha: String,
         trace: Arc<Mutex<Vec<String>>>,
@@ -668,21 +669,34 @@ mod tests {
             let address = format!("http://{}", listener.local_addr().unwrap());
             let stop = Arc::new(AtomicBool::new(false));
             let server_stop = Arc::clone(&stop);
+            let connections = Arc::new(Mutex::new(HashMap::<usize, TcpStream>::new()));
+            let server_connections = Arc::clone(&connections);
             let root = directory.path().to_path_buf();
             let posts = Arc::new(Mutex::new(HashMap::<String, usize>::new()));
             let trace = Arc::new(Mutex::new(Vec::new()));
             let server_trace = Arc::clone(&trace);
             let server = thread::spawn(move || {
                 let mut workers = Vec::new();
+                let mut next_connection = 0;
                 while !server_stop.load(Ordering::Relaxed) {
                     match listener.accept() {
                         Ok((stream, _)) => {
                             // Reproduce inherited nonblocking sockets on every
                             // host so fragmented-request regressions also fail on Linux.
                             stream.set_nonblocking(true).unwrap();
+                            let mut active = server_connections.lock().unwrap();
+                            if server_stop.load(Ordering::Relaxed) {
+                                let _ = stream.shutdown(Shutdown::Both);
+                                break;
+                            }
+                            let id = next_connection;
+                            next_connection += 1;
+                            active.insert(id, stream.try_clone().unwrap());
+                            drop(active);
                             let root = root.clone();
                             let posts = Arc::clone(&posts);
                             let trace = Arc::clone(&server_trace);
+                            let connections = Arc::clone(&server_connections);
                             workers.push(thread::spawn(move || {
                                 if let Err(error) = serve_git(stream, &root, &posts, &trace) {
                                     trace
@@ -697,6 +711,7 @@ mod tests {
                                         eprintln!("Git HTTP fixture request failed: {error}");
                                     }
                                 }
+                                connections.lock().unwrap().remove(&id);
                             }));
                         }
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -713,6 +728,7 @@ mod tests {
                 directory,
                 address,
                 stop,
+                connections,
                 server: Some(server),
                 sha: oid.to_string(),
                 trace,
@@ -727,6 +743,9 @@ mod tests {
     impl Drop for GitHttpFixture {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Relaxed);
+            for stream in self.connections.lock().unwrap().values() {
+                let _ = stream.shutdown(Shutdown::Both);
+            }
             if let Some(server) = self.server.take() {
                 server.join().unwrap();
             }
@@ -839,6 +858,7 @@ mod tests {
         // Linux. The fixture's request parser requires blocking reads.
         stream.set_nonblocking(false)?;
         stream.set_read_timeout(Some(Duration::from_secs(3)))?;
+        stream.set_write_timeout(Some(Duration::from_secs(3)))?;
         stream.set_nodelay(true)?;
         let mut request = Vec::new();
         let mut byte = [0_u8; 1];
@@ -969,6 +989,43 @@ mod tests {
             total_timeout: Duration::from_secs(45),
             heartbeat_interval: Duration::from_millis(50),
         }
+    }
+
+    #[test]
+    fn fixture_shutdown_unblocks_clients_that_stop_reading_or_sending() {
+        let fixture = GitHttpFixture::new(true);
+        let address = fixture.address.strip_prefix("http://").unwrap();
+        let mut incomplete = TcpStream::connect(address).unwrap();
+        incomplete
+            .write_all(b"GET /slow/repo.git/info/refs?")
+            .unwrap();
+        let mut stalled = TcpStream::connect(address).unwrap();
+        let want = format!("want {} side-band-64k ofs-delta\n", fixture.sha);
+        let body = format!("{:04x}{want}00000009done\n", want.len() + 4);
+        stalled.write_all(format!(
+            "POST /slow/repo.git/git-upload-pack HTTP/1.1\r\nHost: {address}\r\nContent-Type: application/x-git-upload-pack-request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()
+        ).as_bytes()).unwrap();
+        let started = Instant::now();
+        while !fixture
+            .trace
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|line| line.contains("response="))
+        {
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "fixture did not start responding"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        let shutdown = Instant::now();
+        drop(fixture);
+        assert!(
+            shutdown.elapsed() < Duration::from_secs(5),
+            "fixture cleanup did not unblock sockets"
+        );
+        drop((incomplete, stalled));
     }
 
     #[test]

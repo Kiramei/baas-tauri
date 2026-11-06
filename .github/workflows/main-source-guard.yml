@@ -1,0 +1,27 @@
+name: Main Branch Source
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  source:
+    name: Main branch source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the repository dev branch
+        env:
+          SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SOURCE_REPOSITORY" != "$TARGET_REPOSITORY" || "$SOURCE_BRANCH" != dev ]]; then
+            echo "::error::Only this repository's dev branch may be merged into main."
+            exit 1
+          fi
