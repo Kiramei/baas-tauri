@@ -1,0 +1,215 @@
+---
+title: CLI and Script Automation
+description: Distinguish workbench commands from one-shot CLI calls, including precedence, JSON output, run correlation, exit codes and backend ownership.
+---
+
+These examples assume that you obtained the `baasx` command from a release archive or the source tree. `@baas/baasx` is the package name, not a claim that it is published to npm; do not assume it can be installed from the public npm registry. During source development, replace the command prefix with `bun run baasx` from the repository root.
+
+## Two Execution Modes
+
+```bash
+# Interactive terminal: no positional command opens the workbench
+baasx
+baasx --demo --lang en
+
+# One-shot CLI: execute a command, print a result and exit
+baasx --demo --json profiles
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --json status
+```
+
+`/tasks` is entered in the workbench input. In a system shell, use `baasx tasks` without `/`. The workbench retains its page, connection and input history. Each one-shot command creates a new process and cannot change the page of another workbench.
+
+A non-TTY input, `--json`, or a positional command selects non-workbench behavior. Piped input must include an explicit command; piping text into `baasx` does not execute that text as tasks or shell instructions.
+
+| Purpose         | Workbench input                                                 | System shell                                                           |
+| --------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Browse tasks    | `/tasks` opens a selectable list                                | `baasx tasks` returns the real daily-task dictionary                   |
+| Run one task    | `/run mail`; `/run` opens the list                              | `baasx --yes run mail`; a task ID is required                          |
+| One-off tasks   | `/oneoff` opens their dedicated list                            | `baasx --yes run start_explore_activity_story`; no `oneoff` subcommand |
+| Configuration   | `/config` opens the editor                                      | `baasx config get` reads configuration                                 |
+| Edit scheduling | `/scheduler`                                                    | No corresponding one-shot scheduler editor command                     |
+| Logs            | `/logs` opens the viewer; `/logs 50` reads recent entries       | `baasx logs 50`; add `--follow` for continuous output                  |
+| Reload          | `/reload` or Ctrl+R rebuilds and reconnects the whole workbench | `baasx reload` rereads packs, prints counts and exits                  |
+| Install runtime | `/install [dev]`, `/local`, `/setup`                            | Enter the wizard with `baasx`; these are not one-shot subcommands      |
+| Help            | `/help` or `?` opens paginated command guidance                 | `baasx --help` or `baasx help`                                         |
+
+Workbench `/reload` preserves the existing local backend and background tasks, but clears unsaved edits, page state and input state. It does not launch a newer executable. Reopen the program after updating its files.
+
+## Choose an Explicit Target
+
+For an existing WebSocket service, the interactive workbench can prompt for a hidden login key. Automation uses `BAAS_KEY`; the key is not written to `settings.json` and does not belong inside the URL.
+
+This Bash example reads the key from the terminal without putting the actual key into the command text:
+
+```bash
+read -r -s -p 'BAAS Key: ' BAAS_KEY
+printf '\n'
+export BAAS_KEY
+
+baasx --server ws://127.0.0.1:8190 profiles
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID tasks
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --json status
+```
+
+Replace `PROFILE_ID` with an ID from the result. A unique full profile name also works. If names are ambiguous or unmatched, use an explicit ID; the CLI does not guess a profile.
+
+Use `--pipe` for an existing local service, such as a Unix socket at `/tmp/baasx.sock` or the named pipe provided by a Windows backend. The path must refer to a listening service; specifying it does not create that external service.
+
+```bash
+baasx --pipe /tmp/baasx.sock profiles
+baasx --pipe /tmp/baasx.sock --profile PROFILE_ID --json status
+```
+
+## One-shot Command Reference
+
+| Command                                                  | Purpose and notes                                                                                        |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `profiles`                                               | Return profile IDs and names                                                                             |
+| `use <ID-or-unique-name>`                                | Select a profile and save the selection outside demo mode                                                |
+| `profile create <name> <server>`                         | Create and select a profile; requires confirmation and an actual supported server value                  |
+| `tasks`                                                  | Read daily task IDs and schedule data for the selected profile; excludes one-off tasks                   |
+| `status`                                                 | Read current status for all profiles                                                                     |
+| `run <task>`                                             | Submit a daily task or supported one-off task                                                            |
+| `start`                                                  | Immediately start the profile's existing schedule, without another confirmation                          |
+| `stop`                                                   | Request a stop for the running task or scheduler; confirmation is required by default                    |
+| `wait [run_id]`                                          | Wait for a specified or currently correlatable run; never starts a task                                  |
+| `logs [count]`                                           | Recent logs; default 30, range 1–500                                                                     |
+| `watch`                                                  | Continuously observe status; Ctrl+C ends monitoring                                                      |
+| `config get [/path]`                                     | Read the selected profile or a JSON Pointer within it                                                    |
+| `config set /path '<JSON>'`                              | Update an existing allowlisted field, with type and conflict checks                                      |
+| `packs`, `pack <name>`                                   | List or execute [command packs](./command-packs); custom command names also work directly as subcommands |
+| `reload`                                                 | Reread packs and return pack and command counts                                                          |
+| `devices`                                                | Detect ADB devices through the backend                                                                   |
+| `doctor`                                                 | Check the service; a WebSocket health check does not establish authentication or game-task success       |
+| `connect [URL]`                                          | Connect and print the result; this one-shot address selection is not saved automatically                 |
+| `init`                                                   | Save effective nonsensitive preferences, not install the backend                                         |
+| `login`, `logout`                                        | Prompt for a hidden key or clear the current process's connection; not persistent credential storage     |
+| `settings show`                                          | Display both saved and effective preferences                                                             |
+| `settings set <field> <value>`, `settings unset <field>` | Manage local nonsensitive preferences                                                                    |
+| `check-update`, `update`                                 | Check or apply updates to the CLI-managed local `dev` environment                                        |
+
+Server arguments use their actual wire values even in an English interface:
+
+```bash
+baasx --yes profile create "My Profile" "官服"
+baasx use "My Profile"
+baasx --profile PROFILE_ID config get /screenshot_method
+baasx --profile PROFILE_ID --dry-run config set /cafe_reward_affection_pat_round 5
+baasx --profile PROFILE_ID --yes config set /screenshot_method '"adb"'
+```
+
+In the last command, the shell consumes the single quotes; the double quotes belong to the JSON string. Numbers such as `5`, booleans such as `true`, and arrays must use their actual JSON types. Fields must exist in the current profile. Server type, internal caches and unexposed fields cannot bypass editor restrictions through the CLI.
+
+## One-off Task IDs
+
+These IDs correspond to the client's one-off task buttons. Execute them with `run`; they are not added to the daily schedule started by `start`.
+
+| ID                                 | Operation                      |
+| ---------------------------------- | ------------------------------ |
+| `start_normal_task`                | Progress through normal stages |
+| `start_hard_task`                  | Progress through hard stages   |
+| `start_main_story`                 | Main story                     |
+| `start_group_story`                | Group story                    |
+| `start_mini_story`                 | Mini stories                   |
+| `start_explore_activity_story`     | Event story                    |
+| `start_explore_activity_mission`   | Event missions                 |
+| `start_explore_activity_challenge` | Event challenges               |
+
+Before execution, check stage plans, teams and relevant event settings in workbench `/config`. An available entry means the CLI supports submitting the operation; it does not guarantee that the server currently has an event or that the device is ready for it.
+
+## Option and Environment Precedence
+
+| Setting                     | Precedence or default                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI configuration directory | `--config-home` → `BAAS_CLI_HOME` → `$XDG_CONFIG_HOME/baas` → `~/.config/baas`                                                             |
+| Service URL                 | `--server` → `BAAS_SERVER` → saved `url` → `ws://127.0.0.1:8190`                                                                           |
+| Local pipe                  | `--pipe` wins; otherwise an explicit URL (`--server` or `BAAS_SERVER`) suppresses environment/saved pipes; then `BAAS_PIPE` → saved `pipe` |
+| Profile                     | `--profile` → `BAAS_PROFILE` → saved `profile`; the demo workbench defaults to `sensei-cn`                                                 |
+| Workbench language          | `--lang` → `BAAS_LANG` → saved `language` → `LC_ALL` → `LC_MESSAGES` → `LANG` → English                                                    |
+| Service login key           | `BAAS_KEY` or hidden interactive input; never saved in preferences                                                                         |
+| Service signing public key  | `--server-key` → `BAAS_SERVER_SIGN_PUBLIC_KEY` → built-in public key                                                                       |
+| Command-pack directory      | Saved `packsDirectory`, otherwise `<CLI configuration directory>/commands`                                                                 |
+| Color                       | Disabled by `--no-color` or a defined `NO_COLOR` variable                                                                                  |
+| Motion                      | Disabled by `BAAS_REDUCED_MOTION=1` or `true`; non-TTY output and `TERM=dumb` also use static indicators                                   |
+
+`--server` and `--pipe` cannot be passed together. Explicit connection options or environment variables select an external connection. Without those overrides, saved `connectionMode=local` or an existing local-runtime record can make the CLI start a managed backend.
+
+Languages are `zh`, `en`, `ja`, `ko`, `de`, `fr` and `ru`. `--help`/`--version` are handled before preferences are read. Pass `--lang` explicitly when you need a predictable help language.
+
+```bash
+baasx --json settings show
+baasx settings set url ws://127.0.0.1:8190
+baasx settings set connectionMode remote
+baasx settings set language en
+baasx settings unset profile
+```
+
+Only `url`, `pipe`, `profile`, `packsDirectory`, `language` and `connectionMode` are saved. Setting `url` clears the saved `pipe`. `connectionMode` is `local` or `remote`. Addresses accept `ws://` and `wss://`; `http://` and `https://` are normalized. Embedded credentials, query parameters and fragments are rejected.
+
+## Confirmation, Read-only Mode and Dry Runs
+
+- `--yes` / `-y` skips routine mutation confirmations. Noninteractive or `--json` commands cannot prompt, so mutations usually require this flag.
+- Direct `start` skips another confirmation. `run`, `stop`, configuration writes and pack mutations still require confirmation by default. Initial installation needs confirmation in the wizard; `--yes` does not bypass it.
+- `--read-only` rejects backend mutations and applying updates, and cannot be combined with `--yes`. It is not an operating-system sandbox and does not prohibit connecting, reading or managing local preferences.
+- `--dry-run` previews supported mutation actions, updates and pack plans. It may read real backend data for validation. It is not a universal no-write flag: local preference commands such as `settings set`, `init` and `use` still perform their normal behavior.
+
+## Waiting and Completion
+
+Against an external service, `run` and `start` wait only for submission acceptance by default. A typical response has `accepted: true`, `completed: false` and an available `run_id`. Exit code 0 alone does not mean that the game task succeeded.
+
+```bash
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --yes --json run mail
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --yes --wait --wait-timeout 600 --json run mail
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --wait-timeout 600 --json wait RUN_ID
+```
+
+`--wait` waits for the same run to reach a terminal state. `--follow` with a run command also waits and shows related logs in ordinary text mode. `wait RUN_ID` never resubmits the start request, so it can resume observation after obtaining a run ID.
+
+| Setting                             | Meaning                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| `--timeout`                         | Connection/request timeout in milliseconds; default 15000, range 100–300000      |
+| `--wait-timeout`                    | Run-wait timeout in seconds; range 1–86400                                       |
+| Default external-service wait limit | 300 seconds, used only when waiting is requested or `wait` is executed           |
+| CLI-managed local default           | One-shot runs wait automatically; 24 hours unless a limit is explicitly supplied |
+
+At completion, `completed` is `true`; `succeeded` is derived from the backend `exit_code`. It may be `null` when the backend cannot provide a conclusive exit code, which is not proof of success. Replaced runs, mismatched IDs and insufficient status can produce errors. Reconnection reads state and logs without replaying mutations.
+
+Backend ownership changes what happens on exit:
+
+- A local backend started by the CLI belongs to that CLI process. Script completion, Ctrl+C cancellation or wait timeout cleans up that backend and its children. Tasks do not continue in that backend.
+- An external service reached through `--server` / `--pipe` does not belong to the CLI. Exiting or cancelling a wait does not automatically stop it or submitted tasks. Run `stop` explicitly when needed.
+- Workbench `/reload` stays inside the current process, preserving its backend and tasks.
+
+To keep work running after closing the terminal, start the service independently and connect BAASX to it.
+
+## JSON, Streaming and Exit Codes
+
+Ordinary `--json` commands write one JSON document to stdout. Progress information goes to stderr. Capture them separately:
+
+```bash
+baasx --profile PROFILE_ID --json status > status.json 2> status-diagnostics.log
+baasx --profile PROFILE_ID --json --follow logs 50
+baasx --profile PROFILE_ID --json watch
+```
+
+`logs --follow` and `watch` produce continuous JSON events, one per line. Do not parse the whole stream as one JSON object. `--json run` still uses the final action result as its machine-readable output when combined with `--follow`. Use a separate `logs --follow` process to collect live JSON logs.
+
+| Exit code | Meaning                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------- |
+| `0`       | Command executed successfully; inspect `completed` and `succeeded` for game-task completion                   |
+| `1`       | Argument, connection or validation error, duplicate-run refusal, an observed task failure, or another failure |
+| `124`     | Run-wait timeout                                                                                              |
+| `130`     | Ctrl+C or abort                                                                                               |
+
+JSON errors contain `error`; monitor errors may also include `code` and `details`. After an external connection timeout or an ambiguous response, inspect `status` and `logs` before retrying. Do not unconditionally loop over `run`.
+
+### Safe Practice
+
+```bash
+baasx --demo --json profiles
+baasx --demo --profile sensei-cn --json tasks
+baasx --demo --profile sensei-cn --dry-run --json run mail
+baasx --demo --profile sensei-cn --yes --wait --json run mail
+```
+
+These commands exercise invocation and result formats without operating the real game. Each command creates a fresh demo process, so changes from a previous invocation do not persist. Continue with [command packs](./command-packs) to compose steps, or [troubleshooting](./troubleshooting) when an operation fails.

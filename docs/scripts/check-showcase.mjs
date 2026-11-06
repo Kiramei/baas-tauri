@@ -46,6 +46,16 @@ try {
         await page.waitForFunction(img => img.complete && img.naturalWidth > 0, await img.elementHandle());
         const bounds = await img.boundingBox();
         assert.ok(bounds && bounds.width > 0 && bounds.x >= -1 && bounds.x + bounds.width <= (mobile ? 391 : 1441));
+        const centered = await img.evaluate(element => {
+          const body = element.closest(".prose");
+          if (!body) return false;
+          const box = body.getBoundingClientRect(), image = element.getBoundingClientRect();
+          const css = getComputedStyle(body);
+          const left = box.left + parseFloat(css.borderLeftWidth) + parseFloat(css.paddingLeft);
+          const right = box.right - parseFloat(css.borderRightWidth) - parseFloat(css.paddingRight);
+          return Math.abs((image.left + image.right) / 2 - (left + right) / 2) <= 2;
+        });
+        assert.ok(centered, "Documentation screenshots must be centered in the document body");
       }
       if (route === "guide/configuration") {
         const demo = page.locator(".baas-motion-demo");

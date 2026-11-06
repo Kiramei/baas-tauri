@@ -1,0 +1,157 @@
+---
+title: Configuration, Priorities and Counts
+description: Find BAASX settings, reorder crafting and student preferences, edit complete lesson tables, choose shop items and save count modes without overwriting conflicting changes.
+---
+
+BAASX configuration determines **how a task runs**: which students to invite, how many lessons to request in each area, or which shop items to buy. Whether and when a task joins daily automation is configured separately in the [scheduler](./scheduler).
+
+Terminal editors save explicitly. A single value usually saves with Enter; lists and tables use Ctrl+S, followed by the submission prompt. Opening a field or changing its local draft does not automatically write to the backend.
+
+<BaasxTerminalDemo locale="en" scenario="configuration" />
+
+The terminal illustration explains the controls. Actual categories, areas and options depend on the selected profile and backend data.
+
+## Select a Profile and Find a Field
+
+1. Enter `/profiles` and select the profile to edit. Alternatively, use `/use my-profile`, replacing `my-profile` with its actual ID or unique name.
+2. Enter `/config` to open configuration categories. If no profile is selected, the workspace offers profile selection and then returns to configuration.
+3. Use ↑/↓ and Enter, or click, to open a category and field.
+4. Type a field label or key into the list input to filter it, such as `createPriority_phase1` or `lesson_times`. A leading `/` opens command search; omit it when searching for a configuration key.
+5. Clear the input to restore the list. Esc returns from the field and then through the category hierarchy.
+
+| Category                                                            | Typical settings                                                            |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Café                                                                | Reward collection, invitation rules, student preferences and interactions   |
+| Lessons                                                             | Preferred students, relationship priority, area counts and tier preferences |
+| Shops                                                               | Normal shop and Tactical Challenge shop items and refresh counts            |
+| Crafting                                                            | Count, phases, material rules and each phase's priorities                   |
+| Arena, Total Assault, Final Restriction Release, Joint Firing Drill | Task conditions, difficulty or formation rules                              |
+| Daily sweeps                                                        | Normal/Hard plans, positional counts, activities and ticket purchases       |
+| Friend cleanup                                                      | Allowlist and cleanup thresholds                                            |
+| Server, script, emulator                                            | Connection, execution and emulator settings exposed by the backend          |
+| Stages, teams, notifications                                        | Progression plans, team attributes and notification channels                |
+
+Only fields actually supplied by the backend and permitted for editing appear. Some controls depend on other settings: named invitation mode reveals its student list, preferred lessons reveal their student preferences, and crafting phase count controls which later phases appear. Server type stays read-only. Internal caches and asset counters are not exposed as arbitrary editable JSON.
+
+Student, item and stage names come from backend catalogs. Changing the interface language changes labels while preserving the backend's required enum values.
+
+## Editing and Saving
+
+| Editor                           | Change a value                                                                  | Save                            |
+| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------- |
+| Switch                           | Space toggles; ←/→ selects off/on                                               | Enter or Ctrl+S                 |
+| Single choice                    | ↑/↓ selects an option                                                           | Enter or Ctrl+S                 |
+| Number or text                   | Type to replace the original value; Ctrl+A clears it                            | Enter or Ctrl+S                 |
+| Multiple choice or priority list | Select, add, remove or reorder entries                                          | Ctrl+S saves the complete field |
+| Ordinary row list                | Enter opens a row and its columns; `+` adds a row, Backspace/Delete removes one | Ctrl+S saves the complete field |
+| Lesson table                     | ↑/↓ selects an area, ←/→ a column; Enter edits a cell                           | Ctrl+S saves the complete table |
+
+Number editors enforce integer requirements and bounds. Empty, out-of-range or malformed values show an error and remain available for correction.
+
+In a table or compound row editor, **saving a child editor first updates the local draft**. For example, entering a count and pressing Enter returns to the table; Ctrl+S then submits the table. Esc inside a cell discards that cell's unapplied edit while retaining earlier table changes. Leaving the table discards its current draft.
+
+Submission prompts initially select Yes. Enter confirms; `n` or the arrow keys select cancellation. Mouse buttons are also available. Wait for successful save feedback; returning to a list or closing a prompt alone does not establish success.
+
+## Reorder Crafting and Student Preferences
+
+Ordered fields, including crafting priorities, café preferences and preferred lesson students, display the saved order with `1.`, `2.` and `3.` ranks. Higher entries have higher priority. Unselected candidates follow the selected list.
+
+1. Open the field, such as the first crafting phase's priority list.
+2. Select an entry with ↑/↓ or by clicking its name. Clicking a name selects it without removing it.
+3. Press ← to move up or → to move down, or click the corresponding controls. `<` and `>` also reorder entries.
+4. Use Space, the row's `+`/`−` button, or Add/Remove to change selection. Added entries join the end of the selected list.
+5. Press `/` to search names, type a query, then Enter to finish search input. Esc clears the search first; another Esc leaves the editor.
+6. Check the ranks, press Ctrl+S and confirm the submission.
+
+Search filters visible entries without changing priority. Moving still uses the full selected order, so a filtered-out neighbor can exchange position with the selected entry.
+
+Previously saved entries missing from the current catalog can remain visible and be retained or removed. An unavailable candidate cannot be added as a new selection. If a student list is missing, check the invitation mode, preference switch and profile server.
+
+## Lessons: A Count for Every Area
+
+Open **Configuration → Lessons**. Area settings use two tables:
+
+| Table                   | Contents                                   | Backend field                        |
+| ----------------------- | ------------------------------------------ | ------------------------------------ |
+| Lesson counts           | Requested count for each area              | `lesson_times`                       |
+| Lesson areas · Priority | Each area's tier selection and saved order | `lesson_each_region_object_priority` |
+
+Rows use the full area catalog for the profile's server. Older, shorter arrays still expose the missing areas: a new area defaults to count `1` and all four tiers. Existing zero counts, empty tier selections and saved order remain intact. If saved arrays extend beyond the current catalog, the extra rows are retained. Opening a table alone does not write these defaults.
+
+### Change an Area's Count
+
+1. Open the count table and select the area.
+2. Click `[-]` / `[+]`, or press `-` / `+`, to adjust the count.
+3. To enter a number directly, press Enter, type the value and press Enter to return to the table draft.
+4. Check the other rows, press Ctrl+S and confirm the complete table.
+
+Counts are integers from `0–99`. Zero allocates no ordinary area-pass lessons to that area. A count is a requested quantity for the task, not a historical completion counter. Preferred-student rules and available tickets also affect execution; use logs to inspect the outcome.
+
+### Change Area Tiers
+
+Click a tier cell or press Enter to open that area's priority editor. Select, remove or move tiers, then press Ctrl+S to return to the table draft. Press Ctrl+S again to submit the complete table. The editor preserves selected order; backend relationship-priority and location-selection rules determine actual choices. Use count `0` to skip an area rather than treating an empty tier list as a disable switch.
+
+Lesson ticket purchase counts are under the ticket-purchase settings in Daily sweeps. Adding missing configuration rows does not provide additional tickets.
+
+## Shops: Choose the Shop First
+
+Open **Configuration → Shops**, choose the normal shop or Tactical Challenge shop, then edit that shop's refresh count and items.
+
+- Each shop keeps its own refresh count and selections.
+- Item names come from the profile server's catalog; switches save to their corresponding backend positions.
+- Opening an item directly from configuration search enters its owning shop. Leaving the field keeps you in that shop.
+- Esc returns through the item list, shop selection and configuration categories.
+
+Saving items or refresh counts changes purchase rules. Purchases occur when the corresponding task runs, using game and backend rules for item and refresh costs.
+
+## Counts, All and Maximum Modes
+
+**There is no need to enter `∞`.** Enter a number within the displayed bounds, or choose All/Maximum when the field offers that mode. Actual quantities depend on available AP, tickets and game limits.
+
+| Setting                        | Available modes                                           | Check before saving                                                                   |
+| ------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Normal/Hard sweep plan         | Fixed count; Maximum `max` where supported                | Normal stage numbers are `1–5`, Hard `1–3`; CN/B-server Hard plans do not offer `max` |
+| Bounty, Scrimmage, Commissions | Skip, fixed count, all available                          | Fixed counts are nonnegative integers; All is stored as `max`                         |
+| Activity sweeps                | Skip, fixed count, AP share, all selected activity stages | AP share takes `0–100`; the activity All mode requires exactly one count row          |
+| Ticket purchases               | Skip, fixed purchases, maximum purchases                  | These are purchase limits: Bounty `1–12`, Lessons `1–4`, Scrimmage `1–12`             |
+
+Activity AP share takes a percentage: `50` means 50% and serializes as `0.5`; `100` serializes as `1.0`. A fixed count of `1` serializes as `1` and means one sweep. Select the mode to distinguish these meanings.
+
+Activity All uses the separate backend value `-1`; ordinary sweep Maximum uses `max`. They are not interchangeable text values. Current backend activity data still determines stages, resource costs and actual execution counts.
+
+## Read and Change Settings with Commands
+
+These commands belong in the workspace input. Select a profile first, then read its actual values:
+
+```text
+/config get /lesson_times
+/config get /createPriority_phase1
+/config get /cafe_reward_affection_pat_round
+/config set /cafe_reward_affection_pat_round 3
+```
+
+The value for `config set` must be JSON. Use `3` for a number and `true` / `false` for a boolean; a string must retain its JSON double quotes. Commands use the same field allowlist, conditions and validation as the editors. They cannot change internal caches or the read-only server type.
+
+In a system terminal, omit the leading `/` and specify the profile:
+
+```bash
+baasx --profile my-profile config get /cafe_reward_affection_pat_round
+baasx --profile my-profile --dry-run config set /cafe_reward_affection_pat_round 3
+baasx --profile my-profile --yes config set /cafe_reward_affection_pat_round 3
+```
+
+`--dry-run` previews the change; `--yes` explicitly authorizes a noninteractive mutation. Replace `my-profile` with an existing ID or unique name. Prefer the table editor for lesson arrays: it saves the complete array, and a shortened array is rejected by length validation.
+
+## Failed Saves, Conflicts and Reloading
+
+| Symptom                                                   | Next step                                                                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Invalid count or entry                                    | Correct the retained draft and save again                                                         |
+| Submission declined                                       | Continue editing or leave to discard the draft; nothing was submitted                             |
+| Another client changes the same field during confirmation | The conflict check rejects the overwrite; reload the current value before deciding how to edit it |
+| Catalog unavailable or field missing                      | Check the connection and backend version; reload to see the actual editable fields                |
+| Notification credential shows a hidden placeholder        | Enter a real replacement value; the hidden placeholder cannot be saved back                       |
+
+To reread configuration, note any intended edits, leave the editor with Esc and enter `/config` again. `/reload` or Ctrl+R rebuilds the whole workspace, clears unsaved drafts and returns to the overview after reconnecting. Backend tasks continue running.
+
+After saving, use [Tasks and Scheduling](./scheduler) to select a single test or daily run. A successful save means the backend accepted configuration; it does not mean a game task has completed.

@@ -60,6 +60,8 @@ snapshot.entries;
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | 探测一个远端版本来源。 |
 | `updater_test_sha_methods` | `{ request: { channel?, timeout? } }` | 探测多个来源，报告可能按完成顺序返回。 |
 | `updater_start_workflow` | `{ request: { installPath?, launch? } }` | 启动更新器终端会话。 |
+| `updater_select_channel` | `{ channel }` | 仅 Android 注册。保存首次选择的 `dev` 通道并解除引导程序等待，拒绝 `stable`；返回 `channel`、`channelSelected: true`。 |
+| `updater_restart_backend` | 无 | 仅 Android 注册。请求引导程序重启并确保 Android 后端服务已启动；`restartScheduled` 只表示重启请求是否被接受，不代表安装或重连已完成。 |
 | `updater_abort_workflow` | `{ request?: { cleanup?, emitEvents? } }` | 请求取消，仍需检查取消报告与清理限制。 |
 | `updater_terminal_snapshot` | 无 | 返回用于恢复终端显示的结构化数据。 |
 | `updater_resize_term` | `{ rows, cols }` | 调整终端模型尺寸。 |

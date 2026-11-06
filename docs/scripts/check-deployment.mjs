@@ -69,7 +69,7 @@ const checkedSources = Object.fromEntries(
 const routes = readdirSync(path.join(root, "docs/content/docs/en"), { recursive: true })
   .filter((file) => file.endsWith(".mdx"))
   .map((file) => file.slice(0, -4).replaceAll("\\", "/"))
-  .map((route) => (route === "index" ? "" : route))
+  .map((route) => route.replace(/(^|\/)index$/, "").replace(/\/$/, ""))
   .sort();
 
 try {
