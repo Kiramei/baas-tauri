@@ -8,7 +8,7 @@ The installed command is `baasx`, and the Bun package is `@baas/baasx`. Source c
 
 ## Getting started
 
-Running from source requires Bun 1.3+, Rust 1.95+ with Cargo, and your platform's C/C++ build toolchain. Run these commands from the repository root:
+Running from source requires Bun 1.4.4+, Rust 1.95+ with Cargo, and your platform's C/C++ build toolchain. Run these commands from the repository root:
 
 ```bash
 bun install --frozen-lockfile
@@ -20,9 +20,15 @@ Running without a command opens the terminal workbench. `--demo` uses clearly ma
 
 `bun run baasx` incrementally builds the headless Rust installation helper from the current source. A packaged Bun installation only requires Bun; a native executable distribution requires neither Bun nor Rust. See the distribution details below.
 
+The workbench uses a growing and shrinking star, directional text sweeps while connecting or waiting, and a two-second color breath while executing. Effects share a clock and update only their small animation components. Selected long labels and the last visible long log line scroll horizontally. Set `BAAS_REDUCED_MOTION=1` to keep status indicators static; redirected output and `TERM=dumb` also disable motion. Narrow terminals place labels and details on separate lines; short terminals use a two-line header. Opening configuration without a selected profile first opens the profile picker, then returns to configuration automatically.
+
 The workbench has overview, tasks, scheduler, profiles, logs, configuration, and command-pack pages. Use ↑/↓ to select, Enter to open or run, and Esc to go back. Shift+Tab switches pages; Ctrl+T opens tasks, Ctrl+P opens profiles, and Ctrl+L opens logs. Type `/` to search commands and Tab to complete them. Mouse clicks work on navigation, list entries, and confirmation buttons. The wheel scrolls the current list, logs, installation steps, or long confirmation details. Labels, descriptions, and log lines scroll horizontally when they exceed the available width, with display-width handling for Chinese text, combining characters, and emoji.
 
-Interactive confirmations select Yes by default. Enter confirms; `n` or the arrow keys select Cancel; Esc cancels the current action. You can also click either button. Running a task opens its live logs. At terminal widths of at least 110 columns, a log pane can appear beside the workspace; narrower terminals use the logs page. Scrolling upward pauses following, and returning to the bottom resumes it.
+The BAASX brand and connection header keep the same layout across pages and only compact for smaller terminals. The footer uses the last terminal row without reserving a blank line below it.
+
+Use `/reload` or Ctrl+R to reload the entire terminal interface, like the desktop client’s Reload action: reset page and input state, reread settings and command packs, reconnect, and return to the overview. The local backend and its running tasks stay alive. This reloads the workbench within the current executable; the one-shot `baasx reload` command still reloads command packs.
+
+Interactive confirmations select Yes by default. Enter confirms; `n` or the arrow keys select Cancel; Esc cancels the current action. You can also click either button. Running a task opens its live logs. At terminal widths of at least 110 columns, a log pane can appear beside the workspace. Drag its vertical divider left or right to resize the panes; each side keeps a minimum width, and terminal resizing preserves the split ratio. Narrower terminals use the logs page. Scrolling upward pauses following, and returning to the bottom resumes it.
 
 First launch lets you choose a language and a connection mode: install a local BAAS service environment or connect to an existing service. In the workbench, `/install` and `/local` manage the local environment, while `/connect` connects to an existing service. Check the installation progress and backend status for the actual result of installation or device tasks.
 
@@ -40,7 +46,13 @@ The interface supports Chinese, English, Japanese, Korean, German, French, and R
 
 Editors use switches, single-choice and multiple-choice selectors, numbers, text, lists, or row tables according to the field. Numeric fields validate ranges and integer requirements. Related fields, such as café invitations, crafting stages, emulator instances, and team modes, appear according to the current configuration. Student, item, and stage options come from backend catalog data; the server type remains read-only. Push-notification credentials are hidden, and redacted placeholders cannot be saved back into the configuration.
 
-Sweep and progression plans use rows for chapters, stages, counts, and related values. Allowlists support adding and removing entries; crafting priorities and student preferences support reordering; team attributes use the desktop client's existing editable cells. Press Space to select, `<` / `>` to reorder, `+` to add a row, Backspace/Delete to remove a row, and Ctrl+S to save an entire field. Single-value editors save with Enter. Cancellation, validation errors, and concurrent-edit conflicts do not submit changes; failures retain the current draft. Command-line and command-pack `config_set` actions use the same field allowlist, types, options, and conditional validation.
+Crafting priorities and student preferences show the actual saved order with numbered entries; higher entries have higher priority. Select with ↑/↓ and reorder with ←/→ or the Move up/Move down buttons. Use Space or the row buttons to add/remove an item, `/` to search long lists, and Ctrl+S to save. The `<` / `>` shortcuts remain available.
+
+Lesson counts and area-level priorities appear in separate tables, covering the backend's full area catalog even when an older profile has shorter arrays. New areas default to one lesson; existing zero counts and priority order are preserved. Click `[-]` / `[+]` or press `-` / `+` to adjust counts, or Enter to edit a value. Open a priority cell to reorder its levels. Shop configuration first asks which shop to edit; configuration search still finds individual goods directly. Numeric bounds use plain text, and fields supporting all/max counts offer those modes as selectable options.
+
+Sweep and progression plans use rows for chapters, stages, counts, and related values. Allowlists support adding and removing entries; team attributes use the desktop client's existing editable cells. In ordinary row editors, use `+` to add a row and Backspace/Delete to remove one. Single-value editors save with Enter. Cancellation, validation errors, and concurrent-edit conflicts do not submit changes; failures retain the current draft. Command-line and command-pack `config_set` actions use the same field allowlist, types, options, and conditional validation.
+
+Open One-off tasks from `/tasks`, or use `/oneoff`, to run normal/hard progression, main/group/mini stories, and event stories, missions, and challenges. These operations use the existing single-task confirmation and are not added to the daily `/start` schedule. Direct commands such as `/run start_explore_activity_story` use the same backend task IDs.
 
 `/scheduler` edits the current profile's actual task schedule. It also supports enabling or disabling all tasks, resetting execution times, and choosing the default state for newly added tasks: `on`, `off`, or `default`. Each task exposes these fields:
 
@@ -133,7 +145,7 @@ When a run ends, the result has `completed: true`, and `succeeded` is determined
 
 Ctrl+C cancels the current wait, request, or monitor; an idle workbench exits. Closing the CLI, canceling a local wait, or timing out a local wait stops the backend and child processes launched by that CLI instance. External services connected through `--server` / `--pipe` and their submitted tasks keep running. To keep a service running independently, start it yourself and connect the CLI to it. A successful health check does not establish successful authentication or device-task execution.
 
-Mutations normally ask for confirmation, with Yes selected by default in the workbench. `--yes` skips ordinary action confirmations and is required for noninteractive mutation scripts. First installation still requires confirmation in the interface. `--read-only` applies to both direct commands and command packs. Configuration changes read a snapshot and check for conflicts instead of overwriting concurrent edits automatically.
+Direct `/start` (CLI `start`) starts the scheduler immediately without confirmation or `--yes`. Other mutations and command packs ask for confirmation, with Yes selected by default in the workbench. `--yes` skips ordinary action confirmations and is required for other noninteractive mutation scripts. First installation still requires confirmation in the interface. `--read-only` applies to both direct commands and command packs. Configuration changes read a snapshot and check for conflicts instead of overwriting concurrent edits automatically.
 
 `--dry-run` previews mutations and the complete command-pack plan without executing pack steps. Preflight checks may read actual profiles, tasks, and configuration fields:
 
@@ -180,19 +192,21 @@ baasx keeps the existing CLI configuration directory and `BAAS_*` environment va
 Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAAS_RUNTIME_HELPER` explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
 
 ```bash
-bun run baasx:build
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:build
 bun baasx/bin/baasx.mjs --demo
 
-# Native executable distribution: the target machine needs neither Bun nor Rust.
-bun run baasx:binary
+# Pinned slim compiler; no system Bun replacement. Targets need neither Bun nor Rust.
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
-bun run baasx:pack
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
 bun add --global ./baasx/dist/baas-baasx-0.1.0.tgz
 baasx --help
 ```
 
 `baasx:build` builds the native Rust helper and `baasx/dist/baasx.js`. `baasx:binary` also generates `baasx/dist/baasx` (`baasx.exe` on Windows). Builds target the current operating system and architecture; build separately for each platform so that packages contain the correct helper.
+
+The JS bundle is minified, and executables use ESM with a shallow bytecode cache to reduce startup parsing. The slim compiler is pinned in `baasx/package.json` to `bun@1.4.4-canary.20261105.1` (revision `b1007f117`); CI installs it in a temporary directory, and the build checks the full revision to reject other versions and floating canaries. Its [runtime trimming](https://bun.com/docs/compiler/size) is experimental: only unused build/test tools, image, database and related APIs are removed. JIT, WASM, Intl, networking, cryptography and process support remain; AOT is disabled. Tests exercise configuration and command packs in the compiled artifact. Stable Bun 1.4.4 does not support trimming, and upgrading alone does not guarantee a smaller executable. Use `bun run baasx:binary --no-trim` to fall back to the full runtime. A compiler without trimming support fails explicitly rather than silently producing a larger release.
 
 Both distribution formats must include the installation helper:
 
@@ -200,6 +214,8 @@ Both distribution formats must include the installation helper:
 - Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baas-cli-runtime` / `runtime/baas-cli-runtime.exe`. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
 
 CI checks and builds on Windows, Linux, and macOS. Uploaded build artifacts contain the Bun `.tgz` package and native `.tar.gz` distribution, each with its platform's installation helper, both README languages, and the license. Extract the appropriate archive and preserve its directory structure and executable permissions. Users of these packages do not need a Rust toolchain to install the BAAS environment on first launch.
+
+GitHub publishing uses the independent **Release baasx** workflow (`.github/workflows/release-baasx.yml`). Tags use `baasx-v<version>` and must match `baasx/package.json` exactly, for example `baasx-v0.1.0`; their commit must belong to `baasx-dev`. Versions with suffixes such as `-rc.1` become prereleases. Manual reruns must also select an existing baasx tag. The workflow reuses baasx CI and publishes only after source tests, compiled-artifact tests and archive extraction checks pass on all three platforms. Assets include versioned native archives, platform-specific `-bun.tgz` packages and `SHA256SUMS`. Bun packages are GitHub Release attachments; they are not published to the npm registry. These tags do not trigger the desktop Release App / Docker workflows, and baasx releases never replace the desktop release's Latest designation.
 
 ## Development and verification
 

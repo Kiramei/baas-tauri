@@ -72,6 +72,7 @@ const CORE_NAMES = new Set([
   "new",
   "context",
   "reload",
+  "oneoff",
   "check-update",
   "update",
 ]);

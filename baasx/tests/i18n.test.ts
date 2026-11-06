@@ -114,6 +114,9 @@ describe("source-key translations", () => {
     for (const file of [
       "workspace-view.tsx",
       "field-editor.tsx",
+      "priority-editor.tsx",
+      "table-editor.tsx",
+      "workbench-help.tsx",
       "scheduler.ts",
       "workspace.ts",
       "runtime.ts",

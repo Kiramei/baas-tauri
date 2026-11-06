@@ -1,0 +1,103 @@
+name: Release baasx
+
+on:
+  push:
+    tags:
+      - "baasx-v[0-9]*.[0-9]*.[0-9]*"
+  # Select an existing baasx-v* tag, not a branch, for a manual rerun.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-baasx-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate the independent baasx release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the baasx package version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const { version } = require("./baasx/package.json");
+          const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+          const parsed = version.match(semver);
+          const invalidPrerelease = parsed?.[4]?.split(".").some(id => /^0\d+$/.test(id));
+          if (process.env.RELEASE_REF_TYPE !== "tag" || !parsed || invalidPrerelease ||
+              process.env.RELEASE_TAG !== `baasx-v${version}`) {
+            throw new Error(`Select the existing baasx-v${version} tag; baasx releases use baasx/package.json, not the desktop version.`);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nprerelease=${Boolean(parsed[4])}\n`);
+          NODE
+      - name: Require the baasx release branch
+        run: |
+          git fetch --no-tags origin baasx-dev:refs/remotes/origin/baasx-dev
+          if ! git merge-base --is-ancestor HEAD origin/baasx-dev; then
+            echo "::error::baasx release tags must point to commits on baasx-dev."
+            exit 1
+          fi
+
+  build:
+    name: Verify and build baasx on all platforms
+    needs: validate
+    uses: ./.github/workflows/cli.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish the standalone baasx release
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: baasx-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify all distributions and create checksums
+        env:
+          BAASX_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd release-assets
+          native=(baasx-"$BAASX_VERSION"-*.tar.gz)
+          packages=(baasx-"$BAASX_VERSION"-*-bun.tgz)
+          test "${#native[@]}" -eq 3
+          test "${#packages[@]}" -eq 3
+          sha256sum "${native[@]}" "${packages[@]}" > SHA256SUMS
+          sha256sum --check SHA256SUMS
+      - name: Publish baasx assets without changing the desktop Latest release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: baasx v${{ needs.validate.outputs.version }}
+          make_latest: "false"
+          prerelease: ${{ needs.validate.outputs.prerelease == 'true' }}
+          fail_on_unmatched_files: true
+          files: release-assets/*
+          body: |
+            Standalone baasx automation terminal. This release is separate from the BAAS Tauri desktop client.
+
+            - Download the native archive for your operating system and architecture. Keep its `runtime` directory beside `baasx` / `baasx.exe`; Bun and Rust are not required on the target machine.
+            - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
+            - `SHA256SUMS` contains checksums for all six distributions.
+            - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all three platforms before publication.

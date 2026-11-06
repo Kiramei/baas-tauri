@@ -178,8 +178,20 @@ describe("CLI subprocess contract", () => {
     expect(result.stdout).not.toContain("\x1b");
     expect(result.stderr).toBe("");
   });
-  test("noninteractive writes need explicit approval", async () => {
-    const denied = await run(["--demo", "--json", "start"]);
+  test("direct start runs without confirmation while other writes still require approval", async () => {
+    const started = await run(["--demo", "--json", "start"]);
+    expect(started.code).toBe(0);
+    expect(JSON.parse(started.stdout)).toMatchObject({ accepted: true, completed: false });
+    const readOnly = await run(["--demo", "--json", "--read-only", "start"]);
+    expect(readOnly.code).toBe(1);
+    expect(JSON.parse(readOnly.stdout).error).toContain("只读");
+    const preview = await run(["--demo", "--json", "--dry-run", "start"]);
+    expect(preview.code).toBe(0);
+    expect(JSON.parse(preview.stdout)).toMatchObject({ dry_run: true, action: "scheduler_start" });
+    const pack = await run(["--demo", "--json", "pack", "daily"]);
+    expect(pack.code).toBe(1);
+    expect(JSON.parse(pack.stdout).error).toContain("--yes");
+    const denied = await run(["--demo", "--json", "run", "collect_reward"]);
     expect(denied.code).toBe(1);
     expect(JSON.parse(denied.stdout).error).toContain("--yes");
     const allowed = await run(["--demo", "--json", "--yes", "run", "collect_reward"]);

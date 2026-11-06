@@ -299,6 +299,109 @@ describe("desktop configuration contract", () => {
     expect(() => parseConfigurationValue(field("/ArenaComponentNumber"), 4)).toThrow();
   });
 
+  test("lesson tables include every catalog area and extend old arrays on save", () => {
+    const config = {
+      ...snapshot(),
+      lesson_times: [0],
+      lesson_each_region_object_priority: [["advanced", "primary"]],
+    };
+    const before = structuredClone(config);
+    const counts = field("/lesson_times", config);
+    const levels = field("/lesson_each_region_object_priority", config);
+    expect(counts.type).toBe("rows");
+    expect(counts.rowLabels).toEqual(["校区一", "校区二"]);
+    expect(counts.editorValue).toEqual([{ count: 0 }, { count: 1 }]);
+    expect(counts.allowAdd).toBe(false);
+    expect(counts.allowRemove).toBe(false);
+    expect(levels.editorValue).toEqual([
+      { levels: ["advanced", "primary"] },
+      { levels: ["primary", "normal", "advanced", "superior"] },
+    ]);
+    expect(levels.columns![0]).toMatchObject({ type: "multiselect", ordered: true });
+    expect(config).toEqual(before);
+    expect(parseConfigurationValue(counts, [{ count: 0 }, { count: 9 }])).toEqual([0, 9]);
+    expect(validateConfigurationStoredValue(config, counts.path, [0, 9], options)).toEqual([0, 9]);
+    expect(
+      validateConfigurationStoredValue(config, levels.path, [["advanced", "primary"], []], options)
+    ).toEqual([["advanced", "primary"], []]);
+    expect(
+      configurationFields(config, options).filter((item) => item.key === "lesson_times")
+    ).toHaveLength(1);
+    // Existing CLI paths retain their type and limits, while new areas require an array write.
+    expect(parseConfigurationValue(field("/lesson_times/0", config), 3)).toBe(3);
+    expect(getConfigurationField(config, "/lesson_times/1", options)).toBeUndefined();
+    expect(
+      parseConfigurationValue(field("/lesson_each_region_object_priority/0", config), ["primary"])
+    ).toEqual(["primary"]);
+  });
+
+  test("lesson defaults handle empty arrays without losing existing out-of-catalog rows", () => {
+    const empty = { ...snapshot(), lesson_times: [], lesson_each_region_object_priority: [] };
+    expect(field("/lesson_times", empty).editorValue).toEqual([{ count: 1 }, { count: 1 }]);
+    const extended = {
+      ...snapshot(),
+      lesson_times: [0, 2, 8],
+      lesson_each_region_object_priority: [[], ["normal"]],
+    };
+    expect(field("/lesson_times", extended).editorValue).toEqual([
+      { count: 0 },
+      { count: 2 },
+      { count: 8 },
+    ]);
+    expect(field("/lesson_times", extended).rowLabels).toEqual(["校区一", "校区二", "Area 3"]);
+    expect(field("/lesson_each_region_object_priority", extended).editorValue).toEqual([
+      { levels: [] },
+      { levels: ["normal"] },
+      { levels: ["primary", "normal", "advanced", "superior"] },
+    ]);
+    const noCatalog = getConfigurationField(extended, "/lesson_times", { language: "en" })!;
+    expect(noCatalog.rowLabels).toEqual(["Area 1", "Area 2", "Area 3"]);
+    expect(parseConfigurationValue(noCatalog, noCatalog.editorValue)).toEqual([0, 2, 8]);
+    const missing: Record<string, unknown> = snapshot();
+    delete missing.lesson_times;
+    expect(getConfigurationField(missing, "/lesson_times", options)).toBeUndefined();
+  });
+
+  test("lesson tables validate all counts, levels and row lengths before serialization", () => {
+    const counts = field("/lesson_times");
+    for (const input of [
+      [{ count: 1 }],
+      [{ count: 1 }, { count: 100 }],
+      [{ count: -1 }, { count: 1 }],
+      [{ count: 1 }, { count: 0.5 }],
+      [{ count: 1 }, { count: true }],
+      [{ count: 1 }, {}],
+      [{ count: 1, unexpected: 2 }, { count: 1 }],
+    ])
+      expect(() => parseConfigurationValue(counts, input)).toThrow();
+    const config = {
+      ...snapshot(),
+      lesson_each_region_object_priority: [["legacy", "primary"], []],
+    };
+    const levels = field("/lesson_each_region_object_priority", config);
+    expect(parseConfigurationValue(levels, levels.editorValue)).toEqual([
+      ["legacy", "primary"],
+      [],
+    ]);
+    expect(parseConfigurationValue(levels, [{ levels: ["primary"] }, { levels: [] }])).toEqual([
+      ["primary"],
+      [],
+    ]);
+    for (const input of [
+      [{ levels: [] }, { levels: ["legacy"] }],
+      [{ levels: ["invalid"] }, { levels: [] }],
+      [{ levels: ["primary", "primary"] }, { levels: [] }],
+      [{ levels: "primary" }, { levels: [] }],
+      [{ levels: [true] }, { levels: [] }],
+      [{ levels: [] }],
+    ])
+      expect(() => parseConfigurationValue(levels, input)).toThrow();
+    expect(() => validateConfigurationStoredValue(config, counts.path, [1], options)).toThrow();
+    expect(() =>
+      validateConfigurationStoredValue(config, levels.path, [["primary"], ["invalid"]], options)
+    ).toThrow();
+  });
+
   test("ADB supports host/port and a lone USB serial without allowing an empty endpoint", () => {
     expect(parseConfigurationValue(field("/adbPort"), "65535")).toBe("65535");
     expect(() => parseConfigurationValue(field("/adbPort"), 65536)).toThrow();

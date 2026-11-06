@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { HitBox, Marquee } from "./terminal-components";
+import { HitBox, Marquee, Sparkle } from "./terminal-components";
 import { translate } from "./i18n";
 import { terminalText } from "./ui";
 import type { InstallationProgress, InstallationTask } from "./installation";
@@ -8,7 +8,7 @@ import type { InstallationProgress, InstallationTask } from "./installation";
 const TEAL = "#70d7e5",
   MUTED = "#89969f",
   GREEN = "#98cf9e",
-  AMBER = "#e9bd78",
+  NOTICE = "#a8b8ff",
   RED = "#f38b91";
 export function installationStage(id: string): string {
   const labels: Record<string, string> = {
@@ -73,10 +73,11 @@ export function InstallationPanel({
   title?: string;
   columns: number;
   height: number;
-  tick: number;
+  tick?: number;
   failed?: boolean;
 }) {
   const t = (value: string) => translate(value, language);
+  const compact = columns < 50;
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [scroll, setScroll] = useState<number>();
   const tasks = progress.tasks;
@@ -84,7 +85,7 @@ export function InstallationPanel({
   const running = tasks.some((task) => task.status === "running");
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(() => setNow(Date.now()), 100);
+    const timer = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(timer);
   }, [running]);
   const finished = tasks.filter(
@@ -107,7 +108,7 @@ export function InstallationPanel({
         : task.status === "complete"
           ? GREEN
           : task.status === "running"
-            ? AMBER
+            ? NOTICE
             : MUTED;
     rows.push({ task, index, kind: "header", color, expanded });
     if (!expanded) continue;
@@ -147,15 +148,25 @@ export function InstallationPanel({
         expanded,
       });
   }
-  const available = Math.max(1, height - 2);
+  const available = Math.max(0, height - (height > 1 ? 2 : 1));
   const lastActive = rows.reduce(
     (last, row, index) =>
       row.task.status === "running" || row.task.status === "failed" ? index : last,
     -1
   );
+  const activeHeader = rows.reduce(
+    (last, row, index) =>
+      row.kind === "header" && (row.task.status === "running" || row.task.status === "failed")
+        ? index
+        : last,
+    -1
+  );
   const automatic = Math.max(
     0,
-    Math.min(Math.max(0, rows.length - available), lastActive - available + 3)
+    Math.min(
+      Math.max(0, rows.length - available),
+      available < 4 ? activeHeader : lastActive - available + 3
+    )
   );
   const offset = Math.max(0, Math.min(scroll ?? automatic, Math.max(0, rows.length - available)));
   const move = (delta: number) =>
@@ -179,7 +190,7 @@ export function InstallationPanel({
         overflow="hidden"
         onWheel={move}
       >
-        {!rows.length && <Text color={AMBER}> =&gt; {t(progress.message)}</Text>}
+        {!rows.length && <Text color={NOTICE}> =&gt; {t(progress.message)}</Text>}
         {rows.slice(offset, offset + available).map((row, index) =>
           row.kind === "header" ? (
             <HitBox
@@ -188,31 +199,57 @@ export function InstallationPanel({
               flexShrink={0}
               onPress={() => setOpen((old) => ({ ...old, [row.task.id]: !row.expanded }))}
             >
-              <Text color={row.color}>
-                {row.task.status === "running" ? ` ${["=>", "⇒ ", "=>", "→ "][tick % 4]} ` : " => "}
-              </Text>
+              {row.task.status === "running" && tick === undefined ? (
+                <Text>
+                  {" "}
+                  <Sparkle color={row.color} /> {!compact && " "}
+                </Text>
+              ) : (
+                <Text color={row.color}>
+                  {compact
+                    ? row.task.status === "failed"
+                      ? "! "
+                      : row.task.status === "complete"
+                        ? "✓ "
+                        : "› "
+                    : row.task.status === "running"
+                      ? ` ${["=>", "⇒ ", "=>", "→ "][(tick ?? 0) % 4]} `
+                      : " => "}
+                </Text>
+              )}
               <Marquee
                 value={`[${row.index + 1}/${tasks.length}] ${t(installationStage(row.task.id))}`}
-                width={Math.max(1, columns - 28)}
-                color={row.color}
-              />
-              <Box flexGrow={1} />
-              <Text color={row.color}>
-                {t(
-                  row.task.status === "complete"
-                    ? "已完成"
-                    : row.task.status === "failed"
-                      ? "失败"
-                      : row.task.status === "skipped"
-                        ? "已跳过"
-                        : row.task.status === "pending"
-                          ? "等待中"
-                          : "进行中"
+                width={Math.max(
+                  1,
+                  columns -
+                    (compact ? (tick === undefined && row.task.status === "running" ? 5 : 4) : 28)
                 )}
-              </Text>
-              <Box width={8} justifyContent="flex-end">
-                <Text color={MUTED}>{elapsed(row.task, now)}</Text>
-              </Box>
+                color={row.color}
+                motion={
+                  row.task.status === "running" && tick === undefined ? "tool-use" : undefined
+                }
+              />
+              {!compact && (
+                <>
+                  <Box flexGrow={1} />
+                  <Text color={row.color}>
+                    {t(
+                      row.task.status === "complete"
+                        ? "已完成"
+                        : row.task.status === "failed"
+                          ? "失败"
+                          : row.task.status === "skipped"
+                            ? "已跳过"
+                            : row.task.status === "pending"
+                              ? "等待中"
+                              : "进行中"
+                    )}
+                  </Text>
+                  <Box width={8} justifyContent="flex-end">
+                    <Text color={MUTED}>{elapsed(row.task, now)}</Text>
+                  </Box>
+                </>
+              )}
             </HitBox>
           ) : (
             <Box key={`${row.task.id}-${row.kind}-${index}`} height={1} flexShrink={0}>
@@ -226,11 +263,13 @@ export function InstallationPanel({
           )
         )}
       </HitBox>
-      <Marquee
-        value={t("滚轮查看步骤 · 点击展开日志 · Esc 取消")}
-        width={columns - 2}
-        color={MUTED}
-      />
+      {height > 1 && (
+        <Marquee
+          value={t("滚轮查看步骤 · 点击展开日志 · Esc 取消")}
+          width={columns - 2}
+          color={MUTED}
+        />
+      )}
     </Box>
   );
 }

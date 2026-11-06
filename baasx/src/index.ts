@@ -230,8 +230,8 @@ async function main() {
       controller = undefined;
     }
   };
-  const action = (name: string, args: Record<string, unknown> = {}) =>
-    withOperation(() => executeAction(name, args, context));
+  const action = (name: string, args: Record<string, unknown> = {}, approved = false) =>
+    withOperation(() => executeAction(name, args, context, approved));
   const show = (name: string, value: unknown) => {
     const result = name === "config_set" ? redactor.value(value) : value;
     const record = result && typeof result === "object" ? (result as Record<string, any>) : {};
@@ -464,9 +464,12 @@ async function main() {
         show("task_run", await action("task_run", { task: args[0] }));
         break;
       case "start":
+        expect(0);
+        show(command, await action("scheduler_start", {}, true));
+        break;
       case "stop":
         expect(0);
-        show(command, await action(command === "start" ? "scheduler_start" : "scheduler_stop"));
+        show(command, await action("scheduler_stop"));
         break;
       case "wait":
         expect(0, 1);

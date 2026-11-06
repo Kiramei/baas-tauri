@@ -10,7 +10,12 @@ import {
 } from "@baas/client";
 import { DemoClient } from "../src/demo";
 import { Workspace, type WorkspaceSnapshot } from "../src/workspace";
-import { RuntimeManager, type RuntimeState, type RuntimeUpdateCheck } from "../src/runtime";
+import {
+  RuntimeManager,
+  type RuntimeEvent,
+  type RuntimeState,
+  type RuntimeUpdateCheck,
+} from "../src/runtime";
 import { configurationFields } from "../src/configuration";
 
 const cleanup: (() => void | Promise<void>)[] = [];
@@ -82,7 +87,9 @@ test("local installation respects read-only and dry-run without starting the hel
 function serviceFixture() {
   const state = {
     connects: 0,
+    connectionError: undefined as Error | undefined,
     key: "",
+    statuses: { alpha: { running: false } } as BaasStatusSnapshot,
     disconnect: (_error: Error) => {},
     log: (_entry: BaasLogEntry) => {},
     status: (_update: BaasStatusUpdate, _snapshot: BaasStatusSnapshot) => {},
@@ -90,10 +97,13 @@ function serviceFixture() {
   const spies = [
     spyOn(BaasClient.prototype, "connect").mockImplementation(async function (this: BaasClient) {
       state.connects++;
+      if (state.connectionError) throw state.connectionError;
       state.key = (this as unknown as { options: { key: string } }).options.key;
     }),
     spyOn(BaasClient.prototype, "profiles").mockResolvedValue({ alpha: "Fixture" }),
-    spyOn(BaasClient.prototype, "status").mockResolvedValue({ alpha: { running: false } }),
+    spyOn(BaasClient.prototype, "status").mockImplementation(async () =>
+      structuredClone(state.statuses)
+    ),
     spyOn(BaasClient.prototype, "tasks").mockResolvedValue({
       arena: { event_name: "Arena", enabled: true },
     }),
@@ -191,7 +201,247 @@ function runtimeFixture() {
   return { order, update, check, stop, apply, start };
 }
 
+describe("workspace reload", () => {
+  test("reload reconnects to the same local backend, rereads preferences/packs and clears UI data", async () => {
+    const runtime = runtimeFixture();
+    const service = serviceFixture();
+    service.statuses = { alpha: { running: true, current_task: "arena", run_id: "still-running" } };
+    const owners: RuntimeManager[] = [];
+    runtime.start.mockImplementation(async function (this: RuntimeManager) {
+      owners.push(this);
+      return { pipe: "/fixture-runtime/service.sock" };
+    });
+    const close = spyOn(RuntimeManager.prototype, "close");
+    const request = spyOn(BaasClient.prototype, "request");
+    cleanup.push(() => {
+      close.mockRestore();
+      request.mockRestore();
+    });
+    const path = await directory();
+    const settings = {
+      url: "ws://127.0.0.1:8190",
+      connectionMode: "local",
+      language: "zh",
+      profile: "alpha",
+    };
+    await writeFile(join(path, "settings.json"), JSON.stringify(settings));
+    const workspace = await Workspace.create({ directory: path, readOnly: true });
+    cleanup.push(() => workspace.close());
+    await workspace.initialize();
+    await workspace.checkUpdates();
+    expect(workspace.snapshot.update).toBeDefined();
+    const staleLog = service.log;
+    staleLog({ scope: "global", time: "before", level: "INFO", message: "old UI log" });
+    const packsDirectory = join(path, "new-packs");
+    await mkdir(packsDirectory);
+    await writeFile(
+      join(packsDirectory, "custom.json"),
+      JSON.stringify({
+        id: "reload-check",
+        name: "Reload check",
+        description: "Loaded from disk",
+        version: 1,
+        commands: [
+          {
+            name: "fresh-command",
+            description: "Fresh command",
+            steps: [{ action: "status", args: {} }],
+          },
+        ],
+      })
+    );
+    await writeFile(
+      join(path, "settings.json"),
+      JSON.stringify({ ...settings, language: "en", packsDirectory })
+    );
+    const frames: WorkspaceSnapshot[] = [];
+    cleanup.push(workspace.subscribe((snapshot) => frames.push(snapshot)));
+    await workspace.execute("/reload");
+    const reset = frames.find((snapshot) => snapshot.reloadRevision === 1 && !snapshot.connected);
+    expect(reset).toMatchObject({ profiles: {}, tasks: {}, status: {}, logs: [], activity: [] });
+    expect(reset?.installation).toBeUndefined();
+    expect(reset?.update).toBeUndefined();
+    expect(reset?.scheduler).toBeUndefined();
+    expect(workspace.snapshot).toMatchObject({
+      reloadRevision: 1,
+      connected: true,
+      profile: "alpha",
+      language: "en",
+      readOnly: true,
+    });
+    expect(workspace.snapshot.status.alpha).toMatchObject({
+      running: true,
+      run_id: "still-running",
+    });
+    expect(workspace.snapshot.packs.some((command) => command.name === "fresh-command")).toBe(true);
+    expect(workspace.snapshot.logs).toEqual([]);
+    staleLog({ scope: "global", time: "late", level: "INFO", message: "stale subscription" });
+    expect(workspace.snapshot.logs).toEqual([]);
+    expect(owners).toHaveLength(2);
+    expect(owners[1]).toBe(owners[0]);
+    expect(service.connects).toBe(2);
+    expect(runtime.stop).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(workspace.snapshot.activity.at(-1)?.title).toBe("工作台已重载");
+    service.connectionError = new Error("Reload connection temporarily unavailable");
+    await workspace.reload();
+    expect(workspace.snapshot).toMatchObject({ reloadRevision: 2, connected: false });
+    expect(workspace.snapshot.activity.at(-1)?.title).toBe("重新加载工作台失败");
+    expect(close).not.toHaveBeenCalled();
+    expect(runtime.stop).not.toHaveBeenCalled();
+    service.connectionError = undefined;
+    await workspace.reload();
+    expect(workspace.snapshot).toMatchObject({ reloadRevision: 3, connected: true });
+    expect(owners).toHaveLength(4);
+    expect(owners.every((owner) => owner === owners[0])).toBe(true);
+    expect(workspace.snapshot.status.alpha).toMatchObject({
+      running: true,
+      run_id: "still-running",
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  test("demo reload preserves the selected profile, changed configuration and running task completion", async () => {
+    const workspace = await demo({ yes: true });
+    await workspace.connect();
+    await workspace.selectProfile("sensei-jp");
+    await workspace.setConfig("/program_address", "before-reload");
+    await workspace.run("cafe");
+    const client = internalClient(workspace);
+    const runId = workspace.snapshot.status["sensei-jp"].run_id;
+    await workspace.reload();
+    expect(internalClient(workspace)).toBe(client);
+    expect(workspace.snapshot.profile).toBe("sensei-jp");
+    expect(workspace.snapshot.reloadRevision).toBe(1);
+    expect(workspace.snapshot.status["sensei-jp"]).toMatchObject({ running: true, run_id: runId });
+    expect((await workspace.getConfig()).program_address).toBe("before-reload");
+    await until(workspace, (snapshot) => snapshot.status["sensei-jp"]?.running === false);
+    expect(workspace.snapshot.status["sensei-jp"]).toMatchObject({ run_id: runId, exit_code: 0 });
+  });
+
+  test("invalid reload arguments and busy prompts cannot discard the current session", async () => {
+    const workspace = await demo();
+    await workspace.connect();
+    await workspace.execute("reload extra");
+    expect(workspace.snapshot.activity.at(-1)?.detail).toBe("用法：reload");
+    expect(workspace.snapshot.reloadRevision).toBeUndefined();
+    const pending = workspace.run("collect_reward");
+    await until(workspace, (state) => state.prompt?.kind === "confirm");
+    const prompt = workspace.snapshot.prompt;
+    await workspace.reload();
+    expect(workspace.snapshot.prompt).toEqual(prompt);
+    expect(workspace.snapshot.reloadRevision).toBeUndefined();
+    workspace.answerPrompt(false);
+    await pending;
+  });
+
+  test("malformed local settings leave the existing connection and backend usable", async () => {
+    const path = await directory();
+    const workspace = await demo({ directory: path });
+    await workspace.connect();
+    const client = internalClient(workspace);
+    await writeFile(join(path, "settings.json"), "{broken");
+    await workspace.reload();
+    expect(workspace.snapshot.reloadRevision).toBeUndefined();
+    expect(workspace.snapshot.connected).toBe(true);
+    expect(internalClient(workspace)).toBe(client);
+    expect(workspace.snapshot.activity.at(-1)?.title).toBe("重新加载工作台失败");
+    expect(workspace.snapshot.tasks.cafe).toBeDefined();
+  });
+});
+
 describe("local runtime updates in the workspace", () => {
+  test("backend logs after attachment cannot recreate startup progress or overwrite an update", async () => {
+    const runtime = runtimeFixture();
+    serviceFixture();
+    const callbacks: Array<(event: RuntimeEvent) => void> = [];
+    runtime.start.mockImplementation(async (onEvent) => {
+      callbacks.push(onEvent!);
+      onEvent?.({
+        type: "progress",
+        stage: "backend",
+        taskId: "launch-backend",
+        message: "Starting fixture",
+        status: "running",
+      });
+      onEvent?.({
+        type: "progress",
+        stage: "ready",
+        taskId: "launch-backend",
+        message: "Fixture ready",
+        status: "complete",
+      });
+      return { pipe: "/fixture-runtime/service.sock" };
+    });
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => workspace.close());
+    const frames: WorkspaceSnapshot[] = [];
+    cleanup.push(workspace.subscribe((snapshot) => frames.push(snapshot)));
+    await workspace.startLocal();
+    expect(workspace.snapshot.connected).toBe(true);
+    expect(workspace.snapshot.installation).toBeUndefined();
+    const log: RuntimeEvent = {
+      type: "progress",
+      stage: "backend",
+      taskId: "launch-backend",
+      message: "Configuration created after startup",
+      currentLine: "Configuration created after startup",
+    };
+    callbacks[0](log);
+    expect(workspace.snapshot.installation).toBeUndefined();
+    await workspace.updateRuntime();
+    expect(callbacks).toHaveLength(2);
+    const completed = workspace.snapshot.installation;
+    expect(completed?.tasks.find((task) => task.id === "launch-backend")?.status).toBe("complete");
+    callbacks[0](log);
+    callbacks[1](log);
+    expect(workspace.snapshot.installation).toEqual(completed);
+    expect(
+      frames.filter((snapshot) =>
+        snapshot.installation?.tasks.some(
+          (task) => task.id === "launch-backend" && task.status === "running"
+        )
+      ).length
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  test("failed startup keeps its diagnostics when trailing backend output arrives", async () => {
+    const runtime = runtimeFixture();
+    let emit: ((event: RuntimeEvent) => void) | undefined;
+    runtime.start.mockImplementation(async (onEvent) => {
+      emit = onEvent;
+      onEvent?.({
+        type: "progress",
+        stage: "backend",
+        taskId: "launch-backend",
+        message: "Fixture handshake failed",
+        status: "failed",
+      });
+      throw new Error("Fixture handshake failed");
+    });
+    const workspace = await Workspace.create({ directory: await directory() });
+    cleanup.push(() => workspace.close());
+    await workspace.startLocal();
+    const failed = workspace.snapshot.installation;
+    expect(workspace.snapshot.connected).toBe(false);
+    expect(failed?.tasks.find((task) => task.id === "launch-backend")).toMatchObject({
+      status: "failed",
+      currentLine: "Fixture handshake failed",
+    });
+    emit?.({
+      type: "progress",
+      stage: "backend",
+      taskId: "launch-backend",
+      message: "Trailing backend shutdown output",
+    });
+    expect(workspace.snapshot.installation).toEqual(failed);
+  });
+
   test("read-only checks retain real structured progress without adding repaint frames as log lines", async () => {
     const runtime = runtimeFixture();
     const workspace = await Workspace.create({ directory: await directory(), readOnly: true });
@@ -418,6 +668,34 @@ describe("creating the first BAAS profile", () => {
 });
 
 describe("deterministic BAAS workspace", () => {
+  test("configuration and option catalogs load concurrently, with unavailable catalogs remaining optional", async () => {
+    const workspace = await demo();
+    await workspace.connect();
+    let release!: (value: Record<string, unknown>) => void;
+    const gate = new Promise<Record<string, unknown>>((resolve) => {
+      release = resolve;
+    });
+    const config = spyOn(DemoClient.prototype, "config").mockImplementation(() => gate);
+    const catalog = spyOn(DemoClient.prototype, "staticData").mockRejectedValue(
+      new Error("catalog unavailable")
+    );
+    cleanup.push(() => {
+      config.mockRestore();
+      catalog.mockRestore();
+    });
+    const pending = workspace.getConfig();
+    try {
+      for (let attempt = 0; attempt < 20 && !catalog.mock.calls.length; attempt++)
+        await Bun.sleep(5);
+      expect(config).toHaveBeenCalledTimes(1);
+      expect(catalog).toHaveBeenCalledTimes(1);
+    } finally {
+      release({ server: "官服", screenshot_method: "adb" });
+    }
+    expect(await pending).toMatchObject({ screenshot_method: "adb" });
+    expect(workspace.snapshot.staticData).toEqual({});
+    expect(workspace.snapshot.activity.at(-1)?.title).toBe("配置选项数据不可用");
+  });
   test("demo configuration exposes desktop switches, numbers, rows and catalogs with server wire values", async () => {
     const workspace = await demo({ yes: true });
     await workspace.connect();
@@ -535,6 +813,86 @@ describe("deterministic BAAS workspace", () => {
     expect(workspace.snapshot.activity.some((item) => item.title.includes("已提交"))).toBe(true);
     await until(workspace, (state) => state.status["sensei-cn"].running === false);
     expect(workspace.snapshot.logs.some((entry) => entry.message.includes("执行完成"))).toBe(true);
+  });
+
+  test("direct start skips confirmation but stop and command packs retain it", async () => {
+    const workspace = await demo();
+    await workspace.connect();
+    const prompts: string[] = [];
+    workspace.subscribe((state) => {
+      if (state.prompt?.kind === "confirm") {
+        prompts.push(state.prompt.title);
+        workspace.answerPrompt(false);
+      }
+    });
+    await workspace.execute("start");
+    expect(prompts).toEqual([]);
+    expect(workspace.snapshot.status["sensei-cn"].running).toBe(true);
+    await workspace.stop();
+    expect(prompts).toHaveLength(1);
+    expect(workspace.snapshot.status["sensei-cn"].running).toBe(true);
+    await workspace.execute("pack daily");
+    expect(prompts).toHaveLength(2);
+    const readOnly = await demo({ readOnly: true });
+    await readOnly.connect();
+    await readOnly.start();
+    expect(readOnly.snapshot.status["sensei-cn"].running).toBe(false);
+    expect(readOnly.snapshot.activity.at(-1)?.detail).toContain("只读");
+    const preview = await demo({ dryRun: true });
+    await preview.connect();
+    await preview.start();
+    expect(preview.snapshot.status["sensei-cn"].running).toBe(false);
+    expect(preview.snapshot.prompt).toBeUndefined();
+  });
+
+  test("one-off runs confirm independently and do not change daily tasks", async () => {
+    const workspace = await demo();
+    await workspace.connect();
+    const tasks = workspace.snapshot.tasks;
+    expect(Object.hasOwn(tasks, "start_normal_task")).toBe(false);
+    const declined = workspace.run("start_normal_task");
+    await until(workspace, (state) => state.prompt?.kind === "confirm");
+    workspace.answerPrompt(false);
+    await declined;
+    expect(workspace.snapshot.status["sensei-cn"].running).toBe(false);
+    const accepted = workspace.execute("/run start_normal_task");
+    await until(workspace, (state) => state.prompt?.kind === "confirm");
+    expect(workspace.snapshot.prompt?.detail).toContain("start_normal_task");
+    workspace.answerPrompt(true);
+    await accepted;
+    expect(workspace.snapshot.status["sensei-cn"].current_task).toBe("start_normal_task");
+    expect(workspace.snapshot.tasks).toEqual(tasks);
+    await until(workspace, (state) => state.status["sensei-cn"].running === false);
+    expect(workspace.snapshot.activity.some((item) => item.title.includes("已完成"))).toBe(true);
+  });
+
+  test("command pack preflight accepts the same explicit one-off aliases", async () => {
+    const path = await directory();
+    await mkdir(join(path, "commands"), { recursive: true });
+    await writeFile(
+      join(path, "commands", "one-off.json"),
+      JSON.stringify({
+        id: "one-off",
+        name: "One-off story",
+        description: "Run a selected story once",
+        version: 1,
+        commands: [
+          {
+            name: "one-off",
+            description: "Run a selected story once",
+            steps: [{ action: "task_run", args: { task: "start_main_story" } }],
+          },
+        ],
+      })
+    );
+    const workspace = await demo({ directory: path });
+    await workspace.connect();
+    const pending = workspace.execute("/pack one-off");
+    await until(workspace, (state) => state.prompt?.kind === "confirm");
+    workspace.answerPrompt(true);
+    await pending;
+    expect(workspace.snapshot.status["sensei-cn"].current_task).toBe("start_main_story");
+    expect(Object.hasOwn(workspace.snapshot.tasks, "start_main_story")).toBe(false);
   });
 
   test("concurrent submissions cannot overwrite a pending approval or run twice", async () => {
@@ -677,6 +1035,39 @@ describe("deterministic BAAS workspace", () => {
     fixture.log({ scope: "config:alpha", time: "late", level: "INFO", message: "late" });
     expect(workspace.snapshot.status).toEqual({});
     expect(workspace.snapshot.logs).toEqual([]);
+  });
+  test("log bursts publish one frame while snapshots and operation feedback remain immediate", async () => {
+    const fixture = serviceFixture();
+    const workspace = await Workspace.create({
+      key: "fixture-key",
+      profile: "alpha",
+      directory: await directory(),
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.connect();
+    const frames: WorkspaceSnapshot[] = [];
+    workspace.subscribe((snapshot) => frames.push(snapshot));
+    frames.length = 0;
+    for (let index = 0; index < 100; index++)
+      fixture.log({
+        scope: "config:alpha",
+        time: String(index),
+        level: "INFO",
+        message: `burst-${index}`,
+      });
+    expect(workspace.snapshot.logs).toHaveLength(100);
+    expect(frames).toHaveLength(0);
+    await until(workspace, () => frames.length > 0);
+    expect(frames).toHaveLength(1);
+    expect(frames[0].logs.at(-1)?.message).toBe("burst-99");
+    fixture.log({ scope: "config:alpha", time: "last", level: "INFO", message: "last-line" });
+    fixture.disconnect(new Error("connection lost"));
+    expect(frames.at(-1)?.connected).toBe(false);
+    expect(frames.at(-1)?.logs.at(-1)?.message).toBe("last-line");
+    const count = frames.length;
+    workspace.close();
+    await Bun.sleep(60);
+    expect(frames).toHaveLength(count);
   });
   test("task completion refreshes effective scheduling and ignores reads completed after logout", async () => {
     const fixture = serviceFixture();

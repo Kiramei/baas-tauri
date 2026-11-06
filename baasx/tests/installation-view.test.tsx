@@ -61,9 +61,17 @@ test("BuildKit groups keep each active step progress and tail in place, and comp
     unref() {},
   });
   const mouse = new MouseBus();
+  let columns = 90;
+  let height = 22;
   const view = () => (
     <MouseContext.Provider value={mouse}>
-      <InstallationPanel progress={progress} language="zh" columns={90} height={22} tick={0} />
+      <InstallationPanel
+        progress={progress}
+        language="zh"
+        columns={columns}
+        height={height}
+        tick={0}
+      />
     </MouseContext.Provider>
   );
   const app = render(view(), {
@@ -118,6 +126,14 @@ test("BuildKit groups keep each active step progress and tail in place, and comp
     await Bun.sleep(40);
     expect(frame).toContain("backend failed: mirror unavailable");
     expect(frame).toContain("失败");
+    columns = 24;
+    height = 3;
+    stdout.columns = columns;
+    app.rerender(view());
+    await Bun.sleep(40);
+    expect(frame).toContain("下载 OCR 组件");
+    expect(frame.trimEnd().split("\n")).toHaveLength(3);
+    expect(frame.split("\n").filter((line) => displayWidth(line) > columns)).toEqual([]);
   } finally {
     app.unmount();
     app.cleanup();

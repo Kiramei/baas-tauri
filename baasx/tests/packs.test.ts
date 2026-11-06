@@ -73,6 +73,7 @@ describe("declarative BAAS command packs", () => {
     "context",
     "settings",
     "reload",
+    "oneoff",
   ])("reserves core command /%s", (name) => {
     expect(() =>
       validatePack(

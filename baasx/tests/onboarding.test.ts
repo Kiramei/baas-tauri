@@ -174,7 +174,7 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function").
         await app.until("简体中文");
         await app.key("\r");
       }
-      await app.until(endpoint);
+      await app.until("BAAS 登录 Key");
       await Bun.sleep(100);
       expect(app.text).not.toContain("选择运行方式");
       expect(app.text).not.toContain("安装目录");

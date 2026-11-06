@@ -7,7 +7,7 @@ const PALETTE = {
   dim: "\x1b[2m",
   green: "\x1b[32m",
   red: "\x1b[31m",
-  amber: "\x1b[33m",
+  notice: "\x1b[94m",
 };
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -344,7 +344,7 @@ export class TerminalUI {
         this.line(`◌ ${event.name ?? "工具"}${event.mutating ? " · 修改操作" : ""}`, "cyan");
         break;
       case "approval-required":
-        this.line(`? ${event.name ?? "操作"} 等待你的确认`, "amber");
+        this.line(`? ${event.name ?? "操作"} 等待你的确认`, "notice");
         break;
       case "tool-result": {
         const result =

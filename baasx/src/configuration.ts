@@ -33,7 +33,7 @@ export interface ConfigOption {
 export interface ConfigColumn {
   key: string;
   label: string;
-  type: "select" | "number" | "text";
+  type: "select" | "multiselect" | "number" | "text";
   options?: ConfigOption[];
   min?: number;
   max?: number;
@@ -41,6 +41,7 @@ export interface ConfigColumn {
   step?: number;
   sensitive?: boolean;
   description?: string;
+  ordered?: boolean;
 }
 export interface ConfigField {
   id: string;
@@ -66,6 +67,7 @@ export interface ConfigField {
   storage?: "string" | "number" | "boolean";
   ordered?: boolean;
   columns?: ConfigColumn[];
+  layout?: "table";
   allowAdd?: boolean;
   allowRemove?: boolean;
   defaultRow?: Record<string, unknown>;
@@ -79,6 +81,8 @@ export interface ConfigField {
     | "sweep-plan"
     | "explore-plan"
     | "counts"
+    | "lesson-counts"
+    | "lesson-levels"
     | "activity-counts";
   constraints?: {
     server?: string;
@@ -505,37 +509,78 @@ export function configurationFields(
   );
   const lessonNames = strings(data.lesson_region_name?.[mode === "Global" ? "Global_en-us" : mode]);
   const levels = ["primary", "normal", "advanced", "superior"];
-  if (Array.isArray(config.lesson_times))
-    config.lesson_times.forEach((_: unknown, index: number) => {
-      const region = lessonNames[index] || `${t("lesson.region")} ${index + 1}`;
-      number(
-        `/lesson_times/${index}`,
-        "schedule",
-        "lesson.times",
-        "configurationHelp.lessonRegionTableHint",
-        0,
-        99,
-        { label: `${region} · ${t("lesson.times")}` }
-      );
-    });
-  if (Array.isArray(config.lesson_each_region_object_priority))
-    config.lesson_each_region_object_priority.forEach((value: unknown, index: number) => {
-      add(
-        `/lesson_each_region_object_priority/${index}`,
-        "schedule",
-        "multiselect",
-        "lesson.region",
-        "configurationHelp.lessonRegionTableHint",
+  // Older profiles may predate some areas in the current resource catalog. Edit the
+  // complete arrays so those areas can be added without writing nonexistent indexes.
+  const lessonCount = Math.max(
+    lessonNames.length,
+    Array.isArray(config.lesson_times) ? config.lesson_times.length : 0,
+    Array.isArray(config.lesson_each_region_object_priority)
+      ? config.lesson_each_region_object_priority.length
+      : 0
+  );
+  const lessonRowLabels = Array.from(
+    { length: lessonCount },
+    (_, index) => lessonNames[index] || `${t("lesson.region")} ${index + 1}`
+  );
+  add(
+    "lesson_times",
+    "schedule",
+    "rows",
+    "lesson.times",
+    "configurationHelp.lessonRegionTableHint",
+    {
+      codec: "lesson-counts",
+      layout: "table",
+      editorValue: Array.from({ length: lessonCount }, (_, index) => ({
+        count: config.lesson_times?.[index] ?? 1,
+      })),
+      columns: [
+        { key: "count", label: t("lesson.times"), type: "number", min: 0, max: 99, integer: true },
+      ],
+      rowLabels: lessonRowLabels,
+      allowAdd: false,
+      allowRemove: false,
+      constraints: { length: lessonCount },
+    },
+    Array.isArray(config.lesson_times)
+  );
+  add(
+    "lesson_each_region_object_priority",
+    "schedule",
+    "rows",
+    "lesson.region",
+    "configurationHelp.lessonRegionTableHint",
+    {
+      codec: "lesson-levels",
+      layout: "table",
+      label: `${t("lesson.region")} · ${t("artifact.priority")}`,
+      editorValue: Array.from({ length: lessonCount }, (_, index) => ({
+        levels: Array.isArray(config.lesson_each_region_object_priority?.[index])
+          ? [...config.lesson_each_region_object_priority[index]]
+          : [...levels],
+      })),
+      columns: [
         {
-          label: lessonNames[index] || `${t("lesson.region")} ${index + 1}`,
-          options: opts(
+          key: "levels",
+          label: t("artifact.priority"),
+          type: "multiselect",
+          options: catalog(
             levels,
+            Array.isArray(config.lesson_each_region_object_priority)
+              ? config.lesson_each_region_object_priority.flat()
+              : [],
             Object.fromEntries(levels.map((level) => [level, `schedule.${level}`]))
           ),
           ordered: true,
-        }
-      );
-    });
+        },
+      ],
+      rowLabels: lessonRowLabels,
+      allowAdd: false,
+      allowRemove: false,
+      constraints: { length: lessonCount },
+    },
+    Array.isArray(config.lesson_each_region_object_priority)
+  );
 
   for (const [list, refresh, label, catalogKey] of [
     ["CommonShopList", "CommonShopRefreshTime", "commonShop.title", "common_shop_price_list"],
@@ -1179,7 +1224,32 @@ export function getConfigurationField(
   path: string,
   options: ConfigurationOptions = {}
 ): ConfigField | undefined {
-  return configurationFields(config, options).find((field) => field.path === path);
+  const fields = configurationFields(config, options);
+  const exact = fields.find((field) => field.path === path);
+  if (exact) return exact;
+  // Keep existing per-area CLI paths valid, without duplicating rows in the UI.
+  const lesson = /^\/(lesson_times|lesson_each_region_object_priority)\/(0|[1-9]\d*)$/.exec(path);
+  if (!lesson || !at(config, path).exists) return undefined;
+  const parent = fields.find((field) => field.path === `/${lesson[1]}`);
+  if (!parent) return undefined;
+  const index = Number(lesson[2]),
+    value = structuredClone(at(config, path).value);
+  const count = lesson[1] === "lesson_times";
+  return {
+    ...parent,
+    id: path,
+    path,
+    type: count ? "number" : "multiselect",
+    codec: undefined,
+    columns: undefined,
+    constraints: undefined,
+    label: `${parent.rowLabels![index]}${count ? ` · ${parent.label}` : ""}`,
+    value,
+    editorValue: structuredClone(value),
+    ...(count
+      ? { min: 0, max: 99, integer: true, storage: "number" as const }
+      : { ordered: true, options: parent.columns![0].options }),
+  };
 }
 
 export class ConfigurationValueError extends Error {
@@ -1318,6 +1388,24 @@ export function parseConfigurationValue(field: ConfigField, input: unknown): unk
     for (const row of rows)
       if (Object.keys(row).some((key) => !field.columns?.some((column) => column.key === key)))
         invalid(field, "format");
+    if (field.codec === "lesson-counts")
+      return rows.map((row) => numeric(row.count, { min: 0, max: 99, integer: true }));
+    if (field.codec === "lesson-levels") {
+      const allowed = field.columns?.[0].options || [];
+      const saved = Array.isArray(field.editorValue) ? field.editorValue : [];
+      return rows.map((row, index) => {
+        if (!Array.isArray(row.levels) || row.levels.length > 2000) invalid(field, "type");
+        const values = row.levels.map((value) => text(value));
+        if (unique(values).length !== values.length) invalid(field, "format");
+        for (const value of values)
+          if (
+            !allowed.some((option) => option.value === value && !option.disabled) &&
+            !saved[index]?.levels?.includes(value)
+          )
+            invalid(field, "option");
+        return values;
+      });
+    }
     if (field.codec === "sweep-plan") {
       if (rows.some((row) => row.maximum !== undefined && typeof row.maximum !== "boolean"))
         invalid(field, "type");
@@ -1418,7 +1506,11 @@ export function validateConfigurationStoredValue(
       configurationText("plugins.invalidValue", options.language)
     );
   let input = value;
-  if (field.codec === "numeric-switch") {
+  if (field.codec === "lesson-counts" || field.codec === "lesson-levels") {
+    if (!Array.isArray(value)) invalid(field, "type");
+    const key = field.codec === "lesson-counts" ? "count" : "levels";
+    input = value.map((entry) => ({ [key]: entry }));
+  } else if (field.codec === "numeric-switch") {
     if (value !== 0 && value !== 1) invalid(field, "type");
     input = value === 1;
   } else if (field.codec === "csv-selection") {

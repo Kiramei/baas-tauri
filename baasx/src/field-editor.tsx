@@ -4,6 +4,8 @@ import { HitBox, Marquee } from "./terminal-components";
 import { translate } from "./i18n";
 import { displayWidth, terminalText } from "./ui";
 import type { ConfigOption } from "./configuration";
+import { PriorityEditor } from "./priority-editor";
+import { TableEditor } from "./table-editor";
 
 export interface EditableField {
   label: string;
@@ -24,6 +26,7 @@ export interface EditableField {
   allowRemove?: boolean;
   defaultRow?: Record<string, unknown>;
   rowLabels?: string[];
+  layout?: "table";
 }
 const TEAL = "#70d7e5",
   MUTED = "#89969f",
@@ -31,15 +34,7 @@ const TEAL = "#70d7e5",
   RED = "#f38b91",
   SELECTED = "#203f49";
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-export function FieldEditor({
-  field,
-  language,
-  width,
-  height,
-  onSave,
-  onCancel,
-  active = true,
-}: {
+export interface FieldEditorProps {
   field: EditableField;
   language: string;
   width: number;
@@ -47,8 +42,37 @@ export function FieldEditor({
   onSave: (value: unknown) => Promise<void> | void;
   onCancel: () => void;
   active?: boolean;
-}) {
+}
+
+export function FieldEditor(props: FieldEditorProps) {
+  const { field } = props;
+  if (field.layout === "table" && field.type === "rows") return <TableEditor {...props} />;
+  if (
+    field.ordered &&
+    (field.type === "multiselect" || (field.type === "list" && !!field.options?.length))
+  )
+    return <PriorityEditor {...props} />;
+  return <BasicFieldEditor {...props} />;
+}
+
+function BasicFieldEditor({
+  field,
+  language,
+  width,
+  height,
+  onSave,
+  onCancel,
+  active = true,
+}: FieldEditorProps) {
   const t = (s: string) => translate(s, language);
+  const numberRange =
+    field.min !== undefined && field.max !== undefined
+      ? `${field.min}–${field.max}`
+      : field.min !== undefined
+        ? t("至少 {min}").replace("{min}", String(field.min))
+        : field.max !== undefined
+          ? t("至多 {max}").replace("{max}", String(field.max))
+          : t("请输入有效数字");
   const [draft, setDraft] = useState<unknown>(() =>
     structuredClone(
       field.editorValue ??
@@ -129,7 +153,7 @@ export function FieldEditor({
         (field.min !== undefined && Number(value) < field.min) ||
         (field.max !== undefined && Number(value) > field.max)
       ) {
-        setError(`${t("数值超出范围")} ${field.min ?? "−∞"}–${field.max ?? "∞"}`);
+        setError(`${t("数值超出范围")} · ${numberRange}`);
         return;
       }
     }
@@ -383,9 +407,7 @@ export function FieldEditor({
           </Text>
           {contentHeight >= 2 && (
             <Text color={MUTED} wrap="truncate">
-              {field.type === "number"
-                ? `${t("数字")} · ${field.min ?? "−∞"}–${field.max ?? "∞"}`
-                : t("直接输入文本")}
+              {field.type === "number" ? `${t("数字")} · ${numberRange}` : t("直接输入文本")}
             </Text>
           )}
         </Box>

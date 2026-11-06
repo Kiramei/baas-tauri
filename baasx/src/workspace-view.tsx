@@ -4,6 +4,7 @@ import { FieldEditor, type EditableField } from "./field-editor";
 import {
   configurationFields,
   configurationSections,
+  configurationText,
   parseConfigurationValue,
   formatConfigurationValue,
 } from "./configuration";
@@ -15,22 +16,33 @@ import {
   schedulerSummary,
   type SchedulerField,
 } from "./scheduler";
-import { MouseBus, terminalSession } from "./terminal";
-import { HitBox, Marquee, MouseContext, PIXEL_LOGO, ScrollText } from "./terminal-components";
+import { MouseBus, terminalSession, terminalViewport } from "./terminal";
+import {
+  ActivityText,
+  ColumnDivider,
+  HitBox,
+  Marquee,
+  MouseContext,
+  ScrollText,
+  wrapTerminalText,
+} from "./terminal-components";
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { Box, Text as InkText, render, useApp, useInput, useStdin, useStdout } from "ink";
-import { Workspace, type WorkspaceOptions } from "./workspace";
+import { isRuntimeOperation, Workspace, type WorkspaceOptions } from "./workspace";
 import { displayWidth, terminalText, truncateText } from "./ui";
 import manifest from "../package.json";
 import { translate, LANGUAGES } from "./i18n";
+import { ONE_OFF_TASKS, isOneOffTask } from "./oneoff-tasks";
+import { WorkbenchHelp } from "./workbench-help";
 
 const LanguageContext = createContext("zh");
 
@@ -64,14 +76,28 @@ function Text(props: React.ComponentProps<typeof InkText>) {
 const ACCENT = "#70d7e5";
 const MUTED = "#89969f";
 const GREEN = "#98cf9e";
-const AMBER = "#e9bd78";
+const NOTICE = "#a8b8ff";
 const RED = "#f38b91";
 const SELECTED = "#203f49";
+const HOME_MARK = ["▄▄▄▄▄  ▄▄", "█   █▄▄▀▀", "█▄▄▄█  █ ", "  ▀▀▀▀▀▀ "];
+const CONFIG_SHOPS = [
+  {
+    id: "common",
+    labelKey: "commonShop.title",
+    keys: ["CommonShopList", "CommonShopRefreshTime"],
+  },
+  {
+    id: "tactical",
+    labelKey: "tacticalShop.title",
+    keys: ["TacticalChallengeShopList", "TacticalChallengeShopRefreshTime"],
+  },
+] as const;
 
 type View =
   | "home"
   | "scheduler"
   | "tasks"
+  | "oneoff"
   | "profiles"
   | "logs"
   | "config"
@@ -99,6 +125,7 @@ export const COMMANDS: Choice[] = [
   { id: "local", label: "/local", detail: "启动本地后端" },
   { id: "run", label: "/run", detail: "选择并运行任务" },
   { id: "tasks", label: "/tasks", detail: "选择并运行任务" },
+  { id: "oneoff", label: "/oneoff", detail: "一次性任务" },
   { id: "profiles", label: "/profiles", detail: "切换配置档" },
   { id: "start", label: "/start", detail: "启动当前配置档的调度" },
   { id: "stop", label: "/stop", detail: "停止当前运行" },
@@ -106,6 +133,7 @@ export const COMMANDS: Choice[] = [
   { id: "config", label: "/config", detail: "浏览、搜索与修改配置" },
   { id: "connect", label: "/connect", detail: "连接 BAAS 服务" },
   { id: "status", label: "/status", detail: "刷新运行状态" },
+  { id: "reload", label: "/reload", detail: "重新加载界面与连接" },
   { id: "packs", label: "/packs", detail: "查看独立指令包" },
   { id: "devices", label: "/devices", detail: "检测 ADB 设备" },
   { id: "doctor", label: "/doctor", detail: "检查服务连接" },
@@ -113,10 +141,8 @@ export const COMMANDS: Choice[] = [
   { id: "help", label: "/help", detail: "命令与键盘操作" },
   { id: "quit", label: "/quit", detail: "退出终端" },
 ];
-const chars = (text: string) =>
-  [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].map(
-    (x) => x.segment
-  );
+const inputSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const chars = (text: string) => [...inputSegmenter.segment(text)].map((x) => x.segment);
 const clean = (value: unknown) => terminalText(value).replace(/\n/g, " ");
 const pad = (value: string, width: number) => {
   const clipped = truncateText(value, width);
@@ -137,7 +163,7 @@ export function configChoices(config: Record<string, unknown>, language = "zh"):
 }
 
 function useSize() {
-  const { stdout } = useStdout();
+  const stdout = terminalViewport(useStdout().stdout);
   const measure = () => ({
     columns: Math.max(1, stdout.columns || 80),
     rows: Math.max(2, stdout.rows || 30),
@@ -157,10 +183,12 @@ function Welcome({
   state,
   columns,
   compact,
+  minimal = false,
 }: {
   state: Snapshot;
   columns: number;
   compact: boolean;
+  minimal?: boolean;
 }) {
   const language = useContext(LanguageContext);
   const t = (text: string) => translate(text, language);
@@ -190,13 +218,14 @@ function Welcome({
     : t("暂无安排");
   const label = clean(state.profiles[state.profile || ""] || state.profile || t("尚未选择配置档"));
   const status = t(state.connecting ? "连接中" : state.connected ? "已连接" : "未连接");
-  const activity = state.activity.at(-1);
+  const infoWidth = compact ? columns - 2 : columns - 14;
   const info = (
     <>
       <Marquee
-        value={`${label} · ${status}${state.demo ? " · DEMO" : state.endpoint ? " · " + clean(state.endpoint) : ""}`}
-        width={compact ? columns - 2 : columns - 33}
-        color={state.connected ? GREEN : AMBER}
+        value={`${label} · ${status}${state.demo ? " · DEMO" : ""}`}
+        width={infoWidth}
+        color={state.connected ? GREEN : NOTICE}
+        motion={state.connecting && !state.prompt ? "requesting" : undefined}
       />
       <Marquee
         value={
@@ -204,76 +233,62 @@ function Welcome({
             ? `${t("正在执行")} · ${clean(current.current_task || t("调度运行中"))} · ${t("队列")} ${summary?.waitingTasks.length || summary?.due || 0}`
             : `${t("调度")} · ${enabled.length}/${tasks.length} ${t("已启用")} · ${t("待执行")} ${summary?.due || 0}`
         }
-        width={compact ? columns - 2 : columns - 33}
+        width={infoWidth}
         color={current?.running ? GREEN : MUTED}
+        motion={
+          current?.running && !state.prompt
+            ? current.current_task
+              ? "tool-use"
+              : "thinking"
+            : undefined
+        }
       />
       <Marquee
         value={`${t("下次执行")} · ${next ? `${clean(next.event_name || next.func_name)} · ${nextTime}` : nextTime}`}
-        width={compact ? columns - 2 : columns - 33}
+        width={infoWidth}
         color={MUTED}
       />
     </>
   );
+  if (minimal)
+    return (
+      <Box paddingX={1} flexDirection="column" height={2} flexShrink={0}>
+        <Text color="#ffffff" bold wrap="truncate">
+          ▣ BAASX <Text color={MUTED}>· {label}</Text>
+        </Text>
+        <ActivityText
+          value={`${status}${current?.current_task ? ` · ${clean(current.current_task)}` : ""}`}
+          width={columns - 2}
+          active={!state.prompt && (state.connecting || !!current?.running)}
+          mode={state.connecting ? "requesting" : current?.current_task ? "tool-use" : "thinking"}
+          color={state.connected ? GREEN : NOTICE}
+        />
+      </Box>
+    );
   if (compact)
     return (
       <Box paddingX={1} flexDirection="column" height={4} flexShrink={0}>
-        <Text color={ACCENT} bold>
-          ▣ baasx <Text color={MUTED}>v{manifest.version}</Text>
+        <Text color="#ffffff" bold>
+          ▣ BAASX <Text color={MUTED}>v{manifest.version}</Text>
         </Text>
         {info}
       </Box>
     );
   return (
-    <Box flexDirection="column" height={9} flexShrink={0}>
-      <Text color={ACCENT}>
-        ╭─ baasx v{manifest.version}
-        {"─".repeat(Math.max(0, columns - displayWidth(`╭─ baasx v${manifest.version}`) - 1))}╮
-      </Text>
-      <Box
-        borderStyle="single"
-        borderColor={ACCENT}
-        borderTop={false}
-        borderBottom={false}
-        height={7}
-      >
-        <Box width={28} alignItems="center" flexDirection="column" flexShrink={0}>
-          {PIXEL_LOGO.map((line, index) => (
-            <Text key={index} color={index < 3 ? "#43c4c9" : index < 5 ? "#64d5d6" : "#94e3e3"}>
-              {line}
-            </Text>
-          ))}
-        </Box>
-        <Box
-          flexDirection="column"
-          flexGrow={1}
-          paddingX={1}
-          borderStyle="single"
-          borderLeft
-          borderTop={false}
-          borderBottom={false}
-          borderRight={false}
-          borderColor={MUTED}
-        >
-          <Text color={ACCENT} bold>
-            {state.chooseLanguage || state.setupNeeded ? "首次设置" : "欢迎回来，老师。"}
+    <Box height={6} paddingY={1} paddingLeft={2} paddingRight={1} flexShrink={0}>
+      <Box width={9} marginRight={2} flexDirection="column" flexShrink={0}>
+        {HOME_MARK.map((line, index) => (
+          <Text key={index} color={index < 2 ? "#43c4c9" : "#94e3e3"}>
+            {line}
           </Text>
-          {info}
-          <Text> </Text>
-          <Marquee
-            value={
-              activity
-                ? `${t(activity.title)}${activity.detail ? " · " + t(clean(activity.detail)) : ""}`
-                : t("还没有运行记录。输入 / 查看可用操作。")
-            }
-            width={columns - 33}
-            color={activity?.tone === "error" ? RED : MUTED}
-          />
-          <Text color={MUTED} wrap="truncate">
-            /tasks · /scheduler · /config · /update
-          </Text>
-        </Box>
+        ))}
       </Box>
-      <Text color={ACCENT}>╰{"─".repeat(Math.max(0, columns - 2))}╯</Text>
+      <Box flexDirection="column" width={infoWidth}>
+        <Text color="#ffffff" bold wrap="truncate">
+          BAASX <Text color={MUTED}>v{manifest.version}</Text>
+        </Text>
+        {info}
+      </Box>
     </Box>
   );
 }
@@ -298,42 +313,64 @@ function ChoiceList({
   onScroll?: (delta: number) => void;
 }) {
   const language = useContext(LanguageContext);
-  const limit = Math.max(1, height - 2);
+  const stacked = columns < 64 && height >= 6;
+  const rowHeight = stacked ? 2 : 1;
+  const limit = Math.max(0, Math.floor((height - 1) / rowHeight));
   const offset = Math.max(0, Math.min(selected - Math.floor(limit / 2), items.length - limit));
-  const labelWidth = Math.min(32, Math.floor(columns * 0.42));
+  const labelWidth = stacked ? columns - 4 : Math.min(32, Math.floor(columns * 0.42));
   return (
     <HitBox flexDirection="column" paddingX={1} height={height} onWheel={onScroll}>
-      <Text bold color={ACCENT}>
+      <Text bold color={ACCENT} wrap="truncate">
         {title} <Text color={MUTED}>{items.length ? `${selected + 1} / ${items.length}` : ""}</Text>
       </Text>
-      {!items.length && <Text color={MUTED}>{empty}</Text>}
+      {!items.length && height > 1 && <Text color={MUTED}>{empty}</Text>}
       {items.slice(offset, offset + limit).map((item, index) => {
         const focused = index + offset === selected;
         return (
           <HitBox
             key={item.id}
-            height={1}
+            height={rowHeight}
+            flexDirection="column"
             flexShrink={0}
             onPress={() => onChoose?.(index + offset)}
           >
-            <Text backgroundColor={focused ? SELECTED : undefined} color={focused ? ACCENT : MUTED}>
-              {focused ? "❯ " : "  "}
-            </Text>
-            <Box width={labelWidth} flexShrink={0}>
-              <Marquee
-                value={translate(clean(item.label), language)}
-                width={labelWidth}
-                color={focused ? ACCENT : undefined}
+            <Box height={1} flexShrink={0}>
+              <Text
                 backgroundColor={focused ? SELECTED : undefined}
-              />
+                color={focused ? ACCENT : MUTED}
+              >
+                {focused ? "❯ " : "  "}
+              </Text>
+              <Box width={labelWidth} flexShrink={0}>
+                <Marquee
+                  value={translate(clean(item.label), language)}
+                  width={labelWidth}
+                  color={focused ? ACCENT : undefined}
+                  backgroundColor={focused ? SELECTED : undefined}
+                  active={focused}
+                />
+              </Box>
+              {!stacked && <Text> </Text>}
+              {!stacked && (
+                <Marquee
+                  value={translate(clean(item.detail), language)}
+                  width={Math.max(1, columns - labelWidth - 6)}
+                  color={focused ? ACCENT : MUTED}
+                  backgroundColor={focused ? SELECTED : undefined}
+                  active={focused}
+                />
+              )}
             </Box>
-            <Text> </Text>
-            <Marquee
-              value={translate(clean(item.detail), language)}
-              width={Math.max(1, columns - labelWidth - 6)}
-              color={focused ? ACCENT : MUTED}
-              backgroundColor={focused ? SELECTED : undefined}
-            />
+            {stacked && (
+              <Box paddingLeft={2} height={1} flexShrink={0}>
+                <Marquee
+                  value={translate(clean(item.detail), language)}
+                  width={Math.max(1, columns - 4)}
+                  active={focused}
+                  color={MUTED}
+                />
+              </Box>
+            )}
           </HitBox>
         );
       })}
@@ -355,7 +392,7 @@ function LogPanel({
   onScroll: (delta: number) => void;
 }) {
   const language = useContext(LanguageContext),
-    limit = Math.max(1, height - 3);
+    limit = Math.max(0, height - 2);
   const entries = state.logs.slice(
     Math.max(0, state.logs.length - offset - limit),
     Math.max(0, state.logs.length - offset)
@@ -371,16 +408,18 @@ function LogPanel({
       <Text color={ACCENT} bold>
         运行日志 <Text color={MUTED}>{offset ? "↑" : "●"}</Text>
       </Text>
-      <Text color={MUTED} wrap="truncate">
-        {offset ? "已暂停跟随 · 向下滚动恢复" : "● 实时跟随"}
-      </Text>
+      {height > 1 && (
+        <Text color={MUTED} wrap="truncate">
+          {offset ? "已暂停跟随 · 向下滚动恢复" : "● 实时跟随"}
+        </Text>
+      )}
       {entries.length ? (
         entries.map((entry, index) => {
           const level = String(entry.level).toUpperCase();
           const color = level.includes("ERROR")
             ? RED
             : level.includes("WARN")
-              ? AMBER
+              ? NOTICE
               : level.includes("SUCCESS")
                 ? GREEN
                 : level.includes("DEBUG")
@@ -393,24 +432,27 @@ function LogPanel({
                 value={`${level} ${clean(entry.message)}`}
                 width={Math.max(1, columns - 11)}
                 color={color}
+                active={index === entries.length - 1}
               />
             </Box>
           );
         })
-      ) : (
+      ) : height > 2 ? (
         <Text color={MUTED}>{translate("等待日志…", language)}</Text>
-      )}
+      ) : null}
     </HitBox>
   );
 }
 
 function Home({
   state,
+  activity,
   height,
   columns,
   offset = 0,
 }: {
   state: Snapshot;
+  activity: Snapshot["activity"];
   height: number;
   columns: number;
   offset?: number;
@@ -418,25 +460,27 @@ function Home({
   const current = state.status[state.profile || ""];
   const count = Math.max(0, Math.floor((height - 3) / 2));
   const rows = count
-    ? state.activity.slice(
-        Math.max(0, state.activity.length - offset - count),
-        Math.max(0, state.activity.length - offset)
+    ? activity.slice(
+        Math.max(0, activity.length - offset - count),
+        Math.max(0, activity.length - offset)
       )
     : [];
   return (
     <Box flexDirection="column" paddingX={1}>
-      <Text bold>
+      <Text bold wrap="truncate">
         {state.profile ? clean(state.profiles[state.profile] || state.profile) : "开始使用"}
         <Text color={current?.running ? GREEN : MUTED}>
           {" "}
           {current?.running ? "● 运行中" : state.connected ? "○ 空闲" : "○ 等待连接"}
         </Text>
       </Text>
-      <Text color={MUTED} wrap="truncate">
-        {state.connected
-          ? `${Object.keys(state.tasks).length} 项任务 · ${state.packs.length} 个指令 · /tasks 选择任务 · /logs 查看日志`
-          : "/connect 连接服务 → /profiles 选择配置档 → /tasks 执行任务"}
-      </Text>
+      {height > 1 && (
+        <Text color={MUTED} wrap="truncate">
+          {state.connected
+            ? `${Object.keys(state.tasks).length} 项任务 · ${state.packs.length} 个指令 · /tasks 选择任务 · /logs 查看日志`
+            : "/connect 连接服务 → /profiles 选择配置档 → /tasks 执行任务"}
+        </Text>
+      )}
       {height >= 5 && <Text> </Text>}
       {rows.map((item) => (
         <Box key={item.id} flexDirection="column" flexShrink={0}>
@@ -459,6 +503,12 @@ function Home({
 }
 
 export function WorkspaceView({ workspace }: { workspace: Workspace }) {
+  const [state, setState] = useState(() => workspace.snapshot);
+  useEffect(() => workspace.subscribe(setState), [workspace]);
+  return <WorkspaceScreen key={state.reloadRevision ?? 0} workspace={workspace} state={state} />;
+}
+
+function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Snapshot }) {
   const { exit } = useApp();
   const { stdin } = useStdin();
   const deleteKeys = useRef<string[]>([]);
@@ -477,7 +527,6 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     };
   }, [stdin]);
   const { columns, rows } = useSize();
-  const [state, setState] = useState(workspace.snapshot);
   const [view, setView] = useState<View>(
     state.chooseLanguage ? "language" : state.setupNeeded ? "setup" : "home"
   );
@@ -489,27 +538,39 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [draft, setDraft] = useState("");
-  const [config, setConfig] = useState<Record<string, unknown>>({});
+  const [configuration, setConfiguration] = useState<{
+    profile: string;
+    data: Record<string, unknown>;
+    staticData?: Record<string, unknown>;
+  }>();
+  const configRequest = useRef(0);
+  const [afterProfile, setAfterProfile] = useState<View>();
   const [editing, setEditing] = useState<{
     field: EditableField;
     save: (value: unknown) => Promise<void>;
   }>();
   const [configSection, setConfigSection] = useState<string>();
+  const [configShop, setConfigShop] = useState<string>();
   const [schedulerTask, setSchedulerTask] = useState<string>();
   const [notice, setNotice] = useState("");
   const [logOffset, setLogOffset] = useState(0);
   const [activityOffset, setActivityOffset] = useState(0);
   const [logVisible, setLogVisible] = useState(false);
+  const [logSplit, setLogSplit] = useState(0.56);
   const [installationVisible, setInstallationVisible] = useState(false);
-  const [tick, setTick] = useState(0);
+  const installationBusy = isRuntimeOperation(state.busy);
+  const installationFailed = state.installation?.tasks.some((task) => task.status === "failed");
   const latestError = state.activity.at(-1)?.tone === "error" ? state.activity.at(-1) : undefined;
+  const activity = state.activity.filter((item) => item.title !== "连接已建立");
+  const latestActivity = state.activity.at(-1);
+  const statusActivity = latestActivity?.title === "连接已建立" ? undefined : latestActivity;
   const prompt = state.prompt;
-  const compact =
-    columns < 100 || rows < 34 || view !== "home" || !!state.busy || installationVisible;
+  const compact = columns < 64 || rows < 24;
   const language = state.language || "zh";
   const listing = [
     "scheduler",
     "tasks",
+    "oneoff",
     "profiles",
     "packs",
     "config",
@@ -531,50 +592,103 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     resetInput();
     workspace.answerPrompt(value);
   };
-  useEffect(() => workspace.subscribe((snapshot) => setState(snapshot)), [workspace]);
-  useEffect(() => {
-    if (state.busy || Object.values(state.status).some((item) => item.running)) {
-      const timer = setInterval(() => setTick((n) => n + 1), 120);
-      return () => clearInterval(timer);
-    }
-  }, [state.busy, state.status]);
   useLayoutEffect(() => {
     resetInput(prompt?.kind === "confirm" ? "y" : prompt?.initial || "");
   }, [prompt?.id, prompt?.title, prompt?.kind]);
   useEffect(() => {
-    if (!state.installation) setInstallationVisible(false);
-    else if (state.busy) setInstallationVisible(true);
-  }, [state.busy, state.installation?.startedAt]);
+    if (state.connected && !state.busy && !installationFailed) {
+      if (installationVisible) {
+        setInstallationVisible(false);
+        setView("home");
+      }
+    } else if (!state.installation) setInstallationVisible(false);
+    else if (installationBusy) setInstallationVisible(true);
+  }, [
+    state.busy,
+    state.connected,
+    state.installation?.startedAt,
+    installationBusy,
+    installationFailed,
+    installationVisible,
+  ]);
   useEffect(() => {
-    setConfig({});
     setConfigSection(undefined);
+    setConfigShop(undefined);
     setSchedulerTask(undefined);
     setEditing(undefined);
     setSelected(0);
   }, [state.profile]);
 
-  const taskChoices = Object.entries(state.tasks).map(([id, task]) => ({
-    id,
-    label: String(task.event_name || task.name || task.display_name || id),
-    detail: `${id} · ${translate(task.enabled === false || task.enable === false ? "未启用调度" : "已配置", language)}${task.next_tick ? ` · ${formatSchedulerField("next_tick", task.next_tick)}` : ""}`,
+  const taskChoices = Object.entries(state.tasks)
+    .filter(([id]) => !isOneOffTask(id))
+    .map(([id, task]) => ({
+      id,
+      label: String(task.event_name || task.name || task.display_name || id),
+      detail: `${id} · ${translate(task.enabled === false || task.enable === false ? "未启用调度" : "已配置", language)}${task.next_tick ? ` · ${formatSchedulerField("next_tick", task.next_tick)}` : ""}`,
+    }));
+  const oneOffChoices = ONE_OFF_TASKS.map((task) => ({
+    id: task.id,
+    label: configurationText(task.labelKey, language),
+    detail: task.id,
   }));
-  const configurationOptions = { language, staticData: state.staticData };
-  const fields = configurationFields(config, configurationOptions);
-  const sections = configurationSections(config, configurationOptions);
+  // Build the desktop field model once per loaded configuration. Log/status
+  // snapshots contain cloned catalogs and must not rebuild it on every frame.
+  const sections = useMemo(
+    () =>
+      configuration && configuration.profile === state.profile
+        ? configurationSections(configuration.data, {
+            language,
+            staticData: configuration.staticData,
+          })
+        : [],
+    [configuration, state.profile, language]
+  );
+  const fields = useMemo(() => sections.flatMap((section) => section.fields), [sections]);
+  const shopFor = (key: string) =>
+    CONFIG_SHOPS.find((shop) => shop.keys.some((shopKey) => shopKey === key));
+  const shops = CONFIG_SHOPS.flatMap((shop) => {
+    const settings = fields.filter(
+      (field) => field.section === "shop" && shopFor(field.key) === shop
+    );
+    return settings.length
+      ? [
+          {
+            id: `shop:${shop.id}`,
+            label: configurationText(shop.labelKey, language),
+            detail: `${settings.length} ${translate("项设置", language)}`,
+          },
+        ]
+      : [];
+  });
+  const searchingConfig = !!input && !input.startsWith("/");
+  const configFields = fields
+    .filter((field) => !configSection || field.section === configSection)
+    .filter((field) => !configShop || shopFor(field.key)?.id === configShop)
+    .map((field) => {
+      const shop = shopFor(field.key);
+      return {
+        id: field.path,
+        label: field.label,
+        detail: [
+          shop && !configShop ? configurationText(shop.labelKey, language) : "",
+          formatConfigurationValue(field),
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    });
   const configItems: Choice[] =
-    !configSection && (!input || input.startsWith("/"))
+    !configSection && !searchingConfig
       ? sections.map((section) => ({
           id: `section:${section.id}`,
           label: section.label,
           detail: `${section.fields.length} ${translate("项设置", language)}`,
         }))
-      : fields
-          .filter((field) => !configSection || field.section === configSection)
-          .map((field) => ({
-            id: field.path,
-            label: field.label,
-            detail: formatConfigurationValue(field),
-          }));
+      : configSection === "shop" && !configShop
+        ? searchingConfig
+          ? [...shops, ...configFields]
+          : shops
+        : configFields;
   const schedule = state.scheduler;
   const currentSchedule = schedule?.tasks.find((task) => task.func_name === schedulerTask);
   const schedulerItems: Choice[] = currentSchedule
@@ -624,21 +738,23 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
             ]
           : view === "tasks"
             ? taskChoices
-            : view === "profiles"
-              ? Object.entries(state.profiles).map(([id, label]) => ({
-                  id,
-                  label,
-                  detail: `${id}${id === state.profile ? " · 当前" : ""}${state.status[id]?.running ? " · 运行中" : ""}`,
-                }))
-              : view === "packs"
-                ? state.packs.map((p) => ({
-                    id: p.name,
-                    label: `/${p.name}`,
-                    detail: p.description,
+            : view === "oneoff"
+              ? oneOffChoices
+              : view === "profiles"
+                ? Object.entries(state.profiles).map(([id, label]) => ({
+                    id,
+                    label,
+                    detail: `${id}${id === state.profile ? " · 当前" : ""}${state.status[id]?.running ? " · 运行中" : ""}`,
                   }))
-                : view === "config"
-                  ? configItems
-                  : [];
+                : view === "packs"
+                  ? state.packs.map((p) => ({
+                      id: p.name,
+                      label: `/${p.name}`,
+                      detail: p.description,
+                    }))
+                  : view === "config"
+                    ? configItems
+                    : [];
   const choices = filterChoices(
     baseChoices,
     input.startsWith("/") || editing || prompt ? "" : input
@@ -659,7 +775,7 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
       ? argumentMatch
         ? filterChoices(
             argumentMatch[1] === "run"
-              ? taskChoices
+              ? [...taskChoices, ...oneOffChoices]
               : Object.entries(state.profiles).map(([id, label]) => ({ id, label, detail: id })),
             argumentMatch[2]
           ).map((item) => ({
@@ -670,7 +786,17 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         : commandItems.filter((c) => c.id.startsWith(commandQuery))
       : [];
   const suggestionIndex = Math.min(suggested, Math.max(0, suggestions.length - 1));
-  const footerRows = suggestions.length ? Math.min(5, suggestions.length) + 1 : 1;
+  const headerRows = rows < 20 ? 2 : compact ? 4 : 6;
+  const contentGap = view === "home" ? 0 : 1;
+  const showCommandInput = (!editing && !state.busy) || !!prompt;
+  // Reserve a body row, the status line and keyboard hint before sizing the
+  // command menu. Otherwise small terminals hide the command Enter will run.
+  const suggestionLimit = Math.max(
+    1,
+    Math.min(5, rows - headerRows - 1 - contentGap - (showCommandInput ? 3 : 0) - 3)
+  );
+  const suggestionStart = Math.max(0, suggestionIndex - suggestionLimit + 1);
+  const footerRows = suggestions.length ? Math.min(suggestionLimit, suggestions.length) + 1 : 1;
   const splitLog =
     logVisible &&
     columns >= 110 &&
@@ -679,11 +805,21 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     !editing &&
     !state.busy &&
     !installationVisible;
-  const mainColumns = splitLog ? Math.floor(columns * 0.56) : columns;
-  const showCommandInput = (!editing && !state.busy) || !!prompt;
+  // Keep the ratio across window resizes while leaving both panes usable.
+  const mainColumns = splitLog
+    ? Math.max(40, Math.min(columns - 31, Math.round((columns - 1) * logSplit)))
+    : columns;
   const bodyHeight = Math.max(
     1,
-    rows - 1 - (compact ? 4 : 9) - 2 - (showCommandInput ? 3 : 0) - footerRows - 1
+    rows - headerRows - 1 - contentGap - (showCommandInput ? 3 : 0) - footerRows - 1
+  );
+  const homeTopPadding = bodyHeight >= 16 ? 2 : bodyHeight >= 8 ? 1 : 0;
+  const promptDetailHeight = Math.max(
+    1,
+    Math.min(
+      bodyHeight - (prompt?.kind === "confirm" ? 2 : 1) - (secret ? 1 : 0),
+      wrapTerminalText(prompt?.detail || "", Math.max(1, mainColumns - 2)).length
+    )
   );
   const requireSaved = (saved: boolean | void) => {
     if (saved !== false) return;
@@ -698,23 +834,41 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     }
   };
   const go = async (next: View) => {
+    const request = ++configRequest.current;
+    setAfterProfile(undefined);
     setInstallationVisible(false);
     setView(next);
     resetInput();
     setLogOffset(0);
     if (
-      ["scheduler", "tasks", "profiles", "logs", "config"].includes(next) &&
+      ["scheduler", "tasks", "oneoff", "profiles", "logs", "config"].includes(next) &&
       !workspace.snapshot.connected
     )
       await workspace.connect();
+    if (next === "oneoff" && !workspace.snapshot.profile) {
+      setAfterProfile("oneoff");
+      setView("profiles");
+      return;
+    }
     if (next === "scheduler") {
       setSchedulerTask(undefined);
       await workspace.loadScheduler();
     }
-    if (next === "config" && workspace.snapshot.profile) {
+    if (next === "config") {
       setConfigSection(undefined);
+      setConfigShop(undefined);
+      const profile = workspace.snapshot.profile;
+      if (!profile) {
+        // First-run connections deliberately have no implicit profile. Keep
+        // the requested destination while the user chooses one.
+        setAfterProfile("config");
+        setView("profiles");
+        return;
+      }
       const data = await workspace.getConfig();
-      if (data) setConfig(data);
+      const current = workspace.snapshot;
+      if (data && request === configRequest.current && current.profile === profile)
+        setConfiguration({ profile, data, staticData: current.staticData });
     }
   };
   const submitCommand = async (line: string) => {
@@ -738,9 +892,17 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
       return;
     }
     if (
-      ["scheduler", "tasks", "profiles", "logs", "config", "packs", "language", "setup"].includes(
-        command
-      )
+      [
+        "scheduler",
+        "tasks",
+        "oneoff",
+        "profiles",
+        "logs",
+        "config",
+        "packs",
+        "language",
+        "setup",
+      ].includes(command)
     ) {
       await go(command as View);
       return;
@@ -780,9 +942,11 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     }
     if (view === "profiles") {
       await workspace.selectProfile(item.id);
-      setView("home");
+      if (workspace.snapshot.profile !== item.id) return;
+      if (afterProfile) await go(afterProfile);
+      else setView("home");
     }
-    if (view === "tasks") {
+    if (view === "tasks" || view === "oneoff") {
       setLogVisible(true);
       setLogOffset(0);
       setView(columns >= 110 ? "home" : "logs");
@@ -795,6 +959,11 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     if (view === "config") {
       if (item.id.startsWith("section:")) {
         setConfigSection(item.id.slice(8));
+        setConfigShop(undefined);
+        return;
+      }
+      if (item.id.startsWith("shop:")) {
+        setConfigShop(item.id.slice(5));
         return;
       }
       const field = fields.find((field) => field.path === item.id);
@@ -803,13 +972,21 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         setNotice(translate("此项由客户端管理", language));
         return;
       }
+      const shop = field.section === "shop" ? shopFor(field.key) : undefined;
+      if (shop) {
+        setConfigSection("shop");
+        setConfigShop(shop.id);
+      }
       setEditing({
         field,
         save: async (value) => {
           const parsed = parseConfigurationValue(field, value);
           requireSaved(await workspace.setConfig(field.path, parsed));
+          const profile = workspace.snapshot.profile;
           const next = await workspace.getConfig();
-          if (next) setConfig(next);
+          const current = workspace.snapshot;
+          if (next && profile && current.profile === profile)
+            setConfiguration({ profile, data: next, staticData: current.staticData });
           setEditing(undefined);
         },
       });
@@ -941,6 +1118,12 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
   };
   useCurrentInput(
     (text, key) => {
+      if (!prompt && !state.busy && key.ctrl && text === "r") {
+        void operation(() => workspace.reload());
+        return;
+      }
+      // The typed editor owns other keys; reload remains a whole-interface action.
+      if (editing && !prompt) return;
       const forwardDelete = key.delete
         ? (deleteKeys.current.shift() || "\x7f").startsWith("\x1b[")
         : false;
@@ -965,12 +1148,18 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
       if (key.escape) {
         setInstallationVisible(false);
         if (!prompt && !state.busy && !input && view === "config" && configSection) {
-          setConfigSection(undefined);
+          if (configShop) setConfigShop(undefined);
+          else setConfigSection(undefined);
           setSelected(0);
           return;
         }
         if (!prompt && !state.busy && !input && view === "scheduler" && schedulerTask) {
           setSchedulerTask(undefined);
+          setSelected(0);
+          return;
+        }
+        if (!prompt && !state.busy && !input && view === "oneoff") {
+          setView("tasks");
           setSelected(0);
           return;
         }
@@ -996,7 +1185,7 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         return;
       }
       if (!prompt && !editing && key.tab && key.shift) {
-        const index = VIEWS.findIndex(([id]) => id === view);
+        const index = VIEWS.findIndex(([id]) => id === (view === "oneoff" ? "tasks" : view));
         void operation(() => go(VIEWS[(index + 1) % VIEWS.length][0]));
         return;
       }
@@ -1028,7 +1217,7 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         if (view === "logs")
           setLogOffset((n) => Math.max(0, Math.min(state.logs.length, n - delta)));
         else if (view === "home")
-          setActivityOffset((n) => Math.max(0, Math.min(state.activity.length - 1, n - delta)));
+          setActivityOffset((n) => Math.max(0, Math.min(activity.length - 1, n - delta)));
         else setSelected((n) => Math.max(0, Math.min(choices.length - 1, n + delta)));
         return;
       }
@@ -1102,15 +1291,16 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
       setSuggested(0);
       setNotice("");
     },
-    { isActive: !editing || !!prompt }
+    { isActive: true }
   );
 
   const promptTitle = prompt?.title || "";
+  const navView = view === "oneoff" ? "tasks" : view;
   const tabWidth = ([id, label]: [View, string]) =>
-    displayWidth(translate(label, language)) + (view === id ? 4 : 2);
+    displayWidth(translate(label, language)) + (navView === id ? 4 : 2);
   const currentTab = Math.max(
     0,
-    VIEWS.findIndex(([id]) => id === view)
+    VIEWS.findIndex(([id]) => id === navView)
   );
   let firstTab = 0;
   while (
@@ -1118,6 +1308,12 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     VIEWS.slice(firstTab, currentTab + 1).reduce((sum, tab) => sum + tabWidth(tab), 0) > columns - 2
   )
     firstTab++;
+  let lastTab = firstTab;
+  let visibleTabWidth = 0;
+  while (lastTab < VIEWS.length && visibleTabWidth + tabWidth(VIEWS[lastTab]) <= columns - 2) {
+    visibleTabWidth += tabWidth(VIEWS[lastTab]);
+    lastTab++;
+  }
   const parts = chars(secret || inputSensitive ? "•".repeat(chars(input).length) : input);
   let start = cursor;
   let used = 0;
@@ -1133,11 +1329,12 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
   const placeholder = listing
     ? "键入名称筛选 · / 打开命令"
     : "输入 / 查看操作，或输入 tasks、start 等命令";
-  const activeTask = state.status[state.profile || ""]?.current_task;
+  const currentStatus = state.status[state.profile || ""];
+  const activeTask = currentStatus?.running ? currentStatus.current_task : undefined;
   if (columns < 24 || rows < 12)
     return (
       <LanguageContext.Provider value={language}>
-        <Box width={columns} height={rows - 1} flexDirection="column" overflow="hidden">
+        <Box width={columns} height={rows} flexDirection="column" overflow="hidden">
           <Text wrap="truncate" color={ACCENT}>
             BAAS
           </Text>
@@ -1148,27 +1345,33 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
     );
   return (
     <LanguageContext.Provider value={language}>
-      <Box width={columns} height={rows - 1} flexDirection="column" overflow="hidden">
-        <Welcome state={state} columns={columns} compact={compact} />
-        <Box paddingX={1} marginTop={1} height={1} flexShrink={0} overflow="hidden">
-          {VIEWS.slice(firstTab).map(([id, label]) => (
+      <Box width={columns} height={rows} flexDirection="column" overflow="hidden">
+        <Welcome state={state} columns={columns} compact={compact} minimal={rows < 20} />
+        <Box paddingX={1} height={1} flexShrink={0} overflow="hidden">
+          {VIEWS.slice(firstTab, lastTab).map(([id, label]) => (
             <HitBox
               key={id}
               paddingRight={2}
-              width={displayWidth(translate(label, language)) + (view === id ? 4 : 2)}
+              width={displayWidth(translate(label, language)) + (navView === id ? 4 : 2)}
               flexShrink={0}
               height={1}
               onPress={() => {
                 if (!prompt && !editing && !state.busy) void operation(() => go(id));
               }}
             >
-              <Text color={view === id ? ACCENT : MUTED} bold={view === id} wrap="truncate">
-                {view === id ? "▸ " : ""}
+              <Text
+                color={navView === id ? ACCENT : MUTED}
+                backgroundColor={navView === id ? SELECTED : undefined}
+                bold={navView === id}
+                wrap="truncate"
+              >
+                {navView === id ? "▸ " : ""}
                 {label}
               </Text>
             </HitBox>
           ))}
         </Box>
+        {contentGap > 0 && <Box height={contentGap} flexShrink={0} />}
         <Box height={bodyHeight} flexShrink={0} overflow="hidden">
           <Box width={mainColumns} flexDirection="column" height={bodyHeight} overflow="hidden">
             {editing && (
@@ -1185,8 +1388,13 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
               </Box>
             )}
             {promptTitle ? (
-              <Box flexDirection="column" paddingX={1}>
-                <Text color={AMBER} bold>
+              <Box
+                flexDirection="column"
+                paddingX={1}
+                height={bodyHeight}
+                justifyContent="flex-end"
+              >
+                <Text color={NOTICE} bold wrap="truncate">
                   {clean(promptTitle)}
                 </Text>
                 {prompt?.kind === "confirm" && (
@@ -1208,12 +1416,12 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                     key={prompt.id || prompt.title}
                     value={terminalText(prompt.detail)}
                     width={mainColumns - 2}
-                    height={Math.max(1, bodyHeight - 2)}
+                    height={promptDetailHeight}
                   />
                 )}
                 {secret && <Text color={MUTED}>凭据仅在本次进程中使用。</Text>}
               </Box>
-            ) : editing ? null : state.installation && (state.busy || installationVisible) ? (
+            ) : editing ? null : state.installation && (installationBusy || installationVisible) ? (
               <InstallationPanel
                 progress={state.installation}
                 language={language}
@@ -1221,64 +1429,103 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                 failed={!!latestError}
                 columns={mainColumns}
                 height={bodyHeight}
-                tick={tick}
               />
             ) : view === "home" ? (
               <HitBox
                 height={bodyHeight}
+                paddingTop={homeTopPadding}
                 onWheel={(delta) =>
                   setActivityOffset((n) =>
-                    Math.max(0, Math.min(Math.max(0, state.activity.length - 1), n - delta))
+                    Math.max(0, Math.min(Math.max(0, activity.length - 1), n - delta))
                   )
                 }
               >
                 <Home
                   state={state}
-                  height={bodyHeight}
+                  activity={activity}
+                  height={bodyHeight - homeTopPadding}
                   columns={mainColumns}
                   offset={activityOffset}
                 />
               </HitBox>
             ) : listing ? (
-              <ChoiceList
-                title={
-                  view === "scheduler"
-                    ? currentSchedule?.event_name || "调度设置"
-                    : view === "config"
-                      ? sections.find((section) => section.id === configSection)?.label ||
-                        "配置分类"
-                      : view === "language"
-                        ? "选择语言"
-                        : view === "setup"
-                          ? "选择运行方式"
-                          : view === "tasks"
-                            ? "任务列表 · Enter 运行"
-                            : view === "profiles"
-                              ? "配置档 · Enter 切换"
-                              : view === "packs"
-                                ? "指令包 · Enter 执行"
-                                : "配置 · Enter 编辑"
-                }
-                items={choices}
-                selected={selectedIndex}
-                height={bodyHeight}
-                columns={mainColumns}
-                onChoose={(index) => {
-                  if (!state.busy) void operation(() => choose(index));
-                }}
-                onScroll={(delta) =>
-                  setSelected((n) => Math.max(0, Math.min(choices.length - 1, n + delta)))
-                }
-                empty={
-                  !state.connected && !["packs", "language", "setup"].includes(view)
-                    ? "尚未连接 · /connect"
-                    : view === "tasks" && !state.profile
-                      ? "请先 /profiles 选择配置档"
-                      : view === "profiles" && !Object.keys(state.profiles).length
-                        ? "还没有配置档 · /new-profile 创建"
-                        : "没有匹配项"
-                }
-              />
+              <>
+                {(view === "tasks" || view === "oneoff") && (
+                  <Box height={1} paddingX={1} flexShrink={0}>
+                    {(
+                      [
+                        ["tasks", "日常任务"],
+                        ["oneoff", "一次性任务"],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <HitBox
+                        key={id}
+                        paddingRight={3}
+                        onPress={() => {
+                          if (!state.busy) void operation(() => go(id));
+                        }}
+                      >
+                        <Text color={view === id ? ACCENT : MUTED} bold={view === id}>
+                          {view === id ? "▸ " : ""}
+                          {label}
+                        </Text>
+                      </HitBox>
+                    ))}
+                  </Box>
+                )}
+                <ChoiceList
+                  title={
+                    view === "scheduler"
+                      ? currentSchedule?.event_name || "调度设置"
+                      : view === "config"
+                        ? configSection === "shop"
+                          ? `${sections.find((section) => section.id === "shop")?.label} · ${
+                              configShop
+                                ? configurationText(
+                                    CONFIG_SHOPS.find((shop) => shop.id === configShop)!.labelKey,
+                                    language
+                                  )
+                                : translate("选择商店", language)
+                            }`
+                          : sections.find((section) => section.id === configSection)?.label ||
+                            "配置分类"
+                        : view === "language"
+                          ? "选择语言"
+                          : view === "setup"
+                            ? "选择运行方式"
+                            : view === "tasks"
+                              ? "任务列表 · Enter 运行"
+                              : view === "oneoff"
+                                ? "一次性任务 · Enter 运行"
+                                : view === "profiles"
+                                  ? "配置档 · Enter 切换"
+                                  : view === "packs"
+                                    ? "指令包 · Enter 执行"
+                                    : "配置 · Enter 编辑"
+                  }
+                  items={choices}
+                  selected={selectedIndex}
+                  height={
+                    view === "tasks" || view === "oneoff" ? Math.max(1, bodyHeight - 1) : bodyHeight
+                  }
+                  columns={mainColumns}
+                  onChoose={(index) => {
+                    if (!state.busy) void operation(() => choose(index));
+                  }}
+                  onScroll={(delta) =>
+                    setSelected((n) => Math.max(0, Math.min(choices.length - 1, n + delta)))
+                  }
+                  empty={
+                    !state.connected && !["packs", "language", "setup"].includes(view)
+                      ? "尚未连接 · /connect"
+                      : (view === "tasks" || view === "oneoff") && !state.profile
+                        ? "请先 /profiles 选择配置档"
+                        : view === "profiles" && !Object.keys(state.profiles).length
+                          ? "还没有配置档 · /new-profile 创建"
+                          : "没有匹配项"
+                  }
+                />
+              </>
             ) : view === "logs" ? (
               <LogPanel
                 state={state}
@@ -1292,28 +1539,23 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                 }
               />
             ) : (
-              <Box flexDirection="column" paddingX={1}>
-                <Text bold color={ACCENT}>
-                  baasx 操作指南
-                </Text>
-                <Text>/connect → /profiles → /tasks</Text>
-                <Text>/run mail · /start · /stop · /logs</Text>
-                <Text>/config · /packs · /devices · /quit</Text>
-                <Text color={MUTED}>↑↓ 选择 · Enter 确认 · Esc 返回 · Shift+Tab 切换页</Text>
-                <Text color={MUTED}>Ctrl+T 任务 · Ctrl+P 配置档 · Ctrl+L 日志</Text>
-                <Text color={MUTED}>Ctrl+C 取消当前操作；空闲时退出</Text>
-              </Box>
+              <WorkbenchHelp
+                commands={COMMANDS}
+                language={language}
+                width={mainColumns}
+                height={bodyHeight}
+                active={!prompt && !state.busy}
+              />
             )}
           </Box>
           {splitLog && (
-            <Box
-              borderStyle="single"
-              borderColor={MUTED}
-              borderTop={false}
-              borderRight={false}
-              borderBottom={false}
-              width={columns - mainColumns}
-            >
+            <>
+              <ColumnDivider
+                height={bodyHeight}
+                onResize={(column) =>
+                  setLogSplit(Math.max(40, Math.min(columns - 31, column)) / (columns - 1))
+                }
+              />
               <LogPanel
                 state={state}
                 height={bodyHeight}
@@ -1325,17 +1567,21 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                   )
                 }
               />
-            </Box>
+            </>
           )}
         </Box>
         <Box height={1} paddingX={1} flexShrink={0}>
-          <Marquee
+          <ActivityText
+            active={
+              !prompt && !notice && !!(state.busy || activeTask) && !(!state.busy && latestError)
+            }
+            mode={state.connecting ? "requesting" : "tool-use"}
             color={
-              notice || latestError
+              notice || (!state.busy && latestError)
                 ? RED
                 : state.busy
-                  ? AMBER
-                  : state.activity.at(-1)?.tone === "success"
+                  ? NOTICE
+                  : statusActivity?.tone === "success"
                     ? GREEN
                     : MUTED
             }
@@ -1346,11 +1592,11 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                   ? `${latestError.title} · ${latestError.detail || ""}`
                   : "") ||
                 (state.busy
-                  ? `${["✦", "✧", "⋆", "✧"][tick % 4]} ${clean(state.busy)} · Esc 取消`
+                  ? `${clean(state.busy)} · Esc 取消`
                   : activeTask
-                    ? `● ${clean(activeTask)} · /logs 查看运行详情`
-                    : state.activity.at(-1)
-                      ? `${state.activity.at(-1)!.title} · ${clean(state.activity.at(-1)!.detail || "")}`
+                    ? `${clean(activeTask)} · /logs 查看运行详情`
+                    : statusActivity
+                      ? `${statusActivity.title} · ${clean(statusActivity.detail || "")}`
                       : state.demo
                         ? "DEMO · 所有操作仅作用于内存演示"
                         : state.readOnly
@@ -1365,7 +1611,7 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         {showCommandInput && (
           <Box
             borderStyle="single"
-            borderColor={prompt ? AMBER : MUTED}
+            borderColor={prompt ? NOTICE : MUTED}
             borderLeft={false}
             borderRight={false}
             height={3}
@@ -1391,27 +1637,26 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
         )}
         {suggestions.length ? (
           <Box flexDirection="column" paddingX={1}>
-            {suggestions
-              .slice(Math.max(0, suggestionIndex - 4), Math.max(0, suggestionIndex - 4) + 5)
-              .map((item) => (
-                <HitBox
-                  key={item.id}
-                  height={1}
-                  onPress={() => void operation(() => submitCommand(item.label))}
+            {suggestions.slice(suggestionStart, suggestionStart + suggestionLimit).map((item) => (
+              <HitBox
+                key={item.id}
+                height={1}
+                onPress={() => void operation(() => submitCommand(item.label))}
+              >
+                <Text
+                  color={item.id === suggestions[suggestionIndex]?.id ? ACCENT : MUTED}
+                  backgroundColor={
+                    item.id === suggestions[suggestionIndex]?.id ? SELECTED : undefined
+                  }
+                  wrap="truncate"
                 >
-                  <Text
-                    color={item.id === suggestions[suggestionIndex]?.id ? ACCENT : MUTED}
-                    backgroundColor={
-                      item.id === suggestions[suggestionIndex]?.id ? SELECTED : undefined
-                    }
-                    wrap="truncate"
-                  >
-                    {item.id === suggestions[suggestionIndex]?.id ? "❯" : " "}{" "}
-                    {pad(item.label, Math.min(22, Math.floor(columns * 0.4)))}{" "}
-                    {translate(clean(item.detail), language)}
-                  </Text>
-                </HitBox>
-              ))}
+                  {truncateText(
+                    `${item.id === suggestions[suggestionIndex]?.id ? "❯" : " "} ${pad(item.label, Math.min(22, Math.max(12, Math.floor(columns * 0.4))))} ${translate(clean(item.detail), language)}`,
+                    columns - 2
+                  )}
+                </Text>
+              </HitBox>
+            ))}
             <Text color={MUTED} wrap="truncate">
               ↑↓ 选择 · Tab 补全 · Enter 执行 · Esc 清空
             </Text>
@@ -1425,7 +1670,7 @@ export function WorkspaceView({ workspace }: { workspace: Workspace }) {
                   ? "Esc 取消"
                   : editing
                     ? "Esc 返回"
-                    : `${listing ? "↑↓ 选择 · Enter 打开" : "/ 命令 · ? 帮助"} · Shift+Tab 切换 · ${clean(state.profiles[state.profile || ""] || state.profile || "未选择配置档")}`}
+                    : `${listing ? "↑↓ 选择 · Enter 打开" : "/ 命令 · ? 帮助"} · Ctrl+R 重载界面 · Shift+Tab 切换 · ${clean(state.profiles[state.profile || ""] || state.profile || "未选择配置档")}`}
             </Text>
           </Box>
         )}
@@ -1448,7 +1693,7 @@ export async function launchWorkspace(options: WorkspaceOptions & { noColor?: bo
     <MouseContext.Provider value={mouse}>
       <WorkspaceView workspace={workspace} />
     </MouseContext.Provider>,
-    { stdin: terminal.input, exitOnCtrlC: false, maxFps: 20 }
+    { stdin: terminal.input, stdout: terminal.output, exitOnCtrlC: false, maxFps: 20 }
   );
   const stop = () => {
     workspace.close();

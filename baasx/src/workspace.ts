@@ -26,6 +26,7 @@ import {
 } from "./settings";
 import { abortable } from "./monitor";
 import { terminalText } from "./ui";
+import { isOneOffTask } from "./oneoff-tasks";
 import manifest from "../package.json";
 import {
   changedSchedulerFields,
@@ -66,6 +67,8 @@ export interface WorkspaceActivity {
 }
 export interface WorkspaceSnapshot {
   version: string;
+  /** Remount the terminal UI after an explicit reload without replacing its backend owner. */
+  reloadRevision?: number;
   endpoint: string;
   demo: boolean;
   connected: boolean;
@@ -92,6 +95,17 @@ export interface WorkspaceSnapshot {
 
 const MAX_LOGS = 300;
 const MAX_ACTIVITY = 60;
+const RUNTIME_OPERATIONS = new Set([
+  "正在安装运行环境",
+  "启动本地后端",
+  "更新本地环境",
+  "检查本地环境更新",
+]);
+
+export function isRuntimeOperation(title?: string): boolean {
+  return title !== undefined && RUNTIME_OPERATIONS.has(title);
+}
+
 // Wire values shared with Desktop's src/shared/serverOptions.ts (display labels are not CN/JP codes).
 export const PROFILE_SERVERS = [
   "官服",
@@ -112,7 +126,7 @@ const PROFILE_ACTIONS = new Set([
   "wait_run",
 ]);
 const HELP =
-  "profiles · use <配置档> · tasks · run <任务> · start · stop · status · logs [数量] · devices · config get [/字段] · config set /字段 <JSON> · packs · pack <指令包命令> · connect [服务地址] · logout · doctor";
+  "profiles · use <配置档> · tasks · run <任务> · start · stop · status · logs [数量] · devices · config get [/字段] · config set /字段 <JSON> · packs · pack <指令包命令> · connect [服务地址] · reload · logout · doctor";
 
 /** A deterministic BAAS automation workbench. No language model is created or called. */
 export class Workspace {
@@ -130,6 +144,7 @@ export class Workspace {
   private clientEpoch = 0;
   private offClient: (() => void)[] = [];
   private listeners = new Set<(snapshot: WorkspaceSnapshot) => void>();
+  private logPublishTimer?: ReturnType<typeof setTimeout>;
   private current?: AbortController;
   private promptWaiter?: { resolve(value: string | boolean): void; reject(error: Error): void };
   private packs: CommandPack[] = [];
@@ -302,7 +317,18 @@ export class Workspace {
   private async attachLocal(signal: AbortSignal, preserveProgress = false): Promise<void> {
     this.disposeClient();
     this.state.connected = false;
-    const { pipe } = await this.runtime.start((event) => this.runtimeEvent(event), signal);
+    let starting = true;
+    let pipe: string;
+    try {
+      ({ pipe } = await this.runtime.start((event) => {
+        // stdout/stderr keep flowing for the lifetime of the backend. Only the
+        // startup call owns this progress panel; later logs must not recreate
+        // it after attachment or overwrite another installation/update.
+        if (starting) this.runtimeEvent(event);
+      }, signal));
+    } finally {
+      starting = false;
+    }
     this.localAttached = true;
     this.pipe = pipe;
     this.state.endpoint = pipe;
@@ -537,7 +563,7 @@ export class Workspace {
     await this.action("运行任务", "task_run", { task });
   }
   async start(): Promise<void> {
-    await this.action("启动调度", "scheduler_start");
+    await this.action("启动调度", "scheduler_start", {}, true);
   }
   async stop(): Promise<void> {
     await this.action("停止调度", "scheduler_stop");
@@ -553,20 +579,90 @@ export class Workspace {
     });
   }
 
+  /** Like reloading the desktop page: rebuild the client/UI, retain the backend process. */
+  async reload(): Promise<void> {
+    await this.operation("重新加载工作台", async (signal) => {
+      // Validate local inputs before dropping a usable connection. A malformed
+      // settings/pack file should leave the existing session recoverable.
+      const settings = await abortable(loadSettings(this.directory), signal);
+      const packs = await abortable(
+        loadPacks(settings.packsDirectory || join(this.directory, "commands")),
+        signal
+      );
+      signal.throwIfAborted();
+      const demoProfile = this.state.demo ? this.state.profile : undefined;
+      if (this.state.demo) {
+        // DemoClient is also the in-memory backend. Closing it cancels its
+        // tasks, so retain that instance and its subscriptions across a reload.
+        this.scheduleRead++;
+      } else this.disposeClient();
+      clearTimeout(this.logPublishTimer);
+      this.logPublishTimer = undefined;
+      this.allLogs = [];
+      this.liveLogs = [];
+      this.liveLogRevision = 0;
+      this.lastRun = undefined;
+      this.announcedCompletion.clear();
+      this.legacyRuns.clear();
+      this.packs = packs;
+      this.state = {
+        version: manifest.version,
+        reloadRevision: (this.state.reloadRevision || 0) + 1,
+        endpoint: DEFAULT_URL,
+        demo: !!this.options.demo,
+        connected: false,
+        connecting: false,
+        profiles: {},
+        tasks: {},
+        status: {},
+        logs: [],
+        activity: [],
+        busy: "重新加载工作台",
+        readOnly: !!this.options.readOnly,
+        dryRun: !!this.options.dryRun,
+        packs: this.commands().map(({ name, description }) => ({ name, description })),
+      };
+      this.configure(settings);
+      if (demoProfile) this.state.profile = demoProfile;
+      this.publish();
+      signal.throwIfAborted();
+      if (!this.state.chooseLanguage && !this.state.setupNeeded) {
+        const explicitRemote = Boolean(
+          this.options.server ||
+          this.options.pipe ||
+          process.env.BAAS_SERVER ||
+          process.env.BAAS_PIPE
+        );
+        if (!this.state.demo && this.preferences.connectionMode === "local" && !explicitRemote)
+          await this.attachLocal(signal);
+        else await this.refreshData(signal);
+      }
+      this.activity("工作台已重载", undefined, "success");
+    });
+  }
+
   async getConfig(): Promise<Record<string, any>> {
     return (
       (await this.operation("读取配置", async (signal) => {
-        const context = this.context(signal);
-        const result = await abortable(executeAction("config_get", {}, context), signal);
         const client = (await this.ensureConnected(signal)) as Client &
           Pick<BaasClient, "staticData">;
-        try {
-          this.state.staticData = await abortable(client.staticData(), signal);
-        } catch (error) {
-          signal.throwIfAborted();
-          this.state.staticData = {};
-          this.activity("配置选项数据不可用", errorText(error), "info");
-        }
+        // The profile configuration and shared option catalogs are independent reads.
+        const [result, catalog] = await abortable(
+          Promise.all([
+            executeAction("config_get", {}, this.context(signal)),
+            Promise.resolve()
+              .then(() => client.staticData())
+              .then(
+                (data) => ({ data, error: undefined }),
+                (error: unknown) => ({ data: {}, error })
+              ),
+          ]),
+          signal
+        );
+        signal.throwIfAborted();
+        this.state.staticData = catalog.data;
+        if (catalog.error !== undefined)
+          this.activity("配置选项数据不可用", errorText(catalog.error), "info");
         this.publish();
         return this.redactor.result("config_get", {}, result) as Record<string, any>;
       })) ?? {}
@@ -714,6 +810,14 @@ export class Workspace {
     }
     const [command, ...args] = tokens;
     if (!command) return;
+    if (command === "reload") {
+      if (args.length) {
+        this.activity("命令格式有误", "用法：reload", "error");
+        return;
+      }
+      await this.reload();
+      return;
+    }
     if (command === "update" || command === "check-update") {
       if (args.length) {
         this.activity("命令格式有误", "用法：update 或 check-update", "error");
@@ -918,6 +1022,8 @@ export class Workspace {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    clearTimeout(this.logPublishTimer);
+    this.logPublishTimer = undefined;
     this.cancel();
     this.disposeClient();
     this.runtime.close();
@@ -988,10 +1094,7 @@ export class Workspace {
         controller.signal.aborted ||
         (error as Error)?.name === "AbortError" ||
         errorText(error).includes("操作已取消");
-      if (
-        this.state.installation &&
-        ["正在安装运行环境", "启动本地后端", "更新本地环境", "检查本地环境更新"].includes(title)
-      ) {
+      if (this.state.installation && isRuntimeOperation(title)) {
         this.runtimeEvent({
           type: "progress",
           stage: cancelled ? "cancelled" : "error",
@@ -1060,7 +1163,7 @@ export class Workspace {
             this.liveLogs.push({ revision: ++this.liveLogRevision, entry: safe });
             if (this.liveLogs.length > MAX_LOGS) this.liveLogs.shift();
             this.updateVisibleLogs();
-            this.publish();
+            this.publishLogs();
           }),
           client.onStatus((_update, snapshot) => {
             if (!current()) return;
@@ -1192,20 +1295,22 @@ export class Workspace {
   private async action(
     title: string,
     name: string,
-    args: Record<string, unknown> = {}
+    args: Record<string, unknown> = {},
+    approved = false
   ): Promise<void> {
-    await this.operation(title, (signal) => this.showAction(title, name, args, signal));
+    await this.operation(title, (signal) => this.showAction(title, name, args, signal, approved));
   }
 
   private async showAction(
     title: string,
     name: string,
     args: Record<string, unknown>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    approved = false
   ): Promise<unknown> {
     if (name === "config_set") this.rejectHiddenValue(args.value);
     const context = this.context(signal);
-    const result = await abortable(executeAction(name, args, context), signal);
+    const result = await abortable(executeAction(name, args, context, approved), signal);
     signal.throwIfAborted();
     this.lastRun = context.lastRun;
     this.presentAction(title, name, args, result);
@@ -1235,6 +1340,7 @@ export class Workspace {
         );
         if (
           step.action === "task_run" &&
+          !isOneOffTask(String(step.args.task)) &&
           !Object.hasOwn(await abortable(client.tasks(profile), signal), String(step.args.task))
         )
           throw new Error(`指令包任务不存在：${step.args.task}；未执行任何步骤`);
@@ -1521,7 +1627,15 @@ export class Workspace {
       this.state.activity.splice(0, this.state.activity.length - MAX_ACTIVITY);
     this.publish();
   }
+  /** Keep bursts of backend output from cloning and redrawing the entire workbench per line. */
+  private publishLogs(): void {
+    if (this.closed || this.logPublishTimer !== undefined) return;
+    this.logPublishTimer = setTimeout(() => this.publish(), 32);
+    this.logPublishTimer.unref?.();
+  }
   private publish(): void {
+    clearTimeout(this.logPublishTimer);
+    this.logPublishTimer = undefined;
     if (this.closed) return;
     for (const listener of [...this.listeners]) {
       try {

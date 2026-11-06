@@ -4,6 +4,7 @@
   "description": "Independent BAAS automation terminal",
   "license": "GPL-3.0-only",
   "type": "module",
+  "packageManager": "bun@1.4.4-canary.20261105.1",
   "bin": {
     "baasx": "bin/baasx.mjs"
   },
@@ -17,7 +18,7 @@
     "runtime"
   ],
   "engines": {
-    "bun": ">=1.3.0"
+    "bun": ">=1.4.4-0"
   },
   "scripts": {
     "dev": "bun scripts/dev.ts",

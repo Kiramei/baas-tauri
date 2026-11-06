@@ -18,7 +18,15 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       },
     });
     const child = Bun.spawn(
-      [process.execPath, "baasx/src/index.ts", "--demo", "--lang", "zh", "--config-home", directory],
+      [
+        process.execPath,
+        "baasx/src/index.ts",
+        "--demo",
+        "--lang",
+        "zh",
+        "--config-home",
+        directory,
+      ],
       {
         terminal,
         env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "1", BAAS_PROFILE: undefined },
@@ -48,7 +56,8 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       await key("\r");
     };
     try {
-      await until("连接已建立");
+      await until("已连接");
+      await until("输入 /");
       await command("/config");
       await key("screenshot_method");
       await key("\r");

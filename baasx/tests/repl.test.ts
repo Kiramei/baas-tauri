@@ -151,7 +151,8 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       terminal.write("\r");
     };
     try {
-      await until("连接已建立");
+      await until("已连接");
+      await until("输入 /");
       terminal.write("/");
       await until("编辑任务调度");
       terminal.write("\x1b");

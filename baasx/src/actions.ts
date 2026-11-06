@@ -4,6 +4,7 @@ import Ajv from "ajv";
 import { waitForRun, type MonitorEvent } from "./monitor";
 import { validateConfigurationStoredValue } from "./configuration";
 import { validateNewEventState } from "./scheduler";
+import { isOneOffTask } from "./oneoff-tasks";
 
 export interface ActionDefinition {
   name: string;
@@ -264,7 +265,7 @@ export async function executeAction(
         : prepared.before;
       context.approvalBaselines?.delete(baselineKey);
     }
-    if (name === "task_run") {
+    if (name === "task_run" && !isOneOffTask(String(args.task))) {
       const tasks = await client.tasks(selected!);
       if (!Object.hasOwn(tasks, String(args.task)))
         throw new Error(`任务不存在：${String(args.task)}；请先查看 /tasks`);
