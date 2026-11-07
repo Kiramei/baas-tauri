@@ -1,0 +1,177 @@
+---
+title: 指令包与自定义命令
+description: 安装 JSON 指令包，组合白名单动作，验证执行计划并管理重载与卸载。
+---
+
+BAASX 指令包把一组 BAAS 操作保存为可重复执行的命令。它是声明式 JSON，不是桌面 JavaScript 插件，也不是后端 Python 插件：不能导入模块、执行 Shell、添加任意网络请求或定义新的界面组件。桌面插件 ZIP 不能放进 BAASX 指令包目录使用。
+
+<BaasxTerminalDemo locale="zh" scenario="packs" />
+
+## 内置指令包
+
+`baas-core` 随程序嵌入，不依赖旁边的 JSON 文件。
+
+| 命令               | 步骤                           | 执行含义                            |
+| ------------------ | ------------------------------ | ----------------------------------- |
+| `briefing`         | `status` → `tasks`             | 查看服务状态和当前配置档的日常任务  |
+| `connection-check` | `status` → `devices`           | 检查状态和 ADB 设备，不启动游戏任务 |
+| `daily`            | `scheduler_start`              | 启动当前配置档已有的日常调度        |
+| `daily-wait`       | `scheduler_start` → `wait_run` | 启动后增加一次最多 120 秒的等待     |
+
+在工作台输入 `/packs`，选择命令并按 Enter；也可输入 `/briefing` 或 `/pack briefing`。在系统终端使用：
+
+```bash
+baasx --profile PROFILE_ID pack briefing
+baasx --profile PROFILE_ID --dry-run pack daily
+baasx --profile PROFILE_ID --yes pack daily
+```
+
+将 `PROFILE_ID` 换成 `baasx profiles` 返回的真实 ID。直接 `start` 的免确认规则不延伸到指令包：包内的 `scheduler_start` 仍是需要确认的修改动作。
+
+`daily-wait` 的 120 秒属于 `wait_run` 步骤。若使用托管本地环境，或为命令加了 `--wait`，前面的启动步骤本身也会等待；不要把包名理解为整个进程一定在 120 秒内退出。详见[等待与完成语义](./cli#等待与完成语义)。
+
+## 找到安装目录
+
+默认目录是 `<CLI配置目录>/commands`。CLI 配置目录依次采用 `--config-home`、`BAAS_CLI_HOME`、`$XDG_CONFIG_HOME/baas`，最后为 `~/.config/baas`。用下面的命令检查当前保存值和有效值：
+
+```bash
+baasx --json settings show
+```
+
+输出中的 `path` 指向 `settings.json`。如果 `effective.packsDirectory` 已设置，使用它；否则使用该配置目录下的 `commands`。
+
+也可以指定专用包目录，避免依赖系统默认路径：
+
+```bash
+mkdir -p ./my-baasx-commands
+baasx settings set packsDirectory ./my-baasx-commands
+```
+
+`settings set` 会将这个目录转为绝对路径保存。Windows PowerShell 可先执行 `New-Item -ItemType Directory -Force .\my-baasx-commands`，再使用相同的 `baasx settings set` 命令。
+
+加载器只读取目录第一层、扩展名为小写 `.json` 的普通文件，不递归读取子目录。文件名用于管理文件，包的身份由 JSON 的 `id` 决定。
+
+## 完整示例：检查后运行邮件任务
+
+把以下内容保存为 `my-baasx-commands/sensei-tools.json`：
+
+```json
+{
+  "id": "sensei-tools",
+  "name": "老师的工具",
+  "description": "只读检查和单次邮件任务",
+  "version": 1,
+  "commands": [
+    {
+      "name": "my-check",
+      "description": "查看状态、任务和最近 20 条日志",
+      "steps": [
+        { "action": "status", "args": {} },
+        { "action": "tasks", "args": {} },
+        { "action": "logs", "args": { "limit": 20 } }
+      ]
+    },
+    {
+      "name": "my-mail",
+      "description": "读取点击轮数设置，然后运行邮件任务并等待",
+      "steps": [
+        {
+          "action": "config_get",
+          "args": { "path": "/cafe_reward_affection_pat_round" }
+        },
+        { "action": "task_run", "args": { "task": "mail" } },
+        { "action": "wait_run", "args": { "timeout_seconds": 120 } },
+        { "action": "logs", "args": { "limit": 20 } }
+      ]
+    }
+  ]
+}
+```
+
+示例不修改咖啡厅设置，读取该字段只是展示不同动作的组合。先用 `tasks` 和 `config get` 确认目标配置档包含 `mail` 任务和该字段；其他配置档请换成其实际任务与路径。包名、命令名和参数值不会因界面语言而自动改变。
+
+```bash
+# 使用内存演示验证格式与流程，不连接真实设备
+baasx --demo --profile sensei-cn --json pack my-check
+baasx --demo --profile sensei-cn --dry-run --json pack my-mail
+baasx --demo --profile sensei-cn --yes --json pack my-mail
+
+# 核对真实配置档，再预览计划
+baasx --profile PROFILE_ID tasks
+baasx --profile PROFILE_ID config get /cafe_reward_affection_pat_round
+baasx --profile PROFILE_ID --dry-run --json pack my-mail
+```
+
+确认目标正确后，可在工作台执行 `/my-mail` 并逐次确认修改动作，或在脚本中明确使用 `--yes pack my-mail`。演示模式的数据只存在于当前进程，不能用演示结果证明真实设备已完成任务。
+
+## JSON 结构与限制
+
+| 层级 | 字段             | 要求                                                         |
+| ---- | ---------------- | ------------------------------------------------------------ |
+| 包   | `id`             | 正则 `^[a-z][a-z0-9-]{0,63}$`；所有已加载包中唯一            |
+| 包   | `name`           | 非空文本，最多 120 个字符                                    |
+| 包   | `description`    | 非空文本，最多 500 个字符                                    |
+| 包   | `version`        | 必须是数字 `1`，不是字符串或程序版本号                       |
+| 包   | `commands`       | 1–100 个命令                                                 |
+| 命令 | `name`           | 与 `id` 相同的字符规则，不带 `/`；跨包唯一，不能覆盖内置命令 |
+| 命令 | `description`    | 非空文本，最多 500 个字符                                    |
+| 命令 | `steps`          | 1–50 个步骤，按数组顺序执行                                  |
+| 步骤 | `action`、`args` | 白名单动作名和参数对象；没有参数也必须写 `{}`                |
+
+未知字段会报错，不会被忽略。名称和说明不能包含换行或终端控制字符。单文件有 1 MiB 校验阈值，当前实现按读取后的文本长度检查；配置值只能是 JSON 数据，嵌套不能超过 24 层。
+
+命令名不能使用 `run`、`start`、`reload`、`config`、`oneoff` 等内置名称，也不能使用已存在的 `briefing`、`daily` 等包命令。不要通过修改 `id` 来绕过命令名冲突。
+
+## 动作参数参考
+
+以下是**指令包格式允许的参数**。未列出的参数会在加载时被拒绝，即使底层动作接口支持类似字段。
+
+| `action`          | 允许的 `args`                                                        | 是否修改后端状态 |
+| ----------------- | -------------------------------------------------------------------- | ---------------- |
+| `status`          | `{}`，读取所有配置档状态                                             | 否               |
+| `profiles`        | `{}`，列出配置档                                                     | 否               |
+| `devices`         | `{}`，检测 ADB 设备                                                  | 否               |
+| `tasks`           | 可选 `profile`                                                       | 否               |
+| `config_get`      | 可选 `profile`、`path`；省略 `path` 或使用 `""` 读取根对象           | 否               |
+| `config_set`      | 必填 `path`、`value`；可选 `profile`                                 | 是               |
+| `scheduler_start` | 可选 `profile`                                                       | 是               |
+| `scheduler_stop`  | 可选 `profile`                                                       | 是               |
+| `task_run`        | 必填 `task`；可选 `profile`                                          | 是               |
+| `logs`            | 可选 `profile`、`limit`；`limit` 为 1–500 整数，默认 30              | 否               |
+| `wait_run`        | 可选 `profile`、`run_id`、`timeout_seconds`；显式超时为 1–120 整数秒 | 否               |
+
+`profile` 可填写精确 ID 或唯一名称；省略时使用当前选中配置档。`status` 不接受 `profile` 筛选。`task_run` 的日常任务 ID 来自 `tasks`，不能把中文显示名称当作 ID。一次性任务 ID 见[CLI 命令](./cli#一次性任务-id)。
+
+JSON Pointer 用 `/` 分隔路径，字段名中的 `~` 写成 `~0`，`/` 写成 `~1`。`config_set` 只允许当前后端存在、且 BAASX 配置编辑器开放的字段；不能写入整个根对象或内部缓存。数值、布尔值和数组直接作为 JSON 值传入，不要再包一层 JSON 字符串。
+
+```json
+{
+  "action": "config_set",
+  "args": { "path": "/cafe_reward_affection_pat_round", "value": 5 }
+}
+```
+
+等待应使用单独的 `wait_run` 步骤；不要给包内 `task_run` 填写 `wait`、`follow` 或 `timeout_seconds`。省略 `run_id` 时，优先关联同一进程中最近明确提交的该配置档运行，否则尝试从当前后端状态关联。无法确认运行身份时会报错，不会把别的运行当成成功。
+
+## 重载、更新与卸载
+
+1. 编辑或替换目录里的 JSON 文件。
+2. 在已打开的工作台执行 `/reload` 或 Ctrl+R。它会重读设置和所有包，并重建界面；未保存的编辑会清除，后台任务继续运行。
+3. 打开 `/packs` 检查新命令。修改包不会自动运行命令。
+
+没有文件监听式自动更新，也没有专门的包安装/卸载命令。卸载自定义包时，将其文件移出目录，或把扩展名改为 `.json.disabled`，然后在工作台重载。内置 `baas-core` 不能通过删除文件卸载。
+
+单次命令每次启动都会加载包。`baasx --json reload` 可重新读取并返回包数与命令数，然后退出；它不会通知另一个正在运行的工作台刷新。单次 `baasx packs` 也可用来核对文件是否成功加载。
+
+任一 JSON 无效、ID 冲突或命令名重复会导致加载失败，不会静默跳过。工作台的 `/reload` 会先检查新设置和新包，检查失败时保留原连接与已加载内容。若新进程启动就失败，先修复或移走报错文件，再重试；详见[故障排查](./troubleshooting#指令包加载失败)。
+
+## 执行边界与安全声明
+
+- 执行前检查所有步骤的动作、参数、相关配置档、任务和可写字段。`--read-only` 遇到含修改动作的包会在步骤执行前拒绝整个包。
+- `--dry-run` 会读取必要的真实数据进行预检，并输出完整计划，但不执行包内步骤。它不等于离线验证。
+- 正式执行按顺序推进；修改动作默认分别确认，`--yes` 跳过常规动作确认。只读步骤无需确认。
+- 中途失败、取消或发现任务已经在运行时会停止后续流程。已经完成的配置修改或游戏操作不会回滚；指令包不是事务。
+- JSON 包不能执行任意代码，但允许的动作仍可能启动游戏、修改配置或消耗游戏资源。执行别人提供的包前，核对每个 `profile`、`task`、`path` 和 `value`。
+- 不支持变量、条件、循环、步骤输出引用或命令参数模板。Shell 字符和 `${...}` 不会被执行或展开。不要把服务 Key 写进包；使用进程环境或交互隐藏输入。
+
+运行是否成功以最终状态和日志为准。仅看到包最后一个 `logs` 步骤执行完，不代表前面异步启动的游戏任务成功；需要明确加入等待并检查结果。

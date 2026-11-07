@@ -1,0 +1,103 @@
+---
+title: BAASX terminal manual
+description: Try the browser terminal, install BAASX, connect a backend, choose a profile, and run your first task.
+---
+
+**BAASX** is the independent BAAS terminal workbench. Use its keyboard and mouse interface to manage profiles, tasks, schedules, devices, and logs, or invoke individual commands from scripts. The executable is `baasx`; the package name is `@baas/baasx`.
+
+BAASX runs independently of the Tauri client and uses the same service protocol. Connecting both clients to the same backend exposes the same real profiles. BAASX stores its own connection preferences, language, and local-runtime settings separately.
+
+## Try it in your browser
+
+This is an **offline teaching terminal powered by xterm.js**. Click a walkthrough button or enter a command. Tasks, configuration, and logs are simulated in your browser: nothing connects to a backend or operates a device. Reloading the page resets the experience. The simulation explains the workflow; it does not replace a local installation or device testing.
+
+<BaasxTerminalDemo locale="en" scenario="quickstart" />
+
+Start with `/help`, then try `/tasks`, `/start`, `/logs`, and `/stop`. The configuration, scheduler, and command-pack chapters include focused exercises. The simulator supports its listed teaching operations; consult your installed `/help`, `baasx --help`, and the [command reference](./cli) for the complete interface.
+
+## Find your starting point
+
+| Goal                                                                       | Read next                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| First installation, without an existing runtime                            | [Installation and connection](./installation), using local installation   |
+| Connect an existing service, locally or remotely                           | [Connect an existing service](./installation#connect-an-existing-service) |
+| Explore without connecting the game                                        | Run `baasx --demo` or use the browser terminal above                      |
+| Learn navigation, shortcuts, and split logs                                | [The workbench](./workbench)                                              |
+| Edit crafting order, student preferences, lesson counts, or shop purchases | [Configuration](./configuration)                                          |
+| Schedule daily tasks or run an event story once                            | [Scheduling and task execution](./scheduler)                              |
+| Add plugin-like combinations of operations                                 | [Command packs](./command-packs), using declarative JSON                  |
+| Use SSH, scripts, or JSON output                                           | [CLI reference](./cli)                                                    |
+| Resolve connection or editing problems                                     | [Troubleshooting](./troubleshooting)                                      |
+
+## Your first run
+
+### 1. Launch BAASX
+
+Follow [installation](./installation) for platform-specific extraction instructions. In your system terminal, run:
+
+```sh
+baasx --lang en
+```
+
+If BAASX is not on PATH, use `./baasx` in the extracted directory, or `.\baasx.exe` in Windows PowerShell. The rest of this manual uses `baasx`.
+
+To practice in the real terminal interface first:
+
+```sh
+baasx --demo --lang en
+```
+
+`--demo` does not install a runtime or connect a real device. Its data lasts only for the current process. Exit and launch without `--demo` when ready to connect your service.
+
+### 2. Connect a local or existing backend
+
+On first launch, choose a language and runtime mode. Local installation prepares private Python, a service-capable backend, and OCR. For an existing service, supply its address and enter the login Key in the hidden prompt.
+
+The workbench opens the overview after connecting. Download progress, a connected header, and a completed game task represent different states. Once connected, you still need a profile, device configuration, and a verified task result.
+
+### 3. Select or create a profile
+
+Enter this in the workbench input:
+
+```text
+/profiles
+```
+
+Select a profile and press Enter. Use `/new-profile` to create one and select its game server. `/use <profile-ID-or-unique-name>` selects a profile directly. Check the active profile in the header before running tasks.
+
+Opening `/config` without an active profile opens the profile picker first and then returns to configuration.
+
+### 4. Configure your device and task behavior
+
+Use `/devices` to inspect ADB devices. In `/config`, set the device connection, script mode, and relevant task options. General device preparation is covered in [Emulators and devices](../features/emulator).
+
+Start with a small set of tasks you understand. Configuration changes require saving and confirmation; leaving an unsaved editor does not write changes to the backend. See [Configuration](./configuration) for each editor type.
+
+### 5. Run one task first
+
+Open `/tasks`, choose an appropriate task, read its confirmation, and press Enter. Alternatively, obtain the real task ID from the list and enter `/run <task-ID>`. A translated display label is not a task ID.
+
+Inspect the logs and final status. Use `/logs` in narrow terminals. Wide terminals can show logs beside the work area, with a draggable divider to adjust the split.
+
+### 6. Start the daily scheduler
+
+Open `/scheduler` and review enabled tasks, priorities, and next execution times, then enter:
+
+```text
+/start
+```
+
+**`/start` starts the active profile's scheduler immediately without another confirmation.** Use `/stop` and confirm to request a stop. One-off stage progression and event stories belong under `/oneoff`, outside the daily schedule.
+
+## Two different command entry points
+
+| Mode                  | Where to type                                  | Examples                                           |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| Interactive workbench | BAASX input bar                                | `/config`, `/start`, `/reload`                     |
+| One-shot CLI          | PowerShell, Bash, zsh, or another system shell | `baasx --json status`, `baasx --yes run <task-ID>` |
+
+Workbench commands start with `/`. One-shot CLI commands start with the program name `baasx`, normally without `/`. They are not exact mirrors: `/reload` reloads the whole workbench, whereas `baasx reload` rereads command packs in that command's process. See the [command reference](./cli).
+
+## Continue learning
+
+Read [Installation](./installation), [Workbench](./workbench), [Configuration](./configuration), and [Scheduling](./scheduler) in order. Then use [Command packs](./command-packs) to combine repeated operations and the [CLI](./cli) for external automation.

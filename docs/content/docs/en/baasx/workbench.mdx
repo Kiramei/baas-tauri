@@ -1,0 +1,116 @@
+---
+title: Workbench, shortcuts, and logs
+description: Navigate the persistent header and pages, complete commands, use the mouse, resize logs, confirm actions, and reload the workbench.
+---
+
+## Understand the layout
+
+Run `baasx` without a one-shot command to enter the interactive workbench. The header contains the white **BAASX** title, active profile, connection state, and schedule summary. The current page fills the middle; the command input and shortcut hints sit at the bottom.
+
+The header remains consistent across pages, with a blank row separating navigation from non-home content. Narrow or short terminals use a compact header and wrap list details; very short terminals use a two-line header.
+
+| Page          | Open with           | Contents                                                            |
+| ------------- | ------------------- | ------------------------------------------------------------------- |
+| Overview      | `/home`             | Runtime and scheduler summary, current task, operation feedback     |
+| Tasks         | `/tasks`, Ctrl+T    | Actual backend tasks and a one-off task entry                       |
+| Scheduler     | `/scheduler`        | Enabled state, next execution time, priority, and scheduling fields |
+| Profiles      | `/profiles`, Ctrl+P | Available backend profiles and active selection                     |
+| Logs          | `/logs`, Ctrl+L     | Live output and recent history                                      |
+| Configuration | `/config`           | Categories and typed editors                                        |
+| Command packs | `/packs`            | Built-in and user-defined JSON packs                                |
+
+Shift+Tab cycles pages; navigation is also clickable. The header shows the useful connection state without requiring you to interpret temporary socket or `.lock` paths.
+
+## Commands and help
+
+Type `/` in the input bar to show commands, keep typing to filter, and use Tab to complete. `/help` or `?` opens explanations, parameters, and examples. Scroll long help with the wheel, PageUp / PageDown, or pagination buttons.
+
+A typical sequence is:
+
+```text
+/profiles
+/config
+/tasks
+/scheduler
+/start
+/logs
+```
+
+Enter these commands individually; this block is not a script to paste into one input. Review the active profile and enabled tasks before `/start`. See the [command reference](./cli) for the complete list.
+
+## Keyboard controls
+
+| Key                      | Effect                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| ↑ / ↓                    | Move within the current list; input-history behavior depends on focus and current state |
+| Enter                    | Open an item, submit input, or confirm the selected action                              |
+| Esc                      | Go back, cancel a dialog or edit, or cancel a running installation                      |
+| Shift+Tab                | Cycle workbench pages                                                                   |
+| Tab                      | Complete a command                                                                      |
+| Ctrl+T / Ctrl+P / Ctrl+L | Open tasks / profiles / logs                                                            |
+| Ctrl+R                   | Reload the workbench                                                                    |
+| Ctrl+A / Ctrl+E          | Move to the beginning / end of the input                                                |
+| Ctrl+U / Ctrl+K          | Delete input before / after the cursor                                                  |
+| PageUp / PageDown        | Page through the active scrollable region                                               |
+| Ctrl+C                   | Cancel a foreground operation, wait, or input; exit when idle with empty input          |
+| Ctrl+D                   | Exit                                                                                    |
+
+Editors show their own controls. For example, priority lists use ← / → to reorder, Space to add or remove, and Ctrl+S to save. Input editing and configuration-list editing have different contexts; follow the current area's hints.
+
+## Mouse and confirmations
+
+Click navigation, list items, editor controls, and confirmation buttons. The wheel scrolls lists, logs, and installation steps. Long labels and the last log line can scroll horizontally to reveal clipped text.
+
+Single-task runs, stop requests, configuration writes, and command packs with mutations normally show a confirmation first. Yes is selected by default; Enter submits, `n` or arrow keys switch to cancellation, and Esc cancels. Review the target profile and action before confirming.
+
+**`/start` starts the scheduler immediately.** `--read-only` and `--dry-run` still apply, and conditions such as an existing run or missing profile still prevent submission.
+
+## Split logs and following output
+
+Task execution automatically reveals live logs. At **110 terminal columns** or wider, the workspace can show logs alongside the main area.
+
+1. Open a task or start a run so that the log area is visible.
+2. Move the pointer over the vertical divider between the work area and logs.
+3. Hold the left mouse button and drag horizontally.
+4. Release to continue working. Resizing the terminal preserves the split ratio.
+
+Both sides retain a minimum usable width. Narrow terminals use the separate `/logs` page. Scrolling up pauses automatic following; returning to the bottom resumes it.
+
+A successful connection does not establish task completion. Use runtime state, associated logs, and the final result. Scripts can wait for the same run ID with `--wait` / `--follow`; see [Scheduling and task execution](./scheduler).
+
+## Reload the workbench
+
+Enter `/reload` or press Ctrl+R to:
+
+1. Clear page state, input, and unsaved editor drafts.
+2. Reread settings and command packs.
+3. Restore the service connection and return to the overview.
+
+This is the workbench equivalent of the client's Reload action. **The local backend and running tasks continue**, so it does not replace `/stop` or upgrade the executable. Use it after installing or editing a command pack.
+
+The system-shell command `baasx reload` is different: it rereads command packs in that new process and cannot refresh an already-open workbench.
+
+## Language, color, and animation
+
+Use `/language`, or start with `--lang en` / `--lang zh`. Japanese, Korean, German, French, and Russian are also supported. Changing the UI language does not alter backend enumeration values or task IDs.
+
+Activity uses cyan stars, a text shimmer, and breathing color; waiting and notices use blue-violet. Reduce motion from your shell:
+
+```sh
+BAAS_REDUCED_MOTION=1 baasx
+```
+
+PowerShell:
+
+```powershell
+$env:BAAS_REDUCED_MOTION = "1"
+.\baasx.exe
+```
+
+Use `--no-color` or `NO_COLOR` to disable color. Redirected output and `TERM=dumb` disable animation. The browser demo also provides pause controls and respects the system's reduced-motion preference.
+
+## Reading installation progress
+
+Installation and updates show numbered steps, status, elapsed time, and available transfer progress. Running steps expand their latest logs; completed steps collapse and can be expanded again by clicking.
+
+The wheel and paging keys move only the view. Esc cancels while running or returns to the workbench after completion. On failure, identify the failing step and its final error, then follow [Troubleshooting](./troubleshooting).

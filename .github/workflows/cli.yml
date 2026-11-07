@@ -1,0 +1,150 @@
+name: baasx CI
+
+on:
+  push:
+    branches: [baasx-dev, dev, main]
+    paths:
+      [
+        "baasx/**",
+        "packages/baas-client/**",
+        "crates/baas-cli-runtime/**",
+        "crates/baas-updater/**",
+        "crates/baas-term/**",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain*",
+        ".cargo/**",
+        "src/shared/**",
+        "src/features/rewardedTaskConfig.ts",
+        "public/locales/*.json",
+        "package.json",
+        "bun.lock",
+        "tsconfig*.json",
+        "eslint.config.*",
+        ".github/workflows/cli.yml",
+        ".github/workflows/release-baasx.yml",
+      ]
+  pull_request:
+    paths:
+      [
+        "baasx/**",
+        "packages/baas-client/**",
+        "crates/baas-cli-runtime/**",
+        "crates/baas-updater/**",
+        "crates/baas-term/**",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain*",
+        ".cargo/**",
+        "src/shared/**",
+        "src/features/rewardedTaskConfig.ts",
+        "public/locales/*.json",
+        "package.json",
+        "bun.lock",
+        "tsconfig*.json",
+        "eslint.config.*",
+        ".github/workflows/cli.yml",
+        ".github/workflows/release-baasx.yml",
+      ]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cli:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            executable: baasx
+            helper: baas-cli-runtime
+          - os: macos-latest
+            executable: baasx
+            helper: baas-cli-runtime
+          - os: windows-latest
+            executable: baasx.exe
+            helper: baas-cli-runtime.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "baas-cli-runtime"
+          cache-all-crates: true
+      - name: Install headless Rust build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install the pinned baasx compiler
+        shell: bash
+        run: |
+          compiler=$(node -p 'require("./baasx/package.json").packageManager')
+          npm install --prefix "$RUNNER_TEMP/baasx-bun" --no-audit --no-fund "$compiler"
+          echo "$RUNNER_TEMP/baasx-bun/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Verify the pinned compiler revision
+        run: |
+          bun --revision
+          bun -e 'if (Bun.revision !== "b1007f1177fd402fae67387b8548cae5ae9b5707") throw new Error("Unexpected baasx compiler revision")'
+      - run: bun install --frozen-lockfile
+      - run: cargo test --locked -p baas-cli-runtime
+      - run: bun run baasx:check
+      - run: bun run baasx:test
+      - run: bunx eslint baasx/src baasx/tests baasx/scripts packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - name: Build the JS bundle, native helper and trimmed executable
+        run: bun run baasx:binary
+      - run: bun baasx/bin/baasx.mjs --demo --json status
+      - name: Exercise the compiled CLI and terminal
+        shell: bash
+        env:
+          BAASX_TEST_BINARY: ${{ github.workspace }}/baasx/dist/${{ matrix.executable }}
+        run: bun test baasx/tests/binary.test.ts
+      - name: Check the compiled program and its bundled installer
+        shell: bash
+        run: |
+          ./baasx/dist/${{ matrix.executable }} --demo --json status
+          ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baas-cli-not-installed"
+      - name: Pack the already verified JS bundle and helper
+        working-directory: baasx
+        run: bun pm pack --destination dist --ignore-scripts
+      - name: Archive platform-specific distributions and verify extraction
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./baasx/package.json").version')
+          asset="baasx-${version}-${RUNNER_OS}-${RUNNER_ARCH}"
+          mkdir -p baasx/dist/release
+          packages=(baasx/dist/*.tgz)
+          test "${#packages[@]}" -eq 1
+          mv "${packages[0]}" "baasx/dist/release/${asset}-bun.tgz"
+          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${{ matrix.executable }}" runtime -C .. README.md README_zh.md LICENSE
+
+          smoke=$(mktemp -d)
+          mkdir -p "$smoke/native" "$smoke/package"
+          tar -xzf "baasx/dist/release/${asset}.tar.gz" -C "$smoke/native"
+          tar -xzf "baasx/dist/release/${asset}-bun.tgz" -C "$smoke/package"
+          "$smoke/native/${{ matrix.executable }}" --demo --json status
+          "$smoke/native/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+          bun "$smoke/package/package/bin/baasx.mjs" --demo --json status
+          "$smoke/package/package/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baasx-${{ runner.os }}-${{ runner.arch }}
+          path: baasx/dist/release/*
+          compression-level: 0
+          if-no-files-found: error

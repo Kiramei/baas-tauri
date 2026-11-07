@@ -19,10 +19,15 @@ function* nodes(node: any): Generator<any> {
 }
 
 test("both native API pages cover the current registered command names", () => {
-  const registry = read("src-tauri/src/lib.rs").match(/generate_handler!\[([\s\S]*?)\]\s*\)/)?.[1];
+  // A command may have #[cfg(...)] attributes. Their closing brackets are not
+  // the end of generate_handler!; retain conditional commands in the API union.
+  const registry = read("src-tauri/src/lib.rs").match(/generate_handler!\[([\s\S]*?)^\s*\]\)/m)?.[1];
   expect(registry).toBeDefined();
-  const commands = registry!.replace(/#\[cfg\([^\]]+\)\]/g, "").split(",").map(value => value.trim()).filter(Boolean);
+  const commands = registry!.replace(/#\[[\s\S]*?\]/g, "").split(",").map(value => value.trim()).filter(Boolean);
   expect(commands.length).toBeGreaterThan(40);
+  expect(commands).toContain("updater_select_channel");
+  expect(commands).toContain("updater_restart_backend");
+  expect(commands).toContain("system_logs_ingest_frontend");
   for (const page of pages) {
     const names = [...nodes(parse(page))].filter(node => node.type === "inlineCode").map(node => node.value);
     for (const command of commands) expect(names).toContain(command);

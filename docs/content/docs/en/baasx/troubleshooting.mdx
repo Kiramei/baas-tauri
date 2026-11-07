@@ -1,0 +1,169 @@
+---
+title: Troubleshooting
+description: Diagnose BAASX startup, connections, configuration, task completion and command packs while preserving settings and distinguishing backend ownership.
+---
+
+First record the command, profile ID, exact error and time of failure, then follow the relevant section. Opening the program, passing a health check or receiving submission acceptance does not establish that a game task completed.
+
+## Collect Minimal Diagnostics
+
+```bash
+baasx --version
+baasx --json settings show
+baasx --json doctor
+baasx --json profiles
+baasx --profile PROFILE_ID --json status
+baasx --profile PROFILE_ID --json logs 30
+```
+
+`settings show` displays saved preferences and effective values after option/environment overrides. In WebSocket mode, `doctor` checks service health. With a pipe or managed local runtime, it attempts a connection. Status and logs are better evidence of actual task progress.
+
+The header shows the profile and connection status, not the socket path. A hidden path does not mean the service is disconnected. Inspect `settings show` or `doctor` when diagnosing an endpoint. Before sharing a report, remove login keys, push credentials, private paths, device addresses and unrelated information; include only enough to reproduce the problem.
+
+## The Workbench Does Not Open
+
+The workbench requires an interactive terminal, no positional command and no `--json`. These commands have different purposes:
+
+```bash
+baasx --demo
+baasx --demo --json status
+```
+
+The first opens the workbench; the second prints one JSON result and exits. An IDE output pane, redirected stdin or a pipe may not be a TTY. Run inside a real terminal. Piping `/tasks` text to the program does not simulate interactive keystrokes.
+
+If startup immediately reports a JSON or pack error, see [Pack Loading Failures](#pack-loading-failures) or [Damaged Local Preferences](#damaged-local-preferences). Do not begin by deleting the whole configuration directory.
+
+## Local Runtime Installation or Startup Fails
+
+BAASX local mode requires the BAAS service backend with `main.service.py` and local-pipe support. The current wizard uses the `dev` channel. The older GUI `stable` backend is not a substitute; rejecting `stable` early is expected behavior.
+
+- Extract the complete release archive and preserve the executable's relative location to `runtime/` and its executable permissions. Do not copy only one binary and remove its installation helper.
+- Bun packages also need their bundled runtime components. Packaged releases do not require Rust; source development requires Rust, Cargo and a native compiler toolchain.
+- Current local OCR prebuilds target Windows x64, Linux x64 and macOS ARM64. Do not mix components from different systems or architectures.
+- Expand the failed installation step and read its download, Python, dependency or backend-handshake logs. Esc cancels an active installation or update. Correct the cause before retrying the wizard.
+- `/local` starts an already complete environment. It is not a generic repair command for an arbitrary manually assembled directory. Inspect the wizard's report before deciding to reinstall.
+
+A successful connection automatically enters the overview. If a failed progress screen remains, inspect the error first. Once the connection is established and no foreground operation is active, `/reload` can rebuild the interface. It does not reinstall the environment or restart a working backend.
+
+## WebSocket or Pipe Connection Fails
+
+1. Confirm that the service is running and that its address, port or pipe path is correct.
+2. Inspect `effective` in `settings show` for overrides from `BAAS_SERVER`, `BAAS_PIPE`, `--server` or `--pipe`.
+3. Provide `BAAS_KEY` for WebSocket scripts, or use hidden input interactively. Do not put the key in URL query parameters.
+4. For a signing-public-key mismatch, verify the service's actual public key. A self-hosted service with a different key needs `--server-key` or `BAAS_SERVER_SIGN_PUBLIC_KEY`. Changing the login key repeatedly cannot fix a signing-key mismatch.
+5. The current user must be able to access a Unix socket. An old socket file does not establish that a server still listens there. On Windows, use the actual named pipe supplied by the backend.
+
+```bash
+baasx --server ws://127.0.0.1:8190 --json doctor
+baasx --server ws://127.0.0.1:8190 --json profiles
+```
+
+If the first succeeds and the second fails, authentication or business-channel setup may still be broken. Inspect the second error: an HTTP health check is not an authentication test. `--timeout` is in milliseconds, from 100–300000, and is separate from the task-wait timeout in seconds.
+
+## A Profile, Task or Setting Is Missing
+
+Run `profiles`, then select an exact ID. Avoid name matching when names are duplicated.
+
+```bash
+baasx profiles
+baasx --profile PROFILE_ID tasks
+baasx --profile PROFILE_ID config get
+```
+
+- `tasks` is the daily scheduler catalog, not the list of stage-progression or event operations. Use `/oneoff` in the workbench or a [supported one-off task ID](./cli#one-off-task-ids) in scripts.
+- A display label may differ from the ID accepted by `run`. Use a key from the task dictionary; one-off operations use their complete `start_...` IDs.
+- `/config` only exposes fields provided by the current backend and permitted for editing. Conditional fields can depend on café count, invitation mode, crafting phase or emulator mode.
+- The lesson configuration category controls regional counts and grade preferences. The top-level scheduler controls task timing and order; they are different pages.
+- Student, item and region names come from backend static catalogs. Do not invent IDs when a catalog is unavailable. Check the connection and resources, then reopen configuration or use `/reload`.
+- Server type is read-only. Internal caches, resource counts and unexposed fields cannot be forced through `config set`, even if they appear in a read result.
+
+## Saving Configuration Fails or Conflicts
+
+Numbers must satisfy the field's bounds and integer requirements. Options use their real values. Command-line values must be valid JSON:
+
+```bash
+baasx --profile PROFILE_ID --dry-run config set /cafe_reward_affection_pat_round 5
+baasx --profile PROFILE_ID --dry-run config set /screenshot_method '"adb"'
+```
+
+A version or field conflict usually means another client changed the field after it was read. Read and compare the current value before submitting a new change. BAASX does not silently overwrite concurrent edits. Cancellation or validation failure retains the editor draft, but `/reload` discards unsaved drafts.
+
+Redaction placeholders such as `[REDACTED]` are not the original secret and cannot be written back. Enter a new value when replacing credentials. Read results can also contain sensitive configuration; retain only relevant fields when sharing JSON.
+
+## Submission Succeeded but the Task Has Not Finished
+
+For external services, `run` / `start` normally confirm only that the request was accepted. `completed: false` is an expected asynchronous result. Read current status or wait for the same run:
+
+```bash
+baasx --profile PROFILE_ID --json status
+baasx --profile PROFILE_ID --json logs 50
+baasx --profile PROFILE_ID --wait-timeout 600 --json wait RUN_ID
+```
+
+Replace `RUN_ID` with the ID returned at submission. `succeeded: true` means successful termination was observed; `null` means the evidence is inconclusive. `already-running` means another run existed and the CLI did not submit a duplicate. Inspect it first, and explicitly run `stop` if it should be stopped. Repeating `run` is not an override mechanism.
+
+If a run was replaced or its ID no longer matches, the original ID and current activity describe different executions. Read status and logs again. A later successful run does not prove that the earlier one succeeded.
+
+## Wait Timeouts, Disconnects and Exit
+
+`--wait-timeout` is in seconds, from 1–86400; timeout exits with code `124`. `--timeout` is a connection/request timeout in milliseconds. They are not interchangeable.
+
+| Connection                                 | After cancelling a wait or closing the CLI                              |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| Local backend started by the CLI           | The backend and its children are cleaned up; its task does not continue |
+| External service via `--server` / `--pipe` | The service and submitted tasks may continue; reconnect to read status  |
+| Workbench `/reload`                        | The CLI does not exit; its backend and background tasks are retained    |
+
+Recovery reconnects and reads state without automatically replaying mutations. If submission was interrupted, inspect status and logs before deciding what to do next. Use an independently started service for persistent background execution, rather than relying on a private backend whose CLI is about to close.
+
+## Pack Loading Failures
+
+Errors normally identify the file and JSON field. Common causes include:
+
+- Comments, trailing commas or unmatched quotes in JSON.
+- `version` written as `"1"` instead of the number `1`.
+- Duplicate pack IDs or command names, or overriding names such as `run`, `reload` or `daily`.
+- Missing `args: {}`, unsupported actions or extra fields.
+- Treating a desktop plugin ZIP, JavaScript, shell code or a nested directory as a command pack.
+
+Fix the file or move it outside the pack directory. Changing `.json` to `.json.disabled` also preserves it for repair. Then run:
+
+```bash
+baasx --json packs
+baasx --json reload
+```
+
+These one-shot commands do not refresh another open workbench. Run `/reload` in that workbench. Failed reload validation preserves old content, so seeing an old command does not prove the new file was accepted. See the [pack structure and limits](./command-packs#json-structure-and-limits).
+
+## Updates Are Refused or the Environment Is Busy
+
+Before applying a local update, the CLI checks all profiles in its managed backend for active work. Running tasks, scheduling or a waiting queue prevent an update. Inspect status, stop the relevant work, and wait for the backend to confirm it is idle before retrying.
+
+```bash
+baasx --json check-update
+baasx --dry-run --json update
+baasx --yes update
+```
+
+Another CLI instance holding a runtime lease on the same environment can also prevent replacement. Close instances that no longer need the environment. Do not remove lock files to bypass active processes. Updates target a complete CLI-managed `dev` environment, not an external service connected with `--server` / `--pipe`.
+
+## Display, Mouse or Keyboard Issues
+
+- The minimum supported window is 24×12. Smaller windows ask you to enlarge them. Narrow layouts condense the header and lists rather than preserving the wide layout's row count.
+- Mouse interaction depends on the terminal forwarding mouse reports. If a terminal or multiplexer intercepts them, verify keyboard navigation first: ↑↓ selects, Enter opens, Esc returns, and Shift+Tab changes pages.
+- At 110 columns or wider, the work area and logs can appear side by side. Drag the vertical divider to resize them. Narrow terminals use the separate log page.
+- Scrolling up pauses automatic log following; returning to the bottom resumes it. Use PageUp/PageDown in the log viewer or help page.
+- Use `BAAS_REDUCED_MOTION=1` or `--no-color` if animation or color is unsuitable. These options change presentation, not execution.
+- `/reload` / Ctrl+R rebuilds the interface. Save any needed drafts first. It does not replace the running executable with a newer file on disk.
+
+## Damaged Local Preferences
+
+Startup may fail because `settings.json` has invalid JSON, field types or endpoint syntax. Back up the file, then correct it. Do not delete the entire directory containing the runtime and custom packs. Login keys should not be added to this file.
+
+If the original configuration prevents diagnostic commands from starting, verify the program with an isolated directory:
+
+```bash
+baasx --config-home ./baasx-diagnostic --demo --json profiles
+```
+
+This creates a fresh demo process without reading the original profiles or operating real devices. It does not prove the original backend is healthy. Once the program runs, inspect the original preferences and packs. If the problem remains, report the version, system/architecture, connection type, sanitized command and error, and whether failure happened during startup, connection, submission or waiting.
