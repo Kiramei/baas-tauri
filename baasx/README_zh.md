@@ -238,7 +238,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
-bun add -g ./baasx/dist/baas-baasx-0.1.1.tgz
+bun add -g ./baasx/dist/baas-baasx-0.1.2.tgz
 baasx --help
 ```
 

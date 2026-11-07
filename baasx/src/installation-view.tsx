@@ -17,7 +17,7 @@ export function installationStage(id: string): string {
     "cpp-repository": "下载 OCR 组件",
     "git-record-sha": "记录组件版本",
     "uv-install": "安装环境工具",
-    "cpython-source-ranking": "选择 Python 下载源",
+    "cpython-source-ranking": "自动安装 Python",
     "uv-python-install": "准备 Python 环境",
     "uv-venv": "创建虚拟环境",
     "uv-requirements": "解析依赖清单",
