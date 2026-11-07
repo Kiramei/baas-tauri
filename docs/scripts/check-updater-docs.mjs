@@ -57,7 +57,7 @@ try {
       await result.waitFor({ state: "visible" });
       assert.equal(await dialog.getByText(labels(locale === "zh" ? "en" : "zh").title, { exact: true }).count(), 0);
       await result.click();
-      await page.waitForURL(url => url.pathname.endsWith(`/docs/${locale}/reference/updater-internals/`));
+      await page.waitForURL(url => url.pathname.endsWith(`/docs/reference/updater-internals/`));
       await page.keyboard.press("Control+k");
       const emptyDialog = page.getByRole("dialog", { name: text.search, exact: true });
       await emptyDialog.getByPlaceholder(text.search, { exact: true }).fill("zz_unmatched_updater_search_49375");
@@ -91,7 +91,7 @@ try {
       await menu.locator("summary").filter({ visible: true }).click();
       assert.equal(await menu.locator("summary").getAttribute("aria-label"), text.language);
       await menu.getByRole("link", { name: nextLocale === "en" ? "English" : "中文", exact: true }).click();
-      await page.waitForURL(url => url.pathname.endsWith(`/docs/${nextLocale}/reference/updater-internals/`));
+      await page.waitForURL(url => url.pathname.endsWith(`/docs/reference/updater-internals/`));
       await page.getByRole("heading", { name: nextText.title, exact: true }).waitFor();
       await page.waitForFunction(lang => document.documentElement.lang === lang, nextLocale === "zh" ? "zh-CN" : "en");
       await page.getByRole("button", { name: nextText.anchor, exact: true }).first().waitFor({ state: "attached" });

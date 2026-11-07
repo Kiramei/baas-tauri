@@ -36,6 +36,45 @@ try {
         const page = await context.newPage();
         page.on("pageerror", (error) => errors.push(error.message));
         const text = (zh, en) => (locale === "zh" ? zh : en);
+        await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+        assert.equal((await page.goto(`${base}/docs/${locale}/baasx/installation/`)).status(), 200);
+        const tabs = page.getByRole("tablist", {
+          name: text("包管理器", "Package manager"),
+          exact: true,
+        });
+        const install = tabs.locator("../..");
+        const copy = install.getByRole("button", { name: text("复制命令", "Copy command"), exact: true });
+        for (const [name, command] of [
+          ["npm", "npm install -g @kiramei/baasx"],
+          ["pnpm", "pnpm add -g @kiramei/baasx"],
+          ["yarn", "yarn global add @kiramei/baasx"],
+          ["bun", "bun add -g @kiramei/baasx"],
+          ["cnpm", "cnpm install -g @kiramei/baasx"],
+          ["deno", "deno install -g -A npm:@kiramei/baasx"],
+        ]) {
+          const tab = tabs.getByRole("tab", { name, exact: true });
+          await tab.click();
+          assert.equal(await tab.getAttribute("aria-selected"), "true");
+          const code = install.locator("pre code:visible");
+          assert.equal(await code.innerText(), command);
+          const inlineStyle = await code.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+              borderWidth: style.borderWidth,
+              borderRadius: style.borderRadius,
+              background: style.backgroundColor,
+            };
+          });
+          assert.deepEqual(inlineStyle, {
+            borderWidth: "0px",
+            borderRadius: "0px",
+            background: "rgba(0, 0, 0, 0)",
+          });
+          await copy.click();
+          assert.equal(await page.evaluate(() => navigator.clipboard.readText()), command);
+          assert.equal(await install.getByRole("status").textContent(), text("已复制", "Copied"));
+        }
+        cases.push({ locale, theme, mobile, scenario: "package-manager-install", passed: true });
         for (const [scenario, route] of Object.entries(routes)) {
           assert.equal((await page.goto(`${base}/docs/${locale}/baasx/${route}`)).status(), 200);
           const demo = page.locator(`[data-baasx-demo="${scenario}"]`);
@@ -235,20 +274,38 @@ try {
                   ) > 0,
                 scenario
               );
-              const screen = await demo.locator(".xterm-screen").boundingBox();
-              const columns = Number(await demo.getAttribute("data-cols"));
-              const rows = Number(await demo.getAttribute("data-rows"));
-              const divider = Number(await demo.getAttribute("data-divider-column"));
               const before = Number(await demo.getAttribute("data-split"));
-              const x = screen.x + ((divider + 0.5) * screen.width) / columns;
-              const y = screen.y + (10.5 * screen.height) / rows;
-              await page.mouse.move(x, y);
+              let x, y, dividerReady = false;
+              for (let attempt = 0; attempt < 40 && !dividerReady; attempt++) {
+                const screen = await demo.locator(".xterm-screen").boundingBox();
+                const columns = Number(await demo.getAttribute("data-cols"));
+                const rows = Number(await demo.getAttribute("data-rows"));
+                const divider = Number(await demo.getAttribute("data-divider-column"));
+                x = screen.x + ((divider + 0.5) * screen.width) / columns;
+                y = screen.y + (10.5 * screen.height) / rows;
+                await page.mouse.move(x, y);
+                dividerReady = await demo.evaluate((node, point) => {
+                  const screen = node.querySelector(".xterm-screen")?.getBoundingClientRect();
+                  const columns = Number(node.getAttribute("data-cols"));
+                  const rows = Number(node.getAttribute("data-rows"));
+                  const divider = Number(node.getAttribute("data-divider-column"));
+                  if (!screen || divider < 0) return false;
+                  const currentX = screen.x + ((divider + 0.5) * screen.width) / columns;
+                  const currentY = screen.y + (10.5 * screen.height) / rows;
+                  return Math.abs(point.x - currentX) < 1 && Math.abs(point.y - currentY) < 1 &&
+                    node.querySelector('[data-testid="baasx-terminal"]')?.style.cursor === "col-resize";
+                }, { x, y });
+                if (!dividerReady) await page.waitForTimeout(50);
+              }
+              assert.ok(dividerReady, "The terminal divider is ready for dragging");
               await page.mouse.down();
               await page.mouse.move(x + 65, y, { steps: 8 });
               await page.mouse.up();
-              assert.ok(
-                Number(await demo.getAttribute("data-split")) > before + 0.02,
-                "Dragging the terminal divider changes the split"
+              await page.waitForFunction(
+                ({ scenario, before }) =>
+                  Number(document.querySelector(`[data-baasx-demo="${scenario}"]`)?.getAttribute("data-split")) >
+                  before + 0.02,
+                { scenario, before }
               );
               await send("/stop");
               await key("Enter");

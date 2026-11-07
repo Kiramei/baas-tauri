@@ -4,9 +4,47 @@
 
 baasx is BAAS's standalone terminal workbench for managing Blue Archive Auto Script profiles, tasks, schedules, devices, and runtime logs. The CLI runs independently of the Tauri desktop app and shares its headless service client and backend protocol.
 
-The installed command is `baasx`, and the Bun package is `@baas/baasx`. Source code lives in `baasx/`. Repository scripts use `bun run baasx`, `baasx:build`, and related names; the existing `cli` / `cli:*` scripts remain as compatibility aliases.
+The installed command is `baasx`, and the npm package is `@kiramei/baasx`. Source code lives in `baasx/`. Repository scripts use `bun run baasx`, `baasx:build`, and related names.
 
-## Getting started
+## Install
+
+Install Node.js 18 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
+
+```sh
+# npm
+npm install -g @kiramei/baasx
+
+# Bun
+bun add -g @kiramei/baasx
+
+# pnpm
+pnpm add -g @kiramei/baasx
+
+# Yarn 1 (Classic)
+yarn global add @kiramei/baasx
+
+# cnpm
+cnpm install -g @kiramei/baasx
+
+# Deno
+deno install -g -A npm:@kiramei/baasx
+```
+
+Run `baasx --help` or `baasx --demo --lang en` after installation. Ensure the chosen package manager's global executable directory is on PATH. If pnpm reports a missing global directory, run `pnpm setup` and reopen the terminal. Yarn 1 reports its executable directory with `yarn global bin`. Bun defaults to `~/.bun/bin`, which can be changed in its configuration.
+
+Yarn 2 and newer do not have `yarn global`. To run temporarily:
+
+```sh
+yarn dlx --package @kiramei/baasx baasx --help
+```
+
+cnpm uses an npm mirror by default. A new version may take time to appear there. If the package is unavailable, use the npm command above.
+
+Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
+
+The registry package includes native programs and installer helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
+
+## Getting started from source
 
 Running from source requires Bun 1.4.4+, Rust 1.95+ with Cargo, and your platform's C/C++ build toolchain. Run these commands from the repository root:
 
@@ -200,7 +238,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
-bun add --global ./baasx/dist/baas-baasx-0.1.0.tgz
+bun add -g ./baasx/dist/baas-baasx-0.1.1.tgz
 baasx --help
 ```
 
@@ -215,16 +253,15 @@ Both distribution formats must include the installation helper:
 
 CI checks and builds on Windows, Linux, and macOS. Uploaded build artifacts contain the Bun `.tgz` package and native `.tar.gz` distribution, each with its platform's installation helper, both README languages, and the license. Extract the appropriate archive and preserve its directory structure and executable permissions. Users of these packages do not need a Rust toolchain to install the BAAS environment on first launch.
 
-GitHub publishing uses the independent **Release baasx** workflow (`.github/workflows/release-baasx.yml`). Tags use `baasx-v<version>` and must match `baasx/package.json` exactly, for example `baasx-v0.1.0`; their commit must belong to `baasx-dev`. Versions with suffixes such as `-rc.1` become prereleases. Manual reruns must also select an existing baasx tag. The workflow reuses baasx CI and publishes only after source tests, compiled-artifact tests and archive extraction checks pass on all three platforms. Assets include versioned native archives, platform-specific `-bun.tgz` packages and `SHA256SUMS`. Bun packages are GitHub Release attachments; they are not published to the npm registry. These tags do not trigger the desktop Release App / Docker workflows, and baasx releases never replace the desktop release's Latest designation.
 
 ## Development and verification
 
 ```bash
 bun run baasx:check
 bun run baasx:test
-bunx eslint baasx/src baasx/tests packages/baas-client/src packages/baas-client/tests
+bunx eslint baasx/src baasx/tests baasx/packages/baas-client/src baasx/packages/baas-client/tests
 ```
 
-`workspace-view.tsx` implements the terminal interface, `terminal.ts` handles terminal and mouse protocols, and `field-editor.tsx` supplies typed editors. `configuration.ts` and `scheduler.ts` define editable fields, validation, and serialization. `workspace.ts` controls the workbench, `index.ts` implements script commands, `actions.ts` defines the shared action boundary, and `monitor.ts` correlates runs and follows logs. `runtime.ts` wraps the local installation helper, `installation.ts` retains bounded step progress and logs, and `installation-view.tsx` presents per-step progress and log tails. `packages/baas-client` is the shared headless client.
+`workspace-view.tsx` implements the terminal interface, `terminal.ts` handles terminal and mouse protocols, and `field-editor.tsx` supplies typed editors. `configuration.ts` and `scheduler.ts` define editable fields, validation, and serialization. `workspace.ts` controls the workbench, `index.ts` implements script commands, `actions.ts` defines the shared action boundary, and `monitor.ts` correlates runs and follows logs. `runtime.ts` wraps the local installation helper, `installation.ts` retains bounded step progress and logs, and `installation-view.tsx` presents per-step progress and log tails. `baasx/packages/baas-client` is the shared headless client.
 
 Tests cover socket framing, signed and encrypted connections, confirmation and read-only behavior, command-pack preflight checks, run correlation, log recovery, configuration allowlists and types, schedule conflicts, seven-language text, mouse protocols, terminal sanitization, structured installation progress, and CLI subprocesses. Simulated checks do not replace acceptance testing of actual game tasks; connect a device and verify them with your intended configuration.

@@ -3,7 +3,7 @@ title: Command Packs and Custom Commands
 description: Install JSON command packs, compose allowlisted actions, validate plans, and manage reloads and removal.
 ---
 
-A BAASX command pack saves a sequence of BAAS operations as a reusable command. It is declarative JSON, not a desktop JavaScript plugin or a backend Python plugin: it cannot import modules, execute a shell, add arbitrary network requests, or define new UI components. Desktop plugin ZIP files cannot be installed in the BAASX command-pack directory.
+A BAASX command pack uses JSON to save a sequence of supported operations as a reusable command. It cannot execute code or shell commands, make arbitrary network requests, or add interface components. Desktop plugin ZIP files cannot be used as BAASX command packs.
 
 <BaasxTerminalDemo locale="en" scenario="packs" />
 

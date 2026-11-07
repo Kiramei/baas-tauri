@@ -986,7 +986,7 @@ export function BaasxTerminalDemo({
     >
       <div className={styles.toolbar}>
         <span className={styles.engine}>
-          xterm.js <span className={styles.badge}>DEMO</span>
+          <span className={styles.badge}>DEMO</span>
         </span>
         <label className={styles.scenarioLabel} htmlFor={`${id}-scenario`}>
           {t("场景", "Scene")}

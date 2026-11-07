@@ -3,15 +3,31 @@ title: WebUI and Docker
 description: Use BAAS in a browser, deploy Docker, persist data, and manage the login Key.
 ---
 
+import { WebuiImageCommands } from "@/components/WebuiImageCommands";
+
 WebUI runs the shared workspace in a browser while automation executes on the server. It provides profiles, scheduling, plugins, and backend updates without a Tauri desktop installation. The game device must be reachable from the server.
 
 ## Start Docker
 
-From the repository root:
+Pull the image from [GitHub Container Registry](https://github.com/users/Kiramei/packages/container/package/baas-webui) or [Docker Hub](https://hub.docker.com/r/kiramei/baas-webui/tags). `latest` updates for a stable release or a manual release workflow run on `main`. RC releases publish their version tag without updating `latest`. You can also choose a specific version, such as `0.0.9.post1`.
+
+Pull and start without cloning the repository. Choose an image registry and container engine, then run both commands:
+
+<WebuiImageCommands locale="en" />
+
+The named volume `baas-webui-data` retains the container's `/app` data. Preserve and back it up before replacing the container.
+
+The current `latest` image targets `linux/amd64`. ARM devices need an emulator that supports that architecture. Initial startup prepares the backend and OCR. Use `docker logs --tail=100 baas-webui` or `podman logs --tail=100 baas-webui` for the chosen engine. To update, pull the new image and recreate the container with the same options.
+
+To restore Podman containers after a system reboot, enable `podman-restart.service` or manage the container with systemd.
+
+To use the repository's Compose file, run from the repository root:
 
 ```sh
 docker compose -f scripts/docker/docker-compose.yml up -d
 ```
+
+Compose uses the GitHub image by default. Set `BAAS_WEBUI_IMAGE=docker.io/kiramei/baas-webui:latest` before running the command to use Docker Hub.
 
 Open `http://127.0.0.1:8191`. The default binding is local only. Backend `127.0.0.1:8190` is internal to the container and is not published.
 
@@ -35,7 +51,7 @@ Never post Keys, cookies, Telegram tokens, or logs containing them in public iss
 
 ## Connect a Device
 
-Inside the container, `127.0.0.1` refers to the container. For an ADB TCP device on the host, use `host.docker.internal:5555` or a reachable LAN address such as `192.168.1.42:5555`. Reachability depends on the emulator's listening address, firewall, and Docker network. A host-loopback-only listener may not be reachable through the gateway.
+Inside the container, `127.0.0.1` refers to the container. For an ADB TCP device on the host, Docker can use `host.docker.internal:5555` and Podman can use `host.containers.internal:5555`. A reachable LAN address such as `192.168.1.42:5555` is another option. Podman's internal hostname depends on its network and virtual machine configuration. Reachability also depends on the emulator's listening address, firewall, and container network. A host-loopback-only listener may not be reachable through the gateway.
 
 `5037` is normally the ADB server port, not the device TCP port. Confirm that the server can discover the device before running a small set of tasks. Native PC window control requires a Windows desktop and is unavailable in Linux Docker.
 

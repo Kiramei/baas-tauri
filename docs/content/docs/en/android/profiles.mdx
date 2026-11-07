@@ -1,0 +1,24 @@
+---
+title: Profiles and Workspaces
+---
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/home.webp"
+  alt="Android Home example with profiles and bottom navigation"
+/>
+
+The top strip selects profiles; the add icon creates/imports one. Give a new profile a name and choose the server that matches the installed game. Server selection is locked afterward; use another profile for another package. Edit, Copy, Export and Delete are in the profile menu.
+
+Home, Tasks, Config and Settings are bottom navigation items. The central play/stop button controls the selected **scheduler**, not just the preview. Home's separate play button starts the game background display without starting scheduled tasks. Start with all resource-consuming tasks disabled until their configuration is checked.
+
+| Profile server    | Required installed package             |
+| ----------------- | -------------------------------------- |
+| Official (CN)     | `com.RoamingStar.BlueArchive`          |
+| Bilibili (CN)     | `com.RoamingStar.BlueArchive.bilibili` |
+| Global            | `com.nexon.bluearchive`                |
+| Global (Teen)     | `com.nexon.bluearchiveteen`            |
+| Korea (ONE store) | `com.nexon.bluearchiveone`             |
+| Japan             | `com.YostarJP.BlueArchive`             |
+
+The server-to-package mapping is authoritative. Installing a different regional client does not satisfy it. The app reports a missing/unsupported game rather than using whichever installed package happens to come first.

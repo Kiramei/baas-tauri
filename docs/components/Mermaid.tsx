@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useDocsLocale } from "@/components/DocsProvider";
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import mermaid from "mermaid";
 
@@ -73,8 +73,7 @@ initializeMermaid("dark");
 /** Renders the mermaid component. */
 export function Mermaid({ chart }: MermaidProps) {
   const id = useId().replace(/:/g, "");
-  const params = useParams<{ lang: string }>();
-  const chinese = params?.lang === "zh";
+  const chinese = useDocsLocale().locale === "zh";
   const [diagram, setDiagram] = useState<{ svg: string; width: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<MermaidTheme>("dark");
@@ -113,8 +112,9 @@ export function Mermaid({ chart }: MermaidProps) {
       try {
         const result = await mermaid.render(`mermaid-${id}-${theme}`, chart);
         if (cancelled) return;
-        const document = new DOMParser().parseFromString(result.svg, "image/svg+xml");
-        const width = (document.documentElement as unknown as SVGSVGElement).viewBox.baseVal.width;
+        const parsed = new DOMParser().parseFromString(result.svg, "text/html");
+        const viewBox = parsed.querySelector("svg")?.getAttribute("viewBox");
+        const width = Number(viewBox?.trim().split(/[\s,]+/)[2]);
         setDiagram({
           svg: result.svg.replace(/<script[\s\S]*?<\/script>/gi, ""),
           width: Number.isFinite(width) && width > 0 ? width : 0,

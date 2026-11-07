@@ -8,6 +8,7 @@ import { displayWidth, terminalText } from "../src/ui";
 import { MouseContext } from "../src/terminal-components";
 import { MouseBus, type MouseEvent } from "../src/terminal";
 import { reduceInstallationProgress } from "../src/installation";
+import manifest from "../package.json";
 
 function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
   let state: WorkspaceSnapshot = {
@@ -940,7 +941,7 @@ describe("workspace rendering", () => {
       const tabs = lines.findIndex((line) => line.includes("总览") && line.includes("配置"));
       expect(tabs).toBe(6);
       expect(lines[0]?.trim()).toBe("");
-      expect(lines[1]).toContain("BAASX v0.1.0");
+      expect(lines[1]).toContain(`BAASX v${manifest.version}`);
       expect(lines.slice(0, tabs).join("\n")).not.toMatch(/[╭╮╰╯│]/);
       expect(lines.filter((line) => displayWidth(line) > 100)).toEqual([]);
       expect(lines.findIndex((line) => line.includes("输入 /"))).toBeGreaterThan(29);

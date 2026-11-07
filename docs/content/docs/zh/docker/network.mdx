@@ -1,0 +1,7 @@
+---
+title: 局域网与 HTTPS
+---
+
+桥接模式通过 `BAAS_WEBUI_PORT` 调整发布端口；需要局域网访问时将 `BAAS_WEBUI_BIND` 设为 `0.0.0.0`，并设置防火墙和 HTTPS 反向代理。不要把未经保护的服务直接暴露到公网。
+
+反向代理需要转发 WebSocket 的 `Upgrade`、`Connection` 和正确的 Host；覆盖来自外部的 `X-Forwarded-Proto`，只传入真实的 `http` 或 `https`。浏览器剪贴板等功能还受安全上下文与权限限制。WebUI 使用同源连接，不应把页面连接地址改成容器内部的 `127.0.0.1:8190`。

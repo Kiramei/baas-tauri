@@ -47,7 +47,7 @@ try {
     }, test);
     const page = await context.newPage();
     await page.goto(origin + test.entry);
-    await page.waitForURL(`**/docs/${test.expected}/`);
+    await page.waitForURL((url) => url.pathname === test.entry);
     await page.waitForFunction(
       (expected) => document.documentElement.lang === expected,
       test.expected === "zh" ? "zh-CN" : "en"
@@ -357,7 +357,7 @@ try {
       .first();
     await match.waitFor();
     await match.click();
-    await page.waitForURL(`**/docs/${locale}/guide/configuration/**`);
+    await page.waitForURL("**/docs/guide/configuration/**");
     results.push({ kind: "search-navigation", locale, query, passed: true });
   }
   await page.goto(`${origin}/docs/zh/guide/configuration/`);
@@ -366,10 +366,12 @@ try {
     .locator(".baas-language-menu")
     .getByRole("link", { name: "English", exact: true })
     .click();
-  await page.waitForURL("**/docs/en/guide/configuration/**");
+  await page.waitForURL("**/docs/guide/configuration/**");
+  await page.waitForFunction(() => document.documentElement.lang === "en");
   assert.equal(await page.evaluate(() => localStorage.getItem("baas-docs-locale")), "en");
   await page.goto(origin + "/");
-  await page.waitForURL("**/docs/en/");
+  await page.waitForURL((url) => url.pathname === "/");
+  await page.waitForFunction(() => document.documentElement.lang === "en");
   results.push({ kind: "manual-language-persistence", passed: true });
   await context.close();
   writeFileSync(

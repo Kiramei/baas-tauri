@@ -1,0 +1,14 @@
+---
+title: Backend and OCR Preparation
+---
+
+The default backend is `Kiramei/baas-dev` on `master`; `BRANCH` selects another branch. Existing Git checkouts update by fast-forward only, without automatically discarding or stashing local changes. Complete OCR installations are retained; missing files trigger repair according to startup configuration while preserving configuration and output.
+
+For a fully offline deployment, set `/app/setup.toml`:
+
+```toml
+[general]
+no_update = true
+```
+
+This disables startup Git updates and OCR downloads; it cannot install an empty directory. Prepare a valid backend `main.service.py`, Python dependencies, and architecture-matched OCR first. `BAAS_SERVICE_OCR_UPDATE_CHECK=0` only skips the backend OCR update check, not the need for complete offline files.

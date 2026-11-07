@@ -49,7 +49,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
   const childPidFile = join(directory, "child.pid");
   const lateFile = join(directory, "late-child.txt");
   const protocol = fileURLToPath(
-    new URL("../../packages/baas-client/src/pipe.ts", import.meta.url)
+    new URL("../packages/baas-client/src/pipe.ts", import.meta.url)
   );
   await writeFile(modeFile, JSON.stringify(mode));
   await writeFile(

@@ -1,0 +1,23 @@
+.engine {
+  flex: none;
+  max-width: 6.5rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.375rem;
+  padding: 0.25rem;
+  color: var(--color-fd-foreground);
+  background: var(--color-fd-background);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.runHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-block: 1px solid var(--color-fd-border);
+  padding: 0.25rem 0.75rem;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+}

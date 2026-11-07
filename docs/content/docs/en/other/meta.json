@@ -1,0 +1,9 @@
+{
+  "title": "Other",
+  "pages": [
+    "[Release History](/docs/reference/release-history)",
+    "[Troubleshooting](/docs/reference/troubleshooting)",
+    "[Reporting Issues and Uninstalling](/docs/reference/report-uninstall)",
+    "[Installer Configuration setup.toml](/docs/reference/setup-toml)"
+  ]
+}

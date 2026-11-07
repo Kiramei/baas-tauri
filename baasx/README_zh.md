@@ -4,9 +4,47 @@
 
 baasx 是 BAAS 的独立终端工作台，直接管理 Blue Archive Auto Script 的配置档、任务、调度、设备和运行日志。CLI 与 Tauri 桌面端独立运行，共享无界面服务客户端和后端协议。
 
-安装后的命令名为 `baasx`，Bun 包名为 `@baas/baasx`。源码位于 `baasx/`，仓库开发脚本使用 `bun run baasx`、`baasx:build` 等名称；原有 `cli` / `cli:*` 脚本保留为兼容别名。
+安装后的命令名为 `baasx`，npm 包名为 `@kiramei/baasx`。源码位于 `baasx/`，仓库开发脚本使用 `bun run baasx`、`baasx:build` 等名称。
 
-## 开始使用
+## 安装
+
+使用 npm、Bun、pnpm、Yarn 或 cnpm 安装时需要 Node.js 18+。Deno 可直接运行。选择一种已安装的工具：
+
+```sh
+# npm
+npm install -g @kiramei/baasx
+
+# Bun
+bun add -g @kiramei/baasx
+
+# pnpm
+pnpm add -g @kiramei/baasx
+
+# Yarn 1（Classic）
+yarn global add @kiramei/baasx
+
+# cnpm
+cnpm install -g @kiramei/baasx
+
+# Deno
+deno install -g -A npm:@kiramei/baasx
+```
+
+安装完成后运行 `baasx --help` 或 `baasx --demo --lang zh`。请确保所用包管理器的全局可执行文件目录已加入 PATH。pnpm 提示找不到全局目录时可运行 `pnpm setup` 并重新打开终端。Yarn 1 可用 `yarn global bin` 查看目录。Bun 默认使用 `~/.bun/bin`，也可能由配置指定其他目录。
+
+Yarn 2 及更新版本没有 `yarn global`，可临时运行：
+
+```sh
+yarn dlx --package @kiramei/baasx baasx --help
+```
+
+cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂时找不到包，可直接使用上面的 npm 命令。
+
+Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
+
+注册表包包括 Windows x64、Linux x64 和 Apple Silicon Mac 的原生程序及安装组件，无需安装 Rust。
+
+## 从源码开始使用
 
 从源码运行需要 Bun 1.4.4+、Rust 1.95+（含 Cargo）和本机 C/C++ 编译工具链。在仓库根目录执行：
 
@@ -200,7 +238,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
-bun add --global ./baasx/dist/baas-baasx-0.1.0.tgz
+bun add -g ./baasx/dist/baas-baasx-0.1.1.tgz
 baasx --help
 ```
 
@@ -215,16 +253,15 @@ JS 发行包经过压缩，二进制采用 ESM 和浅层 bytecode 缓存以减�
 
 CI 在 Windows、Linux、macOS 上检查并构建，上传的构建产物包含 Bun 包 `.tgz` 与原生发行包 `.tar.gz`，两种归档都带有对应平台的安装组件、中英文 README 和许可文件。下载后解开所需归档，保留目录结构与可执行权限。使用这些包首次安装 BAAS 环境时无需 Rust 编译工具链。
 
-GitHub 发布使用独立的 **Release baasx** 工作流（`.github/workflows/release-baasx.yml`）。标签格式为 `baasx-v<版本>`，必须与 `baasx/package.json` 完全一致，例如 `baasx-v0.1.0`，且标签提交必须属于 `baasx-dev` 分支。带 `-rc.1` 等后缀的版本发布为预发布；手动重跑也必须选已有的 baasx 标签。工作流复用 baasx CI，三平台的源码测试、编译产物测试及归档解包检查全部通过后，发布带版本、系统和架构的原生归档、`-bun.tgz` 包与 `SHA256SUMS`。npm 包只作为 GitHub Release 附件，不上传 npm registry。此标签不会触发客户端的 Release App / Docker 发布，baasx Release 也不会覆盖客户端的 Latest 标记。
 
 ## 开发与验证
 
 ```bash
 bun run baasx:check
 bun run baasx:test
-bunx eslint baasx/src baasx/tests packages/baas-client/src packages/baas-client/tests
+bunx eslint baasx/src baasx/tests baasx/packages/baas-client/src baasx/packages/baas-client/tests
 ```
 
-`workspace-view.tsx` 为终端界面，`terminal.ts` 处理终端与鼠标协议，`field-editor.tsx` 提供类型化编辑器；`configuration.ts` 和 `scheduler.ts` 定义可编辑字段、校验与序列化。`workspace.ts` 为工作台控制器，`index.ts` 提供脚本命令，`actions.ts` 为统一能力边界，`monitor.ts` 负责运行关联与日志跟随。`runtime.ts` 包装本地安装组件，`installation.ts` 保存有界步骤进度与日志，`installation-view.tsx` 展示每步进度与日志尾部。`packages/baas-client` 是共用无界面客户端。
+`workspace-view.tsx` 为终端界面，`terminal.ts` 处理终端与鼠标协议，`field-editor.tsx` 提供类型化编辑器；`configuration.ts` 和 `scheduler.ts` 定义可编辑字段、校验与序列化。`workspace.ts` 为工作台控制器，`index.ts` 提供脚本命令，`actions.ts` 为统一能力边界，`monitor.ts` 负责运行关联与日志跟随。`runtime.ts` 包装本地安装组件，`installation.ts` 保存有界步骤进度与日志，`installation-view.tsx` 展示每步进度与日志尾部。`baasx/packages/baas-client` 是共用无界面客户端。
 
 测试覆盖 socket 分帧、签名加密连接、审批与只读、指令包预检、运行关联、日志恢复、配置白名单与类型、调度冲突、七语言文案、鼠标协议、终端净化、结构化安装进度和 CLI 子进程。模拟验证不等于真机游戏任务验收，需连接设备按实际配置验证。

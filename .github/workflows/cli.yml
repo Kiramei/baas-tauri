@@ -6,7 +6,6 @@ on:
     paths:
       [
         "baasx/**",
-        "packages/baas-client/**",
         "crates/baas-cli-runtime/**",
         "crates/baas-updater/**",
         "crates/baas-term/**",
@@ -28,7 +27,6 @@ on:
     paths:
       [
         "baasx/**",
-        "packages/baas-client/**",
         "crates/baas-cli-runtime/**",
         "crates/baas-updater/**",
         "crates/baas-term/**",
@@ -106,7 +104,7 @@ jobs:
       - run: cargo test --locked -p baas-cli-runtime
       - run: bun run baasx:check
       - run: bun run baasx:test
-      - run: bunx eslint baasx/src baasx/tests baasx/scripts packages/baas-client/src packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
       - name: Build the JS bundle, native helper and trimmed executable
         run: bun run baasx:binary
       - run: bun baasx/bin/baasx.mjs --demo --json status

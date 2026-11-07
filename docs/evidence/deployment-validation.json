@@ -1,33 +1,37 @@
 {
-  "checkedAt": "2026-10-28T06:42:11.590Z",
-  "platform": "win32",
+  "checkedAt": "2026-11-07T13:00:28.972Z",
+  "platform": "darwin",
   "basePath": "",
   "strictStaticHost": true,
   "nextVersion": "16.2.9",
   "testedSources": {
     "docs/next.config.mjs": "e79c8cb5e6c4031d84baebca75fa0f30b8e93f5eb9cebf95f14d5bf4b62da51d",
     "docs/app/layout.tsx": "fefd0048b1c85f0fa63082422352bcd38cf4f3cb3fcc53bb951a529ed7056314",
-    "docs/app/docs/[lang]/layout.tsx": "31f1b8f615678943a5ea3c83e3ac9fdf53dd58321375aa573bdde4dfff58d9e4",
-    "docs/app/global.css": "8454a651017fc68e48c01cf6b6a9c4712e9dec77fd2c19d5441e8567aa62fba2",
-    "docs/lib/remark-doc-links.mjs": "a6cd6384cbdc827010a2ad7bfd1790e9c5ef236995974ff83aa6a7d3c445cf1f",
+    "docs/app/LocalizedDocument.tsx": "38a884b32ba5b9d3f559fd46a81cfeb312cd02eea4bdd3019c0b9681325c2b75",
+    "docs/app/docs/[lang]/layout.tsx": "126dc171c60e06a18042136e909a0bdb745aa2963c1788a67851a536f9331ea2",
+    "docs/app/global.css": "71b3eae41e838097e91487ce7db01657ca1e4cfa3d9c5f1c8c6c255818ad833f",
+    "docs/lib/remark-doc-links.mjs": "c5fe1c58ad85243c363c21e7ba9fbec349b8dc17caefda356079f57a1edd6f05",
     "docs/lib/search-index.ts": "146ae5135997381b45607eceb357c4e2b40f2fba56bc9bee525661b126b18b96",
     "docs/lib/search-encoding.ts": "dce34ddb9c9c01a484f0923446b4f496a7ef02eebf94539b3f59191d044e6ef2",
     "docs/lib/search-contract.ts": "6da306eeaa22c328fa9b18194898c45c05b9be90da095f343bcce7058d76620d",
     "docs/lib/search-artifact.server.ts": "180220ceee215ece19d35da03d3e955e70db92d0303e530959a71b34065f8d0d",
-    "docs/lib/build-search-index.ts": "c5963e4c1d56349f846ff89dd19d51bc0b5f236462a9f2aa5c889d8edadb5be7",
+    "docs/lib/build-search-index.ts": "939ab08c9486a19e05af95798cc53c0c6475338257647886ec5dfc3f4d53a477",
     "docs/app/search-index/[file]/route.ts": "6e6975692fbcf20bb93548c61dc49dad042f2727f7bd04f0b06f0456dd044f4c",
-    "docs/components/DocsProvider.tsx": "e83362796bfbf5224324ad5e1b89cdb60ff7d53a45cd273102454428b776d3fa",
-    "docs/components/FlexSearchDialog.tsx": "a8266601b337ca6906d1ff57ce922a29bc78759def28cdcf1703b21ec1e970df",
+    "docs/components/DocsProvider.tsx": "17220f92b5b57833847e79ced1d3c445ca7333ca0492b62468b7efe80c665e39",
+    "docs/components/SidebarFolder.tsx": "afc667c5bc4c10ab87766dd1f8db9e81cbcc1ef2c28cef356d3f678ef0dd238d",
+    "docs/components/LocalizedDocs.tsx": "0b174814aa112cf8f49af94283a9d4e90322ddf4fa2397d76770f2602557952d",
+    "docs/components/FlexSearchDialog.tsx": "9b35ddda005f42b89a7e0263ef39b259731c5bdde5114b4f278a4ddc9173dedb",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",
-    "docs/components/LocaleEntry.tsx": "2538dc170d2e50926d6ce65db9901f9d31c63ef2c4f43be9f831eed0dd0ca39c",
-    "docs/components/LanguageMenu.tsx": "318faf7bda217bacd7d734bc83bd2580940e3ed3aa2462efe8a3a4edc7920a07",
+    "docs/components/LocaleEntry.tsx": "420225daad31ec0cde94c73f44eaf3600354442ef582e43370adf6260e903ffc",
+    "docs/components/LanguageMenu.tsx": "a7ede9b8906008b3936fb507f9ffdb13dc6426b68ca3bd314af4e97166e36915",
+    "docs/lib/locale.ts": "793a12cf1116e88a11c0d6a0b74320226bff7e6d4dada0151ba8845ee201b8a2",
     "docs/components/DocumentationLink.tsx": "89d6ba6ae41348653fbbe184908a35deb1b026079748548db8545e1723a9eb40",
-    "docs/mdx-components.tsx": "bd27de07bae249aaae9c24032f5b84e0cde14ca836da557f4cf237a0c455de67",
+    "docs/mdx-components.tsx": "4b02d7dc5151174f782fdd4ebb659464c95b531490fd1b0edab0368e9e2a9957",
     "docs/scripts/static-export-server.mjs": "f5a38b114121acd15f22d7d62eb197897237144e09b56f02940a4b1716305f2f",
     "docs/scripts/normalize-static-export.mjs": "f1dcc41609adb5deb6d096ded587e0cc53eff2dc32b599c61b2ee65b56634dd7",
-    "docs/package.json": "ebaff6f50c26328511471ad3d90d27804a197653e0153af5683d5d0f3d9c0361",
-    "docs/scripts/check-deployment.mjs": "8254dabf1c1c0cd8f84647014543697e25a0eaf5457b41c0909465d41e55978f",
-    ".github/workflows/docs-validation.yml": "748d9b135f4c34107728c4ed57cbd4194ea8cf2ff8554078069f815205463428"
+    "docs/package.json": "eb92a86ad54f6d6158997512d5e271acc335b91e3202afe9a16c6e754efdaeb3",
+    "docs/scripts/check-deployment.mjs": "b6a6834bef15a785bac35dea678b5d642b1fc0d2cf1835740def2fba8b8410c0",
+    ".github/workflows/docs-validation.yml": "a563448879f20ccb25e7aa2b47a1c59936d26e55c4f84af765fc5e18599e9e3a"
   },
   "cases": [
     {
@@ -42,6 +46,174 @@
       "locale": "en",
       "theme": "light",
       "mobile": false,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": false,
       "route": "features/cafe"
     },
     {
@@ -352,6 +524,174 @@
       "locale": "en",
       "theme": "light",
       "mobile": true,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "light",
+      "mobile": true,
       "route": "features/cafe"
     },
     {
@@ -662,6 +1002,174 @@
       "locale": "en",
       "theme": "dark",
       "mobile": false,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": false,
       "route": "features/cafe"
     },
     {
@@ -972,6 +1480,174 @@
       "locale": "en",
       "theme": "dark",
       "mobile": true,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "en",
+      "theme": "dark",
+      "mobile": true,
       "route": "features/cafe"
     },
     {
@@ -1282,6 +1958,174 @@
       "locale": "zh",
       "theme": "light",
       "mobile": false,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": false,
       "route": "features/cafe"
     },
     {
@@ -1592,6 +2436,174 @@
       "locale": "zh",
       "theme": "light",
       "mobile": true,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "light",
+      "mobile": true,
       "route": "features/cafe"
     },
     {
@@ -1902,6 +2914,174 @@
       "locale": "zh",
       "theme": "dark",
       "mobile": false,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
+      "route": "docker/network"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": false,
       "route": "features/cafe"
     },
     {
@@ -2206,6 +3386,174 @@
       "theme": "dark",
       "mobile": true,
       "route": ""
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/background-game"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/compatibility"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/install"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/lifecycle"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/profiles"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/shizuku"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "android/updates"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/cli"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/command-packs"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/configuration"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/scheduler"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/troubleshooting"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "baasx/workbench"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/authentication"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/backend"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/development"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/device"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/installation"
+    },
+    {
+      "kind": "render",
+      "locale": "zh",
+      "theme": "dark",
+      "mobile": true,
+      "route": "docker/network"
     },
     {
       "kind": "render",
@@ -2515,51 +3863,154 @@
       "entry": "/",
       "language": "zh-CN",
       "saved": null,
-      "expected": "zh"
+      "expected": "zh",
+      "denied": false
     },
     {
       "kind": "entry",
       "entry": "/",
       "language": "ja-JP",
       "saved": null,
-      "expected": "en"
+      "expected": "en",
+      "denied": false
     },
     {
       "kind": "entry",
       "entry": "/",
       "language": "en-US",
       "saved": "zh",
-      "expected": "zh"
+      "expected": "zh",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/",
+      "language": "zh-CN",
+      "saved": "en",
+      "expected": "en",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh",
+      "denied": true
     },
     {
       "kind": "entry",
       "entry": "/docs/",
       "language": "zh-CN",
       "saved": null,
-      "expected": "zh"
+      "expected": "zh",
+      "denied": false
     },
     {
       "kind": "entry",
       "entry": "/docs/",
       "language": "ja-JP",
       "saved": null,
-      "expected": "en"
+      "expected": "en",
+      "denied": false
     },
     {
       "kind": "entry",
       "entry": "/docs/",
       "language": "en-US",
       "saved": "zh",
-      "expected": "zh"
+      "expected": "zh",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/",
+      "language": "zh-CN",
+      "saved": "en",
+      "expected": "en",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh",
+      "denied": true
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/guide/configuration/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/guide/configuration/",
+      "language": "ja-JP",
+      "saved": null,
+      "expected": "en",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/guide/configuration/",
+      "language": "en-US",
+      "saved": "zh",
+      "expected": "zh",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/guide/configuration/",
+      "language": "zh-CN",
+      "saved": "en",
+      "expected": "en",
+      "denied": false
+    },
+    {
+      "kind": "entry",
+      "entry": "/docs/guide/configuration/",
+      "language": "zh-CN",
+      "saved": null,
+      "expected": "zh",
+      "denied": true
+    },
+    {
+      "kind": "legacy-entry",
+      "locale": "zh"
+    },
+    {
+      "kind": "legacy-entry",
+      "locale": "en"
+    },
+    {
+      "kind": "language-switch-without-storage"
+    },
+    {
+      "kind": "static-document-without-javascript"
+    },
+    {
+      "kind": "sidebar-active-folder",
+      "locale": "zh-CN"
+    },
+    {
+      "kind": "sidebar-active-folder",
+      "locale": "en-US"
+    },
+    {
+      "kind": "mobile-sidebar-active-folder"
     },
     {
       "kind": "search-artifact",
-      "revision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b"
+      "revision": "2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a"
     }
   ],
-  "caseCount": 367,
+  "caseCount": 575,
   "failures": [],
-  "searchIndexPath": "search-index/77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b.json",
-  "searchIndexRevision": "77d97b1b2c905f953eb8817880a989cded68834c692821f8a1655839c10a801b",
-  "searchIndexSha256": "3ec11e7dbfdb66d4096ab38f19eedae722f36ac2096e67b6fa5c1d6be21cad14"
+  "searchIndexPath": "search-index/2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a.json",
+  "searchIndexRevision": "2f1811f94e20c3d3139de3a3f372843a0bb159f42f03d7ae5f397fc567bc291a",
+  "searchIndexSha256": "94668fb6f0e98668df0b4fef2c501c8df1e714da0f361257c78c263575902d79"
 }

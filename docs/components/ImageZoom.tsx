@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { localeFromPathname } from "@/lib/locale";
+import { useDocsLocale } from "@/components/DocsProvider";
 
 type ZoomImage = {
   alt: string;
@@ -19,7 +18,7 @@ const zoomableSelector = [
 /** Renders the image zoom component. */
 export function ImageZoom() {
   const [image, setImage] = useState<ZoomImage | null>(null);
-  const zh = localeFromPathname(usePathname()) === "zh";
+  const zh = useDocsLocale().locale === "zh";
 
   useEffect(() => {
     /** Handles the on click interaction. */

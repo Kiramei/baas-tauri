@@ -12,5 +12,5 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "tests", "../packages/baas-client/src"]
+  "include": ["src", "tests", "packages/baas-client/src"]
 }

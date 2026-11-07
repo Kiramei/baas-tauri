@@ -22,8 +22,8 @@ test.each([
   ["/docs/en/reference/updater-internals/", "en"],
   ["/baas/docs/zh/", "zh"],
   ["/docs/ja/", "en"],
-  ["/docs/", "en"],
-  ["/", "en"],
+  ["/docs/", "zh"],
+  ["/", "zh"],
   [null, "en"],
 ])("framework and search language for %p -> %s", (pathname, expected) => {
   expect(localeFromPathname(pathname)).toBe(expected);

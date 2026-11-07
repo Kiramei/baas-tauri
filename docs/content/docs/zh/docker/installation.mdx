@@ -1,0 +1,37 @@
+---
+title: 启动 Docker
+---
+
+import { WebuiImageCommands } from "@/components/WebuiImageCommands";
+
+镜像可从 [GitHub Container Registry](https://github.com/users/Kiramei/packages/container/package/baas-webui) 或 [Docker Hub](https://hub.docker.com/r/kiramei/baas-webui/tags) 拉取。稳定版本发布或在 `main` 分支手动运行发布工作流时会更新 `latest`；RC 版本只发布对应的版本标签。也可以选择具体版本，例如 `0.0.9.post1`。
+
+无需克隆仓库即可拉取并启动，选择镜像来源和容器工具后依次执行：
+
+<WebuiImageCommands locale="zh" />
+
+命名卷 `baas-webui-data` 保存容器的 `/app` 数据，更新容器前应保留和备份该卷。
+
+当前 `latest` 镜像面向 `linux/amd64`；ARM 设备需要可运行该架构的模拟环境。首次启动会准备后端和 OCR，使用所选工具的 `docker logs --tail=100 baas-webui` 或 `podman logs --tail=100 baas-webui` 查看日志。更新时拉取新镜像，再使用相同参数重建容器。
+
+Podman 如需在系统重启后恢复容器，可启用 `podman-restart.service` 或使用 systemd 管理容器。
+
+使用仓库提供的 Compose 文件时，在仓库根目录运行：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+Compose 默认使用 GitHub 镜像。要使用 Docker Hub，可在运行命令前设置 `BAAS_WEBUI_IMAGE=docker.io/kiramei/baas-webui:latest`。
+
+打开 `http://127.0.0.1:8191`。默认只绑定本机，后端 `127.0.0.1:8190` 位于容器内部，不对外暴露。
+
+`scripts/docker/app/` 挂载到容器的 `/app`，保留配置档、登录数据、后端代码和日志。升级镜像前备份此目录；不要用删除卷的方式处理一般更新错误。首次启动会准备后端和 OCR，网络失败时查看容器日志：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml logs --tail=100
+docker compose -f scripts/docker/docker-compose.yml pull
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+镜像包含 WebUI 和 Python 依赖。应用内后端 Git 更新不会更新浏览器界面或镜像依赖；这些内容需要拉取新镜像并重建容器。

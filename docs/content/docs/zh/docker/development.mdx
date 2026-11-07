@@ -1,0 +1,10 @@
+---
+title: 本地开发
+---
+
+```sh
+bun install --frozen-lockfile
+bun run dev:webui
+```
+
+开发代理默认连接 `127.0.0.1:8190`；隔离测试后端时设置 `VITE_BAAS_PROXY_TARGET`。`bun run build:webui` 构建浏览器资源。WebUI 不提供桌面托盘、原生全局快捷键或 Android 本机设备桥接；系统日志页显示浏览器端日志，不会通过 `/system/` 或 `/android/` 公开宿主接口。

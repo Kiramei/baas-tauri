@@ -1,0 +1,7 @@
+---
+title: LAN Access and HTTPS
+---
+
+In bridge mode, `BAAS_WEBUI_PORT` changes the published port. Set `BAAS_WEBUI_BIND=0.0.0.0` for LAN access and configure a firewall and HTTPS reverse proxy. Do not expose an unprotected service directly to the Internet.
+
+Forward WebSocket `Upgrade`, `Connection`, and the correct Host. Overwrite untrusted `X-Forwarded-Proto` with the actual `http` or `https` scheme. Clipboard features also depend on browser permissions and secure contexts. WebUI uses same-origin connections; do not point the page at the container's internal `127.0.0.1:8190`.

@@ -1,0 +1,12 @@
+{
+  "title": "Docker",
+  "pages": [
+    "index",
+    "installation",
+    "authentication",
+    "device",
+    "network",
+    "backend",
+    "development"
+  ]
+}

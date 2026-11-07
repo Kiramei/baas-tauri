@@ -1,0 +1,9 @@
+---
+title: Emulator ABI Compatibility
+---
+
+Some x86_64 emulators can install ARM64 apps while Shizuku's user service still runs in an x86_64 process. Loading an ARM64 capture library then fails with an `EM_AARCH64` / `EM_X86_64` mismatch. Use a build matching that process architecture. For a game stuck on its splash screen, also inspect the game Activity's display ownership and native capture logs.
+
+An emulator's `uname -m` can also report ARM while the APK's Python loads x86_64 libraries. Selecting ARM64 OCR libraries then fails at `dlopen`. The repair build selects OCR from the embedded interpreter library's ELF architecture. Preserve the target-library and expected-architecture details in the error; the kernel's reported architecture alone is insufficient to choose an OCR package. Task startup still checks that OCR initialization completed.
+
+See [Troubleshooting](../reference/troubleshooting#android-client-problems) for broader diagnostics.

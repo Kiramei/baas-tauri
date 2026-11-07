@@ -1,0 +1,15 @@
+{
+  "title": "开发者",
+  "pages": [
+    "[CLI 与 Service 模式](/docs/reference/cli-service)",
+    "[后端服务接口](/docs/reference/backend-service)",
+    "[客户端原生 API](/docs/reference/client-api)",
+    "[插件接口](/docs/reference/plugin-api)",
+    "[后端开发规范](/docs/reference/backend-development)",
+    "[自动战斗与识别开发](/docs/reference/auto-fight-dev)",
+    "[性能与基准测试](/docs/reference/performance)",
+    "[客户端架构与状态](/docs/reference/client-architecture)",
+    "[更新器内部机制](/docs/reference/updater-internals)",
+    "[开发与文档维护](/docs/reference/development)"
+  ]
+}

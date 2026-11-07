@@ -1,4 +1,4 @@
 {
-  "title": "BAASX Terminal",
+  "title": "BAASX",
   "pages": ["index", "installation", "workbench", "configuration", "scheduler", "command-packs", "cli", "troubleshooting"]
 }

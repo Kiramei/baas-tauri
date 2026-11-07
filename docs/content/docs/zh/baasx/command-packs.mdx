@@ -3,7 +3,7 @@ title: 指令包与自定义命令
 description: 安装 JSON 指令包，组合白名单动作，验证执行计划并管理重载与卸载。
 ---
 
-BAASX 指令包把一组 BAAS 操作保存为可重复执行的命令。它是声明式 JSON，不是桌面 JavaScript 插件，也不是后端 Python 插件：不能导入模块、执行 Shell、添加任意网络请求或定义新的界面组件。桌面插件 ZIP 不能放进 BAASX 指令包目录使用。
+BAASX 指令包使用 JSON 将一组支持的操作保存为可重复执行的命令。指令包不能执行代码、Shell 命令或任意网络请求，也不能添加界面组件。桌面插件 ZIP 不能作为 BAASX 指令包使用。
 
 <BaasxTerminalDemo locale="zh" scenario="packs" />
 
