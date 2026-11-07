@@ -60,14 +60,13 @@ pub const UV_SRC_HEAD: Source = Source {
 };
 
 pub const CPYTHON_HEAD: Source = Source {
-    main: "https://github.com/Kiramei/baas-tauri/releases/download/",
+    main: "https://github.com/astral-sh/python-build-standalone/releases/download",
     proxy: &[
-        "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download",
-        "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://v6.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://gh.sevencdn.com/https://github.com/Kiramei/baas-tauri/releases/download",
+        "https://v4.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://v6.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://cdn.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://gh.sevencdn.com/https://github.com/astral-sh/python-build-standalone/releases/download",
     ],
 };
 

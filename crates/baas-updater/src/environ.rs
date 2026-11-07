@@ -1604,18 +1604,66 @@ mod tests {
         assert_eq!(pypi_urls, ["https://fast.example/simple"]);
     }
 
-    /// Handles the cpython probe url uses releases page but keeps source url workflow.
+    /// The mirror URL must be the upstream used by uv's standalone Python catalog.
     #[test]
-    fn cpython_probe_url_uses_releases_page_but_keeps_source_url() {
-        let source = "https://github.com/Kiramei/baas-tauri/releases/download/";
-        let mapped =
-            environment_source_probe_urls(EnvironmentSourceKind::Cpython, &[source.to_string()]);
-
-        assert_eq!(mapped[0].0, source);
+    fn cpython_sources_and_probes_target_the_uv_upstream() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let sources = environment_source_urls(EnvironmentSourceKind::Cpython, &config).unwrap();
+        let upstream = "https://github.com/astral-sh/python-build-standalone/releases/download";
+        assert_eq!(sources.first().map(String::as_str), Some(upstream));
+        assert!(sources.iter().all(|source| source.ends_with(upstream)));
+        let probes = environment_source_probe_urls(EnvironmentSourceKind::Cpython, &sources);
+        assert!(probes.iter().all(|(source, probe)| {
+            source.ends_with("/releases/download")
+                && probe.ends_with("/astral-sh/python-build-standalone/releases")
+        }));
+        let command = uv_python_install_command(&config);
         assert_eq!(
-            mapped[0].1,
-            "https://github.com/Kiramei/baas-tauri/releases"
+            command
+                .env
+                .iter()
+                .find(|(key, _)| key == "UV_PYTHON_INSTALL_MIRROR")
+                .map(|(_, value)| value.as_str()),
+            Some(upstream)
         );
+    }
+
+    #[test]
+    fn stale_cpython_mirror_cache_is_replaced_after_successful_install() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let ranking_dir = root.path().join("ranking");
+        let ranking_path = ranking_dir.join("cpython.json");
+        let old_url = "https://github.com/Kiramei/baas-tauri/releases/download/".to_string();
+        let mut stale = SourceRanking::from_urls(std::slice::from_ref(&old_url));
+        stale.promote_success(&old_url);
+        save_ranking(&ranking_path, &stale).unwrap();
+
+        let sources = environment_source_urls(EnvironmentSourceKind::Cpython, &config).unwrap();
+        let official = sources[0].clone();
+        let probe_url = cpython_probe_url(&official);
+        let (selected, ()) = with_environment_source_failover(
+            EnvironmentSourceKind::Cpython,
+            &config,
+            Some(&ranking_dir),
+            &Probe {
+                ok: vec![probe_url],
+            },
+            &crate::NoopOutput,
+            |url| {
+                assert_eq!(url, official);
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(selected, sources[0]);
+        let stored = load_environment_ranking(Some(&ranking_path), &sources)
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.preferred_url.as_deref(), Some(selected.as_str()));
+        assert!(!stored.sources.iter().any(|source| source.url == old_url));
     }
 
     /// Handles the ranked environment source persists and reuses fast source workflow.
