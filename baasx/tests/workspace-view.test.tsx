@@ -162,6 +162,15 @@ async function mounted(
     get rawFrame() {
       return rawFrames.at(-1) || "";
     },
+    async waitForFrame(text: string) {
+      const deadline = Date.now() + 2_000;
+      while (!(frames.at(-1) || "").includes(text)) {
+        if (Date.now() >= deadline) {
+          throw new Error(`Terminal did not render ${JSON.stringify(text)}:\n${frames.at(-1) || ""}`);
+        }
+        await Bun.sleep(10);
+      }
+    },
     async send(input: string) {
       stdin.write(input);
       await settle();
@@ -219,6 +228,7 @@ describe("startup navigation", () => {
           installation: retain ? ready(progress) : undefined,
           activity: [{ id: "connected", title: "连接已建立", tone: "success" }],
         });
+        await ui.waitForFrame("项任务 ·");
         expect(ui.frame).toContain("项任务 ·");
         expect(ui.frame).not.toContain("[1/1]");
 
@@ -254,6 +264,7 @@ describe("startup navigation", () => {
         }),
         activity: [{ id: "failed", title: "启动本地后端失败", tone: "error" }],
       });
+      await ui.waitForFrame("Backend handshake failed");
       expect(ui.frame).toContain("Backend handshake failed");
       expect(ui.frame).not.toContain("项任务 ·");
       const retry = running();
@@ -264,6 +275,7 @@ describe("startup navigation", () => {
         installation: ready(retry),
         activity: [{ id: "connected", title: "连接已建立", tone: "success" }],
       });
+      await ui.waitForFrame("项任务 ·");
       expect(ui.frame).toContain("项任务 ·");
       expect(ui.frame).not.toContain("[1/1]");
     } finally {
@@ -599,17 +611,25 @@ describe("workspace input", () => {
       await ui.send("/config");
       await ui.send("\r");
       await ui.click("商店购买");
+      await ui.waitForFrame("选择商店");
       await ui.click("普通商店");
+      await ui.waitForFrame("商店购买 · 普通商店");
       await ui.update({ profile: "sensei-jp", profiles: { "sensei-jp": "日服配置" } });
+      await ui.waitForFrame("日服配置");
       await ui.send("/config");
       await ui.send("\r");
+      await ui.waitForFrame("配置分类");
       await ui.click("商店购买");
+      await ui.waitForFrame("选择商店");
       expect(ui.frame).toContain("选择商店");
       await ui.click("战术对抗赛商店");
       await ui.send("\x12");
+      await ui.waitForFrame("项任务 ·");
       await ui.send("/config");
       await ui.send("\r");
+      await ui.waitForFrame("配置分类");
       await ui.click("商店购买");
+      await ui.waitForFrame("选择商店");
       expect(ui.frame).toContain("选择商店");
       expect(target.reloads).toBe(1);
     } finally {
