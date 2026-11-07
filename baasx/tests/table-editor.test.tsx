@@ -1,4 +1,4 @@
-import React from "react";
+import React, { act } from "react";
 import { expect, test } from "bun:test";
 import { PassThrough, Writable } from "node:stream";
 import { render } from "ink";
@@ -7,6 +7,24 @@ import type { EditableField } from "../src/field-editor";
 import { MouseContext } from "../src/terminal-components";
 import { MouseBus } from "../src/terminal";
 import { displayWidth, terminalText } from "../src/ui";
+
+async function update<T>(action: () => T): Promise<T> {
+  const environment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previous = environment.IS_REACT_ACT_ENVIRONMENT;
+  environment.IS_REACT_ACT_ENVIRONMENT = true;
+  let result!: T;
+  try {
+    await act(async () => {
+      result = action();
+      // Let the stream's readable event run, then flush React's commit/effects.
+      await Bun.sleep(0);
+    });
+    return result;
+  } finally {
+    if (previous === undefined) delete environment.IS_REACT_ACT_ENVIRONMENT;
+    else environment.IS_REACT_ACT_ENVIRONMENT = previous;
+  }
+}
 
 async function mount(
   field: EditableField,
@@ -40,31 +58,32 @@ async function mount(
     ref() {},
     unref() {},
   });
-  const app = render(
-    <MouseContext.Provider value={mouse}>
-      <FieldEditor
-        field={field}
-        language="zh"
-        width={width}
-        height={height}
-        active={options.active}
-        onSave={async (value) => {
-          writes.push(value);
-          await options.onSave?.(value);
-        }}
-        onCancel={() => cancelled++}
-      />
-    </MouseContext.Provider>,
-    {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      debug: true,
-      patchConsole: false,
-      maxFps: 1000,
-    }
+  const app = await update(() =>
+    render(
+      <MouseContext.Provider value={mouse}>
+        <FieldEditor
+          field={field}
+          language="zh"
+          width={width}
+          height={height}
+          active={options.active}
+          onSave={async (value) => {
+            writes.push(value);
+            await options.onSave?.(value);
+          }}
+          onCancel={() => cancelled++}
+        />
+      </MouseContext.Provider>,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+        maxFps: 1000,
+      }
+    )
   );
-  const settle = () => Bun.sleep(40);
-  await settle();
+  const settle = () => update(() => {});
   return {
     writes,
     settle,
@@ -75,8 +94,7 @@ async function mount(
       return cancelled;
     },
     async key(text: string) {
-      stdin.write(text);
-      await settle();
+      await update(() => stdin.write(text));
     },
     async click(text: string, rowContains?: string) {
       const lines = frame.split("\n");
@@ -85,8 +103,7 @@ async function mount(
       );
       expect(y).toBeGreaterThanOrEqual(0);
       const x = displayWidth(lines[y].slice(0, lines[y].indexOf(text)));
-      mouse.dispatch({ kind: "press", button: 0, x, y, delta: 0 });
-      await settle();
+      await update(() => mouse.dispatch({ kind: "press", button: 0, x, y, delta: 0 }));
     },
     close() {
       app.unmount();

@@ -28,6 +28,24 @@ import { TerminalUI, terminalText } from "./ui";
 import manifest from "../package.json";
 import { help } from "./help";
 
+async function loadWorkspace() {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return import("./workspace-view");
+  // Ink 6 caches CI detection when imported and otherwise withholds every frame
+  // until exit. A real terminal needs live input and resize, even inside CI.
+  // Restore the environment before workspace initialization or child processes.
+  const keys = ["CI", "CONTINUOUS_INTEGRATION"] as const;
+  const previous = keys.map((key) => process.env[key]);
+  try {
+    for (const key of keys) process.env[key] = "false";
+    return await import("./workspace-view");
+  } finally {
+    keys.forEach((key, index) => {
+      if (previous[index] === undefined) delete process.env[key];
+      else process.env[key] = previous[index];
+    });
+  }
+}
+
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   const { values } = options;
@@ -54,7 +72,7 @@ async function main() {
   }
   const directory = values["config-home"] || settingsDirectory();
   if (process.stdin.isTTY && options.positionals.length === 0 && !values.json) {
-    const { launchWorkspace } = await import("./workspace-view");
+    const { launchWorkspace } = await loadWorkspace();
     await launchWorkspace({
       demo: values.demo,
       readOnly: values["read-only"],

@@ -73,7 +73,14 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
     });
     const child = Bun.spawn([executable!, "--demo", "--lang", "zh", "--config-home", directory], {
       terminal,
-      env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "1", BAAS_PROFILE: undefined },
+      env: {
+        ...process.env,
+        CI: "true",
+        CONTINUOUS_INTEGRATION: "true",
+        TERM: "xterm-256color",
+        NO_COLOR: "1",
+        BAAS_PROFILE: undefined,
+      },
     });
     let cursor = 0;
     const until = async (value: string) => {

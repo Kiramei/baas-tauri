@@ -1,10 +1,16 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { RuntimeManager, type RuntimeEvent } from "../src/runtime";
+import { prepareExecutableFixtures, writeExecutableFixture } from "./executable-fixture";
+
+beforeAll(async () => {
+  await prepareExecutableFixtures();
+}, 30_000);
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -37,13 +43,14 @@ function alive(pid: number) {
 async function fixture(mode: Record<string, unknown> = {}) {
   const directory = await mkdtemp(join(tmpdir(), "baas-runtime-test-"));
   const modeFile = join(directory, "mode.json");
-  const helper = join(directory, "helper");
   const backend = join(directory, "backend.ts");
   const opens = join(directory, "opens.jsonl");
   const pidFile = join(directory, "backend.pid");
   const childPidFile = join(directory, "child.pid");
   const lateFile = join(directory, "late-child.txt");
-  const protocol = new URL("../../packages/baas-client/src/pipe.ts", import.meta.url).pathname;
+  const protocol = fileURLToPath(
+    new URL("../../packages/baas-client/src/pipe.ts", import.meta.url)
+  );
   await writeFile(modeFile, JSON.stringify(mode));
   await writeFile(
     backend,
@@ -80,9 +87,10 @@ async function fixture(mode: Record<string, unknown> = {}) {
     server.listen(pipe);
   `
   );
-  await writeFile(
-    helper,
-    `#!${process.execPath}
+  const helper = await writeExecutableFixture(
+    directory,
+    "helper",
+    `
     import { spawn } from 'node:child_process';
     import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
     import { join } from 'node:path';
@@ -145,8 +153,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
     output({type:'result',data});
     if (mode.duplicate) output({type:'result',data});
     process.exit(mode.exitCode || 0);
-  `,
-    { mode: 0o700 }
+  `
   );
   const manager = new RuntimeManager({ directory, helperPath: helper });
   cleanups.push(async () => {

@@ -1,9 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { saveSettings } from "../src/settings";
+import { prepareExecutableFixtures, writeExecutableFixture } from "./executable-fixture";
+
+beforeAll(async () => {
+  await prepareExecutableFixtures();
+}, 30_000);
 
 const temporary: string[] = [];
 async function directory() {
@@ -90,12 +96,13 @@ async function localFixture(
   const root = await directory(),
     managed = join(root, "managed");
   await mkdir(managed);
-  const helper = join(root, "runtime-helper"),
-    backend = join(root, "backend.ts");
+  const backend = join(root, "backend.ts");
   const calls = join(root, "helper-calls.jsonl"),
     commands = join(root, "commands.jsonl"),
     pidFile = join(root, "backend.pid");
-  const protocol = new URL("../../packages/baas-client/src/pipe.ts", import.meta.url).pathname;
+  const protocol = fileURLToPath(
+    new URL("../../packages/baas-client/src/pipe.ts", import.meta.url)
+  );
   await writeFile(
     backend,
     `
@@ -142,9 +149,10 @@ async function localFixture(
     server.listen(process.argv[process.argv.indexOf("--pipe-name")+1]);
   `
   );
-  await writeFile(
-    helper,
-    `#!${process.execPath}
+  const helper = await writeExecutableFixture(
+    root,
+    "runtime-helper",
+    `
     import { appendFile } from "node:fs/promises";
     const [command,...args]=process.argv.slice(2);
     await appendFile(${JSON.stringify(calls)},JSON.stringify({command,args})+"\\n");
@@ -153,8 +161,7 @@ async function localFixture(
     if(command==="check-update"){console.log(JSON.stringify({type:"progress",stage:"check-backend",message:"Checking fixture backend",status:"complete"}));console.log(JSON.stringify({type:"result",data:{root:value("--root"),channel:"dev",available:${options.updatesAvailable ?? true},repositories:[{name:"backend",localVersion:"${"a".repeat(40)}",remoteVersion:"${(options.updatesAvailable ?? true) ? "b".repeat(40) : "a".repeat(40)}",available:${options.updatesAvailable ?? true}},{name:"ocr",localVersion:"${"c".repeat(40)}",remoteVersion:"${"c".repeat(40)}",available:false}]}}));process.exit(0);}
     const data=command==="launch-spec"?{program:${JSON.stringify(process.execPath)},args:[${JSON.stringify(backend)},"--pipe-name",value("--pipe")],cwd:value("--root"),env:{}}:{installed:${options.installed ?? true},managed:true,root:value("--root"),backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:${JSON.stringify(join(managed, "ocr"))},channel:"dev",missing:[]};
     console.log(JSON.stringify({type:"result",data}));
-  `,
-    { mode: 0o700 }
+  `
   );
   if (options.metadata)
     await writeFile(

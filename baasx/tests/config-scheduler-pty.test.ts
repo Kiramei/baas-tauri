@@ -29,7 +29,15 @@ test.skipIf(process.platform === "win32" || typeof Bun.Terminal !== "function")(
       ],
       {
         terminal,
-        env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "1", BAAS_PROFILE: undefined },
+        env: {
+          ...process.env,
+          // A real terminal stays interactive even when its parent is a CI job.
+          CI: "true",
+          CONTINUOUS_INTEGRATION: "true",
+          TERM: "xterm-256color",
+          NO_COLOR: "1",
+          BAAS_PROFILE: undefined,
+        },
       }
     );
     let cursor = 0;
