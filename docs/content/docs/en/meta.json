@@ -1,4 +1,13 @@
 {
   "title": "English",
-  "pages": ["index", "guide", "baasx", "features", "reference"]
+  "pages": [
+    "index",
+    "guide",
+    "features",
+    "android",
+    "docker",
+    "baasx",
+    "developer",
+    "other"
+  ]
 }

@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
+import { LocalizedDocument } from "@/app/LocalizedDocument";
+import { isLocale } from "@/lib/locale";
 import { source } from "@/lib/source";
-import { normalizeLocale } from "@/lib/i18n";
-import { mdxComponents } from "@/mdx-components";
 
 type PageProps = {
   params: Promise<{
@@ -12,42 +10,28 @@ type PageProps = {
   }>;
 };
 
-/** Handles the generate static params workflow. */
+function resolveRoute({ lang, slug = [] }: { lang: string; slug?: string[] }) {
+  return isLocale(lang) ? { locale: lang, slug } : { locale: undefined, slug: [lang, ...slug] };
+}
+
 export async function generateStaticParams() {
-  return source.generateParams("slug", "lang");
+  const localized = source.generateParams("slug", "lang");
+  const paths = new Map<string, { lang: string; slug: string[] }>();
+  for (const page of localized) {
+    paths.set(`${page.lang}/${page.slug.join("/")}`, page);
+    const [first, ...rest] = page.slug;
+    if (first) paths.set(`/${page.slug.join("/")}`, { lang: first, slug: rest });
+  }
+  return [...paths.values()];
 }
 
-/** Handles the generate metadata workflow. */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { lang, slug } = await params;
-  const locale = normalizeLocale(lang);
-  const page = source.getPage(slug, locale);
-
-  if (!page) return {};
-
-  return {
-    title: page.data.title,
-    description: page.data.description,
-  };
+  const { locale, slug } = resolveRoute(await params);
+  const page = source.getPage(slug, locale ?? "zh");
+  return page ? { title: page.data.title, description: page.data.description } : {};
 }
 
-/** Renders the page component. */
 export default async function Page({ params }: PageProps) {
-  const { lang, slug } = await params;
-  const locale = normalizeLocale(lang);
-  const page = source.getPage(slug, locale);
-
-  if (!page) notFound();
-
-  const MDX = page.data.body;
-
-  return (
-    <DocsPage toc={page.data.toc}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <DocsBody>
-        <MDX components={mdxComponents} />
-      </DocsBody>
-    </DocsPage>
-  );
+  const { locale, slug } = resolveRoute(await params);
+  return <LocalizedDocument locale={locale} slug={slug} />;
 }

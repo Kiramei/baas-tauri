@@ -1,19 +1,19 @@
 ---
-title: BAASX terminal manual
+title: BAASX manual
 description: Try the browser terminal, install BAASX, connect a backend, choose a profile, and run your first task.
 ---
 
-**BAASX** is the independent BAAS terminal workbench. Use its keyboard and mouse interface to manage profiles, tasks, schedules, devices, and logs, or invoke individual commands from scripts. The executable is `baasx`; the package name is `@baas/baasx`.
+**BAASX** is the independent BAAS terminal workbench. Use its keyboard and mouse interface to manage profiles, tasks, schedules, devices, and logs, or invoke individual commands from scripts. The executable is `baasx`; the registry package is `@kiramei/baasx`.
 
-BAASX runs independently of the Tauri client and uses the same service protocol. Connecting both clients to the same backend exposes the same real profiles. BAASX stores its own connection preferences, language, and local-runtime settings separately.
+BAASX and the desktop client use the same profiles when connected to the same backend. BAASX stores its connection preferences, language, and local-runtime settings separately.
 
 ## Try it in your browser
 
-This is an **offline teaching terminal powered by xterm.js**. Click a walkthrough button or enter a command. Tasks, configuration, and logs are simulated in your browser: nothing connects to a backend or operates a device. Reloading the page resets the experience. The simulation explains the workflow; it does not replace a local installation or device testing.
+Click a walkthrough button or enter a command below. Refresh the page to reset the sample data.
 
 <BaasxTerminalDemo locale="en" scenario="quickstart" />
 
-Start with `/help`, then try `/tasks`, `/start`, `/logs`, and `/stop`. The configuration, scheduler, and command-pack chapters include focused exercises. The simulator supports its listed teaching operations; consult your installed `/help`, `baasx --help`, and the [command reference](./cli) for the complete interface.
+Start with `/help`, then try `/tasks`, `/start`, `/logs`, and `/stop`. The configuration, scheduler, and command-pack chapters include more exercises. See the [command reference](./cli) for the complete interface.
 
 ## Find your starting point
 

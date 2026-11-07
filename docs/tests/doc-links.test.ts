@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import { remarkDocLinks, resolveDocLink } from "../lib/remark-doc-links.mjs";
 
 test("source-relative navigation respects locale and static trailing slashes", () => {
-  expect(resolveDocLink("./guide/install", "zh/index.mdx")).toBe("/docs/zh/guide/install/");
+  expect(resolveDocLink("./guide/install", "zh/index.mdx")).toBe("/docs/guide/install/");
   expect(resolveDocLink("./configuration", "en/guide/interface.mdx")).toBe(
-    "/docs/en/guide/configuration/"
+    "/docs/guide/configuration/"
   );
   expect(
     resolveDocLink("../features/profile#section", "zh/guide/interface.mdx", "/baas-tauri")
-  ).toBe("/baas-tauri/docs/zh/features/profile/#section");
+  ).toBe("/baas-tauri/docs/features/profile/#section");
   expect(resolveDocLink("./team.mdx?example=1", "en/features/stages.mdx")).toBe(
-    "/docs/en/features/team/?example=1"
+    "/docs/features/team/?example=1"
   );
   expect(resolveDocLink("#local", "en/index.mdx")).toBe("#local");
   expect(resolveDocLink("https://example.com/", "en/index.mdx")).toBe("https://example.com/");
@@ -37,8 +37,8 @@ test("structured MDX nodes handle document anchors and public image assets", () 
     ],
   };
   remarkDocLinks()(tree, { path: "D:\\repo\\docs\\content\\docs\\en\\guide\\interface.mdx" });
-  expect(tree.children[0].url).toBe("/docs/en/guide/scheduler/");
-  expect(tree.children[1].attributes?.[0].value).toBe("/docs/en/features/script/");
+  expect(tree.children[0].url).toBe("/docs/guide/scheduler/");
+  expect(tree.children[1].attributes?.[0].value).toBe("/docs/features/script/");
   expect(tree.children[2].attributes?.[0].value).toBe("/media/example.png");
 });
 
@@ -71,13 +71,13 @@ test("MDX leaves navigation prefixes to Next Link and prefixes plain media once"
       ],
     };
     remarkDocLinks()(tree, { path: "/repo/docs/content/docs/en/guide/interface.mdx" });
-    expect(tree.children[0].url).toBe("/docs/en/guide/configuration/");
+    expect(tree.children[0].url).toBe("/docs/guide/configuration/");
     expect(tree.children[1].url).toBe("#section");
     expect(tree.children[2].url).toBe("/docs/en/features/server/");
     expect(tree.children[3].url).toBe("/baas-tauri/media/example.png");
     expect(tree.children[4].url).toBe("https://example.com/image.png");
     expect(tree.children[5].url).toBe("//example.com/image.png");
-    expect(tree.children[6].attributes?.[0].value).toBe("/docs/en/features/script/");
+    expect(tree.children[6].attributes?.[0].value).toBe("/docs/features/script/");
     expect(tree.children[7].attributes?.map((attribute) => attribute.value)).toEqual([
       "/baas-tauri/media/example.mp4",
       "/baas-tauri/media/poster.png",

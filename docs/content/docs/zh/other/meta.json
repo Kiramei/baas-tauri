@@ -1,0 +1,9 @@
+{
+  "title": "其他",
+  "pages": [
+    "[版本历史](/docs/reference/release-history)",
+    "[故障排查](/docs/reference/troubleshooting)",
+    "[反馈问题与卸载](/docs/reference/report-uninstall)",
+    "[安装配置 setup.toml](/docs/reference/setup-toml)"
+  ]
+}

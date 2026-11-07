@@ -36,11 +36,17 @@ flowchart LR
 | `action`    | 释放技能、重开、等待、切换 Auto 等具体操作             |
 | `condition` | 血量、费用、技能名、超时、组合条件等判断               |
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/auto_fight/procedure_draft.webp"
-  alt="旧文档中的自动战斗状态流程示例"
-/>
+旧文档用下图展示一条战斗轴示例。图中的 `500w` 表示 500 万血量：
+
+```mermaid
+flowchart TD
+  Start["自动战斗开始"] --> Skill1{"释放技能 1"}
+  Skill1 -->|"血量 > 500w"| Restart["重新开始"]
+  Restart --> Start
+  Skill1 -->|"血量 < 500w"| Skill2{"释放技能 2"}
+  Skill2 -->|"血量 > 0"| Restart
+  Skill2 -->|"血量 < 0"| End["结束战斗"]
+```
 
 ## 可监测的战斗数据
 
@@ -63,11 +69,23 @@ flowchart LR
   alt="总力战画面中可被自动战斗读取的数据区域"
 />
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/auto_fight/screenshot_data_update_cycle.webp"
-  alt="自动战斗截图数据更新循环"
-/>
+下图复现旧文档中的数据更新队列示例。`d_updater_mask` 的每一位对应一个数据更新器，图中启用费用、倍速与 Auto、技能更新，未启用 BOSS 血量更新：
+
+```mermaid
+flowchart TD
+  Extract["提取有效更新器"] -.-> Mask["d_updater_mask 示例<br/>费用: 1 · BOSS 血量: 0<br/>倍速与 Auto: 1 · 技能: 1<br/>更高位: …"]
+  Extract -->|"按 estimated_time_cost() 排序"| Queue["d_updater_queue"]
+  Queue --> Empty{"q.empty()"}
+  Empty -->|"是"| End["结束"]
+  Empty -->|"否"| Capacity{"running_thread_count < max_thread"}
+  Capacity -->|"否"| Wait["等待一个更新器完成"]
+  Wait --> Condition{"条件判断"}
+  Condition -->|"满足"| End
+  Condition -->|"不满足"| Submit["提交任务"]
+  Capacity -->|"是"| Submit
+  Submit --> Pool["d_update_thread_pool<br/>运行中: 费用更新<br/>运行中: 倍速与 Auto 更新<br/>运行中: 技能更新<br/>空闲: 可用"]
+  Submit -->|"下一轮"| Empty
+```
 
 ## 截图和控制性能
 
@@ -121,11 +139,15 @@ OCR 用于识别文字、数字、血量、费用、活动名或其他无法只�
 
 OCR 的代价高于模板匹配。能用稳定模板解决的静态 UI，不应优先使用 OCR；需要读文字、数字或动态内容时再使用 OCR。
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/ocr/pass_method1_example.webp"
-  alt="OCR 本地图像传递方式示例"
-/>
+```python
+if pass_method == 1:
+    image_bytes = self.get_image_bytes(origin_image)
+    files = {
+        "data": (None, json.dumps(data), "application/json"),
+        "image": ("image.png", image_bytes, "image/png")
+    }
+    return requests.post(url, files=files)
+```
 
 ## 维护识别资源
 

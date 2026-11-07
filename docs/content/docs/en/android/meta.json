@@ -1,0 +1,14 @@
+{
+  "title": "Android",
+  "pages": [
+    "index",
+    "install",
+    "profiles",
+    "shizuku",
+    "background-game",
+    "configuration",
+    "lifecycle",
+    "updates",
+    "compatibility"
+  ]
+}

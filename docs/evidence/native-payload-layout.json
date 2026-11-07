@@ -1,17 +1,17 @@
 {
-  "checkedAt": "2026-11-06T18:50:50.409Z",
+  "checkedAt": "2026-11-07T13:16:28.269Z",
   "basePath": "",
   "cases": 48,
   "failures": 0,
   "dataSha256": "aaff3a99b4075d86fe3038b47b2f58af2aeff587b27c4324d925b039c5b80703",
   "summarySha256": "46760d1928c90f8b4fade27ec2efd880f386e2305b4727ac57161992413c0bf1",
-  "exportIndexSha256": "d4999d3557673ae0ffa67fa9dfb725d9241f2192f7db61de39c10f03574306c4",
+  "exportIndexSha256": "9062f0b025e4b316168e7017422befc1000b1788c4663cc1701a925c9ac73c71",
   "testedSources": {
     "docs/components/NativePayloadBenchmark.tsx": "b40d2fe2f07afe90a583ef6936595d25527925cdc5c12e1363a6ac14ff43dad7",
     "docs/content/docs/zh/reference/performance.mdx": "e7f2bc4a1abe17f57d9a3bacdcbc97e147fd2a7219e619cde5216433d4bac5f4",
     "docs/content/docs/en/reference/performance.mdx": "5c42daddc98d3e6551df2677275b2d65bd5dbc93837eef2345e09448125eee24",
     "docs/mdx-components.tsx": "4b02d7dc5151174f782fdd4ebb659464c95b531490fd1b0edab0368e9e2a9957",
-    "docs/app/global.css": "d842f2de063d0b8b0847e9d5a68fc93cb0f72372ad92e006b5ec9f264ed78a93",
+    "docs/app/global.css": "71b3eae41e838097e91487ce7db01657ca1e4cfa3d9c5f1c8c6c255818ad833f",
     "docs/scripts/check-native-payload.mjs": "ca101fd82536d4439e3e8821197ac562b9e5252242eba2afbefe1d93a22fce27"
   },
   "results": [

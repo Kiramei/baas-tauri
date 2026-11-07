@@ -43,7 +43,7 @@ After changing the BAASX tutorials, run `node docs/scripts/check-baasx.mjs` agai
 
 - [Release policy](development/RELEASING.md)
 - [Chinese manual](content/docs/zh/index.mdx) / [English manual](content/docs/en/index.mdx)
-- [BAASX terminal manual](content/docs/en/baasx/index.mdx) / [BAASX 中文手册](content/docs/zh/baasx/index.mdx)
+- [BAASX manual](content/docs/en/baasx/index.mdx) / [BAASX 中文手册](content/docs/zh/baasx/index.mdx)
 - [WebUI deployment](content/docs/en/guide/webui.mdx)
 - [Plugin API](content/docs/en/reference/plugin-api.mdx)
 - [Client architecture](content/docs/en/reference/client-architecture.mdx)

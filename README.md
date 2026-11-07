@@ -164,9 +164,11 @@ bun run i18n:check
 | `bun run lint`        | Run ESLint and i18n checks.                       |
 | `bun run i18n:check`  | Verify locale key consistency.                    |
 
-### baasx Automation Terminal
+### BAASX
 
-The installed command is `baasx`, distributed as `@baas/baasx`, with source in `baasx/`. Use the `baasx` development scripts; the existing `cli` scripts remain available as compatibility aliases:
+BAASX is a standalone terminal interface for managing BAAS profiles, tasks, schedules, devices, and logs. It connects directly to the BAAS backend without starting the desktop client.
+
+The installed command is `baasx`, available from npm as `@kiramei/baasx`, with source in `baasx/`. Use the `baasx` development scripts:
 
 ```bash
 bun run baasx --demo

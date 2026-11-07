@@ -82,9 +82,9 @@ bun run dev
 
 ## 🛠️ 开发
 
-### baasx 自动化终端
+### BAASX
 
-`baasx-dev` 分支包含 `baasx` 自动化终端，直接连接 BAAS 后端 Service，无需启动桌面端。支持配置档、任务与调度编辑、类型化配置、实时日志、本地环境安装与更新，以及独立指令包。安装后的命令名为 `baasx`，Bun 包名为 `@baas/baasx`，源码位于 `baasx/`。
+`baasx-dev` 分支包含 `baasx` 自动化终端，直接连接 BAAS 后端 Service，无需启动桌面端。支持配置档、任务与调度编辑、类型化配置、实时日志、本地环境安装与更新，以及独立指令包。安装后的命令名为 `baasx`，npm 包名为 `@kiramei/baasx`，源码位于 `baasx/`。
 
 ```bash
 bun install --frozen-lockfile
@@ -94,7 +94,7 @@ bun run baasx:build        # Bun 可执行包
 bun run baasx:binary       # 本机独立可执行程序
 ```
 
-连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。原有 `cli`、`cli:*` 开发脚本仍可作为兼容别名使用。共用协议位于 `packages/baas-client`，CLI 配置和指令集独立于桌面端。
+连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。共用协议位于 `baasx/packages/baas-client`，CLI 配置和指令集独立于桌面端。
 
 前置条件：
 

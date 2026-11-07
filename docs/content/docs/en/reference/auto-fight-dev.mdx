@@ -37,11 +37,17 @@ Workflow files are JSON and contain three core object types:
 | `action`    | Cast skill, restart, wait, toggle Auto, or another operation        |
 | `condition` | HP, cost, skill name, timeout, and composed predicates              |
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/auto_fight/procedure_draft.webp"
-  alt="Legacy auto-fight state-flow example"
-/>
+The legacy documentation illustrates a combat workflow using the following example. The HP threshold is five million:
+
+```mermaid
+flowchart TD
+  Start["Start auto fight"] --> Skill1{"Cast skill 1"}
+  Skill1 -->|"HP > 5,000,000"| Restart["Restart"]
+  Restart --> Start
+  Skill1 -->|"HP < 5,000,000"| Skill2{"Cast skill 2"}
+  Skill2 -->|"HP > 0"| Restart
+  Skill2 -->|"HP < 0"| End["End fight"]
+```
 
 ## Observable Combat Data
 
@@ -64,11 +70,23 @@ Auto fight maintains screenshot-derived data that actions and conditions can rea
   alt="Combat screen regions used by auto-fight data extraction"
 />
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/auto_fight/screenshot_data_update_cycle.webp"
-  alt="Auto-fight screenshot data update cycle"
-/>
+The following diagram reproduces the legacy data-update queue example. Each bit in `d_updater_mask` represents an updater; the example enables cost, speed and Auto, and skill updates while leaving boss HP disabled:
+
+```mermaid
+flowchart TD
+  Extract["Extract valid updaters"] -.-> Mask["d_updater_mask example<br/>cost: 1 · boss HP: 0<br/>speed and Auto: 1 · skills: 1<br/>higher bits: …"]
+  Extract -->|"Sort by estimated_time_cost()"| Queue["d_updater_queue"]
+  Queue --> Empty{"q.empty()"}
+  Empty -->|"Yes"| End["End"]
+  Empty -->|"No"| Capacity{"running_thread_count < max_thread"}
+  Capacity -->|"No"| Wait["Wait for one updater to finish"]
+  Wait --> Condition{"Condition check"}
+  Condition -->|"Satisfied"| End
+  Condition -->|"Not satisfied"| Submit["Submit task"]
+  Capacity -->|"Yes"| Submit
+  Submit --> Pool["d_update_thread_pool<br/>Running: cost update<br/>Running: speed and Auto update<br/>Running: skill update<br/>Empty: valid"]
+  Submit -->|"Next loop"| Empty
+```
 
 ## Screenshot and Control Performance
 
@@ -122,11 +140,15 @@ OCR recognizes text, numbers, HP, cost, event names, and other dynamic informati
 
 OCR costs more than template matching. Prefer templates for stable static UI; use OCR for text, numbers, and dynamic content.
 
-<img
-  className="baas-screenshot"
-  src="/backend-assets/ocr/pass_method1_example.webp"
-  alt="OCR local-image pass method example"
-/>
+```python
+if pass_method == 1:
+    image_bytes = self.get_image_bytes(origin_image)
+    files = {
+        "data": (None, json.dumps(data), "application/json"),
+        "image": ("image.png", image_bytes, "image/png")
+    }
+    return requests.post(url, files=files)
+```
 
 ## Recognition Asset Maintenance
 

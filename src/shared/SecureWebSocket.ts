@@ -4,9 +4,9 @@ import {
   SecureWebSocket as SharedSecureWebSocket,
   DEFAULT_SERVER_SIGN_PUBLIC_KEY_B64 as SHARED_SERVER_SIGN_PUBLIC_KEY_B64,
   type ControlSessionBundle,
-} from "../../packages/baas-client/src/SecureWebSocket";
+} from "../../baasx/packages/baas-client/src/SecureWebSocket";
 
-export * from "../../packages/baas-client/src/SecureWebSocket";
+export * from "../../baasx/packages/baas-client/src/SecureWebSocket";
 
 export const DEFAULT_SERVER_SIGN_PUBLIC_KEY_B64 =
   import.meta.env?.VITE_BAAS_SERVER_SIGN_PUBLIC_KEY_B64 || SHARED_SERVER_SIGN_PUBLIC_KEY_B64;

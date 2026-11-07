@@ -53,6 +53,13 @@ async function mount(field: EditableField) {
       stdin.write(text);
       await settle();
     },
+    async waitFor(predicate: () => boolean) {
+      const deadline = Date.now() + 2_000;
+      while (!predicate()) {
+        if (Date.now() >= deadline) throw new Error(`Editor did not reach the expected state:\n${frame}`);
+        await Bun.sleep(10);
+      }
+    },
     close() {
       app.unmount();
       app.cleanup();
@@ -92,12 +99,16 @@ test("number input excludes letters and enforces range before saving", async () 
   try {
     await ui.key("abc");
     await ui.key("99");
+    await ui.waitFor(() => ui.frame.includes("❯ 99"));
     await ui.key("\r");
     expect(ui.writes).toEqual([]);
-    expect(ui.frame).toContain("数值超出范围");
+    await ui.waitFor(() => ui.frame.includes("数值超出范围"));
     await ui.key("\x01");
+    await ui.waitFor(() => !ui.frame.includes("数值超出范围") && !ui.frame.includes("❯ 99"));
     await ui.key("12");
+    await ui.waitFor(() => ui.frame.includes("❯ 12"));
     await ui.key("\r");
+    await ui.waitFor(() => ui.writes.length > 0);
     expect(ui.writes).toEqual([12]);
   } finally {
     ui.close();

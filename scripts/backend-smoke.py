@@ -199,7 +199,7 @@ async def run(args) -> None:
                     json.loads(line)
                 print(f"PASS Bun CLI {command}: JSON event stream and SIGINT cleanup exits130")
 
-            probe = root / "packages" / "baas-client" / "tests" / "lifecycle-probe.ts"
+            probe = root / "baasx" / "packages" / "baas-client" / "tests" / "lifecycle-probe.ts"
             for pipe in [False, True]:
                 probe_environment = {**environment, "BAAS_SMOKE_ISOLATED": "1", "BAAS_SMOKE_URL": f"ws://127.0.0.1:{port}"}
                 if pipe:

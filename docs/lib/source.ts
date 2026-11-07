@@ -4,23 +4,33 @@ import { i18n } from "@/lib/i18n";
 import { createElement, type ComponentType, type ReactNode, type SVGProps } from "react";
 import {
   Bot,
+  BookOpen,
   Bug,
   CalendarClock,
+  Code2,
   Coffee,
   Compass,
+  Container,
   Download,
   Factory,
+  FileText,
   FileCog,
+  Gamepad2,
   Gauge,
   GraduationCap,
   House,
+  KeyRound,
   LayoutDashboard,
   Map,
   Monitor,
+  Network,
+  Package,
+  Plug,
   RefreshCw,
   ScrollText,
   Server,
   Settings,
+  ShieldCheck,
   ShoppingCart,
   Smartphone,
   Swords,
@@ -43,19 +53,29 @@ function pageTreeIcon(Icon: IconComponent, key: string) {
 }
 
 const folderIcons: Record<string, IconComponent> = {
+  android: Smartphone,
+  baasx: Terminal,
+  developer: Code2,
+  development: Code2,
+  docker: Container,
   features: Settings,
   guide: Compass,
+  other: BookOpen,
+  others: BookOpen,
   reference: FileCog,
 };
 
 const pageIcons: Array<[string, IconComponent]> = [
+  ["/docs", House],
   ["/guide/install", Download],
   ["/guide/android", Smartphone],
   ["/guide/interface", LayoutDashboard],
+  ["/guide/configuration", Settings],
   ["/guide/scheduler", CalendarClock],
   ["/guide/wiki", FileCog],
   ["/features/profile", Compass],
   ["/features/home-runtime", House],
+  ["/features/plugins", Plug],
   ["/features/server", Server],
   ["/features/emulator", Smartphone],
   ["/features/script", ScrollText],
@@ -81,6 +101,27 @@ const pageIcons: Array<[string, IconComponent]> = [
   ["/reference/backend-development", Terminal],
   ["/reference/auto-fight-dev", Bot],
   ["/reference/development", FileCog],
+  ["/android/install", Download],
+  ["/android/profiles", Users],
+  ["/android/shizuku", ShieldCheck],
+  ["/android/background-game", Gamepad2],
+  ["/android/configuration", Settings],
+  ["/android/lifecycle", CalendarClock],
+  ["/android/updates", RefreshCw],
+  ["/android/compatibility", Smartphone],
+  ["/docker/installation", Download],
+  ["/docker/authentication", KeyRound],
+  ["/docker/device", Smartphone],
+  ["/docker/network", Network],
+  ["/docker/backend", Server],
+  ["/docker/development", Code2],
+  ["/baasx/installation", Download],
+  ["/baasx/workbench", LayoutDashboard],
+  ["/baasx/configuration", Settings],
+  ["/baasx/scheduler", CalendarClock],
+  ["/baasx/command-packs", Package],
+  ["/baasx/cli", Terminal],
+  ["/baasx/troubleshooting", Bug],
 ];
 
 /** Handles the with icon workflow. */
@@ -92,7 +133,7 @@ const iconTransformer = {
   /** Handles the file workflow. */
   file<T extends { icon?: ReactNode; url: string }>(node: T) {
     const match = pageIcons.find(([slug]) => node.url.endsWith(slug));
-    return match ? withIcon(node, match[1], `page-tree-icon:${match[0]}`) : node;
+    return withIcon(node, match?.[1] ?? FileText, `page-tree-icon:${match?.[0] ?? node.url}`);
   },
   /** Handles the folder workflow. */
   folder<T extends { icon?: ReactNode }>(node: T, folderPath: string) {
@@ -108,10 +149,9 @@ export const source = loader({
   pageTree: {
     transformers: [iconTransformer],
   },
-  url: (slugs, locale) => {
-    const lang = locale === "en" ? "en" : "zh";
+  url: (slugs) => {
     const path = slugs.length > 0 ? `/${slugs.join("/")}` : "";
-    return `/docs/${lang}${path}`;
+    return `/docs${path}`;
   },
   source: docs.toFumadocsSource(),
 });

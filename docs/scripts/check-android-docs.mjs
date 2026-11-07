@@ -41,7 +41,7 @@ try {
     const failure = locale === "zh" ? "游戏跳回主屏或预览停在启动图" : "Game Returns to the Main Display or Preview Stalls";
     assert.equal((await page.goto(`${base}/docs/${locale}/reference/troubleshooting/`)).status(), 200);
     await page.getByRole("link", { name: locale === "zh" ? "后台游戏排查" : "background-game diagnostics", exact: true }).click();
-    await page.waitForURL(url => url.pathname.endsWith(`/docs/${locale}/guide/android/`) && Boolean(url.hash));
+    await page.waitForURL(url => url.pathname.endsWith(`/docs/guide/android/`) && Boolean(url.hash));
     const heading = page.getByRole("heading").filter({ has: page.getByRole("link", { name: failure, exact: true }) });
     await heading.scrollIntoViewIfNeeded();
     assert.ok(await heading.evaluate(el => el.scrollWidth <= el.clientWidth + 1));
@@ -104,7 +104,7 @@ try {
       pageErrors: errors, passed: true });
     diagnostics.push({ locale, theme, mobile, linkNavigated: true, headingFits: true, pageErrors: errors, passed: true });
     await page.getByRole("link", { name: locale === "zh" ? "原生预览链路" : "native preview pipeline", exact: true }).click();
-    await page.waitForURL(url => url.pathname.endsWith(`/docs/${locale}/reference/client-architecture/`) && Boolean(url.hash));
+    await page.waitForURL(url => url.pathname.endsWith(`/docs/reference/client-architecture/`) && Boolean(url.hash));
     const pipeline = page.locator(".baas-mermaid").filter({ hasText: "AImageReader / AHardwareBuffer" });
     await pipeline.locator(".baas-mermaid-content > svg").waitFor({ state: "visible" });
     await pipeline.scrollIntoViewIfNeeded();
@@ -140,10 +140,10 @@ try {
     const dialog = page.getByRole("dialog");
     const query = locale === "zh" ? "画面未更新" : "No frame updates";
     await dialog.locator("input").fill(query);
-    const result = dialog.getByRole("button").filter({ has: page.getByText(locale === "zh" ? "Android 客户端" : "Android Client", { exact: true }) }).first();
+    const result = dialog.getByRole("button").filter({ has: page.getByText(locale === "zh" ? "后台游戏与预览" : "Background Game and Preview", { exact: true }) }).first();
     await result.waitFor({ state: "visible" });
     await result.click();
-    await page.waitForURL(url => url.pathname.endsWith(`/docs/${locale}/guide/android/`));
+    await page.waitForURL(url => url.pathname.endsWith(`/docs/android/background-game/`));
     searches.push({ locale, query, foundAndroidGuide: true });
   }
   await context.close();

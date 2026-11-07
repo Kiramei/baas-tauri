@@ -101,7 +101,7 @@ async function localFixture(
     commands = join(root, "commands.jsonl"),
     pidFile = join(root, "backend.pid");
   const protocol = fileURLToPath(
-    new URL("../../packages/baas-client/src/pipe.ts", import.meta.url)
+    new URL("../packages/baas-client/src/pipe.ts", import.meta.url)
   );
   await writeFile(
     backend,

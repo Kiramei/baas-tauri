@@ -60,15 +60,17 @@ test("release gates classify optional-v rc/post tags and keep every major-zero r
     ] as const) {
       const ref = `refs/tags/${prefix}${version}`;
       expect(evaluate(app.jobs["submit-to-winget"].if, ref), ref).toBe(winget);
-      expect(evaluate(docker.env.STABLE_RELEASE, ref), ref).toBe(stable);
-      expect(evaluate(docker.env.PUBLISH_IMAGE, ref), ref).toBe(stable);
+      expect(evaluate(docker.env.PUBLISH_IMAGE, ref), ref).toBe(true);
+      expect(evaluate(docker.env.PUBLISH_LATEST, ref), ref).toBe(stable);
       expect(evaluate(fixed.if, ref), ref).toBe(stable);
       expect(evaluate(publish.env!.MAKE_LATEST, ref), ref).toBe(String(stable));
       expect(evaluate(app.jobs["release-update"].if, ref), ref).toBe(true);
     }
   }
   expect(evaluate(docker.env.PUBLISH_IMAGE, "refs/heads/main")).toBe(true);
-  expect(evaluate(docker.env.STABLE_RELEASE, "refs/heads/main")).toBe(false);
+  expect(evaluate(docker.env.PUBLISH_LATEST, "refs/heads/main")).toBe(true);
+  expect(evaluate(docker.env.PUBLISH_IMAGE, "refs/heads/dev")).toBe(false);
+  expect(evaluate(docker.env.PUBLISH_LATEST, "refs/heads/dev")).toBe(false);
 });
 
 test("Winget keeps the real release tag separate from the public version", () => {
@@ -112,3 +114,43 @@ shellTest(
     }
   }
 );
+
+shellTest("Docker Hub versions are mirrored without promoting release candidates to latest", () => {
+  const script = step(docker, "build-and-push", "Mirror Docker Hub image to CNB").run!;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "baas-docker-mirror-"));
+  const executable = path.join(root, "skopeo");
+  const output = path.join(root, "calls");
+  fs.writeFileSync(executable, '#!/bin/sh\nprintf "%s\\n" "$@" >> "$CAPTURE_PATH"\n', { mode: 0o755 });
+  try {
+    for (const [ref, name, latest, expectedTags] of [
+      ["refs/tags/v0.0.9.rc1", "v0.0.9.rc1", "false", ["0.0.9.rc1"]],
+      ["refs/tags/0.0.9.post1", "0.0.9.post1", "true", ["0.0.9.post1", "latest"]],
+      ["refs/heads/main", "main", "true", ["main", "latest"]],
+    ] as const) {
+      fs.writeFileSync(output, "");
+      const result = Bun.spawnSync(["bash", "-c", script], {
+        env: {
+          ...process.env,
+          PATH: `${root}${path.delimiter}${process.env.PATH}`,
+          CAPTURE_PATH: output,
+          GITHUB_REF: ref,
+          GITHUB_REF_NAME: name,
+          PUBLISH_LATEST: latest,
+          DOCKERHUB_USERNAME: "example",
+          DOCKERHUB_TOKEN: "test-token",
+          CNB_DOCKER_TOKEN: "test-token",
+          CNB_IMAGE_NAME: "docker.cnb.cool/example/baas-webui",
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      expect(result.exitCode, new TextDecoder().decode(result.stderr)).toBe(0);
+      const destinations = fs.readFileSync(output, "utf8").split("\n").filter((line) =>
+        line.startsWith("docker://docker.cnb.cool/")
+      );
+      expect(destinations).toEqual(expectedTags.map((tag) => `docker://docker.cnb.cool/example/baas-webui:${tag}`));
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

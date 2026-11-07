@@ -1,0 +1,15 @@
+---
+title: Connect a Device
+---
+
+Inside the container, `127.0.0.1` refers to the container. For an ADB TCP device on the host, Docker can use `host.docker.internal:5555` and Podman can use `host.containers.internal:5555`. A reachable LAN address such as `192.168.1.42:5555` is another option. Podman's internal hostname depends on its network and virtual machine configuration. Reachability also depends on the emulator's listening address, firewall, and container network. A host-loopback-only listener may not be reachable through the gateway.
+
+`5037` is normally the ADB server port, not the device TCP port. Confirm that the server can discover the device before running a small set of tasks. Native PC window control requires a Windows desktop and is unavailable in Linux Docker.
+
+On Linux, the repository provides a host-network override:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml -f scripts/docker/docker-compose.host.yml up -d
+```
+
+This uses host ports `8191` and `8190` directly. Bridge-mode `BAAS_WEBUI_PORT` and `BAAS_WEBUI_BIND` do not control those listeners. Check port conflicts and exposure first.

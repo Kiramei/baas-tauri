@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": [
     "baasx",
-    "packages/*"
+    "baasx/packages/*"
   ],
   "scripts": {
     "baasx": "bun baasx/scripts/dev.ts",
@@ -13,13 +13,7 @@
     "baasx:binary": "bun run --cwd baasx build:binary",
     "baasx:pack": "bun run --cwd baasx pack",
     "baasx:check": "bun run --cwd baasx check",
-    "baasx:test": "bun test baasx/tests packages/baas-client/tests",
-    "cli": "bun run baasx",
-    "cli:build": "bun run baasx:build",
-    "cli:binary": "bun run baasx:binary",
-    "cli:pack": "bun run baasx:pack",
-    "cli:check": "bun run baasx:check",
-    "cli:test": "bun run baasx:test",
+    "baasx:test": "bun test baasx/tests baasx/packages/baas-client/tests",
     "dev": "vite",
     "dev:android": "vite --mode android --host 0.0.0.0 --port 8191",
     "dev:webui": "vite --mode webui",

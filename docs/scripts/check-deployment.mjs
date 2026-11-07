@@ -38,6 +38,7 @@ const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const sourceFiles = [
   "docs/next.config.mjs",
   "docs/app/layout.tsx",
+  "docs/app/LocalizedDocument.tsx",
   "docs/app/docs/[lang]/layout.tsx",
   "docs/app/global.css",
   "docs/lib/remark-doc-links.mjs",
@@ -48,10 +49,13 @@ const sourceFiles = [
   "docs/lib/build-search-index.ts",
   "docs/app/search-index/[file]/route.ts",
   "docs/components/DocsProvider.tsx",
+  "docs/components/SidebarFolder.tsx",
+  "docs/components/LocalizedDocs.tsx",
   "docs/components/FlexSearchDialog.tsx",
   "docs/scripts/read-search-artifact.mjs",
   "docs/components/LocaleEntry.tsx",
   "docs/components/LanguageMenu.tsx",
+  "docs/lib/locale.ts",
   "docs/components/DocumentationLink.tsx",
   "docs/mdx-components.tsx",
   "docs/scripts/static-export-server.mjs",
@@ -87,7 +91,10 @@ try {
         const context = await browser.newContext({
           viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 960 },
         });
-        await context.addInitScript((theme) => localStorage.setItem("theme", theme), theme);
+        await context.addInitScript(({ theme, locale }) => {
+          localStorage.setItem("theme", theme);
+          localStorage.setItem("baas-docs-locale", locale);
+        }, { theme, locale });
         const page = await context.newPage();
         const errors = [];
         page.on("pageerror", (error) => errors.push(String(error)));
@@ -100,9 +107,13 @@ try {
         });
         try {
           for (const route of routes) {
-            const pathname = `/docs/${locale}/${route ? route + "/" : ""}`;
+            const pathname = `/docs/${route ? route + "/" : ""}`;
             assert.equal((await page.goto(site + pathname)).status(), 200);
             await page.locator("h1").waitFor();
+            await page.waitForFunction(
+              (language) => document.documentElement.lang === language,
+              locale === "zh" ? "zh-CN" : "en"
+            );
             assert.equal(await page.locator('meta[name="baas-search-index"]').getAttribute("content"),
               `${basePath}/${searchIndex.relativePath}`);
             await page.waitForFunction(
@@ -221,17 +232,17 @@ try {
             }
           }
           const label = locale === "zh" ? "搜索" : "Search";
-          await page.goto(`${site}/docs/${locale}/`);
+          await page.goto(`${site}/docs/`);
           await page.evaluate(() => {
             window.__deploymentNavigationToken = "retained";
           });
           await page
-            .locator(`a[href='${basePath}/docs/${locale}/guide/configuration/']`)
+            .locator(`a[href='${basePath}/docs/guide/configuration/']`)
             .filter({ visible: true })
             .first()
             .click();
           await page.waitForURL(
-            (url) => url.pathname === `${basePath}/docs/${locale}/guide/configuration/`
+            (url) => url.pathname === `${basePath}/docs/guide/configuration/`
           );
           assert.equal(
             await page.evaluate(() => window.__deploymentNavigationToken),
@@ -267,7 +278,7 @@ try {
             .first();
           await result.click();
           await page.waitForURL(
-            (url) => url.pathname === `${basePath}/docs/${locale}/reference/updater-internals/`
+            (url) => url.pathname === `${basePath}/docs/reference/updater-internals/`
           );
           cases.push({ kind: "search-navigation", locale, theme, mobile });
           assert.equal(await page.evaluate(() => window.__deploymentNavigationToken), "retained");
@@ -285,7 +296,11 @@ try {
             .getByRole("link", { name: next === "en" ? "English" : "中文", exact: true })
             .click();
           await page.waitForURL(
-            (url) => url.pathname === `${basePath}/docs/${next}/reference/updater-internals/`
+            (url) => url.pathname === `${basePath}/docs/reference/updater-internals/`
+          );
+          await page.waitForFunction(
+            (language) => document.documentElement.lang === language,
+            next === "zh" ? "zh-CN" : "en"
           );
           assert.equal(await page.evaluate(() => localStorage.getItem("baas-docs-locale")), next);
           cases.push({ kind: "language-switch", locale, theme, mobile });
@@ -315,29 +330,170 @@ try {
           await context.close();
         }
       }
-  for (const entry of ["/", "/docs/"])
-    for (const [language, saved, expected] of [
-      ["zh-CN", null, "zh"],
-      ["ja-JP", null, "en"],
-      ["en-US", "zh", "zh"],
+  for (const entry of ["/", "/docs/", "/docs/guide/configuration/"])
+    for (const [language, saved, expected, denied] of [
+      ["zh-CN", null, "zh", false],
+      ["ja-JP", null, "en", false],
+      ["en-US", "zh", "zh", false],
+      ["zh-CN", "en", "en", false],
+      ["zh-CN", null, "zh", true],
     ]) {
       const context = await browser.newContext({ locale: language });
-      if (saved)
-        await context.addInitScript(
-          (saved) => localStorage.setItem("baas-docs-locale", saved),
-          saved
-        );
+      await context.addInitScript(({ saved, denied }) => {
+        if (saved) localStorage.setItem("baas-docs-locale", saved);
+        if (denied) {
+          Object.defineProperty(Storage.prototype, "getItem", { value() { throw new Error("Storage disabled"); } });
+          Object.defineProperty(Storage.prototype, "setItem", { value() { throw new Error("Storage disabled"); } });
+        }
+      }, { saved, denied });
       const page = await context.newPage();
       try {
-        await page.goto(site + entry + "?deployment=1#entry");
-        await page.waitForURL((url) => url.pathname === `${basePath}/docs/${expected}/`);
+        assert.equal((await page.goto(site + entry + "?deployment=1#entry")).status(), 200);
+        await page.waitForFunction(
+          (language) => document.documentElement.lang === language,
+          expected === "zh" ? "zh-CN" : "en"
+        );
+        await page.getByRole("heading", { level: 1 }).waitFor();
+        assert.equal(new URL(page.url()).pathname, `${basePath}${entry}`);
         assert.equal(new URL(page.url()).search, "?deployment=1");
         assert.equal(new URL(page.url()).hash, "#entry");
-        cases.push({ kind: "entry", entry, language, saved, expected });
+        cases.push({ kind: "entry", entry, language, saved, expected, denied });
       } finally {
         await context.close();
       }
     }
+  for (const locale of ["zh", "en"]) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      assert.equal((await page.goto(`${site}/docs/${locale}/guide/configuration/?legacy=1#entry`)).status(), 200);
+      await page.waitForFunction(
+        (language) => document.documentElement.lang === language,
+        locale === "zh" ? "zh-CN" : "en"
+      );
+      assert.equal(await page.locator("#nd-sidebar").getByRole("button", {
+        name: locale === "zh" ? "使用指南" : "User Guide", exact: true,
+      }).getAttribute("aria-expanded"), "true");
+      assert.equal(new URL(page.url()).search, "?legacy=1");
+      assert.equal(new URL(page.url()).hash, "#entry");
+      cases.push({ kind: "legacy-entry", locale });
+    } finally {
+      await context.close();
+    }
+  }
+  {
+    const context = await browser.newContext({ locale: "en-US" });
+    await context.addInitScript(() => {
+      for (const method of ["getItem", "setItem"]) {
+        Object.defineProperty(Storage.prototype, method, {
+          value() { throw new Error("Storage disabled"); },
+        });
+      }
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto(`${site}/docs/?deployment=1#entry`);
+      await page.waitForFunction(() => document.documentElement.lang === "en");
+      const menu = page.locator(".baas-language-menu");
+      await menu.locator("summary").filter({ visible: true }).click();
+      await menu.getByRole("link", { name: "中文", exact: true }).click();
+      await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+      assert.equal(new URL(page.url()).pathname, `${basePath}/docs/`);
+      assert.equal(new URL(page.url()).search, "?deployment=1");
+      assert.equal(new URL(page.url()).hash, "#entry");
+      await page.locator(`a[href='${basePath}/docs/guide/configuration/']`)
+        .filter({ visible: true }).first().click();
+      await page.waitForURL((url) => url.pathname === `${basePath}/docs/guide/configuration/`);
+      await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+      cases.push({ kind: "language-switch-without-storage" });
+    } finally {
+      await context.close();
+    }
+  }
+  {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    try {
+      assert.equal((await page.goto(`${site}/docs/guide/configuration/`)).status(), 200);
+      await page.getByRole("heading", { level: 1 }).waitFor();
+      cases.push({ kind: "static-document-without-javascript" });
+    } finally {
+      await context.close();
+    }
+  }
+  for (const [locale, labels] of [
+    ["zh-CN", ["使用指南", "功能配置", "开发者", "BAASX", "Android", "Docker", "其他"]],
+    ["en-US", ["User Guide", "Feature Configuration", "Developers", "BAASX", "Android", "Docker", "Other"]],
+  ]) {
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } });
+    const page = await context.newPage();
+    try {
+      for (const entry of ["/", "/docs/baasx/installation/"]) {
+        assert.equal((await page.goto(site + entry)).status(), 200);
+        await page.waitForFunction((language) => document.documentElement.lang === language,
+          locale === "zh-CN" ? "zh-CN" : "en");
+        const sidebar = page.locator("#nd-sidebar");
+        for (const [index, label] of labels.entries()) {
+          const expected = entry === "/" || index !== 3 ? "false" : "true";
+          assert.equal(await sidebar.getByRole("button", { name: label, exact: true })
+            .getAttribute("aria-expanded"), expected);
+        }
+      }
+      const sidebar = page.locator("#nd-sidebar");
+      const reference = sidebar.getByRole("button", { name: labels[2], exact: true });
+      await reference.click();
+      assert.equal(await reference.getAttribute("aria-expanded"), "true");
+      const menu = page.locator(".baas-language-menu").filter({ visible: true });
+      await menu.locator("summary").click();
+      await menu.getByRole("link", { name: locale === "zh-CN" ? "English" : "中文", exact: true }).click();
+      await page.waitForFunction((language) => document.documentElement.lang === language,
+        locale === "zh-CN" ? "en" : "zh-CN");
+      assert.equal(await sidebar.getByRole("button", { name: "BAASX", exact: true })
+        .getAttribute("aria-expanded"), "true");
+      assert.equal(await sidebar.getByRole("button", {
+        name: locale === "zh-CN" ? "Developers" : "开发者", exact: true,
+      }).getAttribute("aria-expanded"), "true");
+      await menu.locator("summary").click();
+      await menu.getByRole("link", { name: locale === "zh-CN" ? "中文" : "English", exact: true }).click();
+      await page.waitForFunction((language) => document.documentElement.lang === language,
+        locale === "zh-CN" ? "zh-CN" : "en");
+      const guide = sidebar.getByRole("button", { name: labels[0], exact: true });
+      await guide.click();
+      assert.equal(await guide.getAttribute("aria-expanded"), "true");
+      const android = sidebar.getByRole("button", { name: "Android", exact: true });
+      await android.click();
+      await sidebar.locator(`a[href='${basePath}/docs/android/install/']`).click();
+      await page.waitForURL((url) => url.pathname === `${basePath}/docs/android/install/`);
+      assert.equal(await guide.getAttribute("aria-expanded"), "true");
+      assert.equal(await android.getAttribute("aria-expanded"), "true");
+      assert.equal(await sidebar.getByRole("button", { name: "BAASX", exact: true })
+        .getAttribute("aria-expanded"), "false");
+      assert.equal(await reference.getAttribute("aria-expanded"), "true");
+      await page.reload();
+      assert.equal(await guide.getAttribute("aria-expanded"), "false");
+      assert.equal(await android.getAttribute("aria-expanded"), "true");
+      assert.equal(await reference.getAttribute("aria-expanded"), "false");
+      cases.push({ kind: "sidebar-active-folder", locale });
+    } finally {
+      await context.close();
+    }
+  }
+  {
+    const context = await browser.newContext({ locale: "zh-CN", viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    try {
+      await page.goto(`${site}/docs/baasx/installation/`);
+      await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+      await page.getByRole("button", { name: "打开侧栏", exact: true }).click();
+      for (const [index, label] of ["使用指南", "功能配置", "开发者", "BAASX"].entries()) {
+        assert.equal(await page.getByRole("button", { name: label, exact: true })
+          .filter({ visible: true }).getAttribute("aria-expanded"), index === 3 ? "true" : "false");
+      }
+      cases.push({ kind: "mobile-sidebar-active-folder" });
+    } finally {
+      await context.close();
+    }
+  }
   assert.equal((await fetch(site + "/search-index.json")).status, 404,
     "The unversioned endpoint must not serve a new index to an old client");
   cases.push({ kind: "search-artifact", revision: searchIndex.revision });

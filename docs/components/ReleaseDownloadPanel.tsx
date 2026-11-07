@@ -37,7 +37,6 @@ type DropdownOption = {
 type Copy = {
   title: string;
   compactTitle: string;
-  description: string;
   open: string;
   loading: string;
   fallback: string;
@@ -45,6 +44,7 @@ type Copy = {
   detected: string;
   chooseSystem: string;
   choosePackage: string;
+  chooseChip: string;
   download: string;
   otherSystem: string;
   empty: string;
@@ -60,7 +60,6 @@ const copy: Record<Locale, Copy> = {
   zh: {
     title: "下载 BAAS Tauri",
     compactTitle: "获取客户端",
-    description: "已根据你的系统优先选择推荐安装包；也可以手动切换系统和包类型。",
     open: "打开 Releases",
     loading: "正在读取最新版本...",
     fallback: "无法自动读取 GitHub 最新版本时，请打开 Releases 页面手动选择安装包。",
@@ -68,6 +67,7 @@ const copy: Record<Locale, Copy> = {
     detected: "已检测",
     chooseSystem: "系统",
     choosePackage: "安装包",
+    chooseChip: "选择芯片",
     download: "下载",
     otherSystem: "不是这个系统？",
     empty: "当前最新 Release 没有可展示的安装包资产。",
@@ -80,8 +80,6 @@ const copy: Record<Locale, Copy> = {
   en: {
     title: "Download BAAS Tauri",
     compactTitle: "Get the client",
-    description:
-      "The recommended package is selected from your system. You can switch OS and package type manually.",
     open: "Open Releases",
     loading: "Loading latest release...",
     fallback:
@@ -90,6 +88,7 @@ const copy: Record<Locale, Copy> = {
     detected: "Detected",
     chooseSystem: "System",
     choosePackage: "Package",
+    chooseChip: "Choose a chip",
     download: "Download",
     otherSystem: "Need another system?",
     empty: "The latest release does not expose downloadable installer assets.",
@@ -160,14 +159,18 @@ function detectEnvironment(): { platform: Platform; arch: Architecture } {
   else if (rawPlatform.includes("linux") || rawPlatform.includes("x11")) platform = "linux";
   else if (rawPlatform.includes("win")) platform = "windows";
 
-  let arch: Architecture = "x64";
+  // macOS browsers may report MacIntel on Apple Silicon as well.
+  let arch: Architecture = platform === "macos" ? "unknown" : "x64";
   if (rawArch.includes("arm64") || rawArch.includes("aarch64")) arch = "arm64";
   else if (rawArch.includes("armv7") || rawArch.includes("armhf")) arch = "arm32";
   else if (
+    platform !== "macos" &&
+    (
     rawArch.includes("x86_64") ||
     rawArch.includes("x64") ||
     rawArch.includes("win64") ||
     rawArch.includes("amd64")
+    )
   )
     arch = "x64";
 
@@ -210,7 +213,7 @@ function classifyAsset(asset: ReleaseAsset, locale: Locale): DownloadItem | null
   } else if (lower.endsWith(".dmg")) {
     platform = "macos";
     kind = "dmg";
-    arch = lower.includes("aarch64") ? "arm64" : "x64";
+    arch = lower.includes("aarch64") || lower.includes("arm64") ? "arm64" : "x64";
     label = arch === "arm64" ? "macOS Apple Silicon DMG" : "macOS Intel DMG";
   } else if (lower.endsWith(".deb")) {
     platform = "linux";
@@ -272,18 +275,20 @@ function DownloadDropdown({
   label,
   onChange,
   options,
+  placeholder,
   value,
 }: {
   className?: string;
   label: string;
   onChange: (value: string) => void;
   options: DropdownOption[];
+  placeholder?: string;
   value: string;
 }) {
   const id = useId().replace(/:/g, "");
   const ref = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) ?? options[0];
+  const selected = options.find((option) => option.value === value);
 
   useEffect(() => {
     /** Handles the on pointer down interaction. */
@@ -316,7 +321,7 @@ function DownloadDropdown({
         aria-haspopup="listbox"
         onClick={() => setOpen((current) => !current)}
       >
-        <span>{selected?.label}</span>
+        <span>{selected?.label ?? placeholder}</span>
         <ChevronDown aria-hidden="true" />
       </button>
       {open ? (
@@ -364,6 +369,26 @@ export function ReleaseDownloadPanel({
     const environment = detectEnvironment();
     setDetected(environment);
     setSelectedPlatform(environment.platform);
+    let cancelled = false;
+    const data = (navigator as Navigator & {
+      userAgentData?: {
+        getHighEntropyValues?: (hints: string[]) => Promise<{ architecture?: string; bitness?: string }>;
+      };
+    }).userAgentData;
+    if (data?.getHighEntropyValues) {
+      void data.getHighEntropyValues(["architecture", "bitness"]).then((hints) => {
+        if (cancelled) return;
+        const architecture = hints.architecture?.toLowerCase();
+        const arch: Architecture =
+          architecture === "arm" || architecture === "arm64"
+            ? hints.bitness === "32" ? "arm32" : "arm64"
+            : architecture === "x86" || architecture === "x86_64" || architecture === "x64"
+              ? "x64"
+              : environment.arch;
+        setDetected((current) => ({ ...current, arch }));
+      }).catch(() => {});
+    }
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -411,13 +436,15 @@ export function ReleaseDownloadPanel({
     }
   }, [availablePlatforms, downloads, selectedPlatform]);
 
+  const desiredArch = selectedPlatform === detected.platform ? detected.arch : "unknown";
+
   /** Handles the platform items workflow. */
   const platformItems = useMemo(
     () =>
       downloads
         .filter((item) => item.platform === selectedPlatform)
-        .sort((a, b) => itemRank(a, detected.arch) - itemRank(b, detected.arch)),
-    [detected.arch, downloads, selectedPlatform]
+        .sort((a, b) => itemRank(a, desiredArch) - itemRank(b, desiredArch)),
+    [desiredArch, downloads, selectedPlatform]
   );
 
   useEffect(() => {
@@ -425,12 +452,25 @@ export function ReleaseDownloadPanel({
       setSelectedName("");
       return;
     }
+    if (
+      selectedPlatform === "macos" &&
+      desiredArch === "unknown" &&
+      new Set(platformItems.map((item) => item.arch)).size > 1 &&
+      !platformItems.some((item) => item.name === selectedName)
+    ) {
+      if (selectedName) setSelectedName("");
+      return;
+    }
     if (!platformItems.some((item) => item.name === selectedName)) {
       setSelectedName(platformItems[0].name);
     }
-  }, [platformItems, selectedName]);
+  }, [desiredArch, platformItems, selectedName, selectedPlatform]);
 
-  const selectedItem = platformItems.find((item) => item.name === selectedName) ?? platformItems[0];
+  const needsChipChoice = selectedPlatform === "macos" && desiredArch === "unknown" &&
+    new Set(platformItems.map((item) => item.arch)).size > 1 &&
+    !platformItems.some((item) => item.name === selectedName);
+  const selectedItem = platformItems.find((item) => item.name === selectedName) ??
+    (needsChipChoice ? undefined : platformItems[0]);
   const isDetectedPlatform = selectedPlatform === detected.platform;
 
   return (
@@ -445,7 +485,7 @@ export function ReleaseDownloadPanel({
             {release ? `${t.latest} ${release.tag_name}` : t.title}
           </p>
           <h2 id="baas-download-title">{compact ? t.compactTitle : t.title}</h2>
-          {!compact ? <p>{failed ? t.fallback : t.description}</p> : null}
+          {!compact && failed ? <p>{t.fallback}</p> : null}
         </div>
         <a href={release?.html_url ?? REPO_RELEASES} target="_blank" rel="noreferrer">
           {t.open}
@@ -456,7 +496,7 @@ export function ReleaseDownloadPanel({
       {!release && !failed ? <p className="baas-download-state">{t.loading}</p> : null}
       {release && downloads.length === 0 ? <p className="baas-download-state">{t.empty}</p> : null}
 
-      {selectedItem ? (
+      {platformItems.length > 0 ? (
         <div className="baas-download-picker">
           <div className="baas-download-platform-card">
             <div className="baas-download-platform-logo">
@@ -468,8 +508,8 @@ export function ReleaseDownloadPanel({
                   ? `${t.detected} ${t.platforms[selectedPlatform]}`
                   : t.platforms[selectedPlatform]}
               </span>
-              <strong>{selectedItem.label}</strong>
-              <small>{formatSize(selectedItem.size)}</small>
+              <strong>{selectedItem?.label ?? t.chooseChip}</strong>
+              {selectedItem ? <small>{formatSize(selectedItem.size)}</small> : null}
             </div>
           </div>
 
@@ -486,7 +526,8 @@ export function ReleaseDownloadPanel({
           <DownloadDropdown
             className="baas-download-package-select"
             label={t.choosePackage}
-            value={selectedItem.name}
+            value={selectedItem?.name ?? ""}
+            placeholder={t.chooseChip}
             options={platformItems.map((item) => ({
               label: `${item.label} · ${formatSize(item.size)}`,
               value: item.name,
@@ -494,10 +535,10 @@ export function ReleaseDownloadPanel({
             onChange={setSelectedName}
           />
 
-          <a className="baas-download-primary" href={selectedItem.href}>
+          {selectedItem ? <a className="baas-download-primary" href={selectedItem.href}>
             <Download aria-hidden="true" />
             <span>{t.download}</span>
-          </a>
+          </a> : null}
         </div>
       ) : null}
     </section>

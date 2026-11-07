@@ -13,6 +13,7 @@ export function resolveDocLink(href, sourcePath, basePath = "") {
   }
   let pathname = target.pathname.replace(/\.mdx?$/, "").replace(/\/index$/, "/");
   if (!pathname.endsWith("/")) pathname += "/";
+  pathname = pathname.replace(/^\/docs\/(?:zh|en)(?=\/)/, "/docs");
   return `${basePath}${pathname}${target.search}${target.hash}`;
 }
 

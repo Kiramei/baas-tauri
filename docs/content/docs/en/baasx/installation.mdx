@@ -3,17 +3,34 @@ title: Installation and connection
 description: Install BAASX on Windows, Linux, or macOS, try demo mode, prepare a local runtime, connect a service, and update safely.
 ---
 
+import { PackageManagerInstall } from "@/components/PackageManagerInstall";
+
 ## Choose an installation method
 
 | Method                   | Requirements                                  | Best for                                           |
 | ------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| npm registry package     | Node.js 18+ or Deno                           | Installing the `baasx` command globally           |
 | Native `.tar.gz` release | Matching OS and architecture; no Bun or Rust  | Extracting and running directly                    |
 | Bun `-bun.tgz` release   | Bun 1.4.4+; no Rust                           | Existing Bun users                                 |
 | Source checkout          | Bun 1.4.4+, Rust 1.95+, and C/C++ build tools | Development builds or when no release is available |
 
-**Release status: no separate `baasx-v` release was available when checked on 2026-11-07.** Use the source instructions below for now. When releases become available, select `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a different product.
+## Install from npm
 
-The release workflow produces both formats with a matching runtime installer helper. It attaches the `@baas/baasx` `.tgz` to GitHub Releases and does not upload it to the npm registry.
+Install Node.js 18 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
+
+<PackageManagerInstall locale="en" />
+
+After a global installation, run `baasx --help` or `baasx --demo --lang en`. Ensure the chosen package manager's global executable directory is on PATH. If pnpm reports a missing global directory, run `pnpm setup` and reopen the terminal. Yarn 1 reports its executable directory with `yarn global bin`. Bun defaults to `~/.bun/bin`, which can be changed in its configuration.
+
+The Yarn global installation command in the tab applies to Yarn 1. Yarn 2 and newer can run BAASX temporarily with `yarn dlx --package @kiramei/baasx baasx --help`.
+
+cnpm uses an npm mirror by default. A new version may take time to appear there. If the package is unavailable, use the npm command above.
+
+Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
+
+The registry package includes native programs and installer helpers for Windows x64, Linux x64, and Apple Silicon Mac. It selects the current platform without requiring Rust.
+
+When a standalone release is published, download its archives from `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a separate release.
 
 ## Native release archives
 
@@ -71,7 +88,7 @@ baasx/                   # Your extraction directory
 Check that `bun --version` is 1.4.4 or newer, then install the matching local attachment:
 
 ```sh
-bun add --global ./baasx-<version>-Linux-X64-bun.tgz
+bun add -g ./baasx-<version>-Linux-X64-bun.tgz
 baasx --help
 baasx --demo
 ```

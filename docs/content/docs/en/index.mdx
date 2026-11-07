@@ -1,40 +1,61 @@
 ---
 title: BAAS Documentation
-description: Install BAAS, configure the current desktop or Android workspace, schedule tasks and understand the implementation.
+description: Install BAAS, configure your workspace, and run automation your way.
 ---
+
+import Link from "next/link";
 
 ## Get Started
 
-1. [Install the client and connect the backend](./guide/install).
-2. [Understand the workspace](./guide/interface) and select or create a [profile](./features/profile).
-3. Configure the [server](./features/server), [device](./features/emulator) and [script methods](./features/script).
-4. [Edit task behavior](./guide/configuration), then [enable and schedule tasks](./guide/scheduler).
-5. Start a small set of tasks and inspect [runtime state and logs](./features/home-runtime).
-
-For local Android automation, begin with [Android Client](./guide/android).
-
-For browser access, see [WebUI and Docker](./guide/webui). AP hoarding, auto push, equipment planning, and other tools are covered under [Plugins](./features/plugins).
+<div className="baas-home-start">
+  <Link prefetch={false} id="download" className="baas-home-primary" href="/docs/guide/install/">
+    <span className="baas-home-icon"><DocHomeIcon name="install" /></span>
+    <span className="baas-home-primary-copy">
+      <strong>Install and connect</strong>
+      <span>Install the desktop client, prepare the backend, and connect.</span>
+      <span className="baas-home-primary-action">Installation guide <span aria-hidden="true">→</span></span>
+    </span>
+  </Link>
+  <div className="baas-home-start-links">
+    <Link prefetch={false} href="/docs/guide/interface/"><DocHomeIcon name="interface" /><span>Explore the workspace</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/guide/configuration/"><DocHomeIcon name="settings" /><span>Edit configuration</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/guide/scheduler/"><DocHomeIcon name="scheduler" /><span>Schedule tasks</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/features/home-runtime/"><DocHomeIcon name="runtime" /><span>Check status and logs</span><span aria-hidden="true">→</span></Link>
+  </div>
+</div>
 
 ## Common Tasks
 
-| Task                                | Documentation                                                                          |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| Cafe, invitations and affection     | [Cafe](./features/cafe)                                                                |
-| Lessons, shops and crafting         | [Lessons](./features/lesson), [Shop](./features/shop), [Crafting](./features/crafting) |
-| AP plans and stage progression      | [Sweeps](./features/sweeps), [Stages](./features/stages), [Teams](./features/team)     |
-| Arena and combat events             | [Combat](./features/combat)                                                            |
-| Notifications and helper actions    | [Maintenance](./features/maintenance)                                                  |
-| Theme, language, shortcuts and logs | [System Settings](./features/system)                                                   |
-| Versions and upgrade                | [Updates](./features/update), [Release History](./reference/release-history)           |
-| A failure or unexpected result      | [Troubleshooting](./reference/troubleshooting)                                         |
-| Implementation and measurement      | [Development](./reference/development), [Benchmarks](./reference/performance)          |
+<div className="baas-home-topics">
+  <Link prefetch={false} href="/docs/guide/configuration/"><DocHomeIcon name="settings" /><span><strong>Configuration</strong><span>Find, edit, and save task settings.</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/features/plugins/"><DocHomeIcon name="automation" /><span><strong>Plugins</strong><span>Explore AP planning, stage progression, and equipment tools.</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/reference/development/"><DocHomeIcon name="development" /><span><strong>Developers</strong><span>Explore the client, backend APIs, and development workflow.</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/reference/troubleshooting/"><DocHomeIcon name="troubleshooting" /><span><strong>Troubleshooting</strong><span>Resolve installation, connection, and runtime issues.</span></span><span aria-hidden="true">→</span></Link>
+</div>
 
-## BAASX terminal
+<p className="baas-home-related">Browse tasks: <Link prefetch={false} href="/docs/features/cafe/">Cafe</Link><Link prefetch={false} href="/docs/features/lesson/">Lessons</Link><Link prefetch={false} href="/docs/features/shop/">Shop</Link><Link prefetch={false} href="/docs/features/crafting/">Crafting</Link><Link prefetch={false} href="/docs/features/sweeps/">Sweeps</Link><Link prefetch={false} href="/docs/features/stages/">Stages</Link><Link prefetch={false} href="/docs/features/team/">Teams</Link><Link prefetch={false} href="/docs/features/combat/">Combat</Link><Link prefetch={false} href="/docs/features/system/">System settings</Link><Link prefetch={false} href="/docs/reference/release-history/">Release history</Link></p>
 
-Use **[the BAASX manual](./baasx)** to manage profiles, configure tasks, run the scheduler, and write automation scripts from a terminal. Try the interactive offline terminal in your browser before installing it.
+## Other ways to run BAAS
 
-## Downloads
+<span id="baasx" />
 
-<div id="download" />
-
-<ReleaseDownloadPanel locale="en" />
+<div className="baas-home-platforms">
+  <Link prefetch={false} href="/docs/android/">
+    <span className="baas-home-icon"><DocHomeIcon name="emulator" /></span>
+    <strong>Android</strong>
+    <span>Run on a phone or emulator, with setup for background gameplay.</span>
+    <span className="baas-home-link">Android guide <span aria-hidden="true">→</span></span>
+  </Link>
+  <Link prefetch={false} href="/docs/docker/">
+    <span className="baas-home-icon"><DocHomeIcon name="backend" /></span>
+    <strong>Docker</strong>
+    <span>Deploy the WebUI and manage the service in your browser.</span>
+    <span className="baas-home-link">Deployment guide <span aria-hidden="true">→</span></span>
+  </Link>
+  <Link prefetch={false} href="/docs/baasx/">
+    <span className="baas-home-icon"><DocHomeIcon name="development" /></span>
+    <strong>BAASX</strong>
+    <span>Manage profiles, run tasks, and script from a terminal.</span>
+    <span className="baas-home-link">BAASX guide <span aria-hidden="true">→</span></span>
+  </Link>
+</div>

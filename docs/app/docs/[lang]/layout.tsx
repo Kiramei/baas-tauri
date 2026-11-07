@@ -1,43 +1,5 @@
 import type { ReactNode } from "react";
-import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import { source } from "@/lib/source";
-import { normalizeLocale, type Locale } from "@/lib/i18n";
-import { LanguageMenu } from "@/components/LanguageMenu";
-import { DocumentLanguage } from "@/components/DocumentLanguage";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-
-type LayoutProps = {
-  children: ReactNode;
-  params: Promise<{
-    lang: string;
-  }>;
-};
-
-/** Renders the layout component. */
-export default async function Layout({ children, params }: LayoutProps) {
-  const { lang } = await params;
-  const locale = normalizeLocale(lang);
-
-  return (
-    <DocsLayout
-      tree={source.getPageTree(locale)}
-      githubUrl="https://github.com/Kiramei/baas-tauri"
-      nav={{
-        title: (
-          <span className="baas-doc-nav-brand">
-            <img src={`${basePath}/baas-icon.webp`} alt="" />
-            <span>{locale === "zh" ? "BAAS 文档" : "BAAS Docs"}</span>
-          </span>
-        ),
-      }}
-      sidebar={{
-        defaultOpenLevel: 1,
-        footer: <LanguageMenu key="baas-sidebar-language-menu" locale={locale as Locale} />,
-      }}
-    >
-      <DocumentLanguage locale={locale} />
-      {children}
-    </DocsLayout>
-  );
+export default function Layout({ children }: { children: ReactNode }) {
+  return children;
 }

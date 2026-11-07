@@ -2,8 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
-import { localeFromPathname } from "@/lib/locale";
+import { useDocsLocale } from "@/components/DocsProvider";
 import { loadSearchIndexes, type SearchDocument } from "@/lib/search-index";
 import { SearchIndexChangedError, type SearchIndexReference } from "@/lib/search-contract";
 import { RotateCw } from "lucide-react";
@@ -29,7 +28,11 @@ type FlexSearchDialogProps = SharedProps & {
   footer?: ReactNode;
 };
 
-function createSearchClient(locale: string, retry: number, searchIndex: SearchIndexReference): SearchClient {
+function createSearchClient(
+  locale: string,
+  retry: number,
+  searchIndex: SearchIndexReference
+): SearchClient {
   return {
     deps: [searchIndex.url, searchIndex.revision, locale, retry],
     async search(query) {
@@ -81,9 +84,14 @@ function createSearchClient(locale: string, retry: number, searchIndex: SearchIn
   };
 }
 
-export function FlexSearchDialog({ searchIndex, links = [], delayMs, footer, ...props }: FlexSearchDialogProps) {
-  const pathname = usePathname();
-  const locale = localeFromPathname(pathname);
+export function FlexSearchDialog({
+  searchIndex,
+  links = [],
+  delayMs,
+  footer,
+  ...props
+}: FlexSearchDialogProps) {
+  const { locale } = useDocsLocale();
   const [retry, setRetry] = useState(0);
   const { search, setSearch, query } = useDocsSearch({
     client: createSearchClient(locale, retry, searchIndex),
@@ -92,9 +100,13 @@ export function FlexSearchDialog({ searchIndex, links = [], delayMs, footer, ...
   const failed = Boolean(query.error) && search.length > 0;
   const changed = query.error instanceof SearchIndexChangedError;
   const retryLabel = changed
-    ? (locale === "zh" ? "重新加载文档" : "Reload documentation")
-    : (locale === "zh" ? "重新搜索" : "Retry search");
-  const retrySearch = () => changed ? window.location.reload() : setRetry((value) => value + 1);
+    ? locale === "zh"
+      ? "重新加载文档"
+      : "Reload documentation"
+    : locale === "zh"
+      ? "重新搜索"
+      : "Retry search";
+  const retrySearch = () => (changed ? window.location.reload() : setRetry((value) => value + 1));
 
   const defaultItems = useMemo(() => {
     if (links.length === 0) return null;
@@ -135,8 +147,12 @@ export function FlexSearchDialog({ searchIndex, links = [], delayMs, footer, ...
           >
             <span>
               {changed
-                ? (locale === "zh" ? "此页的搜索索引已不可用。" : "The search index for this page is no longer available.")
-                : (locale === "zh" ? "搜索暂时不可用。" : "Search is temporarily unavailable.")}
+                ? locale === "zh"
+                  ? "此页的搜索索引已不可用。"
+                  : "The search index for this page is no longer available."
+                : locale === "zh"
+                  ? "搜索暂时不可用。"
+                  : "Search is temporarily unavailable."}
             </span>
             <button
               type="button"
