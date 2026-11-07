@@ -50,7 +50,8 @@ pub const CPP_REPO_SRC: Source = Source {
 pub const UV_SRC_HEAD: Source = Source {
     main: "https://github.com/Kiramei/baas-tauri/releases/download/uv-down/",
     proxy: &[
-        "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download/UVDownload",
+        "https://cnb.cool/kiramei/baas-tauri/-/releases/download/uv-down",
+        "https://gitcode.com/Kiramei/baas-tauri/releases/download/uv-down",
         "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
         "https://v6.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
         "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download/uv-down",
@@ -70,9 +71,13 @@ pub const CPYTHON_HEAD: Source = Source {
     ],
 };
 
-/// Project-hosted copy of uv's macOS Apple Silicon Python 3.9 archive.
-pub const CPYTHON_MACOS_ARM64_MIRROR: &str =
-    "https://github.com/Kiramei/baas-tauri/releases/download";
+/// Project-hosted copies of uv's macOS Apple Silicon Python 3.9 archive.
+pub const CPYTHON_GITCODE_MIRROR: &str = "https://gitcode.com/Kiramei/baas-tauri/releases/download";
+pub const CPYTHON_MACOS_ARM64_MIRRORS: &[&str] = &[
+    "https://github.com/Kiramei/baas-tauri/releases/download",
+    "https://cnb.cool/kiramei/baas-tauri/-/releases/download",
+    CPYTHON_GITCODE_MIRROR,
+];
 
 pub const PYPI_SOURCE_LIST: &[&str] = &[
     "https://mirrors.aliyun.com/pypi/simple",
