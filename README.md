@@ -6,8 +6,6 @@
 
   <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
 
-  <p>The <code>baasx-dev</code> branch includes <strong>baasx</strong>, the independent automation terminal for BAAS. Try <code>bun run baasx --demo</code> from source or <code>baasx --demo</code> after installation. See the <a href="baasx/README.md">baasx documentation</a> for profiles, task scheduling, typed settings, live logs, local runtime installation, standalone builds and command packs.</p>
-
   <p>
     <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
     <img alt="React 19.2" src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" />
@@ -168,7 +166,7 @@ bun run i18n:check
 
 BAASX is a standalone terminal interface for managing BAAS profiles, tasks, schedules, devices, and logs. It connects directly to the BAAS backend without starting the desktop client.
 
-The installed command is `baasx`, available from npm as `@kiramei/baasx`, with source in `baasx/`. Use the `baasx` development scripts:
+The installed command is `baasx`, available from npm as `@kiramei/baasx`, with source in `baasx/`. Run `baasx --demo` after installation, or use the development scripts:
 
 ```bash
 bun run baasx --demo
