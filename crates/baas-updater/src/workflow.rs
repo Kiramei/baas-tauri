@@ -11,7 +11,8 @@ use crate::{
         requirements_compile_cached, requirements_path, save_requirements_cache,
         uses_managed_runtime, uv_compile_command_with_index, uv_executable,
         uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
-        validate_backend_shm_support, with_environment_source_failover,
+        validate_backend_shm_support, with_cpython_install_mirror,
+        with_environment_source_failover,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp},
     repo::{
@@ -1748,10 +1749,18 @@ fn terminal_cpython_rank_task(
         &HttpSourceProbe,
         &output,
         |url| {
-            args.process.run(
-                &uv_python_install_command_with_mirror(&args.config, url),
+            with_cpython_install_mirror(
+                url,
+                &ReqwestDownloader,
                 &output,
-                &cancelled,
+                &|| cancelled.load(Ordering::Relaxed),
+                |mirror| {
+                    args.process.run(
+                        &uv_python_install_command_with_mirror(&args.config, mirror),
+                        &output,
+                        &cancelled,
+                    )
+                },
             )
         },
     )

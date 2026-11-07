@@ -3,7 +3,10 @@
 use crate::{
     OutputSink, OutputStyle, UpdaterError, UpdaterResult,
     config::UpdaterConfig,
-    constants::{CPYTHON_HEAD, CPYTHON_MACOS_ARM64_MIRROR, PYPI_SOURCE_LIST, UV_SRC_HEAD},
+    constants::{
+        CPYTHON_GITCODE_MIRROR, CPYTHON_HEAD, CPYTHON_MACOS_ARM64_MIRRORS, PYPI_SOURCE_LIST,
+        UV_SRC_HEAD,
+    },
     repo::{
         SourceProbe, SourceRanking, SourceSelector, benchmark_source_probes_with_output,
         benchmark_sources_with_output, save_ranking,
@@ -114,6 +117,29 @@ pub trait ProcessRunner {
 pub trait AssetDownloader {
     /// Downloads bytes from a URL.
     fn download<O: OutputSink + ?Sized>(&self, url: &str, output: &O) -> UpdaterResult<Vec<u8>>;
+
+    /// Downloads an asset while respecting cancellation when supported.
+    fn download_with_cancellation<O: OutputSink + ?Sized>(
+        &self,
+        url: &str,
+        output: &O,
+        cancelled: &dyn Fn() -> bool,
+        max_bytes: usize,
+    ) -> UpdaterResult<Vec<u8>> {
+        if cancelled() {
+            return Err(UpdaterError::Cancelled);
+        }
+        let bytes = self.download(url, output)?;
+        if cancelled() {
+            return Err(UpdaterError::Cancelled);
+        }
+        if bytes.len() > max_bytes {
+            return Err(UpdaterError::Network(
+                "download exceeds size limit".to_string(),
+            ));
+        }
+        Ok(bytes)
+    }
 }
 
 /// Real process runner using `std::process::Command`.
@@ -228,6 +254,98 @@ impl AssetDownloader for ReqwestDownloader {
             response
                 .read_to_end(&mut bytes)
                 .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        }
+        Ok(bytes)
+    }
+
+    fn download_with_cancellation<O: OutputSink + ?Sized>(
+        &self,
+        url: &str,
+        output: &O,
+        cancelled: &dyn Fn() -> bool,
+        max_bytes: usize,
+    ) -> UpdaterResult<Vec<u8>> {
+        if cancelled() {
+            return Err(UpdaterError::Cancelled);
+        }
+        output.line(OutputStyle::Info, &format!("Downloading {url}"));
+        let client = reqwest::blocking::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            // Blocking reqwest applies this timeout separately to each read,
+            // so a slow but progressing download is not cut off as a whole.
+            .timeout(Duration::from_secs(30))
+            .build()
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        let mut response = client
+            .get(url)
+            .send()
+            .and_then(reqwest::blocking::Response::error_for_status)
+            .map_err(|error| UpdaterError::Network(error.to_string()))?;
+        if response
+            .content_length()
+            .is_some_and(|length| length > max_bytes as u64)
+        {
+            return Err(UpdaterError::Network(
+                "download exceeds size limit".to_string(),
+            ));
+        }
+        let total = response.content_length().unwrap_or(0).max(1);
+        let started = Instant::now();
+        let mut bytes = Vec::new();
+        if let Some(term) = output.thread_output() {
+            let label = download_label(url);
+            term.with_progress_bar(label, total, 30, "download complete", |progress| {
+                let mut buffer = [0_u8; 64 * 1024];
+                loop {
+                    if cancelled() {
+                        return Err("download cancelled".to_string());
+                    }
+                    let read = response
+                        .read(&mut buffer)
+                        .map_err(|error| error.to_string())?;
+                    if read == 0 {
+                        break;
+                    }
+                    if bytes.len().saturating_add(read) > max_bytes {
+                        return Err("download exceeds size limit".to_string());
+                    }
+                    bytes.extend_from_slice(&buffer[..read]);
+                    progress.set(
+                        bytes.len() as u64,
+                        download_detail(bytes.len() as u64, total, started),
+                    );
+                }
+                Ok(())
+            })
+            .map_err(|error| {
+                if cancelled() {
+                    UpdaterError::Cancelled
+                } else {
+                    UpdaterError::Network(error)
+                }
+            })?;
+        } else {
+            let mut buffer = [0_u8; 64 * 1024];
+            loop {
+                if cancelled() {
+                    return Err(UpdaterError::Cancelled);
+                }
+                let read = response
+                    .read(&mut buffer)
+                    .map_err(|error| UpdaterError::Network(error.to_string()))?;
+                if read == 0 {
+                    break;
+                }
+                if bytes.len().saturating_add(read) > max_bytes {
+                    return Err(UpdaterError::Network(
+                        "download exceeds size limit".to_string(),
+                    ));
+                }
+                bytes.extend_from_slice(&buffer[..read]);
+            }
+        }
+        if cancelled() {
+            return Err(UpdaterError::Cancelled);
         }
         Ok(bytes)
     }
@@ -391,8 +509,18 @@ impl<R: ProcessRunner, D: AssetDownloader> EnvironmentManager<R, D> {
                 &HttpSourceProbe,
                 output,
                 |url| {
-                    self.runner
-                        .run(&uv_python_install_command_with_mirror(config, url), output)
+                    with_cpython_install_mirror(
+                        url,
+                        &self.downloader,
+                        output,
+                        &|| false,
+                        |mirror| {
+                            self.runner.run(
+                                &uv_python_install_command_with_mirror(config, mirror),
+                                output,
+                            )
+                        },
+                    )
                 },
             )?;
             self.runner.run(&uv_venv_command(config), output)?;
@@ -1169,11 +1297,99 @@ pub fn environment_source_urls(
 /// The project mirror currently contains only the Apple Silicon Python 3.9 archive.
 fn cpython_sources_for_platform(version: &str, os: &str, arch: &str) -> Vec<String> {
     let mut urls = vec![CPYTHON_HEAD.main.to_string()];
-    if os == "macos" && arch == "aarch64" && matches!(version, "3.9" | "3.9.0") {
-        urls.push(CPYTHON_MACOS_ARM64_MIRROR.to_string());
+    if os == "macos" && arch == "aarch64" && matches!(version, "3.9" | "3.9.0" | "3.9.25") {
+        urls.extend(
+            CPYTHON_MACOS_ARM64_MIRRORS
+                .iter()
+                .map(|source| source.to_string()),
+        );
     }
     urls.extend(CPYTHON_HEAD.proxy.iter().map(|source| source.to_string()));
     urls
+}
+
+const GITCODE_PYTHON_RELEASE: &str = "20251031";
+const GITCODE_PYTHON_ARCHIVE: &str =
+    "cpython-3.9.25+20251031-aarch64-apple-darwin-install_only_stripped.tar.gz";
+const GITCODE_PYTHON_SHA256: &str =
+    "1dca0e37d56b7da3ec6a7d2f75cc72a2df3bd05751606300934b2dc6fd7026ea";
+const GITCODE_PYTHON_SIZE: usize = 18_428_350;
+
+/// GitCode rejects uv's User-Agent. Stage its verified archive locally for uv.
+pub(crate) fn with_cpython_install_mirror<D, O, F, T>(
+    mirror: &str,
+    downloader: &D,
+    output: &O,
+    cancelled: &dyn Fn() -> bool,
+    operation: F,
+) -> UpdaterResult<T>
+where
+    D: AssetDownloader,
+    O: OutputSink + ?Sized,
+    F: FnOnce(&str) -> UpdaterResult<T>,
+{
+    if cancelled() {
+        return Err(UpdaterError::Cancelled);
+    }
+    if mirror != CPYTHON_GITCODE_MIRROR {
+        return operation(mirror);
+    }
+    with_verified_cpython_archive(
+        mirror,
+        downloader,
+        output,
+        cancelled,
+        GITCODE_PYTHON_SHA256,
+        operation,
+    )
+}
+
+fn with_verified_cpython_archive<D, O, F, T>(
+    mirror: &str,
+    downloader: &D,
+    output: &O,
+    cancelled: &dyn Fn() -> bool,
+    expected_sha256: &str,
+    operation: F,
+) -> UpdaterResult<T>
+where
+    D: AssetDownloader,
+    O: OutputSink + ?Sized,
+    F: FnOnce(&str) -> UpdaterResult<T>,
+{
+    let archive_url = format!(
+        "{}/{}/{}",
+        mirror.trim_end_matches('/'),
+        GITCODE_PYTHON_RELEASE,
+        GITCODE_PYTHON_ARCHIVE.replace('+', "%2B")
+    );
+    let bytes = downloader.download_with_cancellation(
+        &archive_url,
+        output,
+        cancelled,
+        GITCODE_PYTHON_SIZE,
+    )?;
+    let digest = Sha256::digest(&bytes);
+    let actual_sha256: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    if actual_sha256 != expected_sha256 {
+        return Err(UpdaterError::Environment(
+            "GitCode Python archive SHA-256 does not match the expected value".to_string(),
+        ));
+    }
+    if cancelled() {
+        return Err(UpdaterError::Cancelled);
+    }
+    let temp = tempfile::tempdir()?;
+    let release_dir = temp.path().join(GITCODE_PYTHON_RELEASE);
+    fs::create_dir(&release_dir)?;
+    fs::write(release_dir.join(GITCODE_PYTHON_ARCHIVE), &bytes)?;
+    if cancelled() {
+        return Err(UpdaterError::Cancelled);
+    }
+    let url = reqwest::Url::from_directory_path(temp.path()).map_err(|()| {
+        UpdaterError::Environment("cannot convert Python staging directory to file URL".to_string())
+    })?;
+    operation(url.as_str().trim_end_matches('/'))
 }
 
 /// Handles the first active source workflow.
@@ -1611,8 +1827,97 @@ mod tests {
         let uv_urls = environment_source_urls(EnvironmentSourceKind::Uv, &config).unwrap();
         let pypi_urls = environment_source_urls(EnvironmentSourceKind::Pypi, &config).unwrap();
 
-        assert!(uv_urls.iter().all(|url| url.contains("uv-")));
+        let archive = uv_archive_name_for(std::env::consts::OS, std::env::consts::ARCH).unwrap();
+        assert!(
+            uv_urls
+                .iter()
+                .all(|url| url.ends_with(&format!("/{archive}")))
+        );
+        for mirror in [
+            "https://cnb.cool/kiramei/baas-tauri/-/releases/download/uv-down/",
+            "https://gitcode.com/Kiramei/baas-tauri/releases/download/uv-down/",
+        ] {
+            assert!(uv_urls.contains(&format!("{mirror}{archive}")), "{mirror}");
+        }
+        assert!(uv_urls.iter().all(|url| !url.contains("gitee.com")));
         assert_eq!(pypi_urls, ["https://fast.example/simple"]);
+    }
+
+    #[test]
+    fn uv_replaces_gitee_cache_and_falls_back_between_new_mirrors() {
+        let root = tempfile::tempdir().unwrap();
+        let config = config(root.path());
+        let ranking_dir = root.path().join("ranking");
+        let ranking_path = ranking_dir.join("uv.json");
+        let archive = uv_archive_name_for(std::env::consts::OS, std::env::consts::ARCH).unwrap();
+        let old_url = format!(
+            "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download/UVDownload/{archive}"
+        );
+        let mut stale = SourceRanking::from_urls(std::slice::from_ref(&old_url));
+        stale.promote_success(&old_url);
+        save_ranking(&ranking_path, &stale).unwrap();
+
+        let sources = environment_source_urls(EnvironmentSourceKind::Uv, &config).unwrap();
+        let cnb = sources
+            .iter()
+            .find(|url| url.starts_with("https://cnb.cool/"))
+            .unwrap()
+            .clone();
+        let gitcode = sources
+            .iter()
+            .find(|url| url.starts_with("https://gitcode.com/"))
+            .unwrap()
+            .clone();
+
+        // A cached Gitee winner is discarded when the configured source set changes.
+        let (selected, ()) = with_environment_source_failover(
+            EnvironmentSourceKind::Uv,
+            &config,
+            Some(&ranking_dir),
+            &Probe {
+                ok: vec![cnb.clone()],
+            },
+            &crate::NoopOutput,
+            |url| {
+                assert_eq!(url, cnb);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(selected, cnb);
+
+        // A previously successful CNB source can fail at download time; retry GitCode.
+        let mut attempted = Vec::new();
+        let (selected, ()) = with_environment_source_failover(
+            EnvironmentSourceKind::Uv,
+            &config,
+            Some(&ranking_dir),
+            &Probe {
+                ok: vec![gitcode.clone()],
+            },
+            &crate::NoopOutput,
+            |url| {
+                attempted.push(url.to_string());
+                if url == cnb {
+                    Err(UpdaterError::Network("download failed".to_string()))
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap();
+        assert_eq!(attempted, vec![cnb, gitcode.clone()]);
+        assert_eq!(selected, gitcode);
+        let stored = load_environment_ranking(Some(&ranking_path), &sources)
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.preferred_url.as_deref(), Some(selected.as_str()));
+        assert!(
+            stored
+                .sources
+                .iter()
+                .all(|source| !source.url.contains("gitee.com"))
+        );
     }
 
     /// The mirror URL must be the upstream used by uv's standalone Python catalog.
@@ -1623,17 +1928,13 @@ mod tests {
         let sources = environment_source_urls(EnvironmentSourceKind::Cpython, &config).unwrap();
         let upstream = "https://github.com/astral-sh/python-build-standalone/releases/download";
         assert_eq!(sources.first().map(String::as_str), Some(upstream));
-        assert!(
-            sources.iter().all(|source| {
-                source.ends_with(upstream) || source == CPYTHON_MACOS_ARM64_MIRROR
-            })
-        );
+        assert!(sources.iter().all(|source| {
+            source.ends_with(upstream) || CPYTHON_MACOS_ARM64_MIRRORS.contains(&source.as_str())
+        }));
         let probes = environment_source_probe_urls(EnvironmentSourceKind::Cpython, &sources);
         assert!(probes.iter().all(|(source, probe)| {
             source.ends_with("/releases/download")
-                && (probe.ends_with("/astral-sh/python-build-standalone/releases")
-                    || (source == CPYTHON_MACOS_ARM64_MIRROR
-                        && probe.ends_with("/Kiramei/baas-tauri/releases")))
+                && source.strip_suffix("/download") == Some(probe.as_str())
         }));
         let command = uv_python_install_command(&config);
         assert_eq!(
@@ -1650,22 +1951,32 @@ mod tests {
     fn project_cpython_mirror_is_only_offered_for_default_apple_silicon_python() {
         let apple_default = cpython_sources_for_platform("3.9.0", "macos", "aarch64");
         let apple_family = cpython_sources_for_platform("3.9", "macos", "aarch64");
-        assert!(
-            apple_default
-                .iter()
-                .any(|url| url == CPYTHON_MACOS_ARM64_MIRROR)
-        );
+        for mirror in [
+            "https://github.com/Kiramei/baas-tauri/releases/download",
+            "https://cnb.cool/kiramei/baas-tauri/-/releases/download",
+            "https://gitcode.com/Kiramei/baas-tauri/releases/download",
+        ] {
+            assert!(apple_default.iter().any(|url| url == mirror), "{mirror}");
+        }
+        assert!(apple_default.iter().all(|url| !url.contains("gitee.com")));
         assert_eq!(apple_default, apple_family);
+        assert_eq!(
+            apple_default,
+            cpython_sources_for_platform("3.9.25", "macos", "aarch64")
+        );
         for (version, os, arch) in [
             ("3.9.0", "macos", "x86_64"),
             ("3.9.0", "windows", "x86_64"),
             ("3.9.0", "linux", "x86_64"),
             ("3.9.0", "linux", "aarch64"),
             ("3.11.0", "macos", "aarch64"),
-            ("3.9.25", "macos", "aarch64"),
         ] {
             let sources = cpython_sources_for_platform(version, os, arch);
-            assert!(!sources.iter().any(|url| url == CPYTHON_MACOS_ARM64_MIRROR));
+            assert!(
+                !sources
+                    .iter()
+                    .any(|url| CPYTHON_MACOS_ARM64_MIRRORS.contains(&url.as_str()))
+            );
             assert_eq!(sources[0], CPYTHON_HEAD.main);
             assert_eq!(sources.len(), 1 + CPYTHON_HEAD.proxy.len());
         }
@@ -1680,13 +1991,13 @@ mod tests {
             .next_source(
                 &probes,
                 &Probe {
-                    ok: vec![cpython_probe_url(CPYTHON_MACOS_ARM64_MIRROR)],
+                    ok: vec![cpython_probe_url(CPYTHON_MACOS_ARM64_MIRRORS[0])],
                 },
                 &crate::NoopOutput,
                 "cpython",
             )
             .unwrap();
-        assert_eq!(project, CPYTHON_MACOS_ARM64_MIRROR);
+        assert_eq!(project, CPYTHON_MACOS_ARM64_MIRRORS[0]);
         selector.mark_failed(&project).unwrap();
 
         let official = selector
@@ -1701,6 +2012,177 @@ mod tests {
             .unwrap();
         assert_eq!(official, CPYTHON_HEAD.main);
         selector.mark_succeeded(&official).unwrap();
+    }
+
+    #[test]
+    fn apple_silicon_python_can_fail_over_between_project_mirrors() {
+        let sources = cpython_sources_for_platform("3.9.0", "macos", "aarch64");
+        let probes = environment_source_probe_urls(EnvironmentSourceKind::Cpython, &sources);
+        let cnb = "https://cnb.cool/kiramei/baas-tauri/-/releases/download";
+        let gitcode = "https://gitcode.com/Kiramei/baas-tauri/releases/download";
+        let mut selector = SourceSelector::load(None, &sources).unwrap();
+        let selected = selector
+            .next_source(
+                &probes,
+                &Probe {
+                    ok: vec![cpython_probe_url(cnb)],
+                },
+                &crate::NoopOutput,
+                "cpython",
+            )
+            .unwrap();
+        assert_eq!(selected, cnb);
+        selector.mark_failed(&selected).unwrap();
+        let fallback = selector
+            .next_source(
+                &probes,
+                &Probe {
+                    ok: vec![cpython_probe_url(gitcode)],
+                },
+                &crate::NoopOutput,
+                "cpython",
+            )
+            .unwrap();
+        assert_eq!(fallback, gitcode);
+    }
+
+    #[test]
+    fn gitcode_python_archive_is_verified_staged_and_removed_after_install() {
+        struct FixtureDownloader;
+        impl AssetDownloader for FixtureDownloader {
+            fn download<O: OutputSink + ?Sized>(
+                &self,
+                url: &str,
+                _output: &O,
+            ) -> UpdaterResult<Vec<u8>> {
+                assert_eq!(
+                    url,
+                    "https://gitcode.com/Kiramei/baas-tauri/releases/download/20251031/cpython-3.9.25%2B20251031-aarch64-apple-darwin-install_only_stripped.tar.gz"
+                );
+                Ok(b"test archive".to_vec())
+            }
+        }
+        let expected: String = Sha256::digest(b"test archive")
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let staged_dir = with_verified_cpython_archive(
+            CPYTHON_GITCODE_MIRROR,
+            &FixtureDownloader,
+            &crate::NoopOutput,
+            &|| false,
+            &expected,
+            |mirror| {
+                let staged = reqwest::Url::parse(mirror).unwrap().to_file_path().unwrap();
+                assert_eq!(
+                    fs::read(
+                        staged
+                            .join(GITCODE_PYTHON_RELEASE)
+                            .join(GITCODE_PYTHON_ARCHIVE)
+                    )
+                    .unwrap(),
+                    b"test archive"
+                );
+                Ok(staged)
+            },
+        )
+        .unwrap();
+        assert!(!staged_dir.exists());
+
+        let mut staged_on_error = None;
+        let error = with_verified_cpython_archive(
+            CPYTHON_GITCODE_MIRROR,
+            &FixtureDownloader,
+            &crate::NoopOutput,
+            &|| false,
+            &expected,
+            |mirror| {
+                staged_on_error =
+                    Some(reqwest::Url::parse(mirror).unwrap().to_file_path().unwrap());
+                Err::<(), _>(UpdaterError::Environment("uv failed".to_string()))
+            },
+        )
+        .unwrap_err();
+        assert!(error.message().contains("uv failed"));
+        assert!(!staged_on_error.unwrap().exists());
+    }
+
+    #[test]
+    fn gitcode_python_archive_rejects_corruption_and_cancellation_before_install() {
+        struct FixtureDownloader;
+        impl AssetDownloader for FixtureDownloader {
+            fn download<O: OutputSink + ?Sized>(
+                &self,
+                _url: &str,
+                _output: &O,
+            ) -> UpdaterResult<Vec<u8>> {
+                Ok(b"not the official archive".to_vec())
+            }
+        }
+        let mut ran_install = false;
+        let error = with_cpython_install_mirror(
+            CPYTHON_GITCODE_MIRROR,
+            &FixtureDownloader,
+            &crate::NoopOutput,
+            &|| false,
+            |_| {
+                ran_install = true;
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.message().contains("SHA-256"));
+        assert!(!ran_install);
+
+        let error = with_cpython_install_mirror(
+            CPYTHON_GITCODE_MIRROR,
+            &EmptyDownloader,
+            &crate::NoopOutput,
+            &|| true,
+            |_| {
+                ran_install = true;
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(error, UpdaterError::Cancelled));
+        assert!(!ran_install);
+
+        struct CancellingDownloader<'a>(&'a std::sync::atomic::AtomicBool);
+        impl AssetDownloader for CancellingDownloader<'_> {
+            fn download<O: OutputSink + ?Sized>(
+                &self,
+                _url: &str,
+                _output: &O,
+            ) -> UpdaterResult<Vec<u8>> {
+                self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+                Ok(b"interrupted".to_vec())
+            }
+        }
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let error = with_cpython_install_mirror(
+            CPYTHON_GITCODE_MIRROR,
+            &CancellingDownloader(&cancelled),
+            &crate::NoopOutput,
+            &|| cancelled.load(std::sync::atomic::Ordering::Relaxed),
+            |_| {
+                ran_install = true;
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(error, UpdaterError::Cancelled));
+        assert!(!ran_install);
+
+        let passed_through = with_cpython_install_mirror(
+            CPYTHON_HEAD.main,
+            &EmptyDownloader,
+            &crate::NoopOutput,
+            &|| false,
+            |mirror| Ok(mirror.to_string()),
+        )
+        .unwrap();
+        assert_eq!(passed_through, CPYTHON_HEAD.main);
     }
 
     #[test]
