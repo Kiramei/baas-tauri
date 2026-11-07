@@ -18,7 +18,7 @@ const testedSources = Object.fromEntries([
 ].map((file) => [file, sha(file)]));
 const cache = path.join(root, ".cache/docs-recognition-layout");
 mkdirSync(cache, { recursive: true });
-const browser = await chromium.launch({ channel: "msedge", headless: true });
+const browser = await chromium.launch({ channel: process.env.DOCS_BROWSER_CHANNEL || "msedge", headless: true });
 const results = [];
 const errors = [];
 let stepChecks = 0;

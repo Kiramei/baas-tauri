@@ -1,0 +1,4 @@
+{
+  "title": "BAASX 终端",
+  "pages": ["index", "installation", "workbench", "configuration", "scheduler", "command-packs", "cli", "troubleshooting"]
+}

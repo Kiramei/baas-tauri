@@ -10,6 +10,7 @@ pub mod constants;
 /// PTY-backed process task support.
 pub mod processor;
 /// Terminal dashboard rendering support.
+#[cfg(feature = "desktop")]
 pub mod renderer;
 /// In-process task and terminal-output helpers.
 pub mod threader;

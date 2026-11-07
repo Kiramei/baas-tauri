@@ -1,0 +1,187 @@
+---
+title: Tasks, Scheduling and Logs
+description: Choose single runs, one-off progression or daily automation, edit timing and task dependencies, and verify results with status, logs and CLI waiting commands.
+---
+
+BAASX separates task configuration, daily scheduling and runtime control. First choose how a task should behave in [Configuration](./configuration), then decide whether to run one task or start the selected profile's daily scheduler.
+
+<BaasxTerminalDemo locale="en" scenario="scheduler" />
+
+The terminal illustration explains selection, scheduling and log controls. Actual tasks, queues and outcomes come from the connected backend.
+
+## Choose the Right Run Command
+
+| Workspace command | Purpose                                                   | Confirmation and scope                                                            |
+| ----------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `/tasks`          | Open the daily task list                                  | Selecting an entry submits that task alone, after confirmation                    |
+| `/oneoff`         | Open progression, story and activity actions              | Runs the selected action once without adding it to daily scheduling               |
+| `/run <task-id>`  | Submit one task by its backend ID                         | Confirms by default; `/run` without an ID opens the task list                     |
+| `/start`          | Start the profile's existing daily scheduler              | Starts directly without another confirmation; scheduling rules determine its work |
+| `/stop`           | Request that the profile's current task or scheduler stop | Confirms by default; check status and logs for completion                         |
+| `/scheduler`      | Edit the profile's daily scheduling rules                 | Saving a rule does not itself send Start                                          |
+
+`/start` is already an explicit start action. It requires neither another Yes nor `--yes`. Single-task runs, stopping and mutating command-pack steps retain their respective confirmation flows.
+
+## Run One Task
+
+1. Select a profile with `/profiles` and verify its name in the overview.
+2. Check the task's settings in `/config`, including the device, preferences, purchases or counts it uses.
+3. Open `/tasks` and select an existing task, or enter `/run` followed by its actual ID.
+4. Check the profile and task in the confirmation. Enter submits; `n` or Esc cancels.
+5. Follow status and logs until the backend reports the outcome. Acceptance and completion are separate states.
+
+For example, when `mail` is present in the current task list:
+
+```text
+/run mail
+```
+
+Filter task lists by display name or ID. Changing the UI language changes names while keeping backend IDs intact. Unknown arbitrary names are rejected, and an existing run prevents a duplicate new run for the same profile.
+
+## One-Off Progression, Stories and Activities
+
+Choose the One-off tasks tab at the top of `/tasks`, or enter `/oneoff`. These actions correspond to the desktop stage configuration page's individual execution controls:
+
+| Action                   | Direct command                          |
+| ------------------------ | --------------------------------------- |
+| Normal-stage progression | `/run start_normal_task`                |
+| Hard-stage progression   | `/run start_hard_task`                  |
+| Main story               | `/run start_main_story`                 |
+| Group story              | `/run start_group_story`                |
+| Mini story               | `/run start_mini_story`                 |
+| Activity story           | `/run start_explore_activity_story`     |
+| Activity missions        | `/run start_explore_activity_mission`   |
+| Activity challenges      | `/run start_explore_activity_challenge` |
+
+Check progression plans, formations and activity settings before running. An available entry means BAASX can submit that backend action; stage unlocks, the current activity and device state still depend on the game and backend.
+
+These actions do not automatically become `/start` daily tasks. Selecting one does not add it to a future schedule. Esc leaves the one-off list and returns to daily tasks.
+
+## Start and Stop Daily Automation
+
+Check the rules before starting:
+
+```text
+/scheduler
+/start
+/logs
+```
+
+Enter these workspace commands separately. Inspect and edit `/scheduler` first, then use `/start`. The backend uses enabled states, next-run times, priorities, intervals, daily resets and task relationships to determine execution.
+
+To request a stop:
+
+```text
+/stop
+```
+
+Changing enabled state, time or priority does not directly interrupt a currently executing task. If the current run needs to stop before you change its plan, submit `/stop`, wait for backend status to update, then edit.
+
+The overview shows the current task, waiting queue, enabled count and next schedule. A next-run time is part of eligibility; the current task, queue and task conditions can affect the actual start time. It is not an exact wall-clock execution guarantee.
+
+## Edit Scheduling Fields
+
+Open `/scheduler`, select a task, then select a field. Numbers and single values usually save with Enter; time rows and task lists use Ctrl+S. Editing a cell returns to that field's draft before the complete field is submitted. Changes normally show a confirmation.
+
+| Field                                | Meaning                                   | Input and constraints                                                                               |
+| ------------------------------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Enabled `enabled`                    | Participation in daily scheduling         | Switch                                                                                              |
+| Next run `next_tick`                 | Next eligible execution time              | Local date/time, an ISO date with timezone, Unix seconds, or `now`; `0` marks immediate eligibility |
+| Priority `priority`                  | Scheduling order parameter                | Integer; lower values have higher priority                                                          |
+| Interval `interval`                  | Execution interval                        | Nonnegative seconds; `0` uses daily reset times                                                     |
+| Daily reset `daily_reset`            | Reset times within a day                  | Rows containing hour, minute and second                                                             |
+| Disabled range `disabled_time_range` | Time periods when execution is suppressed | Start and end per row; end must not precede start                                                   |
+| Pre-task `pre_task`                  | Ordered prerequisite tasks                | Select and order other existing tasks                                                               |
+| Post-task `post_task`                | Ordered follow-up tasks                   | Select and order other existing tasks                                                               |
+
+### Time Input
+
+Next run accepts these forms:
+
+| Example                     | Meaning                                                  |
+| --------------------------- | -------------------------------------------------------- |
+| `now`                       | Save the current Unix timestamp in seconds               |
+| `0`                         | Save the immediately eligible marker                     |
+| `2027-01-15 05:30:00`       | Parse in the local timezone of the machine running BAASX |
+| `2027-01-15T05:30:00+08:00` | Use an explicit timezone offset                          |
+| `1800000000`                | Example Unix seconds value; do not use milliseconds      |
+
+These dates illustrate input formats, not recommended schedules. Saved times are displayed as local date/time.
+
+Daily resets use structured time rows. Hours must be `0–23`; minutes and seconds must be `0–59`. For example, two rows containing `05:00:00` and `17:00:00` specify two reset times. `+` adds a row, Backspace/Delete removes the selected row, and Ctrl+S saves the field.
+
+Split a disabled period crossing midnight into two rows. To suppress execution from `23:30` to `06:00` the next day:
+
+| Row | Start      | End        |
+| --- | ---------- | ---------- |
+| 1   | `23:30:00` | `23:59:59` |
+| 2   | `00:00:00` | `06:00:00` |
+
+The backend scheduler ultimately evaluates daily rules. With a remote backend, also verify the service environment's time settings.
+
+### Pre-Tasks and Post-Tasks
+
+Task relationships use the ordered selector. ↑/↓ selects an entry, ←/→ moves it, Space adds/removes it and Ctrl+S saves. A task cannot reference itself, a list cannot repeat the same task, and unknown task IDs are rejected.
+
+These fields save backend relationships. Displayed names are labels; saved references are function IDs. BAASX uses field and list editors for scheduling rather than the desktop's graphical workflow canvas.
+
+## Bulk Actions and New-Task Defaults
+
+The top of the scheduler list offers profile-wide operations:
+
+| Operation             | Effect                                                                       |
+| --------------------- | ---------------------------------------------------------------------------- |
+| Enable/disable all    | Enable all when any task is disabled; disable all when every task is enabled |
+| Reset execution times | Set every task's next-run time to now                                        |
+| New-task default      | `on` enables, `off` disables, `default` uses the backend default             |
+
+Bulk actions affect the complete profile task list, including entries hidden by search. Resetting execution times changes eligibility; it does not clear logs or start the scheduler.
+
+Scheduling saves submit only changed fields and check their baseline values from the loaded schedule. Concurrent changes cause the overwrite to be rejected. Cancellation or save failure retains the draft. To adopt another client's current values, leave the editor, reopen `/scheduler` and edit the newly loaded state.
+
+## Live Logs and Status
+
+Starting a task opens logs automatically. At widths of at least 110 columns, logs can share the workspace in a right-hand pane. Drag the vertical divider to resize it; terminal resizing preserves the ratio. Narrow terminals use a separate log page.
+
+- `/logs` or Ctrl+L opens live logs.
+- Use the wheel or PageUp/PageDown for history. Scrolling up pauses following; returning to the bottom resumes it.
+- `/logs 50` reads the latest 50 entries and displays the result.
+- `/status` reads runtime status. Use the current task, run ID and exit code together to assess the outcome.
+- `/reload` or Ctrl+R reloads the workspace UI. Backend execution continues, while unsaved edits are cleared.
+
+In-memory log retention is bounded. For continuous collection, use the CLI commands below and route output to your logging tools.
+
+## Wait for Results from a System Terminal
+
+The following commands run in a system terminal, **without a leading `/`**. `wait`, `watch` and `--follow` belong to the noninteractive CLI; the workspace does not provide `/wait` or `/watch` commands.
+
+Configure authentication for your existing service and replace `my-profile` with a real profile. These examples explicitly connect to an external service:
+
+```bash
+# Run once, wait for completion, and follow related logs
+baasx --server ws://127.0.0.1:8190 --profile my-profile \
+  --yes --wait --follow run start_normal_task
+
+# Replace RUN_ID with the run_id returned by an earlier submission
+baasx --server ws://127.0.0.1:8190 --profile my-profile \
+  --wait-timeout 120 wait RUN_ID
+
+# Watch status continuously, or follow logs starting with the latest 50 entries
+baasx --server ws://127.0.0.1:8190 --profile my-profile watch
+baasx --server ws://127.0.0.1:8190 --profile my-profile --follow logs 50
+```
+
+For an external service, `run` / `start` normally return acceptance and an available `run_id`. `completed: false` means completion has not yet been reported. `--wait` waits for that same run ID to finish; `--follow` also displays related logs and waits for the run. Success requires terminal status and the exit code; uncertain completion is not reported as success.
+
+`--wait-timeout` is measured in seconds and accepts `1–86400`. The default external-service wait limit is 300 seconds; timeout exits with code `124`. `--json` produces machine-readable results, with continuous monitoring emitted as individual JSON events.
+
+### Canceling a Wait and Backend Ownership
+
+| Connection                                     | Effect of exiting the CLI or canceling a wait                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Existing service through `--server` / `--pipe` | The CLI exits or stops monitoring; submitted external-service tasks continue. Send `stop` explicitly to stop them.                           |
+| CLI-managed local environment                  | Exiting this CLI cleans up the backend and child processes it started. Canceling a local wait or reaching its timeout also triggers cleanup. |
+
+One-shot scripts using the managed local environment automatically wait for runs started by `run`, `start` or a command pack. Their default limit is 24 hours, overridden by `--wait-timeout`. For a persistent service, start it independently and connect with `--server` or `--pipe`.
+
+`--read-only` blocks starting, stopping and mutations. `--dry-run` previews a mutation without submitting it. For example, `baasx --profile my-profile --dry-run start` checks the target before an actual run.

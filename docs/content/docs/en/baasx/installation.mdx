@@ -1,0 +1,171 @@
+---
+title: Installation and connection
+description: Install BAASX on Windows, Linux, or macOS, try demo mode, prepare a local runtime, connect a service, and update safely.
+---
+
+## Choose an installation method
+
+| Method                   | Requirements                                  | Best for                                           |
+| ------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| Native `.tar.gz` release | Matching OS and architecture; no Bun or Rust  | Extracting and running directly                    |
+| Bun `-bun.tgz` release   | Bun 1.4.4+; no Rust                           | Existing Bun users                                 |
+| Source checkout          | Bun 1.4.4+, Rust 1.95+, and C/C++ build tools | Development builds or when no release is available |
+
+**Release status: no separate `baasx-v` release was available when checked on 2026-11-07.** Use the source instructions below for now. When releases become available, select `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a different product.
+
+The release workflow produces both formats with a matching runtime installer helper. It attaches the `@baas/baasx` `.tgz` to GitHub Releases and does not upload it to the npm registry.
+
+## Native release archives
+
+Once published, choose the appropriate asset and replace `<version>` with its actual version:
+
+| Computer          | Native archive                       |
+| ----------------- | ------------------------------------ |
+| Windows x64       | `baasx-<version>-Windows-X64.tar.gz` |
+| Linux x64         | `baasx-<version>-Linux-X64.tar.gz`   |
+| Apple Silicon Mac | `baasx-<version>-macOS-ARM64.tar.gz` |
+
+Do not mix helpers from different platforms. This matrix does not imply that Intel Mac or Linux ARM archives are available.
+
+### Windows PowerShell
+
+Open PowerShell in the download directory and replace the version placeholder:
+
+```powershell
+New-Item -ItemType Directory -Force baasx
+tar -xzf .\baasx-<version>-Windows-X64.tar.gz -C .\baasx
+Set-Location .\baasx
+.\baasx.exe --demo --lang en
+```
+
+After exploring, exit and use `.\baasx.exe --lang en` to connect a real service. A modern terminal with Unicode, color, and mouse support is recommended.
+
+### Linux / macOS
+
+For Linux x64; substitute the appropriate archive on macOS:
+
+```sh
+mkdir -p baasx
+tar -xzf baasx-<version>-Linux-X64.tar.gz -C baasx
+cd baasx
+chmod +x baasx runtime/baas-cli-runtime
+./baasx --demo --lang en
+```
+
+Preserve the extracted layout:
+
+```text
+baasx/                   # Your extraction directory
+├── baasx                # baasx.exe on Windows
+├── runtime/
+│   └── baas-cli-runtime # Includes .exe on Windows
+├── README.md
+├── README_zh.md
+└── LICENSE
+```
+
+**Keep `runtime/` beside the main executable.** Add the whole extracted directory to PATH or create a launcher pointing to the original executable. Compare downloaded archives against the release's `SHA256SUMS`. On Linux, use `sha256sum --check --ignore-missing SHA256SUMS` in the download directory. In PowerShell, compare `Get-FileHash -Algorithm SHA256 <filename>` with the manifest.
+
+## Bun release packages
+
+Check that `bun --version` is 1.4.4 or newer, then install the matching local attachment:
+
+```sh
+bun add --global ./baasx-<version>-Linux-X64-bun.tgz
+baasx --help
+baasx --demo
+```
+
+Use the Windows or macOS package on those platforms. If the command is missing after installation, check that Bun's global bin directory is on PATH. Release packages already contain JavaScript and the installer helper; they do not need to invoke Cargo.
+
+## Run from source
+
+Development takes place on `baasx-dev`. The pinned-version example below requires Node.js (including npm), Git, Rust, and your platform's C/C++ build tools:
+
+```sh
+git clone --branch baasx-dev https://github.com/Kiramei/baas-tauri.git
+cd baas-tauri
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun install --frozen-lockfile
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx --demo --lang en
+```
+
+This uses the project's pinned Bun through npm without replacing your system Bun. If a suitable Bun is already installed, use `bun install --frozen-lockfile` and `bun run baasx --demo`. The first run builds the headless Rust installer helper; subsequent runs reuse incremental builds.
+
+Build the native executable for your current machine:
+
+```sh
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
+./baasx/dist/baasx --demo
+```
+
+Use `.\baasx\dist\baasx.exe` on Windows. Builds target the current OS and architecture. Runtime trimming requires the compiler and exact revision pinned in `baasx/package.json`; installing an arbitrary newer Bun does not guarantee the same size reduction. To include the full runtime instead:
+
+```sh
+npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --no-trim
+```
+
+## Install a local runtime
+
+1. Launch without `--demo` and choose your language.
+2. Select local installation, review the destination, and confirm.
+3. Wait for private Python, the backend, OCR, and dependencies. Expand steps to inspect their logs; use the wheel or PageUp / PageDown to navigate progress.
+4. After connecting, use `/profiles` or `/new-profile` to select or create a profile.
+5. Check `/devices`, then follow [Your first run](./index#your-first-run) to configure and test tasks.
+
+Inside an existing workbench, `/install` opens installation and `/local` connects the local runtime. Esc cancels a running installation or update. When a step fails, expand it and resolve the reported network or dependency problem before retrying.
+
+The default runtime directory is `<CLI config directory>/runtime`. It uses the **Kiramei/baas-dev service-capable dev channel**, including `main.service.py`. The older GUI stable backend lacks the required protocol; selecting `stable` is rejected. Initial installation always requires explicit confirmation; `--yes` does not bypass it.
+
+The CLI configuration directory defaults to `$XDG_CONFIG_HOME/baas` or `~/.config/baas`. Use `--config-home <directory>` or `BAAS_CLI_HOME` to isolate an installation:
+
+```sh
+baasx --config-home ./baasx-lab --demo
+```
+
+## Connect an existing service
+
+### WebSocket
+
+In a compatible `baas-dev` backend directory, start the service:
+
+```sh
+python main.service.py --host 127.0.0.1 --port 8190
+```
+
+Launch BAASX in a second terminal:
+
+```sh
+baasx --server ws://127.0.0.1:8190 --lang en
+```
+
+Enter the service login Key at the hidden prompt. On an uninitialized service, the first Key initializes it; an existing service requires its original Key. `/connect ws://127.0.0.1:8190` changes the address inside the workbench.
+
+For another computer, use its reachable address. `127.0.0.1` refers only to the current computer. BAASX uses a pinned signing public key, authentication, and an encrypted business channel. A custom deployment with a different signing key requires `--server-key <public-key>` or `BAAS_SERVER_SIGN_PUBLIC_KEY`; bypassing verification is not a remedy for a mismatch.
+
+Scripts can supply the login Key through `BAAS_KEY`. BAASX does not save it to `settings.json`. Keep real Keys out of shared scripts and documentation. See the [CLI reference](./cli) for option, environment, and saved-preference precedence.
+
+### Local sockets and named pipes
+
+Unix example:
+
+```sh
+python main.service.py --host 127.0.0.1 --pipe-name /tmp/baasx.sock
+baasx --pipe /tmp/baasx.sock profiles
+baasx --pipe /tmp/baasx.sock
+```
+
+On Windows, use the named-pipe path actually created by the backend. Do not reuse another process's temporary path; the current user must have access.
+
+## Updates, reloads, and exit
+
+| Action                            | Effect                                                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `/reload` or Ctrl+R               | Reload the workbench, reread settings and packs, reconnect, and return home; unsaved editor drafts are cleared |
+| `/check-update`                   | Inspect updates for the CLI-managed backend / OCR                                                              |
+| `/update`                         | Check and apply local runtime updates                                                                          |
+| Replace the BAASX release package | Upgrade the terminal program itself; `/reload` does not upgrade its executable                                 |
+| `/quit`                           | Exit BAASX                                                                                                     |
+
+Before applying an update, every profile in the CLI-owned backend must be free of running tasks, active scheduling, and queued work. Other CLI instances holding runtime leases also prevent replacement. External services connected with `--server` or `--pipe` are not updated here.
+
+Exiting closes the local backend started by that CLI instance. External services and their accepted tasks continue running. For a persistent backend, start the service separately and connect with `--server` or `--pipe`; closing the terminal is not a way to stop remote work.

@@ -6,6 +6,8 @@
 
   <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
 
+  <p>The <code>baasx-dev</code> branch includes <strong>baasx</strong>, the independent automation terminal for BAAS. Try <code>bun run baasx --demo</code> from source or <code>baasx --demo</code> after installation. See the <a href="baasx/README.md">baasx documentation</a> for profiles, task scheduling, typed settings, live logs, local runtime installation, standalone builds and command packs.</p>
+
   <p>
     <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
     <img alt="React 19.2" src="https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=white" />
@@ -44,12 +46,12 @@ BAAS Tauri is a Windows, macOS and Linux desktop client for [Blue Archive Auto S
 
 ## 🖼️ Screenshots
 
-| Scheduler Workflow | Feature Configuration |
-| ------------------ | --------------------- |
+| Scheduler Workflow                                                                                     | Feature Configuration                                                                             |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | <img src="docs/public/media/desktop/en/dark/scheduler-workflow.webp" alt="Task dependency workflow" /> | <img src="docs/public/media/desktop/en/dark/config-cafe.webp" alt="Cafe feature configuration" /> |
 
-| Runtime and Transport | Settings and Updates |
-| --------------------- | -------------------- |
+| Runtime and Transport                                                                                       | Settings and Updates                                                                        |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | <img src="docs/public/media/desktop/en/dark/settings-runtime.webp" alt="Runtime and connection settings" /> | <img src="docs/public/media/desktop/en/dark/settings-updates.webp" alt="Update settings" /> |
 
 ## 📥 Download
@@ -71,15 +73,15 @@ The documentation site also includes a dynamic download panel that reads the lat
 
 ## 📦 Tech Stack
 
-| Category      | Tools                                         | Notes                                                                                |
-| ------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Desktop Shell | Tauri 2, Rust                                 | Native windowing, commands, capabilities, and packaging.                             |
-| Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                             |
-| Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.      |
-| State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                  |
+| Category      | Tools                                         | Notes                                                                                   |
+| ------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Desktop Shell | Tauri 2, Rust                                 | Native windowing, commands, capabilities, and packaging.                                |
+| Frontend      | React 19.2, Vite 8, TypeScript                | Fast UI iteration and typed client code.                                                |
+| Styling       | Tailwind CSS 4, CSS variables                 | Dark/light themes, accent color, background image, zoom, and responsive layout.         |
+| State & Data  | Zustand, React Context, localStorage          | Profile state, config snapshots, UI preferences, and runtime state.                     |
 | Realtime      | Shared memory, Pipe, WebSocket                | Native transport selection depends on the platform; WebUI uses authenticated WebSocket. |
-| UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.               |
-| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting. |
+| UX            | Framer Motion, Radix UI, Sonner, lucide-react | Motion, accessible primitives, toast notifications, and icon controls.                  |
+| Documentation | Fumadocs, Next.js, MDX, Mermaid, Blueaka      | Web docs, diagrams, bilingual content, GitHub Pages deployment, and font subsetting.    |
 
 ## 📚 Documentation Site
 
@@ -162,6 +164,21 @@ bun run i18n:check
 | `bun run lint`        | Run ESLint and i18n checks.                       |
 | `bun run i18n:check`  | Verify locale key consistency.                    |
 
+### baasx Automation Terminal
+
+The installed command is `baasx`, distributed as `@baas/baasx`, with source in `baasx/`. Use the `baasx` development scripts; the existing `cli` scripts remain available as compatibility aliases:
+
+```bash
+bun run baasx --demo
+bun run baasx:build
+bun baasx/bin/baasx.mjs --help
+bun run baasx:binary
+./baasx/dist/baasx --demo
+bun run baasx:pack
+```
+
+Keep the native executable together with its `runtime/` directory. baasx continues to use the existing `baas` configuration directory and `BAAS_*` environment variables, so existing CLI settings and local installations need no migration. See [CLI setup and packaging](baasx/README.md) for platform archives and Bun package installation.
+
 ## 🧱 Project Layout
 
 ```text
@@ -176,11 +193,12 @@ baas-tauri/
 
 ## Branches and Android
 
-| Branch | Purpose |
-| ------ | ------- |
-| [`main`](https://github.com/Kiramei/baas-tauri/tree/main) | Release line and published documentation. |
-| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev) | Desktop, WebUI and documentation development. |
-| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development. |
+| Branch                                                                  | Purpose                                                               |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [`main`](https://github.com/Kiramei/baas-tauri/tree/main)               | Release line and published documentation.                             |
+| [`dev`](https://github.com/Kiramei/baas-tauri/tree/dev)                 | Desktop, WebUI and documentation development.                         |
+| [`baasx-dev`](https://github.com/Kiramei/baas-tauri/tree/baasx-dev)     | baasx automation terminal for BAAS, task workspace and command packs. |
+| [`android-dev`](https://github.com/Kiramei/baas-tauri/tree/android-dev) | Native Android development.                                           |
 
 The Android implementation is also integrated into `dev`; `android-dev` remains
 available for native Android development. The latest debug candidate has scoped

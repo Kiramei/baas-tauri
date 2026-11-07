@@ -14,8 +14,23 @@ const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const read = file => readFileSync(path.join(root, file));
 const media = JSON.parse(read("docs/evidence/android-native-media.json"));
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
-const browser = await chromium.launch({ channel: "msedge", headless: true });
+const browser = await chromium.launch({ channel: process.env.DOCS_BROWSER_CHANNEL || "msedge", headless: true });
 const results = [], diagnostics = [], searches = [], pipelines = [];
+async function assertCenteredInArticle(locator, label) {
+  const bounds = await locator.boundingBox();
+  assert.ok(bounds, `${label} must have a visible bounding box`);
+  const contentCenter = await locator.evaluate(element => {
+    const article = element.closest(".prose");
+    if (!article) throw new Error("Document media must be inside the article prose");
+    const rect = article.getBoundingClientRect();
+    const style = getComputedStyle(article);
+    const left = Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
+    const right = Number.parseFloat(style.borderRightWidth) + Number.parseFloat(style.paddingRight);
+    return rect.left + left + (rect.width - left - right) / 2;
+  });
+  assert.ok(Math.abs(bounds.x + bounds.width / 2 - contentCenter) <= 2,
+    `${label} must be horizontally centered in the article content`);
+}
 try {
   for (const locale of ["zh", "en"]) for (const theme of ["light", "dark"]) for (const mobile of [false, true]) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 960 } });
@@ -38,6 +53,7 @@ try {
     assert.ok((await image.getAttribute("src")).endsWith(`/media/android/${locale}/game-preview.webp`));
     const initial = await image.boundingBox();
     assert.ok(initial && initial.width > 200 && initial.width <= 360.5);
+    await assertCenteredInArticle(figure, "Android demonstration figure");
     const style = await image.evaluate(el => ({ radius: getComputedStyle(el).borderRadius, shadow: getComputedStyle(el).boxShadow }));
     assert.equal(style.radius, "8px");
     assert.notEqual(style.shadow, "none");
@@ -78,10 +94,12 @@ try {
     await controls.scrollIntoViewIfNeeded();
     await controls.evaluate(async el => { await el.decode(); });
     assert.equal(await controls.evaluate(el => el.naturalWidth), 720);
+    await assertCenteredInArticle(controls, "Android portrait screenshot");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     assert.deepEqual(errors, []);
     results.push({ locale, theme, mobile, nativePosterLoaded: true, nativeControlsLoaded: true,
       motionFramesDiffer: true, playbackStops: true, stableDimensions: true, roundedAndShadowed: true,
+      demonstrationCentered: true, portraitScreenshotCentered: true,
       imageZoomOpenClose: true,
       pageErrors: errors, passed: true });
     diagnostics.push({ locale, theme, mobile, linkNavigated: true, headingFits: true, pageErrors: errors, passed: true });

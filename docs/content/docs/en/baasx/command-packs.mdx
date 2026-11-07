@@ -1,0 +1,177 @@
+---
+title: Command Packs and Custom Commands
+description: Install JSON command packs, compose allowlisted actions, validate plans, and manage reloads and removal.
+---
+
+A BAASX command pack saves a sequence of BAAS operations as a reusable command. It is declarative JSON, not a desktop JavaScript plugin or a backend Python plugin: it cannot import modules, execute a shell, add arbitrary network requests, or define new UI components. Desktop plugin ZIP files cannot be installed in the BAASX command-pack directory.
+
+<BaasxTerminalDemo locale="en" scenario="packs" />
+
+## Built-in Commands
+
+The `baas-core` pack is embedded in the program and does not depend on a neighboring JSON file.
+
+| Command            | Steps                          | Meaning                                                    |
+| ------------------ | ------------------------------ | ---------------------------------------------------------- |
+| `briefing`         | `status` → `tasks`             | Show service status and the selected profile's daily tasks |
+| `connection-check` | `status` → `devices`           | Check status and ADB devices without starting game tasks   |
+| `daily`            | `scheduler_start`              | Start the selected profile's existing daily schedule       |
+| `daily-wait`       | `scheduler_start` → `wait_run` | Start scheduling, then add a wait of up to 120 seconds     |
+
+In the workbench, enter `/packs`, select a command and press Enter. You can also enter `/briefing` or `/pack briefing`. In a system terminal, use:
+
+```bash
+baasx --profile PROFILE_ID pack briefing
+baasx --profile PROFILE_ID --dry-run pack daily
+baasx --profile PROFILE_ID --yes pack daily
+```
+
+Replace `PROFILE_ID` with an actual ID returned by `baasx profiles`. Direct `start` skips confirmation, but this exception does not extend to command packs: a pack's `scheduler_start` remains a mutation requiring confirmation.
+
+The 120-second limit in `daily-wait` belongs to its `wait_run` step. With a managed local environment, or when passing `--wait`, the preceding start step also waits. The pack name does not guarantee that the whole process exits within 120 seconds. See [Waiting and Completion](./cli#waiting-and-completion).
+
+## Locate the Installation Directory
+
+The default is `<CLI configuration directory>/commands`. The configuration directory is selected by `--config-home`, then `BAAS_CLI_HOME`, then `$XDG_CONFIG_HOME/baas`, and finally `~/.config/baas`. Inspect saved and effective preferences with:
+
+```bash
+baasx --json settings show
+```
+
+The returned `path` points to `settings.json`. If `effective.packsDirectory` is set, use that directory; otherwise use `commands` beside the settings file.
+
+You can choose a dedicated directory instead of relying on the system default:
+
+```bash
+mkdir -p ./my-baasx-commands
+baasx settings set packsDirectory ./my-baasx-commands
+```
+
+`settings set` resolves this directory to an absolute path before saving it. In Windows PowerShell, create it with `New-Item -ItemType Directory -Force .\my-baasx-commands`, then use the same `baasx settings set` command.
+
+The loader reads only regular files directly inside the directory whose extension is lowercase `.json`. It does not recurse into subdirectories. The filename manages the file; the JSON `id` identifies the pack.
+
+## Complete Example: Inspect and Run Mail
+
+Save the following as `my-baasx-commands/sensei-tools.json`:
+
+```json
+{
+  "id": "sensei-tools",
+  "name": "Sensei tools",
+  "description": "Read-only checks and a single mail task",
+  "version": 1,
+  "commands": [
+    {
+      "name": "my-check",
+      "description": "Read status, tasks and the latest 20 log entries",
+      "steps": [
+        { "action": "status", "args": {} },
+        { "action": "tasks", "args": {} },
+        { "action": "logs", "args": { "limit": 20 } }
+      ]
+    },
+    {
+      "name": "my-mail",
+      "description": "Read the pat-round setting, then run mail and wait",
+      "steps": [
+        {
+          "action": "config_get",
+          "args": { "path": "/cafe_reward_affection_pat_round" }
+        },
+        { "action": "task_run", "args": { "task": "mail" } },
+        { "action": "wait_run", "args": { "timeout_seconds": 120 } },
+        { "action": "logs", "args": { "limit": 20 } }
+      ]
+    }
+  ]
+}
+```
+
+This example does not change the café setting; reading it demonstrates how to combine different actions. First use `tasks` and `config get` to confirm that the target profile has the `mail` task and this field. Substitute actual tasks and paths for other profiles. Pack names, command names and argument values are not changed by the interface language.
+
+```bash
+# Validate the format and flow using in-memory demo data, without a real device
+baasx --demo --profile sensei-cn --json pack my-check
+baasx --demo --profile sensei-cn --dry-run --json pack my-mail
+baasx --demo --profile sensei-cn --yes --json pack my-mail
+
+# Inspect the real profile, then preview the plan
+baasx --profile PROFILE_ID tasks
+baasx --profile PROFILE_ID config get /cafe_reward_affection_pat_round
+baasx --profile PROFILE_ID --dry-run --json pack my-mail
+```
+
+After checking the target, run `/my-mail` in the workbench and confirm each mutation, or explicitly use `--yes pack my-mail` in a script. Demo data exists only in the current process; a successful demo does not prove that a real device completed the task.
+
+## JSON Structure and Limits
+
+| Level   | Field            | Requirement                                                                                     |
+| ------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| Pack    | `id`             | Matches `^[a-z][a-z0-9-]{0,63}$`; unique among all loaded packs                                 |
+| Pack    | `name`           | Nonempty text, up to 120 characters                                                             |
+| Pack    | `description`    | Nonempty text, up to 500 characters                                                             |
+| Pack    | `version`        | The number `1`, not a string or the application version                                         |
+| Pack    | `commands`       | 1–100 commands                                                                                  |
+| Command | `name`           | Same character rules as `id`, without `/`; globally unique and cannot replace built-in commands |
+| Command | `description`    | Nonempty text, up to 500 characters                                                             |
+| Command | `steps`          | 1–50 steps, executed in array order                                                             |
+| Step    | `action`, `args` | An allowlisted action and an argument object; use `{}` even when empty                          |
+
+Unknown fields are rejected rather than ignored. Names and descriptions cannot contain newlines or terminal control characters. Files have a 1 MiB validation threshold, currently checked against the length of the decoded text. Configuration values must be JSON data and cannot exceed 24 nesting levels.
+
+Names such as `run`, `start`, `reload`, `config` and `oneoff` are reserved. Existing pack commands such as `briefing` and `daily` are also unavailable. Changing the pack `id` does not resolve a command-name collision.
+
+## Action Arguments
+
+These are the arguments accepted by the **command-pack format**. Unlisted arguments are rejected while loading, even if a lower-level action API has similar options.
+
+| `action`          | Accepted `args`                                                                                       | Mutates backend state |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | --------------------- |
+| `status`          | `{}`; read all profiles' status                                                                       | No                    |
+| `profiles`        | `{}`; list profiles                                                                                   | No                    |
+| `devices`         | `{}`; detect ADB devices                                                                              | No                    |
+| `tasks`           | Optional `profile`                                                                                    | No                    |
+| `config_get`      | Optional `profile`, `path`; omit `path` or use `""` for the root object                               | No                    |
+| `config_set`      | Required `path`, `value`; optional `profile`                                                          | Yes                   |
+| `scheduler_start` | Optional `profile`                                                                                    | Yes                   |
+| `scheduler_stop`  | Optional `profile`                                                                                    | Yes                   |
+| `task_run`        | Required `task`; optional `profile`                                                                   | Yes                   |
+| `logs`            | Optional `profile`, `limit`; `limit` is an integer from 1–500, default 30                             | No                    |
+| `wait_run`        | Optional `profile`, `run_id`, `timeout_seconds`; an explicit timeout is an integer from 1–120 seconds | No                    |
+
+`profile` accepts an exact ID or a unique name. Omitting it uses the selected profile. `status` does not accept a `profile` filter. Daily task IDs for `task_run` come from `tasks`; a translated display label is not a task ID. See [One-off Task IDs](./cli#one-off-task-ids) for one-off operations.
+
+JSON Pointer uses `/` between path segments. Encode `~` inside a field name as `~0`, and `/` as `~1`. `config_set` only accepts existing backend fields exposed by the BAASX configuration editor. It cannot replace the root object or write internal caches. Pass numbers, booleans and arrays as JSON values, not as an extra JSON-encoded string.
+
+```json
+{
+  "action": "config_set",
+  "args": { "path": "/cafe_reward_affection_pat_round", "value": 5 }
+}
+```
+
+Use a separate `wait_run` step to wait. Do not add `wait`, `follow` or `timeout_seconds` to a pack's `task_run`. Without `run_id`, waiting first uses the same profile's latest explicitly submitted run in this process, then attempts to correlate a run from current backend state. If its identity cannot be established, waiting fails instead of reporting an unrelated run as successful.
+
+## Reload, Update and Remove
+
+1. Edit or replace the JSON file in the directory.
+2. Run `/reload` or press Ctrl+R in the open workbench. This rereads settings and packs and rebuilds the interface. Unsaved edits are discarded; background tasks continue.
+3. Open `/packs` to check the new commands. Updating a pack never runs it automatically.
+
+There is no file-watching auto-update or dedicated pack install/remove command. To remove a custom pack, move its file out of the directory or change its extension to `.json.disabled`, then reload the workbench. Embedded `baas-core` cannot be removed by deleting a file.
+
+Each one-shot CLI process loads packs at startup. `baasx --json reload` rereads them, reports pack and command counts, then exits. It does not notify another running workbench to refresh. `baasx packs` also verifies that files loaded successfully.
+
+Invalid JSON, duplicate IDs or duplicate command names fail loading; files are not silently skipped. Workbench `/reload` validates the new settings and packs first, retaining the previous connection and loaded content if validation fails. If a fresh process cannot start, fix or move aside the reported file. See [Pack Loading Failures](./troubleshooting#pack-loading-failures).
+
+## Execution Boundaries and Safety
+
+- All actions, arguments, relevant profiles, tasks and writable fields are checked before steps execute. `--read-only` rejects a pack containing mutations before executing any step.
+- `--dry-run` reads real data needed for validation and outputs the complete plan, but executes no pack steps. It is not an offline validator.
+- Execution proceeds in order. Mutations request separate confirmations by default; `--yes` skips routine action confirmations. Read-only steps need no confirmation.
+- Failure, cancellation or an already-running task stops further execution. Completed configuration changes and game actions are not rolled back. A command pack is not a transaction.
+- JSON packs cannot execute arbitrary code, but allowed actions can still launch the game, change configuration or spend game resources. Check every `profile`, `task`, `path` and `value` before running a third-party pack.
+- Variables, conditions, loops, references to step output and command-argument templates are unsupported. Shell characters and `${...}` are not evaluated or expanded. Keep service keys out of packs; use process environment variables or hidden interactive input.
+
+Use final status and logs to establish success. Reaching a final `logs` step does not prove that an asynchronously started game task succeeded; add an explicit wait and inspect its result.

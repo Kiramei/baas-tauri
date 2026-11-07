@@ -12,6 +12,7 @@ import { MotionDemo } from "@/components/MotionDemo";
 import { AndroidGameDemo } from "@/components/AndroidGameDemo";
 import { RecognitionReplay } from "@/components/RecognitionReplay";
 import { DocumentationLink } from "@/components/DocumentationLink";
+import { BaasxTerminalDemo } from "@/components/BaasxTerminalDemo";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -30,6 +31,7 @@ export const mdxComponents = {
   MotionDemo,
   AndroidGameDemo,
   RecognitionReplay,
+  BaasxTerminalDemo,
 };
 
 /** Coordinates the use mdxcomponents hook behavior. */

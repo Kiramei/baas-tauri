@@ -1,0 +1,278 @@
+.demo {
+  width: 100%;
+  min-width: 0;
+  margin: 1.5rem auto;
+  overflow: hidden;
+  border: 1px solid #39424e;
+  border-radius: 10px;
+  background: #20242c;
+  color: #dce8f2;
+  text-align: left;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #39424e;
+  background: #181c23;
+}
+.engine {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 0.25rem;
+  color: #afbbca;
+  font:
+    0.72rem ui-monospace,
+    monospace;
+}
+.badge {
+  padding: 0.12rem 0.28rem;
+  border: 1px solid #45616a;
+  border-radius: 3px;
+  color: #9edfe7;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+}
+.scenarioLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.toolbar select {
+  max-width: 160px;
+  min-width: 0;
+  padding: 0.25rem 0.3rem;
+  border: 1px solid #39424e;
+  border-radius: 5px;
+  background: #222933;
+  color: #dce8f2;
+  font: inherit;
+  font-size: 0.75rem;
+}
+.tools {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+  align-items: center;
+}
+.demo button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 30px;
+  margin: 0;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid #39424e;
+  border-radius: 5px;
+  background: #222933;
+  color: #c8d4e1;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.demo button:hover:not(:disabled) {
+  background: #2b3b49;
+  color: #baf3fa;
+  border-color: #59858e;
+}
+.demo button:focus-visible,
+.demo select:focus-visible,
+.demo summary:focus-visible {
+  outline: 2px solid #70d7e5;
+  outline-offset: 3px;
+}
+.demo button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.terminalWrap {
+  position: relative;
+  padding: 8px 6px 4px;
+  background: #20242c;
+}
+.terminal {
+  width: 100%;
+  height: 530px;
+  min-width: 0;
+  touch-action: pan-y;
+}
+.terminal :global(.xterm) {
+  height: 100%;
+  padding: 0;
+  touch-action: pan-y;
+}
+.terminal :global(.xterm-viewport) {
+  background-color: #20242c;
+  overflow: hidden !important;
+}
+.terminal :global(.xterm-screen) {
+  margin: 0;
+}
+.loading {
+  position: absolute;
+  inset: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a5b6c9;
+  font-size: 0.8rem;
+  text-align: center;
+  pointer-events: none;
+}
+.guide {
+  padding: 0.6rem 0.8rem 0.5rem;
+  border-top: 1px solid #39424e;
+  background: #181c23;
+}
+.guide > p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.76rem;
+}
+.stepCount {
+  color: #a8b8ff;
+  font:
+    0.7rem ui-monospace,
+    monospace;
+}
+.guide strong {
+  color: #d7e7f0;
+  font-weight: 500;
+}
+.description {
+  color: #98a8bc;
+  font-size: 0.72rem;
+}
+.detailsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  align-items: baseline;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+}
+.detailsRow summary {
+  color: #9aacc0;
+  cursor: pointer;
+}
+.scope {
+  margin-left: auto;
+  color: #8192a6;
+  font-size: 0.66rem;
+}
+.touchTools[open],
+.textView[open] {
+  flex-basis: 100%;
+}
+.touchButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+.touchButtons button {
+  min-height: 38px;
+  min-width: 38px;
+}
+.demo .textView pre {
+  max-width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.65rem;
+  overflow: auto;
+  border: 1px solid #39424e;
+  border-radius: 4px;
+  background: #20242c;
+  color: #dce8f2;
+  font:
+    0.72rem/1.6 ui-monospace,
+    monospace;
+  white-space: pre;
+}
+.demo .textView p {
+  margin: 0.4rem 0;
+  color: #a8b8ff;
+  overflow-wrap: anywhere;
+}
+.screenReader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.expanded {
+  position: fixed;
+  inset: 16px;
+  z-index: 100;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 0 100vmax #080c14b3;
+}
+.expanded .terminalWrap {
+  flex: 1;
+  min-height: 0;
+}
+.expanded .terminal {
+  height: 100%;
+}
+.expanded .guide {
+  flex-shrink: 0;
+}
+@media (max-width: 540px) {
+  .toolbar {
+    gap: 0.35rem;
+    padding: 0.45rem;
+  }
+  .engine {
+    font-size: 0.66rem;
+  }
+  .toolbar select {
+    max-width: 110px;
+    font-size: 0.68rem;
+  }
+  .tools {
+    gap: 0.2rem;
+  }
+  .tools button {
+    padding: 0.3rem;
+    min-height: 31px;
+  }
+  .tools button span {
+    display: none;
+  }
+  .terminal {
+    height: 430px;
+  }
+  .terminalWrap {
+    padding: 6px 3px 2px;
+  }
+  .scope {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .expanded {
+    inset: 4px;
+  }
+  .expanded .guide .description {
+    display: none;
+  }
+}

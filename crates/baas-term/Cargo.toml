@@ -6,9 +6,13 @@ readme = "README.md"
 description = "Package used for baas-updater terminal display"
 authors = ["Kiramei"]
 
+[features]
+default = ["desktop"]
+desktop = ["dep:tauri"]
+
 [dependencies]
 # Borrow from workspace
-tauri = { workspace = true }
+tauri = { workspace = true, optional = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }

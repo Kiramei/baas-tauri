@@ -1,0 +1,215 @@
+---
+title: 命令行与脚本自动化
+description: 区分工作台命令和单次 CLI，了解参数优先级、JSON 输出、运行关联、退出码与后端生命周期。
+---
+
+以下示例假定已从发行归档或源码取得 `baasx` 命令。`@baas/baasx` 是包名，不表示它已经发布到 npm；不要直接假定可以从公共 npm 注册表安装。源码开发时可将命令前缀替换为仓库根目录的 `bun run baasx`。
+
+## 两种运行方式
+
+```bash
+# 交互终端：不带位置命令，进入工作台
+baasx
+baasx --demo --lang zh
+
+# 单次 CLI：执行命令，输出结果并退出
+baasx --demo --json profiles
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --json status
+```
+
+工作台里的 `/tasks` 是输入框命令；系统 Shell 里写 `baasx tasks`，不加 `/`。工作台保留选中页面、当前连接和输入历史；单次 CLI 每次都会创建新进程，不能控制另一个工作台的页面状态。
+
+输入不是 TTY、传入 `--json`，或已经指定位置命令时，不能依靠无参数启动交互界面。管道输入必须明确给出命令；把文本管道给 `baasx` 不会把它当作任务或 Shell 脚本执行。
+
+| 目的       | 工作台输入                                  | 系统 Shell                                                           |
+| ---------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| 查看任务   | `/tasks`，打开可选择列表                    | `baasx tasks`，输出真实日常任务字典                                  |
+| 单独运行   | `/run mail`；`/run` 打开列表                | `baasx --yes run mail`，必须给任务 ID                                |
+| 一次性任务 | `/oneoff`，打开专门列表                     | `baasx --yes run start_explore_activity_story`，没有 `oneoff` 子命令 |
+| 查看配置   | `/config`，打开编辑器                       | `baasx config get`，读取配置                                         |
+| 调度编辑   | `/scheduler`                                | 当前没有对应的单次调度编辑命令                                       |
+| 查看日志   | `/logs` 打开日志页；`/logs 50` 读取最近日志 | `baasx logs 50`；加 `--follow` 持续跟随                              |
+| 重载       | `/reload` 或 Ctrl+R：重建整个工作台并重连   | `baasx reload`：重读指令包、输出计数并退出                           |
+| 安装环境   | `/install [dev]`、`/local`、`/setup`        | 使用 `baasx` 进入安装向导；它们不是单次 CLI 子命令                   |
+| 帮助       | `/help` 或 `?`，可翻页的命令说明            | `baasx --help` 或 `baasx help`                                       |
+
+工作台 `/reload` 保留已运行的本地后端和后台任务，但清除未保存的编辑、页面和输入状态。它不会重新启动新版本的可执行文件；更新程序后需要重新打开程序。
+
+## 先建立一个明确的目标
+
+连接现有 WebSocket 服务时，交互工作台可隐藏输入登录 Key。自动化脚本使用 `BAAS_KEY`；Key 不写入 `settings.json`，也不是可放在 URL 里的参数。
+
+下面的 Bash 写法从终端读取 Key，不把真实 Key 放进命令文本：
+
+```bash
+read -r -s -p 'BAAS Key: ' BAAS_KEY
+printf '\n'
+export BAAS_KEY
+
+baasx --server ws://127.0.0.1:8190 profiles
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID tasks
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --json status
+```
+
+将 `PROFILE_ID` 替换为查询得到的 ID。也接受唯一的完整名称；同名或无法匹配时应明确使用 ID，不会猜测配置档。
+
+已有本地服务可以用 `--pipe`，例如 Unix socket `/tmp/baasx.sock` 或 Windows 后端提供的命名管道。路径必须对应实际正在监听的服务；CLI 不会因为指定了路径就创建外部服务。
+
+```bash
+baasx --pipe /tmp/baasx.sock profiles
+baasx --pipe /tmp/baasx.sock --profile PROFILE_ID --json status
+```
+
+## 单次命令参考
+
+| 命令                                                | 用途与注意事项                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| `profiles`                                          | 返回配置档 ID 与名称                                                |
+| `use <ID或唯一名称>`                                | 选择配置档，非演示模式保存该选择                                    |
+| `profile create <name> <server>`                    | 创建并选中配置档；需要确认，服务器值必须是后端支持的实际名称        |
+| `tasks`                                             | 查看所选配置档的日常任务 ID 与调度数据；不混入一次性任务            |
+| `status`                                            | 读取所有配置档的当前状态                                            |
+| `run <task>`                                        | 提交一项日常或已支持的一次性任务                                    |
+| `start`                                             | 立即启动当前配置档已有调度，免二次确认                              |
+| `stop`                                              | 请求停止当前任务或调度；默认需要确认                                |
+| `wait [run_id]`                                     | 等待指定运行或当前可关联的运行，不会启动新任务                      |
+| `logs [数量]`                                       | 最近日志，默认 30，允许 1–500                                       |
+| `watch`                                             | 持续观察状态，Ctrl+C 结束监控                                       |
+| `config get [/path]`                                | 读取所选配置档或指定 JSON Pointer                                   |
+| `config set /path '<JSON>'`                         | 修改白名单中的已有字段，检查类型和并发冲突                          |
+| `packs`、`pack <名称>`                              | 列出或执行[指令包](./command-packs)；自定义命令名也可直接作为子命令 |
+| `reload`                                            | 重新读取指令包并返回包数、命令数                                    |
+| `devices`                                           | 通过后端检测 ADB 设备                                               |
+| `doctor`                                            | 检查服务；WebSocket 模式下的健康检查成功不代表已认证或游戏任务成功  |
+| `connect [URL]`                                     | 连接并输出结果；单次 CLI 的这次地址选择不会自动保存                 |
+| `init`                                              | 将本次有效的非敏感偏好保存到配置目录，不是安装后端                  |
+| `login`、`logout`                                   | 在当前进程隐藏输入 Key 或清除当前连接；不是跨进程凭据存储           |
+| `settings show`                                     | 同时显示已保存与本次有效的偏好                                      |
+| `settings set <字段> <值>`、`settings unset <字段>` | 管理本地非敏感偏好                                                  |
+| `check-update`、`update`                            | 检查或应用 CLI 托管本地 `dev` 环境的更新                            |
+
+服务器参数示例使用实际值，即使界面为英文也不翻译：
+
+```bash
+baasx --yes profile create "My Profile" "官服"
+baasx use "My Profile"
+baasx --profile PROFILE_ID config get /screenshot_method
+baasx --profile PROFILE_ID --dry-run config set /cafe_reward_affection_pat_round 5
+baasx --profile PROFILE_ID --yes config set /screenshot_method '"adb"'
+```
+
+最后一条中的单引号由 Shell 使用，双引号属于 JSON 字符串。数字 `5`、布尔值 `true` 和数组应直接使用对应 JSON 类型。配置保存需要字段实际存在；服务器类型、内部缓存和未开放的字段不能通过 CLI 绕过编辑限制。
+
+## 一次性任务 ID
+
+这些 ID 与客户端的一次性任务按钮对应，直接使用 `run`，不会加入 `start` 的日常调度。
+
+| ID                                 | 操作         |
+| ---------------------------------- | ------------ |
+| `start_normal_task`                | 普通关卡推图 |
+| `start_hard_task`                  | 困难关卡推图 |
+| `start_main_story`                 | 主线剧情     |
+| `start_group_story`                | 社团剧情     |
+| `start_mini_story`                 | 小故事       |
+| `start_explore_activity_story`     | 活动剧情     |
+| `start_explore_activity_mission`   | 活动任务     |
+| `start_explore_activity_challenge` | 活动挑战     |
+
+运行前通过工作台 `/config` 检查推图计划、编队和相关活动设置。列出这些入口表示 CLI 支持提交该操作，不保证当前区服存在活动或当前设备适合执行。
+
+## 参数与环境变量优先级
+
+| 项目         | 优先级或默认值                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| CLI 配置目录 | `--config-home` → `BAAS_CLI_HOME` → `$XDG_CONFIG_HOME/baas` → `~/.config/baas`                                       |
+| 服务 URL     | `--server` → `BAAS_SERVER` → `settings.json` 的 `url` → `ws://127.0.0.1:8190`                                        |
+| 本地管道     | `--pipe` 优先；否则显式 URL（`--server` 或 `BAAS_SERVER`）会忽略环境或已保存管道；再采用 `BAAS_PIPE` → 已保存 `pipe` |
+| 配置档       | `--profile` → `BAAS_PROFILE` → 已保存 `profile`；演示工作台默认 `sensei-cn`                                          |
+| 工作台语言   | `--lang` → `BAAS_LANG` → 已保存 `language` → `LC_ALL` → `LC_MESSAGES` → `LANG` → 英语                                |
+| 服务登录 Key | `BAAS_KEY`，或交互隐藏输入；不保存在偏好文件                                                                         |
+| 服务签名公钥 | `--server-key` → `BAAS_SERVER_SIGN_PUBLIC_KEY` → 客户端内置公钥                                                      |
+| 指令包目录   | 已保存 `packsDirectory`，否则 `<CLI配置目录>/commands`                                                               |
+| 颜色         | `--no-color` 或定义了 `NO_COLOR` 时关闭                                                                              |
+| 动画         | `BAAS_REDUCED_MOTION=1` 或 `true` 关闭；非 TTY 或 `TERM=dumb` 也使用静态显示                                         |
+
+不能同时传入 `--server` 和 `--pipe`。显式连接参数或环境变量会使程序使用外部连接；没有这些覆盖时，已保存的 `connectionMode=local` 或已有的本地运行环境记录可以让 CLI 启动托管后端。
+
+语言支持 `zh`、`en`、`ja`、`ko`、`de`、`fr`、`ru`。`--help`/`--version` 在读取偏好前处理；需要帮助输出语言确定时直接传入 `--lang`。
+
+```bash
+baasx --json settings show
+baasx settings set url ws://127.0.0.1:8190
+baasx settings set connectionMode remote
+baasx settings set language zh
+baasx settings unset profile
+```
+
+可保存字段仅有 `url`、`pipe`、`profile`、`packsDirectory`、`language`、`connectionMode`。设置 `url` 会清除已保存的 `pipe`。`connectionMode` 为 `local` 或 `remote`；地址接受 `ws://`、`wss://`，也会将 `http://`/`https://` 规范化，但不允许 URL 内嵌凭据、查询参数或片段。
+
+## 确认、只读与预演
+
+- `--yes` / `-y` 跳过常规修改动作确认。非交互或 `--json` 模式无法弹出确认，修改命令通常需要此选项。
+- 直接 `start` 已获免二次确认；`run`、`stop`、配置写入和包内修改仍默认确认。首次本地安装仍要在向导确认，`--yes` 不跳过安装向导。
+- `--read-only` 拒绝后端修改和应用更新，且不能和 `--yes` 同时传入。它不是操作系统沙箱，也不禁止连接、读取或本地偏好管理。
+- `--dry-run` 预览受支持的修改动作、更新和包计划，可能读取真实后端进行预检。它不是所有命令的通用“禁止写入”开关；`settings set`、`init`、`use` 等本地偏好命令仍按自身语义执行。
+
+## 等待与完成语义
+
+对外部服务，`run` 和 `start` 默认只等启动请求被接受。典型结果包含 `accepted: true`、`completed: false` 和可用的 `run_id`；不能把进程退出码 0 当作游戏任务已经成功。
+
+```bash
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --yes --json run mail
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --yes --wait --wait-timeout 600 --json run mail
+baasx --server ws://127.0.0.1:8190 --profile PROFILE_ID --wait-timeout 600 --json wait RUN_ID
+```
+
+`--wait` 等待同一运行终态；`--follow` 与运行命令合用也会等待，并在普通文本模式显示相关日志。`wait RUN_ID` 不重放启动请求，适合在取得运行编号后继续观察。
+
+| 设置                 | 含义                                                 |
+| -------------------- | ---------------------------------------------------- |
+| `--timeout`          | 连接/请求超时，单位毫秒，默认 15000，允许 100–300000 |
+| `--wait-timeout`     | 等待运行超时，单位秒，允许 1–86400                   |
+| 外部服务默认等待上限 | 300 秒；只有启用等待或执行 `wait` 才会使用           |
+| CLI 托管本地环境默认 | 一次性脚本的运行默认等待，未明确设置上限时为 24 小时 |
+
+完成后 `completed: true`，`succeeded` 根据后端 `exit_code` 判断；后端没有可证明的退出码时可能为 `null`，不能当作成功。关联的运行已被新运行替换、编号不匹配或状态不足时会报错。断线恢复只重连并读取，不重复提交修改。
+
+本地与外部环境的退出行为不同：
+
+- CLI 自己启动的本地后端归当前 CLI 所有。脚本结束、Ctrl+C 取消或等待超时都会清理该后端及其子进程；本地任务不会在该后端继续执行。
+- 使用 `--server` / `--pipe` 连接的外部服务不归 CLI 所有。CLI 退出或取消等待不会自动停止它或已经提交的任务；需要停止时明确执行 `stop`。
+- 工作台 `/reload` 是进程内重载，不退出 CLI，因此保留已有后端和任务。
+
+若需要退出终端后持续执行，先独立启动服务，再让 BAASX 连接它。
+
+## JSON、持续输出与退出码
+
+`--json` 的普通命令向 stdout 输出一个 JSON 文档，过程说明进入 stderr。可分别保存：
+
+```bash
+baasx --profile PROFILE_ID --json status > status.json 2> status-diagnostics.log
+baasx --profile PROFILE_ID --json --follow logs 50
+baasx --profile PROFILE_ID --json watch
+```
+
+`logs --follow` 和 `watch` 为持续事件流，按行输出 JSON；不要用只接受单个 JSON 对象的读取方式处理整个文件。`--json run` 即使同时指定 `--follow`，仍以最终动作结果为机器可读输出；需要单独收集实时 JSON 日志时使用 `logs --follow`。
+
+| 退出码 | 含义                                                          |
+| ------ | ------------------------------------------------------------- |
+| `0`    | 命令成功执行；是否完成游戏任务仍检查 `completed`、`succeeded` |
+| `1`    | 参数/连接/验证错误、拒绝重复运行，或已观察到任务失败等        |
+| `124`  | 等待任务超时                                                  |
+| `130`  | Ctrl+C 或中止                                                 |
+
+JSON 错误包含 `error`；运行监控错误还可能有 `code`、`details`。外部连接超时或返回不明确时先读 `status`、`logs`，不要无条件循环重试 `run`。
+
+### 安全练习
+
+```bash
+baasx --demo --json profiles
+baasx --demo --profile sensei-cn --json tasks
+baasx --demo --profile sensei-cn --dry-run --json run mail
+baasx --demo --profile sensei-cn --yes --wait --json run mail
+```
+
+这组命令验证脚本调用和输出结构，不操作真实游戏。每条命令是新的演示进程，前一条的修改不会保留到下一条。进一步组合步骤见[指令包](./command-packs)，出现错误见[故障排查](./troubleshooting)。

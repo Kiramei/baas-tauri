@@ -27,6 +27,8 @@ node docs/scripts/check-static-links.mjs
 
 Browser checks require Playwright. Set `PLAYWRIGHT_MODULE` when it is installed outside the repository. `.github/workflows/docs-validation.yml` contains the Linux static-export checks and their browser setup. Run affected source-bound checks after rebuilding; do not substitute edited hashes for a browser run.
 
+After changing the BAASX tutorials, run `node docs/scripts/check-baasx.mjs` against the static export. It checks all four terminal scenarios in both languages, themes, and viewport sizes, including typed commands, confirmation, reload, and keyboard focus. Its screenshots and report stay under `.cache/baasx-docs/`. The browser terminal is an offline teaching model; keep its supported operations aligned with `baasx/src` and label simplified behavior explicitly.
+
 ## Content and Media
 
 - User guides belong under `content/docs`, not in root-level progress reports.
@@ -41,6 +43,7 @@ Browser checks require Playwright. Set `PLAYWRIGHT_MODULE` when it is installed 
 
 - [Release policy](development/RELEASING.md)
 - [Chinese manual](content/docs/zh/index.mdx) / [English manual](content/docs/en/index.mdx)
+- [BAASX terminal manual](content/docs/en/baasx/index.mdx) / [BAASX 中文手册](content/docs/zh/baasx/index.mdx)
 - [WebUI deployment](content/docs/en/guide/webui.mdx)
 - [Plugin API](content/docs/en/reference/plugin-api.mdx)
 - [Client architecture](content/docs/en/reference/client-architecture.mdx)

@@ -22,6 +22,7 @@ export default async function Layout({ children, params }: LayoutProps) {
   return (
     <DocsLayout
       tree={source.getPageTree(locale)}
+      githubUrl="https://github.com/Kiramei/baas-tauri"
       nav={{
         title: (
           <span className="baas-doc-nav-brand">
