@@ -70,6 +70,10 @@ pub const CPYTHON_HEAD: Source = Source {
     ],
 };
 
+/// Project-hosted copy of uv's macOS Apple Silicon Python 3.9 archive.
+pub const CPYTHON_MACOS_ARM64_MIRROR: &str =
+    "https://github.com/Kiramei/baas-tauri/releases/download";
+
 pub const PYPI_SOURCE_LIST: &[&str] = &[
     "https://mirrors.aliyun.com/pypi/simple",
     "https://pypi.doubanio.com/simple",

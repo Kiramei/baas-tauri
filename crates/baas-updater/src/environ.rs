@@ -3,7 +3,7 @@
 use crate::{
     OutputSink, OutputStyle, UpdaterError, UpdaterResult,
     config::UpdaterConfig,
-    constants::{CPYTHON_HEAD, PYPI_SOURCE_LIST, UV_SRC_HEAD},
+    constants::{CPYTHON_HEAD, CPYTHON_MACOS_ARM64_MIRROR, PYPI_SOURCE_LIST, UV_SRC_HEAD},
     repo::{
         SourceProbe, SourceRanking, SourceSelector, benchmark_source_probes_with_output,
         benchmark_sources_with_output, save_ranking,
@@ -1147,10 +1147,11 @@ pub fn environment_source_urls(
                 .map(|head| format!("{}/{}", head.trim_end_matches('/'), archive_name))
                 .collect())
         }
-        EnvironmentSourceKind::Cpython => Ok(std::iter::once(CPYTHON_HEAD.main)
-            .chain(CPYTHON_HEAD.proxy.iter().copied())
-            .map(ToOwned::to_owned)
-            .collect()),
+        EnvironmentSourceKind::Cpython => Ok(cpython_sources_for_platform(
+            &config.python.python_version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        )),
         EnvironmentSourceKind::Pypi => {
             let urls = if config.general.source_list.is_empty() {
                 PYPI_SOURCE_LIST
@@ -1163,6 +1164,16 @@ pub fn environment_source_urls(
             Ok(urls)
         }
     }
+}
+
+/// The project mirror currently contains only the Apple Silicon Python 3.9 archive.
+fn cpython_sources_for_platform(version: &str, os: &str, arch: &str) -> Vec<String> {
+    let mut urls = vec![CPYTHON_HEAD.main.to_string()];
+    if os == "macos" && arch == "aarch64" && matches!(version, "3.9" | "3.9.0") {
+        urls.push(CPYTHON_MACOS_ARM64_MIRROR.to_string());
+    }
+    urls.extend(CPYTHON_HEAD.proxy.iter().map(|source| source.to_string()));
+    urls
 }
 
 /// Handles the first active source workflow.
@@ -1612,11 +1623,17 @@ mod tests {
         let sources = environment_source_urls(EnvironmentSourceKind::Cpython, &config).unwrap();
         let upstream = "https://github.com/astral-sh/python-build-standalone/releases/download";
         assert_eq!(sources.first().map(String::as_str), Some(upstream));
-        assert!(sources.iter().all(|source| source.ends_with(upstream)));
+        assert!(
+            sources.iter().all(|source| {
+                source.ends_with(upstream) || source == CPYTHON_MACOS_ARM64_MIRROR
+            })
+        );
         let probes = environment_source_probe_urls(EnvironmentSourceKind::Cpython, &sources);
         assert!(probes.iter().all(|(source, probe)| {
             source.ends_with("/releases/download")
-                && probe.ends_with("/astral-sh/python-build-standalone/releases")
+                && (probe.ends_with("/astral-sh/python-build-standalone/releases")
+                    || (source == CPYTHON_MACOS_ARM64_MIRROR
+                        && probe.ends_with("/Kiramei/baas-tauri/releases")))
         }));
         let command = uv_python_install_command(&config);
         assert_eq!(
@@ -1627,6 +1644,63 @@ mod tests {
                 .map(|(_, value)| value.as_str()),
             Some(upstream)
         );
+    }
+
+    #[test]
+    fn project_cpython_mirror_is_only_offered_for_default_apple_silicon_python() {
+        let apple_default = cpython_sources_for_platform("3.9.0", "macos", "aarch64");
+        let apple_family = cpython_sources_for_platform("3.9", "macos", "aarch64");
+        assert!(
+            apple_default
+                .iter()
+                .any(|url| url == CPYTHON_MACOS_ARM64_MIRROR)
+        );
+        assert_eq!(apple_default, apple_family);
+        for (version, os, arch) in [
+            ("3.9.0", "macos", "x86_64"),
+            ("3.9.0", "windows", "x86_64"),
+            ("3.9.0", "linux", "x86_64"),
+            ("3.9.0", "linux", "aarch64"),
+            ("3.11.0", "macos", "aarch64"),
+            ("3.9.25", "macos", "aarch64"),
+        ] {
+            let sources = cpython_sources_for_platform(version, os, arch);
+            assert!(!sources.iter().any(|url| url == CPYTHON_MACOS_ARM64_MIRROR));
+            assert_eq!(sources[0], CPYTHON_HEAD.main);
+            assert_eq!(sources.len(), 1 + CPYTHON_HEAD.proxy.len());
+        }
+    }
+
+    #[test]
+    fn project_cpython_mirror_failure_falls_back_to_official_source() {
+        let sources = cpython_sources_for_platform("3.9.0", "macos", "aarch64");
+        let probes = environment_source_probe_urls(EnvironmentSourceKind::Cpython, &sources);
+        let mut selector = SourceSelector::load(None, &sources).unwrap();
+        let project = selector
+            .next_source(
+                &probes,
+                &Probe {
+                    ok: vec![cpython_probe_url(CPYTHON_MACOS_ARM64_MIRROR)],
+                },
+                &crate::NoopOutput,
+                "cpython",
+            )
+            .unwrap();
+        assert_eq!(project, CPYTHON_MACOS_ARM64_MIRROR);
+        selector.mark_failed(&project).unwrap();
+
+        let official = selector
+            .next_source(
+                &probes,
+                &Probe {
+                    ok: vec![cpython_probe_url(CPYTHON_HEAD.main)],
+                },
+                &crate::NoopOutput,
+                "cpython",
+            )
+            .unwrap();
+        assert_eq!(official, CPYTHON_HEAD.main);
+        selector.mark_succeeded(&official).unwrap();
     }
 
     #[test]
