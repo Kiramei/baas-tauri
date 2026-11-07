@@ -644,9 +644,9 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             WorkflowTask::new(
                 "cpython-source-ranking",
                 "cpython-source-ranking",
-                "CPython Source",
-                "Benchmark CPython mirrors when managed Python is missing.",
-                "rank cpython sources",
+                "Install CPython",
+                "Select a CPython mirror and install managed Python.",
+                "select source and install python",
             ),
         )
         .task_after(

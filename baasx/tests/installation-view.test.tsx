@@ -8,6 +8,63 @@ import { MouseBus } from "../src/terminal";
 import { MouseContext } from "../src/terminal-components";
 import { displayWidth, terminalText } from "../src/ui";
 
+test("CPython source task shows that Python is being installed", async () => {
+  const progress = reduceInstallationProgress(undefined, {
+    type: "progress",
+    stage: "python-source",
+    taskId: "cpython-source-ranking",
+    message: "Downloading cpython-3.9.25",
+    status: "running",
+  });
+  for (const [language, label] of [
+    ["zh", "自动安装 Python"],
+    ["en", "Install Python automatically"],
+  ]) {
+    let frame = "";
+    const stdout = Object.assign(
+      new Writable({
+        write(chunk, _, done) {
+          const text = terminalText(String(chunk));
+          if (text.trim()) frame = text;
+          done();
+        },
+      }),
+      { columns: 90, rows: 25, isTTY: true }
+    );
+    const stdin = Object.assign(new PassThrough(), {
+      isTTY: true,
+      setRawMode() {},
+      ref() {},
+      unref() {},
+    });
+    const app = render(
+      <MouseContext.Provider value={new MouseBus()}>
+        <InstallationPanel progress={progress} language={language} columns={90} height={22} />
+      </MouseContext.Provider>,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+      }
+    );
+    try {
+      const deadline = Date.now() + 2_000;
+      while (!frame.includes(label) || !frame.includes("Downloading cpython-3.9.25")) {
+        if (Date.now() >= deadline) break;
+        await Bun.sleep(10);
+      }
+      expect(frame).toContain(label);
+      expect(frame).toContain("Downloading cpython-3.9.25");
+    } finally {
+      app.unmount();
+      app.cleanup();
+      stdin.destroy();
+      stdout.destroy();
+    }
+  }
+});
+
 test("BuildKit groups keep each active step progress and tail in place, and completed steps reopen on click", async () => {
   const now = Date.now();
   let progress = reduceInstallationProgress(

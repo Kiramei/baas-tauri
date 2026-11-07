@@ -60,16 +60,19 @@ pub const UV_SRC_HEAD: Source = Source {
 };
 
 pub const CPYTHON_HEAD: Source = Source {
-    main: "https://github.com/Kiramei/baas-tauri/releases/download/",
+    main: "https://github.com/astral-sh/python-build-standalone/releases/download",
     proxy: &[
-        "https://gitee.com/kiramei/blue_archive_auto_script_assets/releases/download",
-        "https://v4.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://v6.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://cdn.gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://gh-proxy.org/https://github.com/Kiramei/baas-tauri/releases/download",
-        "https://gh.sevencdn.com/https://github.com/Kiramei/baas-tauri/releases/download",
+        "https://v4.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://v6.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://cdn.gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://gh-proxy.org/https://github.com/astral-sh/python-build-standalone/releases/download",
+        "https://gh.sevencdn.com/https://github.com/astral-sh/python-build-standalone/releases/download",
     ],
 };
+
+/// Project-hosted copy of uv's macOS Apple Silicon Python 3.9 archive.
+pub const CPYTHON_MACOS_ARM64_MIRROR: &str =
+    "https://github.com/Kiramei/baas-tauri/releases/download";
 
 pub const PYPI_SOURCE_LIST: &[&str] = &[
     "https://mirrors.aliyun.com/pypi/simple",
