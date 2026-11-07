@@ -1,0 +1,53 @@
+---
+title: Background Game and Preview
+---
+
+After authorization, choose the matching profile and tap the play icon on Home's game area. BAAS creates its local background display and launches that package. This display is shared: another running profile can block a conflicting start. A restored display is not automatically trusted as belonging to the current profile.
+
+<AndroidGameDemo locale="en" />
+
+The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tapping it opens native controls:
+
+| Icon action | Behavior                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| Close       | Request a scheduler stop, release the background display and end its game process                        |
+| Fullscreen / Take over | Control the same background display and game process in native fullscreen, retaining the embedded session |
+| Restart     | Close the session, create a display and launch the selected game again; does not restart the scheduler   |
+
+<img
+  className="baas-screenshot baas-mobile-screenshot"
+  src="/media/android/en/game-controls.webp"
+  alt="Native preview controls: Close, Take over and Restart from left to right"
+/>
+
+The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Menus and dialogs hide the embedded preview so it cannot cover controls; a visible Home restores it. Changing pages does not automatically stop the background game or Python service.
+
+The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
+
+## Preview States
+
+The [virtual-display repair build](https://github.com/Kiramei/baas-tauri/commit/e3ed51d7339ea33dc5b6a397e1368b0dfee48e19) introduced the state labels. APKs containing the [consumer-progress check](https://github.com/Kiramei/baas-tauri/commit/532f785b) and [unique-buffer counter](https://github.com/Kiramei/baas-tauri/commit/128983b8) use the rules below. Earlier Live indicators can overstate frame progress.
+
+| State | Meaning and check |
+| ----- | ----------------- |
+| Waiting for frames | At least one of capture, GPU submission or screen consumption has not received a frame; allow cold loading, then check Shizuku and the game process |
+| Black screen | Frames exist but captured content remains black; locate the game on its intended display and inspect capture errors |
+| No frame updates | Progress has not been observed at all three stages, or any stage has stopped advancing for about two seconds; return Home and dismiss menus covering the preview before checking again |
+| Live | All three stages progressed within about two seconds, with nonblack captured content |
+| Preview error | A native connection or preview call failed; check authorization, service state and the error log again |
+
+Live describes the image path. It does not establish a logged-in account, effective input or task completion. Verify task results in logs and in the game. The screen-consumption counter records distinct positive `SurfaceTexture.timestamp` values; redrawing the same buffer does not increment it. Different buffers can still contain identical pixels. Repeatedly reading the same cached PNG does not constitute new game frames either.
+
+The [local performance measurements](../reference/performance#android-local-screenshots) time screenshot calls and input confirmation separately. Fast screenshot calls do not establish smooth preview playback. Use the [native preview pipeline](../reference/client-architecture#android-native-preview-and-capture) to locate a stalled stage.
+
+## Game Returns to the Main Display or Preview Stalls
+
+An older build on MuMu Android 15, x86_64, Shizuku ADB mode and Bilibili game version 3.0.2 created the background display, but Android refused to place the game's Unity Activity there. It moved to the main display and the preview later went black. The repair build adds task placement recovery, focus recovery and frame-state checks. Short tests on that emulator passed sustained preview and startup navigation using native screenshots, recognition and input. A later cold-start check still stalled on the opening image, so preview stability remains unresolved. Earlier frame counters and short tests do not establish consistently smooth game content or cover every business task, other phones or unattended long-running operation.
+
+If the game exits with `DeadSystemException` and system logs also record a `system_server` crash, check the Android system process and Shizuku connection first. This combination was reproduced on the emulator above. The crash occurred during system window-task visibility processing; its trigger is still under investigation. After Android recovers automatically, Shizuku may need to be started again in ADB mode. The previous game session cannot be reused.
+
+If this happens, stop the scheduler and close the background display. Check system logs for `Not allow to launch ... on display`, confirm whether the APK includes the repair and create a new game session after updating. Bitrate, screenshot intervals and reinstalling the game do not resolve a display-placement permission failure. Shizuku ADB mode passed these checks on the emulator; Root is not a universal requirement for local control.
+
+Sideways content, a half-filled preview or large black margins after a cold start also require checking the virtual display's orientation policy. The [follow-up rotation fix](https://github.com/Kiramei/baas-tauri/commit/8e38508f160a29d784125970c2dad00d3c9e347d) waits for Android to register the display before locking rotation, and prevents splash screens from applying a portrait rotation transform to the landscape display. After installing an APK containing this fix, close the old session and start the game again. The phone's main-display rotation setting can stay unchanged.
+
+Developers can compare `adb shell dumpsys activity activities` with `adb shell dumpsys display`: locate the actual game Activity and check whether its intended display has `FLAG_TRUSTED`. [Android 15's placement checks](https://android.googlesource.com/platform/frameworks/base/+/android-15.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java) restrict ordinary applications launching activities on untrusted displays. A successful privileged launch of the first page does not establish that subsequent game pages can remain there. This is a diagnostic lead, not evidence that every Android device has the same problem.

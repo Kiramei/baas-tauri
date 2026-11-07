@@ -67,14 +67,14 @@ The CLI builds on these subscriptions to wait for one correlated execution and
 follow its logs. For example, from the repository root:
 
 ```sh
-bun run cli --profile default_config --yes --wait --follow run explore_normal_task
-bun run cli --profile default_config --wait-timeout 120 wait RUN_ID
-bun run cli --profile default_config --follow logs 50
+bun run baasx --profile default_config --yes --wait --follow run explore_normal_task
+bun run baasx --profile default_config --wait-timeout 120 wait RUN_ID
+bun run baasx --profile default_config --follow logs 50
 ```
 
 Cancellation and wait timeouts stop observation; use an explicit `stop` command to
 stop the backend worker. Reconnection reads status and logs without replaying a
-mutation. See [the CLI guide](../../baasx/README.md) for dry runs, command packs,
+mutation. See [the CLI guide](../../README.md) for dry runs, command packs,
 local runtime setup and terminal workspaces.
 
 A later read can reconnect and authenticate again. Lost in-flight requests reject;
@@ -86,14 +86,14 @@ Trigger commands are outside this JSON request API.
 Tests use real local sockets and a signed encrypted WebSocket fixture:
 
 ```sh
-bun test packages/baas-client/tests
+bun test baasx/packages/baas-client/tests
 ```
 
 An opt-in compatibility smoke also runs the bundled Bun CLI against the real
 Python service routers, authentication and configuration manager:
 
 ```sh
-bun run cli:build
+bun run baasx:build
 python scripts/backend-smoke.py --backend-path ../baas-dev
 ```
 

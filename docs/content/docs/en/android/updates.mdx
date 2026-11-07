@@ -1,0 +1,23 @@
+---
+title: Updates and Diagnostics
+---
+
+Android's manual backend-update entry does not wait for every task to stop. Check each profile's runtime state and stop tasks first. The current command defers service restart; successful file synchronization, WebView reload and new Python code taking effect require separate confirmation. To restart the backend process after successful synchronization, stop all tasks, close the background game display, then **Force stop BAAS** from its app-info screen in Android settings. Reopen it and check the backend version, logs and a supervised run. Back or swiping away the Activity can leave the service running. Some service files still come from the APK-matched overlay and are not replaced by updating the backend repository. [Updater Internals](../reference/updater-internals) explains the workflow and limitations.
+
+Backend updates use the app's configured source and show progress/output. Preserve startup, system and update logs on failure. A failed request, authentication failure and game-recognition failure are different layers; changing screenshot intervals does not repair a download.
+
+| Symptom               | Check                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| APK cannot install    | Actual CPU ABI, Android version, trusted installation permission and existing package/signature |
+| Preparation fails     | Stage terminal, network/source and app-private storage                                          |
+| Missing game          | Selected profile's exact regional package                                                       |
+| Shizuku unavailable   | Installed/running/granted are three separate states                                             |
+| Black screen, No frame updates or an older Live badge stuck at splash | Actual game Activity/display placement, repair build, native capture errors and ABI compatibility |
+| OCR initialization fails | Inspect the actual library/model error; a connected UI does not establish OCR readiness |
+| Backend disconnect    | Service/process logs and background restrictions, not only notification visibility              |
+
+## Sharing a Device with Desktop uiautomator2
+
+Android BAAS's local-device bridge listens on `127.0.0.1:7912` **on the Android device**. Its `/version` returns `baas-shizuku-display-1`. It serves the embedded runtime, requires a private token and has a different API from standard atx-agent. A normal desktop uiautomator2 client forwarding to the same device port can receive HTTP 403 followed by a `PIL.Image.open` decode error.
+
+Check which service owns that port. Do not disable bridge authentication or put the app's private token into a normal atx-agent client. To switch to desktop uiautomator2, stop tasks first, stop the Android BAAS process through system app information, verify the listener is released and then prepare standard atx-agent. Backgrounding its UI does not stop its service. Resolve the other service's port ownership before switching back to Android BAAS. Stopping a process interrupts that client's active background work.

@@ -21,17 +21,6 @@ export function normalizeLocale(value: string | undefined): Locale {
 }
 
 /** Handles the switch locale path workflow. */
-export function switchLocalePath(pathname: string, nextLocale: Locale): string {
-  const segments = pathname.split("/").filter(Boolean);
-  const docsIndex = segments.indexOf("docs");
-
-  if (docsIndex === -1) return `/docs/${nextLocale}`;
-
-  if (segments[docsIndex + 1] === "zh" || segments[docsIndex + 1] === "en") {
-    segments[docsIndex + 1] = nextLocale;
-  } else {
-    segments.splice(docsIndex + 1, 0, nextLocale);
-  }
-
-  return `/${segments.join("/")}`;
+export function switchLocalePath(pathname: string, _nextLocale: Locale): string {
+  return pathname.replace(/(\/docs)\/(?:zh|en)(?=\/|$)/, "$1");
 }

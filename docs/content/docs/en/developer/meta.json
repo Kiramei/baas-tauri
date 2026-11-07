@@ -1,0 +1,15 @@
+{
+  "title": "Developers",
+  "pages": [
+    "[CLI and Service Mode](/docs/reference/cli-service)",
+    "[Backend Service Interfaces](/docs/reference/backend-service)",
+    "[Native Client API](/docs/reference/client-api)",
+    "[Plugin API](/docs/reference/plugin-api)",
+    "[Backend Development Guidelines](/docs/reference/backend-development)",
+    "[Auto Fight and Recognition Development](/docs/reference/auto-fight-dev)",
+    "[Performance and Benchmarks](/docs/reference/performance)",
+    "[Client Architecture and State](/docs/reference/client-architecture)",
+    "[Updater Internals](/docs/reference/updater-internals)",
+    "[Development and Documentation Maintenance](/docs/reference/development)"
+  ]
+}

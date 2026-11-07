@@ -142,7 +142,7 @@ try {
             await result.waitFor({ state: "visible" });
             await result.click();
             await page.waitForURL((url) =>
-              url.pathname.endsWith(`/docs/${locale}/reference/updater-internals/`)
+              url.pathname.endsWith(`/docs/reference/updater-internals/`)
             );
             await page.getByRole("heading", { name: text.title, exact: true }).waitFor();
             assert.ok(

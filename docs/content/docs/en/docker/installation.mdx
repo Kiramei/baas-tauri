@@ -1,0 +1,37 @@
+---
+title: Start Docker
+---
+
+import { WebuiImageCommands } from "@/components/WebuiImageCommands";
+
+Pull the image from [GitHub Container Registry](https://github.com/users/Kiramei/packages/container/package/baas-webui) or [Docker Hub](https://hub.docker.com/r/kiramei/baas-webui/tags). `latest` updates for a stable release or a manual release workflow run on `main`. RC releases publish their version tag without updating `latest`. You can also choose a specific version, such as `0.0.9.post1`.
+
+Pull and start without cloning the repository. Choose an image registry and container engine, then run both commands:
+
+<WebuiImageCommands locale="en" />
+
+The named volume `baas-webui-data` retains the container's `/app` data. Preserve and back it up before replacing the container.
+
+The current `latest` image targets `linux/amd64`. ARM devices need an emulator that supports that architecture. Initial startup prepares the backend and OCR. Use `docker logs --tail=100 baas-webui` or `podman logs --tail=100 baas-webui` for the chosen engine. To update, pull the new image and recreate the container with the same options.
+
+To restore Podman containers after a system reboot, enable `podman-restart.service` or manage the container with systemd.
+
+To use the repository's Compose file, run from the repository root:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+Compose uses the GitHub image by default. Set `BAAS_WEBUI_IMAGE=docker.io/kiramei/baas-webui:latest` before running the command to use Docker Hub.
+
+Open `http://127.0.0.1:8191`. The default binding is local only. Backend `127.0.0.1:8190` is internal to the container and is not published.
+
+`scripts/docker/app/` is mounted at `/app` and retains profiles, authentication, backend code, and logs. Back it up before upgrading; deleting volumes is not a routine update fix. Initial startup prepares the backend and OCR. Inspect container logs on network failure:
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml logs --tail=100
+docker compose -f scripts/docker/docker-compose.yml pull
+docker compose -f scripts/docker/docker-compose.yml up -d
+```
+
+The image contains the WebUI and Python dependencies. An in-app backend Git update does not update the browser interface or image dependencies; pull a new image and recreate the container for those changes.

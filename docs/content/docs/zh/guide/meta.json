@@ -1,4 +1,10 @@
 {
   "title": "使用指南",
-  "pages": ["install", "android", "webui", "interface", "configuration", "scheduler", "wiki"]
+  "pages": [
+    "install",
+    "interface",
+    "configuration",
+    "scheduler",
+    "wiki"
+  ]
 }

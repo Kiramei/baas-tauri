@@ -1,0 +1,17 @@
+---
+title: Shizuku Authorization
+---
+
+Install Shizuku separately from its [official download page](https://shizuku.rikka.app/download/). Start it using the method appropriate to your device, then return to BAAS. The [official setup guide](https://shizuku.rikka.app/guide/setup/) covers root, wireless debugging and computer-assisted startup.
+
+| BAAS state              | Required action                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| Not installed           | Install Shizuku separately; there is no bundled installer to extract                  |
+| Installed but stopped   | Open Shizuku and start its service                                                    |
+| Running but not granted | Choose Allow access in BAAS, then approve the actual Shizuku permission dialog        |
+| Ready                   | Close the message and explicitly retry the original Start action                      |
+| Status check failed     | Inspect the error and retry the check; do not infer permission from an old Live badge |
+
+Both scheduler start and background-game start check current permission. Granting permission does not silently resume an earlier blocked command. Stopping the scheduler is a separate operation and must remain possible during permission failures.
+
+**Use the startup command displayed by your installed Shizuku version.** Older instructions use an external `start.sh`; [v13.6.0](https://github.com/RikkaApps/Shizuku/releases/tag/v13.6.0) changed the startup command to an installed native executable. Do not paste another device's package-install path.

@@ -16,10 +16,6 @@
   --baas-scrollbar-border: var(--color-fd-background);
 }
 
-.baas-locale-entry {
-  padding: 32px;
-}
-
 .baas-mobile-screenshot {
   width: min(100%, 360px);
 }
@@ -1079,6 +1075,209 @@ html:not(.dark):not([data-theme="dark"]) .baas-mermaid {
   height: 1rem;
   flex: 0 0 auto;
   color: color-mix(in srgb, var(--color-fd-primary) 82%, currentColor);
+}
+
+.baas-home-start {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  margin: 1.25rem 0 2rem;
+}
+
+.baas-home-primary,
+.baas-home-start-links,
+.baas-home-platforms > a,
+.baas-home-topics > a {
+  border: 1px solid var(--color-fd-border);
+  border-radius: 12px;
+  background: var(--color-fd-card);
+}
+
+.baas-home-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  background: color-mix(in srgb, var(--color-fd-primary) 7%, var(--color-fd-card));
+  text-decoration: none;
+}
+
+.baas-home-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-fd-primary) 10%, var(--color-fd-background));
+}
+
+.baas-home-icon .baas-doc-card-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.baas-home-primary-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.baas-home-primary-copy strong,
+.baas-home-platforms strong,
+.baas-home-topics strong {
+  color: var(--color-fd-foreground);
+  font-size: 0.98rem;
+}
+
+.baas-home-primary-copy > span:not(.baas-home-primary-action),
+.baas-home-platforms > a > span:not(.baas-home-icon):not(.baas-home-link),
+.baas-home-topics a > span:nth-child(2) > span {
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.baas-home-primary-action,
+.baas-home-link {
+  margin-top: 8px;
+  color: var(--color-fd-primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.baas-home-start-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.baas-home-start-links a {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 14px;
+  color: var(--color-fd-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.baas-home-start-links a:nth-child(odd) {
+  border-right: 1px solid var(--color-fd-border);
+}
+
+.baas-home-start-links a:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--color-fd-border);
+}
+
+.baas-home-start-links a > span:last-child,
+.baas-home-topics a > span:last-child {
+  margin-left: auto;
+  color: var(--color-fd-muted-foreground);
+}
+
+.baas-home-platforms {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 1.25rem 0 2rem;
+}
+
+.baas-home-platforms > a {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 17px;
+  text-decoration: none;
+}
+
+.baas-home-platforms .baas-home-link {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.baas-home-topics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 1.25rem 0 1rem;
+}
+
+.baas-home-topics > a {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px;
+  text-decoration: none;
+}
+
+.baas-home-topics > a > .baas-doc-card-icon {
+  margin-top: 3px;
+}
+
+.baas-home-topics a > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.baas-home-category {
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.baas-home-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.baas-home-primary:hover,
+.baas-home-platforms > a:hover,
+.baas-home-topics > a:hover {
+  border-color: color-mix(in srgb, var(--color-fd-primary) 50%, var(--color-fd-border));
+  background: color-mix(in srgb, var(--color-fd-primary) 7%, var(--color-fd-card));
+}
+
+.baas-home-start-links a:hover {
+  background: var(--color-fd-accent);
+}
+
+.baas-home-start a:focus-visible,
+.baas-home-platforms a:focus-visible,
+.baas-home-topics a:focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: -2px;
+}
+
+@media (max-width: 640px) {
+  .baas-home-start,
+  .baas-home-platforms,
+  .baas-home-topics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .baas-home-platforms > a {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 4px 12px;
+  }
+
+  .baas-home-platforms .baas-home-icon {
+    grid-row: span 3;
+  }
 }
 
 .baas-doc-hero {

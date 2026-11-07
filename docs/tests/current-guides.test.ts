@@ -7,11 +7,15 @@ test("current bilingual guides expose plugins, browser deployment and their safe
   const implementation = read("src/pages/PluginsPage.tsx");
   for (const locale of ["zh", "en"]) {
     const page = (section: string, name: string) => read(`docs/content/docs/${locale}/${section}/${name}.mdx`);
-    for (const [section, name] of [["features", "plugins"], ["guide", "webui"], ["reference", "plugin-api"]]) {
+    for (const [section, name] of [["features", "plugins"], ["docker", "installation"], ["reference", "plugin-api"]]) {
       const meta = JSON.parse(read(`docs/content/docs/${locale}/${section}/meta.json`));
       expect(meta.pages).toContain(name);
       expect(page(section, name).length).toBeGreaterThan(1000);
     }
+    const rootMeta = JSON.parse(read(`docs/content/docs/${locale}/meta.json`));
+    expect(rootMeta.pages).toEqual([
+      "index", "guide", "features", "android", "docker", "baasx", "developer", "other",
+    ]);
     const plugins = page("features", "plugins");
     for (const id of ["baas.hoard-ap", "baas.auto-push", "baas.equipment-planner", "baas.inventory-calculator", "baas.home-editor"])
       expect(plugins).toContain(id);

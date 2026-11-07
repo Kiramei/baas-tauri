@@ -1,38 +1,59 @@
 ---
 title: BAAS 文档
-description: 安装 BAAS，配置新版桌面或 Android 工作区，调度任务并理解实现原理。
+description: 安装 BAAS，配置工作区，并按自己的方式运行自动化任务。
 ---
+
+import Link from "next/link";
 
 ## 开始使用
 
-1. [安装客户端并连接后端](./guide/install)。
-2. [了解工作区](./guide/interface)，选择或创建[配置档](./features/profile)。
-3. 设置[区服](./features/server)、[设备](./features/emulator)和[脚本方式](./features/script)。
-4. [编辑任务行为](./guide/configuration)，然后[启用并调度任务](./guide/scheduler)。
-5. 先启动少量任务，再检查[运行状态与日志](./features/home-runtime)。
-
-在 Android 本机运行自动化，先阅读 [Android 客户端](./guide/android)。
-
-在终端中管理配置、执行任务或编写自动化脚本，见 **[BAASX 终端使用手册](./baasx)**。可以先在网页里操作离线终端演示，再安装到自己的电脑。
-
-通过浏览器连接服务端，见 [WebUI 与 Docker](./guide/webui)。囤体、自动推图、装备规划等工具见[插件](./features/plugins)。
+<div className="baas-home-start">
+  <Link prefetch={false} id="download" className="baas-home-primary" href="/docs/guide/install/">
+    <span className="baas-home-icon"><DocHomeIcon name="install" /></span>
+    <span className="baas-home-primary-copy">
+      <strong>安装并连接</strong>
+      <span>安装桌面客户端，准备后端并建立连接。</span>
+      <span className="baas-home-primary-action">阅读安装指南 <span aria-hidden="true">→</span></span>
+    </span>
+  </Link>
+  <div className="baas-home-start-links">
+    <Link prefetch={false} href="/docs/guide/interface/"><DocHomeIcon name="interface" /><span>认识工作区</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/guide/configuration/"><DocHomeIcon name="settings" /><span>编辑配置</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/guide/scheduler/"><DocHomeIcon name="scheduler" /><span>调度任务</span><span aria-hidden="true">→</span></Link>
+    <Link prefetch={false} href="/docs/features/home-runtime/"><DocHomeIcon name="runtime" /><span>查看运行状态与日志</span><span aria-hidden="true">→</span></Link>
+  </div>
+</div>
 
 ## 常用入口
 
-| 需求                     | 文档                                                                            |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| 咖啡厅、邀请与好感度     | [咖啡厅](./features/cafe)                                                       |
-| 日程、商店与制造         | [日程](./features/lesson)、[商店](./features/shop)、[制造](./features/crafting) |
-| 体力计划与关卡推进       | [扫荡](./features/sweeps)、[推图](./features/stages)、[编队](./features/team)   |
-| 竞技场与战斗活动         | [战斗](./features/combat)                                                       |
-| 通知与辅助操作           | [维护](./features/maintenance)                                                  |
-| 主题、语言、快捷键与日志 | [系统设置](./features/system)                                                   |
-| 版本与升级               | [更新](./features/update)、[版本历史](./reference/release-history)              |
-| 失败或结果异常           | [故障排查](./reference/troubleshooting)                                         |
-| 实现与测量               | [开发](./reference/development)、[性能基准](./reference/performance)            |
+<div className="baas-home-topics">
+  <Link prefetch={false} href="/docs/guide/configuration/"><DocHomeIcon name="settings" /><span><strong>功能配置</strong><span>搜索、修改和保存任务设置。</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/features/plugins/"><DocHomeIcon name="automation" /><span><strong>插件</strong><span>使用囤体、推图与装备规划工具。</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/reference/development/"><DocHomeIcon name="development" /><span><strong>开发者</strong><span>了解客户端、后端接口与开发流程。</span></span><span aria-hidden="true">→</span></Link>
+  <Link prefetch={false} href="/docs/reference/troubleshooting/"><DocHomeIcon name="troubleshooting" /><span><strong>故障排查</strong><span>查找安装、连接和运行问题的处理方法。</span></span><span aria-hidden="true">→</span></Link>
+</div>
 
-## 下载
+<p className="baas-home-related">按任务查找： <Link prefetch={false} href="/docs/features/cafe/">咖啡厅</Link><Link prefetch={false} href="/docs/features/lesson/">日程</Link><Link prefetch={false} href="/docs/features/shop/">商店</Link><Link prefetch={false} href="/docs/features/crafting/">制造</Link><Link prefetch={false} href="/docs/features/sweeps/">扫荡</Link><Link prefetch={false} href="/docs/features/stages/">推图</Link><Link prefetch={false} href="/docs/features/team/">编队</Link><Link prefetch={false} href="/docs/features/combat/">战斗</Link><Link prefetch={false} href="/docs/features/system/">系统设置</Link><Link prefetch={false} href="/docs/reference/release-history/">版本历史</Link></p>
 
-<div id="download" />
+## 其他运行方式
 
-<ReleaseDownloadPanel locale="zh" />
+<div className="baas-home-platforms">
+  <Link prefetch={false} href="/docs/android/">
+    <span className="baas-home-icon"><DocHomeIcon name="emulator" /></span>
+    <strong>Android</strong>
+    <span>在手机或模拟器上运行，了解授权与后台游戏。</span>
+    <span className="baas-home-link">Android 指南 <span aria-hidden="true">→</span></span>
+  </Link>
+  <Link prefetch={false} href="/docs/docker/">
+    <span className="baas-home-icon"><DocHomeIcon name="backend" /></span>
+    <strong>Docker</strong>
+    <span>部署 WebUI，通过浏览器连接和管理服务。</span>
+    <span className="baas-home-link">部署指南 <span aria-hidden="true">→</span></span>
+  </Link>
+  <Link prefetch={false} href="/docs/baasx/">
+    <span className="baas-home-icon"><DocHomeIcon name="development" /></span>
+    <strong>BAASX</strong>
+    <span>在终端管理配置、运行任务或编写脚本。</span>
+    <span className="baas-home-link">BAASX 指南 <span aria-hidden="true">→</span></span>
+  </Link>
+</div>

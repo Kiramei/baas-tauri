@@ -18,6 +18,7 @@ const base = positionals[0] || await (async () => {
   return `http://127.0.0.1:${server.address().port}`;
 })();
 const origin = new URL(base).origin;
+const basePath = new URL(base).pathname.replace(/\/$/, "");
 const cache = path.join(root, ".cache/deployment/client-api");
 mkdirSync(cache, { recursive: true });
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
@@ -79,7 +80,7 @@ try {
       await dialog.locator("input").fill("backend_shm_send_json");
       const title = locale === "zh" ? "客户端原生 API" : "Native Client API";
       await dialog.getByRole("button").filter({ hasText: title }).first().click();
-      await page.waitForURL(url => url.pathname === route);
+      await page.waitForURL(url => url.pathname === `${basePath}/docs/reference/client-api/`);
       await page.getByRole("heading", { name: title, exact: true }).waitFor();
       assert.deepEqual(pageErrors, []);
       assert.deepEqual(failedRequests, []);

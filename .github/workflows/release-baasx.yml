@@ -101,3 +101,56 @@ jobs:
             - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
             - `SHA256SUMS` contains checksums for all six distributions.
             - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all three platforms before publication.
+
+  publish-registry:
+    name: Publish baasx to ${{ matrix.registry }}
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - registry: npm
+            url: https://registry.npmjs.org/
+            scope: kiramei
+          - registry: GitHub Packages
+            url: https://npm.pkg.github.com/
+            scope: kiramei
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: ${{ matrix.url }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: baasx-*
+          path: release-assets
+          merge-multiple: true
+      - name: Assemble the three verified platform archives
+        run: node baasx/scripts/registry-package.mjs --assets release-assets --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
+      - name: Verify the registry package installs and launches
+        env:
+          NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          archive=$(node -p 'require(process.argv[1]).archive' "$RUNNER_TEMP/baasx-registry-info.json")
+          prefix="$RUNNER_TEMP/baasx-registry-check"
+          npm install --global --prefix "$prefix" "$archive" --ignore-scripts --no-audit --no-fund
+          "$prefix/bin/baasx" --demo --json status
+          "$prefix/lib/node_modules/@${{ matrix.scope }}/baasx/platforms/linux-x64/runtime/baas-cli-runtime" inspect --root "$RUNNER_TEMP/baasx-not-installed"
+      - name: Publish package
+        env:
+          NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+        run: |
+          tag=latest
+          if [[ "$PRERELEASE" == true ]]; then tag=next; fi
+          node baasx/scripts/registry-publish.mjs --info "$RUNNER_TEMP/baasx-registry-info.json" --registry "${{ matrix.url }}" --tag "$tag"

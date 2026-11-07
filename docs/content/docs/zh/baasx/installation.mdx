@@ -3,17 +3,34 @@ title: 安装与首次连接
 description: Windows、Linux、macOS 的 BAASX 安装、演示模式、本地运行环境、远程连接与更新。
 ---
 
+import { PackageManagerInstall } from "@/components/PackageManagerInstall";
+
 ## 选择安装方式
 
 | 方式                  | 电脑需要什么                             | 适合谁                     |
 | --------------------- | ---------------------------------------- | -------------------------- |
+| npm 注册表包          | Node.js 18+ 或 Deno                      | 全局安装 `baasx` 命令      |
 | 原生发行包 `.tar.gz`  | 对应操作系统和架构，无需 Bun / Rust      | 希望解压即用               |
 | Bun 发行包 `-bun.tgz` | Bun 1.4.4+，无需 Rust                    | 已经使用 Bun               |
 | 从源码启动或构建      | Bun 1.4.4+、Rust 1.95+ 和 C/C++ 编译工具 | 尚无发行包，或需要开发版本 |
 
-**发布状态：2026-11-07 检查时尚无 `baasx-v` 独立 Release。** 当前可使用下方源码方式。以后发布时，在 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v) 中选择 `baasx-v<版本>`，不要把桌面客户端的 Latest 安装包当作 BAASX。
+## npm 注册表安装
 
-发布流程生成的原生包和 Bun 包都会附带同平台的运行环境安装组件。`@baas/baasx` 会作为 Release 的 `.tgz` 附件提供，不上传 npm registry。
+使用 npm、Bun、pnpm、Yarn 或 cnpm 安装时，需先安装 Node.js 18 或更新版本。Deno 可直接运行。选择一种已安装的工具：
+
+<PackageManagerInstall locale="zh" />
+
+全局安装完成后运行 `baasx --help` 或 `baasx --demo --lang zh`。请确保所用包管理器的全局可执行文件目录已加入 PATH。pnpm 提示找不到全局目录时可运行 `pnpm setup` 并重新打开终端。Yarn 1 可用 `yarn global bin` 查看目录。Bun 默认使用 `~/.bun/bin`，也可能由配置指定其他目录。
+
+选项卡中的 Yarn 全局安装命令适用于 Yarn 1。Yarn 2 及更新版本可使用 `yarn dlx --package @kiramei/baasx baasx --help` 临时运行 BAASX。
+
+cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂时找不到包，可直接使用上面的 npm 命令。
+
+Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
+
+注册表包包含 Windows x64、Linux x64 和 Apple Silicon Mac 的原生程序与安装组件。安装包自动选择当前平台，无需额外安装 Rust。
+
+独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v) 的 `baasx-v<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
 
 ## 原生发行包
 
@@ -71,7 +88,7 @@ baasx/                   # 解压目录，可自行改名
 先确认 `bun --version` 满足 1.4.4+，再安装与系统和架构对应的本地附件：
 
 ```sh
-bun add --global ./baasx-<版本>-Linux-X64-bun.tgz
+bun add -g ./baasx-<版本>-Linux-X64-bun.tgz
 baasx --help
 baasx --demo
 ```

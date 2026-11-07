@@ -1,0 +1,10 @@
+---
+title: Local Development
+---
+
+```sh
+bun install --frozen-lockfile
+bun run dev:webui
+```
+
+The development proxy targets `127.0.0.1:8190` by default; set `VITE_BAAS_PROXY_TARGET` for an isolated backend. `bun run build:webui` builds browser assets. WebUI has no desktop tray, native global shortcuts, or Android local device bridge. Its system-log viewer shows browser logs; `/system/` and `/android/` do not expose host interfaces.

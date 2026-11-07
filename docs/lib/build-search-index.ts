@@ -5,7 +5,12 @@ import { createSearchArtifact, sortSearchPages } from "./search-artifact.server"
 
 const searchSource: typeof source = {
   ...source,
-  getPages: (language) => sortSearchPages(source.getPages(language)),
+  getPages: (language) =>
+    sortSearchPages(
+      source.getPages(language).filter((page) =>
+        !["/docs/guide/android", "/docs/guide/webui"].includes(page.url.replace(/\/$/, ""))
+      )
+    ),
 };
 
 let artifact: Promise<ReturnType<typeof createSearchArtifact>> | undefined;

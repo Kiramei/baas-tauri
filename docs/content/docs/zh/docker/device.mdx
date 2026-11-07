@@ -1,0 +1,15 @@
+---
+title: 连接设备
+---
+
+容器中的 `127.0.0.1` 指向容器自身。填写宿主机的 ADB TCP 设备时，Docker 可使用 `host.docker.internal:5555`，Podman 可使用 `host.containers.internal:5555`，也可以填写设备可达的局域网地址，例如 `192.168.1.42:5555`。Podman 的内部主机名取决于网络及虚拟机配置；是否可连还取决于模拟器监听地址、防火墙和容器网络。仅监听宿主机回环的端口可能无法经网关访问。
+
+`5037` 通常是 ADB server 端口，不能直接当作设备 TCP 端口。先确认服务端能发现设备，再运行少量任务。PC 原生窗口控制依赖 Windows 桌面，Linux Docker 不提供该能力。
+
+Linux 如需共享宿主机网络，可使用仓库的覆盖文件：
+
+```sh
+docker compose -f scripts/docker/docker-compose.yml -f scripts/docker/docker-compose.host.yml up -d
+```
+
+此时直接使用宿主机端口 `8191` 和 `8190`；桥接模式的 `BAAS_WEBUI_PORT`、`BAAS_WEBUI_BIND` 不控制这些监听。先检查端口占用及访问范围。
