@@ -108,6 +108,26 @@ jobs:
       - name: Build the JS bundle, native helper and trimmed executable
         run: bun run baasx:binary
       - run: bun baasx/bin/baasx.mjs --demo --json status
+      - name: Use the minimum supported Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.3.0"
+      - name: Check the Node.js bundle
+        run: |
+          node baasx/dist/baasx-node.mjs --demo --json status
+          node baasx/dist/baasx-node.mjs --demo --json packs
+          node --test baasx/tests/node-bundle.check.mjs
+      - name: Restore the CI Node.js version
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        if: runner.os == 'Linux'
+        with:
+          deno-version: v2.x
+      - name: Check the Deno bundle
+        if: runner.os == 'Linux'
+        run: deno run -A baasx/dist/baasx-node.mjs --demo --json status
       - name: Exercise the compiled CLI and terminal
         shell: bash
         env:
@@ -145,4 +165,11 @@ jobs:
           name: baasx-${{ runner.os }}-${{ runner.arch }}
           path: baasx/dist/release/*
           compression-level: 0
+          if-no-files-found: error
+      - name: Upload the registry JavaScript bundle
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-node-bundle
+          path: baasx/dist/baasx-node.mjs
           if-no-files-found: error
