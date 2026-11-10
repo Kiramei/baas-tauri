@@ -18,7 +18,7 @@ BAASX 指令包使用 JSON 将一组支持的操作保存为可重复执行的�
 | `daily`            | `scheduler_start`              | 启动当前配置档已有的日常调度        |
 | `daily-wait`       | `scheduler_start` → `wait_run` | 启动后增加一次最多 120 秒的等待     |
 
-在工作台输入 `/packs`，选择命令并按 Enter；也可输入 `/briefing` 或 `/pack briefing`。在系统终端使用：
+在工作台输入 `/packs` 查看命令，再输入 `/briefing` 或 `/pack briefing` 执行。在系统终端使用：
 
 ```bash
 baasx --profile PROFILE_ID pack briefing
@@ -157,7 +157,7 @@ JSON Pointer 用 `/` 分隔路径，字段名中的 `~` 写成 `~0`，`/` 写成
 
 1. 编辑或替换目录里的 JSON 文件。
 2. 在已打开的工作台执行 `/reload` 或 Ctrl+R。它会重读设置和所有包，并重建界面；未保存的编辑会清除，后台任务继续运行。
-3. 打开 `/packs` 检查新命令。修改包不会自动运行命令。
+3. 输入 `/packs` 检查新命令。修改包不会自动运行命令。
 
 没有文件监听式自动更新，也没有专门的包安装/卸载命令。卸载自定义包时，将其文件移出目录，或把扩展名改为 `.json.disabled`，然后在工作台重载。内置 `baas-core` 不能通过删除文件卸载。
 

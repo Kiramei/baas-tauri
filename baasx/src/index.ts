@@ -132,6 +132,7 @@ async function main() {
     "reload",
     "check-update",
     "update",
+    "uninstall",
   ]);
   for (const command of packCommands)
     if (builtinNames.has(command.name))
@@ -402,6 +403,34 @@ async function main() {
           await ownedRuntime.stopWhenIdle(signal);
           const runtime = await ownedRuntime.update(progress, signal);
           return { updated: true, runtime };
+        });
+        ui.result(result);
+        break;
+      }
+      case "uninstall": {
+        expect(0);
+        if (values.demo) throw new Error("演示环境不卸载真实后端");
+        if (context.readOnly) throw new Error("当前为只读模式，不能卸载运行环境");
+        const result = await withOperation(async (signal) => {
+          const { RuntimeManager } = await import("./runtime");
+          ownedRuntime ||= new RuntimeManager({ directory });
+          const target = await ownedRuntime.captureUninstallTarget(signal);
+          const detail = {
+            root: target.root,
+            preserve: "配置与用户数据",
+            note: "卸载前将停止本工作台启动的空闲本地后端。",
+          };
+          if (context.dryRun) return { dry_run: true, action: "uninstall", ...detail };
+          if (!(await context.approve("uninstall", detail)))
+            throw new Error("操作已取消，未卸载运行环境");
+          signal.throwIfAborted();
+          await ownedRuntime.verifyUninstallTarget(target, signal);
+          await ownedRuntime.stopWhenIdle(signal);
+          const progress = (event: { message: string }) => {
+            if (event.message) ui.info(redactor.text(event.message));
+          };
+          const runtime = await ownedRuntime.uninstall(target, progress, signal);
+          return { uninstalled: true, runtime, preserve: detail.preserve };
         });
         ui.result(result);
         break;

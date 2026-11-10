@@ -5,7 +5,7 @@ export function help(language: string, version: string): string {
   const t = (source: string) => translate(source, language);
   const commands = [
     "init, connect [URL], login, logout, doctor, devices",
-    "check-update, update",
+    "check-update, update, uninstall",
     "profiles, use <ID>, profile create <name> <server>",
     "status, tasks, run <task>, start, stop",
     "wait [run_id], logs [count] [--follow], watch",

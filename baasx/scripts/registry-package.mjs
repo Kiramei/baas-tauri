@@ -18,28 +18,27 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { values } = parseArgs({
   options: {
     assets: { type: "string" },
+    bundle: { type: "string" },
     output: { type: "string" },
     scope: { type: "string" },
   },
 });
-if (!values.assets || !values.output || values.scope !== "kiramei") {
-  throw new Error("Provide --assets <release directory> --output <directory> --scope kiramei");
+if (!values.assets || !values.bundle || !values.output || values.scope !== "kiramei") {
+  throw new Error("Provide --assets <release directory> --bundle <Node bundle> --output <directory> --scope kiramei");
 }
 const assets = path.resolve(values.assets);
 const output = path.resolve(values.output);
 const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
 const platforms = [
-  { asset: "Linux-X64", directory: "linux-x64", executable: "baasx", helper: "baas-cli-runtime" },
+  { asset: "Linux-X64", directory: "linux-x64", helper: "baas-cli-runtime" },
   {
     asset: "macOS-ARM64",
     directory: "darwin-arm64",
-    executable: "baasx",
     helper: "baas-cli-runtime",
   },
   {
     asset: "Windows-X64",
     directory: "win32-x64",
-    executable: "baasx.exe",
     helper: "baas-cli-runtime.exe",
   },
 ];
@@ -47,14 +46,16 @@ const temporary = mkdtempSync(path.join(tmpdir(), "baasx-registry-"));
 try {
   const stage = path.join(temporary, "package");
   mkdirSync(path.join(stage, "bin"), { recursive: true });
-  copyFileSync(path.join(root, "registry/baasx.cjs"), path.join(stage, "bin/baasx.cjs"));
+  mkdirSync(path.join(stage, "dist"), { recursive: true });
+  copyFileSync(path.join(root, "registry/baasx.mjs"), path.join(stage, "bin/baasx.mjs"));
+  copyFileSync(path.resolve(values.bundle), path.join(stage, "dist/baasx-node.mjs"));
   for (const file of ["README.md", "README_zh.md", "LICENSE"])
     copyFileSync(path.join(root, file), path.join(stage, file));
   for (const platform of platforms) {
-    const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}.tar.gz`);
+    const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}-bun.tgz`);
     if (!existsSync(archive)) throw new Error(`Missing verified release archive: ${archive}`);
     const entries = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n");
-    for (const required of [platform.executable, `runtime/${platform.helper}`]) {
+    for (const required of [`package/runtime/${platform.helper}`]) {
       if (!entries.includes(required) && !entries.includes(`./${required}`))
         throw new Error(`${archive} is missing ${required}`);
     }
@@ -65,11 +66,10 @@ try {
       archive,
       "-C",
       destination,
-      platform.executable,
-      `runtime/${platform.helper}`,
+      "--strip-components=1",
+      `package/runtime/${platform.helper}`,
     ]);
     if (platform.directory !== "win32-x64") {
-      chmodSync(path.join(destination, platform.executable), 0o755);
       chmodSync(path.join(destination, "runtime", platform.helper), 0o755);
     }
   }
@@ -85,11 +85,11 @@ try {
     },
     homepage: "https://github.com/Kiramei/baas-tauri/tree/dev/baasx#readme",
     bugs: { url: "https://github.com/Kiramei/baas-tauri/issues" },
-    bin: { baasx: "bin/baasx.cjs" },
-    engines: { node: ">=18" },
+    bin: { baasx: "bin/baasx.mjs" },
+    engines: { node: ">=20.3.0" },
     os: ["darwin", "linux", "win32"],
     cpu: ["arm64", "x64"],
-    files: ["bin", "platforms", "README.md", "README_zh.md", "LICENSE"],
+    files: ["bin", "dist", "platforms", "README.md", "README_zh.md", "LICENSE"],
   };
   writeFileSync(path.join(stage, "package.json"), `${JSON.stringify(published, null, 2)}\n`);
   mkdirSync(output, { recursive: true });

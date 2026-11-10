@@ -134,8 +134,12 @@ jobs:
           pattern: baasx-*
           path: release-assets
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: registry-node-bundle
+          path: registry-bundle
       - name: Assemble the three verified platform archives
-        run: node baasx/scripts/registry-package.mjs --assets release-assets --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
+        run: node baasx/scripts/registry-package.mjs --assets release-assets --bundle registry-bundle/baasx-node.mjs --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
       - name: Verify the registry package installs and launches
         env:
           NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}

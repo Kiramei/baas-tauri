@@ -16,6 +16,7 @@ import {
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { StringDecoder } from "node:string_decoder";
 import { abortable } from "./monitor";
 import { createRedactor } from "./redaction";
@@ -57,6 +58,12 @@ export interface RuntimeUpdateCheck {
     remoteVersion: string;
     available: boolean;
   }>;
+}
+export interface UninstallTarget {
+  root: string;
+  realpath: string;
+  device: string;
+  inode: string;
 }
 export interface RuntimeManagerOptions {
   directory: string;
@@ -308,6 +315,92 @@ export class RuntimeManager {
         available: value.available,
         repositories,
       };
+    });
+  }
+
+  /** Capture the exact managed directory before asking the user to confirm. */
+  async captureUninstallTarget(signal?: AbortSignal): Promise<UninstallTarget> {
+    return this.operation(signal, INSPECT_TIMEOUT, async (operationSignal) => {
+      const metadata = await this.metadata();
+      if (!metadata) throw new RuntimeError("runtime_missing", "没有可卸载的本地托管环境");
+      const state = await this.inspectRoot(metadata.root, operationSignal);
+      if (!state.managed)
+        throw new RuntimeError("runtime_missing", "只能卸载 BAASX 管理的后端程序");
+      const real = await realpath(metadata.root);
+      const info = await stat(real, { bigint: true });
+      if (!info.isDirectory() || (await realpath(metadata.root)) !== real)
+        throw new RuntimeError("runtime_config", "本地环境目录已改变，请重新确认卸载");
+      return {
+        root: metadata.root,
+        realpath: real,
+        device: info.dev.toString(),
+        inode: info.ino.toString(),
+      };
+    });
+  }
+
+  private async validateUninstallTarget(
+    target: UninstallTarget,
+    signal: AbortSignal
+  ): Promise<void> {
+    const metadata = await this.metadata();
+    if (
+      !metadata ||
+      metadata.root !== target.root ||
+      !isAbsolute(target.root) ||
+      !isAbsolute(target.realpath) ||
+      !/^\d+$/.test(target.device) ||
+      !/^\d+$/.test(target.inode)
+    )
+      throw new RuntimeError("runtime_config", "本地环境目录已改变，请重新确认卸载");
+    const real = await realpath(metadata.root);
+    const info = await stat(real, { bigint: true });
+    if (
+      real !== target.realpath ||
+      !info.isDirectory() ||
+      info.dev.toString() !== target.device ||
+      info.ino.toString() !== target.inode
+    )
+      throw new RuntimeError("runtime_config", "本地环境目录已改变，请重新确认卸载");
+    const state = await this.inspectRoot(metadata.root, signal);
+    if (!state.managed) throw new RuntimeError("runtime_missing", "只能卸载 BAASX 管理的后端程序");
+  }
+
+  async verifyUninstallTarget(target: UninstallTarget, signal?: AbortSignal): Promise<void> {
+    return this.operation(signal, INSPECT_TIMEOUT, (operationSignal) =>
+      this.validateUninstallTarget(target, operationSignal)
+    );
+  }
+
+  /** Remove only managed backend program files, retaining configuration and data. */
+  async uninstall(
+    target: UninstallTarget,
+    onEvent?: (event: RuntimeEvent) => void,
+    signal?: AbortSignal
+  ): Promise<RuntimeState> {
+    return this.operation(signal, INSTALL_TIMEOUT, async (operationSignal) => {
+      if (this.backend)
+        throw new RuntimeError("runtime_busy", "请先检查并关闭空闲本地后端，再卸载程序");
+      await this.validateUninstallTarget(target, operationSignal);
+      const result = await this.state(
+        await this.helper(
+          [
+            "uninstall",
+            "--root",
+            target.root,
+            "--expected-device",
+            target.device,
+            "--expected-inode",
+            target.inode,
+          ],
+          operationSignal,
+          onEvent
+        ),
+        target.root
+      );
+      if (result.installed || !result.managed)
+        throw new RuntimeError("runtime_protocol", "卸载后的环境状态无效");
+      return result;
     });
   }
 
@@ -657,13 +750,21 @@ export class RuntimeManager {
 
   private async executable(): Promise<string> {
     const filename = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+    const moduleDirectory = import.meta.dir || dirname(fileURLToPath(import.meta.url));
     const candidates = this.helperPath
       ? [resolve(this.helperPath)]
       : [
-          join(import.meta.dir, "../runtime", filename),
+          join(moduleDirectory, "../runtime", filename),
+          join(
+            moduleDirectory,
+            "../platforms",
+            `${process.platform}-${process.arch}`,
+            "runtime",
+            filename
+          ),
           join(dirname(process.execPath), "runtime", filename),
-          join(import.meta.dir, "../../target/debug", filename),
-          join(import.meta.dir, "../../target/release", filename),
+          join(moduleDirectory, "../../target/debug", filename),
+          join(moduleDirectory, "../../target/release", filename),
         ];
     for (const candidate of candidates) {
       try {

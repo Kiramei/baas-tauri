@@ -110,6 +110,25 @@ const result = await Bun.build({
 });
 for (const message of result.logs) console.error(message);
 if (!result.success) process.exit(1);
+
+// Registry installs run on Node without embedding a separate Bun executable.
+const nodeResult = await Bun.build({
+  entrypoints: [join(cli, "src/node-entry.ts")],
+  target: "node",
+  format: "esm",
+  outdir: join(cli, "dist"),
+  naming: "baasx-node.mjs",
+  minify: true,
+  sourcemap: "none",
+  define: {
+    "process.env.DEV": '"false"',
+    "process.env.NODE_ENV": '"production"',
+  },
+  plugins: [withoutInkDevtools],
+});
+for (const message of nodeResult.logs) console.error(message);
+if (!nodeResult.success) process.exit(1);
+
 if (binary) {
   const outfile = join(cli, `dist/baasx${process.platform === "win32" ? ".exe" : ""}`);
   // Keep ESM/top-level await and precompile just the first function level: this

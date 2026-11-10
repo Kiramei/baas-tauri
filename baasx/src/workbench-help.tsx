@@ -68,6 +68,12 @@ const USAGE: Record<string, CommandUsage> = {
     example: "/install dev",
     explanation: "安装本地 Python、BAAS 服务版后端和依赖；当前使用 dev 通道。",
   },
+  uninstall: {
+    explanation: "卸载本地后端程序，保留配置和用户数据。",
+  },
+  clear: {
+    explanation: "清除当前显示的活动和日志，不断开连接或删除数据。",
+  },
   local: {
     explanation: "启动已安装的本地后端并连接，完成后进入主页。",
   },
@@ -75,13 +81,13 @@ const USAGE: Record<string, CommandUsage> = {
     explanation: "检查并更新本地后端与资源；运行中的任务需要先停止。",
   },
   packs: {
-    explanation: "查看已加载的指令包命令；选择后按包中定义的步骤执行。",
+    explanation: "查看已加载的指令包命令；输入命令名称以执行。",
   },
   help: {
     syntax: "/help · ?",
   },
   home: {
-    syntax: "/home · /clear",
+    syntax: "/home",
   },
   quit: {
     syntax: "/quit · /exit",

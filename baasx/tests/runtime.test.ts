@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -48,6 +48,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
   const pidFile = join(directory, "backend.pid");
   const childPidFile = join(directory, "child.pid");
   const lateFile = join(directory, "late-child.txt");
+  const callsFile = join(directory, "helper-calls.jsonl");
   const protocol = fileURLToPath(
     new URL("../packages/baas-client/src/pipe.ts", import.meta.url)
   );
@@ -92,12 +93,13 @@ async function fixture(mode: Record<string, unknown> = {}) {
     "helper",
     `
     import { spawn } from 'node:child_process';
-    import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+    import { appendFile, mkdir, readFile, writeFile, access } from 'node:fs/promises';
     import { join } from 'node:path';
     const [command, ...args] = process.argv.slice(2);
     const value = key => args.includes(key) ? args[args.indexOf(key)+1] : undefined;
     const root = value('--root');
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
+    await appendFile(${JSON.stringify(callsFile)}, JSON.stringify({command,args}) + '\\n');
     const output = value => console.log(JSON.stringify(value));
     const state = async () => ({
       installed: mode.installed ?? await access(join(root,'.installed')).then(()=>true,()=>false),
@@ -127,13 +129,22 @@ async function fixture(mode: Record<string, unknown> = {}) {
       await mkdir(root,{recursive:true});
       await writeFile(join(root,'.installed'),'ready');
     }
+    if (command === 'uninstall' && (mode.failUninstall || mode.stallUninstall)) {
+      await writeFile(join(root, 'uninstall-partial-fixture'), 'partial');
+      output({type:'progress',stage:'uninstall',message:'partial uninstall fixture'});
+      if (mode.failUninstall) {
+        output({type:'error',code:'fixture_uninstall_failed',message:'fixture failed after partial work'});
+        process.exit(1);
+      }
+      setInterval(()=>{},1000); await new Promise(()=>{});
+    }
     if (mode.noResult) { output({type:'progress',stage:'done',message:'no result'}); process.exit(0); }
     if (mode.splitStderr) {
       process.stderr.write('api_key=split-');
       await new Promise(done=>setTimeout(done,20));
       process.stderr.write('credential\\n');
     }
-    const data = command === 'check-update' ? mode.checkResult || {
+    const data = command === 'uninstall' ? { ...await state(), installed:false, managed:true, missing:['backend'] } : command === 'check-update' ? mode.checkResult || {
       root,channel:'dev',available:true,repositories:[
         {name:'backend',localVersion:'a'.repeat(40),remoteVersion:'b'.repeat(40),available:true},
         {name:'ocr',localVersion:'c'.repeat(40),remoteVersion:'c'.repeat(40),available:false},
@@ -170,6 +181,10 @@ async function fixture(mode: Record<string, unknown> = {}) {
     childPidFile,
     lateFile,
     mode: async (value: Record<string, unknown>) => writeFile(modeFile, JSON.stringify(value)),
+    calls: async () => readFile(callsFile, "utf8").then(
+      (text) => text.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { command: string; args: string[] }),
+      () => []
+    ),
   };
 }
 
@@ -277,6 +292,103 @@ describe("local runtime installation", () => {
       expect(await exists(join(target.directory, "runtime.json"))).toBe(false);
     }
   );
+});
+
+describe("managed runtime uninstall", () => {
+  test("requires a recorded, managed environment before capturing the target", async () => {
+    const target = await fixture();
+    await expect(target.manager.captureUninstallTarget()).rejects.toMatchObject({ code: "runtime_missing" });
+    expect(await target.calls()).toEqual([]);
+
+    await target.manager.install();
+    const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
+    await target.mode({ managed: false });
+    await expect(target.manager.captureUninstallTarget()).rejects.toMatchObject({ code: "runtime_missing" });
+    expect((await target.calls()).some((call) => call.command === "uninstall")).toBe(false);
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(metadata);
+  });
+
+  test("passes the confirmed directory identity to the helper and preserves runtime metadata", async () => {
+    const target = await fixture();
+    const root = join(target.directory, "custom runtime");
+    await target.manager.install({ root });
+    const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
+    const confirmed = await target.manager.captureUninstallTarget();
+    await expect(target.manager.verifyUninstallTarget(confirmed)).resolves.toBeUndefined();
+    expect(await target.manager.uninstall(confirmed)).toMatchObject({
+      root,
+      installed: false,
+      managed: true,
+    });
+    const call = (await target.calls()).find((item) => item.command === "uninstall");
+    expect(call?.args).toEqual([
+      "--root", confirmed.root,
+      "--expected-device", confirmed.device,
+      "--expected-inode", confirmed.inode,
+    ]);
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(metadata);
+  });
+
+  test("rejects a changed metadata root before invoking the uninstall helper", async () => {
+    const target = await fixture();
+    await target.manager.install();
+    const confirmed = await target.manager.captureUninstallTarget();
+    const otherRoot = join(target.directory, "other runtime");
+    await mkdir(otherRoot);
+    const changed = JSON.stringify({ schemaVersion: 1, root: otherRoot, channel: "dev" });
+    await writeFile(join(target.directory, "runtime.json"), changed);
+    await writeFile(join(otherRoot, "user-data.txt"), "preserve me");
+    await expect(target.manager.verifyUninstallTarget(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
+    await expect(target.manager.uninstall(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
+    expect((await target.calls()).some((call) => call.command === "uninstall")).toBe(false);
+    expect(await readFile(join(otherRoot, "user-data.txt"), "utf8")).toBe("preserve me");
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(changed);
+  });
+
+  test("rejects replacement of the confirmed directory at the same path", async () => {
+    const target = await fixture();
+    await target.manager.install();
+    const confirmed = await target.manager.captureUninstallTarget();
+    const oldRoot = join(target.directory, "original runtime");
+    await rename(confirmed.root, oldRoot);
+    await mkdir(confirmed.root);
+    await writeFile(join(confirmed.root, "user-data.txt"), "new directory");
+    await expect(target.manager.verifyUninstallTarget(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
+    await expect(target.manager.uninstall(confirmed)).rejects.toMatchObject({ code: "runtime_config" });
+    expect((await target.calls()).some((call) => call.command === "uninstall")).toBe(false);
+    expect(await readFile(join(confirmed.root, "user-data.txt"), "utf8")).toBe("new directory");
+    expect(await readFile(join(oldRoot, ".installed"), "utf8")).toBe("ready");
+  });
+
+  test("failed partial uninstall retains metadata and user files", async () => {
+    const target = await fixture();
+    await target.manager.install();
+    const confirmed = await target.manager.captureUninstallTarget();
+    const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
+    await writeFile(join(confirmed.root, "user-data.txt"), "keep");
+    await target.mode({ failUninstall: true });
+    await expect(target.manager.uninstall(confirmed)).rejects.toMatchObject({ code: "fixture_uninstall_failed" });
+    expect(await readFile(join(confirmed.root, "uninstall-partial-fixture"), "utf8")).toBe("partial");
+    expect(await readFile(join(confirmed.root, "user-data.txt"), "utf8")).toBe("keep");
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(metadata);
+  });
+
+  test("cancelling after helper progress keeps metadata and user files", async () => {
+    const target = await fixture();
+    await target.manager.install();
+    const confirmed = await target.manager.captureUninstallTarget();
+    const metadata = await readFile(join(target.directory, "runtime.json"), "utf8");
+    await writeFile(join(confirmed.root, "user-data.txt"), "keep");
+    await target.mode({ stallUninstall: true });
+    const controller = new AbortController();
+    await expect(target.manager.uninstall(confirmed, (event) => {
+      if (event.message === "partial uninstall fixture")
+        controller.abort(new DOMException("cancel fixture", "AbortError"));
+    }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(await readFile(join(confirmed.root, "uninstall-partial-fixture"), "utf8")).toBe("partial");
+    expect(await readFile(join(confirmed.root, "user-data.txt"), "utf8")).toBe("keep");
+    expect(await readFile(join(target.directory, "runtime.json"), "utf8")).toBe(metadata);
+  });
 });
 
 describe("owned local backend", () => {
