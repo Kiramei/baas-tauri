@@ -18,7 +18,7 @@ The `baas-core` pack is embedded in the program and does not depend on a neighbo
 | `daily`            | `scheduler_start`              | Start the selected profile's existing daily schedule       |
 | `daily-wait`       | `scheduler_start` → `wait_run` | Start scheduling, then add a wait of up to 120 seconds     |
 
-In the workbench, enter `/packs`, select a command and press Enter. You can also enter `/briefing` or `/pack briefing`. In a system terminal, use:
+In the workbench, enter `/packs` to list commands, then enter `/briefing` or `/pack briefing` to run one. In a system terminal, use:
 
 ```bash
 baasx --profile PROFILE_ID pack briefing
@@ -157,7 +157,7 @@ Use a separate `wait_run` step to wait. Do not add `wait`, `follow` or `timeout_
 
 1. Edit or replace the JSON file in the directory.
 2. Run `/reload` or press Ctrl+R in the open workbench. This rereads settings and packs and rebuilds the interface. Unsaved edits are discarded; background tasks continue.
-3. Open `/packs` to check the new commands. Updating a pack never runs it automatically.
+3. Enter `/packs` to check the new commands. Updating a pack never runs it automatically.
 
 There is no file-watching auto-update or dedicated pack install/remove command. To remove a custom pack, move its file out of the directory or change its extension to `.json.disabled`, then reload the workbench. Embedded `baas-core` cannot be removed by deleting a file.
 

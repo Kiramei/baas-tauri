@@ -45,7 +45,6 @@ const NAV = [
   ["profiles", "配置档", "Profiles"],
   ["logs", "日志", "Logs"],
   ["config", "配置", "Configuration"],
-  ["packs", "指令包", "Packs"],
 ] as const;
 const SCENARIOS: Array<[DemoScenario, string, string]> = [
   ["quickstart", "快速体验", "Quick start"],

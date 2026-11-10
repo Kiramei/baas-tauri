@@ -11,7 +11,6 @@ export type DemoPage =
   | "priority"
   | "scheduler"
   | "schedule"
-  | "packs"
   | "logs"
   | "help";
 export type DemoKey =
@@ -92,6 +91,8 @@ export const supportedDemoCommands = [
   "/run",
   "/oneoff",
   "/reload",
+  "/clear",
+  "/uninstall",
   "/packs",
   "/pack",
   "/logs",
@@ -123,7 +124,7 @@ export function initialDemo(locale: DemoLocale, scenario: DemoScenario): DemoSta
   return {
     locale,
     scenario,
-    page: scenario === "configuration" ? "config" : scenario === "quickstart" ? "home" : scenario,
+    page: scenario === "configuration" ? "config" : scenario === "scheduler" ? "scheduler" : "home",
     profile: "Sensei Demo",
     selected: 0,
     counts: [1, 0, 1, 1],
@@ -219,6 +220,11 @@ function command(state: DemoState, input: string): DemoState {
       state,
       word(state, "请先确认或取消当前操作。", "Confirm or cancel the pending action first.")
     );
+  if (name === "clear") return { ...state, logs: [], notice: "" };
+  if (name === "uninstall")
+    return log(state, word(state, "演示环境不卸载真实后端。", "Demo mode cannot uninstall the real backend."));
+  if (name === "packs")
+    return log(state, `${word(state, "指令包命令", "Command packs")}: ${packs.join(" · ")}`);
   if (name === "reload")
     return log(
       { ...opened(state, "home"), revision: state.revision + 1 },
@@ -276,7 +282,7 @@ function command(state: DemoState, input: string): DemoState {
     return { ...state, pending: { kind: "run", id: args[0] }, notice: "" };
   }
   if (name === "pack") {
-    if (!args[0]) return opened(state, "packs");
+    if (!args[0]) return log(state, word(state, "用法：/pack <命令>", "Usage: /pack <command>"));
     if (!packs.includes(args[0]))
       return log(
         state,
@@ -297,7 +303,6 @@ function command(state: DemoState, input: string): DemoState {
       "profiles",
       "config",
       "scheduler",
-      "packs",
       "logs",
       "help",
     ].includes(name)
@@ -321,7 +326,6 @@ function rowCount(state: DemoState): number {
   if (state.page === "priority") return Object.keys(materials).length;
   if (state.page === "scheduler") return state.schedule.length;
   if (state.page === "schedule") return 3;
-  if (state.page === "packs") return packs.length;
   return 1;
 }
 
@@ -455,7 +459,6 @@ function key(state: DemoState, input: DemoKey): DemoState {
       : { ...state, pending: { kind: "run", id: state.schedule[state.selected].id } };
   if (state.page === "oneoff")
     return { ...state, pending: { kind: "run", id: oneoffs[state.selected] } };
-  if (state.page === "packs") return command(state, `/pack ${packs[state.selected]}`);
   if (state.page === "config")
     return {
       ...opened(state, state.selected === 0 ? "counts" : "priority"),
@@ -653,19 +656,6 @@ export function demoRows(state: DemoState): string[] {
         ),
       ];
     }
-    case "packs":
-      return [
-        ...packs.map((pack, index) => pick(pack, index)),
-        "",
-        t(
-          "指令包是声明式 BAAS 操作，与客户端插件分开。",
-          "Packs declare BAAS actions and are separate from client plugins."
-        ),
-        t(
-          "Enter 查看计划并确认，不执行任意脚本。",
-          "Enter previews a plan and asks for confirmation; no arbitrary scripts."
-        ),
-      ];
     case "logs":
       return state.logs.length ? state.logs : [t("暂无示例日志。", "No sample logs yet.")];
     case "help":

@@ -100,9 +100,7 @@ async function localFixture(
   const calls = join(root, "helper-calls.jsonl"),
     commands = join(root, "commands.jsonl"),
     pidFile = join(root, "backend.pid");
-  const protocol = fileURLToPath(
-    new URL("../packages/baas-client/src/pipe.ts", import.meta.url)
-  );
+  const protocol = fileURLToPath(new URL("../packages/baas-client/src/pipe.ts", import.meta.url));
   await writeFile(
     backend,
     `
@@ -159,7 +157,7 @@ async function localFixture(
     const value=name=>args[args.indexOf(name)+1];
     if(command==="lease"){console.log(JSON.stringify({type:"result",data:{root:value("--root"),leased:true}}));for await(const _ of Bun.stdin.stream()){};process.exit(0);}
     if(command==="check-update"){console.log(JSON.stringify({type:"progress",stage:"check-backend",message:"Checking fixture backend",status:"complete"}));console.log(JSON.stringify({type:"result",data:{root:value("--root"),channel:"dev",available:${options.updatesAvailable ?? true},repositories:[{name:"backend",localVersion:"${"a".repeat(40)}",remoteVersion:"${(options.updatesAvailable ?? true) ? "b".repeat(40) : "a".repeat(40)}",available:${options.updatesAvailable ?? true}},{name:"ocr",localVersion:"${"c".repeat(40)}",remoteVersion:"${"c".repeat(40)}",available:false}]}}));process.exit(0);}
-    const data=command==="launch-spec"?{program:${JSON.stringify(process.execPath)},args:[${JSON.stringify(backend)},"--pipe-name",value("--pipe")],cwd:value("--root"),env:{}}:{installed:${options.installed ?? true},managed:true,root:value("--root"),backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:${JSON.stringify(join(managed, "ocr"))},channel:"dev",missing:[]};
+    const data=command==="launch-spec"?{program:${JSON.stringify(process.execPath)},args:[${JSON.stringify(backend)},"--pipe-name",value("--pipe")],cwd:value("--root"),env:{}}:{installed:command==="uninstall"?false:${options.installed ?? true},managed:true,root:value("--root"),backendPath:${JSON.stringify(backend)},pythonPath:${JSON.stringify(process.execPath)},cppPath:${JSON.stringify(join(managed, "ocr"))},channel:"dev",missing:command==="uninstall"?["backend"]:[]};
     console.log(JSON.stringify({type:"result",data}));
   `
   );
@@ -213,6 +211,36 @@ async function localFixture(
 }
 
 describe("complete CLI workflows", () => {
+  test("uninstall requires approval, supports dry run and preserves saved settings and data", async () => {
+    const target = await localFixture({ metadata: true });
+    await saveSettings(
+      { url: "ws://localhost:8190", connectionMode: "local", profile: "keep" },
+      target.root
+    );
+    const settingsPath = join(target.root, "settings.json");
+    const settings = await readFile(settingsPath, "utf8");
+    const userData = join(target.root, "managed", "user-data.json");
+    await writeFile(userData, "keep");
+    const denied = await cli(target.root, ["uninstall"], target.environment);
+    expect(denied.code).toBe(1);
+    const preview = await cli(target.root, ["--dry-run", "uninstall"], target.environment);
+    expect(preview.data).toMatchObject({
+      dry_run: true,
+      action: "uninstall",
+      root: join(target.root, "managed"),
+    });
+    expect((await target.helperCalls()).every((call) => call.command === "inspect")).toBe(true);
+    const removed = await cli(target.root, ["--yes", "uninstall"], target.environment);
+    expect(removed.code).toBe(0);
+    expect(removed.data).toMatchObject({
+      uninstalled: true,
+      runtime: { installed: false, managed: true },
+    });
+    expect((await target.helperCalls()).at(-1).command).toBe("uninstall");
+    expect(await readFile(settingsPath, "utf8")).toBe(settings);
+    expect(await readFile(userData, "utf8")).toBe("keep");
+    expect(existsSync(target.pidFile)).toBe(false);
+  });
   test("scriptable update checks and confirmed updates use local metadata without connecting or changing saved remote mode", async () => {
     const target = await localFixture({ metadata: true });
     await saveSettings(

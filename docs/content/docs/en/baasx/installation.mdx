@@ -9,14 +9,14 @@ import { PackageManagerInstall } from "@/components/PackageManagerInstall";
 
 | Method                   | Requirements                                  | Best for                                           |
 | ------------------------ | --------------------------------------------- | -------------------------------------------------- |
-| npm registry package     | Node.js 18+ or Deno                           | Installing the `baasx` command globally           |
+| npm registry package     | Node.js 20.3+ or Deno                         | Installing the `baasx` command globally           |
 | Native `.tar.gz` release | Matching OS and architecture; no Bun or Rust  | Extracting and running directly                    |
 | Bun `-bun.tgz` release   | Bun 1.4.4+; no Rust                           | Existing Bun users                                 |
 | Source checkout          | Bun 1.4.4+, Rust 1.95+, and C/C++ build tools | Development builds or when no release is available |
 
 ## Install from npm
 
-Install Node.js 18 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
+Install Node.js 20.3 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
 
 <PackageManagerInstall locale="en" />
 
@@ -28,7 +28,7 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The registry package includes native programs and installer helpers for Windows x64, Linux x64, and Apple Silicon Mac. It selects the current platform without requiring Rust.
+The registry package contains the JavaScript application and installation helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
 
 When a standalone release is published, download its archives from `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a separate release.
 
@@ -130,6 +130,8 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --n
 5. Check `/devices`, then follow [Your first run](./index#your-first-run) to configure and test tasks.
 
 Inside an existing workbench, `/install` opens installation and `/local` connects the local runtime. Esc cancels a running installation or update. When a step fails, expand it and resolve the reported network or dependency problem before retrying.
+
+Use `/uninstall` to remove the local backend while keeping settings and user data; the confirmation shows the directory. The CLI also supports `baasx uninstall`, with `--yes` required for noninteractive execution.
 
 The default runtime directory is `<CLI config directory>/runtime`. It uses the **Kiramei/baas-dev service-capable dev channel**, including `main.service.py`. The older GUI stable backend lacks the required protocol; selecting `stable` is rejected. Initial installation always requires explicit confirmation; `--yes` does not bypass it.
 

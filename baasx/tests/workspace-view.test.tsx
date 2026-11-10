@@ -35,6 +35,7 @@ function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
   const configReads: Array<string | undefined> = [];
   let cancelled = 0;
   let reloads = 0;
+  let clears = 0;
   let configuration: Record<string, unknown> = {};
   const publish = (next: Partial<WorkspaceSnapshot>) => {
     state = { ...state, ...next };
@@ -58,6 +59,10 @@ function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
       publish({ prompt: undefined, busy: undefined });
     },
     close() {},
+    clearScreen() {
+      clears++;
+      publish({ activity: [], logs: [] });
+    },
     async connect() {},
     async selectProfile(profile: string) {
       publish({ profile });
@@ -92,6 +97,9 @@ function fixture(overrides: Partial<WorkspaceSnapshot> = {}) {
     },
     get reloads() {
       return reloads;
+    },
+    get clears() {
+      return clears;
     },
     get subscribers() {
       return listeners.size;
@@ -166,7 +174,9 @@ async function mounted(
       const deadline = Date.now() + 2_000;
       while (!(frames.at(-1) || "").includes(text)) {
         if (Date.now() >= deadline) {
-          throw new Error(`Terminal did not render ${JSON.stringify(text)}:\n${frames.at(-1) || ""}`);
+          throw new Error(
+            `Terminal did not render ${JSON.stringify(text)}:\n${frames.at(-1) || ""}`
+          );
         }
         await Bun.sleep(10);
       }
@@ -175,11 +185,13 @@ async function mounted(
       stdin.write(input);
       await settle();
     },
-    async click(label: string, match: (line: string) => boolean = () => true) {
+    async click(label: string, match: (line: string) => boolean = () => true, last = false) {
       const lines = (frames.at(-1) || "").split("\n");
       const y = lines.findIndex((line) => line.includes(label) && match(line));
       expect(y).toBeGreaterThanOrEqual(0);
-      const x = displayWidth(lines[y].slice(0, lines[y].indexOf(label)));
+      const x = displayWidth(
+        lines[y].slice(0, last ? lines[y].lastIndexOf(label) : lines[y].indexOf(label))
+      );
       mouse.dispatch({ x, y, button: 0, kind: "press", delta: 0 });
       await settle();
     },
@@ -197,6 +209,51 @@ async function mounted(
 }
 
 describe("startup navigation", () => {
+  test("clear uses its own action, and packs remain a command without a navigation page", async () => {
+    const target = fixture();
+    const ui = await mounted(target);
+    try {
+      const nav = ui.frame
+        .split("\n")
+        .find((line) => line.includes("总览") && line.includes("日志"));
+      expect(nav).not.toContain("指令包");
+      await ui.send("/clear");
+      await ui.send("\r");
+      expect(target.clears).toBe(1);
+      await ui.send("/packs");
+      await ui.send("\r");
+      expect(target.commands).toContain("packs");
+    } finally {
+      ui.close();
+    }
+  });
+
+  test("clear keeps the current page and connection while clearing displayed output", async () => {
+    const target = fixture({
+      tasks: { mail: { event_name: "邮件" } },
+      activity: [{ id: "old", title: "先前活动", tone: "info" }],
+    });
+    const ui = await mounted(target);
+    try {
+      await ui.send("/tasks");
+      await ui.send("\r");
+      expect(ui.frame).toContain("任务列表 · Enter 运行");
+      expect(ui.frame).toContain("邮件");
+      await ui.send("/clear");
+      await ui.send("\r");
+      expect(target.clears).toBe(1);
+      expect(ui.frame).toContain("任务列表 · Enter 运行");
+      expect(ui.frame).toContain("邮件");
+      expect(target.workspace.snapshot).toMatchObject({
+        connected: true,
+        profile: "sensei-cn",
+        tasks: { mail: { event_name: "邮件" } },
+        activity: [],
+      });
+    } finally {
+      ui.close();
+    }
+  });
   const running = () =>
     reduceInstallationProgress(undefined, {
       type: "progress",
@@ -380,8 +437,8 @@ describe("workspace input", () => {
   });
 
   test.each([
-    [30, 2],
-    [20, 1],
+    [30, 1],
+    [20, 0],
     [12, 0],
   ])(
     "home has adaptive top spacing at %s rows while configuration keeps a one-row gap",
@@ -488,7 +545,7 @@ describe("workspace input", () => {
     target.setConfig({ screenshot_method: "adb" });
     const ui = await mounted(target);
     try {
-      await ui.click("配置  ", (line) => line.includes("总览") && line.includes("指令包"));
+      await ui.click("配置", (line) => line.includes("总览") && line.includes("日志"), true);
       expect(ui.frame).toContain("配置档 · Enter 切换");
       expect(target.configReads).toEqual([]);
       await ui.send("\r");
@@ -508,7 +565,7 @@ describe("workspace input", () => {
     target.setConfig({ cafe_reward_use_invitation_ticket: true, screenshot_method: "adb" });
     const ui = await mounted(target);
     try {
-      await ui.click("配置  ", (line) => line.includes("总览") && line.includes("指令包"));
+      await ui.click("配置", (line) => line.includes("总览") && line.includes("日志"), true);
       expect(ui.frame).toContain("配置分类");
       await ui.click("咖啡厅");
       await ui.send("\r");
@@ -676,6 +733,19 @@ describe("workspace input", () => {
       await ui.send("n");
       await ui.send("\r");
       expect(target.answers).toEqual([true, false]);
+    } finally {
+      ui.close();
+    }
+  });
+
+  test("uninstall confirmation defaults to cancellation", async () => {
+    const target = fixture({
+      prompt: { kind: "confirm", title: "确认卸载本地环境", initial: "n" },
+    });
+    const ui = await mounted(target);
+    try {
+      await ui.send("\r");
+      expect(target.answers).toEqual([false]);
     } finally {
       ui.close();
     }

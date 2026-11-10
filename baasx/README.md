@@ -8,7 +8,7 @@ The installed command is `baasx`, and the npm package is `@kiramei/baasx`. Sourc
 
 ## Install
 
-Install Node.js 18 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
+Install Node.js 20.3 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can run the package directly. Choose one installed tool:
 
 ```sh
 # npm
@@ -42,7 +42,7 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The registry package includes native programs and installer helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
+The registry package contains the JavaScript application and installation helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
 
 ## Getting started from source
 
@@ -60,7 +60,7 @@ Running without a command opens the terminal workbench. `--demo` uses clearly ma
 
 The workbench uses a growing and shrinking star, directional text sweeps while connecting or waiting, and a two-second color breath while executing. Effects share a clock and update only their small animation components. Selected long labels and the last visible long log line scroll horizontally. Set `BAAS_REDUCED_MOTION=1` to keep status indicators static; redirected output and `TERM=dumb` also disable motion. Narrow terminals place labels and details on separate lines; short terminals use a two-line header. Opening configuration without a selected profile first opens the profile picker, then returns to configuration automatically.
 
-The workbench has overview, tasks, scheduler, profiles, logs, configuration, and command-pack pages. Use ↑/↓ to select, Enter to open or run, and Esc to go back. Shift+Tab switches pages; Ctrl+T opens tasks, Ctrl+P opens profiles, and Ctrl+L opens logs. Type `/` to search commands and Tab to complete them. Mouse clicks work on navigation, list entries, and confirmation buttons. The wheel scrolls the current list, logs, installation steps, or long confirmation details. Labels, descriptions, and log lines scroll horizontally when they exceed the available width, with display-width handling for Chinese text, combining characters, and emoji.
+The workbench has overview, tasks, scheduler, profiles, logs, and configuration pages. Use ↑/↓ to select, Enter to open or run, and Esc to go back. Shift+Tab switches pages; Ctrl+T opens tasks, Ctrl+P opens profiles, and Ctrl+L opens logs. Type `/` to search commands and Tab to complete them. Mouse clicks work on navigation, list entries, and confirmation buttons. The wheel scrolls the current list, logs, installation steps, or long confirmation details. Labels, descriptions, and log lines scroll horizontally when they exceed the available width, with display-width handling for Chinese text, combining characters, and emoji.
 
 The BAASX brand and connection header keep the same layout across pages and only compact for smaller terminals. The footer uses the last terminal row without reserving a blank line below it.
 
@@ -68,7 +68,7 @@ Use `/reload` or Ctrl+R to reload the entire terminal interface, like the deskto
 
 Interactive confirmations select Yes by default. Enter confirms; `n` or the arrow keys select Cancel; Esc cancels the current action. You can also click either button. Running a task opens its live logs. At terminal widths of at least 110 columns, a log pane can appear beside the workspace. Drag its vertical divider left or right to resize the panes; each side keeps a minimum width, and terminal resizing preserves the split ratio. Narrower terminals use the logs page. Scrolling upward pauses following, and returning to the bottom resumes it.
 
-First launch lets you choose a language and a connection mode: install a local BAAS service environment or connect to an existing service. In the workbench, `/install` and `/local` manage the local environment, while `/connect` connects to an existing service. Check the installation progress and backend status for the actual result of installation or device tasks.
+First launch lets you choose a language and a connection mode: install a local BAAS service environment or connect to an existing service. In the workbench, `/install` and `/local` manage the local environment, while `/connect` connects to an existing service. Use `/uninstall` to remove the local backend while keeping settings and user data. `/clear` clears displayed activity and logs without disconnecting or deleting backend data.
 
 Local installation reuses the desktop installation core and installs the `dev` service channel from `Kiramei/baas-dev`, which supports `main.service.py` and local pipes. The environment defaults to `<CLI config directory>/runtime` and includes a private Python runtime, the BAAS backend, OCR, and runtime dependencies. The CLI requires this service protocol and rejects the legacy `blue_archive_auto_script` GUI `stable` channel before installation. The desktop app keeps its own stable-channel default, installation directory, and settings.
 
@@ -198,7 +198,7 @@ bun run baasx --profile default_config --dry-run pack daily-wait
 
 Command packs are separate from desktop plugin packages. The built-in `briefing` reads status and tasks, `connection-check` checks the service and devices, `daily` starts the existing schedule, and `daily-wait` starts it and waits up to 120 seconds for that run.
 
-Save custom packs to `<CLI config directory>/commands/*.json`, then run them from the command-pack page or with `pack my-check`:
+Save custom packs to `<CLI config directory>/commands/*.json`, then run them with `/pack my-check` in the workbench or `pack my-check` in the CLI:
 
 ```json
 {
@@ -229,6 +229,8 @@ baasx keeps the existing CLI configuration directory and `BAAS_*` environment va
 
 Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAAS_RUNTIME_HELPER` explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
 
+Replace `<version>` below with the version in `baasx/package.json`.
+
 ```bash
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:build
 bun baasx/bin/baasx.mjs --demo
@@ -238,7 +240,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
-bun add -g ./baasx/dist/baas-baasx-0.1.2.tgz
+bun add -g "./baasx/dist/baas-baasx-<version>.tgz"
 baasx --help
 ```
 
