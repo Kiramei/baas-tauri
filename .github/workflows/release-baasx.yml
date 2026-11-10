@@ -68,6 +68,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+      - name: Load Chinese release notes
+        env:
+          BAASX_VERSION: ${{ needs.validate.outputs.version }}
+        shell: bash
+        run: |
+          notes="baasx/release-notes/${BAASX_VERSION}.md"
+          if [[ -f "$notes" ]]; then
+            {
+              echo 'QQ_RELEASE_NOTES<<QQ_RELEASE_NOTES_END'
+              cat "$notes"
+              echo
+              echo 'QQ_RELEASE_NOTES_END'
+            } >> "$GITHUB_ENV"
+          fi
       - uses: actions/download-artifact@v4
         with:
           pattern: baasx-*
@@ -95,12 +110,37 @@ jobs:
           fail_on_unmatched_files: true
           files: release-assets/*
           body: |
+            ## QQ 更新说明
+            ${{ env.QQ_RELEASE_NOTES }}
+
+            ## Installation
             Standalone baasx automation terminal. This release is separate from the BAAS Tauri desktop client.
 
             - Download the native archive for your operating system and architecture. Keep its `runtime` directory beside `baasx` / `baasx.exe`; Bun and Rust are not required on the target machine.
             - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
             - `SHA256SUMS` contains checksums for all six distributions.
             - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all three platforms before publication.
+
+  sync-cnb-release:
+    name: Sync baasx release to CNB
+    needs: [publish]
+    if: github.repository == 'Kiramei/baas-tauri'
+    runs-on: ubuntu-latest
+    timeout-minutes: 260
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/sync-cnb-release
+        with:
+          github-token: ${{ github.token }}
+          cnb-token: ${{ secrets.RELEASE_TO_CNB }}
+          tag-name: ${{ github.ref_name }}
+          cnb-repo-slug: kiramei/baas-tauri
+          make-latest: "false"
 
   publish-registry:
     name: Publish baasx to ${{ matrix.registry }}
@@ -158,3 +198,17 @@ jobs:
           tag=latest
           if [[ "$PRERELEASE" == true ]]; then tag=next; fi
           node baasx/scripts/registry-publish.mjs --info "$RUNNER_TEMP/baasx-registry-info.json" --registry "${{ matrix.url }}" --tag "$tag"
+
+  notify-qq:
+    name: Notify QQ after publication
+    needs: [sync-cnb-release, publish-registry]
+    if: ${{ always() && needs.sync-cnb-release.result == 'success' && needs.publish-registry.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/notify-qq
+        with:
+          webhook-secret: ${{ secrets.QQ_RELEASE_WEBHOOK_SECRET }}
+          github-token: ${{ github.token }}
