@@ -142,14 +142,23 @@ describe("offline BAASX teaching behavior", () => {
       expect(read.logs.length).toBe(1);
       expect(read.page).toBe("logs");
     }
-    const selected = act(state, key("enter"));
-    expect(selected.pending).toBeUndefined();
-    expect(selected.logs.at(-1)).toContain("status → tasks");
+    const listed = act(state, command("/packs"));
+    expect(listed.page).toBe("home");
+    expect(listed.logs.at(-1)).toContain("briefing");
     const pending = act(state, command("/pack daily-wait"));
     expect(pending.running).toBeUndefined();
     expect(demoRows(pending).join("\n")).toContain("wait_run");
     expect(act(pending, key("escape")).running).toBeUndefined();
     expect(act(pending, key("enter")).running?.id).toBe("scheduler");
+  });
+
+  test("clear removes displayed messages without changing the active run", () => {
+    const running = act(initialDemo("en", "quickstart"), command("/start"));
+    const cleared = act(running, command("/clear"));
+    expect(cleared.logs).toEqual([]);
+    expect(cleared.notice).toBe("");
+    expect(cleared.running).toEqual(running.running);
+    expect(cleared.page).toBe(running.page);
   });
 
   test("reload preserves saved configuration and the exact active run; reset clears them", () => {
