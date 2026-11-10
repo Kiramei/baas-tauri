@@ -987,3 +987,17 @@ jobs:
           release-tag: ${{ github.ref_name }}
           installers-regex: '_(arm64|x64)-setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
+
+  notify-qq:
+    name: Notify QQ after publication
+    needs: [sync-to-cnb-release, submit-to-winget]
+    if: ${{ always() && needs.sync-to-cnb-release.result == 'success' && (needs.submit-to-winget.result == 'success' || needs.submit-to-winget.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/notify-qq
+        with:
+          webhook-secret: ${{ secrets.QQ_RELEASE_WEBHOOK_SECRET }}
+          github-token: ${{ github.token }}
