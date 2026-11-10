@@ -112,6 +112,7 @@ async function mounted(
   options: { columns?: number; rows?: number } = {}
 ) {
   const frames: string[] = [];
+  let rawModeActivations = 0;
   const mouse = new MouseBus();
   mouse.setMaxListeners(200);
   const rawFrames: string[] = [];
@@ -130,7 +131,9 @@ async function mounted(
   );
   const stdin = Object.assign(new PassThrough(), {
     isTTY: true,
-    setRawMode() {},
+    setRawMode(enabled: boolean) {
+      if (enabled) rawModeActivations++;
+    },
     ref() {},
     unref() {},
   });
@@ -169,6 +172,16 @@ async function mounted(
     },
     get rawFrame() {
       return rawFrames.at(-1) || "";
+    },
+    get rawModeActivations() {
+      return rawModeActivations;
+    },
+    async waitForInputRemount(previous: number) {
+      const deadline = Date.now() + 2_000;
+      while (rawModeActivations <= previous) {
+        if (Date.now() >= deadline) throw new Error("Terminal input did not remount after reload");
+        await Bun.sleep(10);
+      }
     },
     async waitForFrame(text: string) {
       const deadline = Date.now() + 2_000;
@@ -680,9 +693,14 @@ describe("workspace input", () => {
       await ui.waitForFrame("选择商店");
       expect(ui.frame).toContain("选择商店");
       await ui.click("战术对抗赛商店");
+      // A rendered home frame can precede Ink's passive input effect after
+      // the keyed remount. Wait for the new raw-mode listener, not just text.
+      const beforeReload = ui.rawModeActivations;
       await ui.send("\x12");
+      await ui.waitForInputRemount(beforeReload);
       await ui.waitForFrame("项任务 ·");
       await ui.send("/config");
+      await ui.waitForFrame("/config");
       await ui.send("\r");
       await ui.waitForFrame("配置分类");
       await ui.click("商店购买");
