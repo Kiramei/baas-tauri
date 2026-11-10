@@ -65,7 +65,8 @@ jobs:
 
   frontend:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    # The Android runtime tests require Python 3.9, unavailable on Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [changes, generate-fonts]
     if: needs.changes.outputs.client == 'true'

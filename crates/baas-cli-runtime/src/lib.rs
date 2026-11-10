@@ -5,6 +5,7 @@
 
 use baas_term::types::{RendererEvent, TaskHandle, TermState};
 mod progress;
+mod uninstall;
 mod updates;
 use baas_updater::{
     UpdateChannel, UpdaterError, UpdaterResult, WorkflowOptions,
@@ -30,6 +31,7 @@ use std::{
     thread,
     time::Duration,
 };
+pub use uninstall::uninstall;
 pub use updates::acquire_lease;
 pub use updates::{RepositoryUpdate, UpdateCheck, check_update, update};
 
@@ -47,6 +49,10 @@ struct InstallationMarker {
     root: PathBuf,
     channel: UpdateChannel,
     complete: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    removed_files: Option<Vec<uninstall::RemovedFile>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    uninstall_quarantine: Option<String>,
 }
 
 /// Installation state. `managed` means this directory belongs to BAAS CLI,
@@ -145,26 +151,24 @@ fn write_marker(root: &Path, channel: UpdateChannel, complete: bool) -> UpdaterR
         root: root.to_owned(),
         channel,
         complete,
+        removed_files: None,
+        uninstall_quarantine: None,
     };
+    write_marker_value(root, &marker)
+}
+
+fn write_marker_value(root: &Path, marker: &InstallationMarker) -> UpdaterResult<()> {
     let path = root.join(MARKER_FILE);
     reject_symlink(&path)?;
-    let temporary = root.join(format!(".baas-cli-runtime-{}.tmp", uuid::Uuid::new_v4()));
-    let mut file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&temporary)?;
-    serde_json::to_writer_pretty(&mut file, &marker)
+    let mut file = tempfile::Builder::new()
+        .prefix(".baas-cli-runtime-")
+        .suffix(".tmp")
+        .tempfile_in(root)?;
+    serde_json::to_writer_pretty(file.as_file_mut(), marker)
         .map_err(|error| UpdaterError::Config(error.to_string()))?;
     file.write_all(b"\n")?;
-    file.sync_all()?;
-    drop(file);
-    // Windows cannot rename a file over an existing target. The directory
-    // lock prevents another installer from observing an intermediate update.
-    #[cfg(windows)]
-    if path.exists() {
-        fs::remove_file(&path)?;
-    }
-    fs::rename(&temporary, &path)?;
+    file.as_file().sync_all()?;
+    file.persist(&path).map_err(|error| error.error)?;
     Ok(())
 }
 
@@ -330,6 +334,12 @@ fn install_with(
             "refusing to overwrite an existing unmanaged directory: {}",
             root.display()
         )));
+    }
+    if let Some(previous) = marker
+        .as_ref()
+        .filter(|marker| marker.removed_files.is_some())
+    {
+        return uninstall::restore(&root, previous, cancelled, emit);
     }
     write_marker(&root, channel, false)?;
     let mut manager = ConfigManager::load_from(root.join("setup.toml"))?;

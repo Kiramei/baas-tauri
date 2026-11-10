@@ -192,14 +192,198 @@ function runtimeFixture() {
     order.push("start");
     return { pipe: "/fixture-runtime/service.sock" };
   });
+  const inspect = spyOn(RuntimeManager.prototype, "inspect").mockResolvedValue(installed);
+  const uninstallTarget = {
+    root: installed.root,
+    realpath: installed.root,
+    device: "1",
+    inode: "2",
+  };
+  const capture = spyOn(RuntimeManager.prototype, "captureUninstallTarget").mockResolvedValue(
+    uninstallTarget
+  );
+  const verify = spyOn(RuntimeManager.prototype, "verifyUninstallTarget").mockResolvedValue();
+  const uninstall = spyOn(RuntimeManager.prototype, "uninstall").mockImplementation(async () => {
+    order.push("uninstall");
+    return { ...installed, installed: false, missing: ["backend"] };
+  });
   cleanup.push(() => {
     check.mockRestore();
     stop.mockRestore();
     apply.mockRestore();
     start.mockRestore();
+    inspect.mockRestore();
+    capture.mockRestore();
+    verify.mockRestore();
+    uninstall.mockRestore();
   });
-  return { order, update, check, stop, apply, start };
+  return {
+    order,
+    update,
+    check,
+    stop,
+    apply,
+    start,
+    inspect,
+    capture,
+    verify,
+    uninstall,
+    uninstallTarget,
+  };
 }
+
+describe("workbench clear and uninstall", () => {
+  test("clear hides displayed activity and logs while preserving connection and backend data", async () => {
+    const workspace = await demo();
+    await workspace.initialize();
+    await workspace.execute("help");
+    const client = internalClient(workspace);
+    const backendLogs = await client.logs();
+    const before = workspace.snapshot;
+    expect(before.activity.length).toBeGreaterThan(0);
+    await workspace.execute("/clear");
+    expect(workspace.snapshot).toMatchObject({
+      connected: true,
+      profile: before.profile,
+      activity: [],
+      logs: [],
+    });
+    expect(internalClient(workspace)).toBe(client);
+    expect(await client.logs()).toEqual(backendLogs);
+    await workspace.execute("help");
+    expect(workspace.snapshot.activity.length).toBeGreaterThan(0);
+  });
+
+  test("uninstall asks about the managed root and preserves it on cancellation, read-only and dry-run", async () => {
+    const runtime = runtimeFixture();
+    const workspace = await Workspace.create({ directory: await directory() });
+    cleanup.push(() => workspace.close());
+    const pending = workspace.execute("/uninstall");
+    const state = await until(workspace, (value) => value.prompt?.kind === "confirm");
+    expect(state.prompt).toMatchObject({ initial: "n" });
+    expect(state.prompt?.detail).toContain(runtime.update.root);
+    expect(state.prompt?.detail).toContain("配置与用户数据会保留");
+    workspace.answerPrompt(false);
+    await pending;
+    const readOnly = await Workspace.create({ directory: await directory(), readOnly: true });
+    cleanup.push(() => readOnly.close());
+    await readOnly.uninstallLocal();
+    const dryRun = await Workspace.create({ directory: await directory(), dryRun: true });
+    cleanup.push(() => dryRun.close());
+    await dryRun.uninstallLocal();
+    expect(dryRun.snapshot.activity.at(-1)?.title).toContain("预演");
+    expect(runtime.stop).not.toHaveBeenCalled();
+    expect(runtime.uninstall).not.toHaveBeenCalled();
+  });
+
+  test("uninstall stops only the owned idle backend and uses the confirmed root", async () => {
+    const runtime = runtimeFixture();
+    serviceFixture();
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.startLocal();
+    await workspace.uninstallLocal();
+    expect(runtime.order).toEqual(["start", "stop-idle", "uninstall"]);
+    expect(runtime.uninstall.mock.calls[0][0]).toEqual(runtime.uninstallTarget);
+    expect(workspace.snapshot).toMatchObject({ connected: false, setupNeeded: true });
+  });
+
+  test("a busy backend prevents uninstall and keeps the connection", async () => {
+    const runtime = runtimeFixture();
+    runtime.stop.mockRejectedValue(new Error("仍有任务正在运行"));
+    serviceFixture();
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.startLocal();
+    await workspace.uninstallLocal();
+    expect(workspace.snapshot.connected).toBe(true);
+    expect(runtime.uninstall).not.toHaveBeenCalled();
+  });
+
+  test("a changed root is rejected before stopping the connected backend", async () => {
+    const runtime = runtimeFixture();
+    runtime.verify.mockRejectedValue(new Error("本地环境目录已改变"));
+    serviceFixture();
+    const workspace = await Workspace.create({
+      directory: await directory(),
+      profile: "alpha",
+      yes: true,
+    });
+    cleanup.push(() => workspace.close());
+    await workspace.startLocal();
+    await workspace.uninstallLocal();
+    expect(workspace.snapshot.connected).toBe(true);
+    expect(runtime.stop).not.toHaveBeenCalled();
+    expect(runtime.uninstall).not.toHaveBeenCalled();
+  });
+
+  test.each(["failure", "cancelled"])(
+    "%s after partial uninstall refreshes local state",
+    async (mode) => {
+      const runtime = runtimeFixture();
+      serviceFixture();
+      runtime.uninstall.mockRejectedValue(
+        mode === "cancelled"
+          ? new DOMException("cancelled", "AbortError")
+          : new Error("uninstall failed")
+      );
+      runtime.inspect.mockResolvedValue({
+        installed: false,
+        managed: true,
+        root: runtime.update.root,
+        backendPath: "/fixture-runtime/backend",
+        pythonPath: "/fixture-runtime/python",
+        cppPath: "/fixture-runtime/ocr",
+        channel: "dev",
+        missing: ["backend"],
+      });
+      const workspace = await Workspace.create({
+        directory: await directory(),
+        profile: "alpha",
+        yes: true,
+      });
+      cleanup.push(() => workspace.close());
+      await workspace.startLocal();
+      await workspace.uninstallLocal();
+      expect(runtime.inspect).toHaveBeenCalled();
+      expect(workspace.snapshot).toMatchObject({ connected: false, setupNeeded: true });
+      if (mode === "cancelled")
+        expect(workspace.snapshot.activity.at(-1)?.detail).toContain("检查本地环境状态");
+    }
+  );
+
+  test("a retained but incomplete runtime returns to setup on the next launch", async () => {
+    const runtime = runtimeFixture();
+    runtime.inspect.mockResolvedValue({
+      installed: false,
+      managed: true,
+      root: runtime.update.root,
+      backendPath: "/fixture-runtime/backend",
+      pythonPath: "/fixture-runtime/python",
+      cppPath: "/fixture-runtime/ocr",
+      channel: "dev",
+      missing: ["backend"],
+    });
+    const folder = await directory();
+    await writeFile(
+      join(folder, "settings.json"),
+      JSON.stringify({ connectionMode: "local", language: "zh" })
+    );
+    const workspace = await Workspace.create({ directory: folder });
+    cleanup.push(() => workspace.close());
+    await workspace.initialize();
+    expect(workspace.snapshot).toMatchObject({ setupNeeded: true, connected: false });
+    expect(runtime.start).not.toHaveBeenCalled();
+  });
+});
 
 describe("workspace reload", () => {
   test("reload reconnects to the same local backend, rereads preferences/packs and clears UI data", async () => {
