@@ -101,7 +101,6 @@ type View =
   | "profiles"
   | "logs"
   | "config"
-  | "packs"
   | "help"
   | "language"
   | "setup";
@@ -114,7 +113,6 @@ const VIEWS: [View, string][] = [
   ["profiles", "配置档"],
   ["logs", "日志"],
   ["config", "配置"],
-  ["packs", "指令包"],
 ];
 export const COMMANDS: Choice[] = [
   { id: "scheduler", label: "/scheduler", detail: "编辑任务调度" },
@@ -122,6 +120,8 @@ export const COMMANDS: Choice[] = [
   { id: "new-profile", label: "/new-profile", detail: "新建配置档" },
   { id: "language", label: "/language", detail: "选择语言" },
   { id: "install", label: "/install", detail: "安装本地环境" },
+  { id: "uninstall", label: "/uninstall", detail: "卸载本地环境并保留数据" },
+  { id: "clear", label: "/clear", detail: "清除当前显示" },
   { id: "local", label: "/local", detail: "启动本地后端" },
   { id: "run", label: "/run", detail: "选择并运行任务" },
   { id: "tasks", label: "/tasks", detail: "选择并运行任务" },
@@ -572,7 +572,6 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     "tasks",
     "oneoff",
     "profiles",
-    "packs",
     "config",
     "language",
     "setup",
@@ -593,7 +592,7 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     workspace.answerPrompt(value);
   };
   useLayoutEffect(() => {
-    resetInput(prompt?.kind === "confirm" ? "y" : prompt?.initial || "");
+    resetInput(prompt?.kind === "confirm" ? prompt.initial || "y" : prompt?.initial || "");
   }, [prompt?.id, prompt?.title, prompt?.kind]);
   useEffect(() => {
     if (state.connected && !state.busy && !installationFailed) {
@@ -746,15 +745,9 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
                     label,
                     detail: `${id}${id === state.profile ? " · 当前" : ""}${state.status[id]?.running ? " · 运行中" : ""}`,
                   }))
-                : view === "packs"
-                  ? state.packs.map((p) => ({
-                      id: p.name,
-                      label: `/${p.name}`,
-                      detail: p.description,
-                    }))
-                  : view === "config"
-                    ? configItems
-                    : [];
+                : view === "config"
+                  ? configItems
+                  : [];
   const choices = filterChoices(
     baseChoices,
     input.startsWith("/") || editing || prompt ? "" : input
@@ -813,7 +806,7 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
     1,
     rows - headerRows - 1 - contentGap - (showCommandInput ? 3 : 0) - footerRows - 1
   );
-  const homeTopPadding = bodyHeight >= 16 ? 2 : bodyHeight >= 8 ? 1 : 0;
+  const homeTopPadding = bodyHeight >= 16 ? 1 : 0;
   const promptDetailHeight = Math.max(
     1,
     Math.min(
@@ -883,7 +876,12 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       exit();
       return;
     }
-    if (["home", "clear"].includes(command)) {
+    if (command === "clear") {
+      workspace.clearScreen();
+      setLogOffset(0);
+      return;
+    }
+    if (command === "home") {
       setView("home");
       return;
     }
@@ -892,17 +890,9 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       return;
     }
     if (
-      [
-        "scheduler",
-        "tasks",
-        "oneoff",
-        "profiles",
-        "logs",
-        "config",
-        "packs",
-        "language",
-        "setup",
-      ].includes(command)
+      ["scheduler", "tasks", "oneoff", "profiles", "logs", "config", "language", "setup"].includes(
+        command
+      )
     ) {
       await go(command as View);
       return;
@@ -951,10 +941,6 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
       setLogOffset(0);
       setView(columns >= 110 ? "home" : "logs");
       await workspace.run(item.id);
-    }
-    if (view === "packs") {
-      setView("home");
-      await workspace.execute(`pack ${item.id}`);
     }
     if (view === "config") {
       if (item.id.startsWith("section:")) {
@@ -1499,9 +1485,7 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
                                 ? "一次性任务 · Enter 运行"
                                 : view === "profiles"
                                   ? "配置档 · Enter 切换"
-                                  : view === "packs"
-                                    ? "指令包 · Enter 执行"
-                                    : "配置 · Enter 编辑"
+                                  : "配置 · Enter 编辑"
                   }
                   items={choices}
                   selected={selectedIndex}
@@ -1516,7 +1500,7 @@ function WorkspaceScreen({ workspace, state }: { workspace: Workspace; state: Sn
                     setSelected((n) => Math.max(0, Math.min(choices.length - 1, n + delta)))
                   }
                   empty={
-                    !state.connected && !["packs", "language", "setup"].includes(view)
+                    !state.connected && !["language", "setup"].includes(view)
                       ? "尚未连接 · /connect"
                       : (view === "tasks" || view === "oneoff") && !state.profile
                         ? "请先 /profiles 选择配置档"

@@ -98,6 +98,7 @@ const MAX_ACTIVITY = 60;
 const RUNTIME_OPERATIONS = new Set([
   "正在安装运行环境",
   "启动本地后端",
+  "卸载本地环境",
   "更新本地环境",
   "检查本地环境更新",
 ]);
@@ -156,6 +157,7 @@ export class Workspace {
   private closed = false;
   private configurationError?: Error;
   private allLogs: BaasLogEntry[] = [];
+  private clearedLogs = new WeakSet<BaasLogEntry>();
   private liveLogRevision = 0;
   private liveLogs: { revision: number; entry: BaasLogEntry }[] = [];
   private state: WorkspaceSnapshot;
@@ -224,8 +226,19 @@ export class Workspace {
     const explicitRemote = Boolean(
       this.options.server || this.options.pipe || process.env.BAAS_SERVER || process.env.BAAS_PIPE
     );
-    if (this.preferences.connectionMode === "local" && !explicitRemote) await this.startLocal();
-    else if (explicitRemote || this.preferences.connectionMode === "remote") await this.connect();
+    if (this.preferences.connectionMode === "local" && !explicitRemote) {
+      try {
+        const runtime = await this.runtime.inspect();
+        if (runtime.managed && !runtime.installed) {
+          this.state.setupNeeded = true;
+          this.publish();
+          return;
+        }
+      } catch {
+        // Preserve the existing startup error reporting if inspection fails.
+      }
+      await this.startLocal();
+    } else if (explicitRemote || this.preferences.connectionMode === "remote") await this.connect();
   }
 
   async setLanguage(language: string): Promise<void> {
@@ -312,6 +325,66 @@ export class Workspace {
       await saveSettings(this.preferences, this.directory);
       this.state.setupNeeded = false;
     });
+  }
+
+  async uninstallLocal(): Promise<void> {
+    await this.operation("卸载本地环境", async (signal) => {
+      if (this.state.readOnly) throw new Error("当前为只读模式，不能卸载运行环境");
+      if (this.state.demo) throw new Error("演示环境不卸载真实后端");
+      const target = await this.runtime.captureUninstallTarget(signal);
+      const detail = `${target.root}\n仅删除本地后端程序；配置与用户数据会保留。\n卸载前将停止本工作台启动的空闲本地后端。`;
+      if (this.state.dryRun) {
+        this.activity("卸载本地环境 · 预演", detail, "info");
+        return;
+      }
+      if (!this.options.yes) {
+        if (
+          (await this.ask(
+            { kind: "confirm", title: "确认卸载本地环境", detail, initial: "n" },
+            signal
+          )) !== true
+        ) {
+          this.activity("已取消卸载", undefined, "info");
+          return;
+        }
+      }
+      signal.throwIfAborted();
+      await this.runtime.verifyUninstallTarget(target, signal);
+      const connectedLocal = this.localAttached;
+      await this.runtime.stopWhenIdle(signal);
+      if (connectedLocal) {
+        this.disposeClient();
+        this.state.connected = false;
+        this.state.connecting = false;
+      }
+      this.state.installation = undefined;
+      try {
+        await this.runtime.uninstall(target, (event) => this.runtimeEvent(event), signal);
+      } catch (error) {
+        // Cancellation can arrive after the helper has already removed files.
+        // Inspect independently of the cancelled signal before updating the UI.
+        try {
+          const current = await this.runtime.inspect();
+          if (connectedLocal || this.preferences.connectionMode === "local")
+            this.state.setupNeeded = !current.installed;
+        } catch {
+          if (connectedLocal || this.preferences.connectionMode === "local")
+            this.state.setupNeeded = true;
+        }
+        throw error;
+      }
+      if (connectedLocal || this.preferences.connectionMode === "local")
+        this.state.setupNeeded = true;
+      this.activity("本地环境已卸载", detail, "success");
+    });
+  }
+
+  /** Clear visible activity and log output without disconnecting or deleting backend data. */
+  clearScreen(): void {
+    this.clearedLogs = new WeakSet(this.allLogs);
+    this.state.activity = [];
+    this.updateVisibleLogs();
+    this.publish();
   }
 
   private async attachLocal(signal: AbortSignal, preserveProgress = false): Promise<void> {
@@ -818,6 +891,16 @@ export class Workspace {
       await this.reload();
       return;
     }
+    if (command === "clear") {
+      if (args.length) this.activity("命令格式有误", "用法：clear", "error");
+      else this.clearScreen();
+      return;
+    }
+    if (command === "uninstall") {
+      if (args.length) this.activity("命令格式有误", "用法：uninstall", "error");
+      else await this.uninstallLocal();
+      return;
+    }
     if (command === "update" || command === "check-update") {
       if (args.length) {
         this.activity("命令格式有误", "用法：update 或 check-update", "error");
@@ -1104,7 +1187,11 @@ export class Workspace {
       }
       this.activity(
         cancelled ? "操作已取消" : `${title}失败`,
-        cancelled ? "未提交的新操作已取消；已经提交的后端任务会继续运行。" : errorText(error),
+        cancelled
+          ? title === "卸载本地环境"
+            ? "卸载已取消，请检查本地环境状态。"
+            : "未提交的新操作已取消；已经提交的后端任务会继续运行。"
+          : errorText(error),
         cancelled ? "info" : "error"
       );
       return undefined;
@@ -1604,6 +1691,7 @@ export class Workspace {
   }
   private updateVisibleLogs(): void {
     this.state.logs = this.allLogs
+      .filter((entry) => !this.clearedLogs.has(entry))
       .filter(
         (entry) =>
           !this.state.profile ||

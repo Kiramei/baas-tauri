@@ -168,8 +168,17 @@ describe("CLI subprocess contract", () => {
     const usage = await run(["--lang", "en", "--help"]);
     expect(usage.code).toBe(0);
     expect(usage.stdout).toContain("Usage: baasx [options] [command]");
+    expect(usage.stdout).toContain("uninstall");
     expect(usage.stdout).not.toContain("BAAS CLI");
     expect(usage.stdout).not.toContain("Usage: baas ");
+  });
+  test("uninstall refuses demo and read-only modes before touching a runtime", async () => {
+    const demo = await run(["--demo", "--yes", "--json", "uninstall"]);
+    expect(demo.code).toBe(1);
+    expect(JSON.parse(demo.stdout).error).toContain("演示环境");
+    const readOnly = await run(["--read-only", "--json", "uninstall"]);
+    expect(readOnly.code).toBe(1);
+    expect(JSON.parse(readOnly.stdout).error).toContain("只读");
   });
   test("JSON contains exactly one document without banners or ANSI", async () => {
     const result = await run(["--demo", "--json", "profiles"]);

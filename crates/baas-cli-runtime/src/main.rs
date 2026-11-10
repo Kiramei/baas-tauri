@@ -1,5 +1,5 @@
 use baas_cli_runtime::{
-    Progress, acquire_lease, check_update, inspect, install, launch_spec, update,
+    Progress, acquire_lease, check_update, inspect, install, launch_spec, uninstall, update,
 };
 use baas_updater::{UpdateChannel, UpdaterError, UpdaterResult};
 use serde_json::{Value, json};
@@ -28,12 +28,14 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
     let mut args = std::env::args().skip(1);
     let command = args.next().ok_or_else(|| {
         UpdaterError::Config(
-            "expected inspect, install, check-update, update, lease, or launch-spec".into(),
+            "expected inspect, install, uninstall, check-update, update, lease, or launch-spec"
+                .into(),
         )
     })?;
     if ![
         "inspect",
         "install",
+        "uninstall",
         "launch-spec",
         "check-update",
         "update",
@@ -46,6 +48,8 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
     let mut root = None;
     let mut pipe = None;
     let mut channel = None;
+    let mut expected_device = None;
+    let mut expected_inode = None;
     while let Some(flag) = args.next() {
         let value = args
             .next()
@@ -55,6 +59,20 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
             "--pipe" if command == "launch-spec" && pipe.is_none() => pipe = Some(value),
             "--channel" if command == "install" && channel.is_none() => {
                 channel = Some(UpdateChannel::parse(&value)?)
+            }
+            "--expected-device" if command == "uninstall" && expected_device.is_none() => {
+                expected_device = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| UpdaterError::Config("invalid expected device".into()))?,
+                )
+            }
+            "--expected-inode" if command == "uninstall" && expected_inode.is_none() => {
+                expected_inode = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| UpdaterError::Config("invalid expected inode".into()))?,
+                )
             }
             _ => {
                 return Err(UpdaterError::Config(format!(
@@ -111,6 +129,17 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
         "inspect" => serde_json::to_value(inspect(&root)?),
         "check-update" => serde_json::to_value(check_update(&root, cancelled, &mut progress)?),
         "update" => serde_json::to_value(update(&root, cancelled, &mut progress)?),
+        "uninstall" => serde_json::to_value(uninstall(
+            &root,
+            (
+                expected_device
+                    .ok_or_else(|| UpdaterError::Config("--expected-device is required".into()))?,
+                expected_inode
+                    .ok_or_else(|| UpdaterError::Config("--expected-inode is required".into()))?,
+            ),
+            cancelled,
+            &mut progress,
+        )?),
         "install" => serde_json::to_value(install(
             &root,
             channel.unwrap_or(UpdateChannel::Dev),

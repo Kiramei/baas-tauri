@@ -105,6 +105,76 @@ fn invalid_cli_options_are_structured_failures() {
 }
 
 #[test]
+fn uninstall_accepts_node_directory_identity_and_rejects_a_different_identity() {
+    let parent = tempfile::tempdir().unwrap();
+    let root = parent.path().join("node identity 测试");
+    std::fs::create_dir(&root).unwrap();
+    // RuntimeManager captures these exact values before presenting confirmation.
+    let output = match Command::new("node")
+        .arg("-e")
+        .arg("const s=require('node:fs').statSync(process.argv[1],{bigint:true});console.log(JSON.stringify({device:s.dev.toString(),inode:s.ino.toString()}))")
+        .arg(&root)
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("Skipping Node/Rust directory identity test: node is not installed");
+            return;
+        }
+        Err(error) => panic!("Cannot start Node for directory identity test: {error}"),
+    };
+    assert!(
+        output.status.success(),
+        "Node stat failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let identity: Value =
+        serde_json::from_slice(&output.stdout).expect("Node must return identity JSON");
+    let device = identity["device"]
+        .as_str()
+        .expect("Node device is a decimal string");
+    let inode = identity["inode"]
+        .as_str()
+        .expect("Node inode is a decimal string");
+    let root_text = root.to_str().unwrap();
+    let (success, messages) = invoke(&[
+        "uninstall",
+        "--root",
+        root_text,
+        "--expected-device",
+        device,
+        "--expected-inode",
+        inode,
+    ]);
+    assert!(!success);
+    assert_eq!(messages.len(), 1);
+    // Reaching the missing-marker IO error proves the Node identity matched the
+    // capability directory handle; no lock or other file has been created.
+    assert_eq!(messages[0]["code"], "io", "{messages:?}");
+
+    let different_inode = inode.parse::<u64>().unwrap().wrapping_add(1).to_string();
+    let (success, messages) = invoke(&[
+        "uninstall",
+        "--root",
+        root_text,
+        "--expected-device",
+        device,
+        "--expected-inode",
+        &different_inode,
+    ]);
+    assert!(!success);
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0]["code"], "config");
+    assert!(
+        messages[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("identity changed")
+    );
+    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+}
+
+#[test]
 fn uninstalled_runtime_never_returns_a_launchable_specification() {
     let parent = tempfile::tempdir().unwrap();
     let root = parent.path().join("runtime");
