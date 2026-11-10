@@ -8,7 +8,7 @@ baasx 是 BAAS 的独立终端工作台，直接管理 Blue Archive Auto Script 
 
 ## 安装
 
-使用 npm、Bun、pnpm、Yarn 或 cnpm 安装时需要 Node.js 18+。Deno 可直接运行。选择一种已安装的工具：
+使用 npm、Bun、pnpm、Yarn 或 cnpm 安装时需要 Node.js 20.3+。Deno 可直接运行。选择一种已安装的工具：
 
 ```sh
 # npm
@@ -42,7 +42,7 @@ cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂�
 
 Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
 
-注册表包包括 Windows x64、Linux x64 和 Apple Silicon Mac 的原生程序及安装组件，无需安装 Rust。
+注册表包包含 JavaScript 程序和 Windows x64、Linux x64、Apple Silicon Mac 的安装组件，无需安装 Rust。
 
 ## 从源码开始使用
 
@@ -60,7 +60,7 @@ bun run baasx --help
 
 工作台使用往返伸缩的星芒、连接和等待时的文字扫光，以及执行时每两秒一次的颜色呼吸。动画共享时钟，只刷新各自的小组件；选中长标签和窗口末行长日志保留横向滚动。设置 `BAAS_REDUCED_MOTION=1` 可保留静态状态指示，重定向输出或 `TERM=dumb` 时也会关闭动画。窄终端将选项名称与详情分成两行，低高度终端采用两行页头。进入配置页时若尚未选配置档，会先引导选择并自动返回配置页。
 
-工作台包含总览、任务、调度、配置档、日志、配置和指令包页面。用 ↑/↓ 选择、Enter 打开或运行、Esc 返回；Shift+Tab 切换页面，Ctrl+T 打开任务、Ctrl+P 打开配置档、Ctrl+L 打开日志。输入 `/` 搜索命令，Tab 补全。支持鼠标点击导航、列表项和确认按钮；滚轮滚动当前列表、日志、安装步骤或较长的确认详情。标签、说明和日志超出可用列宽时会横向滚动，中文、组合字符和 emoji 按显示宽度处理。
+工作台包含总览、任务、调度、配置档、日志和配置页面。用 ↑/↓ 选择、Enter 打开或运行、Esc 返回；Shift+Tab 切换页面，Ctrl+T 打开任务、Ctrl+P 打开配置档、Ctrl+L 打开日志。输入 `/` 搜索命令，Tab 补全。支持鼠标点击导航、列表项和确认按钮；滚轮滚动当前列表、日志、安装步骤或较长的确认详情。标签、说明和日志超出可用列宽时会横向滚动，中文、组合字符和 emoji 按显示宽度处理。
 
 顶部 BAASX 品牌和连接信息在所有页面保持相同布局，仅随终端尺寸收缩；底部状态栏使用最后一行，不额外预留空行。
 
@@ -69,6 +69,8 @@ bun run baasx --help
 交互确认默认选中 Yes：Enter 提交，`n` 或方向键切换至取消，Esc 取消当前操作。可直接点击确认或取消按钮。任务执行后自动展示实时日志；终端宽度至少 110 列时可在工作区右侧同时观察日志，按住中间的竖向分界线左右拖动即可调整分栏宽度。两侧保留最小宽度，终端缩放时保留分栏比例；窄屏使用独立日志页面。向上滚动会暂停跟随，滚回底部恢复。
 
 首次进入可选择语言和运行方式：安装本地 BAAS 服务版环境，或连接已有服务。工作台中的 `/install`、`/local` 管理本地环境；`/connect` 连接已有服务。实际安装和设备任务需按界面进度及后端状态确认。
+
+`/uninstall` 卸载本地后端程序并保留配置和用户数据；`/clear` 清除当前显示的活动和日志，不断开连接或删除数据。命令行可使用 `baasx uninstall`，非交互执行需加 `--yes`。
 
 本地安装复用桌面端的安装核心，自动安装支持 `main.service.py` 和本地管道的 `Kiramei/baas-dev` 服务版（`dev` 通道）。环境默认位于 `<CLI配置目录>/runtime`，包含私有 Python、BAAS 后端、OCR 和运行依赖。CLI 不使用缺少该服务协议的旧 `blue_archive_auto_script` GUI 稳定版；其安装器会提前拒绝 `stable` 通道。桌面端自身的 stable 默认、安装目录和设置不变。
 
@@ -198,7 +200,7 @@ bun run baasx --profile default_config --dry-run pack daily-wait
 
 指令包独立于桌面插件包。内置 `briefing` 查看状态与任务，`connection-check` 检查服务和设备，`daily` 启动已有调度，`daily-wait` 启动后等待本次运行最多 120 秒。
 
-将自定义包保存至 `<CLI配置目录>/commands/*.json`，通过工作台指令包页面或 `pack my-check` 执行：
+将自定义包保存至 `<CLI配置目录>/commands/*.json`，通过工作台 `/pack my-check` 或命令行 `pack my-check` 执行：
 
 ```json
 {
@@ -229,6 +231,8 @@ baasx 沿用原 CLI 配置目录和 `BAAS_*` 环境变量，无需迁移已有�
 
 环境变量：`BAAS_SERVER`、`BAAS_PIPE`、`BAAS_PROFILE`、`BAAS_KEY`、`BAAS_SERVER_SIGN_PUBLIC_KEY`、`BAAS_LANG`、`BAAS_CLI_HOME`。连接参数优先级为命令行、环境变量、偏好。`use` 保存当前配置档，`--profile` 只影响本次调用。`BAAS_RUNTIME_HELPER` 可显式指定已构建的安装组件路径；发布包不会自动调用 Cargo。
 
+将下面的 `<版本>` 替换为 `baasx/package.json` 中的版本号。
+
 ```bash
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:build
 bun baasx/bin/baasx.mjs --demo
@@ -238,7 +242,7 @@ npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary
 ./baasx/dist/baasx --demo
 
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:pack
-bun add -g ./baasx/dist/baas-baasx-0.1.2.tgz
+bun add -g "./baasx/dist/baas-baasx-<版本>.tgz"
 baasx --help
 ```
 
