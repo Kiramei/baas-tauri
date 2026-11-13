@@ -1,4 +1,4 @@
-name: Sync to CNB
+name: Source Dispatch
 
 on:
   push:

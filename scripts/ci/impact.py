@@ -38,7 +38,8 @@ def impact(path):
         return {"contracts", "docs"}  # docs/tests/readme-links.test.ts
     if matching(path, ".github/actions/notify-qq/*", ".github/actions/sync-*/*",
                 ".github/actions/check-release-tag/*", ".github/workflows/release-*.yml",
-                ".github/workflows/sync-cnb.yml", ".github/workflows/main-source-guard.yml",
+                ".github/workflows/sync-cnb.yml", ".github/workflows/source-dispatch.yml",
+                ".github/workflows/main-source-guard.yml",
                 "scripts/*release*.mjs", "scripts/*updater*.mjs", "scripts/*update-log*",
                 "scripts/ci/release*", "UPDATE.md"):
         return {"contracts"}

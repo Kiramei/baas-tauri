@@ -35,7 +35,7 @@ The baseline is `2b98f61`. Jobs inherit their workflow’s event, ref and path c
 | release-baasx / `notify-qq` | ubuntu-latest | sync-cnb-release, publish-registry | contents:r | notify-qq |
 | release-docker / `prepare` | ubuntu-latest | – | contents:r, packages:w | generate-font-assets |
 | release-docker / `build-and-push` | ubuntu-latest | prepare | contents:r, packages:w | download-font-assets, login-action, login-action, build-push-action |
-| sync-cnb / `sync-repository` | ubuntu-latest | – | contents:r | – |
-| sync-cnb / `sync-release` | ubuntu-latest | – | contents:r | sync-cnb-release |
+| source-dispatch / `sync-repository` | ubuntu-latest | – | contents:r | – |
+| source-dispatch / `sync-release` | ubuntu-latest | – | contents:r | sync-cnb-release |
 | wiki-pages / `build` | ubuntu-latest | – | contents:r, pages:w, id-token:w | cache, upload-pages-artifact |
 | wiki-pages / `deploy` | ubuntu-latest | build | contents:r, pages:w, id-token:w | deploy-pages |

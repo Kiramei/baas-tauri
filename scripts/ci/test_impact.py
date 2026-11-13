@@ -18,6 +18,8 @@ class Routing(unittest.TestCase):
             ("docs/content/docs/en/foo.mdx", {"docs"}),
             (".github/actions/notify-qq/action.yml", {"contracts"}),
             (".github/actions/sync-cnb-release/action.yml", {"contracts"}),
+            (".github/workflows/sync-cnb.yml", {"contracts"}),
+            (".github/workflows/source-dispatch.yml", {"contracts"}),
             ("src/android/pages/SettingsPage.tsx", {"android-ui", "docs"}),
             ("src/shared/ConfigurationSections.ts", {"cli-source","docs","android-ui","webui","tauri"}),
             ("baasx/src/workspace.ts", {"cli-source","cli-package","cli-windows"}),
