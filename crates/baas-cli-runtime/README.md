@@ -1,4 +1,4 @@
-# BAAS CLI runtime helper
+# BAASX runtime helper
 
 A headless adapter over `baas-updater`'s desktop installation workflow. It installs the same backend repository, Cpp/OCR prebuild, private UV/Python environment and service dependencies. It does not start a daemon or require Tauri, GTK or WebKit.
 

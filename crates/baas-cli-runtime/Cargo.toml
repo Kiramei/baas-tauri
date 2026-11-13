@@ -2,7 +2,7 @@
 name = "baas-cli-runtime"
 version = "0.0.9"
 edition = "2024"
-description = "Headless managed backend installer and launch specifications for BAAS CLI"
+description = "Headless managed backend installer and launch specifications for BAASX"
 
 [dependencies]
 baas-updater = { path = "../baas-updater", default-features = false }

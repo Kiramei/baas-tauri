@@ -55,7 +55,7 @@ struct InstallationMarker {
     uninstall_quarantine: Option<String>,
 }
 
-/// Installation state. `managed` means this directory belongs to BAAS CLI,
+/// Installation state. `managed` means this directory belongs to BAASX,
 /// while `installed` additionally requires every installation stage to finish.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

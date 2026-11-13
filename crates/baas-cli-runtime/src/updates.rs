@@ -58,7 +58,7 @@ pub fn check_update(
         .timeout(Duration::from_secs(20))
         .connect_timeout(Duration::from_secs(8))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("BAAS-CLI-runtime")
+        .user_agent("BAASX-runtime")
         .build()
         .map_err(|error| UpdaterError::Network(error.to_string()))?;
     check_with(root, cancelled, emit, |url, branch| {
