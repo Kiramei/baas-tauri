@@ -64,3 +64,28 @@ These are expected selections. Runner-seconds removed from a historical matrix a
 5. Roll back by reverting the CI commits together (restore the two original gate workflows and triggers). Keep the existing protected names during rollback. Remove only optional newly added main requirements after the original source guard and dev gates are confirmed successful on the test PR. A PR editing its own checker remains a code-review trust decision; protect CI/action changes with existing review policy.
 
 The full job/attempt timing data and API access limits are recorded in [CI-BASELINE.md](CI-BASELINE.md).
+
+## Candidate job graph
+
+The eight workflow files implement the jobs below. Per-job limits and exact runner labels remain visible in the YAML. The three release flows intentionally have independent concurrency groups, versions and endpoints.
+
+| Workflow | Jobs and dependencies | Output and recovery |
+|---|---|---|
+| Code Quality | `changes` → selected contracts, fonts, Android tests, docs or CLI sources. Fonts → frontend. Applicable contracts/CLI source → desktop matrix. Fonts + Android tests → APK. Applicable CLI source → helper/OS matrix. Both named gates run even when dependencies fail or skip. | Explanatory job summary, one-day fonts, three-day docs diagnostics on failure. Retry failures for the same merge SHA. |
+| baasx CI | One three-OS release/package matrix, dispatched explicitly or called by Release baasx after tag validation. | Same-run six distributables plus JS bundle, seven days; retry the failed matrix children. |
+| Main Branch Source | Single read-only source job using the base workflow and PR event data. | Required main check. Fix the source ref and let the PR event rerun it. |
+| Release App | Tag → draft/fonts → desktop, Linux ARM, Android and fixed WebView2 builds → complete-asset validation/publish → updater manifests → stable CNB → applicable Winget → QQ. | Signed installers and rolling update descriptors; retry failed downstream from the Actions run. |
+| Release baasx | Validate → reusable package build → GitHub assets and registry publication; CNB waits for GitHub; QQ waits for CNB and both registries. | SHA256SUMS, archives, npm/GitHub Packages. Historical attempts with expired artifacts must rebuild the same tagged inputs. |
+| Release WebUI Docker Image | Prepare/fonts → build+push → mirror. Nonpublishing branch dispatch builds only. | Version/SHA and applicable latest tags in GHCR, Docker Hub and CNB. A failed mirror can run again without Docker Buildx. |
+| Sync to CNB | main push or manual repository operation mirrors Git. Manual release/all can wait then mirror a selected release. | Manual release mirror shares the product publication lock. Readiness defaults differ intentionally between downstream and independent recovery. |
+| Deploy Wiki to GitHub Pages | main site inputs or dispatch → build → deploy through the github-pages environment. | Single GitHub Pages artifact; retry deployment on the same run. |
+
+For a new protected ref, register the PR trigger before requiring any contexts. Keep Code Quality and the source guard on separate permission/concurrency scopes. Legacy `docs-validation.yml` manual users select **Code Quality → full**. There is no top-level path filter on required PR checks.
+
+## Local acceptance
+
+On 2026-11-13 the router/gate/QQ/CNB/promotion unittest suite passed seven tests. The CI policy, publishing, workflow, registry pack/install and registry double-publish fixture suites passed 29 Bun tests. The pinned compiler `b1007f1177fd402fae67387b8548cae5ae9b5707` built the two JS bundles with `--js-only`; the Node demo ran successfully and no release helper was created. actionlint 1.7.12 passed with one narrowly scoped syntax exception for GitHub’s newer documented `concurrency.queue`; separate tests require `queue: max` and prohibit cancel-in-progress on publication. All YAML files parse and the diff passes `git diff --check`.
+
+The release fixture tests use local archives and simulated API responses. This audit did not publish a release, push a container image, upload an npm package, modify rulesets or send a QQ notification. Whole-platform packaging, Docker publication, CNB mutation and real PR-required-check association remain release or rollout validations.
+
+[GitHub verification run 43419375504](https://github.com/Kiramei/baas-tauri/actions/runs/43419375504) succeeded for implementation commit `5fa289e` using a read-only Code Quality dispatch in contracts mode. The planner took 7 seconds, release contracts 8 seconds, docs gate 4 seconds and quality gate 7 seconds. This is 26 Linux job-seconds and 25 seconds from first job start to final gate completion, with zero macOS/Windows jobs and zero artifacts. Eight unneeded jobs were skipped. This validates the ran/skipped contract and both named gate conclusions on GitHub; rollout must still observe PR check association on an actual merge ref. The follow-up documentation commit records these results.
