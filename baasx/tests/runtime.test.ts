@@ -396,7 +396,7 @@ describe("owned local backend", () => {
   const actualHelper = join(
     import.meta.dir,
     "../../target/debug",
-    process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime"
+    process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime"
   );
   test.skipIf(process.platform === "win32" || !existsSync(actualHelper))(
     "the built Rust helper and Bun manager agree on inspect and launch-spec without downloads",

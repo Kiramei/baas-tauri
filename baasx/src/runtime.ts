@@ -151,7 +151,7 @@ export class RuntimeManager {
   constructor(options: RuntimeManagerOptions) {
     if (!string(options.directory)) throw new RuntimeError("runtime_config", "CLI 环境目录无效");
     this.directory = resolve(options.directory);
-    this.helperPath = options.helperPath || process.env.BAAS_RUNTIME_HELPER;
+    this.helperPath = options.helperPath || process.env.BAASX_RUNTIME_HELPER || process.env.BAAS_RUNTIME_HELPER;
   }
 
   async getConfigRoot(): Promise<string> {
@@ -680,23 +680,20 @@ export class RuntimeManager {
   }
 
   private async executable(): Promise<string> {
-    const filename = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+    const suffix = process.platform === "win32" ? ".exe" : "";
     const moduleDirectory = import.meta.dir || dirname(fileURLToPath(import.meta.url));
+    const directories = [
+      join(moduleDirectory, "../runtime"),
+      join(moduleDirectory, "../platforms", `${process.platform}-${process.arch}`, "runtime"),
+      join(dirname(process.execPath), "runtime"),
+      join(moduleDirectory, "../../target/debug"),
+      join(moduleDirectory, "../../target/release"),
+    ];
     const candidates = this.helperPath
       ? [resolve(this.helperPath)]
-      : [
-          join(moduleDirectory, "../runtime", filename),
-          join(
-            moduleDirectory,
-            "../platforms",
-            `${process.platform}-${process.arch}`,
-            "runtime",
-            filename
-          ),
-          join(dirname(process.execPath), "runtime", filename),
-          join(moduleDirectory, "../../target/debug", filename),
-          join(moduleDirectory, "../../target/release", filename),
-        ];
+      : directories.flatMap((dir) =>
+          ["baasx-runtime", "baas-cli-runtime"].map((name) => join(dir, name + suffix))
+        );
     for (const candidate of candidates) {
       try {
         await access(candidate, constants.X_OK);
@@ -707,7 +704,7 @@ export class RuntimeManager {
     }
     throw new RuntimeError(
       "helper_missing",
-      "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。"
+      "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。"
     );
   }
 

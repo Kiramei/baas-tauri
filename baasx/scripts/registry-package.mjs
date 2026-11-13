@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { npmCommand } from "./host-npm.mjs";
 import { platforms } from "./distribution-platforms.mjs";
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,6 +22,7 @@ const { values } = parseArgs({
     bundle: { type: "string" },
     output: { type: "string" },
     scope: { type: "string" },
+    "host-only": { type: "boolean", default: false },
   },
 });
 if (!values.assets || !values.bundle || !values.output || values.scope !== "kiramei") {
@@ -56,8 +58,15 @@ function pack(manifest, populate) {
     path.join(stage, "package.json"),
     JSON.stringify({ ...base, ...manifest }, null, 2) + "\n"
   );
+  const [npm, ...args] = npmCommand([
+    "pack",
+    "--ignore-scripts",
+    "--json",
+    "--pack-destination",
+    output,
+  ]);
   const [result] = JSON.parse(
-    execFileSync("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", output], {
+    execFileSync(npm, args, {
       cwd: stage,
       encoding: "utf8",
     })
@@ -77,7 +86,10 @@ function bin(stage, filename) {
 }
 
 try {
-  for (const platform of platforms) {
+  const targets = values["host-only"]
+    ? platforms.filter((p) => p.os === process.platform && p.cpu === process.arch)
+    : platforms;
+  for (const platform of targets) {
     pack(
       {
         name: platform.name,
@@ -89,11 +101,16 @@ try {
       },
       (stage) => {
         const archive = path.join(assets, `baasx-${version}-${platform.asset}-bun.tgz`);
-        const member = `package/runtime/${platform.helper}`;
+        const members = [platform.helper, platform.legacyHelper].map(
+          (name) => `package/runtime/${name}`
+        );
         const entries = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n");
-        if (!entries.includes(member)) throw new Error(`${platform.asset} missing ${member}`);
-        execFileSync("tar", ["-xzf", archive, "-C", stage, "--strip-components=1", member]);
-        chmodSync(path.join(stage, "runtime", platform.helper), 0o755);
+        for (const member of members) {
+          if (!entries.includes(member)) throw new Error(`${platform.asset} missing ${member}`);
+        }
+        execFileSync("tar", ["-xzf", archive, "-C", stage, "--strip-components=1", ...members]);
+        for (const name of [platform.helper, platform.legacyHelper])
+          chmodSync(path.join(stage, "runtime", name), 0o755);
       }
     );
   }

@@ -229,7 +229,7 @@ bun run baasx --profile default_config --dry-run pack daily-wait
 
 baasx 沿用原 CLI 配置目录和 `BAAS_*` 环境变量，无需迁移已有设置或本地环境。偏好独立于桌面端，默认位于 `$XDG_CONFIG_HOME/baas/settings.json` 或 `~/.config/baas/settings.json`；可用 `BAAS_CLI_HOME` / `--config-home` 覆盖。支持服务地址、管道、配置档、语言、运行方式和指令包目录，不保存 Key。
 
-环境变量：`BAAS_SERVER`、`BAAS_PIPE`、`BAAS_PROFILE`、`BAAS_KEY`、`BAAS_SERVER_SIGN_PUBLIC_KEY`、`BAAS_LANG`、`BAAS_CLI_HOME`。连接参数优先级为命令行、环境变量、偏好。`use` 保存当前配置档，`--profile` 只影响本次调用。`BAAS_RUNTIME_HELPER` 可显式指定已构建的安装组件路径；发布包不会自动调用 Cargo。
+环境变量：`BAAS_SERVER`、`BAAS_PIPE`、`BAAS_PROFILE`、`BAAS_KEY`、`BAAS_SERVER_SIGN_PUBLIC_KEY`、`BAAS_LANG`、`BAAS_CLI_HOME`。连接参数优先级为命令行、环境变量、偏好。`use` 保存当前配置档，`--profile` 只影响本次调用。`BAASX_RUNTIME_HELPER`（兼容 `BAAS_RUNTIME_HELPER`）可显式指定已构建的安装组件路径；发布包不会自动调用 Cargo。
 
 将下面的 `<版本>` 替换为 `baasx/package.json` 中的版本号。
 
@@ -252,8 +252,8 @@ JS 发行包经过压缩，二进制采用 ESM 和浅层 bytecode 缓存以减�
 
 两种分发方式都必须包含安装组件：
 
-- Bun 包使用 `bin/baasx.mjs`、`dist/baasx.js`、`runtime/baas-cli-runtime`（Windows 带 `.exe`）、指令包和许可文件。`bun run baasx:pack` 会先执行 `prepack` 构建，再调用 `bun pm pack --ignore-scripts` 生成 `.tgz`。
-- 本机可执行发行包保持 `baasx` / `baasx.exe` 与 `runtime/baas-cli-runtime` / `runtime/baas-cli-runtime.exe` 的相对目录。不能只复制主程序后丢弃 `runtime` 文件夹。构建脚本会同时将 helper 放入 `baasx/runtime` 和 `baasx/dist/runtime`，分别供这两种分发方式使用。
+- Bun 包使用 `bin/baasx.mjs`、`dist/baasx.js`、`runtime/baasx-runtime`（Windows 带 `.exe`）、指令包和许可文件。`bun run baasx:pack` 会先执行 `prepack` 构建，再调用 `bun pm pack --ignore-scripts` 生成 `.tgz`。
+- 本机可执行发行包保持 `baasx` / `baasx.exe` 与 `runtime/baasx-runtime` / `runtime/baasx-runtime.exe` 的相对目录。新包保留旧名称 `baas-cli-runtime`，新版也能识别旧包内的同名组件。复制发行包时请保留 `runtime` 文件夹。构建脚本会同时将 helper 放入 `baasx/runtime` 和 `baasx/dist/runtime`，分别供这两种分发方式使用。
 
 CI 在 Windows、Linux、macOS 上检查并构建，上传的构建产物包含 Bun 包 `.tgz` 与原生发行包 `.tar.gz`，两种归档都带有对应平台的安装组件、中英文 README 和许可文件。下载后解开所需归档，保留目录结构与可执行权限。使用这些包首次安装 BAAS 环境时无需 Rust 编译工具链。
 

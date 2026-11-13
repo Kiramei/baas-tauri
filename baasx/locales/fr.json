@@ -427,7 +427,7 @@
   "环境记录格式无效": "Format d’enregistrement de l’environnement invalide",
   "安装组件返回了其他环境目录": "L’outil d’installation a renvoyé un autre dossier",
   "安装组件未绑定本次独立的后端连接": "L’outil d’installation n’a pas lié cette connexion privée",
-  "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。": "L’outil local BAAS est absent. Installez la version CLI complète avec runtime/baas-cli-runtime ou définissez BAAS_RUNTIME_HELPER vers l’outil compilé.",
+  "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。": "L’outil local BAAS est absent. Installez la version CLI complète avec runtime/baasx-runtime ou définissez BAASX_RUNTIME_HELPER vers l’outil compilé.",
   "响应必须是带 type 的 JSON 对象": "La réponse doit être un objet JSON avec type",
   "响应类型、字段或终止消息无效": "Type de réponse, champs ou message final invalides",
   "安装组件输出超过限制": "La sortie de l’outil d’installation dépasse la limite",

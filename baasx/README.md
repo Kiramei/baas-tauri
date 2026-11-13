@@ -227,7 +227,7 @@ The complete plan is checked before execution. An already active run, a rejected
 
 baasx keeps the existing CLI configuration directory and `BAAS_*` environment variables, so existing settings and local environments do not need migration. Preferences are separate from the desktop app and default to `$XDG_CONFIG_HOME/baas/settings.json` or `~/.config/baas/settings.json`. Override the directory with `BAAS_CLI_HOME` / `--config-home`. Preferences support the server address, pipe, profile, language, connection mode, and command-pack directory; they do not store the key.
 
-Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAAS_RUNTIME_HELPER` explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
+Environment variables are `BAAS_SERVER`, `BAAS_PIPE`, `BAAS_PROFILE`, `BAAS_KEY`, `BAAS_SERVER_SIGN_PUBLIC_KEY`, `BAAS_LANG`, and `BAAS_CLI_HOME`. Connection precedence is command-line arguments, environment variables, then preferences. `use` saves the current profile; `--profile` affects only the current invocation. `BAASX_RUNTIME_HELPER` (or the legacy `BAAS_RUNTIME_HELPER`) explicitly selects a built installation-helper path. Distributed packages do not invoke Cargo automatically.
 
 Replace `<version>` below with the version in `baasx/package.json`.
 
@@ -250,8 +250,8 @@ The JS bundle is minified, and executables use ESM with a shallow bytecode cache
 
 Both distribution formats must include the installation helper:
 
-- The Bun package contains `bin/baasx.mjs`, `dist/baasx.js`, `runtime/baas-cli-runtime` (with `.exe` on Windows), command packs, and license files. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
-- Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baas-cli-runtime` / `runtime/baas-cli-runtime.exe`. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
+- The Bun package contains `bin/baasx.mjs`, `dist/baasx.js`, `runtime/baasx-runtime` (with `.exe` on Windows), command packs, and license files. `bun run baasx:pack` first runs the `prepack` build, then invokes `bun pm pack --ignore-scripts` to generate the `.tgz`.
+- Native executable distributions keep `baasx` / `baasx.exe` beside `runtime/baasx-runtime` / `runtime/baasx-runtime.exe`. The older executable name `baas-cli-runtime` remains available in new packages. BAASX also recognizes that name in existing installs. Keep the `runtime` directory when copying the executable. The build script copies the helper into both `baasx/runtime` and `baasx/dist/runtime` for the two distribution formats.
 
 CI checks and builds on Windows, Linux, and macOS. Uploaded build artifacts contain the Bun `.tgz` package and native `.tar.gz` distribution, each with its platform's installation helper, both README languages, and the license. Extract the appropriate archive and preserve its directory structure and executable permissions. Users of these packages do not need a Rust toolchain to install the BAAS environment on first launch.
 

@@ -9,7 +9,8 @@ export const platforms = targets.map((platform) => {
   return {
     ...platform,
     asset: `${os}-${platform.cpu.toUpperCase()}`,
-    helper: platform.os === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime",
+    helper: platform.os === "win32" ? "baasx-runtime.exe" : "baasx-runtime",
+    legacyHelper: platform.os === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime",
     executable: platform.os === "win32" ? "baasx.exe" : "baasx",
     name: `@kiramei/baasx-${platform.os}-${platform.cpu}`,
   };

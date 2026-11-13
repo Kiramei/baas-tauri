@@ -13,9 +13,9 @@ import { fileURLToPath, URL } from "node:url";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const bundle = path.join(project, "dist", "baasx-node.mjs");
-const helper = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+const helper = process.platform === "win32" ? "baasx-runtime.exe" : "baasx-runtime";
 const cleanEnv = { ...process.env };
-for (const key of ["BAAS_KEY", "BAAS_PIPE", "BAAS_PROFILE", "BAAS_RUNTIME_HELPER", "BAAS_SERVER"])
+for (const key of ["BAAS_KEY", "BAAS_PIPE", "BAAS_PROFILE", "BAAS_RUNTIME_HELPER", "BAASX_RUNTIME_HELPER", "BAAS_SERVER"])
   delete cleanEnv[key];
 
 test("Node bundle executes demo commands without a Bun executable", (t) => {
@@ -57,6 +57,20 @@ test("Node bundle finds the matching platform helper inside a registry package",
   });
   assert.equal(result.status, 1, result.stderr);
   assert.match(JSON.parse(result.stdout).error, /updates require a complete CLI-managed (?:dev )?runtime/);
+});
+
+test("new bundles find older unpacked runtime filenames", (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "baasx-legacy-bundle-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const dist = path.join(directory, "dist");
+  const runtime = path.join(directory, "runtime");
+  mkdirSync(dist);
+  mkdirSync(runtime);
+  copyFileSync(bundle, path.join(dist, "baasx-node.mjs"));
+  copyFileSync(path.join(project, "dist", "runtime", helper), path.join(runtime, helper.replace("baasx", "baas-cli")));
+  const status = spawnSync(process.execPath, [path.join(dist, "baasx-node.mjs"), "--config-home", directory, "--json", "check-update"], { env: cleanEnv, encoding: "utf8" });
+  assert.equal(status.status, 1);
+  assert.match(JSON.parse(status.stdout).error, /updates require a complete CLI-managed (?:dev )?runtime/);
 });
 
 test("Node 20 WebSocket fallback sends the BAAS control handshake", { timeout: 20_000 }, async (t) => {

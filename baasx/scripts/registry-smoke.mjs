@@ -6,6 +6,7 @@ import { createReadStream } from "node:fs";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { npmCommand } from "./host-npm.mjs";
 import { platforms } from "./distribution-platforms.mjs";
 
 const packages = JSON.parse(await readFile(process.argv[2], "utf8"));
@@ -64,25 +65,26 @@ try {
   }
   // Both bare and scoped package resolution must use the fixture registry even if
   // actions/setup-node configured a scoped production registry on this runner.
-  const config = path.join(scratch, "npmrc");
+  const config = path.join(scratch, ".npmrc");
   await writeFile(config, `registry=${registry}\n@kiramei:registry=${registry}\n`);
   const matching = platforms.find((p) => p.os === process.platform && p.cpu === process.arch);
   assert.ok(matching);
   for (const name of ["@kiramei/baasx", "baasx"]) {
     const prefix = path.join(scratch, "npm-install-" + name.replaceAll("/", "-"));
     requested.clear();
+    const [npm, ...installArgs] = npmCommand([
+      "install",
+      "--global",
+      "--prefix",
+      prefix,
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      name,
+    ]);
     await run(
-      "npm",
-      [
-        "install",
-        "--global",
-        "--prefix",
-        prefix,
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund",
-        name,
-      ],
+      npm,
+      installArgs,
       {
         NPM_CONFIG_USERCONFIG: config,
         npm_config_userconfig: config,
@@ -93,10 +95,25 @@ try {
     assert.ok(requested.has(matching.name), "Host helper was not downloaded");
     for (const other of platforms.filter((p) => p !== matching))
       assert.ok(!requested.has(other.name), `Downloaded foreign helper ${other.name}`);
-    const executable = path.join(prefix, "bin", "baasx");
-    await run(executable, ["--demo", "--json", "status"]);
+    if (process.platform === "win32") {
+      // Exercise the actual npm-installed command shim through cmd.exe.
+      await run(
+        "cmd.exe",
+        ["/d", "/c", "baasx.cmd --demo --json status"],
+        {
+          PATH: prefix + path.delimiter + process.env.PATH,
+        },
+        scratch
+      );
+    } else {
+      await run(path.join(prefix, "bin/baasx"), ["--demo", "--json", "status"]);
+    }
     // The installed entry point resolves the package's exported native helper.
-    const packageDir = path.join(prefix, "lib/node_modules", name);
+    const packageDir = path.join(
+      prefix,
+      process.platform === "win32" ? "node_modules" : "lib/node_modules",
+      name
+    );
     const resolved = JSON.parse(
       await run("node", [
         "--input-type=commonjs",
@@ -112,8 +129,11 @@ try {
         matching.name,
       ])
     );
-    const text = await run(resolved, ["inspect", "--root", path.join(scratch, "missing-runtime")]);
+    const inspectArgs = ["inspect", "--root", path.join(scratch, "missing runtime 测试")];
+    const text = await run(resolved, inspectArgs);
     assert.equal(JSON.parse(text.trim()).type, "result");
+    const legacy = path.join(path.dirname(resolved), matching.legacyHelper);
+    assert.deepEqual(JSON.parse(await run(legacy, inspectArgs)), JSON.parse(text));
   }
   if (process.env.BAASX_SMOKE_BUN) {
     const prefix = path.join(scratch, "bun-install");
@@ -137,7 +157,11 @@ try {
       options,
       scratch
     );
-    await run(path.join(bin, "baasx"), ["--demo", "--json", "status"], options);
+    await run(
+      path.join(bin, process.platform === "win32" ? "baasx.exe" : "baasx"),
+      ["--demo", "--json", "status"],
+      options
+    );
     assert.ok(requested.has(matching.name), "Bun did not request its matching optional runtime");
     for (const other of platforms.filter((p) => p !== matching))
       assert.ok(!requested.has(other.name), `Bun downloaded foreign helper ${other.name}`);

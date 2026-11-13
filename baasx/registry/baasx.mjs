@@ -2,10 +2,10 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-if (!process.env.BAAS_RUNTIME_HELPER) {
+if (!process.env.BAASX_RUNTIME_HELPER && !process.env.BAAS_RUNTIME_HELPER) {
   const name = `@kiramei/baasx-${process.platform}-${process.arch}`;
   try {
-    process.env.BAAS_RUNTIME_HELPER = require.resolve(`${name}/helper`);
+    process.env.BAASX_RUNTIME_HELPER = require.resolve(`${name}/helper`);
   } catch (error) {
     if (error.code !== "MODULE_NOT_FOUND") throw error;
     // Remote/demo commands do not use a native helper. Local commands use the

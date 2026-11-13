@@ -427,7 +427,7 @@
   "环境记录格式无效": "Ungültiges Laufzeitdatensatzformat",
   "安装组件返回了其他环境目录": "Laufzeithelfer meldet ein anderes Verzeichnis",
   "安装组件未绑定本次独立的后端连接": "Laufzeithelfer hat die private Backendverbindung nicht gebunden",
-  "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。": "BAAS-Laufzeithelfer fehlt. Vollständige CLI mit runtime/baas-cli-runtime installieren oder BAAS_RUNTIME_HELPER auf den gebauten Helfer setzen.",
+  "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。": "BAAS-Laufzeithelfer fehlt. Vollständige CLI mit runtime/baasx-runtime installieren oder BAASX_RUNTIME_HELPER auf den gebauten Helfer setzen.",
   "响应必须是带 type 的 JSON 对象": "Antwort muss ein JSON-Objekt mit type sein",
   "响应类型、字段或终止消息无效": "Ungültiger Antworttyp, Felder oder Abschlussmeldung",
   "安装组件输出超过限制": "Ausgabe des Laufzeithelfers überschreitet das Limit",

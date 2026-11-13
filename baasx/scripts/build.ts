@@ -1,4 +1,4 @@
-import { mkdir, copyFile, chmod, stat } from "node:fs/promises";
+import { mkdir, copyFile, chmod, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { BunPlugin } from "bun";
 import manifest from "../package.json";
@@ -9,7 +9,9 @@ const binary = process.argv.includes("--binary");
 const jsOnly = process.argv.includes("--js-only");
 if (binary && jsOnly) throw new Error("--binary and --js-only are mutually exclusive");
 const trim = binary && !process.argv.includes("--no-trim");
-const name = process.platform === "win32" ? "baas-cli-runtime.exe" : "baas-cli-runtime";
+const suffix = process.platform === "win32" ? ".exe" : "";
+const name = "baasx-runtime" + suffix;
+const legacyName = "baas-cli-runtime" + suffix;
 const compilerRevision = "b1007f1177fd402fae67387b8548cae5ae9b5707";
 
 if (!Bun.semver.satisfies(Bun.version, ">=1.4.4-0"))
@@ -78,26 +80,40 @@ if (!jsOnly) {
   const targetDirectory: unknown = JSON.parse(metadataText).target_directory;
   if (typeof targetDirectory !== "string")
     throw new Error("Cargo did not return its target directory");
-  const build = Bun.spawn(["cargo", "build", "--release", "--locked", "-p", "baas-cli-runtime"], {
+  const build = Bun.spawn(["cargo", "build", "--release", "--locked", "-p", "baasx-runtime"], {
     cwd: root,
     stdout: "inherit",
     stderr: "inherit",
   });
   if (await build.exited) process.exit(1);
-  for (const directory of [join(cli, "runtime"), join(cli, "dist/runtime")]) {
+  const releaseDir = join(
+    targetDirectory,
+    ...(process.env.CARGO_BUILD_TARGET ? [process.env.CARGO_BUILD_TARGET] : []),
+    "release"
+  );
+  const packagedRuntime = join(cli, "runtime");
+  const standaloneRuntime = join(cli, "dist/runtime");
+  for (const directory of [packagedRuntime, standaloneRuntime]) {
     await mkdir(directory, { recursive: true });
-    const target = join(directory, name);
-    await copyFile(
-      join(
-        targetDirectory,
-        ...(process.env.CARGO_BUILD_TARGET ? [process.env.CARGO_BUILD_TARGET] : []),
-        "release",
-        name
-      ),
-      target
-    );
-    if (process.platform !== "win32") await chmod(target, 0o755);
+    await copyFile(join(releaseDir, name), join(directory, name));
+    if (process.platform !== "win32") await chmod(join(directory, name), 0o755);
   }
+  const legacy = join(packagedRuntime, legacyName);
+  if (process.platform === "win32") {
+    const source = join(cli, "scripts/platform/windows/runtime-alias.rs");
+    const compileAlias = Bun.spawn(
+      ["rustc", "--edition=2024", "-C", "opt-level=s", "-C", "strip=symbols", source, "-o", legacy],
+      {
+        stdout: "inherit",
+        stderr: "inherit",
+      }
+    );
+    if (await compileAlias.exited) process.exit(1);
+  } else {
+    await writeFile(legacy, '#!/bin/sh\nexec "${0%/*}/baasx-runtime" "$@"\n');
+    await chmod(legacy, 0o755);
+  }
+  await copyFile(legacy, join(standaloneRuntime, legacyName));
 }
 const result = await Bun.build({
   entrypoints: [join(cli, "src/index.ts")],

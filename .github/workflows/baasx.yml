@@ -81,7 +81,7 @@ jobs:
           if [[ "$EXPECTED_CPU" == arm64 ]]; then rust_arch=aarch64; fi
           rustc -vV | grep -E "^host: ${rust_arch}-"
       - name: Test native helper protocol, update and lifecycle
-        run: cargo test --locked -p baas-cli-runtime
+        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime
       - if: matrix.os == 'linux' && matrix.cpu == 'x64'
         run: bun run baasx:check
       - run: bun run baasx:test
@@ -140,8 +140,15 @@ jobs:
           tar -xzf "baasx/dist/release/${asset}-bun.tgz" -C "$smoke/package"
           "$smoke/native/${{ matrix.executable }}" --demo --json status
           "$smoke/native/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+          node baasx/scripts/check-runtime-alias.mjs "$smoke/native/runtime/${{ matrix.legacyHelper }}" "$smoke/native/runtime/${{ matrix.helper }}"
           bun "$smoke/package/package/bin/baasx.mjs" --demo --json status
           "$smoke/package/package/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
+          "$smoke/package/package/runtime/${{ matrix.legacyHelper }}" inspect --root "$smoke/not-installed"
+      - name: Install the platform npm tarball and test both executable names
+        if: runner.os == 'Windows'
+        run: |
+          node baasx/scripts/registry-package.mjs --host-only --assets baasx/dist/release --bundle baasx/dist/baasx-node.mjs --output "$RUNNER_TEMP/baasx-npm" --scope kiramei > "$RUNNER_TEMP/baasx-host.json"
+          node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-host.json"
       - uses: actions/upload-artifact@v4
         with:
           name: baasx-${{ runner.os }}-${{ runner.arch }}

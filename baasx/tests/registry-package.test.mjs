@@ -31,6 +31,11 @@ function fixture() {
       '#!/usr/bin/env node\nconsole.log(JSON.stringify({type:"result"}));\n',
       { mode: 0o755 }
     );
+    writeFileSync(
+      path.join(stage, "package/runtime", platform.legacyHelper),
+      '#!/bin/sh\nexec "${0%/*}/baasx-runtime" "$@"\n',
+      { mode: 0o755 }
+    );
     // A substantial stand-in for the standalone executable must not reach the npm tarball.
     writeFileSync(path.join(stage, "package", platform.binary), randomBytes(128 * 1024));
     const archive = path.join(assets, `baasx-${manifest.version}-${platform.asset}-bun.tgz`);
@@ -102,7 +107,12 @@ describe("registry package", () => {
             version: manifest.version,
           });
           expect(entries(helper).sort()).toEqual(
-            ["package/LICENSE", "package/package.json", "package/runtime/" + platform.helper].sort()
+            [
+              "package/LICENSE",
+              "package/package.json",
+              "package/runtime/" + platform.helper,
+              "package/runtime/" + platform.legacyHelper,
+            ].sort()
           );
         }
         const file = path.join(files.root, "registry-info.json");
@@ -134,7 +144,7 @@ describe("registry package", () => {
           `baasx-${manifest.version}-${platform.asset}-bun.tgz`
         );
         execFileSync("tar", ["-czf", archive, "-C", stage, "package"]);
-        expect(() => pack(files)).toThrow("missing package/runtime/baas-cli-runtime.exe");
+        expect(() => pack(files)).toThrow("missing package/runtime/baasx-runtime.exe");
       } finally {
         rmSync(files.root, { recursive: true, force: true });
       }

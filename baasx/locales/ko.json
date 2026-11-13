@@ -427,7 +427,7 @@
   "环境记录格式无效": "환경 기록 형식이 올바르지 않습니다",
   "安装组件返回了其他环境目录": "환경 도구가 다른 환경 디렉터리를 반환했습니다",
   "安装组件未绑定本次独立的后端连接": "환경 도구가 이번 전용 백엔드 연결을 바인딩하지 않았습니다",
-  "缺少 BAAS 本地安装组件。请安装包含 runtime/baas-cli-runtime 的完整 CLI 发布包，或设置 BAAS_RUNTIME_HELPER 指向已构建的组件。": "BAAS 환경 도구가 없습니다. runtime/baas-cli-runtime이 포함된 전체 CLI를 설치하거나 BAAS_RUNTIME_HELPER에 빌드된 도구를 지정하세요.",
+  "缺少 BAAS 本地安装组件。请安装包含 runtime/baasx-runtime 的完整 CLI 发布包，或设置 BAASX_RUNTIME_HELPER 指向已构建的组件。": "BAAS 환경 도구가 없습니다. runtime/baasx-runtime이 포함된 전체 CLI를 설치하거나 BAASX_RUNTIME_HELPER에 빌드된 도구를 지정하세요.",
   "响应必须是带 type 的 JSON 对象": "응답은 type이 있는 JSON 객체여야 합니다",
   "响应类型、字段或终止消息无效": "응답 유형, 필드 또는 종료 메시지가 올바르지 않습니다",
   "安装组件输出超过限制": "환경 도구 출력이 한도를 초과했습니다",
