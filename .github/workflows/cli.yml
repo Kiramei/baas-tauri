@@ -45,7 +45,8 @@ jobs:
           toolchain: "1.95.0"
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "baas-cli-runtime"
+          # Native objects depend on the runner image ABI (for example glibc 2.35 vs 2.39).
+          prefix-key: baas-cli-runtime-${{ matrix.runner }}
           cache-all-crates: true
       - name: Install headless Rust build dependencies
         if: runner.os == 'Linux'
