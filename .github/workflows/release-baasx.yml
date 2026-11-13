@@ -56,7 +56,7 @@ jobs:
   build:
     name: Verify and build baasx on all platforms
     needs: validate
-    uses: ./.github/workflows/cli.yml
+    uses: ./.github/workflows/baasx.yml
     permissions:
       contents: read
 

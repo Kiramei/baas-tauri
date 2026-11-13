@@ -1,0 +1,144 @@
+name: Client native
+on:
+  workflow_call:
+    inputs:
+      desktop:
+        required: true
+        type: string
+      android:
+        required: true
+        type: string
+      android-tests:
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+
+  android-tests:
+    name: Android backend tests
+    if: inputs.android-tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.9"}
+      - run: python -m pip install 'numpy<2' opencv-python-headless==4.11.0.86 Pillow tomli requests
+      - run: python -m unittest discover -s scripts/tests -p 'test_android*.py'
+      - name: Test Android command registration and dispatch
+        run: |
+          rustc --test --edition=2021 src-tauri/tests/android_native_dispatch.rs -o "$RUNNER_TEMP/dispatch"
+          "$RUNNER_TEMP/dispatch"
+
+  desktop-rust:
+    name: ${{ matrix.target }} client tests
+    if: ${{ inputs.desktop != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.desktop) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Rust test environment
+        uses: ./.github/actions/setup-tauri-build-env
+        with:
+          target: ${{ matrix.target }}
+          download-fonts: "false"
+          install-frontend: "false"
+          cache-variant: workspace-tests
+          save-cache: "false"
+
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux' && matrix.target != 'armv7-unknown-linux-gnueabihf'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        uses: ./.github/actions/setup-linux-arm
+        with:
+          arch: armhf
+          triplet: arm-linux-gnueabihf
+          target: ${{ matrix.target }}
+      - name: Cross-check the 32-bit ARM client and tests
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: cargo check --workspace --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+      - name: Run Rust tests
+        if: matrix.target != 'armv7-unknown-linux-gnueabihf'
+        run: cargo test --workspace --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+
+  android:
+    name: Android ${{ matrix.abi }} native build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    if: ${{ inputs.android != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.android) }}
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Tauri build environment
+        uses: ./.github/actions/setup-tauri-build-env
+        with:
+          target: ${{ matrix.target }}
+          download-fonts: "false"
+          cache-variant: android-debug
+          save-cache: "false"
+
+      - name: Install Android build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends make perl unzip
+          SDKMANAGER="${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358"
+
+      # Native checks need a valid WebView asset for Tauri/Gradle packaging.
+      # Release builds always embed the complete production UI.
+      - name: Prepare minimal WebView asset for the native test APK
+        run: |
+          mkdir -p dist
+          echo '<!doctype html><title>Native CI</title>' > dist/index.html
+
+      - name: Build Android debug APK
+        run: bun run tauri:android:build:debug -- --abi ${{ matrix.abi }} --skip-web-build
+
+      - name: Run Android release lint
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :app:lintVital${{ matrix.gradle }}Release -x rustBuild${{ matrix.gradle }}Release

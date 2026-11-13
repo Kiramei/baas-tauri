@@ -8,15 +8,16 @@ function workflow(name: string): any {
 }
 
 const quality = workflow("code-quality");
-const cli = workflow("cli");
+const baasx = workflow("baasx");
 const guard = workflow("main-source-guard");
 
 test("protected PR gates always report and release packaging is opt-in", () => {
-  expect(quality.on.pull_request.branches).toEqual(["dev", "main", "baasx-dev"]);
+  expect(quality.on.pull_request).not.toHaveProperty("branches");
   expect(quality.on.pull_request.types).toContain("ready_for_review");
   expect(quality.on.pull_request).not.toHaveProperty("paths");
   expect(quality.on.push.branches).toEqual(["baasx-dev"]);
-  expect(Object.keys(cli.on).sort()).toEqual(["workflow_call", "workflow_dispatch"]);
+  expect(workflow("release-baasx").jobs.build.uses).toBe("./.github/workflows/baasx.yml");
+  expect(Object.keys(baasx.on).sort()).toEqual(["workflow_call", "workflow_dispatch"]);
   expect(quality.permissions).toEqual({ contents: "read" });
   expect(quality.concurrency["cancel-in-progress"]).toBe(true);
 });

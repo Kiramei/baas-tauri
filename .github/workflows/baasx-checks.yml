@@ -1,0 +1,76 @@
+name: BAASX checks
+on:
+  workflow_call:
+    inputs:
+      source:
+        required: true
+        type: boolean
+      platforms:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+
+  baasx-source:
+    name: baasx source
+    if: inputs.source
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-baasx
+      - run: bun run baasx:check
+      - run: bun run baasx:test
+      - run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests
+      - run: bun baasx/scripts/build.ts --js-only
+      - run: node baasx/dist/baasx-node.mjs --demo --json status
+
+  registry:
+    if: inputs.registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-baasx
+      - run: bun test baasx/tests/registry-package.test.mjs baasx/tests/registry-publish.test.mjs
+
+  baasx-platform:
+    name: baasx helper and OS smoke (${{ matrix.os }})
+    if: ${{ inputs.platforms != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.platforms) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run: {shell: bash}
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - if: matrix.js
+        uses: ./.github/actions/setup-baasx
+      - if: matrix.rust
+        uses: dtolnay/rust-toolchain@master
+        with: {toolchain: "1.95.0"}
+      - if: matrix.rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: baasx-debug-${{ matrix.os }}
+          key: ${{ runner.os }}-${{ runner.arch }}-1.95.0-helper
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/baasx-dev' }}
+      - if: matrix.rust
+        run: cargo test --locked -p baas-cli-runtime
+      - if: matrix.js
+        run: bun test baasx/tests/runtime.test.ts baasx/tests/mouse-pty.test.ts
+      - if: matrix.js
+        run: bun baasx/scripts/build.ts --js-only
+      - if: matrix.js
+        run: node baasx/dist/baasx-node.mjs --demo --json status

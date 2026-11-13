@@ -1,4 +1,4 @@
-name: baasx CI
+name: BAASX distributions
 
 on:
   workflow_dispatch:
@@ -29,7 +29,8 @@ jobs:
           import { platforms } from './baasx/scripts/distribution-platforms.mjs';
           console.log('matrix='+JSON.stringify({include:platforms}));
           JS
-  cli:
+  baasx:
+    name: BAASX ${{ matrix.asset }}
     needs: platforms
     timeout-minutes: 45
     strategy:
@@ -46,7 +47,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           # Native objects depend on the runner image ABI (for example glibc 2.35 vs 2.39).
-          prefix-key: baas-cli-runtime-${{ matrix.runner }}
+          prefix-key: baasx-runtime-${{ matrix.runner }}
           cache-all-crates: true
       - name: Install headless Rust build dependencies
         if: runner.os == 'Linux'
@@ -102,7 +103,7 @@ jobs:
         shell: bash
         run: |
           ./baasx/dist/${{ matrix.executable }} --demo --json status
-          ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baas-cli-not-installed"
+          ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baasx-not-installed"
       - name: Pack the already verified JS bundle and helper
         working-directory: baasx
         run: bun pm pack --destination dist --ignore-scripts

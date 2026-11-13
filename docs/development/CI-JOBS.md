@@ -1,6 +1,6 @@
 # CI job inventory
 
-The baseline is `2b98f61`. Jobs inherit their workflow’s event, ref and path contract in [CI routing](CI.md). A dash indicates no dependency or no explicit cache/artifact action. The setup-tauri-build-env composite restores a Rust cache and optionally downloads fonts and installs Bun. generate-font-assets produces the single generated-fonts artifact. Runner columns list release targets for include matrices; Windows MSVC targets run on Windows, Apple targets on macOS and GNU/Android targets on Ubuntu. The publish-registry matrix runs both registries on Ubuntu. Permissions use r for read and w for write. Retry a failed job with its original inputs as described in the runbook.
+This table records the historical baseline at `2b98f61`. See [current module ownership and workflows](CI.md#pull-requests-and-pushes) for the current job graph. Jobs inherit their workflow’s event, ref and path contract in [CI routing](CI.md). A dash indicates no dependency or no explicit cache/artifact action. The setup-tauri-build-env composite restores a Rust cache and optionally downloads fonts and installs Bun. generate-font-assets produces the single generated-fonts artifact. Runner columns list release targets for include matrices; Windows MSVC targets run on Windows, Apple targets on macOS and GNU/Android targets on Ubuntu. The publish-registry matrix runs both registries on Ubuntu. Permissions use r for read and w for write. Retry a failed job with its original inputs as described in the runbook.
 
 | Baseline job | Runner or matrix target | Needs | Token permissions | Cache, artifact, publish or mirror steps |
 |---|---|---|---|---|
@@ -35,7 +35,7 @@ The baseline is `2b98f61`. Jobs inherit their workflow’s event, ref and path c
 | release-baasx / `notify-qq` | ubuntu-latest | sync-cnb-release, publish-registry | contents:r | notify-qq |
 | release-docker / `prepare` | ubuntu-latest | – | contents:r, packages:w | generate-font-assets |
 | release-docker / `build-and-push` | ubuntu-latest | prepare | contents:r, packages:w | download-font-assets, login-action, login-action, build-push-action |
-| source-dispatch / `sync-repository` | ubuntu-latest | – | contents:r | – |
-| source-dispatch / `sync-release` | ubuntu-latest | – | contents:r | sync-cnb-release |
+| sync-cnb / `sync-repository` | ubuntu-latest | – | contents:r | – |
+| sync-cnb / `sync-release` | ubuntu-latest | – | contents:r | sync-cnb-release |
 | wiki-pages / `build` | ubuntu-latest | – | contents:r, pages:w, id-token:w | cache, upload-pages-artifact |
 | wiki-pages / `deploy` | ubuntu-latest | build | contents:r, pages:w, id-token:w | deploy-pages |

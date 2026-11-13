@@ -2,38 +2,31 @@
 
 The measured baseline covers 18 GitHub runs and 19 attempts. The implementation base is `2b98f61` (2026-11-11). The repository had nine YAML workflows at that revision. [Measured baseline](CI-BASELINE.md) · [Baseline job, matrix, permission and artifact inventory](CI-JOBS.md)
 
-## Events, revisions, and outputs
+## Pull requests and pushes
 
-| Event | Before | After |
-|---|---|---|
-| Feature PR to dev | Separate quality and documentation detectors plus path-triggered three-OS CLI packaging | Code Quality checks GitHub’s merge commit against its exact base parent. One plan controls both required gates. Heavy jobs depend on their consumers. |
-| PR to baasx-dev | CLI path filter and full package builds | Same merge-context validation. Direct pushes to this development branch separately test the actual push tree. |
-| Push to dev | Full CLI pipeline for matching paths | No generic CI. The strict dev PR checks own integration validation. Direct maintainers bypassing required PRs can dispatch full validation of that ref. |
-| dev → main PR | Source check plus three-platform CLI packaging on matching paths | Source guard reads event metadata using empty permissions. Code Quality additionally tests the main merge tree, including changes since the main base. The two named dev gates are emitted but only the source check is currently required on main. |
-| main push | CLI packaging, website deployment and repository mirror on matching paths | Pages publishes actual site inputs; repository sync mirrors Git history. Neither claims to satisfy a PR gate. Manual Docker build on main still publishes the main/latest image. |
-| App version tag | Checked against main; platform installers, manifests, Docker image, CNB, optional Winget, QQ | Same product entry points; verify all required installable and signed asset names before publication. Stable/post can advance latest, RCs go to preview. Plain and fixed WebView2 keep distinct binaries and endpoints. |
-| `baasx-v*` | Independent version and baasx-dev ancestry, three full builds, registries, CNB, QQ | Same release entry point; uses the explicit packaging workflow. Checksums cover three native archives and three Bun packages. Same-run artifacts supply the Node registry bundle and native helpers. |
-| Manual Code Quality | Full checks | `contracts` runs the routing/gate/notification/release fixtures; `full` runs every verification mode. Use CLI packaging dispatch when actual distributables are needed. |
+Code Quality compares GitHub’s PR merge tree with its exact base parent, including both sides of a rename. It sends the resulting paths to the ownership rules in `scripts/ci/impact.py`. Each selected module has its own workflow. All PRs report the existing **Dev quality gate** and **Dev documentation gate** checks. On a source-only PR the documentation gate verifies the docs workflow was skipped. On a README-only PR the source gate verifies the build workflows were skipped. The separate base-controlled **Main branch source** check continues to validate promotion PRs.
 
-Docs validation moved into Code Quality. `Dev quality gate`, `Dev documentation gate` and `Main branch source` retain their original GitHub Actions check names. The metadata-only source guard still uses `pull_request_target` without a checkout. Code execution uses `pull_request` with read-only permissions and disabled checkout credentials. The final gates inspect the plan, detector conclusion and all expected jobs. An absent result, canceled check, a skipped relevant job or a job running outside its plan fails the gate. Drafts use the normal plan and `ready_for_review` runs again. A new event for the same PR cancels stale work. Strict dev protection requires an updated merge context after the base advances.
+Direct pushes to baasx-dev use the before/after tree diff. On main, wiki-pages only deploys site inputs and Source Dispatch mirrors the repository. Creating an app version tag builds the complete signed client release and Docker image. A `baasx-v*` tag builds the independent BAASX release. Tag builds assemble complete distributions regardless of the last commit’s changed paths.
 
-## Impact and verification modes
-
-`scripts/ci/impact.py` owns the rules, runner matrix and gate expectations. The detector diffs Git objects with NUL delimiters and rename detection disabled so moving files contributes both paths. PRs validate the actual base/head parents and the merge tree, not the file-list API. Pushes compare before/after and fetch an absent base; first pushes verify everything. Ambiguous parents, missing objects, unknown events and broken plans block the gate. Unknown paths select full verification. The run summary records each selected input or why a task was skipped.
-
-| Inputs | Work |
+| Changed input | Selected verification |
 |---|---|
-| Ordinary README and release notes | Release/pack contracts. Root README links are also verified by docs/tests. |
-| Docs site content, MDX, components, evidence and test scripts | Linux static export and browser/contract tests; failure-only diagnostic artifact for three days. Development runbooks are not site inputs. |
-| Notification, mirror, release tag and version logic | Local fixtures exercise the HMAC payload, failed CNB readiness, archive names, updater signatures, Docker tag decisions and monotonically advancing app versions. |
-| Android-only frontend / WebUI-desktop shell / shared app code | Android bundle / webui+tauri bundles / all applicable modes. One type check and one translation validation in the frontend job; Android native builds validate their own web bundle. |
-| Client sources and Rust inputs referenced by docs | Docs exports re-run conservatively. These tests inspect client API registration, real types/translation keys, settings and the updater source manifests. |
-| baasx JS / OS-dependent runtime, process, PTY or packaging code | Pinned compiler, types, lint, tests and JS bundles. OS inputs add selected helper tests and Node smoke jobs, without package archives. `--js-only` excludes Cargo metadata/build/copy steps. |
-| CLI runtime crate | CLI checks and three helper targets. Shared baas-term/updater propagate to desktop, Android, CLI and docs. Shortcut crate is desktop-only. Notifier is shared with Android. |
-| Platform package templates and Rust source, Android Gradle/JNI/Python | Corresponding desktop runner or Android backend tests plus arm64 debug APK and release lint. |
-| Rust workspace, lockfile, CI planner or unclassified build inputs | Full conservative plan. Root Bun/dependency configuration propagates to client, docs and CLI consumers. Changes to the shared Tauri action select its desktop/Android consumers. |
+| README, release notes, crate documentation, development runbooks | Lightweight Markdown and README checks in docs-validation. |
+| Site content, components, media, browser checks, evidence, docs dependencies | Independent docs static export, browser checks and documentation contracts. |
+| Client shared UI or assets | Frontend type checks, tests and WebUI, Tauri and Android bundles. Desktop and Android shell entries select only their own modes. |
+| `src/android/`, Android UI components | Android UI type checks, tests and bundle. |
+| `src/platform/{windows,macos,linux}/` | Corresponding OS frontend adapter checks and consumer build on its native runner. |
+| Client native public API, Rust app manifest | Desktop client tests on one representative host per OS, plus Android native verification. |
+| `src-tauri/src/platform/desktop.rs`, desktop-only commands | Desktop client Rust tests. |
+| OS-specific Rust, OS package inputs | Only the corresponding native client platform. An architecture subdirectory selects its target, e.g. `platform/windows/arm64/`. Intel and ARM64 Windows WebView2 configuration changes also select their exact targets. Linux armv7 uses the release sysroot for a cross-check. |
+| Android Kotlin/JNI/Gradle/Rust | Android backend tests, native test APK and lint. Native test APKs embed a minimal test page. Signed releases embed the real frontend. Python-only changes run the Android backend tests. |
+| BAASX command/UI TypeScript | BAASX source checks and JS bundle. Windows and POSIX process adapters receive OS-specific JS checks. |
+| BAASX Rust helper | BAASX native helper tests on the supported OS/CPU pairs. |
+| BAASX npm package assembly, launchers and registration | Package assembly, registry retry and local installation tests. |
+| Shared protocol and Rust crates | Their declared consumers. The UI and BAASX share authenticated transport and a small number of configuration parsers. Desktop/Android/CLI consume different Cargo features. |
+| Docker scripts | Docker entrypoint tests. |
+| Router, release and notification configuration | CI and release contract tests and workflow lint. |
 
-No cross-run package or native binary is trusted as input. CLI release artifacts have seven-day retention and precompressed native/Bun archives are uploaded with compression level zero. PRs upload no distributions. All PR artifact consumers are in the same workflow (generated fonts, retained one day). The font source includes a mutable upstream master file used to derive subset characters. A cross-run cache keyed solely by local files could serve incomplete fonts. Keep font generation per consuming workflow until that remote text is content-addressed and the Python/fonttools/Brotli toolchain is pinned. Docs Pages caches dependency downloads by lockfile; its production artifact stays within the same run. Rust keys distinguish compiler, OS, runner architecture, target and package/test variant in addition to the cache action’s dependency inputs. A tag cache is scoped to its Git ref; it is not a PR baseline. CLI debug caches can be written by trusted baasx-dev pushes. A cold cache always runs the same checks. Broader base-branch warming adds builds and needs fresh measured evidence.
+An unknown top-level source path fails the routing step and names the unassigned path. Add its owner and a routing example before merging. The router compares both Git revisions of shared manifests and lockfiles. It traces changed packages to their Bun workspace or Cargo root consumers. When an input cannot be attributed, it checks all consumers of that ecosystem. CI ownership applies to module source and shared build inputs. For a manual run select **Code Quality → changes** to test a commit against its parent, **contracts** for CI and registry fixtures, or **full** for all module suites. The docs workflow also offers **site**, **readme**, and **full** manual runs.
 
 ## Release recovery
 
@@ -49,15 +42,15 @@ Using complete PR file lists, not an API `head_sha` identity assumption:
 
 | Change | Historical | Expected after routing |
 |---|---|---|
-| #95 | CLI Linux/macOS/Windows packaging 828 job seconds, in addition to docs/quality | Detector, local package contracts, real docs export, both gates. No CLI matrix/package upload. |
-| #97 | 2,724 job seconds across matching workflows | Detector, contracts (QQ signing, release policies, package fixtures), both gates. No platform, fonts or docs job. |
-| #98, head 8a0ada2 | Three distinct push/PR CLI runs for the same reported head; the main merge tree can differ | dev push has no generic build; baasx-dev push checks the actual push delta; main PR checks the merge delta plus trusted source guard. For the observed release/notes-only change these routes select contracts. |
+| #95 | CLI Linux/macOS/Windows packaging 828 job seconds, in addition to docs/quality | Detector, README checks, docs export and both gates. No CLI matrix/package upload. |
+| #97 | 2,724 job seconds across matching workflows | Detector, release and registry contracts, lightweight release-note check and both gates. No native matrices or site export. |
+| #98, head 8a0ada2 | Three distinct push/PR CLI runs for the same reported head; the main merge tree can differ | dev push has no generic build; baasx-dev push checks the actual push delta; main PR checks the merge delta plus trusted source guard. For the observed release/notes-only change these routes select release/registry contracts and the Markdown check. |
 
 These are expected selections. Runner-seconds removed from a historical matrix are measured baseline resource use; the new wall time and future savings require real PR samples. Full release assembly remains available, so this replay does not claim reduced release time.
 
 ## Operating and migrating
 
-1. Add a component rule and positive/negative examples to `scripts/ci/test_impact.py`. Add a job to the plan, its needs in the appropriate named gate, plus relevant merge-context tests. Unknown paths already expand to full coverage.
+1. Add a component rule and positive/negative examples to `scripts/ci/test_impact.py`. Add a job to the plan, its needs in the appropriate named gate, plus relevant merge-context tests. New top-level sources need an explicit owner.
 2. Run `python3 -m unittest discover -s scripts/ci`, `bun test tests/frontend/{CiPolicy,ReleaseWorkflows,ReleasePublishing}.test.ts` and the two baasx registry fixture suites. Replay local commits with `python3 scripts/ci/impact.py replay BASE_SHA TESTED_SHA`.
 3. Evaluate the candidate on a dev-targeted PR and inspect both old check **names**, source app **GitHub Actions**, and the test merge SHA. A workflow-dispatch run only validates its selected ref; it does not fulfill a protected PR status.
 4. No ruleset update is required for compatibility. Keep the confirmed strict dev requirements in place. If maintainers decide to require the quality/docs gates on main, first observe both contexts on an actual promotion PR, add those exact GitHub Actions contexts alongside `Main branch source`, and require an up-to-date branch only if approved. No merge queue was observed; enable `merge_group` and test its merge parents before enabling one.
@@ -65,24 +58,11 @@ These are expected selections. Runner-seconds removed from a historical matrix a
 
 The full job/attempt timing data and API access limits are recorded in [CI-BASELINE.md](CI-BASELINE.md).
 
-## Candidate job graph
+## Module workflows
 
-The eight workflow files implement the jobs below. Per-job limits and exact runner labels remain visible in the YAML. The three release flows intentionally have independent concurrency groups, versions and endpoints.
+`code-quality.yml` owns change detection and the two required checks. It calls `client-frontend.yml`, `client-native.yml`, `baasx-checks.yml` and `docs-validation.yml` separately. Release workflows keep their product tags and publication locks. `baasx.yml` builds BAASX distribution inputs on six native hosts and uploads twelve archives plus one registry JS bundle. npm receives six platform packages, the scoped JS package and the unscoped entry. GitHub Packages receives the seven scoped packages.
 
-| Workflow | Jobs and dependencies | Output and recovery |
-|---|---|---|
-| Code Quality | `changes` → selected contracts, fonts, Android tests, docs or CLI sources. Fonts → frontend. Applicable contracts/CLI source → desktop matrix. Fonts + Android tests → APK. Applicable CLI source → helper/OS matrix. Both named gates run even when dependencies fail or skip. | Explanatory job summary, one-day fonts, three-day docs diagnostics on failure. Retry failures for the same merge SHA. |
-| baasx CI | One three-OS release/package matrix, dispatched explicitly or called by Release baasx after tag validation. | Same-run six distributables plus JS bundle, seven days; retry the failed matrix children. |
-| Main Branch Source | Single read-only source job using the base workflow and PR event data. | Required main check. Fix the source ref and let the PR event rerun it. |
-| Release App | Tag → draft/fonts → desktop, Linux ARM, Android and fixed WebView2 builds → complete-asset validation/publish → updater manifests → stable CNB → applicable Winget → QQ. | Signed installers and rolling update descriptors; retry failed downstream from the Actions run. |
-| Release baasx | Validate → reusable package build → GitHub assets and registry publication; CNB waits for GitHub; QQ waits for CNB and both registries. | SHA256SUMS, archives, npm/GitHub Packages. Historical attempts with expired artifacts must rebuild the same tagged inputs. |
-| Release WebUI Docker Image | Prepare/fonts → build+push → mirror. Nonpublishing branch dispatch builds only. | Version/SHA and applicable latest tags in GHCR, Docker Hub and CNB. A failed mirror can run again without Docker Buildx. |
-| Source Dispatch | main push or manual repository operation mirrors Git. Manual release/all can wait then mirror a selected release. | Manual release mirror shares the product publication lock. Readiness defaults differ intentionally between downstream and independent recovery. |
-| Deploy Wiki to GitHub Pages | main site inputs or dispatch → build → deploy through the github-pages environment. | Single GitHub Pages artifact; retry deployment on the same run. |
-
-For a new protected ref, register the PR trigger before requiring any contexts. Keep Code Quality and the source guard on separate permission/concurrency scopes. Legacy `docs-validation.yml` manual users select **Code Quality → full**. There is no top-level path filter on required PR checks.
-
-## Local acceptance
+## Earlier CI measurements
 
 On 2026-11-13 the router/gate/QQ/CNB/promotion unittest suite passed seven tests. The CI policy, publishing, workflow, registry pack/install and registry double-publish fixture suites passed 30 Bun tests. The pinned compiler `b1007f1177fd402fae67387b8548cae5ae9b5707` built the two JS bundles with `--js-only`; the Node demo ran successfully and no release helper was created. actionlint 1.7.12 passed with one narrowly scoped syntax exception for GitHub’s newer documented `concurrency.queue`; separate tests require `queue: max` and prohibit cancel-in-progress on publication. All YAML files parse and the diff passes `git diff --check`.
 
