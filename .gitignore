@@ -39,6 +39,7 @@ __pycache__/
 *.sln
 *.sw?
 *.br
+.secret
 .secrets
 
 # Local-only internal documentation
