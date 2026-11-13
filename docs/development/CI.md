@@ -26,7 +26,7 @@ Direct pushes to baasx-dev use the before/after tree diff. On main, wiki-pages o
 | Docker scripts | Docker entrypoint tests. |
 | Router, release and notification configuration | CI and release contract tests and workflow lint. |
 
-An unknown top-level source path fails the routing step and names the unassigned path. Add its owner and a routing example before merging. The router compares both Git revisions of shared manifests and lockfiles. It traces changed packages to their Bun workspace or Cargo root consumers. When an input cannot be attributed, it checks all consumers of that ecosystem. CI ownership applies to module source and shared build inputs. For a manual run select **Code Quality → changes** to test a commit against its parent, **contracts** for CI and registry fixtures, or **full** for all module suites. The docs workflow also offers **site**, **readme**, and **full** manual runs.
+An unknown top-level source path fails the routing step and names the unassigned path. Add its owner and a routing example before merging. The router compares both Git revisions of shared manifests and lockfiles. It traces changed packages to their Bun workspace or Cargo root consumers. When an input cannot be attributed, it checks all consumers of that ecosystem. CI ownership applies to module source and shared build inputs. For a manual run select **Code Quality → changes** to test a commit against its parent, **contracts** for CI and registry fixtures, or **full** for all module suites. For a build of one distributable, use **Code Quality → baasx-package** and select its OS and CPU. The release workflow always requests all six. The docs workflow also offers **site**, **readme**, and **full** manual runs.
 
 ## Release recovery
 

@@ -17,6 +17,8 @@ test("protected PR gates always report and release packaging is opt-in", () => {
   expect(quality.on.pull_request).not.toHaveProperty("paths");
   expect(quality.on.push.branches).toEqual(["baasx-dev"]);
   expect(workflow("release-baasx").jobs.build.uses).toBe("./.github/workflows/baasx.yml");
+  expect(workflow("release-baasx").jobs.build.with?.target).toBeUndefined();
+  expect(baasx.on.workflow_call.inputs.target.default).toBe("all");
   expect(Object.keys(baasx.on).sort()).toEqual(["workflow_call", "workflow_dispatch"]);
   expect(quality.permissions).toEqual({ contents: "read" });
   expect(quality.concurrency["cancel-in-progress"]).toBe(true);

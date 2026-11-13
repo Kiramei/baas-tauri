@@ -36,6 +36,8 @@ class Routing(unittest.TestCase):
             "src-tauri/src/shm_native/macos.rs": {"native:macos"},
             "src-tauri/webview2.arm64.json": {"native:windows:arm64"},
             "src-tauri/gen/android/app/src/main/python/adapter.py": {"android-tests"},
+            "crates/baas-notifier/src/platform/windows.rs": {"native:windows"},
+            "crates/baas-notifier/src/platform/android.rs": {"android:arm64", "android-tests"},
             "crates/baas-cli-runtime/src/progress.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
             "scripts/docker/entrypoint.sh": {"docker"},
         }
@@ -103,6 +105,11 @@ class Routing(unittest.TestCase):
                 self.assertEqual(first, tasks)
             finally:
                 os.chdir(old)
+
+    def test_distribution_smoke_is_manual_and_isolated(self):
+        selected = plan({"inputs": {"mode": "baasx-package"}}, "workflow_dispatch", "")
+        self.assertEqual([name for name, run in jobs(selected).items() if run], ["baasx-package"])
+        self.assertFalse(classify(["baasx/src/runtime.ts"])["baasx-package"])
 
     def test_manual_contract_mode_has_no_platform_jobs(self):
         tasks=plan({"inputs":{"mode":"contracts"}}, "workflow_dispatch","")

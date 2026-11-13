@@ -88,9 +88,12 @@ def owners(path):
         for base, layer in (("src/platform/", "ui"), ("tests/frontend/platform/", "ui"),
                             ("baasx/src/platform/", "baasx-js"), ("baasx/tests/platform/", "baasx-js"),
                             ("crates/baas-cli-runtime/src/platform/", "baasx-native"),
+                            ("crates/baas-notifier/src/platform/", "native"),
                             ("src-tauri/src/platform/", "native")):
             prefix = base + name + "/"
             if path.startswith(prefix) or path == base + name + ".rs":
+                if layer.startswith("baasx-") and name == "android":
+                    raise ValueError(f"No Android BAASX distribution for {path!r}")
                 arch = path.removeprefix(prefix).split("/", 1)[0]
                 if layer == "ui":
                     return {"ui:" + ("tauri" if name == "desktop" else os_name) for os_name in systems}
@@ -154,7 +157,7 @@ def classify(paths, full=False, revisions=None):
         native.append(dict(os="windows-latest", target="i686-pc-windows-msvc"))
     android = [dict(abi=abi, target=target, gradle=gradle) for abi, (target, gradle) in ANDROID_TARGETS.items()
                if "android:" + abi in scopes]
-    return {"frontend": modes, "desktop": native, "android": android, "android-tests": "android-tests" in scopes,
+    return {"baasx-package": False, "frontend": modes, "desktop": native, "android": android, "android-tests": "android-tests" in scopes,
             "baasx-source": "baasx-source" in scopes, "baasx-platform": baasx, "registry": "registry" in scopes,
             "site": "site" in scopes, "readme": "readme" in scopes, "contracts": "contracts" in scopes, "docker": "docker" in scopes}
 
@@ -178,6 +181,10 @@ def plan(event, event_name, head):
         mode = event["inputs"]["mode"]
         if mode == "full":
             return classify([], full=True)
+        if mode == "baasx-package":
+            result = classify([])
+            result["baasx-package"] = True
+            return result
         if mode == "contracts":
             return classify(["scripts/ci/impact.py", "baasx/registry/baasx.mjs"])
         if mode == "changes":
@@ -204,7 +211,7 @@ def frontend_inputs(modes):
 
 
 def jobs(plan):
-    return {"frontend": bool(plan["frontend"]), "client-native": bool(plan["desktop"] or plan["android"] or plan["android-tests"]),
+    return {"baasx-package": plan["baasx-package"], "frontend": bool(plan["frontend"]), "client-native": bool(plan["desktop"] or plan["android"] or plan["android-tests"]),
             "baasx": bool(plan["baasx-source"] or plan["baasx-platform"] or plan["registry"]),
             "docs": plan["site"] or plan["readme"], "contracts": plan["contracts"], "docker": plan["docker"]}
 

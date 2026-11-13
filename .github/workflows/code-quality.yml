@@ -10,14 +10,19 @@ on:
       mode:
         description: Verify release contracts, the selected commit, or all modules
         type: choice
-        options: [contracts, changes, full]
+        options: [contracts, changes, full, baasx-package]
         default: contracts
+      target:
+        description: BAASX distribution (baasx-package mode only)
+        type: choice
+        options: [all, linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: quality-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.mode }}-${{ inputs.target }}
   cancel-in-progress: true
 
 jobs:
@@ -94,6 +99,12 @@ jobs:
       platforms: ${{ toJSON(fromJSON(needs.changes.outputs.plan).baasx-platform) }}
       registry: ${{ fromJSON(needs.changes.outputs.plan).registry }}
 
+  baasx-package:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'baasx-package'
+    uses: ./.github/workflows/baasx.yml
+    with:
+      target: ${{ inputs.target }}
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -114,7 +125,7 @@ jobs:
   quality-gate:
     name: Dev quality gate
     if: always()
-    needs: [changes, contracts, frontend, client-native, baasx, docker]
+    needs: [changes, contracts, frontend, client-native, baasx, baasx-package, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
