@@ -395,6 +395,27 @@ def cargo_owners(old, new, old_manifests=None, new_manifests=None):
     return scopes
 
 
+# Root commands are shared by different workspaces; the command name identifies its owner.
+def root_script_owners(name):
+    if name == "baasx" or name.startswith("baasx:"):
+        return JS
+    if name in ("dev:android", "build:tauri:android"):
+        return {"ui:android"}
+    if name.startswith("tauri:android:"):
+        return ANDROID
+    if name in ("test:android-bootstrap", "test:android-smoke"):
+        return {"android-tests"}
+    if name in ("dev:webui", "build:webui"):
+        return {"ui:webui"}
+    if name in ("dev:tauri", "build:tauri"):
+        return {"ui:tauri"}
+    if name in ("dev", "build", "preview", "gen:fonts", "test:transport", "i18n:check", "i18n:sync"):
+        return UI
+    if name in ("updater", "updater-fixed-webview2", "portable-fixed-webview2"):
+        return {"contracts"}
+    return UI | JS
+
+
 def manifest_owners(old, new):
     old, new = json.loads(old, object_pairs_hook=unique_object), json.loads(new, object_pairs_hook=unique_object)
     if not isinstance(old, dict) or not isinstance(new, dict):
@@ -408,7 +429,7 @@ def manifest_owners(old, new):
         elif key == "scripts" and isinstance(old.get(key), dict) and isinstance(new.get(key), dict):
             for script in old[key].keys() | new[key].keys():
                 if old[key].get(script) != new[key].get(script):
-                    scopes.update(JS if script.startswith("baasx") else UI | JS)
+                    scopes.update(root_script_owners(script))
         else:
             scopes.update(UI | JS)
     return scopes

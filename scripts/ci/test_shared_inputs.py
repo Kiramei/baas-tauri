@@ -140,6 +140,8 @@ class SharedSnapshots(unittest.TestCase):
     def test_manifest_dependencies_and_scoped_scripts(self):
         self.assertEqual(manifest_owners('{"dependencies":{"vite":"1"}}', '{"dependencies":{"vite":"2"}}'), UI)
         self.assertEqual(manifest_owners('{"scripts":{"baasx:build":"a"}}', '{"scripts":{"baasx:build":"b"}}'), JS)
+        self.assertEqual(manifest_owners('{"scripts":{"build:tauri:android":"a"}}', '{"scripts":{"build:tauri:android":"b"}}'), {"ui:android"})
+        self.assertEqual(manifest_owners('{"scripts":{"build:webui":"a"}}', '{"scripts":{"build:webui":"b"}}'), {"ui:webui"})
         self.assertEqual(manifest_owners('{"workspaces":[]}', '{"workspaces":["new"]}'), UI | JS)
 
     def test_git_blobs_and_unsupported_fallback(self):
