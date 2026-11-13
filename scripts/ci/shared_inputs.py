@@ -188,7 +188,12 @@ def cargo_graph(lock):
         identities[key] = package
         by_name[name].append(key)
     owners = defaultdict(set)
-    for root, scope in (("baas-tauri", NATIVE | ANDROID), ("baas-cli-runtime", BAASX)):
+    # During the rename, older snapshots have only the legacy package. Both
+    # package roots lead exclusively to BAASX in lockfiles with the shim.
+    runtime_roots = [name for name in ("baasx-runtime", "baas-cli-runtime") if name in by_name]
+    if not runtime_roots:
+        raise ValueError("missing BAASX runtime package")
+    for root, scope in [("baas-tauri", NATIVE | ANDROID), *((name, BAASX) for name in runtime_roots)]:
         roots = [key for key in by_name[root] if not key[2]]
         if len(roots) != 1:
             raise ValueError("missing or ambiguous Cargo root")
@@ -226,6 +231,7 @@ OS_SCOPES = {
 }
 MEMBERS = {
     "src-tauri/Cargo.toml": ("baas-tauri", NATIVE | ANDROID),
+    "crates/baasx-runtime/Cargo.toml": ("baasx-runtime", BAASX),
     "crates/baas-cli-runtime/Cargo.toml": ("baas-cli-runtime", BAASX),
     "crates/baas-updater/Cargo.toml": ("baas-updater", NATIVE | ANDROID | BAASX),
     "crates/baas-term/Cargo.toml": ("baas-term", NATIVE | ANDROID | BAASX),
@@ -330,7 +336,7 @@ def manifests_for_revision(revision):
         if manifest.get("package", {}).get("name") != MEMBERS[path][0]:
             raise ValueError("unexpected Cargo package name")
         result[MEMBERS[path][0]] = manifest
-    if set(result) != {name for name, _ in MEMBERS.values()}:
+    if not {"baas-tauri", "baas-updater", "baas-term"} <= result.keys() or not result.keys() & {"baasx-runtime", "baas-cli-runtime"}:
         raise ValueError("incomplete workspace manifests")
     return result
 

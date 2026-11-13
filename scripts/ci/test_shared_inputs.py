@@ -113,7 +113,7 @@ class CargoOwnership(unittest.TestCase):
 
     def test_helper_target_and_unknown_cfg(self):
         manifests = copy.deepcopy(self.manifests)
-        helper = manifests['baas-cli-runtime']
+        helper = manifests['baasx-runtime']
         ctrlc = helper['dependencies'].pop('ctrlc')
         helper['target'] = {'cfg(windows)': {'dependencies': {'ctrlc': ctrlc}}}
         changed = copy.deepcopy(self.lock)

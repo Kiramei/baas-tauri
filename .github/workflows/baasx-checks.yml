@@ -67,7 +67,17 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-1.95.0-helper
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/baasx-dev' }}
       - if: matrix.rust
-        run: cargo test --locked -p baas-cli-runtime
+        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime
+      - name: Verify the Windows legacy helper forwards commands
+        if: matrix.rust && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $aliasPath = Join-Path $env:RUNNER_TEMP 'baas-cli-runtime.exe'
+          rustc --edition=2024 baasx/scripts/platform/windows/runtime-alias.rs -o $aliasPath
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item target/debug/baasx-runtime.exe $env:RUNNER_TEMP
+          & $aliasPath inspect --root (Join-Path $env:RUNNER_TEMP 'absent-runtime')
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - if: matrix.js
         run: bun test baasx/tests/runtime.test.ts baasx/tests/mouse-pty.test.ts
       - if: matrix.js

@@ -35,7 +35,7 @@ RULES = [
      {"baasx-js:" + name for name in DESKTOP}),
     (("baasx/scripts/build.ts", "baasx/bin/*", "baasx/package.json"), JS | REGISTRY),
     (("baasx/*",), JS),
-    (("crates/baas-cli-runtime/*",), BAASX_NATIVE),
+    (("crates/baasx-runtime/*", "crates/baas-cli-runtime/*"), BAASX_NATIVE),
     (("crates/baas-updater/src/android*",), ANDROID),
     (("crates/baas-updater/src/app.rs",), NATIVE),
     (("crates/baas-updater/runtime/shm_macos.py",), {"native:macos", "baasx-native:macos"}),
@@ -86,7 +86,9 @@ def owners(path):
     for name in (*DESKTOP, "android", "desktop", "posix"):
         systems = {"desktop": DESKTOP, "posix": ("linux", "macos")}.get(name, (name,))
         for base, layer in (("src/platform/", "ui"), ("tests/frontend/platform/", "ui"),
+                            ("baasx/scripts/platform/", "baasx-native"),
                             ("baasx/src/platform/", "baasx-js"), ("baasx/tests/platform/", "baasx-js"),
+                            ("crates/baasx-runtime/src/platform/", "baasx-native"),
                             ("crates/baas-cli-runtime/src/platform/", "baasx-native"),
                             ("crates/baas-notifier/src/platform/", "native"),
                             ("src-tauri/src/platform/", "native")):

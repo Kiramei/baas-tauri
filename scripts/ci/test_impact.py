@@ -38,7 +38,10 @@ class Routing(unittest.TestCase):
             "src-tauri/gen/android/app/src/main/python/adapter.py": {"android-tests"},
             "crates/baas-notifier/src/platform/windows.rs": {"native:windows"},
             "crates/baas-notifier/src/platform/android.rs": {"android:arm64", "android-tests"},
-            "crates/baas-cli-runtime/src/progress.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
+            "baasx/scripts/platform/windows/runtime-alias.rs": {"baasx-native:windows"},
+            "crates/baasx-runtime/src/platform/windows/process.rs": {"baasx-native:windows"},
+            "crates/baas-cli-runtime/src/main.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
+            "crates/baasx-runtime/src/progress.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
             "scripts/docker/entrypoint.sh": {"docker"},
         }
         for path, expected in cases.items():
@@ -54,7 +57,7 @@ class Routing(unittest.TestCase):
         self.assertEqual({(p["os"], p["rust"], p["js"]) for p in result["baasx-platform"]},
                          {("windows-11-arm", False, True), ("windows-latest", False, True)})
         self.assertFalse(result["site"] or result["android"] or result["baasx-source"] or result["readme"])
-        rust = classify(["crates/baas-cli-runtime/src/lib.rs"])
+        rust = classify(["crates/baasx-runtime/src/lib.rs"])
         self.assertEqual(len(rust["baasx-platform"]), 6)
         self.assertTrue(all(p["rust"] and not p["js"] for p in rust["baasx-platform"]))
         self.assertEqual([k for k, run in jobs(rust).items() if run], ["baasx"])

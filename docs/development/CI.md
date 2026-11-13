@@ -20,7 +20,7 @@ Direct pushes to baasx-dev use the before/after tree diff. On main, wiki-pages o
 | OS-specific Rust, OS package inputs | Only the corresponding native client platform. An architecture subdirectory selects its target, e.g. `platform/windows/arm64/`. Intel and ARM64 Windows WebView2 configuration changes also select their exact targets. Linux armv7 uses the release sysroot for a cross-check. |
 | Android Kotlin/JNI/Gradle/Rust | Android backend tests, native test APK and lint. Native test APKs embed a minimal test page. Signed releases embed the real frontend. Python-only changes run the Android backend tests. |
 | BAASX command/UI TypeScript | BAASX source checks and JS bundle. Windows and POSIX process adapters receive OS-specific JS checks. |
-| BAASX Rust helper | BAASX native helper tests on the supported OS/CPU pairs. |
+| BAASX Rust helper | Test the primary `baasx-runtime` crate and its legacy `baas-cli-runtime` compatibility entry on the supported OS/CPU pairs. |
 | BAASX npm package assembly, launchers and registration | Package assembly, registry retry and local installation tests. |
 | Shared protocol and Rust crates | Their declared consumers. The UI and BAASX share authenticated transport and a small number of configuration parsers. Desktop/Android/CLI consume different Cargo features. |
 | Docker scripts | Docker entrypoint tests. |

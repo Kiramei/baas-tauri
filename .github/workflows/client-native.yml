@@ -75,10 +75,10 @@ jobs:
           target: ${{ matrix.target }}
       - name: Cross-check the 32-bit ARM client and tests
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
-        run: cargo check --workspace --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+        run: cargo check --workspace --exclude baasx-runtime --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
       - name: Run Rust tests
         if: matrix.target != 'armv7-unknown-linux-gnueabihf'
-        run: cargo test --workspace --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
+        run: cargo test --workspace --exclude baasx-runtime --exclude baas-cli-runtime --all-targets --locked --target ${{ matrix.target }}
 
   android:
     name: Android ${{ matrix.abi }} native build
