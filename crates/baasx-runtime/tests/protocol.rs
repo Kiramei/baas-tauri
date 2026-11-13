@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::process::Command;
 
 fn invoke(args: &[&str]) -> (bool, Vec<Value>) {
-    let output = Command::new(env!("CARGO_BIN_EXE_baas-cli-runtime"))
+    let output = Command::new(env!("CARGO_BIN_EXE_baasx-runtime"))
         .args(args)
         .output()
         .unwrap();
@@ -53,10 +53,7 @@ fn stable_install_fails_without_creating_a_directory_or_reporting_download_progr
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0]["type"], "error");
     assert_eq!(messages[0]["code"], "config");
-    assert_eq!(
-        messages[0]["message"],
-        baas_cli_runtime::DEV_BACKEND_REQUIRED
-    );
+    assert_eq!(messages[0]["message"], baasx_runtime::DEV_BACKEND_REQUIRED);
     assert!(!root.exists());
     assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 0);
 }
