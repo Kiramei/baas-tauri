@@ -26,7 +26,6 @@ import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
 import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
-import { configureNewPcProfile } from "@/shared/PcProfiles";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
 import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
@@ -194,6 +193,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
       await waitForConfig(result?.serial, controller.signal);
       if (controller.signal.aborted || !isPcServer(server)) return;
       try {
+        const { configureNewPcProfile } = await import("@/platform/windows/configurePcProfile");
         if (useWebSocketStore.getState()._session !== originalSession)
           throw new Error("Authentication session changed");
         await configureNewPcProfile(useWebSocketStore.getState, result.serial, {

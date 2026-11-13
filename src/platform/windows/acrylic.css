@@ -1,0 +1,9 @@
+html[data-window-material="acrylic"],
+html[data-window-material="acrylic"] body,
+html[data-window-material="acrylic"] #root {
+  background: transparent;
+}
+
+html[data-window-material="acrylic"] .app-window-frame {
+  background: var(--chrome-tint);
+}
