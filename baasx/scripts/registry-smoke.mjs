@@ -9,6 +9,11 @@ import path from "node:path";
 import { npmCommand } from "./host-npm.mjs";
 import { platforms } from "./distribution-platforms.mjs";
 
+// Git Bash's GNU tar interprets "D:" as a remote host. Windows bsdtar
+// takes native drive paths for both input archives and extraction directories.
+const tar =
+  process.platform === "win32" ? path.join(process.env.SystemRoot, "System32", "tar.exe") : "tar";
+
 const packages = JSON.parse(await readFile(process.argv[2], "utf8"));
 const scratch = await mkdtemp(path.join(tmpdir(), "baasx-install-smoke-"));
 const requested = new Set();
@@ -52,7 +57,7 @@ try {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const registry = `http://127.0.0.1:${server.address().port}/`;
   for (const pkg of packages) {
-    const manifest = JSON.parse(await run("tar", ["-xOzf", pkg.archive, "package/package.json"]));
+    const manifest = JSON.parse(await run(tar, ["-xOzf", pkg.archive, "package/package.json"]));
     manifest.dist = {
       tarball: registry + "tarballs/" + path.basename(pkg.archive),
       integrity: pkg.integrity,

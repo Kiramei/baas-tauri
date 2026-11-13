@@ -15,6 +15,11 @@ import { parseArgs } from "node:util";
 import { npmCommand } from "./host-npm.mjs";
 import { platforms } from "./distribution-platforms.mjs";
 
+// Git Bash's GNU tar interprets "D:" as a remote host. Windows bsdtar
+// takes native drive paths for both input archives and extraction directories.
+const tar =
+  process.platform === "win32" ? path.join(process.env.SystemRoot, "System32", "tar.exe") : "tar";
+
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { values } = parseArgs({
   options: {
@@ -104,11 +109,11 @@ try {
         const members = [platform.helper, platform.legacyHelper].map(
           (name) => `package/runtime/${name}`
         );
-        const entries = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).split("\n");
+        const entries = execFileSync(tar, ["-tzf", archive], { encoding: "utf8" }).split("\n");
         for (const member of members) {
           if (!entries.includes(member)) throw new Error(`${platform.asset} missing ${member}`);
         }
-        execFileSync("tar", ["-xzf", archive, "-C", stage, "--strip-components=1", ...members]);
+        execFileSync(tar, ["-xzf", archive, "-C", stage, "--strip-components=1", ...members]);
         for (const name of [platform.helper, platform.legacyHelper])
           chmodSync(path.join(stage, "runtime", name), 0o755);
       }
