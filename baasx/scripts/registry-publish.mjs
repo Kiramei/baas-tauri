@@ -16,31 +16,35 @@ if (
 ) {
   throw new Error("Provide --info <package info JSON> and a supported --registry URL");
 }
-const info = JSON.parse(readFileSync(values.info, "utf8"));
-const status = await ensureRegistryPackage({
-  registry: values.registry,
-  info,
-  token: process.env.NODE_AUTH_TOKEN,
-  tag: values.tag,
-  publish(publishTag) {
-    const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-    execFileSync(
-      npm,
-      [
-        "publish",
-        info.archive,
-        "--ignore-scripts",
-        "--registry",
-        values.registry,
-        "--access",
-        "public",
-        "--tag",
-        publishTag,
-      ],
-      { stdio: "inherit" }
-    );
-  },
-});
-if (status === "matching") {
-  console.log(`${info.name}@${info.version} already exists with matching integrity`);
+const packages = JSON.parse(readFileSync(values.info, "utf8"));
+for (const info of packages) {
+  // GitHub Packages requires scoped names. Publish dependencies before their consumers.
+  if (values.registry === "https://npm.pkg.github.com/" && info.name === "baasx") continue;
+  const status = await ensureRegistryPackage({
+    registry: values.registry,
+    info,
+    token: process.env.NODE_AUTH_TOKEN,
+    tag: values.tag,
+    publish(publishTag) {
+      const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+      execFileSync(
+        npm,
+        [
+          "publish",
+          info.archive,
+          "--ignore-scripts",
+          "--registry",
+          values.registry,
+          "--access",
+          "public",
+          "--tag",
+          publishTag,
+        ],
+        { stdio: "inherit" }
+      );
+    },
+  });
+  if (status === "matching") {
+    console.log(`${info.name}@${info.version} already exists with matching integrity`);
+  }
 }

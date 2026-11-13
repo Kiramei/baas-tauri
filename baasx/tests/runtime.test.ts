@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import distributionPlatforms from "../scripts/distribution-platforms.json";
 import { RuntimeManager, type RuntimeEvent } from "../src/runtime";
 import { prepareExecutableFixtures, writeExecutableFixture } from "./executable-fixture";
 
@@ -449,7 +450,11 @@ describe("owned local backend", () => {
         });
         const competingOutput = await new Response(competing.stdout).text();
         expect(await competing.exited).toBe(1);
-        expect(JSON.parse(competingOutput).message).toContain("another installer");
+        const supportsOcr = distributionPlatforms.some(
+          (p) => p.os === process.platform && p.cpu === process.arch && p.localRuntime
+        );
+        const expectedError = supportsOcr ? "another installer" : "unsupported Cpp repository platform";
+        expect(JSON.parse(competingOutput).message).toContain(expectedError);
         expect(await readFile(join(root, ".baas-cli-runtime.json"), "utf8")).toBe(marker);
         await manager.stopWhenIdle();
 
@@ -481,9 +486,7 @@ describe("owned local backend", () => {
             stdout: "pipe",
             stderr: "pipe",
           });
-          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(
-            "another installer"
-          );
+          expect(JSON.parse(await new Response(blocked.stdout).text()).message).toContain(expectedError);
           expect(await blocked.exited).toBe(1);
           detachedBackend.kill();
           await detachedBackend.exited;

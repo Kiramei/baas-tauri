@@ -1,3 +1,4 @@
+import { platforms } from "../../baasx/scripts/distribution-platforms.mjs";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { selectPublishedReleases } from "../release-feed.mjs";
@@ -34,9 +35,11 @@ export function validateAssets(kind, tag, names) {
     );
   } else if (kind === "baasx") {
     const version = tag.replace(/^baasx-v/, "");
-    expected = ["Linux-X64", "macOS-ARM64", "Windows-X64"].flatMap((platform) =>
-      [".tar.gz", "-bun.tgz"].map((ext) => `baasx-${version}-${platform}${ext}`)
-    );
+    expected = platforms
+      .map((p) => p.asset)
+      .flatMap((platform) =>
+        [".tar.gz", "-bun.tgz"].map((ext) => `baasx-${version}-${platform}${ext}`)
+      );
     expected.push("SHA256SUMS");
   } else if (kind === "updater") {
     expected = [

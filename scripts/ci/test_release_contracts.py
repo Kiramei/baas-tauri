@@ -42,7 +42,7 @@ class ReleaseContracts(unittest.TestCase):
         for kind in ["app","updater","baasx"]:
             self.assertNotEqual(call(["verify",kind,"v1.2.3"],{"assets":[]}).returncode,0)
         good=["SHA256SUMS"]+[f"baasx-1.2.3-{platform}{ext}" for platform in
-              ("Linux-X64","macOS-ARM64","Windows-X64") for ext in ("-bun.tgz",".tar.gz")]
+              ("Linux-X64","Linux-ARM64","macOS-ARM64","macOS-X64","Windows-X64","Windows-ARM64") for ext in ("-bun.tgz",".tar.gz")]
         self.assertEqual(call(["verify","baasx","baasx-v1.2.3"],
                               {"assets":[{"name":s} for s in good]}).returncode,0)
 

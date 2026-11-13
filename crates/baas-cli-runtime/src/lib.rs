@@ -275,6 +275,8 @@ pub fn install(
     if channel == UpdateChannel::Stable {
         return Err(UpdaterError::Config(DEV_BACKEND_REQUIRED.into()));
     }
+    // Only the real updater requires a published OCR payload for this host.
+    cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH)?;
     install_with(root, channel, cancelled, emit, |root, emit| {
         run_workflow(root, cancelled, emit)
     })
@@ -291,8 +293,6 @@ fn install_with(
         return Err(UpdaterError::Cancelled);
     }
     let root = normalize_root(root)?;
-    // Reject unsupported Cpp platforms before creating any installation state.
-    cpp_branch_for(std::env::consts::OS, std::env::consts::ARCH)?;
     validate_anchors(&root)?;
     if root.exists() && !root.is_dir() {
         return Err(UpdaterError::Config(

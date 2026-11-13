@@ -16,22 +16,26 @@ defaults:
     shell: bash
 
 jobs:
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - id: select
+        run: |
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import { platforms } from './baasx/scripts/distribution-platforms.mjs';
+          console.log('matrix='+JSON.stringify({include:platforms}));
+          JS
   cli:
+    needs: platforms
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            executable: baasx
-            helper: baas-cli-runtime
-          - os: macos-latest
-            executable: baasx
-            helper: baas-cli-runtime
-          - os: windows-latest
-            executable: baasx.exe
-            helper: baas-cli-runtime.exe
-    runs-on: ${{ matrix.os }}
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -49,17 +53,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
       - uses: ./.github/actions/setup-baasx
-      - run: cargo test --locked -p baas-cli-runtime
-      - run: bun run baasx:check
+      - name: Verify native architectures of Bun and Rust
+        env:
+          EXPECTED_OS: ${{ matrix.os }}
+          EXPECTED_CPU: ${{ matrix.cpu }}
+        run: |
+          bun -e 'if(process.platform!==process.env.EXPECTED_OS || process.arch!==process.env.EXPECTED_CPU) throw new Error("Runner/Bun architecture mismatch")'
+          rust_arch=x86_64
+          if [[ "$EXPECTED_CPU" == arm64 ]]; then rust_arch=aarch64; fi
+          rustc -vV | grep -E "^host: ${rust_arch}-"
+      - name: Test native helper protocol, update and lifecycle
+        run: cargo test --locked -p baas-cli-runtime
+      - if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        run: bun run baasx:check
       - run: bun run baasx:test
-      - run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - if: matrix.os == 'linux' && matrix.cpu == 'x64'
+        run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
       - name: Build the JS bundle, native helper and trimmed executable
         run: bun run baasx:binary
       - run: bun baasx/bin/baasx.mjs --demo --json status
       - name: Use the minimum supported Node.js version
         uses: actions/setup-node@v6
         with:
-          node-version: "20.3.0"
+          node-version: ${{ matrix.os == 'win32' && matrix.cpu == 'arm64' && '24' || '20.3.0' }}
       - name: Check the Node.js bundle
         run: |
           node baasx/dist/baasx-node.mjs --demo --json status
@@ -70,11 +86,11 @@ jobs:
         with:
           node-version: "24"
       - uses: denoland/setup-deno@v2
-        if: runner.os == 'Linux'
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
         with:
           deno-version: v2.x
       - name: Check the Deno bundle
-        if: runner.os == 'Linux'
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
         run: deno run -A baasx/dist/baasx-node.mjs --demo --json status
       - name: Exercise the compiled CLI and terminal
         shell: bash
@@ -116,7 +132,7 @@ jobs:
           compression-level: 0
           if-no-files-found: error
       - name: Upload the registry JavaScript bundle
-        if: runner.os == 'Linux'
+        if: matrix.os == 'linux' && matrix.cpu == 'x64'
         uses: actions/upload-artifact@v4
         with:
           retention-days: 7

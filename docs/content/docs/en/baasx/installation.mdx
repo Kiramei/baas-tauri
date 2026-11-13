@@ -28,7 +28,7 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-The registry package contains the JavaScript application and installation helpers for Windows x64, Linux x64, and Apple Silicon Mac. Rust is not required.
+Both names install the same JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
 
 When a standalone release is published, download its archives from `baasx-v<version>` on [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v). The desktop client's Latest installers are a separate release.
 
@@ -41,8 +41,9 @@ Once published, choose the appropriate asset and replace `<version>` with its ac
 | Windows x64       | `baasx-<version>-Windows-X64.tar.gz` |
 | Linux x64         | `baasx-<version>-Linux-X64.tar.gz`   |
 | Apple Silicon Mac | `baasx-<version>-macOS-ARM64.tar.gz` |
-
-Do not mix helpers from different platforms. This matrix does not imply that Intel Mac or Linux ARM archives are available.
+| Windows ARM64 | `baasx-<version>-Windows-ARM64.tar.gz` |
+| Linux ARM64 | `baasx-<version>-Linux-ARM64.tar.gz` |
+| Intel Mac | `baasx-<version>-macOS-X64.tar.gz` |
 
 ### Windows PowerShell
 

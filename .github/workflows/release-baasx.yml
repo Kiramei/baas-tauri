@@ -96,8 +96,13 @@ jobs:
           cd release-assets
           native=(baasx-"$BAASX_VERSION"-*.tar.gz)
           packages=(baasx-"$BAASX_VERSION"-*-bun.tgz)
-          test "${#native[@]}" -eq 3
-          test "${#packages[@]}" -eq 3
+          node --input-type=module <<'JS'
+          import { platforms } from '../baasx/scripts/distribution-platforms.mjs';
+          import { statSync } from 'node:fs';
+          for (const p of platforms) for (const ext of ['.tar.gz','-bun.tgz']) {
+            if (!statSync(`baasx-${process.env.BAASX_VERSION}-${p.asset}${ext}`).size) throw new Error('Empty asset');
+          }
+          JS
           sha256sum "${native[@]}" "${packages[@]}" > SHA256SUMS
           sha256sum --check SHA256SUMS
       - name: Publish baasx assets without changing the desktop Latest release
@@ -118,8 +123,8 @@ jobs:
 
             - Download the native archive for your operating system and architecture. Keep its `runtime` directory beside `baasx` / `baasx.exe`; Bun and Rust are not required on the target machine.
             - The platform-specific `-bun.tgz` packages include the matching installer helper and require Bun 1.4.4 or newer.
-            - `SHA256SUMS` contains checksums for all six distributions.
-            - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all three platforms before publication.
+            - `SHA256SUMS` contains checksums for all platform distributions.
+            - Builds use the pinned Bun compiler and must pass source tests, compiled CLI checks and extracted-package smoke tests on all supported platforms before publication.
 
   sync-cnb-release:
     name: Sync baasx release to CNB
@@ -180,18 +185,14 @@ jobs:
         with:
           name: registry-node-bundle
           path: registry-bundle
-      - name: Assemble the three verified platform archives
+      - name: Assemble platform packages, scoped CLI and npm entry point
         run: node baasx/scripts/registry-package.mjs --assets release-assets --bundle registry-bundle/baasx-node.mjs --output "$RUNNER_TEMP/baasx-registry" --scope "${{ matrix.scope }}" > "$RUNNER_TEMP/baasx-registry-info.json"
-      - name: Verify the registry package installs and launches
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.3.14" }
+      - name: Smoke test the actual split packages before publication
         env:
-          NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          archive=$(node -p 'require(process.argv[1]).archive' "$RUNNER_TEMP/baasx-registry-info.json")
-          prefix="$RUNNER_TEMP/baasx-registry-check"
-          npm install --global --prefix "$prefix" "$archive" --ignore-scripts --no-audit --no-fund
-          "$prefix/bin/baasx" --demo --json status
-          "$prefix/lib/node_modules/@${{ matrix.scope }}/baasx/platforms/linux-x64/runtime/baas-cli-runtime" inspect --root "$RUNNER_TEMP/baasx-not-installed"
+          BAASX_SMOKE_BUN: bun
+        run: node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-registry-info.json"
       - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ matrix.registry == 'GitHub Packages' && github.token || secrets.NPM_TOKEN }}
