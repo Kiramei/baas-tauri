@@ -66,7 +66,7 @@ For Linux x64; substitute the appropriate archive on macOS:
 mkdir -p baasx
 tar -xzf baasx-<version>-Linux-X64.tar.gz -C baasx
 cd baasx
-chmod +x baasx runtime/baas-cli-runtime
+chmod +x baasx runtime/baasx-runtime
 ./baasx --demo --lang en
 ```
 
@@ -76,13 +76,15 @@ Preserve the extracted layout:
 baasx/                   # Your extraction directory
 ├── baasx                # baasx.exe on Windows
 ├── runtime/
-│   └── baas-cli-runtime # Includes .exe on Windows
+│   └── baasx-runtime     # Includes .exe on Windows
 ├── README.md
 ├── README_zh.md
 └── LICENSE
 ```
 
 **Keep `runtime/` beside the main executable.** Add the whole extracted directory to PATH or create a launcher pointing to the original executable. Compare downloaded archives against the release's `SHA256SUMS`. On Linux, use `sha256sum --check --ignore-missing SHA256SUMS` in the download directory. In PowerShell, compare `Get-FileHash -Algorithm SHA256 <filename>` with the manifest.
+
+New releases use `runtime/baasx-runtime` (`baasx-runtime.exe` on Windows). Existing installations may still contain `runtime/baas-cli-runtime` (`baas-cli-runtime.exe` on Windows); the current launcher also recognizes that legacy name. To override the helper location, set `BAASX_RUNTIME_HELPER`; the older `BAAS_RUNTIME_HELPER` remains supported as a fallback.
 
 ## Bun release packages
 

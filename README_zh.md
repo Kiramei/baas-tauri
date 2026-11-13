@@ -94,7 +94,7 @@ bun run baasx:build        # Bun 可执行包
 bun run baasx:binary       # 本机独立可执行程序
 ```
 
-连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。共用协议位于 `baasx/packages/baas-client`，CLI 配置和指令集独立于桌面端。
+本机程序需要保留同目录的 `runtime/`。新版组件为 `runtime/baasx-runtime`，启动器也兼容旧的 `runtime/baas-cli-runtime` 名称。连接服务、配置编辑、自定义指令包和打包方式见 [baasx 中文说明](baasx/README_zh.md)（[English](baasx/README.md)）。共用协议位于 `baasx/packages/baas-client`，BAASX 配置和指令集独立于桌面端。
 
 前置条件：
 
