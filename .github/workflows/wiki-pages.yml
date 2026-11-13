@@ -5,8 +5,21 @@ on:
     branches:
       - main
     paths:
-      - "docs/**"
-      - "!docs/development/**"
+      - "docs/app/**"
+      - "docs/components/**"
+      - "docs/content/**"
+      - "docs/evidence/device-summary.json"
+      - "docs/lib/**"
+      - "docs/public/**"
+      - "docs/bun.lock"
+      - "docs/mdx-components.tsx"
+      - "docs/next-env.d.ts"
+      - "docs/next.config.mjs"
+      - "docs/package.json"
+      - "docs/source.config.ts"
+      - "docs/tsconfig.json"
+      - "docs/scripts/build-fonts.mjs"
+      - "docs/scripts/normalize-static-export.mjs"
       - ".github/workflows/wiki-pages.yml"
   workflow_dispatch:
 
