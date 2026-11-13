@@ -78,6 +78,19 @@ jobs:
           Copy-Item target/debug/baasx-runtime.exe $env:RUNNER_TEMP
           & $aliasPath inspect --root (Join-Path $env:RUNNER_TEMP 'absent-runtime')
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Compare the installed helper names
+        if: matrix.rust
+        shell: bash
+        run: |
+          suffix=""
+          helper_dir="$GITHUB_WORKSPACE/target/debug"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            suffix=".exe"
+            helper_dir="$RUNNER_TEMP"
+          fi
+          node baasx/scripts/check-runtime-alias.mjs \
+            "$helper_dir/baas-cli-runtime$suffix" \
+            "$helper_dir/baasx-runtime$suffix"
       - if: matrix.js
         run: bun test baasx/tests/runtime.test.ts baasx/tests/mouse-pty.test.ts
       - if: matrix.js
