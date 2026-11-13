@@ -14,7 +14,7 @@ UI = {"ui:webui", "ui:tauri", "ui:android"}
 JS = {"baasx-source", "registry", *("baasx-js:" + name for name in ("windows", "linux", "macos"))}
 NATIVE = {"native:" + name for name in ("windows", "linux", "macos")}
 ANDROID = {"android:arm64", "android-tests"}
-CLI = {"baasx-native:" + name for name in ("windows", "linux", "macos")}
+BAASX = {"baasx-native:" + name for name in ("windows", "linux", "macos")}
 SHARED = {"package.json", "bun.lock", "Cargo.lock", "Cargo.toml"}
 
 
@@ -188,7 +188,7 @@ def cargo_graph(lock):
         identities[key] = package
         by_name[name].append(key)
     owners = defaultdict(set)
-    for root, scope in (("baas-tauri", NATIVE | ANDROID), ("baas-cli-runtime", CLI)):
+    for root, scope in (("baas-tauri", NATIVE | ANDROID), ("baas-cli-runtime", BAASX)):
         roots = [key for key in by_name[root] if not key[2]]
         if len(roots) != 1:
             raise ValueError("missing or ambiguous Cargo root")
@@ -216,19 +216,182 @@ def cargo_graph(lock):
     return identities, owners
 
 
-def cargo_owners(old, new):
+# Only expressions we can prove are handled. Arbitrary cfg, architectures, and
+# unknown target triples retain the package's original consumers.
+OS_SCOPES = {
+    "windows": {"native:windows", "baasx-native:windows"},
+    "linux": {"native:linux", "baasx-native:linux"},
+    "macos": {"native:macos", "baasx-native:macos"},
+    "android": ANDROID,
+}
+MEMBERS = {
+    "src-tauri/Cargo.toml": ("baas-tauri", NATIVE | ANDROID),
+    "crates/baas-cli-runtime/Cargo.toml": ("baas-cli-runtime", BAASX),
+    "crates/baas-updater/Cargo.toml": ("baas-updater", NATIVE | ANDROID | BAASX),
+    "crates/baas-term/Cargo.toml": ("baas-term", NATIVE | ANDROID | BAASX),
+    "crates/baas-notifier/Cargo.toml": ("baas-notifier", NATIVE | ANDROID),
+    "crates/baas-i18n/Cargo.toml": ("baas-i18n", NATIVE | ANDROID),
+    "crates/baas-shortcut/Cargo.toml": ("baas-shortcut", NATIVE),
+}
+DEP_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
+
+
+def target_scopes(target):
+    compact = re.sub(r"\s+", "", target).replace("'", '"')
+    for name in OS_SCOPES:
+        if compact == f'cfg(target_os="{name}")' or (name == "windows" and compact == "cfg(windows)"):
+            return OS_SCOPES[name]
+    if compact in ('cfg(not(target_os="android"))', 'cfg(not(any(target_os="android",target_os="ios")))'):
+        return OS_SCOPES["windows"] | OS_SCOPES["linux"] | OS_SCOPES["macos"]
+    return None
+
+
+def dependency_name(alias, value):
+    if isinstance(value, str):
+        return alias
+    if isinstance(value, dict):
+        return value.get("package", alias)
+    raise ValueError("invalid Cargo dependency")
+
+
+def target_changes(old, new, owners):
+    """Return changed target dependency names and scopes, or None if unclear."""
+    if {k: v for k, v in old.items() if k != "target"} != {k: v for k, v in new.items() if k != "target"}:
+        return None
+    old_targets, new_targets = old.get("target", {}), new.get("target", {})
+    if not isinstance(old_targets, dict) or not isinstance(new_targets, dict):
+        return None
+    changed, scopes = set(), set()
+    for target in old_targets.keys() | new_targets.keys():
+        before, after = old_targets.get(target, {}), new_targets.get(target, {})
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            return None
+        if {k: v for k, v in before.items() if k not in DEP_TABLES} != {k: v for k, v in after.items() if k not in DEP_TABLES}:
+            return None
+        for field in DEP_TABLES:
+            a, b = before.get(field, {}), after.get(field, {})
+            if not isinstance(a, dict) or not isinstance(b, dict):
+                return None
+            for alias in a.keys() | b.keys():
+                if a.get(alias) == b.get(alias):
+                    continue
+                selected = target_scopes(target)
+                if selected is None:
+                    return None
+                if field == "build-dependencies":
+                    selected = owners  # Build dependencies execute on the host.
+                for entry in (a.get(alias), b.get(alias)):
+                    if entry is not None:
+                        changed.add(dependency_name(alias, entry))
+                scopes.update(owners & selected)
+    return changed, scopes
+
+
+def dependency_targets(manifest, name, owners):
+    """Conservatively find every declared platform for one direct dependency."""
+    found, scopes = False, set()
+    for field in DEP_TABLES:
+        table = manifest.get(field, {})
+        if not isinstance(table, dict):
+            return None
+        if any(dependency_name(alias, value) == name for alias, value in table.items()):
+            found = True
+            scopes.update(owners)
+    targets = manifest.get("target", {})
+    if not isinstance(targets, dict):
+        return None
+    for target, sections in targets.items():
+        if not isinstance(sections, dict):
+            return None
+        for field in DEP_TABLES:
+            table = sections.get(field, {})
+            if not isinstance(table, dict):
+                return None
+            if any(dependency_name(alias, value) == name for alias, value in table.items()):
+                selected = target_scopes(target)
+                if selected is None:
+                    return None
+                found = True
+                scopes.update(owners if field == "build-dependencies" else owners & selected)
+    return scopes if found else None
+
+
+def manifests_for_revision(revision):
+    root = tomllib.loads(blob(revision, "Cargo.toml"))
+    members = root.get("workspace", {}).get("members", [])
+    if not isinstance(members, list) or any(not isinstance(m, str) or any(c in m for c in "*?[]") for m in members):
+        raise ValueError("unsupported workspace members")
+    result = {}
+    for member in members:
+        path = member.rstrip("/") + "/Cargo.toml"
+        if path not in MEMBERS:
+            raise ValueError("unknown Cargo workspace member")
+        manifest = tomllib.loads(blob(revision, path))
+        if manifest.get("package", {}).get("name") != MEMBERS[path][0]:
+            raise ValueError("unexpected Cargo package name")
+        result[MEMBERS[path][0]] = manifest
+    if set(result) != {name for name, _ in MEMBERS.values()}:
+        raise ValueError("incomplete workspace manifests")
+    return result
+
+
+def direct_scopes(key, packages, graph, manifests):
+    """Narrow only if every incoming edge is a known local manifest edge."""
+    name, version, source = key
+    scopes, found = set(), False
+    for parent, info in packages.items():
+        for dep in info.get("dependencies", []):
+            parts = dep.split()
+            if not parts or parts[0] != name or (len(parts) > 1 and parts[1] != version):
+                continue
+            if len(parts) > 2 and ' '.join(parts[2:]).strip('()') != source:
+                continue
+            found = True
+            if parent[2] or parent[0] not in manifests:
+                return None  # Cargo.lock cannot prove cfg on an external crate edge.
+            selected = dependency_targets(manifests[parent[0]], name, graph.get(parent, set()))
+            if selected is None:
+                return None
+            scopes.update(selected)
+    return scopes if found else None
+
+
+def cargo_owners(old, new, old_manifests=None, new_manifests=None):
     old, new = tomllib.loads(old), tomllib.loads(new)
     old_packages, before = cargo_graph(old)
     new_packages, after = cargo_graph(new)
     if {k: v for k, v in old.items() if k != "package"} != {k: v for k, v in new.items() if k != "package"}:
-        return NATIVE | ANDROID | CLI
+        return NATIVE | ANDROID | BAASX
     scopes = set()
     for key in old_packages.keys() | new_packages.keys():
-        if old_packages.get(key) != new_packages.get(key):
-            ownership = before.get(key, set()) | after.get(key, set())
-            if not ownership:
-                return NATIVE | ANDROID | CLI
-            scopes.update(ownership)
+        previous, current = old_packages.get(key), new_packages.get(key)
+        if previous == current:
+            continue
+        ownership = before.get(key, set()) | after.get(key, set())
+        if not ownership:
+            return NATIVE | ANDROID | BAASX
+        if old_manifests is not None and new_manifests is not None:
+            if not key[2] and previous and current and key[0] in old_manifests and key[0] in new_manifests:
+                # A local lock node can only be narrowed if its complete change
+                # is explained by target-specific manifest dependency changes.
+                only_deps = {k: v for k, v in previous.items() if k != "dependencies"} == {k: v for k, v in current.items() if k != "dependencies"}
+                diff = target_changes(old_manifests[key[0]], new_manifests[key[0]], ownership)
+                changed = {d.split()[0] for d in set(previous.get("dependencies", [])) ^ set(current.get("dependencies", []))}
+                if only_deps and diff is not None and changed and changed <= diff[0]:
+                    ownership = diff[1]
+            elif key[2]:
+                selected = set()
+                proven = True
+                for packages, graph, manifests in ((old_packages, before, old_manifests), (new_packages, after, new_manifests)):
+                    if key in packages:
+                        value = direct_scopes(key, packages, graph, manifests)
+                        if value is None:
+                            proven = False
+                            break
+                        selected.update(value)
+                if proven:
+                    ownership = selected
+        scopes.update(ownership)
     return scopes
 
 
@@ -254,12 +417,12 @@ def manifest_owners(old, new):
 def cargo_manifest_owners(old, new, old_lock, new_lock):
     old, new = tomllib.loads(old), tomllib.loads(new)
     if {k: v for k, v in old.items() if k != "workspace"} != {k: v for k, v in new.items() if k != "workspace"}:
-        return NATIVE | ANDROID | CLI
+        return NATIVE | ANDROID | BAASX
     old_ws, new_ws = old.get("workspace", {}), new.get("workspace", {})
     if not isinstance(old_ws, dict) or not isinstance(new_ws, dict):
         raise ValueError("invalid Cargo workspace")
     if {k: v for k, v in old_ws.items() if k != "dependencies"} != {k: v for k, v in new_ws.items() if k != "dependencies"}:
-        return NATIVE | ANDROID | CLI
+        return NATIVE | ANDROID | BAASX
     old_deps, new_deps = old_ws.get("dependencies", {}), new_ws.get("dependencies", {})
     if not isinstance(old_deps, dict) or not isinstance(new_deps, dict):
         raise ValueError("invalid workspace dependencies")
@@ -275,7 +438,7 @@ def cargo_manifest_owners(old, new, old_lock, new_lock):
         # The same Cargo identity can be used by different roots in each revision.
         owners.update(*(value for package, value in before.items() if package[0] in names))
         if not owners:
-            return NATIVE | ANDROID | CLI
+            return NATIVE | ANDROID | BAASX
         scopes.update(owners)
     return scopes
 
@@ -285,17 +448,37 @@ def shared_owners(path, base, head):
 
     None means this is not a shared input. Both revisions must be object IDs.
     """
-    if path not in SHARED:
+    if path not in SHARED and path not in MEMBERS:
         return None
-    fallback = NATIVE | ANDROID | CLI if path.startswith("Cargo.") else UI | JS
+    fallback = MEMBERS[path][1] if path in MEMBERS else NATIVE | ANDROID | BAASX if path.startswith("Cargo.") else UI | JS
     try:
         old, new = blob(base, path), blob(head, path)
         if path == "bun.lock":
             return bun_owners(old, new)
         if path == "Cargo.lock":
-            return cargo_owners(old, new)
+            try:
+                old_manifests = manifests_for_revision(base)
+                new_manifests = manifests_for_revision(head)
+            except (ValueError, TypeError, KeyError, subprocess.CalledProcessError, UnicodeDecodeError):
+                # The generic lock graph still identifies consumers when a
+                # workspace manifest is missing or an older layout is used.
+                return cargo_owners(old, new)
+            return cargo_owners(old, new, old_manifests, new_manifests)
         if path == "package.json":
             return manifest_owners(old, new)
+        if path in MEMBERS:
+            name = MEMBERS[path][0]
+            previous, current = tomllib.loads(old), tomllib.loads(new)
+            if previous.get("package", {}).get("name") != name or current.get("package", {}).get("name") != name:
+                return fallback
+            _, before = cargo_graph(tomllib.loads(blob(base, "Cargo.lock")))
+            _, after = cargo_graph(tomllib.loads(blob(head, "Cargo.lock")))
+            owners = set().union(*(v for k, v in before.items() if k[0] == name and not k[2]),
+                                 *(v for k, v in after.items() if k[0] == name and not k[2]))
+            if not owners:
+                return fallback
+            diff = target_changes(previous, current, owners)
+            return diff[1] if diff is not None else owners
         return cargo_manifest_owners(old, new, blob(base, "Cargo.lock"), blob(head, "Cargo.lock"))
     except (ValueError, TypeError, KeyError, IndexError, subprocess.CalledProcessError, UnicodeDecodeError):
         return fallback
