@@ -21,7 +21,8 @@ const status = await ensureRegistryPackage({
   registry: values.registry,
   info,
   token: process.env.NODE_AUTH_TOKEN,
-  publish() {
+  tag: values.tag,
+  publish(publishTag) {
     const npm = process.platform === "win32" ? "npm.cmd" : "npm";
     execFileSync(
       npm,
@@ -34,7 +35,7 @@ const status = await ensureRegistryPackage({
         "--access",
         "public",
         "--tag",
-        values.tag,
+        publishTag,
       ],
       { stdio: "inherit" }
     );

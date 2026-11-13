@@ -106,10 +106,11 @@ jobs:
         run: |
           # App and container builds run independently. Include unpublished app tags
           # by recording the currently published image's version as well.
-          prior="$(docker buildx imagetools inspect "$IMAGE_NAME:latest" --format '{{json .Image.Config.Labels}}' 2>"$RUNNER_TEMP/inspect-latest.err")" || {
+          prior="$(docker buildx imagetools inspect "$IMAGE_NAME:latest" --format '{{json .Image}}' 2>"$RUNNER_TEMP/inspect-latest.err")" || {
             if grep -Eiq 'manifest unknown|not found' "$RUNNER_TEMP/inspect-latest.err"; then prior='{}'; else cat "$RUNNER_TEMP/inspect-latest.err" >&2; exit 1; fi
           }
-          previous_tag="$(jq -r '.["org.opencontainers.image.version"] // empty' <<< "$prior")"
+          previous_tag="$(jq -r '.. | objects | .["org.opencontainers.image.version"]? // empty' <<< "$prior" | sort -u)"
+          if [[ "$previous_tag" == *$'\n'* ]]; then echo "::error::Latest image platforms disagree on version"; exit 1; fi
           candidate="$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | jq --arg prior "$previous_tag" 'flatten + [{tag_name:$prior}]' | node scripts/ci/release-contract.mjs promote "$TAG")"
           echo "PUBLISH_LATEST=$candidate" >> "$GITHUB_ENV"
 

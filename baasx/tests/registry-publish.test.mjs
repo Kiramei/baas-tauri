@@ -76,3 +76,18 @@ describe("registry publication", () => {
     expect(publications).toBe(0);
   });
 });
+
+test("backfilling older versions preserves both stable and numeric prerelease pointers", async () => {
+  for (const [version,tag,previous,expected] of [
+    ["0.1.2","latest","0.2.0","historical"],
+    ["0.1.2-rc.9","next","0.1.2-rc.10","historical"],
+    ["0.1.2-rc.10","next","0.1.2-rc.9","next"],
+    ["0.1.2","latest","0.1.2-rc.1","latest"],
+  ]) {
+    const calls=[];
+    await ensureRegistryPackage({tag, registry:"https://registry.npmjs.org/",info:{...info,version},
+      request:async()=>response(200, {versions:{}, "dist-tags":{[tag]:previous}}),
+      publish:target=>calls.push(target)});
+    expect(calls).toEqual([expected]);
+  }
+});

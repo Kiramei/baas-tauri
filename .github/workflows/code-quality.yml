@@ -78,7 +78,6 @@ jobs:
           # 1.7.12 predates GitHub's queue: max syntax. The queue policy is tested separately.
           "$RUNNER_TEMP/actionlint" -shellcheck= -pyflakes= -ignore '^unexpected key "queue" for "concurrency" section'
       - name: Verify baasx package inputs with local stand-ins
-        if: fromJSON(needs.changes.outputs.plan).cli-package
         run: bun test baasx/tests/registry-package.test.mjs baasx/tests/registry-publish.test.mjs
       - name: Check Docker scripts
         if: fromJSON(needs.changes.outputs.plan).webui
