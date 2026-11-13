@@ -1,3 +1,10 @@
+#[cfg(unix)]
+#[path = "platform/posix/process.rs"]
+mod platform_process;
+#[cfg(windows)]
+#[path = "platform/windows/process.rs"]
+mod platform_process;
+
 use baas_cli_runtime::{
     Progress, acquire_lease, check_update, inspect, install, launch_spec, uninstall, update,
 };
@@ -118,7 +125,7 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
                 // A crashed CLI may leave its detached backend alive. Keep the
                 // read lease until that backend exits, so another CLI cannot
                 // reset its files in the middle of a running task.
-                if !backend_pid.is_some_and(process_alive) {
+                if !backend_pid.is_some_and(platform_process::process_alive) {
                     return Ok(None);
                 }
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -155,32 +162,6 @@ fn run(cancelled: &AtomicBool) -> UpdaterResult<Option<Value>> {
     value
         .map(Some)
         .map_err(|error| UpdaterError::Config(error.to_string()))
-}
-
-fn process_alive(pid: u32) -> bool {
-    #[cfg(unix)]
-    {
-        std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(true)
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        std::process::Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
-            .creation_flags(0x08000000)
-            .output()
-            .map(|output| {
-                !output.status.success()
-                    || String::from_utf8_lossy(&output.stdout).contains(&format!("\"{pid}\""))
-            })
-            .unwrap_or(true)
-    }
 }
 
 fn main() {
