@@ -58,7 +58,8 @@ async function fixture(mode: Record<string, unknown> = {}) {
     backend,
     `
     import { createServer } from 'node:net';
-    import { readFile, writeFile, appendFile } from 'node:fs/promises';
+    import { readFile, writeFile } from 'node:fs/promises';
+    import { appendFileSync } from 'node:fs';
     import { encodePipeFrame, PipeFrameDecoder } from ${JSON.stringify(protocol)};
     const mode = JSON.parse(await readFile(${JSON.stringify(modeFile)}, 'utf8'));
     await writeFile(${JSON.stringify(pidFile)}, String(process.pid));
@@ -74,7 +75,7 @@ async function fixture(mode: Record<string, unknown> = {}) {
         for (const frame of decoder.feed(chunk)) {
           const message = JSON.parse(frame.payload.toString('utf8'));
           if (message.type === 'open') {
-            void appendFile(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
+            appendFileSync(${JSON.stringify(opens)}, JSON.stringify(message) + '\\n');
             socket.write(encodePipeFrame(1, Buffer.from(JSON.stringify({type:'open_ok',channel:message.channel}))));
           } else if (message.command === 'status') {
             void (async () => {
