@@ -18,7 +18,12 @@ async function directory() {
   return path;
 }
 afterEach(async () => {
-  await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  // Windows can briefly retain executable handles after a fixture child exits.
+  await Promise.all(
+    temporary
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }))
+  );
 });
 
 async function cli(
