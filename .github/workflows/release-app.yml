@@ -18,8 +18,8 @@ env:
   RUST_BACKTRACE: short
 
 concurrency:
-  group: release-app-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-app-publication
+  queue: max
 
 jobs:
   check_tag_version:
@@ -296,10 +296,7 @@ jobs:
           fi
           cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
 
-          DEB_SIG="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb.sig' | head -n 1 || true)"
-          if [ -n "$DEB_SIG" ]; then
-            cp -v "$DEB_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-          fi
+          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
 
           RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
           if [ -z "$RPM" ]; then
@@ -308,10 +305,7 @@ jobs:
           fi
           cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
 
-          RPM_SIG="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm.sig' | head -n 1 || true)"
-          if [ -n "$RPM_SIG" ]; then
-            cp -v "$RPM_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-          fi
+          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
 
           find "$DST" -maxdepth 1 -type f -print | sort
 
@@ -471,10 +465,7 @@ jobs:
           fi
           cp -v "$DEB" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb"
 
-          DEB_SIG="$(find "$SRC/deb" -maxdepth 1 -type f -name '*.deb.sig' | head -n 1 || true)"
-          if [ -n "$DEB_SIG" ]; then
-            cp -v "$DEB_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
-          fi
+          cp -v "$DEB.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.deb_arch }}.deb.sig"
 
           RPM="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
           if [ -z "$RPM" ]; then
@@ -483,10 +474,7 @@ jobs:
           fi
           cp -v "$RPM" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm"
 
-          RPM_SIG="$(find "$SRC/rpm" -maxdepth 1 -type f -name '*.rpm.sig' | head -n 1 || true)"
-          if [ -n "$RPM_SIG" ]; then
-            cp -v "$RPM_SIG" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
-          fi
+          cp -v "$RPM.sig" "$DST/BAAS.Tauri_${VERSION}_${{ matrix.rpm_arch }}.rpm.sig"
 
           find "$DST" -maxdepth 1 -type f -print | sort
 
@@ -592,8 +580,11 @@ jobs:
         shell: bash
         run: bun run tauri:android:build:release -- --abi arm64
 
-      - name: Normalize Android APK artifact
+      - name: Prepare signed Android updater assets
         shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -608,7 +599,10 @@ jobs:
 
           rm -rf "$DST"
           mkdir -p "$DST"
-          cp -v "$SRC" "$DST/BAAS.Tauri_${VERSION}_android_arm64-v8a.apk"
+          APK="$DST/BAAS.Tauri_${VERSION}_android_arm64-v8a.apk"
+          cp -v "$SRC" "$APK"
+          bun tauri signer sign "$APK"
+          test -s "$APK.sig"
           ls -lah "$DST"
 
       - name: Attest Android APK
@@ -653,6 +647,7 @@ jobs:
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: ${{ matrix.target }}
+          cache-variant: fixed-webview2
           save-cache: "true"
 
       - name: Download WebView2 Runtime
@@ -851,6 +846,11 @@ jobs:
           IFS=$'\t' read -r release_id _ asset_count release_url <<< "$matches"
           echo "Publishing release $release_id ($release_url) with $asset_count assets."
 
+          gh release view "$TAG_NAME" --json assets | node scripts/ci/release-contract.mjs verify app "$TAG_NAME"
+          if [[ "$MAKE_LATEST" == true ]]; then
+            MAKE_LATEST="$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$TAG_NAME")"
+          fi
+
           gh api --method PATCH repos/{owner}/{repo}/releases/"$release_id" \
             -f name="BAAS Tauri App $TAG_NAME" \
             -F body=@release.txt \
@@ -888,7 +888,7 @@ jobs:
     if: ${{ !contains(github.ref_name, '.rc') }}
     name: Sync release to CNB
     runs-on: ubuntu-latest
-    timeout-minutes: 260
+    timeout-minutes: 60
     needs: [release-update]
 
     steps:
@@ -898,6 +898,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Determine CNB Latest from published app versions
+        id: cnb-latest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          echo "promote=$(gh api --paginate --slurp 'repos/{owner}/{repo}/releases?per_page=100' | node scripts/ci/release-contract.mjs promote "$RELEASE_TAG")" >> "$GITHUB_OUTPUT"
+
       - name: Sync CNB release
         uses: ./.github/actions/sync-cnb-release
         with:
@@ -906,10 +915,11 @@ jobs:
           tag-name: ${{ github.ref_name }}
           cnb-repo-slug: kiramei/baas-tauri
           asset-pattern: "*"
-          wait-timeout-minutes: "240"
+          wait-timeout-minutes: "0"
           poll-interval-seconds: "60"
           minimum-assets: "1"
-          make-latest: "true"
+          asset-contract: app
+          make-latest: ${{ steps.cnb-latest.outputs.promote }}
           sync-tag: "true"
           upload-assets: "true"
           overwrite-assets: "true"
@@ -922,9 +932,10 @@ jobs:
           tag-name: updater
           cnb-repo-slug: kiramei/baas-tauri
           asset-pattern: "*"
-          wait-timeout-minutes: "240"
+          wait-timeout-minutes: "0"
           poll-interval-seconds: "60"
           minimum-assets: "1"
+          asset-contract: updater
           make-latest: "false"
           sync-tag: "true"
           upload-assets: "true"

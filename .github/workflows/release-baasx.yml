@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-baasx-${{ github.ref }}
-  cancel-in-progress: false
+  group: release-baasx-publication
+  queue: max
 
 jobs:
   validate:
@@ -126,7 +126,7 @@ jobs:
     needs: [publish]
     if: github.repository == 'Kiramei/baas-tauri'
     runs-on: ubuntu-latest
-    timeout-minutes: 260
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -141,6 +141,8 @@ jobs:
           tag-name: ${{ github.ref_name }}
           cnb-repo-slug: kiramei/baas-tauri
           make-latest: "false"
+          asset-contract: baasx
+          wait-timeout-minutes: "0"
 
   publish-registry:
     name: Publish baasx to ${{ matrix.registry }}

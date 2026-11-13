@@ -57,8 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 260
     concurrency:
-      group: sync-cnb-release-${{ inputs.tag-name || github.run_id }}
-      cancel-in-progress: true
+      group: ${{ startsWith(inputs.tag-name, 'baasx-v') && 'release-baasx-publication' || 'release-app-publication' }}
+      queue: max
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

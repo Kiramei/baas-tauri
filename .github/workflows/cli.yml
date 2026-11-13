@@ -1,51 +1,12 @@
 name: baasx CI
 
 on:
-  push:
-    branches: [baasx-dev, dev, main]
-    paths:
-      [
-        "baasx/**",
-        "crates/baas-cli-runtime/**",
-        "crates/baas-updater/**",
-        "crates/baas-term/**",
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain*",
-        ".cargo/**",
-        "src/shared/**",
-        "src/features/rewardedTaskConfig.ts",
-        "public/locales/*.json",
-        "package.json",
-        "bun.lock",
-        "tsconfig*.json",
-        "eslint.config.*",
-        ".github/workflows/cli.yml",
-        ".github/workflows/release-baasx.yml",
-      ]
-  pull_request:
-    paths:
-      [
-        "baasx/**",
-        "crates/baas-cli-runtime/**",
-        "crates/baas-updater/**",
-        "crates/baas-term/**",
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain*",
-        ".cargo/**",
-        "src/shared/**",
-        "src/features/rewardedTaskConfig.ts",
-        "public/locales/*.json",
-        "package.json",
-        "bun.lock",
-        "tsconfig*.json",
-        "eslint.config.*",
-        ".github/workflows/cli.yml",
-        ".github/workflows/release-baasx.yml",
-      ]
   workflow_dispatch:
   workflow_call:
+
+concurrency:
+  group: baasx-package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -87,20 +48,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-      - name: Install the pinned baasx compiler
-        shell: bash
-        run: |
-          compiler=$(node -p 'require("./baasx/package.json").packageManager')
-          npm install --prefix "$RUNNER_TEMP/baasx-bun" --no-audit --no-fund "$compiler"
-          echo "$RUNNER_TEMP/baasx-bun/node_modules/.bin" >> "$GITHUB_PATH"
-      - name: Verify the pinned compiler revision
-        run: |
-          bun --revision
-          bun -e 'if (Bun.revision !== "b1007f1177fd402fae67387b8548cae5ae9b5707") throw new Error("Unexpected baasx compiler revision")'
-      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-baasx
       - run: cargo test --locked -p baas-cli-runtime
       - run: bun run baasx:check
       - run: bun run baasx:test
@@ -164,12 +112,14 @@ jobs:
         with:
           name: baasx-${{ runner.os }}-${{ runner.arch }}
           path: baasx/dist/release/*
+          retention-days: 7
           compression-level: 0
           if-no-files-found: error
       - name: Upload the registry JavaScript bundle
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: registry-node-bundle
           path: baasx/dist/baasx-node.mjs
           if-no-files-found: error

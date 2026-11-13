@@ -2,56 +2,92 @@ name: Code Quality
 
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, main, baasx-dev]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [baasx-dev]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Full verification or an isolated test of routing and release contracts
+        type: choice
+        options: [contracts, full]
+        default: contracts
 
 permissions:
   contents: read
 
 concurrency:
-  group: code-quality-${{ github.event.pull_request.number || github.ref }}
+  group: quality-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   changes:
-    name: Identify native changes
+    name: Determine verification inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     outputs:
-      native: ${{ steps.paths.outputs.native }}
-      client: ${{ steps.paths.outputs.client }}
+      contracts: ${{ steps.paths.outputs.contracts }}
+      generate-fonts: ${{ steps.paths.outputs.generate-fonts }}
+      frontend: ${{ steps.paths.outputs.frontend }}
+      android-tests: ${{ steps.paths.outputs.android-tests }}
+      desktop-rust: ${{ steps.paths.outputs.desktop-rust }}
+      android: ${{ steps.paths.outputs.android }}
+      cli-source: ${{ steps.paths.outputs.cli-source }}
+      cli-platform: ${{ steps.paths.outputs.cli-platform }}
+      static-export: ${{ steps.paths.outputs.static-export }}
+      rust-matrix: ${{ steps.paths.outputs.rust-matrix }}
+      cli-matrix: ${{ steps.paths.outputs.cli-matrix }}
+      plan: ${{ steps.paths.outputs.plan }}
     steps:
       - uses: actions/checkout@v6
         with:
+          fetch-depth: 2
           persist-credentials: false
-      - name: Check native build inputs
-        id: paths
+      - name: Fetch push base if not in shallow checkout
+        if: github.event_name == 'push'
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.before }}
         run: |
-          set -euo pipefail
-          if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-            echo "client=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [[ "$BASE_SHA" != 0000000000000000000000000000000000000000 ]] && ! git cat-file -e "$BASE_SHA^{commit}"; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
           fi
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          changed_paths="$(git diff --name-only "$BASE_SHA" HEAD)"
-          if grep -Eq '^(src-tauri/|crates/|\.cargo/|Cargo\.|scripts/(android|prepare-android|tests/test_android)|\.github/(actions/|workflows/code-quality\.yml))' <<< "$changed_paths"; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "native=false" >> "$GITHUB_OUTPUT"
-          fi
-          if grep -Eq '^(src/|public/|tests/frontend/|scripts/|src-tauri/|crates/|\.cargo/|Cargo\.|package\.json$|bun\.lock$|tsconfig[^/]*\.json$|vite\.config\.|eslint\.config\.|\.github/actions/|\.github/workflows/(code-quality|release-app)\.yml$)' <<< "$changed_paths"; then
-            echo "client=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "client=false" >> "$GITHUB_OUTPUT"
-          fi
+      - id: paths
+        run: python3 scripts/ci/impact.py plan
+
+  contracts:
+    name: CI and release contracts
+    if: needs.changes.outputs.contracts == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: oven-sh/setup-bun@v2
+        with: {bun-version: "1.3.14"}
+      - run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+      - run: bun test tests/frontend/CiPolicy.test.ts tests/frontend/ReleaseWorkflows.test.ts tests/frontend/ReleasePublishing.test.ts
+      - name: Lint workflow expressions and job dependencies
+        shell: bash
+        run: |
+          base=https://github.com/rhysd/actionlint/releases/download/v1.7.12
+          curl --fail --silent --show-error --location "$base/actionlint_1.7.12_linux_amd64.tar.gz" -o "$RUNNER_TEMP/actionlint.tgz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tgz" -C "$RUNNER_TEMP" actionlint
+          # 1.7.12 predates GitHub's queue: max syntax. The queue policy is tested separately.
+          "$RUNNER_TEMP/actionlint" -shellcheck= -pyflakes= -ignore '^unexpected key "queue" for "concurrency" section'
+      - name: Verify baasx package inputs with local stand-ins
+        if: fromJSON(needs.changes.outputs.plan).cli-package
+        run: bun test baasx/tests/registry-package.test.mjs baasx/tests/registry-publish.test.mjs
+      - name: Check Docker scripts
+        if: fromJSON(needs.changes.outputs.plan).webui
+        run: python3 -m unittest discover -s scripts/tests -p 'test_docker*.py'
 
   generate-fonts:
     name: Generate font assets
     needs: changes
-    if: needs.changes.outputs.client == 'true'
+    if: needs.changes.outputs.generate-fonts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -65,11 +101,10 @@ jobs:
 
   frontend:
     name: Frontend checks
-    # The Android runtime tests require Python 3.9, unavailable on Ubuntu 26.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [changes, generate-fonts]
-    if: needs.changes.outputs.client == 'true'
+    if: needs.changes.outputs.frontend == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -82,11 +117,6 @@ jobs:
       - name: Setup Bun dependencies
         uses: ./.github/actions/setup-bun-deps
 
-      - name: Setup Android runtime Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.9"
-
       - name: Validate client source and translations
         run: |
           bunx eslint src tests/frontend --ext .ts,.tsx
@@ -95,38 +125,43 @@ jobs:
       - name: Test client behavior and authenticated transport
         run: bun run test:transport
 
-      - name: Test Android bootstrap preservation
-        run: bun run test:android-bootstrap
+      - name: Type-check all client modes once
+        run: bunx tsc
+      - name: Bundle affected client modes
+        env:
+          PLAN: ${{ needs.changes.outputs.plan }}
+        run: |
+          for mode in webui tauri; do
+            if jq -e --arg mode "$mode" '.[$mode]' <<< "$PLAN" >/dev/null; then
+              bunx vite build --mode "$mode"
+            fi
+          done
+          if jq -e '."android-ui" and (.android | not)' <<< "$PLAN" >/dev/null; then
+            bunx vite build --mode android
+            bun scripts/android-css-compat.mjs
+            bun scripts/prepare-android-runtime.mjs
+          fi
 
-      - name: Verify Android private worker protocol and redaction
-        run: python scripts/tests/test_android_plugin_worker.py
-
-      - name: Build WebUI frontend
-        run: bun run build:webui
-
-      - name: Build desktop frontend
-        run: bun run build:tauri
-
-      - name: Build Android frontend
-        run: bun run build:tauri:android
+  android-tests:
+    name: Android backend tests
+    if: needs.changes.outputs.android-tests == 'true'
+    needs: changes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.9"}
+      - run: python scripts/tests/test_android_bootstrap_preserve.py
+      - run: python scripts/tests/test_android_plugin_worker.py
 
   desktop-rust:
     name: ${{ matrix.name }} Rust tests
-    needs: changes
-    if: needs.changes.outputs.native == 'true'
+    needs: [changes, contracts, cli-source]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.desktop-rust == 'true' && !contains(needs.*.result, 'failure') }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: Windows
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - name: Linux
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - name: macOS
-            os: macos-latest
-            target: aarch64-apple-darwin
+      matrix: ${{ fromJSON(needs.changes.outputs.rust-matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -141,10 +176,11 @@ jobs:
           target: ${{ matrix.target }}
           download-fonts: "false"
           install-frontend: "false"
+          cache-variant: workspace-tests
           save-cache: "false"
 
       - name: Install Linux Tauri dependencies
-        if: matrix.name == 'Linux'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -160,8 +196,8 @@ jobs:
     name: Android arm64 debug APK
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    needs: [changes, generate-fonts]
-    if: needs.changes.outputs.native == 'true'
+    needs: [changes, generate-fonts, android-tests]
+    if: needs.changes.outputs.android == 'true'
     env:
       NODE_OPTIONS: --max_old_space_size=4096
     steps:
@@ -180,6 +216,7 @@ jobs:
         uses: ./.github/actions/setup-tauri-build-env
         with:
           target: aarch64-linux-android
+          cache-variant: android-debug
           save-cache: "false"
 
       - name: Install Android build dependencies
@@ -207,33 +244,160 @@ jobs:
         working-directory: src-tauri/gen/android
         run: ./gradlew :app:lintVitalArm64Release -x rustBuildArm64Release
 
+  cli-source:
+    name: baasx source
+    if: needs.changes.outputs.cli-source == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-baasx
+      - run: bun run baasx:check
+      - run: bun run baasx:test
+      - run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
+      - run: bun baasx/scripts/build.ts --js-only
+      - run: node baasx/dist/baasx-node.mjs --demo --json status
+
+  cli-platform:
+    name: baasx helper and OS smoke (${{ matrix.os }})
+    needs: [changes, cli-source]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.cli-platform == 'true' && (needs.cli-source.result == 'success' || needs.cli-source.result == 'skipped') }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.cli-matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run: {shell: bash}
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-baasx
+      - uses: dtolnay/rust-toolchain@master
+        with: {toolchain: "1.95.0"}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: baas-cli-debug
+          key: ${{ runner.os }}-${{ runner.arch }}-1.95.0-helper
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/baasx-dev' }}
+      - run: cargo test --locked -p baas-cli-runtime
+      - run: bun test baasx/tests/runtime.test.ts baasx/tests/mouse-pty.test.ts
+      - run: bun baasx/scripts/build.ts --js-only
+      - run: node baasx/dist/baasx-node.mjs --demo --json status
+
+  static-export:
+    name: Linux static export (root)
+    needs: changes
+    if: needs.changes.outputs.static-export == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          # Historical protocol evidence is verified against its recorded Git revision.
+          fetch-depth: 0
+      - name: Install client types for configuration and API audits
+        # Documentation contracts inspect the real client through its TypeScript project.
+        uses: ./.github/actions/setup-bun-deps
+        with:
+          bun-version: "1.3.14"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install documentation dependencies
+        working-directory: docs
+        run: bun install --frozen-lockfile
+      - name: Install font and browser tooling
+        run: |
+          python -m pip install --disable-pip-version-check fonttools brotli
+          npm install --prefix "$RUNNER_TEMP/docs-browser" --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/docs-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Build static export
+        working-directory: docs
+        env:
+          NEXT_PUBLIC_BASE_PATH: ""
+        run: |
+          bun run build
+          mkdir -p ../.cache/deployment/search-artifact
+          cp out/search-index/*.json ../.cache/deployment/search-artifact/
+      - name: Check exported navigation and media
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-deployment.mjs --channel chromium
+      - name: Check native API examples and type popups
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-client-api.mjs --channel chromium
+      - name: Check desktop showcase images and playback
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+          DOCS_BROWSER_CHANNEL: chromium
+        run: node docs/scripts/check-showcase.mjs
+      - name: Check BAASX interactive terminal tutorials
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-baasx.mjs
+      - name: Check search cache and reload recovery
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-search-cache.mjs --channel chromium
+      - name: Check search error recovery against the current index
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-search-recovery.mjs --channel chromium
+      - name: Check updater diagrams and localized navigation against the current index
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-updater-docs.mjs --channel chromium
+      - name: Check large-config benchmark controls
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-native-payload.mjs --channel chromium
+      - name: Check Android local benchmark controls
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/docs-browser/node_modules/playwright
+        run: node docs/scripts/check-android-local.mjs --channel chromium
+      - name: Check documentation contracts, WebP pixels and privacy provenance
+        # Browser checks above regenerate source-bound evidence before it is verified.
+        run: bun test docs/tests
+      - name: Upload validation evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 3
+          name: docs-deployment-root
+          path: .cache/deployment/
+          if-no-files-found: ignore
+
   quality-gate:
     name: Dev quality gate
     if: always()
-    needs: [changes, generate-fonts, frontend, desktop-rust, android]
+    needs: [changes, contracts, generate-fonts, frontend, android-tests, desktop-rust, android, cli-source, cli-platform]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify required jobs
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - name: Require the exact planned conclusions
         env:
-          CHANGES: ${{ needs.changes.result }}
-          CLIENT_CHANGED: ${{ needs.changes.outputs.client }}
-          NATIVE_CHANGED: ${{ needs.changes.outputs.native }}
-          FONTS: ${{ needs.generate-fonts.result }}
-          FRONTEND: ${{ needs.frontend.result }}
-          RUST: ${{ needs.desktop-rust.result }}
-          ANDROID: ${{ needs.android.result }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$CHANGES" == success ]]
-          if [[ "$CLIENT_CHANGED" == true ]]; then
-            [[ "$FONTS" == success && "$FRONTEND" == success ]]
-          else
-            [[ "$CLIENT_CHANGED" == false && "$FONTS" == skipped && "$FRONTEND" == skipped ]]
-          fi
-          if [[ "$NATIVE_CHANGED" == true ]]; then
-            [[ "$RUST" == success && "$ANDROID" == success ]]
-          else
-            [[ "$NATIVE_CHANGED" == false && "$RUST" == skipped && "$ANDROID" == skipped ]]
-          fi
+          PLAN: ${{ needs.changes.outputs.plan }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/impact.py gate
+
+  documentation-gate:
+    name: Dev documentation gate
+    if: always()
+    needs: [changes, static-export]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - name: Require the exact planned conclusions
+        env:
+          PLAN: ${{ needs.changes.outputs.plan }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/impact.py gate --docs
