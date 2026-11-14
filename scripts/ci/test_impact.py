@@ -65,6 +65,17 @@ class Routing(unittest.TestCase):
         self.assertFalse(result["android"] or result["frontend"] or result["baasx-platform"])
         self.assertFalse(result["site"] or result["readme"])
 
+    def test_known_terminal_patch_runs_baasx_and_unknown_patches_fail_closed(self):
+        result = classify(["baasx/patches/ink@6.3.1.patch"])
+        self.assertTrue(result["baasx-source"] and result["registry"])
+        self.assertEqual(len(result["baasx-platform"]), 7)
+        self.assertTrue(all(row["js"] and not row["rust"] for row in result["baasx-platform"]))
+        self.assertFalse(result["frontend"] or result["desktop"] or result["android"])
+        unknown = classify(["baasx/patches/shared.patch"])
+        self.assertEqual(unknown["frontend"], ["android", "tauri", "webui"])
+        self.assertEqual(len(unknown["baasx-platform"]), 7)
+        self.assertTrue(unknown["baasx-source"] and unknown["registry"])
+
     def test_targets_and_mixed_changes(self):
         result = classify(["src-tauri/webview2.arm64.json", "src/android/App.tsx", "baasx/src/platform/windows/process-tree.ts"])
         self.assertEqual(result["desktop"], [dict(os="windows-11-arm", target="aarch64-pc-windows-msvc")])

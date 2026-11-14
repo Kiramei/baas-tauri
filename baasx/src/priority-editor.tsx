@@ -242,7 +242,7 @@ export function PriorityEditor({
     else if (key.return) void save();
   };
   const inputRef = useRef(handleInput);
-  // Refresh the stable input proxy before Ink's passive subscription effects.
+  // Refresh the stable input proxy for the committed frame.
   useLayoutEffect(() => {
     propsRef.current = { field, active, onSave, onCancel };
     inputRef.current = handleInput;
