@@ -111,9 +111,7 @@ describe("registry package", () => {
         expect(packages.map((pkg) => pkg.name)).toEqual([
           ...platforms.map((p) => p.name),
           "@kiramei/baasx",
-          "baasx",
         ]);
-        const entry = packages.find((p) => p.name === "baasx");
         const cli = packages.find((p) => p.name === "@kiramei/baasx");
         const inspect = (p) =>
           JSON.parse(
@@ -121,10 +119,7 @@ describe("registry package", () => {
           );
         const entries = (p) =>
           execFileSync("tar", ["-tzf", p.archive], { encoding: "utf8" }).trim().split("\n");
-        expect(inspect(entry).dependencies).toEqual({ "@kiramei/baasx": manifest.version });
-        expect(entries(entry).sort()).toEqual(
-          ["package/LICENSE", "package/bin/baasx.mjs", "package/package.json"].sort()
-        );
+        expect(packages.find((p) => p.name === "baasx")).toBeUndefined();
         expect(inspect(cli).optionalDependencies).toEqual(
           Object.fromEntries(platforms.map((p) => [p.name, manifest.version]))
         );

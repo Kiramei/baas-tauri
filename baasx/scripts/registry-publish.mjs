@@ -19,8 +19,8 @@ if (
 }
 const packages = JSON.parse(readFileSync(values.info, "utf8"));
 for (const info of packages) {
-  // GitHub Packages requires scoped names. Publish dependencies before their consumers.
-  if (values.registry === "https://npm.pkg.github.com/" && info.name === "baasx") continue;
+  // The unscoped name is pending approval. Ignore it even in older package lists.
+  if (info.name === "baasx") continue;
   const status = await ensureRegistryPackage({
     registry: values.registry,
     info,

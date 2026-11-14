@@ -137,16 +137,6 @@ try {
         copyFileSync(path.join(project, file), path.join(stage, file));
     }
   );
-  pack(
-    {
-      name: "baasx",
-      description,
-      ...binManifest,
-      dependencies: { "@kiramei/baasx": version },
-      files: ["bin", "LICENSE"],
-    },
-    (stage) => bin(stage, "alias.mjs")
-  );
   console.log(JSON.stringify(packages));
 } finally {
   rmSync(temp, { recursive: true, force: true });

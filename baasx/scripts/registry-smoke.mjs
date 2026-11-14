@@ -68,13 +68,13 @@ try {
       versions: { [pkg.version]: manifest },
     });
   }
-  // Both bare and scoped package resolution must use the fixture registry even if
+  // Package resolution must use the fixture registry even if
   // actions/setup-node configured a scoped production registry on this runner.
   const config = path.join(scratch, ".npmrc");
   await writeFile(config, `registry=${registry}\n@kiramei:registry=${registry}\n`);
   const matching = platforms.find((p) => p.os === process.platform && p.cpu === process.arch);
   assert.ok(matching);
-  for (const name of ["@kiramei/baasx", "baasx"]) {
+  for (const name of ["@kiramei/baasx"]) {
     const prefix = path.join(scratch, "npm-install-" + name.replaceAll("/", "-"));
     requested.clear();
     const [npm, ...installArgs] = npmCommand([
@@ -158,7 +158,7 @@ try {
     };
     await run(
       process.env.BAASX_SMOKE_BUN,
-      ["add", "-g", "baasx", "--ignore-scripts"],
+      ["add", "-g", "@kiramei/baasx", "--ignore-scripts"],
       options,
       scratch
     );

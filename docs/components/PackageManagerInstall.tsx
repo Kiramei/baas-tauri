@@ -14,7 +14,7 @@ const packageManagers = [
   { id: "npm", label: "npm", command: "npm install -g @kiramei/baasx" },
   { id: "pnpm", label: "pnpm", command: "pnpm add -g @kiramei/baasx" },
   { id: "yarn", label: "yarn", command: "yarn global add @kiramei/baasx" },
-  { id: "bun", label: "bun", command: "bun add -g baasx" },
+  { id: "bun", label: "bun", command: "bun add -g @kiramei/baasx" },
   { id: "cnpm", label: "cnpm", command: "cnpm install -g @kiramei/baasx" },
   { id: "deno", label: "deno", command: "deno install -g -A npm:@kiramei/baasx" },
 ] as const;

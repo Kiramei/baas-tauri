@@ -4,7 +4,7 @@
 
 baasx is BAAS's standalone terminal workbench for managing Blue Archive Auto Script profiles, tasks, schedules, devices, and runtime logs. The CLI runs independently of the Tauri desktop app and shares its headless service client and backend protocol.
 
-The installed command is `baasx`, and the npm entry points are `baasx` and `@kiramei/baasx`. Source code lives in `baasx/`. Repository scripts use `bun run baasx`, `baasx:build`, and related names.
+The installed command is `baasx`, and the npm package is `@kiramei/baasx`. Source code lives in `baasx/`. Repository scripts use `bun run baasx`, `baasx:build`, and related names.
 
 ## Install
 
@@ -15,7 +15,7 @@ Install Node.js 20.3 or newer when using npm, Bun, pnpm, Yarn, or cnpm. Deno can
 npm install -g @kiramei/baasx
 
 # Bun
-bun add -g baasx
+bun add -g @kiramei/baasx
 
 # pnpm
 pnpm add -g @kiramei/baasx
@@ -42,7 +42,7 @@ cnpm uses an npm mirror by default. A new version may take time to appear there.
 
 Deno's `-A` grants all permissions to the launcher. Ensure Deno and its global executable directory (by default `~/.deno/bin`) are on PATH. Deno 2.9 and newer wait 24 hours after publication by default. To install immediately, add `--min-dep-age=0` to the command on Deno 2.9 or newer.
 
-Both names install the same JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
+The scoped package installs the JavaScript CLI. The package manager selects an exact-version optional runtime for your OS and CPU. Linux, macOS and Windows each have x64 and ARM64 CLI builds. Local OCR currently supports Linux x64, macOS ARM64 and Windows x64. Other builds support demo mode and remote servers. GitHub Packages publishes the scoped names.
 
 ## Getting started from source
 

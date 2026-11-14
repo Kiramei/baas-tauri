@@ -60,7 +60,7 @@ The full job/attempt timing data and API access limits are recorded in [CI-BASEL
 
 ## Module workflows
 
-`code-quality.yml` owns change detection and the two required checks. It calls `client-frontend.yml`, `client-native.yml`, `baasx-checks.yml` and `docs-validation.yml` separately. Release workflows keep their product tags and publication locks. `baasx.yml` builds BAASX distribution inputs on six native hosts and uploads twelve archives plus one registry JS bundle. npm receives six platform packages, the scoped JS package and the unscoped entry. GitHub Packages receives the seven scoped packages.
+`code-quality.yml` owns change detection and the two required checks. It calls `client-frontend.yml`, `client-native.yml`, `baasx-checks.yml` and `docs-validation.yml` separately. Release workflows keep their product tags and publication locks. `baasx.yml` builds BAASX distribution inputs on six native hosts and uploads twelve archives plus one registry JS bundle. npm and GitHub Packages receive six platform packages and the scoped JS package. The unscoped npm name is pending approval.
 
 ## Earlier CI measurements
 
