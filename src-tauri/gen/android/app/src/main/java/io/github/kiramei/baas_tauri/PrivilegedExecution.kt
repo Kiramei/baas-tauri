@@ -15,6 +15,18 @@ internal object PrivilegedExecution {
     Regex("^\\s*FocusedDisplayId:\\s*(\\d+)\\s*$", RegexOption.MULTILINE)
       .find(snapshot)?.groupValues?.get(1)?.toIntOrNull()
 
+  fun focusSurfaceLayerStack(displayId: Int, layerStack: Int, primaryLayerStack: Int): Int {
+    virtualDisplayId(displayId)
+    check(primaryLayerStack >= 0 && layerStack > 0 && layerStack != primaryLayerStack) {
+      "Focus surface cannot use an unknown or primary display stack"
+    }
+    return layerStack
+  }
+
+  private fun isFocusShieldName(name: String, ownerUid: Int): Boolean =
+    name.endsWith(" $FOCUS_SHIELD_TITLE") ||
+      (ownerUid == 2000 && name == "EmbeddedWindow{ u0 $FOCUS_SHIELD_TITLE}")
+
   /** Fail closed before untargeted Android 12 input: our shield must be on top. */
   fun ownsFocusInputWindow(snapshot: String, displayId: Int, ownerUid: Int): Boolean =
     checkFocusInputWindow(snapshot, displayId, ownerUid).verified
@@ -32,7 +44,7 @@ internal object PrivilegedExecution {
     val lines = window.findAll(snapshot).map { it.value }.toList()
     val target = lines.filter { field(it, "displayId")?.toIntOrNull() == displayId }
     val shields = target.filter { line ->
-      Regex("name='([^']*)'").find(line)?.groupValues?.get(1)?.endsWith(" $FOCUS_SHIELD_TITLE") == true &&
+      Regex("name='([^']*)'").find(line)?.groupValues?.get(1)?.let { isFocusShieldName(it, ownerUid) } == true &&
         field(line, "ownerUid")?.toIntOrNull() == ownerUid
     }
     fun result(verified: Boolean, reason: String): FocusInputWindowCheck = FocusInputWindowCheck(
@@ -48,6 +60,8 @@ internal object PrivilegedExecution {
       if (field(line, "visible") == "false") continue
       val flags = field(line, "flags") ?: return result(false, "UNKNOWN_FLAGS")
       val features = field(line, "inputFeatures") ?: return result(false, "UNKNOWN_INPUT_FEATURES")
+      val portal = field(line, "portalToDisplayId")?.toIntOrNull() ?: return result(false, "UNKNOWN_PORTAL")
+      if (portal != -1 && portal != displayId) return result(false, "OTHER_DISPLAY_PORTAL")
       if (flags.split(" | ").contains("NOT_TOUCHABLE") ||
         features.split(" | ").contains("NO_INPUT_CHANNEL") || field(line, "hasToken") == "false") continue
       // Even a visible modal window outside our point can intercept a DOWN.
@@ -61,7 +75,7 @@ internal object PrivilegedExecution {
       }
       val name = Regex("name='([^']*)'").find(line)?.groupValues?.get(1)
         ?: return result(false, "UNKNOWN_TITLE")
-      if (!name.endsWith(" $FOCUS_SHIELD_TITLE")) return result(false, "OTHER_WINDOW_ON_TOP")
+      if (!isFocusShieldName(name, ownerUid)) return result(false, "OTHER_WINDOW_ON_TOP")
       val region = field(line, "touchableRegion") ?: return result(false, "UNKNOWN_TOUCH_REGION")
       val rect = Regex("\\[(-?\\d+),(-?\\d+)\\]\\[(-?\\d+),(-?\\d+)\\]").matchEntire(region)
         ?: return result(false, "UNKNOWN_TOUCH_REGION")

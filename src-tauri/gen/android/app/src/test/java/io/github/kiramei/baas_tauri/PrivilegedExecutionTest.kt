@@ -9,6 +9,17 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class PrivilegedExecutionTest {
+  @Test fun focusSurfaceMustStayOnTheOwnedNonPrimaryDisplayStack() {
+    assertEquals(9, PrivilegedExecution.focusSurfaceLayerStack(9, 9, 0))
+    for ((display, stack, primary) in listOf(Triple(0, 9, 0), Triple(-1, 9, 0),
+      Triple(9, 0, 0), Triple(9, -1, 0), Triple(9, 5, 5), Triple(9, 9, -1))) {
+      try {
+        PrivilegedExecution.focusSurfaceLayerStack(display, stack, primary)
+        fail("Invalid or primary display stack must not receive a focus surface")
+      } catch (_: IllegalStateException) { }
+    }
+  }
+
   @Test fun inputFocusUsesTheInputDispatcherDisplayInsteadOfTaskFocus() {
     assertEquals(0, PrivilegedExecution.focusedInputDisplayId("  FocusedDisplayId: 0\n  FocusedApplications:\n"))
     assertEquals(2, PrivilegedExecution.focusedInputDisplayId("Input Dispatcher State:\n  FocusedDisplayId: 2\n"))

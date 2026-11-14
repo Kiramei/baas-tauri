@@ -21,10 +21,13 @@ object DisplayInput {
       android.content.Context.CONTEXT_IGNORE_SECURITY))
     check(shell.packageManager.checkPermission("android.permission.INTERNAL_SYSTEM_WINDOW", "com.android.shell") ==
       android.content.pm.PackageManager.PERMISSION_GRANTED) { "Shizuku shell cannot create the game focus shield" }
+    check(shell.packageManager.checkPermission("android.permission.ACCESS_SURFACE_FLINGER", "com.android.shell") ==
+      android.content.pm.PackageManager.PERMISSION_GRANTED) { "Shizuku shell cannot place the owned game focus surface" }
     val handler = android.os.Handler(android.os.Looper.getMainLooper())
     val ready = java.util.concurrent.CompletableFuture<Unit>()
     val finished = java.util.concurrent.atomic.AtomicBoolean(false)
     val attached = java.util.concurrent.atomic.AtomicReference<Pair<android.view.WindowManager, android.view.View>?>()
+    val focusSurface = java.util.concurrent.atomic.AtomicReference<NativeFocusSurface?>()
     val handshake = PreviewFocusHandshake()
     handler.post {
       if (finished.get()) return@post
@@ -45,7 +48,12 @@ object DisplayInput {
         view.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
           override fun onPreDraw(): Boolean {
             view.viewTreeObserver.removeOnPreDrawListener(this)
-            view.postDelayed({ ready.complete(Unit) }, 300L)
+            if (finished.get()) return true
+            try {
+              focusSurface.set(NativeFocusSurface.create(windowContext, display, view, finished::get,
+                handshake::recordDown, handshake::recordCancel,
+                { ready.complete(Unit) }, { ready.completeExceptionally(it) }))
+            } catch (error: Throwable) { ready.completeExceptionally(error) }
             return true
           }
         })
@@ -70,7 +78,9 @@ object DisplayInput {
       val removed = java.util.concurrent.CompletableFuture<Unit>()
       handler.post {
         try {
-          attached.getAndSet(null)?.let { (windows, view) -> windows.removeViewImmediate(view) }
+          try { focusSurface.getAndSet(null)?.close() } finally {
+            attached.getAndSet(null)?.let { (windows, view) -> windows.removeViewImmediate(view) }
+          }
           removed.complete(Unit)
         } catch (error: Throwable) { removed.completeExceptionally(error) }
       }

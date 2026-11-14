@@ -64,6 +64,32 @@ class PreviewFocusHandshakeTest {
     assertTrue(PrivilegedExecution.ownsFocusInputWindow(listOf(shield, game, surface).joinToString("\n"), 8, 2000))
   }
 
+  @Test fun embeddedFocusSurfaceMustHaveTheExactOwnedHostNameUidTypeAndRegion() {
+    val host = PrivilegedExecution.FOCUS_SHIELD_TITLE
+    val embedded = window(uid = 2000, type = "2026")
+      .replace("name='abc $host'", "name='EmbeddedWindow{ u0 $host}'")
+    assertTrue(PrivilegedExecution.ownsFocusInputWindow(embedded, 2, 2000))
+    for (invalid in listOf(
+      embedded.replace("ownerUid=2000", "ownerUid=10070"),
+      embedded.replace("type=2026", "type=2010"),
+      embedded.replace("EmbeddedWindow{ u0", "EmbeddedWindow{ u10"),
+      embedded.replace("$host}'", "$host impostor}'"),
+      embedded.replace("EmbeddedWindow{", "other EmbeddedWindow{"),
+      embedded.replace("touchableRegion=[0,0][1280,720]", "touchableRegion=[65,0][1280,720]"),
+      embedded.replace("hasToken=true", "hasToken=false"),
+    )) assertFalse(PrivilegedExecution.ownsFocusInputWindow(invalid, 2, 2000))
+  }
+
+  @Test fun aPortalCannotRedirectTheHandshakeToAnotherDisplayWithoutAnInputChannel() {
+    val shield = window(uid = 2000, type = "2026")
+    val portal = window(name = "portal", uid = 10070, features = "NO_INPUT_CHANNEL", token = false)
+      .replace("portalToDisplayId=-1", "portalToDisplayId=0")
+    val check = PrivilegedExecution.checkFocusInputWindow(portal + "\n" + shield, 2, 2000)
+    assertFalse(check.verified)
+    assertEquals("OTHER_DISPLAY_PORTAL", check.reason)
+    assertFalse(PrivilegedExecution.ownsFocusInputWindow(shield.replace("portalToDisplayId=-1, ", ""), 2, 2000))
+  }
+
   @Test fun otherDisplaysAndNonInputSurfaceLayersAreIgnored() {
     val snapshot = listOf(window(display = 0, uid = 10062),
       window(name = "SurfaceView[game](BLAST)", uid = 10070, features = "NO_INPUT_CHANNEL", token = false),
