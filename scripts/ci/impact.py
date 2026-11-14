@@ -59,7 +59,7 @@ RULES = [
       "scripts/portable-fixed-webview2*"), {"native:windows"}),
     (("src-tauri/icons/*macos*", "src-tauri/icons/*.icns", "scripts/*macos*", "scripts/tests/test_macos*"), {"native:macos"}),
     (("src-tauri/*",), NATIVE | ANDROID),
-    (("scripts/android-css*", "src/android/*", "src/shared/Android*", "tests/frontend/*Android*", "tests/frontend/MobileNavigation*", "src/components/Android*", "tsconfig.ci.android.json"), {"ui:android"}),
+    (("scripts/android-css*", "src/android/*", "src/shared/Android*", "tests/frontend/*Android*", "tests/frontend/MobileNavigation*", "tests/browser/android-*", "src/components/Android*", "tsconfig.ci.android.json"), {"ui:android"}),
     (("src/App.tsx", "src/platform/App.tsx", "src/platform/startup.ts", "src/pages/SettingsPage.tsx", "tsconfig.ci.desktop.json"), {"ui:webui", "ui:tauri"}),
     (("tests/frontend/CiPolicy.test.ts", "tests/frontend/ReleasePublishing.test.ts", "tests/frontend/ReleaseWorkflows.test.ts"), CONTRACTS),
     (("src/*", "tests/frontend/*", "tests/browser/*", "public/*", "index.html", "components.json",

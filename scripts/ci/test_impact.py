@@ -25,6 +25,7 @@ class Routing(unittest.TestCase):
             "scripts/tests/test_mirror_upstream_release.py": {"contracts"},
             "src/android/pages/SettingsPage.tsx": {"ui:android"},
             "src/shared/AndroidAuth.ts": {"ui:android"},
+            "tests/browser/android-home-policy-probe.mjs": {"ui:android"},
             "src/platform/linux/useNativeWindowControls.ts": {"ui:linux"},
             "src/platform/windows/acrylic.css": {"ui:windows"},
             "src/App.tsx": {"ui:webui", "ui:tauri"},
