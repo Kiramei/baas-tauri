@@ -22,6 +22,8 @@ import { recordFrontendSystemLog } from "../../src/shared/SystemLogService";
 import { useWebSocketStore } from "../../src/store/WebsocketStore";
 import type { EventConfig } from "../../src/types/event";
 import type { PageKey } from "../../src/types/app";
+import type { PluginDescriptor } from "../../src/shared/Plugins";
+import { unzipSync } from "fflate";
 import "../../src/styles/index.css";
 
 if (!import.meta.env.DEV || (!__WITH_WEBUI__ && !__WITH_ANDROID__) || __WITH_TAURI__)
@@ -30,6 +32,32 @@ if (!import.meta.env.DEV || (!__WITH_WEBUI__ && !__WITH_ANDROID__) || __WITH_TAU
 const AppMain = __WITH_ANDROID__ ? AndroidMain : DesktopMain;
 
 const query = new URLSearchParams(location.search);
+const profileFeatures = query.get("profileFeatures") === "1";
+// Synthetic overflow and archive data for the real profile and plugin workflows.
+const fixturePlugins: PluginDescriptor[] = Array.from({ length: 24 }, (_, index) => ({
+  schema_version: 1,
+  api_version: 1,
+  id: `fixture.plugin-${index + 1}`,
+  version: "1.0.0",
+  name: `插件 ${index + 1}`,
+  description: "独立滚动验证，全部使用本地虚构数据。",
+  author: "Fixture",
+  permissions: ["compute"],
+  source: "builtin",
+  enabled: false,
+  trusted: true,
+  state: "available",
+  actions: [],
+  settings_schema: {
+    type: "object",
+    properties: Object.fromEntries(
+      Array.from({ length: 20 }, (_, field) => [
+        `field${field}`,
+        { type: "string", title: `设置项 ${field + 1}`, default: "示例值" },
+      ])
+    ),
+  },
+}));
 const schedulerPreview = query.get("scheduler") === "1";
 const configurationPreview = query.get("configuration") === "1";
 const logSamples = [
@@ -390,6 +418,38 @@ const blocked = async () => {
 };
 const trigger: ReturnType<typeof useWebSocketStore.getState>["trigger"] = (payload, callback) => {
   commands.push(payload.command);
+  if (profileFeatures && payload.command === "get_plugin_catalog") {
+    callback?.({
+      status: "ok",
+      data: {
+        api_version: 1,
+        plugins: fixturePlugins,
+        capabilities: [],
+        errors:
+          query.get("catalogErrors") === "1"
+            ? Array.from({ length: 30 }, (_, index) => ({
+                code: "fixture_error",
+                message: `模拟插件错误 ${index + 1}`,
+              }))
+            : [],
+      },
+    });
+    return;
+  }
+  if (profileFeatures && payload.command === "get_plugin_settings") {
+    callback?.({
+      status: "ok",
+      data: {
+        plugin_id: payload.payload?.plugin_id,
+        config_id: payload.config_id,
+        revision: 1,
+        values: Object.fromEntries(
+          Array.from({ length: 20 }, (_, field) => [`field${field}`, "示例值"])
+        ),
+      },
+    });
+    return;
+  }
   if (payload.command === "test_all_sha_stream") {
     // Render the real streamed-result UI without contacting any update host.
     const methods = [
@@ -458,7 +518,8 @@ useWebSocketStore.setState({
   _server_verified: true,
   _initiating: false,
   _heartbeat_time: Date.now(),
-  connections: {},
+  connections: profileFeatures ? { trigger: { readyState: 1 } as WebSocket } : {},
+  ...(profileFeatures ? { _session: { sessionId: "isolated-profile-features" } as never } : {}),
   configStore: query.get("profiles") === "0" ? {} : profiles,
   staticStore: {
     ...useWebSocketStore.getState().staticStore,
@@ -521,7 +582,20 @@ useWebSocketStore.setState({
   startTauriUpdaterPolling: () => {},
   trigger,
   triggerStream: trigger,
-  triggerBinary: (payload, _binary, callback) => trigger(payload, callback),
+  triggerBinary: (payload, binary, callback) => {
+    if (!profileFeatures || payload.command !== "import_config") return trigger(payload, callback);
+    const files = unzipSync(binary instanceof Uint8Array ? binary : new Uint8Array(binary));
+    const config = JSON.parse(new TextDecoder().decode(files["config.json"]));
+    const serial = `fixture-import-${commands.filter((command) => command === "import_config").length + 1}`;
+    commands.push("import_config");
+    useWebSocketStore.setState((state) => ({
+      configStore: { ...state.configStore, [serial]: { ...profiles.alpha, ...config } },
+      eventStore: { ...state.eventStore, [serial]: [] },
+    }));
+    callback?.({ status: "ok", data: { serial } });
+    if (query.get("importSessionChange") === "1")
+      useWebSocketStore.setState({ _session: { sessionId: "replaced-fixture-session" } as never });
+  },
   modify: (path, patch) => {
     const [pid, scope] = path.split("::");
     for (const [key, value] of Object.entries(patch))
@@ -562,7 +636,13 @@ function Fixture() {
     const page =
       query.get("page") ??
       (configurationPreview ? "configuration" : schedulerPreview ? "scheduler" : null);
-    if (page === "settings" || page === "scheduler" || page === "configuration") navigate(page);
+    if (
+      page === "settings" ||
+      page === "scheduler" ||
+      page === "configuration" ||
+      page === "plugins"
+    )
+      navigate(page);
   }, [ready]);
   return (
     <AppProvider setReady={setReady}>

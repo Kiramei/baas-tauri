@@ -240,7 +240,15 @@
     "exportFailed": "Не удалось экспортировать профиль",
     "import": "Импортировать архив профиля",
     "importArchive": "Выберите архив профиля",
+    "importEntry": "Импорт профилей",
     "importFailed": "Не удалось импортировать профиль",
+    "importFolder": "Импорт профилей из папки",
+    "importFolderEmpty": "Вложенные папки профилей с файлом config.json не найдены.",
+    "importFolderHint": "Выберите папку config с вложенными папками профилей.",
+    "importFolderProgress": "Импорт профилей: {{completed}} из {{total}}…",
+    "importFolderResult": "Импортировано профилей: {{imported}}; ошибок: {{failed}}.",
+    "importFolderUnsupported": "Этот браузер не поддерживает выбор папки. Импортируйте ZIP-архивы.",
+    "importRefreshFailed": "Профили импортированы, но список не обновился. Переподключитесь, чтобы увидеть их.",
     "list": "Профили",
     "name": "Имя профиля",
     "nameExists": "Имя уже существует"
@@ -1097,7 +1105,8 @@
     "bar": "Меню приложения",
     "edit": "Правка",
     "file": "Файл",
-    "view": "Вид"
+    "view": "Вид",
+    "window": "Окно"
   },
   "placeholder": {
     "config": {

@@ -13,22 +13,21 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
-import { FormSelect } from "@/components/ui/FormSelect.tsx";
-import { FormInput } from "@/components/ui/FormInput.tsx";
 import { useModalFocus } from "@/components/ui/Modal.tsx";
 import { useWebSocketStore } from "@/store/WebsocketStore";
 import StorageUtil from "@/shared/StorageManager.ts";
 import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { toast } from "sonner";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
-import { buildServerOptions, isPcServer, supportsPcServers } from "@/shared/serverOptions";
+import { isPcServer, supportsPcServers } from "@/shared/serverOptions";
 import { useShallow } from "zustand/react/shallow";
 import { useProfileActionsController } from "@/context/ProfileActionsProvider";
-import { profileDisplayName, unusedDefaultProfileName } from "@/shared/ProfileName";
+import ProfileEditorModal from "@/components/profiles/ProfileEditorModal";
+import type { FolderImportProgress } from "@/shared/ProfileFolderImport";
+import { profileDisplayName } from "@/shared/ProfileName";
 import { runProfileCommand, waitForProfileConfig } from "@/shared/ProfileCommands";
 import {
   reconcileProfileTabs,
@@ -272,12 +271,57 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
         {},
         bytes
       );
-      await waitForConfig(result?.serial);
       setEditor(null);
+      try {
+        await waitForConfig(result?.serial);
+      } catch (error: any) {
+        toast.error(t("profile.importRefreshFailed"), { description: error?.message });
+      }
     } catch (error: any) {
       toast.error(t("profile.importFailed"), { description: error?.message });
     }
   }, [setEditor, t, waitForConfig]);
+
+  const handleImportFolders = React.useCallback(
+    async (onProgress: (progress: FolderImportProgress) => void) => {
+      const original = useWebSocketStore.getState();
+      const connection = original.connections.trigger;
+      const session = original._session;
+      const transportMode = original.transportMode;
+      const sameConnection = () => {
+        const current = useWebSocketStore.getState();
+        return (
+          current.connections.trigger === connection &&
+          current._session === session &&
+          current.transportMode === transportMode &&
+          current._auth_phase === "authenticated"
+        );
+      };
+      const { pickProfileFolder, importProfileFolders } =
+        await import("@/shared/ProfileFolderImport");
+      const selection = await pickProfileFolder(t("profile.importFolder"));
+      if (!selection) return null;
+      const report = await importProfileFolders(selection, {
+        importArchive: async (_name, bytes) => {
+          if (!sameConnection()) throw new Error(t("plugins.errors.sessionChanged"));
+          return runProfileCommand(useWebSocketStore.getState, "import_config", {}, bytes);
+        },
+        onProgress,
+      });
+      const last = report.imported.at(-1);
+      if (last) {
+        try {
+          if (!sameConnection()) throw new Error(t("plugins.errors.sessionChanged"));
+          await waitForConfig(last.serial);
+        } catch (error: any) {
+          // Import has already succeeded; refreshing must never resend the archive.
+          toast.error(t("profile.importRefreshFailed"), { description: error?.message });
+        }
+      }
+      return report;
+    },
+    [t, waitForConfig]
+  );
 
   /** Handles the handle edit interaction. */
   const handleEdit = async (tab: Tab, name: string, server: string) => {
@@ -641,6 +685,8 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
               setEditor(null);
             }}
             onImport={handleImport}
+            onImportFolders={handleImportFolders}
+            lowPerformanceMode={lowPerformanceMode}
             // Local duplicate-name validation.
             checkName={(name, selfId) =>
               tabs.some((t) => t.id !== selfId && t.name.trim() === name.trim())
@@ -669,186 +715,6 @@ export default Header;
 
 const overlayCls =
   "fixed inset-0 bg-black/35 flex items-center justify-center p-4 pt-[calc(var(--window-titlebar-height,0px)+1rem)] z-[1100]";
-
-/** Renders the profile editor modal component. */
-const ProfileEditorModal = (props: {
-  open: boolean;
-  mode: "create" | "edit";
-  initial: Tab | null;
-  onClose: () => void;
-  onSubmit: (vals: { name: string; server: string }) => Promise<void>;
-  onImport: () => Promise<void>;
-  checkName: (name: string, selfId?: string) => boolean;
-}) => {
-  const { t } = useTranslation();
-  const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
-  const [name, setName] = React.useState(
-    () => props.initial?.name ?? unusedDefaultProfileName((value) => props.checkName(value))
-  );
-  const [server, setServer] = React.useState("CN");
-  const [err, setErr] = React.useState<string | null>(null);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [importing, setImporting] = React.useState(false);
-  const panelRef = React.useRef<HTMLDivElement>(null);
-  const titleId = React.useId();
-  useModalFocus(props.open, panelRef, () => {
-    if (!submitting && !importing) props.onClose();
-  });
-
-  React.useEffect(() => {
-    if (props.open) {
-      setName(props.initial?.name ?? unusedDefaultProfileName((value) => props.checkName(value)));
-      setServer(props.initial?.server ?? "NULL");
-      setErr(null);
-    }
-  }, [props.open, props.initial]);
-
-  /** Handles the handle submit interaction. */
-  const handleSubmit = async () => {
-    const nm = name.trim();
-    if (!nm) return setErr(t("configAdd.nameRequired"));
-    if (server === "NULL") return setErr(t("configAdd.serverRequired"));
-    if (props.checkName(nm, props.initial?.id)) return setErr(t("configAdd.nameDuplicate"));
-    try {
-      setSubmitting(true);
-      await props.onSubmit({ name: nm, server });
-    } catch (e: any) {
-      console.error(e);
-      console.error({ nm, server });
-      setErr(e?.message || t("configAdd.saveFailed"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  /** Handles the handle import interaction. */
-  const handleImport = async () => {
-    try {
-      setImporting(true);
-      await props.onImport();
-    } catch (e: any) {
-      setErr(e?.message || t("profile.importFailed"));
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  if (!props.open) return null;
-  return (
-    <div
-      data-modal-backdrop=""
-      className={overlayCls}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !submitting && !importing) props.onClose();
-      }}
-    >
-      <motion.div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        initial={lowPerformanceMode ? false : { opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={lowPerformanceMode ? undefined : { opacity: 0, y: 4 }}
-        transition={{ duration: lowPerformanceMode ? 0 : 0.14, type: "tween", ease: "easeOut" }}
-        className="modal-surface w-full max-w-105 max-h-[calc(100dvh-var(--window-titlebar-height,0px)-32px)] overflow-y-auto outline-none"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id={titleId} className="modal-title">
-            {props.mode === "create" ? t("profile.create") : t("profile.edit")}
-          </h2>
-          <IconTooltip content={t("common.close")} side="bottom">
-            <button
-              type="button"
-              aria-label={t("common.close")}
-              onClick={props.onClose}
-              disabled={submitting || importing}
-              className="modal-close disabled:opacity-40"
-            >
-              <X className="size-4" />
-            </button>
-          </IconTooltip>
-        </div>
-
-        <div className="space-y-4">
-          {props.mode === "create" && (
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={importing || submitting}
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-input px-3 text-sm outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
-            >
-              {importing ? (
-                <Loader2 className="animate-spin h-4 w-4" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              <span>{t("profile.import")}</span>
-            </button>
-          )}
-
-          <FormInput
-            data-autofocus
-            value={name}
-            label={t("profile.name")}
-            placeholder={t("placeholder.profileName")}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <FormSelect
-            label={t("server.server")}
-            value={server}
-            disabled={props.mode === "edit"}
-            onChange={(e) => setServer(e)}
-            placeholder={t("configAdd.selectServer")}
-            options={[
-              { label: t("configAdd.selectServer"), value: "NULL" },
-              ...buildServerOptions(t, {
-                includePc: supportsPcServers(),
-                selected: props.mode === "edit" ? server : undefined,
-              }),
-            ]}
-          />
-
-          {isPcServer(server) && (
-            <p className="text-xs leading-5 text-muted-foreground">
-              {supportsPcServers() ? t("server.pcCreateHelp") : t("server.pcWindowsOnly")}
-            </p>
-          )}
-
-          {err && (
-            <div role="alert" className="text-sm text-destructive">
-              {err}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          <button
-            type="button"
-            data-variant="secondary"
-            onClick={props.onClose}
-            className="h-8 rounded-[8px] bg-secondary px-3.5 text-sm font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
-            disabled={submitting || importing}
-          >
-            {t("common.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="flex h-8 items-center rounded-[8px] bg-primary px-3.5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40"
-            disabled={submitting || importing}
-          >
-            {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
-            <span>{props.mode === "create" ? t("common.create") : t("common.save")}</span>
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 /** Renders the confirm delete modal component. */
 const ConfirmDeleteModal = (props: {

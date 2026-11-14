@@ -240,7 +240,15 @@
     "exportFailed": "导出配置失败",
     "import": "导入配置压缩包",
     "importArchive": "选择配置压缩包",
+    "importEntry": "导入配置",
     "importFailed": "导入配置失败",
+    "importFolder": "从文件夹批量导入配置",
+    "importFolderEmpty": "所选文件夹中未找到包含 config.json 的子配置文件夹。",
+    "importFolderHint": "请选择包含子配置文件夹的 config 文件夹。",
+    "importFolderProgress": "正在导入配置：{{completed}} / {{total}}",
+    "importFolderResult": "已导入 {{imported}} 个配置，{{failed}} 个失败。",
+    "importFolderUnsupported": "当前浏览器不支持选择文件夹，请改用配置压缩包导入。",
+    "importRefreshFailed": "配置已导入，但列表刷新失败，请重新连接后查看。",
     "list": "配置列表",
     "name": "配置名",
     "nameExists": "配置名已存在"
@@ -1097,7 +1105,8 @@
     "bar": "应用菜单",
     "edit": "编辑",
     "file": "文件",
-    "view": "视图"
+    "view": "视图",
+    "window": "窗口"
   },
   "placeholder": {
     "config": {

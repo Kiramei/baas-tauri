@@ -240,7 +240,15 @@
     "exportFailed": "프로필 내보내기 실패",
     "import": "프로필 압축 파일 가져오기",
     "importArchive": "프로필 압축 파일 선택",
+    "importEntry": "설정 가져오기",
     "importFailed": "프로필 가져오기 실패",
+    "importFolder": "폴더에서 설정 일괄 가져오기",
+    "importFolderEmpty": "config.json이 포함된 설정 하위 폴더를 찾을 수 없습니다.",
+    "importFolderHint": "설정 하위 폴더가 들어 있는 config 폴더를 선택하세요.",
+    "importFolderProgress": "설정 가져오는 중: {{completed}} / {{total}}",
+    "importFolderResult": "설정 {{imported}}개 가져오기 완료, {{failed}}개 실패.",
+    "importFolderUnsupported": "이 브라우저는 폴더 선택을 지원하지 않습니다. ZIP 파일로 가져오세요.",
+    "importRefreshFailed": "설정은 가져왔지만 목록을 새로 고치지 못했습니다. 다시 연결하여 확인하세요.",
     "list": "프로필",
     "name": "프로필 이름",
     "nameExists": "이름이 이미 있습니다"
@@ -1097,7 +1105,8 @@
     "bar": "앱 메뉴",
     "edit": "편집",
     "file": "파일",
-    "view": "보기"
+    "view": "보기",
+    "window": "창"
   },
   "placeholder": {
     "config": {

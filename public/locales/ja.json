@@ -240,7 +240,15 @@
     "exportFailed": "プロファイルのエクスポートに失敗しました",
     "import": "プロファイルアーカイブをインポート",
     "importArchive": "プロファイルアーカイブを選択",
+    "importEntry": "設定をインポート",
     "importFailed": "プロファイルのインポートに失敗しました",
+    "importFolder": "フォルダーから設定を一括インポート",
+    "importFolderEmpty": "config.json を含む設定のサブフォルダーが見つかりません。",
+    "importFolderHint": "設定のサブフォルダーを含む config フォルダーを選択してください。",
+    "importFolderProgress": "設定をインポート中：{{completed}} / {{total}}",
+    "importFolderResult": "{{imported}} 件をインポートしました。{{failed}} 件が失敗しました。",
+    "importFolderUnsupported": "このブラウザーではフォルダーを選択できません。ZIP ファイルからインポートしてください。",
+    "importRefreshFailed": "設定はインポートされましたが、一覧の更新に失敗しました。再接続して確認してください。",
     "list": "プロファイル",
     "name": "プロファイル名",
     "nameExists": "名前は既に存在します"
@@ -1097,7 +1105,8 @@
     "bar": "アプリメニュー",
     "edit": "編集",
     "file": "ファイル",
-    "view": "表示"
+    "view": "表示",
+    "window": "ウィンドウ"
   },
   "placeholder": {
     "config": {

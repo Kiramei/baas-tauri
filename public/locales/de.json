@@ -240,7 +240,15 @@
     "exportFailed": "Profil konnte nicht exportiert werden",
     "import": "Profilarchiv importieren",
     "importArchive": "Profilarchiv auswählen",
+    "importEntry": "Profile importieren",
     "importFailed": "Profil konnte nicht importiert werden",
+    "importFolder": "Profile aus Ordner importieren",
+    "importFolderEmpty": "Keine Profil-Unterordner mit config.json gefunden.",
+    "importFolderHint": "Wähle den config-Ordner mit den Profil-Unterordnern.",
+    "importFolderProgress": "Profile werden importiert: {{completed}} von {{total}}…",
+    "importFolderResult": "{{imported}} Profile importiert; {{failed}} fehlgeschlagen.",
+    "importFolderUnsupported": "Dieser Browser unterstützt keine Ordnerauswahl. Importiere stattdessen ZIP-Archive.",
+    "importRefreshFailed": "Profile wurden importiert, aber die Liste konnte nicht aktualisiert werden. Stelle die Verbindung erneut her.",
     "list": "Profile",
     "name": "Profilname",
     "nameExists": "Name existiert bereits"
@@ -1097,7 +1105,8 @@
     "bar": "Anwendungsmenü",
     "edit": "Bearbeiten",
     "file": "Datei",
-    "view": "Ansicht"
+    "view": "Ansicht",
+    "window": "Fenster"
   },
   "placeholder": {
     "config": {

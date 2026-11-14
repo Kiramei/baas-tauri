@@ -192,9 +192,10 @@ export const Main: React.FC = () => {
             <motion.div
               key={instKey}
               className={
-                __WITH_ANDROID__
+                (__WITH_ANDROID__
                   ? "absolute inset-0 overflow-y-auto scroll-embedded pr-2"
-                  : "app-page-scroll absolute inset-0 overflow-y-auto scroll-embedded px-5 pb-3 pt-5 lg:px-8 lg:pb-6 lg:pt-6"
+                  : "app-page-scroll absolute inset-0 overflow-y-auto scroll-embedded px-5 pb-3 pt-5 lg:px-8 lg:pb-6 lg:pt-6") +
+                (page === "plugins" ? " xl:flex xl:flex-col xl:overflow-hidden" : "")
               }
               data-page={page}
               variants={lowPerformanceMode ? lowPerformanceVariants : variants}
