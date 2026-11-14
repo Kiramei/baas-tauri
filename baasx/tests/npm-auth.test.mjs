@@ -1,5 +1,7 @@
+import { YAML } from "bun";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { URL } from "node:url";
 import { checkNpmAuth, npmPackages } from "../scripts/npm-auth.mjs";
 
 const environment = {
@@ -79,7 +81,7 @@ test("existing token configuration skips OIDC without claiming publish permissio
 });
 
 test("auth-only dispatch skips the whole release chain and failed authentication prevents all builds", () => {
-  const workflow = Bun.YAML.parse(readFileSync(new URL("../../.github/workflows/release-baasx.yml", import.meta.url), "utf8"));
+  const workflow = YAML.parse(readFileSync(new URL("../../.github/workflows/release-baasx.yml", import.meta.url), "utf8"));
   expect(workflow.on.workflow_dispatch.inputs.auth_only).toMatchObject({ type: "boolean", default: false });
   expect(workflow.jobs["npm-auth"].permissions).toEqual({ contents: "read", "id-token": "write" });
   expect(workflow.jobs.build.needs).toEqual(["validate", "npm-auth"]);

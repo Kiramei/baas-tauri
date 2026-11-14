@@ -1,9 +1,10 @@
+import { URL } from "node:url";
 import { platforms } from "./distribution-platforms.mjs";
 
 export const npmPackages = ["@kiramei/baasx", ...platforms.map(({ name }) => name)];
 
 // Only exchange credentials: this does not check direct-publish permission or publish a version.
-export async function checkNpmAuth({ environment = process.env, request = fetch, log = console.log } = {}) {
+export async function checkNpmAuth({ environment = process.env, request = globalThis.fetch, log = console.log } = {}) {
   if (environment.NODE_AUTH_TOKEN) {
     log("npm token configured; OIDC preflight skipped. Publish authorization remains unchecked.");
     return;
@@ -25,7 +26,7 @@ export async function checkNpmAuth({ environment = process.env, request = fetch,
         method,
         headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
         redirect: "error",
-        signal: AbortSignal.timeout(20_000),
+        signal: globalThis.AbortSignal.timeout(20_000),
       });
     } catch {
       return { failure: "network request failed" };
