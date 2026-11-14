@@ -467,25 +467,28 @@ class Mirror:
             sha = head.get("commit", {}).get("sha", "")
             if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
                 raise MirrorError("Target default branch HEAD is invalid")
-            for attempt in range(self.target.attempts):
-                try:
-                    release = self.target.request("POST", "/releases", {"tag_name": self.target_tag,
-                        "target_commitish": sha, **desired,
-                        "draft": True, "prerelease": True, "make_latest": "false"})
-                    identifier(release.get("id"))
-                    self.owned(release)
-                    if release.get("draft") is not True or release.get("prerelease") is not True:
-                        raise MirrorError("GitHub did not create the requested draft prerelease")
-                    break
-                except (NetworkError, APIError) as error:
+            try:
+                release = self.target.request("POST", "/releases", {"tag_name": self.target_tag,
+                    "target_commitish": sha, **desired,
+                    "draft": True, "prerelease": True, "make_latest": "false"})
+                identifier(release.get("id"))
+                self.owned(release)
+                if release.get("draft") is not True or release.get("prerelease") is not True:
+                    raise MirrorError("GitHub did not create the requested draft prerelease")
+            except (NetworkError, APIError) as error:
+                # Even a gateway 5xx may follow a committed creation. Only GET
+                # reconciliation may retry; a temporarily empty list is not
+                # proof that a second POST cannot create a duplicate draft.
+                for attempt in range(self.target.attempts):
                     release = self.target.find_release(self.target_tag)
                     if release:
                         identifier(release.get("id"))
                         self.owned(release)
                         break
                     if attempt + 1 == self.target.attempts:
-                        raise
-                    if isinstance(error, APIError):
+                        raise MirrorError("Target release creation result is uncertain; no second create request was sent. "
+                                          "Verify the target tag and drafts before manually rerunning.") from None
+                    if isinstance(error, APIError) and error.status not in (408, 422):
                         if not self.target._pause(attempt, error.headers, error.status, error.message):
                             raise
                     else:

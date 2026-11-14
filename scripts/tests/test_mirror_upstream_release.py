@@ -323,15 +323,40 @@ class MirrorTests(unittest.TestCase):
         self.assertTrue(any(event["method"] == "GET" and event["repo"] == fake.target and event["route"] == "/releases" for event in fake.events))
         self.assertFalse(fake.releases[fake.target]["draft"])
 
-    def test_failed_create_is_reconciled_before_a_bounded_second_attempt(self):
+    def test_unknown_create_result_only_reconciles_without_another_post(self):
         fake = FakeGitHub()
         fake.asset(fake.source, "app.zip", b"new")
         fake.failure("POST", "/releases", 502)
-        fake.run()
+        with self.assertRaisesRegex(mirror.MirrorError, "creation result is uncertain"):
+            fake.run()
         creates = [index for index, event in enumerate(fake.events) if event["method"] == "POST" and event["route"] == "/releases"]
-        self.assertEqual(len(creates), 2)
-        between = fake.events[creates[0] + 1:creates[1]]
-        self.assertTrue(any(event["method"] == "GET" and event["route"] == "/releases" for event in between))
+        self.assertEqual(len(creates), 1)
+        following = fake.events[creates[0] + 1:]
+        self.assertEqual(sum(event["method"] == "GET" and event["route"] == "/releases" for event in following), 5)
+        self.assertTrue(all(event["method"] == "GET" for event in following))
+
+    def test_eventually_visible_create_recovers_after_backoff_without_a_duplicate_post(self):
+        for failure in ("network", "gateway"):
+            with self.subTest(failure=failure):
+                fake = FakeGitHub()
+                fake.asset(fake.source, "app.zip", b"new")
+                def persist_but_hide(request, event):
+                    pending = {"id": 2, **event["payload"]}
+                    def become_visible(api):
+                        if api.target_tag_gets >= 3:
+                            api.releases[api.target] = pending
+                    fake.on_target_tag_get = become_visible
+                    fake.existing_tag = True
+                    if failure == "network":
+                        raise URLError("lost response")
+                    raise HTTPError(request.full_url, 502, "gateway", {}, io.BytesIO())
+                fake.failures["POST", "/releases"] = [persist_but_hide]
+                result = fake.run()
+                self.assertEqual(result["uploaded"], 1)
+                creates = [event for event in fake.events if event["method"] == "POST" and event["route"] == "/releases"]
+                self.assertEqual(len(creates), 1)
+                self.assertIn(1, fake.sleeps)
+                self.assertFalse(fake.releases[fake.target]["draft"])
 
     def test_invalid_creation_response_never_receives_asset_writes(self):
         for field, value in (("id", -1), ("tag_name", "unrelated"), ("body", "foreign"), ("draft", False), ("prerelease", False)):
