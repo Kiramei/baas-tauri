@@ -87,9 +87,12 @@ fn validate_client_pe(bytes: &[u8], arch: Architecture) -> Result<(), String> {
     validate_pe(bytes, arch)?;
     // Tauri restores this marker on the raw binary after building NSIS/MSI bundles.
     // Rejecting installer/installed payloads also protects against a misrouted feed.
-    let mut marker = b"__TAURI_BUNDLE_".to_vec();
-    marker.extend_from_slice(std::hint::black_box(b"TYPE_VAR_"));
-    marker.extend_from_slice(std::hint::black_box(b"UNK"));
+    // Never add a second plaintext bundle marker to Tauri's executable patch scan.
+    let marker = [
+        0xf8_u8, 0xf8, 0xf3, 0xe6, 0xf2, 0xf5, 0xee, 0xf8, 0xe5, 0xf2, 0xe9, 0xe3, 0xeb, 0xe2,
+        0xf8, 0xf3, 0xfe, 0xf7, 0xe2, 0xf8, 0xf1, 0xe6, 0xf5, 0xf8, 0xf2, 0xe9, 0xec,
+    ]
+    .map(|byte| std::hint::black_box(byte) ^ 0xa7);
     if bytes
         .windows(marker.len())
         .filter(|part| *part == marker.as_slice())
