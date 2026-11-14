@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { EditableField } from "./field-editor";
 import { translate } from "./i18n";
@@ -11,6 +11,49 @@ const TEAL = "#70d7e5",
   RED = "#f38b91",
   SELECTED = "#203f49";
 const identity = (value: unknown) => JSON.stringify(value);
+
+function useImmediateState<T>(initial: T | (() => T)) {
+  const [value, setValue] = useState(initial);
+  const latest = useRef(value);
+  const update = useCallback((next: React.SetStateAction<T>) => {
+    const value = typeof next === "function" ? (next as (previous: T) => T)(latest.current) : next;
+    // Input events can arrive in one React batch, before the next render.
+    latest.current = value;
+    setValue(value);
+  }, []);
+  return [value, update, latest] as const;
+}
+
+function priorityItems(draft: unknown[], options: EditableField["options"], query: string) {
+  const catalog = new Map((options || []).map((option) => [identity(option.value), option]));
+  const selected = new Set(draft.map(identity));
+  const all = [
+    ...draft.map((value, rank) => {
+      const option = catalog.get(identity(value));
+      return {
+        value,
+        key: identity(value),
+        label: option?.label ?? terminalText(String(value)),
+        rank,
+        disabled: !!option?.disabled,
+      };
+    }),
+    ...[...catalog.values()]
+      .filter((option) => !selected.has(identity(option.value)))
+      .map((option) => ({
+        ...option,
+        key: identity(option.value),
+        rank: undefined as number | undefined,
+        disabled: !!option.disabled,
+      })),
+  ];
+  const needle = query.trim().toLocaleLowerCase();
+  return needle
+    ? all.filter((item) =>
+        `${item.label} ${String(item.value)}`.toLocaleLowerCase().includes(needle)
+      )
+    : all;
+}
 
 export interface PriorityEditorProps {
   field: EditableField;
@@ -53,48 +96,31 @@ export function PriorityEditor({
   active = true,
 }: PriorityEditorProps) {
   const t = (text: string) => translate(text, language);
-  const [draft, setDraft] = useState<unknown[]>(() => {
+  const [draft, setDraft, draftRef] = useImmediateState<unknown[]>(() => {
     const initial = field.editorValue ?? field.value;
     return Array.isArray(initial) ? structuredClone(initial) : [];
   });
-  const [focus, setFocus] = useState<string>();
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [focus, setFocus, focusRef] = useImmediateState<string | undefined>(undefined);
+  const [query, setQuery, queryRef] = useImmediateState("");
+  const [searching, setSearching, searchingRef] = useImmediateState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const pendingSave = useRef(false);
-  const items = useMemo(() => {
-    const options = new Map(
-      (field.options || []).map((option) => [identity(option.value), option])
+  const propsRef = useRef({ field, active, onSave, onCancel });
+  const items = useMemo(
+    () => priorityItems(draft, field.options, query),
+    [draft, field.options, query]
+  );
+  const canInteract = () => propsRef.current.active && !pendingSave.current;
+  const canWrite = () => canInteract() && !propsRef.current.field.readOnly;
+  const selection = () => {
+    const items = priorityItems(draftRef.current, propsRef.current.field.options, queryRef.current);
+    const index = Math.max(
+      0,
+      items.findIndex((item) => item.key === focusRef.current)
     );
-    const selected = new Set(draft.map(identity));
-    const all = [
-      ...draft.map((value, rank) => {
-        const option = options.get(identity(value));
-        return {
-          value,
-          key: identity(value),
-          label: option?.label ?? terminalText(String(value)),
-          rank,
-          disabled: !!option?.disabled,
-        };
-      }),
-      ...[...options.values()]
-        .filter((option) => !selected.has(identity(option.value)))
-        .map((option) => ({
-          ...option,
-          key: identity(option.value),
-          rank: undefined as number | undefined,
-          disabled: !!option.disabled,
-        })),
-    ];
-    const needle = query.trim().toLocaleLowerCase();
-    return needle
-      ? all.filter((item) =>
-          `${item.label} ${String(item.value)}`.toLocaleLowerCase().includes(needle)
-        )
-      : all;
-  }, [draft, field.options, query]);
+    return { items, index, current: items[index] };
+  };
   const index = Math.max(
     0,
     items.findIndex((item) => item.key === focus)
@@ -121,33 +147,38 @@ export function PriorityEditor({
     Math.min(index - Math.floor(contentHeight / 2), items.length - contentHeight)
   );
   const move = (delta: number) => {
-    if (!writable || pendingSave.current || current?.rank === undefined) return;
+    const { current } = selection();
+    if (!canWrite() || current?.rank === undefined) return;
     const next = current.rank + delta;
-    if (next < 0 || next >= draft.length) return;
-    const values = [...draft];
+    if (next < 0 || next >= draftRef.current.length) return;
+    const values = [...draftRef.current];
     [values[current.rank], values[next]] = [values[next], values[current.rank]];
     setDraft(values);
     setFocus(current.key);
     setError("");
   };
-  const toggle = (item = current) => {
-    if (!writable || pendingSave.current || !item || (item.rank === undefined && item.disabled))
-      return;
+  const toggle = (target?: (typeof items)[number]) => {
+    const latest = selection();
+    const item = target ? latest.items.find((item) => item.key === target.key) : latest.current;
+    const { field } = propsRef.current;
+    if (!canWrite() || !item || (item.rank === undefined && item.disabled)) return;
     if (item.rank === undefined && field.allowAdd === false) return;
     if (item.rank !== undefined && field.allowRemove === false) return;
     setDraft(
-      item.rank === undefined ? [...draft, item.value] : draft.filter((_, i) => i !== item.rank)
+      item.rank === undefined
+        ? [...draftRef.current, item.value]
+        : draftRef.current.filter((_, i) => i !== item.rank)
     );
     setFocus(item.key);
     setError("");
   };
   const save = async () => {
-    if (!writable || pendingSave.current) return;
+    if (!canWrite()) return;
     pendingSave.current = true;
     setSaving(true);
     setError("");
     try {
-      await onSave(structuredClone(draft));
+      await propsRef.current.onSave(structuredClone(draftRef.current));
     } catch (failure) {
       setError(t((failure as Error).message));
     } finally {
@@ -156,59 +187,71 @@ export function PriorityEditor({
     }
   };
   const navigate = (delta: number) => {
-    if (!active || saving) return;
+    if (!canInteract()) return;
+    const { items, index } = selection();
     const next = Math.max(0, Math.min(items.length - 1, index + delta));
     setFocus(items[next]?.key);
   };
-  useInput(
-    (text, key) => {
-      if (saving || pendingSave.current) return;
-      if (key.escape) {
-        if (searching || query) {
-          setSearching(false);
-          setQuery("");
-        } else onCancel();
-        return;
+  const cancel = () => {
+    if (canInteract()) propsRef.current.onCancel();
+  };
+  const handleInput: Parameters<typeof useInput>[0] = (text, key) => {
+    if (!canInteract()) return;
+    if (key.escape) {
+      if (searchingRef.current || queryRef.current) {
+        setSearching(false);
+        setQuery("");
+      } else cancel();
+      return;
+    }
+    if (key.ctrl && text === "c") {
+      cancel();
+      return;
+    }
+    if (key.ctrl && text === "s") {
+      void save();
+      return;
+    }
+    if (searchingRef.current) {
+      if (key.return) setSearching(false);
+      else if (key.backspace || key.delete) setQuery((value) => [...value].slice(0, -1).join(""));
+      else if (key.ctrl && text === "a") setQuery("");
+      else if (
+        !key.ctrl &&
+        !key.meta &&
+        !key.tab &&
+        !key.upArrow &&
+        !key.downArrow &&
+        !key.leftArrow &&
+        !key.rightArrow
+      ) {
+        setQuery((value) => (value + terminalText(text).replace(/[\r\n]/g, "")).slice(0, 200));
+        setFocus(undefined);
       }
-      if (key.ctrl && text === "c") {
-        onCancel();
-        return;
-      }
-      if (key.ctrl && text === "s") {
-        void save();
-        return;
-      }
-      if (searching) {
-        if (key.return) setSearching(false);
-        else if (key.backspace || key.delete) setQuery((value) => [...value].slice(0, -1).join(""));
-        else if (key.ctrl && text === "a") setQuery("");
-        else if (
-          !key.ctrl &&
-          !key.meta &&
-          !key.tab &&
-          !key.upArrow &&
-          !key.downArrow &&
-          !key.leftArrow &&
-          !key.rightArrow
-        ) {
-          setQuery((value) => (value + terminalText(text).replace(/[\r\n]/g, "")).slice(0, 200));
-          setFocus(undefined);
-        }
-        return;
-      }
-      if (key.leftArrow || text === "<" || (key.ctrl && key.upArrow)) move(-1);
-      else if (key.rightArrow || text === ">" || (key.ctrl && key.downArrow)) move(1);
-      else if (key.upArrow) navigate(-1);
-      else if (key.downArrow) navigate(1);
-      else if (key.pageUp) navigate(-contentHeight);
-      else if (key.pageDown) navigate(contentHeight);
-      else if (text === "/") setSearching(true);
-      else if (text === " ") toggle();
-      else if ((key.backspace || key.delete) && current?.rank !== undefined) toggle();
-      else if (key.return) void save();
-    },
-    { isActive: active }
+      return;
+    }
+    if (key.leftArrow || text === "<" || (key.ctrl && key.upArrow)) move(-1);
+    else if (key.rightArrow || text === ">" || (key.ctrl && key.downArrow)) move(1);
+    else if (key.upArrow) navigate(-1);
+    else if (key.downArrow) navigate(1);
+    else if (key.pageUp) navigate(-contentHeight);
+    else if (key.pageDown) navigate(contentHeight);
+    else if (text === "/") setSearching(true);
+    else if (text === " ") toggle();
+    else if ((key.backspace || key.delete) && selection().current?.rank !== undefined) toggle();
+    else if (key.return) void save();
+  };
+  const inputRef = useRef(handleInput);
+  // Refresh the stable input proxy before Ink's passive subscription effects.
+  useLayoutEffect(() => {
+    propsRef.current = { field, active, onSave, onCancel };
+    inputRef.current = handleInput;
+  });
+  const input = useCallback<Parameters<typeof useInput>[0]>(
+    (text, key) => inputRef.current(text, key),
+    []
   );
+  useInput(input, { isActive: active });
 
   const third = Math.floor(innerWidth / 3);
   const canToggle =
@@ -223,7 +266,7 @@ export function PriorityEditor({
         <Marquee value={field.description || ""} width={innerWidth} color={MUTED} />
       )}
       {searchVisible && (
-        <HitBox height={1} flexShrink={0} onPress={() => active && !saving && setSearching(true)}>
+        <HitBox height={1} flexShrink={0} onPress={() => canInteract() && setSearching(true)}>
           <Marquee
             value={`${searching ? "❯" : "/"} ${t("搜索条目")}: ${query}${searching ? " ▏" : ""}`}
             width={innerWidth}
@@ -244,7 +287,7 @@ export function PriorityEditor({
           const labelWidth = Math.max(1, innerWidth - 4);
           return (
             <Box key={`${item.key}:${item.rank ?? "available"}`} height={1} flexShrink={0}>
-              <HitBox width={labelWidth} onPress={() => active && !saving && setFocus(item.key)}>
+              <HitBox width={labelWidth} onPress={() => canInteract() && setFocus(item.key)}>
                 <Marquee
                   value={`${focused ? "❯" : " "} ${item.rank === undefined ? "○" : `${item.rank + 1}.`} ${item.label}`}
                   width={labelWidth}
@@ -310,7 +353,7 @@ export function PriorityEditor({
           width={Math.ceil(innerWidth / 2)}
           color={MUTED}
           enabled={active && !saving}
-          onPress={onCancel}
+          onPress={cancel}
         />
       </Box>
       {hintVisible && (
