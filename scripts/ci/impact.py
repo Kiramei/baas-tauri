@@ -74,7 +74,7 @@ RULES = [
     ((".github/workflows/client-frontend.yml", "scripts/ci/client-frontend.mjs", "scripts/ci/frontend-adapter-inputs.mjs", "scripts/ci/build-frontend-adapter.mjs", "scripts/ci/test_client_frontend.py"), UI | {"ui:" + name for name in DESKTOP}),
     ((".github/workflows/baasx.yml", ".github/workflows/release-baasx.yml"), CONTRACTS | REGISTRY),
     ((".github/actions/setup-bun-deps/*",), UI | JS),
-    (("scripts/ci/*", ".github/workflows/*", ".github/actions/*", "scripts/*updat*", "scripts/*release*",
+    (("scripts/ci/*", ".github/workflows/*", ".github/actions/*", "scripts/*updat*", "scripts/*release*", "scripts/tests/test_mirror_upstream_release.py",
       "scripts/audit-archived-shm.py", "scripts/backend-smoke.py", "scripts/prepare-local-preview.py"), CONTRACTS),
     ((".github/*", ".git*", ".prettier*", "renovate.json", "LICENSE"), set()),
 ]
