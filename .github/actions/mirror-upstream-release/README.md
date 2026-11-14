@@ -2,7 +2,7 @@
 
 将源 GitHub 稳定版 Release 的**全部附件按原名**镜像到 `pur1fying/blue_archive_auto_script`。直接传输已发布文件，不重新构建，也不按平台筛选附件。
 
-正式流程位于 [release-app.yml](../../workflows/release-app.yml)：`release-update` 完成后，`mirror-to-upstream` 与 CNB 同步独立并行。镜像失败可单独重试。
+正式流程位于 [release-app.yml](../../workflows/release-app.yml)：`release-update` 完成后，`mirror-to-upstream` 与 CNB 同步独立并行。镜像失败会显示警告和步骤汇总，不阻断 CNB、Winget 或 QQ 通知，可单独重试。镜像 job 串行执行，手动运行不占用正式发布队列。
 
 ## 身份与权限
 
@@ -42,8 +42,8 @@ if: ${{ github.repository == 'pur1fying/blue_archive_auto_script' && !startsWith
 ## 标签与附件行为
 
 - 源 Release 必须已发布且为稳定版；draft 或 prerelease 不会镜像。源标签可带 `v` 前缀或稳定版 `.postN` 后缀，规范化后使用 `tauri-<canonicalVersion>`，例如 `0.0.10` 对应 `tauri-0.0.10`。
-- 目标标签首次创建时指向**目标仓库默认分支自己的提交**。已有标签不移动；不会把客户端仓库的 Git 对象推入上游。
-- 目标 Release 的归属标记绑定源 Release。首次同步先创建 draft，待附件集合、内容摘要及源快照复核通过后，发布为 **prerelease**，并设置 `make_latest=false`。
+- 目标标签首次创建时指向**目标仓库默认分支自己的提交**。已有标签不移动；没有归属镜像 Release 的同名孤立标签会拒绝复用，不会把客户端仓库的 Git 对象推入上游。
+- 目标 Release 的归属标记绑定源 Release。首次同步先创建 draft；需要修复的已有镜像也会暂转 draft，并在 draft 内更新标题与正文。待附件集合、内容摘要及源快照复核通过后，再发布为 **prerelease**，并设置 `make_latest=false`。失败时可能保留 draft，重试完成后才重新公开。
 - 同名、同大小且双方具有匹配的有效 SHA-256 摘要时跳过传输。需要传输的文件下载后计算摘要；目标上传结果也需校验。
 - 替换附件时，先上传并校验 staging 文件，再将旧附件改为 backup 名称并提升新附件。失败时尝试恢复旧名称；重试可接续受管理的 staging/backup。完成后只清理本动作管理的临时附件，遇到未知额外附件则失败并保留它们。
 
@@ -52,6 +52,13 @@ if: ${{ github.repository == 'pur1fying/blue_archive_auto_script' && !startsWith
 使用 `release-app.yml` 的 `workflow_dispatch`，填写 `mirror-tag`，先保留 `dry-run=true`。手动入口只运行镜像 job，不启动客户端重构建；确认计划后再将 `dry-run` 改为 `false`。
 
 注意两个默认值不同：**手动工作流默认 dry run；直接调用本 action 默认实际同步**。
+
+代码合入 `main` 后，可通过以下命令检查既有版本。此模式不要求目标秘密，也不会生成 App 令牌：
+
+```sh
+gh workflow run release-app.yml --repo Kiramei/baas-tauri --ref main \
+  -f mirror-tag=0.0.9.post1 -f dry-run=true
+```
 
 本地只读检查可以使用：
 
