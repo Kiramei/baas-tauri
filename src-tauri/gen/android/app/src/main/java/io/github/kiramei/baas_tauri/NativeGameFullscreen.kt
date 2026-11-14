@@ -149,6 +149,7 @@ internal class NativeGameFullscreen(private val activity: Activity, private val 
       rounded(theme.primary, 24), rounded(theme.primaryForeground, 24))
   }
 
+  fun showMenu() = setMenu(true)
   fun closeMenu() = setMenu(false)
   fun destroy() {
     if (destroyed) return

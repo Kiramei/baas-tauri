@@ -51,7 +51,6 @@ class NativeGamePreview(private val activity: Activity) {
   private var surface: Surface? = null
   private var attachedSurface: Surface? = null
   private var controls: FrameLayout? = null
-  private var status: TextView? = null
   private var badge: TextView? = null
   private var controlRow: LinearLayout? = null
   private val controlButtons = mutableListOf<Pair<String, ImageButton>>()
@@ -140,7 +139,7 @@ class NativeGamePreview(private val activity: Activity) {
     gameWidth = width; gameHeight = height; fullscreenDisplayId = displayId
     manualInputLease = lease
     touch.beginSession(displayId, lease.token)
-    controls?.visibility = View.GONE; badge?.visibility = View.GONE
+    controls?.visibility = View.GONE; badge?.visibility = View.VISIBLE
     previousAccessibility = webView?.importantForAccessibility ?: View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     webView?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
     fullscreen = NativeGameFullscreen(activity, parent, host, width, height, palette, language, { frame ->
@@ -199,8 +198,6 @@ class NativeGamePreview(private val activity: Activity) {
     controls?.setBackgroundColor(palette.alpha(palette.background, 112))
     controlRow?.background = rounded(palette.alpha(palette.background, 245), 24)
     controlButtons.forEach { (action, button) -> buttonColors(button, action == "fullscreen") }
-    status?.setTextColor(palette.foreground)
-    status?.setBackgroundColor(palette.alpha(palette.background, 224))
     badge?.setTextColor(palette.mutedForeground)
     badge?.background = rounded(palette.alpha(palette.background, 224), 24)
   }
@@ -245,12 +242,6 @@ class NativeGamePreview(private val activity: Activity) {
       }
     }
     host.addView(view, FrameLayout.LayoutParams(-1, -1))
-    val waiting = TextView(activity).apply {
-      text = NativeGameText.text(previewLanguage, NativeGameLabel.WAITING); textSize = 13f; setTextColor(palette.foreground)
-      gravity = Gravity.CENTER; setPadding(16, 16, 16, 16)
-    }
-    status = waiting
-    host.addView(waiting, FrameLayout.LayoutParams(-1, -1))
     val overlay = FrameLayout(activity).apply {
       setBackgroundColor(palette.alpha(palette.background, 112))
       visibility = View.GONE
@@ -295,6 +286,7 @@ class NativeGamePreview(private val activity: Activity) {
     badge = live
     host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(8), dp(8), dp(8), 0) })
     val toggleControls = View.OnClickListener {
+      fullscreen?.let { it.showMenu(); return@OnClickListener }
       overlay.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
       live.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
     }
@@ -515,8 +507,6 @@ class NativeGamePreview(private val activity: Activity) {
       PreviewFrameState.STILL -> NativeGameLabel.STILL
       PreviewFrameState.LIVE -> NativeGameLabel.LIVE
     })
-    status?.visibility = if (error != null || state == PreviewFrameState.WAITING || state == PreviewFrameState.BLACK) View.VISIBLE else View.GONE
-    status?.text = error ?: label
     badge?.text = if (error != null) NativeGameText.text(previewLanguage, NativeGameLabel.ERROR) else label
   }
   fun resume() { if (destroyed) return; paused = false; if (visible) { container?.visibility = View.VISIBLE; attach() } }
