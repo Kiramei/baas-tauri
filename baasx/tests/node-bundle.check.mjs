@@ -6,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -71,6 +72,115 @@ test("new bundles find older unpacked runtime filenames", (t) => {
   const status = spawnSync(process.execPath, [path.join(dist, "baasx-node.mjs"), "--config-home", directory, "--json", "check-update"], { env: cleanEnv, encoding: "utf8" });
   assert.equal(status.status, 1);
   assert.match(JSON.parse(status.stdout).error, /updates require a complete CLI-managed (?:dev )?runtime/);
+});
+
+test("Node bundle reads profiles and configuration and starts scheduling over BPIP", { timeout: 45_000 }, async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "baasx-node-pipe-"));
+  const endpoint = process.platform === "win32"
+    ? `\\\\.\\pipe\\baasx-node-${process.pid}-${Date.now()}`
+    : path.join(directory, "service.sock");
+  const sockets = new Set();
+  const received = [];
+  let child, fixtureError;
+  const send = (socket, message) => {
+    const payload = Buffer.from(JSON.stringify(message));
+    const frame = Buffer.alloc(10 + payload.length);
+    frame.write("BPIP");
+    frame[4] = 1;
+    frame[5] = 1;
+    frame.writeUInt32LE(payload.length, 6);
+    payload.copy(frame, 10);
+    socket.write(frame);
+  };
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("error", (error) => { fixtureError ??= error; });
+    let pending = Buffer.alloc(0), channel;
+    socket.on("data", (chunk) => {
+      try {
+        pending = Buffer.concat([pending, chunk]);
+        while (pending.length >= 10) {
+          assert.equal(pending.subarray(0, 6).toString("hex"), "425049500101");
+          const length = pending.readUInt32LE(6);
+          assert.ok(length < 65_536, "Unexpected fixture frame size");
+          if (pending.length < 10 + length) break;
+          const message = JSON.parse(pending.subarray(10, 10 + length).toString("utf8"));
+          pending = pending.subarray(10 + length);
+          if (message.type === "open") {
+            assert.equal(channel, undefined);
+            channel = message.channel;
+            send(socket, { type: "open_ok", channel });
+          } else if (message.type === "list") {
+            assert.equal(channel, "sync");
+            send(socket, { type: "config_list", data: ["alpha"] });
+          } else if (message.type === "pull") {
+            assert.equal(channel, "sync");
+            assert.equal(message.resource, "config");
+            assert.equal(message.resource_id, "alpha");
+            send(socket, { type: "snapshot", resource: "config", resource_id: "alpha", timestamp: 42, data: { name: "Arona", server: "Global" } });
+          } else {
+            assert.equal(channel, "trigger");
+            assert.equal(message.type, "command");
+            assert.equal(message.command, "start_scheduler");
+            assert.equal(message.config_id, "alpha");
+            assert.deepEqual(message.payload, {});
+            assert.ok(Number.isFinite(message.timestamp));
+            // A response for another request must not satisfy this scheduler call.
+            send(socket, { type: "command_response", command: message.command, timestamp: message.timestamp + 1, status: "ok", data: { status: "started", run_id: "wrong-run" } });
+            send(socket, { type: "command_response", command: message.command, timestamp: message.timestamp, status: "ok", data: { status: "started", config_id: "alpha", run_id: "pipe-run" } });
+          }
+          received.push({ channel, message });
+        }
+      } catch (error) {
+        fixtureError ??= error;
+        socket.destroy();
+      }
+    });
+  });
+  t.after(async () => {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      const closed = new Promise((resolve) => child.once("close", resolve));
+      child.kill();
+      await closed;
+    }
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(directory, { recursive: true, force: true });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(endpoint, resolve);
+  });
+  const run = async (...args) => {
+    const before = received.length;
+    child = spawn(process.execPath, [bundle, "--config-home", directory, "--pipe", endpoint, "--json", "--profile", "alpha", ...args], {
+      env: cleanEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15_000,
+    });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const code = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", resolve);
+    });
+    assert.ifError(fixtureError);
+    assert.equal(code, 0, stderr || stdout);
+    assert.equal(stderr, "");
+    assert.deepEqual(received.slice(before).filter(({ message }) => message.type === "open").map(({ channel }) => channel).sort(), ["provider", "sync", "trigger"]);
+    return JSON.parse(stdout);
+  };
+  assert.deepEqual(await run("profiles"), { alpha: "Arona" });
+  assert.equal(await run("config", "get", "/server"), "Global");
+  assert.deepEqual(await run("start"), {
+    accepted: true,
+    completed: false,
+    run_id: "pipe-run",
+    result: { status: "started", config_id: "alpha", run_id: "pipe-run" },
+  });
+  assert.equal(received.filter(({ message }) => message.type === "command").length, 1);
 });
 
 test("Node 20 WebSocket fallback sends the BAAS control handshake", { timeout: 20_000 }, async (t) => {
