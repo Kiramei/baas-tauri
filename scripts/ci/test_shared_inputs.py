@@ -38,6 +38,27 @@ class BunOwnership(unittest.TestCase):
         after['overrides'] = {'x': '1'}
         self.assertEqual(bun_owners(json.dumps(self.lock), json.dumps(after)), UI | JS)
 
+    def test_fixed_version_patch_uses_exact_package_consumers(self):
+        for key, expected in (("ink", JS), ("vite", UI), ("libsodium-wrappers-sumo", UI | JS),
+                              ("@baas/baasx/react", JS)):
+            with self.subTest(package=key):
+                after = copy.deepcopy(self.lock)
+                identity = after['packages'][key][0]
+                after['patchedDependencies'] = {identity: 'baasx/patches/dependency.patch'}
+                self.assertEqual(bun_owners(json.dumps(self.lock), json.dumps(after)), expected)
+                self.assertEqual(bun_owners(json.dumps(after), json.dumps(self.lock)), expected)
+                before = copy.deepcopy(after)
+                after['patchedDependencies'][identity] = 'baasx/patches/new.patch'
+                self.assertEqual(bun_owners(json.dumps(before), json.dumps(after)), expected)
+
+    def test_patch_ambiguity_keeps_all_ecosystem_checks(self):
+        for patches in ([], {'ink': 'patch'}, {'missing@1.0.0': 'patch'}, {'ink@6.3.1': None},
+                        {'ink@6.3.1': ''}, {'ink@6.3.1': {'path': 'patch'}}):
+            with self.subTest(patches=patches):
+                after = copy.deepcopy(self.lock)
+                after['patchedDependencies'] = patches
+                self.assertEqual(bun_owners(json.dumps(self.lock), json.dumps(after)), UI | JS)
+
     def test_workspace_root_isolated_from_nested_resolutions(self):
         # Package keys such as @baas/baasx/react are scoped resolutions, not react's root instance.
         self.assertNotEqual(self.change('react'), self.change('@baas/baasx/react'))
@@ -137,6 +158,15 @@ class CargoOwnership(unittest.TestCase):
 
 
 class SharedSnapshots(unittest.TestCase):
+    def test_patch_manifest_uses_lock_graph_and_falls_back_without_it(self):
+        lock = (ROOT / 'bun.lock').read_text()
+        after = json.dumps({'patchedDependencies': {'ink@6.3.1': 'baasx/patches/ink.patch'}})
+        self.assertEqual(manifest_owners('{}', after, lock, lock), JS)
+        self.assertEqual(manifest_owners(after, '{}', lock, lock), JS)
+        self.assertEqual(manifest_owners('{}', after), UI | JS)
+        shared = jsonc(lock)['packages']['libsodium-wrappers-sumo'][0]
+        self.assertEqual(manifest_owners('{}', json.dumps({'patchedDependencies': {shared: 'patch'}}), lock, lock), UI | JS)
+
     def test_manifest_dependencies_and_scoped_scripts(self):
         self.assertEqual(manifest_owners('{"dependencies":{"vite":"1"}}', '{"dependencies":{"vite":"2"}}'), UI)
         self.assertEqual(manifest_owners('{"scripts":{"baasx:build":"a"}}', '{"scripts":{"baasx:build":"b"}}'), JS)
@@ -193,15 +223,20 @@ class SharedSnapshots(unittest.TestCase):
                      '[[package]]\nname = "ui"\nversion = "1"\n'
                      '[[package]]\nname = "ctrlc"\nversion = "1"\nchecksum = "old"\n')
             Path(tmp, 'bun.lock').write_text(json.dumps(lock))
+            Path(tmp, 'package.json').write_text('{}')
             Path(tmp, 'Cargo.lock').write_text(cargo)
             git('add', '.'); git('commit', '-qm', 'base'); base = git('rev-parse', 'HEAD')
             lock['packages']['@baas/baasx/react'][-1] = 'new-checksum'
+            patches = {'react@2': 'baasx/patches/react.patch'}
+            lock['patchedDependencies'] = patches
+            Path(tmp, 'package.json').write_text(json.dumps({'patchedDependencies': patches}))
             Path(tmp, 'bun.lock').write_text(json.dumps(lock))
             Path(tmp, 'Cargo.lock').write_text(cargo.replace('checksum = "old"', 'checksum = "new"'))
             git('add', '.'); git('commit', '-qm', 'updates'); head = git('rev-parse', 'HEAD')
             previous = os.getcwd()
             try:
                 os.chdir(tmp)
+                self.assertEqual(shared_owners('package.json', base, head), JS)
                 self.assertEqual(shared_owners('bun.lock', base, head), JS)
                 self.assertEqual(shared_owners('Cargo.lock', base, head), BAASX)
             finally:
