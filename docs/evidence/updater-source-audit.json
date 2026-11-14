@@ -1045,7 +1045,7 @@
     ]
   },
   "clientPackagingSupplement": {
-    "checkedAt": "2026-11-14T18:56:06.588235+00:00",
+    "checkedAt": "2026-11-14T19:10:48.326591+00:00",
     "verificationKind": "code inspection and automated release, packaging, source-selection and persistence contracts",
     "runtimeUpdateExecuted": false,
     "scope": [
@@ -1057,13 +1057,14 @@
     ],
     "primaryReferences": [
       "https://v2.tauri.app/plugin/updater/",
-      "https://v2.tauri.app/distribute/appimage/"
+      "https://v2.tauri.app/distribute/appimage/",
+      "https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.2/crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy.rs"
     ],
     "sources": [
       {
         "file": ".github/workflows/release-app.yml",
-        "revision": "d9513440cf4df33847c8dbc606814df565c7b92c",
-        "sha256": "c7846991eddbbfcf5d2d120907eb1fcccf5600947d7801b4de8e12c4fa08a613",
+        "revision": "9fdc0244f86aa392cd80e6e3a50f607c2f89a8b3",
+        "sha256": "dd1bcd4d22d8c9d07c1bf1aae4f2329e0b16a4235396a0fc1a5849443da42ba9",
         "gitContentVerified": true
       },
       {
