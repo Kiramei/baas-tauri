@@ -68,7 +68,7 @@ The [benchmark page](./performance) measures encoding and state preparation sepa
 
 ## Preferences Are Not Profile Transactions
 
-`UISettingsProvider.tsx` owns one client store with narrow subscriptions and a 150 ms persistence batch. A presentation change notifies subscribers immediately, then writes durable client preferences; page-hide/detach flushes pending data. It is not the 300 ms serialized profile-draft/history mechanism. Transport and update setup additionally cross a native/backend boundary, so their apparent location in Settings does not make them purely cosmetic.
+`UISettingsProvider.tsx` owns one client store with narrow subscriptions and a 150 ms persistence batch. A presentation change notifies subscribers immediately, then writes durable client preferences; page-hide/detach flushes pending data. It is not the 300 ms serialized profile-draft/history mechanism. Transport and update setup additionally cross a native/backend boundary, so their apparent location in Preferences does not make them purely cosmetic.
 
 Saving conventions follow the operation's owner: inline application bindings commit valid input, global OS hotkeys stage a modal draft until registration succeeds, and remote video parameters have an explicit apply command. The current remote apply closure reads the previous preference snapshot; remounting the preview establishes a player with the new values. Moving its existing canvas between thumbnail and modal does not recreate the connection. A rendered control, persisted preference and successful device command are three different facts.
 
@@ -82,7 +82,7 @@ Saving conventions follow the operation's owner: inline application bindings com
 | `import_config` | Extracts a new ID, initializes supported defaults, then removes existing directories with the imported name |
 | `remove_config` | Removes the backend profile, outside editor Undo history                                                    |
 
-The inspected backend importer rejects invalid ZIP/JSON, parent traversal and absolute path entries, and accepts `config.json` at the archive root or one common leading directory. These checks are not an atomic replacement transaction or a guarantee against every malicious archive. In particular, same-name replacement has no extra frontend overwrite confirmation. Multiple imports run sequentially; a later failure does not undo earlier imports. Tests for future changes should cover naming collisions, partial extraction/initialization failures, running-session ownership and recovery, not only a successful upload toast. See [Profiles](../features/profile) before operating on real data.
+The backend importer rejects invalid ZIP/JSON, parent traversal and absolute path entries, and accepts root-level or one common leading directory around `config.json`. The current frontend preflights ZIP and folder imports, creates a fresh user-profile ID and reserves a unique name such as `Name (2)` before uploading; imported `default_config` is never reused as the destination template. The low-level backend command still removes existing directories with an identical name, so direct API clients must provide the same collision protection. Imports are sequential, and a later failure does not undo earlier successes. See [Profiles](../features/profile).
 
 ## Updater and Backend Process Ownership
 
@@ -115,7 +115,7 @@ The diagram's restart/reload step depends on the platform entry point; Android c
 
 Task-log batching preserves received rows; system diagnostics impose a separate retention policy. `SystemLogService.ts` collects frontend/native/Python sources, merges and deduplicates them, sorts by timestamp and retains at most 4,000 rows. The frontend memory buffer is 1,500 and message text can be truncated at 24,000 characters. Source failure is reported alongside remaining data rather than proving that source produced no errors.
 
-The system viewer filters the collected snapshot for copy/export, whereas Clear targets all configured diagnostic sources after confirmation. Auto-refresh and follow-tail have separate state. Keep these distinctions in bug reports: a filtered export is neither the full backend log filesystem nor proof of complete event delivery. [System Settings](../features/system#logs) documents the user controls.
+The system viewer filters the collected snapshot for copy/export, whereas Clear targets all configured diagnostic sources after confirmation. Auto-refresh and follow-tail have separate state. Keep these distinctions in bug reports: a filtered export is neither the full backend log filesystem nor proof of complete event delivery. [Preferences](../features/system#logs) documents the user controls.
 
 ## Android Process and Display Lifecycle
 

@@ -37,7 +37,9 @@ The Home keyboard icon opens native desktop [global profile shortcuts](./system#
 
 The optional resource strip shows backend-reported AP, currencies, crafting materials and pass information. Missing/unreceived values can be blank or unavailable; a displayed value is not a fresh game OCR check on every frame. Appearance's `assetsDisplay` switch hides the strip without deleting account data.
 
-The log workspace shows the selected profile's received task-log buffer, with timestamp/level/message and a count when nonempty. The downward-arrow button toggles automatic scrolling (`scrollToEnd`, shared with Settings → Logs). Turn it off to read earlier lines; it does not pause incoming logs or stop tasks.
+On Android Home, action feedback is recorded in the selected profile’s log instead of transient popups. Long-press still offers log copying, and the task queue opens without hiding the native preview. Profile/global long-press menus are unavailable on Home.
+
+The log workspace shows the selected profile's received task-log buffer, with timestamp/level/message and a count when nonempty. The downward-arrow button toggles automatic scrolling (`scrollToEnd`, shared with Preferences → Logs). Turn it off to read earlier lines; it does not pause incoming logs or stop tasks.
 
 Export Logs serializes the currently received profile buffer to `logs-{profile-id}-{timestamp}.txt`. Native clients show a save dialog; WebUI downloads through the browser. This is not a complete filesystem archive and does not include every other profile's logs. Empty Home does not establish the absence of native/startup errors: [System Logs](./system#logs) is a separate diagnostic viewer/export. Review secrets and account/device data before sharing either.
 

@@ -16,9 +16,9 @@ description: 桌面与 Android 更新的进程归属、选源、阶段、取消�
 | Android 服务与 bootstrap | 独立 `:baas_backend` 进程持有 Python、已加载模块和服务端口；bootstrap 准备文件及启动适配 |
 | 原生客户端更新 | 桌面调用 Tauri updater；Android 验签 APK 后交给系统安装器，和后端仓库同步分开 |
 
-桌面与 WebUI 的侧栏手动入口发送 `stop_all_tasks` 并等待停止状态；桌面随后重载进入原生启动工作流，WebUI 发起后端 `update_to_latest_stream`。Android `Sidebar.tsx` 的分支在 `stopAllTasks` 之前返回，直接运行 Android 工作流；手动入口本身没有停止任务这一步。
+桌面与 WebUI 侧栏通过 `stopAllTasks` 发送 `stop_all_tasks` 并等待停止状态；桌面随后重载进入原生启动，WebUI 调用 `update_to_latest_stream`。Android 现在使用启动协调器，并隐藏底部独立更新日志入口。
 
-空闲更新由 `IdleBackendUpdater.tsx` / `IdleUpdateState.ts` 协调：认证、配置快照和状态就绪，已知远端提交不同，至少三秒稳定空闲后，可靠保存根目录与每档运行标志，再发送并等待 `stop_all_tasks` 响应。持续调度器可以空闲且仍为运行状态；运行中的一次性任务被排除。失败退避五分钟，客户端更新期间不发起新的空闲更新。
+空闲更新由 桌面由 `IdleBackendUpdater.tsx` / `IdleUpdateState.ts` 协调空闲更新，认证、快照与新提交就绪后等待三秒稳定空闲，保存调度状态并等待 `stop_all_tasks`；失败后五分钟退避。Android 使用 `AndroidStartupUpdateCoordinator`：在 OCR/脚本资源和已认证快照就绪后检查保存的通道，等待空闲与手动控制释放，准备页保持可见直至更新处理完成。两者都保留运行/停止状态，调度恢复与代码回滚分别处理。
 
 桌面在应用启动、开始更新、传输启动/认证重置和退出时尝试清理已记录后端。PID 文件按安装根目录共享，终止检查依赖 PID 和命令行中的 `main.service.py`，没有进程创建身份令牌或跨实例独占锁。这不能保证独占操作系统进程所有权，也不能保证发现所有未记录的服务。工作流任务取消与分离后端清理分别处理。
 
@@ -35,7 +35,7 @@ description: 桌面与 Android 更新的进程归属、选源、阶段、取消�
 
 `SourceSelector` 优先复用已保存的成功 URL，否则并发探测可用来源并采用首个成功响应。实际操作成功后才提升为首选；失败来源被禁用，全部失败后重新启用，最多三个完整失败周期。排名记录位于 `.baas-updater/source-ranking/`，桌面仓库使用 `main.json` / `cpp.json`，Android 使用 `android-main.json` / `android-cpp.json`；UV、CPython、PyPI 和客户端包有各自的来源记录。
 
-设置页 SHA 连通性测试只产生查询结果，不选择实际下载源。查询响应快、SHA 相等或记录了首选 URL，均不能证明归档完整、安装目录一致或新服务已加载代码。Android 的抓取跳过判断还接受“记录 SHA 与远端相等”，这不足以逐文件验证本地内容。
+偏好页 SHA 连通性测试只产生查询结果，不选择实际下载源。查询响应快、SHA 相等或记录了首选 URL，均不能证明归档完整、安装目录一致或新服务已加载代码。Android 的抓取跳过判断还接受“记录 SHA 与远端相等”，这不足以逐文件验证本地内容。
 
 ## 工作流阶段
 
@@ -48,14 +48,14 @@ flowchart TD
   D --> E["按需准备 UV / Python / venv"]
   R --> F["移入新克隆 / 保存版本"]
   E --> F
-  F --> P["依赖编译与同步 / 保留缓存"]
+  F --> P["依赖编译与同步 / 清理专属 UV 缓存"]
   P --> L["启用 launch 时分离启动 / 就绪探测"]
-  Entry -->|"Android"| A["加载配置 / 强制 git2 / 清空 CDK"]
+  Entry -->|"Android"| A["加载配置 / 选择稳定归档或 Git"]
   A --> G["并行同步主仓库与 Android Cpp/OCR"]
   G --> S["保存两个仓库 SHA"]
-  S --> H["前端确保服务存在 / 重启延后 / WebView 重载"]
+  S --> H["请求后端重启 / 验证新 OCR 和资源"]
   L -->|"已启动服务"| C["认证与配置同步 / 空闲入口恢复调度状态"]
-  H -->|"现有服务可继续存活"| C
+  H -->|"确认新后端就绪"| C
   R -->|"失败"| X["检查日志与磁盘状态 / 无代码回滚"]
   F -->|"失败"| X
   P -->|"失败"| X
@@ -66,7 +66,13 @@ flowchart TD
 
 桌面启动阶段向 `/auth/remember` 发请求，看到 HTTP 响应即满足该层就绪探测；此时还未证明身份认证、配置同步、设备连接或任务执行成功。
 
-Android 仓库工作流只有配置、两个并行仓库任务、SHA 保存四步。成功后手动入口和空闲入口均调用 `updater_reset_backend_auth_and_restart`；该实现只确保服务存在并返回 `restarted: false`、`restart_deferred: true`。随后 WebView 重载可重连原有 Python 进程，磁盘文件替换不会卸载该进程已导入的模块。新代码生效需要后端服务进程真正重新启动并加载文件，这条命令没有完成该动作。
+Android 原生仓库工作流仍包含配置、主仓/Cpp 并行同步和 SHA 保存。当前前端启动路径随后调用 `updater_restart_backend`，等待旧就绪周期退出并完成新的资源检查，再恢复记录的调度状态。旧 `updater_reset_backend_auth_and_restart` 仅确保服务存在，返回 `restarted: false`、`restart_deferred: true`，不卸载原 Python 模块。
+
+### 受管 UV 缓存
+
+受管依赖同步成功后，更新器调用 UV 自身的缓存清理命令，仅清理该安装的 `<toolkit_path>/uv/cache`；即使 requirements 未变，启动时也会清理。同步使用硬链接安装，删除缓存轮子不会移除已安装包；实际释放空间取决于硬链接是否仍被环境引用。
+
+依赖安装失败或取消时保留缓存，以便诊断和重试。自定义 Python、外部或共享缓存、与虚拟环境或受管 Python 重叠的目录，以及依赖缓存符号链接的环境均跳过清理。清理失败会警告，不丢弃可用环境。此规则适用于桌面受管环境，Android 使用内置 Python。
 
 ### Android 服务覆盖层
 
@@ -104,6 +110,10 @@ Android `fetch_and_reset_git2` 将分支指向 `FETCH_HEAD` 并执行硬重置�
 
 原生客户端使用公开元数据检查稳定版主仓的版本，向 Mirror 酱请求下载授权时才使用保存的 CDK。更新器比较下载归档的 SHA-256 和 `MirrorLatest.sha256`，匹配后才解压或应用文件。开发测试用 CDK 单独保存在工作区，客户端不读取该文件。
 
+### Windows 便携客户端
+
+客户端分别识别便携和已安装模式。便携更新使用已签名的可执行负载，或对应的固定 WebView2 完整包，仅替换程序旁由客户端管理的文件，用户配置与后端数据不在替换范围。更新 helper 暂存并验证文件、保留回滚副本，重启同一个便携程序；新 React 界面确认启动后才删除备份。替换或启动失败时尝试恢复；已安装版本继续走安装器路径。
+
 ### Android APK
 
 APK 安装命令重新获取稳定版清单并检查本机 ABI 与版本。下载数据写入私有临时文件并同步执行 Minisign 验签。验签成功后发布缓存文件，通过 FileProvider 打开系统安装器。授权后重试可复用重新验签的缓存。
@@ -124,6 +134,8 @@ Android 8 及以上缺少安装来源权限时打开授权设置并返回错误�
 空闲恢复记录只包含 schema、根目录和逐档运行布尔值。停止或更新抛错时会尝试恢复原调度状态，恢复成功后才清除记录；重新连接后也会先校验记录再逐档恢复运行与停止状态。恢复失败时记录可保留供后续尝试，关闭自动更新开关不删除有效待恢复记录。Android 空闲更新等待终端最多三十分钟，超时会请求中止，但仍受上述取消限制。恢复记录不包含旧代码、依赖快照或游戏内执行位置。
 
 ## 源码索引
+
+下方固定版本链接保留最初的生命周期核验；当前补充源码审计同时检查本机 CDK、`environ.rs` 的 `cleanup_uv_cache_after_sync` 与 `src-tauri/src/platform/windows/` 下的便携更新实现，源码检查不等同于真实安装或恢复验证。
 
 | 范围 | 实现入口 |
 | --- | --- |

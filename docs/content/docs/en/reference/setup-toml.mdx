@@ -93,7 +93,7 @@ Persisted operational rankings live under `.baas-updater/source-ranking/`: `main
 
 A verified key enables MirrorChyan for the stable backend. Development and OCR use Git. See [Updates](../features/update).
 
-UV's reusable downloads/builds remain under `<toolkit_path>/uv/cache`. The graph's retained-cache stage is not an automatic full cache purge. A successful requirements cache records normalized requirements/lock paths, their SHA-256 contents and the selected PyPI index in `.baas-updater/requirements-cache.json`. Reuse also requires the lock file. It is not a full installed-environment integrity check and does not hash every installed package. Preserve raw measurement scope when comparing startup timings; see [Performance](./performance).
+UV's downloads/builds use `<toolkit_path>/uv/cache`. Successful managed dependency setup now cleans that private cache with UV, including unchanged-requirements startup; failed setup and cache-dependent symlink environments keep it for retry. The installed environment and custom/shared caches are preserved. See [managed UV cache](./updater-internals#managed-uv-cache). A successful requirements cache records normalized requirements/lock paths, their SHA-256 contents and the selected PyPI index in `.baas-updater/requirements-cache.json`. Reuse also requires the lock file. It is not a full installed-environment integrity check and does not hash every installed package. Preserve raw measurement scope when comparing startup timings; see [Performance](./performance).
 
 ## Legacy Files and Invalid Configuration
 

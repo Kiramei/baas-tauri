@@ -37,15 +37,29 @@ test("updater documentation pins inspected sources without claiming a runtime up
   for (const source of mirror.sources) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(source.sha256).toMatch(/^[a-f0-9]{64}$/);
+  }
+  const integration = audit.integrationSupplement;
+  expect(integration.verificationKind).toContain("code inspection");
+  expect(integration.runtimeUpdateExecuted).toBe(false);
+  expect(integration.sources.map(source => source.file)).toContain("crates/baas-updater/src/environ.rs");
+  expect(integration.sources.map(source => source.file)).toContain("src-tauri/src/platform/windows/portable_transaction.rs");
+  expect(new Set(integration.sources.map(source => source.revision)).size).toBe(1);
+  for (const source of integration.sources) {
+    expect(source.gitContentVerified).toBe(true);
+    expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(sha(read(source.file))).toBe(source.sha256);
   }
   // Preserve the historical pinned audit; later source inspections supersede
   // only the pages they reviewed.
-  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages }))
+  for (const [file, expected] of Object.entries({ ...audit.testedPages, ...mirror.testedPages, ...integration.testedPages }))
     expect(sha(read(file))).toBe(expected);
   expect(audit.historySupplement.revision).toBe("7cb82895bcb78adb82b8f185199f51ef18b57cfa");
   expect(audit.historySupplement.sources).toHaveLength(3);
-  for (const source of audit.historySupplement.sources) expect(sha(read(source.file))).toBe(source.sha256);
+  for (const source of audit.historySupplement.sources) {
+    expect(source.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(integration.sources.some(current => current.file === source.file)).toBe(true);
+  }
   expect(JSON.stringify(audit)).not.toMatch(/WorkSpace|\.codex_tmp|[A-Z]:\\|accessToken|accountId|pngBase64/);
 });
 

@@ -7,11 +7,11 @@ A profile owns its server/device/task configuration and scheduler state. It is n
 
 ## Select and Arrange
 
-Desktop shows profiles in the sidebar; narrow windows/Android use a horizontal strip. Click a profile to select it. Long names truncate visually; hover/focus reveals the action slot. A running indicator belongs to that profile, not necessarily the selected one.
+Desktop shows profiles in the sidebar; narrow windows/Android use a horizontal strip. Click a profile to select it. Long names truncate visually; hover/focus reveals the action slot. A running indicator belongs to that profile, not necessarily the selected one. A soft coral alert marks an explicit run failure and remains until the next run; user-requested stops and old error logs do not set it.
 
 Drag profiles to reorder vertically on desktop or horizontally in the strip. Order is stored locally in `tabOrder`; it is not task priority or an exported account order. Changing selection does not itself stop another profile's scheduler. Android additionally restricts conflicting game runs because its display is shared.
 
-Open the ellipsis/menu icon, right-click the profile, or use the keyboard context-menu key/Shift+F10 when focused. Up/Down/Home/End navigate menu items; Escape/Tab closes and returns focus.
+Open the ellipsis/menu icon, right-click the profile, or use the keyboard context-menu key/Shift+F10 when focused. Up/Down/Home/End navigate menu items; Escape/Tab closes and returns focus. Android Home hides profile action/add controls and disables profile/global long-press menus; open another page to manage profiles.
 
 <img
   className="baas-screenshot"
@@ -51,9 +51,9 @@ Export Profile requests the selected profile archive from the backend and saves 
 
 Archives can contain private configuration such as endpoints, push keys, friend codes and device paths. Inspect them before sharing; export is not automatic redaction.
 
-**Same-name replacement warning:** the audited importer creates a new ID, then deletes existing profile directories with the imported `name`. There is no additional overwrite confirmation in this UI. Stop affected schedulers and export their current data before importing; rename the archive's configuration deliberately if you need a separate profile instead of replacement.
+**Existing profiles are preserved:** ZIP, folder and drag-and-drop imports assign fresh profile IDs and reserve a unique display name before sending data to the backend. A conflict becomes `Name (2)`, `Name (3)`, and so on, including repeated imports while synchronization is in flight. An imported `default_config` becomes an ordinary user profile; it never replaces the destination template.
 
-In the Create dialog, choose **Import Profiles** to open the import pane. Its upper action imports a ZIP; the lower action selects a backend `config` folder. Folder import processes the immediate child directories containing `config.json`, including their event/plugin files, and shows a per-item result while continuing past failures. Android uses the system folder picker; browsers require folder-selection support. Same-name replacement applies to both import methods.
+In the Create dialog, choose **Import Profiles** to open the import pane. Its upper action imports a ZIP; the lower action selects a backend `config` folder. Folder import processes the immediate child directories containing `config.json`, including their event/plugin files, and shows a per-item result while continuing past failures. Android uses the system folder picker; browsers require folder-selection support. Folder selection also accepts one profile directory containing `config.json`. Both methods use the same unique-name policy.
 
 The app's file action also imports an archive. The ZIP must contain valid `config.json` with a nonempty `name`, either at its root or inside one common top-level directory. The backend rejects invalid ZIP/JSON and unsafe path entries and fills supported defaults. This is not a reason to trust unknown archives.
 

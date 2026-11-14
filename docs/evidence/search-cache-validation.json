@@ -1,13 +1,13 @@
 {
-  "checkedAt": "2026-11-14T07:25:30.284Z",
+  "checkedAt": "2026-11-14T10:26:51.875Z",
   "platform": "linux",
   "basePath": "",
   "scope": "Real browser HTTP cache, stale-revision rejection and reload recovery; no game or emulator operated",
   "cases": 24,
   "failures": 0,
-  "searchIndexPath": "search-index/74c99676b2a880eca9cb6717fdbb05a41bc52bcfdcee24c1f415bbb2efd26a08.json",
-  "searchIndexRevision": "74c99676b2a880eca9cb6717fdbb05a41bc52bcfdcee24c1f415bbb2efd26a08",
-  "searchIndexSha256": "ea235ab1121b5596fc983bd0d25b6077fafc2cce94c4263ef253a1fec7ac3217",
+  "searchIndexPath": "search-index/7602deb49ff620af7df24341582fd3f0feaae4d11032d88a38f3bc6b4bbd91f1.json",
+  "searchIndexRevision": "7602deb49ff620af7df24341582fd3f0feaae4d11032d88a38f3bc6b4bbd91f1",
+  "searchIndexSha256": "4a857e65b1eb498a75b5e1987bc8905dca24387d0f9fd177ffbbaf686dbfcce2",
   "testedSources": {
     "docs/scripts/check-search-cache.mjs": "ce161a7839e7d09adc2922bb6f15da4768ffa6467b1fb68c1f5479300a031b99",
     "docs/scripts/read-search-artifact.mjs": "b4845d0488a7c9b93d870fee83a5f5009ebe5b971bae3e60972c61b7bbcb256d",

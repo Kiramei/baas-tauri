@@ -24,7 +24,7 @@ The embedded preview does not send game taps; enter fullscreen for manual contro
 
 The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
 
-If the preview stays black, frames stop, or the game exits, stop any running schedulers and choose **Open on device** below the preview. The client moves an existing game task to the foreground or opens the game through its Android launcher if the task has exited.
+If the preview stays black, frames stop or the game exits, stop the scheduler, close the background session and inspect the preview state and startup/system logs before creating a new session. The upper-right preview state remains available; the separate device-launch button is hidden.
 
 ## Preview States
 

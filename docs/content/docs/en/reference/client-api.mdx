@@ -55,6 +55,7 @@ snapshot.entries;
 | `updater_validate_mirrorc_cdk` | `{ request: { cdk?, channel? } }` | Checks a stable backend CDK and returns its status and expiry. Omit `cdk` to check the credential saved on this device. |
 | `tauri_client_check_update` | `{ request?: { currentVersion? } }` | Desktop updater metadata or Android package-update metadata. |
 | `tauri_client_download_and_install` | `{ onEvent }` | Download/install flow with a Tauri event channel; result handling differs by platform. |
+| `tauri_client_update_ready` | None | Desktop only. Acknowledges the first committed React root for Windows portable update recovery; other desktop platforms return `acknowledged: false`. It does not wait for backend installation. |
 | `updater_check_version` | `{ request: { channel? } }` | Local/remote backend revision report. |
 | `updater_get_commit_history` | `{ request: { channel?, limit?, refresh? } }` | Reads backend commit metadata on desktop and Android. The channel defaults to the configured channel; the limit defaults to 100 and is clamped to 1–500. |
 | `updater_test_sha_method` | `{ request: { method, channel?, timeout? } }` | One remote-revision source probe. |

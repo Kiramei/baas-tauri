@@ -93,7 +93,7 @@ Windows/Linux 上，未带版本标记的旧 pipe 偏好可能一次性迁移为
 
 稳定版主仓支持 Mirror 酱，开发版和 OCR 通过 Git 更新。详见[更新](../features/update)。
 
-UV 可复用的下载/构建缓存保留在 `<toolkit_path>/uv/cache`，图中的保留缓存步骤不是自动清空缓存。成功的依赖缓存会在 `.baas-updater/requirements-cache.json` 记录规范化 requirements/lock 路径、两者的 SHA-256 内容和 PyPI 索引，复用还要求锁文件存在。这不是完整的已安装环境校验，不会散列每个已安装包。比较启动耗时时必须保留测量边界，见 [性能](./performance)。
+UV 下载/构建缓存位于 `<toolkit_path>/uv/cache`。受管依赖安装成功后会调用 UV 清理该私有缓存，requirements 未变时也清理；安装失败或环境依赖缓存符号链接时保留以便重试。已安装环境与自定义/共享缓存不受影响，见[受管 UV 缓存](./updater-internals#受管-uv-缓存)。成功的依赖缓存会在 `.baas-updater/requirements-cache.json` 记录规范化 requirements/lock 路径、两者的 SHA-256 内容和 PyPI 索引，复用还要求锁文件存在。这不是完整的已安装环境校验，不会散列每个已安装包。比较启动耗时时必须保留测量边界，见 [性能](./performance)。
 
 ## 旧格式与无效配置
 

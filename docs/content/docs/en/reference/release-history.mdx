@@ -7,13 +7,16 @@ This page tracks BAAS Tauri changes across the desktop client, Android client, u
 
 ## 0.0.10
 
-The stable release adds signed Android client updates, stable backend defaults, and local MirrorChyan CDK management. Publication status, packages and signatures are listed in the [0.0.10 release](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10).
+**In preparation; not published.** The planned release adds signed Android client updates, stable backend defaults and device-local MirrorChyan CDK management. Packages will appear on the [0.0.10 release page](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10) after publication.
 
-- New backend installations default to Stable; existing installations retain their saved channel. Development remains available in Settings.
-- Android verifies signed APK downloads before opening the system installer. Game display recovery adds **Open on device**, avoids restarting an already active game during page reconnection, and recognizes Global Teen and ONE store variants. Device-specific capture and launch limits remain documented in the [Android guide](../guide/android).
+- New backend installations default to Stable; existing installations retain their saved channel. Development remains available in Preferences.
+- Android verifies signed APK downloads before opening the system installer, avoids restarting an active game during reconnection and recognizes Global Teen and ONE store variants. The separate device-launch button is hidden. Device-specific capture and launch limits remain in the [Android guide](../guide/android).
 - Desktop and Android store verified MirrorChyan CDKs in private device storage. Stable backend packages are checked against SHA-256 before application. See [update settings](../features/update).
 - CI checks follow the changed module, frontend/backend layer and applicable platform. Documentation and README changes use their own checks.
-- BAASX distribution sources support six OS/CPU targets and optional platform runtime packages. The native helper is named `baasx-runtime`, with legacy lookup retained. BAASX uses an independent version and release tag; registry installation uses `@kiramei/baasx` while the unscoped name is on hold. See [BAASX installation](../baasx/installation).
+- BAASX supports six OS/architecture combinations with optional npm runtime packages and the `baasx-runtime` helper, retaining legacy-name lookup. Registry installation uses `@kiramei/baasx`; the unscoped name remains on hold. See [BAASX installation](../baasx/installation).
+- Profile imports accept ZIPs and folders, preserve existing names with numbered suffixes and safely import `default_config`. macOS uses the native menu bar; wide plugin panes scroll independently.
+- Windows portable client updates retain portable mode. Successful managed dependency setup cleans the private UV cache. Profiles retain explicit run failures, desktop notifications group run updates, and appearance settings include BACursors.
+- Android Home writes action feedback to profile logs and hides profile/global long-press menus; queue inspection and log copying remain available. Seven-language UI coverage and interpolation checks are expanded.
 
 Export important profiles before upgrading. Android APK installation needs system confirmation; background game support depends on the device and its privileged-display capabilities.
 

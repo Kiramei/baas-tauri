@@ -7,13 +7,16 @@ description: BAAS Tauri 各版本更新内容、影响范围、升级建议和�
 
 ## 0.0.10
 
-本次稳定版增加 Android 签名客户端更新、稳定版后端默认安装和本机 MirrorChyan CDK 管理。发布状态、安装包和签名以 [0.0.10 发布页](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10) 为准。
+**准备中，尚未发布。** 计划增加 Android 签名客户端更新、稳定版后端默认安装和本机 MirrorChyan CDK 管理。正式发布后，安装包以 [0.0.10 发布页](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10) 为准。
 
-- 新安装后端默认使用稳定版，已有安装继续使用保存的通道；设置中仍可选择开发版。
-- Android 在打开系统安装器之前验证 APK 签名。游戏显示恢复增加“在设备上打开”，页面重新连接时避免重启仍在运行的游戏，并识别国际服 Teen 和 ONE store 版本。设备相关的捕获和启动限制见 [Android 指南](../guide/android)。
+- 新安装后端默认使用稳定版，已有安装继续使用保存的通道；偏好中仍可选择开发版。
+- Android 在打开系统安装器之前验证 APK 签名；页面重连避免重启仍在运行的游戏，并识别国际服 Teen 和 ONE store 版本。单独的设备启动按钮已隐藏，设备相关捕获和启动限制见 [Android 指南](../guide/android)。
 - 桌面和 Android 将验证成功的 MirrorChyan CDK 保存在设备私有目录，稳定版后端包应用前会核对 SHA-256。参见[更新设置](../features/update)。
 - CI 根据改动所属模块、前后端层和适用平台执行检查，文档与 README 使用独立检查。
-- BAASX 分发源码支持六种操作系统与架构组合，npm 使用可选平台运行时包。原生组件改名为 `baasx-runtime`，兼容旧名称查找。BAASX 使用独立版本和发布标签；无作用域名称暂停期间，registry 安装入口为 `@kiramei/baasx`。参见 [BAASX 安装](../baasx/installation)。
+- BAASX 支持六种操作系统与架构组合及 npm 可选运行时包，原生 helper 为 `baasx-runtime`，兼容旧名称查找。registry 安装入口为 `@kiramei/baasx`，无作用域名称继续暂停，见 [BAASX 安装](../baasx/installation)。
+- 配置支持 ZIP 和文件夹导入，重名自动编号，`default_config` 导入为普通配置。macOS 使用系统菜单栏，宽屏插件左右面板独立滚动。
+- Windows 便携客户端更新保留便携模式；受管依赖安装成功后清理本机 UV 缓存。配置可持续显示明确的运行失败，桌面运行通知合并显示，外观增加 BACursors 开关。
+- Android 首页操作反馈写入配置日志，隐藏配置/全局长按菜单，保留队列查看与日志复制；补齐七种语言界面文案及插值参数检查。
 
 升级前导出重要配置档。Android 安装 APK 需要系统确认，后台游戏支持取决于设备及其特权显示能力。
 
