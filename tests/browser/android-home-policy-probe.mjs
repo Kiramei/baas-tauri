@@ -71,6 +71,13 @@ try {
   assert.equal(await header.locator("button[aria-haspopup=menu]").count(), 0);
   assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 0);
   assert.equal(await page.locator(".mobile-update-log, .mobile-update-actions").count(), 0);
+  await page.goto(`${origin}/tests/browser/workspace.html?homePolicy=1&profileFeatures=1&profiles=0&lang=en`, { waitUntil: "domcontentloaded" });
+  await page.getByText(catalog.profile.createElsewhere.replace("{{tasks}}", catalog.nav.scheduler).replace("{{configuration}}", catalog.nav.configuration), { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: catalog.profile.create, exact: true }).count(), 0);
+  assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 0);
+  await page.locator("nav").getByRole("button", { name: catalog.nav.scheduler, exact: true }).last().click();
+  await page.getByRole("button", { name: catalog.profile.create, exact: true }).waitFor();
+  assert.equal(await header.getByRole("button", { name: catalog.profile.add, exact: true }).count(), 1);
   assert.deepEqual(errors, []);
   console.log("PASS Android: home actions hidden, long-press blocked, queue stays live, errors in log/export, native log selection retained, task/config menus preserved");
   await context.close();

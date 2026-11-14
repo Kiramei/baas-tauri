@@ -89,14 +89,23 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 
-const CreateFirstProfile: React.FC = () => {
+const CreateFirstProfile: React.FC<{ allowCreate: boolean }> = ({ allowCreate }) => {
   const actions = useProfileActions();
   const { t } = useAppTranslation();
   return (
     <div className="flex h-full items-center justify-center p-6">
-      <CButton type="button" onClick={() => actions?.create()} disabled={!actions}>
-        {t("profile.create")}
-      </CButton>
+      {allowCreate ? (
+        <CButton type="button" onClick={() => actions?.create()} disabled={!actions}>
+          {t("profile.create")}
+        </CButton>
+      ) : (
+        <p className="text-center text-sm text-muted-foreground">
+          {t("profile.createElsewhere", {
+            tasks: t("nav.scheduler"),
+            configuration: t("nav.configuration"),
+          })}
+        </p>
+      )}
     </div>
   );
 };
@@ -212,7 +221,7 @@ export const Main: React.FC<{ onReady?: () => void }> = ({ onReady = ignoreReady
   if ((!activeProfile || !activePid) && activePage !== "settings") {
     return (
       <MainLayout activePage={activePage} setActivePage={setActivePage}>
-        <CreateFirstProfile />
+        <CreateFirstProfile allowCreate={activePage !== "home"} />
         <HomeReadyMarker onReady={onReady} />
       </MainLayout>
     );

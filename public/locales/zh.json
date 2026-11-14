@@ -243,6 +243,7 @@
     "copy": "复制配置",
     "copyFailed": "复制配置失败",
     "create": "新增配置",
+    "createElsewhere": "请在“{{tasks}}”或“{{configuration}}”页面新建配置。",
     "deleteConfirmMessage": "确认删除配置“{{name}}”？该操作不可撤销！",
     "deleteConfirmTitle": "删除确认",
     "dropAuthRequired": "请先连接并完成认证后再导入配置压缩包。",

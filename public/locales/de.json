@@ -243,6 +243,7 @@
     "copy": "Profil kopieren",
     "copyFailed": "Profil konnte nicht kopiert werden",
     "create": "Profil erstellen",
+    "createElsewhere": "Erstelle ein Profil unter {{tasks}} oder {{configuration}}.",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie das Profil '{{name}}' löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!",
     "deleteConfirmTitle": "Löschung bestätigen",
     "dropAuthRequired": "Verbinde dich und authentifiziere dich, bevor du ein Profilarchiv importierst.",

@@ -243,6 +243,7 @@
     "copy": "프로필 복사",
     "copyFailed": "프로필 복사 실패",
     "create": "프로필 생성",
+    "createElsewhere": "{{tasks}} 또는 {{configuration}}에서 프로필을 만드세요.",
     "deleteConfirmMessage": "프로필 '{{name}}'을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다!",
     "deleteConfirmTitle": "삭제 확인",
     "dropAuthRequired": "프로필 압축 파일을 가져오기 전에 연결하고 인증하세요.",

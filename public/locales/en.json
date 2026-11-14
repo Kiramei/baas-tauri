@@ -243,6 +243,7 @@
     "copy": "Copy Profile",
     "copyFailed": "Failed to copy profile",
     "create": "Create Profile",
+    "createElsewhere": "Create a profile from {{tasks}} or {{configuration}}.",
     "deleteConfirmMessage": "Are you sure you want to delete the profile '{{name}}'? This action cannot be undone!",
     "deleteConfirmTitle": "Confirm Deletion",
     "dropAuthRequired": "Connect and authenticate before importing a profile archive.",

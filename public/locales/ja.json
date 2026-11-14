@@ -243,6 +243,7 @@
     "copy": "プロファイルをコピー",
     "copyFailed": "プロファイルのコピーに失敗しました",
     "create": "プロファイルを作成",
+    "createElsewhere": "「{{tasks}}」または「{{configuration}}」からプロファイルを作成してください。",
     "deleteConfirmMessage": "プロファイル「{{name}}」を削除してもよろしいですか？この操作は元に戻せません！",
     "deleteConfirmTitle": "削除の確認",
     "dropAuthRequired": "プロファイルアーカイブをインポートする前に接続して認証してください。",

@@ -243,6 +243,7 @@
     "copy": "Copier le profil",
     "copyFailed": "Échec de la copie du profil",
     "create": "Créer un profil",
+    "createElsewhere": "Créez un profil depuis {{tasks}} ou {{configuration}}.",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer le profil '{{name}}' ? Cette action est irréversible !",
     "deleteConfirmTitle": "Confirmer la suppression",
     "dropAuthRequired": "Connectez-vous et authentifiez-vous avant d'importer une archive de profil.",

@@ -199,6 +199,7 @@ export type TranslationKey =
   | "profile.copy"
   | "profile.copyFailed"
   | "profile.create"
+  | "profile.createElsewhere"
   | "profile.deleteConfirmMessage"
   | "profile.deleteConfirmTitle"
   | "profile.dropAuthRequired"
