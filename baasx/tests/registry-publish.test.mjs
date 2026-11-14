@@ -50,15 +50,34 @@ test("unscoped package is skipped for both registries even with an older package
   try {
     const guard = path.join(root, "guard.cjs");
     const packages = path.join(root, "packages.json");
-    writeFileSync(packages, JSON.stringify([{ name: "baasx", version: "0.1.4", integrity: "sha512-test", archive: "should-not-publish.tgz" }]));
-    writeFileSync(guard, `
+    writeFileSync(
+      packages,
+      JSON.stringify([
+        {
+          name: "baasx",
+          version: "0.1.4",
+          integrity: "sha512-test",
+          archive: "should-not-publish.tgz",
+        },
+      ])
+    );
+    writeFileSync(
+      guard,
+      `
       globalThis.fetch = async () => { throw new Error("unscoped package must not be queried"); };
       require("node:child_process").execFileSync = () => { throw new Error("unscoped package must not be published"); };
       require("node:module").syncBuiltinESMExports();
-    `);
+    `
+    );
     const script = fileURLToPath(new URL("../scripts/registry-publish.mjs", import.meta.url));
     for (const registry of ["https://registry.npmjs.org/", "https://npm.pkg.github.com/"]) {
-      expect(execFileSync("node", ["--require", guard, script, "--info", packages, "--registry", registry], { encoding: "utf8" })).toBe("");
+      expect(
+        execFileSync(
+          "node",
+          ["--require", guard, script, "--info", packages, "--registry", registry],
+          { encoding: "utf8" }
+        )
+      ).toBe("");
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
