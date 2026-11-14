@@ -44,7 +44,7 @@ ARCHIVE_MAGIC = b"PK\x03\x04"
 SOURCE_ATTEMPTS = 2
 SOURCE_TIMEOUT_SECONDS = 45
 DOWNLOAD_DEADLINE_SECONDS = 900
-STEP_IDS = ("storage", "channel", "download", "extract", "adapt", "service")
+STEP_IDS = ("storage", "channel", "download", "extract", "adapt", "service", "ocr", "resources")
 _ATX_PROCESSES = []
 _BACKEND_MODULE_ROOTS = (
     "android_runtime_injection",
@@ -232,6 +232,7 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         "startedAt": time.time(),
         "steps": _initial_steps(),
         "updatedAt": time.time(),
+        "resourcesReady": False,
     }
     _BOOTSTRAP_STATUS = status
 
@@ -243,7 +244,6 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
         installed = _ensure_backend_files(root, status)
         status["backendInstalled"] = True
         status["installedThisRun"] = installed
-        status["ok"] = True
         _write_status(root, status)
         status["stage"] = "service"
         status["installMessage"] = "Starting local backend service."
@@ -262,6 +262,7 @@ def _start_once(files_dir, storage_root_or_port, port=None, native_library_dir=N
             {
                 "ok": False,
                 "stage": "failed",
+                "resourcesReady": False,
                 "backendInstalled": _service_path(root).exists(),
                 "error": str(error),
                 "traceback": traceback.format_exc(),
@@ -300,7 +301,8 @@ def _configure_environment(files_dir, storage_root_or_port, port=None, native_li
     os.environ.setdefault("BAAS_UPDATE_CHECK_INTERVAL_SECONDS", "86400")
     os.environ["BAAS_ANDROID"] = "1"
     os.environ["BAAS_ANDROID_NATIVE_CAPTURE"] = "1"
-    os.environ.setdefault("BAAS_ALLOW_MISSING_OCR", "1")
+    # A reachable transport must never make missing OCR appear script-ready.
+    os.environ["BAAS_ALLOW_MISSING_OCR"] = "0"
     os.environ["BAAS_ANDROID_INTERNAL_FILES_DIR"] = str(files_dir)
     os.environ["BAAS_ANDROID_LOCAL_TOKEN_FILE"] = str(Path(files_dir) / "android-local-device-token")
     os.environ["BAAS_PIPE_NAME"] = str(Path(files_dir) / "baas-service.sock")
@@ -329,6 +331,8 @@ def _initial_steps(channel=None):
         "extract": "Install backend files",
         "adapt": "Apply Android compatibility patches",
         "service": "Start local service",
+        "ocr": "Prepare OCR runtime and models",
+        "resources": "Prepare script resources",
     }
     steps = [
         {"id": step_id, "title": titles[step_id], "state": "pending", "detail": ""}
@@ -343,23 +347,25 @@ def _initial_steps(channel=None):
 
 
 # Updates one step and persists the status document so the UI never guesses.
-def _set_step(root, status, step_id, state, detail=""):
-    steps = status.setdefault("steps", _initial_steps(status.get("channel")))
-    found = False
-    for step in steps:
-        if step.get("id") == step_id:
-            step["state"] = state
-            step["detail"] = detail
-            step["updatedAt"] = time.time()
-            found = True
-            break
-    if not found:
-        steps.append(
-            {"id": step_id, "title": step_id.title(), "state": state, "detail": detail, "updatedAt": time.time()}
-        )
-    status["currentStep"] = step_id
-    status["updatedAt"] = time.time()
-    _write_status(root, status)
+def _set_step(root, status, step_id, state, detail="", make_current=True):
+    with _STATUS_WRITE_LOCK:
+        steps = status.setdefault("steps", _initial_steps(status.get("channel")))
+        found = False
+        for step in steps:
+            if step.get("id") == step_id:
+                step["state"] = state
+                step["detail"] = detail
+                step["updatedAt"] = time.time()
+                found = True
+                break
+        if not found:
+            steps.append(
+                {"id": step_id, "title": step_id.title(), "state": state, "detail": detail, "updatedAt": time.time()}
+            )
+        if make_current:
+            status["currentStep"] = step_id
+        status["updatedAt"] = time.time()
+        _write_status(root, status)
 
 
 # Reads the explicit channel choice written by the app, if the user made one.
@@ -1292,6 +1298,8 @@ def _android_support_fingerprint(root):
                     value.co_cellvars, value.co_flags, stable_code(value.co_consts)]
         if isinstance(value, bytes):
             return {"bytes": value.hex()}
+        if isinstance(value, slice):
+            return {"slice": stable_code((value.start, value.stop, value.step))}
         if isinstance(value, (tuple, list)):
             return [stable_code(item) for item in value]
         if isinstance(value, frozenset):
@@ -3756,14 +3764,14 @@ def _service_path(root):
 
 # Confirms the service really accepts connections before reporting the step done.
 def _report_service_ready(root, port):
-    status = _read_status(root, {})
+    status = _BOOTSTRAP_STATUS if _BOOTSTRAP_STATUS is not None else _read_status(root, {})
 
     def probe():
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
                 with socket.create_connection(("127.0.0.1", int(port)), timeout=0.5):
-                    _set_step(root, status, "service", "done", f"Listening on 127.0.0.1:{port}")
+                    _set_step(root, status, "service", "done", f"Listening on 127.0.0.1:{port}", make_current=False)
                     print(f"[service] Backend listening on 127.0.0.1:{port}", flush=True)
                     return
             except OSError:
@@ -3771,6 +3779,23 @@ def _report_service_ready(root, port):
         _set_step(root, status, "service", "failed", f"Port {port} did not accept connections within 60s")
 
     threading.Thread(target=probe, name="baas-service-ready", daemon=True).start()
+
+
+def _report_resource_readiness(root, step, state, detail, trace=""):
+    """Persist real initializer results independently of transport availability."""
+    with _STATUS_WRITE_LOCK:
+        status = _BOOTSTRAP_STATUS if _BOOTSTRAP_STATUS is not None else _read_status(root, {})
+        if state == "failed":
+            status.update(ok=False, stage="failed", resourcesReady=False, error=detail, traceback=trace)
+            for item in status.get("steps", []):
+                if item.get("id") in {"ocr", "resources"} and item.get("state") == "running":
+                    item.update(state="failed", detail=detail)
+        elif step == "resources" and state == "done":
+            status.update(ok=True, stage="ready", resourcesReady=True)
+        else:
+            status.update(stage="resources", resourcesReady=False)
+        _set_step(root, status, step, state, detail)
+    print(f"[{step}] {detail}", flush=True)
 
 
 # Handles the run baas service workflow.
@@ -3953,6 +3978,13 @@ async def _handle_android_reset_auth(scope, receive, send):
 
 # Builds the ASGI app and reserves a bootstrap-owned restart endpoint.
 def _build_baas_asgi_app(root, port):
+    from android_backend.resource_readiness import install_runtime_readiness
+    from service.runtime import ServiceRuntime
+
+    install_runtime_readiness(
+        ServiceRuntime,
+        lambda step, state, detail, trace: _report_resource_readiness(root, step, state, detail, trace),
+    )
     from service.app import app as service_app
 
     # Wiki is intentionally unavailable in the Android client. Remove its API

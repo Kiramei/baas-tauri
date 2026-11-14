@@ -10,6 +10,7 @@ Object.assign(globalThis, {
 });
 
 let listedIds = ["default_config"];
+let omitStaticSnapshot = false;
 const documents: Record<string, any> = {};
 const opened = new Map<string, Connection>();
 
@@ -29,6 +30,7 @@ class Connection {
       return;
     }
     if (message.type !== "pull") return;
+    if (message.resource === "static" && omitStaticSnapshot) return;
     const data =
       message.resource === "static"
         ? { ready: true }
@@ -68,7 +70,12 @@ mock.module("../../../src/shared/TauriInvoke", () => ({
 }));
 
 const { useWebSocketStore: store } = await import("../../../src/store/WebsocketStore");
-store.setState({ _auth_phase: "authenticated", transportMode: "pipe" });
+store.setState({
+  _auth_phase: "authenticated",
+  transportMode: "pipe",
+  // A warm provider can report ready before config snapshots are requested.
+  _all_data_initialized: true,
+});
 await Promise.race([
   store.getState().init(),
   Bun.sleep(3000).then(() => {
@@ -79,6 +86,10 @@ assert.equal(
   store.getState()._android_ui_ready,
   true,
   "zero user profiles is a valid initialized Android workspace"
+);
+assert.ok(
+  opened.has("sync"),
+  "an early OCR readiness flag must not skip Android snapshot initialization"
 );
 assert.deepEqual(store.getState().configStore, {}, "the built-in template is not a user profile");
 const sync = opened.get("sync")!;
@@ -190,5 +201,37 @@ assert.ok(
   "no intermediate store event renders an empty profile name"
 );
 stop();
+
+// Missing IPC snapshots must expose a retryable stage rather than spin forever.
+omitStaticSnapshot = true;
+store.setState({
+  _android_ui_ready: false,
+  _auth_error: null,
+  staticStore: {},
+  _receivedSnapshots: {},
+});
+const originalSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = ((callback: TimerHandler, delay?: number, ...args: any[]) =>
+  originalSetTimeout(callback, delay === 90_000 ? 0 : delay, ...args)) as typeof setTimeout;
+try {
+  await store.getState().init();
+  assert.equal(store.getState()._android_ui_ready, false);
+  assert.equal(store.getState()._initiating, false);
+  assert.match(store.getState()._auth_error ?? "", /static configuration/);
+} finally {
+  globalThis.setTimeout = originalSetTimeout;
+}
+omitStaticSnapshot = false;
+await store.getState().init();
+assert.equal(
+  store.getState()._android_ui_ready,
+  true,
+  "a valid retry completes the same initialization path"
+);
+assert.equal(
+  store.getState()._auth_error,
+  null,
+  "the recovered stage clears its earlier startup error"
+);
 for (const name of ["provider", "sync", "trigger"] as const) store.getState().disconnect(name);
 console.log("first-install profile initialization regression passed");

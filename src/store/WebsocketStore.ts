@@ -67,7 +67,6 @@ export const resolveHttpBase = () => {
 
 const { appendGlobalLog, appendGlobalLogs } = useGlobalLogStore.getState();
 const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
-const ANDROID_STARTUP_UPDATE_DELAY_MS = 30 * 1000;
 let backendUpdaterPollTimer: ReturnType<typeof setInterval> | null = null;
 let backendUpdaterPollDelayTimer: ReturnType<typeof setTimeout> | null = null;
 let backendUpdaterChecking = false;
@@ -736,13 +735,9 @@ export const useWebSocketStore = create<WebSocketState>()(
     startTauriUpdaterPolling: () => {
       if (!__WITH_TAURI__ || tauriUpdaterPollTimer) return;
       const check = () => {
-        void get().checkTauriUpdater(true, false);
+        void get().checkTauriUpdater(!__WITH_ANDROID__, false);
       };
       tauriUpdaterPollTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
-      if (__WITH_ANDROID__) {
-        setTimeout(check, ANDROID_STARTUP_UPDATE_DELAY_MS);
-        return;
-      }
       check();
     },
 
@@ -1514,7 +1509,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (transportSwitching) return;
       if (
         get()._initiating ||
-        get()._all_data_initialized ||
+        (!__WITH_ANDROID__ && get()._all_data_initialized) ||
         (__WITH_ANDROID__ && get()._android_ui_ready)
       ) {
         return;
@@ -1527,17 +1522,30 @@ export const useWebSocketStore = create<WebSocketState>()(
         get()._auth_phase === "authenticated";
       const waitForInitialization = async <T>(
         selector: (state: WebSocketState) => T,
-        predicate: (value: T) => boolean
+        predicate: (value: T) => boolean,
+        resource = "backend data"
       ) => {
-        await waitFor(
-          get,
-          api.subscribe,
-          (state: WebSocketState) => ({ current: isCurrent(), value: selector(state) }),
-          ({ current, value }: { current: boolean; value: T }) => !current || predicate(value)
-        );
+        try {
+          await waitFor(
+            get,
+            api.subscribe,
+            (state: WebSocketState) => ({ current: isCurrent(), value: selector(state) }),
+            ({ current, value }: { current: boolean; value: T }) => !current || predicate(value),
+            __WITH_ANDROID__ ? 90_000 : Infinity
+          );
+        } catch (error) {
+          if (!__WITH_ANDROID__) throw error;
+          throw new Error(
+            `Timed out while loading Android ${resource}; retry setup and inspect the startup log`
+          );
+        }
       };
 
-      set((state) => ({ ...state, _initiating: true }));
+      set((state) => ({
+        ...state,
+        _initiating: true,
+        ...(__WITH_ANDROID__ ? { _auth_error: null } : {}),
+      }));
       const initializationStarted = performance.now();
       console.info(`[transport] initializing data over ${get().transportMode}`);
 
@@ -1558,19 +1566,22 @@ export const useWebSocketStore = create<WebSocketState>()(
         get().send("sync", { type: "list" });
         await waitForInitialization(
           (state: WebSocketState) => Object.keys(state.staticStore).length,
-          (length) => length > 0
+          (length) => length > 0,
+          "static configuration"
         );
         if (!isCurrent()) return;
 
         await waitForInitialization(
           (state: WebSocketState) => Object.keys(state.updateStore).length,
-          (length) => length > 0
+          (length) => length > 0,
+          "update configuration"
         );
         if (!isCurrent()) return;
 
         await waitForInitialization(
           (state: WebSocketState) => state._receivedSnapshots.config_list === true,
-          (received) => received
+          (received) => received,
+          "profile list"
         );
         if (!isCurrent()) return;
 
@@ -1589,7 +1600,8 @@ export const useWebSocketStore = create<WebSocketState>()(
                 state._receivedSnapshots[`config:${id}`] === true &&
                 state._receivedSnapshots[`event:${id}`] === true
             ),
-          (ready) => ready
+          (ready) => ready,
+          "profile documents"
         );
         if (!isCurrent()) return;
         const skipBackendUpdater = await isTauriNoUpdateEnabled();
@@ -1614,11 +1626,12 @@ export const useWebSocketStore = create<WebSocketState>()(
               ...state.versionStore,
               updateAvailable: false,
               channel: state.updateStore?.channel ?? "stable",
-              method: "deferred",
-              checking: true,
+              method: "startup",
+              checking: false,
             },
           }));
-          startBackendUpdaterPolling(ANDROID_STARTUP_UPDATE_DELAY_MS);
+          // The startup coordinator owns the Android check/apply/restart
+          // sequence before the home page can become visible.
         } else if (skipBackendUpdater) {
           let local: string | null = null;
           try {
@@ -1672,6 +1685,12 @@ export const useWebSocketStore = create<WebSocketState>()(
         console.info(
           `[transport] data ready mode=${get().transportMode} duration_ms=${(performance.now() - initializationStarted).toFixed(1)}`
         );
+      } catch (error) {
+        if (!__WITH_ANDROID__) throw error;
+        if (!isCurrent()) return;
+        const detail = error instanceof Error ? error.message : String(error);
+        appendGlobalLog({ level: "error", message: detail } as any);
+        set({ _auth_error: detail });
       } finally {
         if (initializationGeneration === transportGeneration) set({ _initiating: false });
       }

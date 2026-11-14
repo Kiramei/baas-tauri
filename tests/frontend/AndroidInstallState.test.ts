@@ -9,6 +9,63 @@ import {
 
 const transportError = "Backend transport startup is cooling down after a failure";
 
+describe("Android script resource readiness", () => {
+  const ready: AndroidStartupState = {
+    bootstrap: {
+      backendInstalled: true,
+      stage: "ready",
+      resourcesReady: true,
+      steps: [
+        { id: "service", state: "done" },
+        { id: "ocr", state: "done" },
+        { id: "resources", state: "done" },
+      ],
+    },
+  };
+
+  test("a reachable backend and installed files cannot stand in for verified OCR", () => {
+    expect(
+      resolveAndroidInstallState(
+        {
+          baasRootExistsNonEmpty: true,
+          bootstrap: {
+            backendInstalled: true,
+            stage: "service",
+            steps: [{ id: "service", state: "done" }],
+          },
+        },
+        null,
+        null
+      ).resourcesReady
+    ).toBe(false);
+    expect(resolveAndroidInstallState(ready, null, null).resourcesReady).toBe(true);
+  });
+
+  test("each required resource step and explicit readiness must agree", () => {
+    for (const id of ["service", "ocr", "resources"]) {
+      const bootstrap = {
+        ...ready.bootstrap,
+        steps: ready.bootstrap!.steps!.filter((step) => step.id !== id),
+      };
+      expect(resolveAndroidInstallState({ bootstrap }, null, null).resourcesReady).toBe(false);
+    }
+    expect(
+      resolveAndroidInstallState(
+        { bootstrap: { ...ready.bootstrap, resourcesReady: false } },
+        null,
+        null
+      ).resourcesReady
+    ).toBe(false);
+  });
+
+  test("a late or cached readiness flag cannot hide resource failure", () => {
+    const bootstrap = { ...ready.bootstrap, stage: "failed", error: "OCR model unavailable" };
+    const state = resolveAndroidInstallState({ bootstrap }, null, null);
+    expect(state.resourcesReady).toBe(false);
+    expect(state.backendError).toBe("OCR model unavailable");
+  });
+});
+
 describe("Android channel confirmation presentation", () => {
   test("the channel awaits confirmation while other unfinished work does not spin behind it", () => {
     const storage = { id: "storage", state: "running" };
