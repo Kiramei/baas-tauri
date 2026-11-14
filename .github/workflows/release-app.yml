@@ -859,6 +859,30 @@ jobs:
             -f make_latest="$MAKE_LATEST" \
             --silent
 
+  mirrorchyan-uploading:
+    name: Upload installers to MirrorChyan
+    needs: [update_tag]
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/mirrorchyan_release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
+
+  mirrorchyan-release-note:
+    name: Sync MirrorChyan release notes
+    needs: [mirrorchyan-uploading]
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/mirrorchyan_release_note.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MirrorChyanUploadToken: ${{ secrets.MirrorChyanUploadToken }}
+
   release-update:
     name: Publish updater manifests
     runs-on: ubuntu-latest
