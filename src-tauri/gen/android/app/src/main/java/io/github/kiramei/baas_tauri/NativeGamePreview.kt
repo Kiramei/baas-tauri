@@ -250,7 +250,7 @@ class NativeGamePreview(private val activity: Activity) {
     }
     host.addView(view, FrameLayout.LayoutParams(-1, -1))
     val waiting = TextView(activity).apply {
-      text = "Waiting for game frames…"; textSize = 13f; setTextColor(palette.foreground)
+      text = NativeGameText.text(previewLanguage, NativeGameLabel.WAITING); textSize = 13f; setTextColor(palette.foreground)
       gravity = Gravity.CENTER; setPadding(16, 16, 16, 16)
     }
     status = waiting
@@ -274,7 +274,7 @@ class NativeGamePreview(private val activity: Activity) {
       "restart" to R.drawable.preview_restart).forEach { (action, icon) ->
       val button = ImageButton(activity).apply {
         setImageResource(icon)
-        contentDescription = action
+        contentDescription = NativeGameText.action(previewLanguage, action)
         scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
         setPadding(dp(12), dp(12), dp(12), dp(12))
         setOnClickListener {
@@ -292,7 +292,7 @@ class NativeGamePreview(private val activity: Activity) {
     overlay.addView(row, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = (12 * density).toInt() })
     host.addView(overlay, FrameLayout.LayoutParams(-1, -1))
     val live = TextView(activity).apply {
-      text = "● Live"; textSize = 11f; setTextColor(palette.mutedForeground)
+      text = "● " + NativeGameText.text(previewLanguage, NativeGameLabel.LIVE); textSize = 11f; setTextColor(palette.mutedForeground)
       background = rounded(palette.alpha(palette.background, 224), 24)
       setPadding(dp(10), dp(4), dp(10), dp(4)); isClickable = false
     }
@@ -300,7 +300,7 @@ class NativeGamePreview(private val activity: Activity) {
     host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(8), dp(8), dp(8), 0) })
     val close = ImageButton(activity).apply {
       setImageResource(R.drawable.preview_close)
-      contentDescription = if (previewLanguage.startsWith("zh")) "关闭预览" else "Close preview"
+      contentDescription = NativeGameText.text(previewLanguage, NativeGameLabel.CLOSE_PREVIEW)
       scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
       setPadding(dp(12), dp(12), dp(12), dp(12))
       setOnClickListener { dismissPreview() }
@@ -522,17 +522,17 @@ class NativeGamePreview(private val activity: Activity) {
   }
   internal fun setStatus(state: PreviewFrameState, error: String?, language: String? = null) {
     if (language != null) previewLanguage = language
-    val chinese = previewLanguage.startsWith("zh")
-    closeButton?.contentDescription = if (chinese) "关闭预览" else "Close preview"
-    val label = when (state) {
-      PreviewFrameState.WAITING -> if (chinese) "等待画面" else "Waiting for frames"
-      PreviewFrameState.BLACK -> if (chinese) "黑屏" else "Black screen"
-      PreviewFrameState.STILL -> if (chinese) "画面未更新" else "No frame updates"
-      PreviewFrameState.LIVE -> if (chinese) "实时" else "Live"
-    }
+    closeButton?.contentDescription = NativeGameText.text(previewLanguage, NativeGameLabel.CLOSE_PREVIEW)
+    controlButtons.forEach { (action, button) -> button.contentDescription = NativeGameText.action(previewLanguage, action) }
+    val label = NativeGameText.text(previewLanguage, when (state) {
+      PreviewFrameState.WAITING -> NativeGameLabel.WAITING
+      PreviewFrameState.BLACK -> NativeGameLabel.BLACK
+      PreviewFrameState.STILL -> NativeGameLabel.STILL
+      PreviewFrameState.LIVE -> NativeGameLabel.LIVE
+    })
     status?.visibility = if (error != null || state == PreviewFrameState.WAITING || state == PreviewFrameState.BLACK) View.VISIBLE else View.GONE
     status?.text = error ?: label
-    badge?.text = if (error != null) (if (chinese) "连接异常" else "Preview error") else label
+    badge?.text = if (error != null) NativeGameText.text(previewLanguage, NativeGameLabel.ERROR) else label
   }
   fun resume() { if (destroyed) return; paused = false; if (visible) { container?.visibility = View.VISIBLE; attach() } }
   fun destroy() {
