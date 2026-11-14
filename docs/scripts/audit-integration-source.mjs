@@ -64,7 +64,7 @@ audit.integrationSupplement = {
   testedPages: Object.fromEntries(pages.map((file) => [file, sha(canonical(readFileSync(path.join(root, file))))])),
   limitations: [
     "Source inspection and offline tests do not establish a successful Windows portable installation or recovery on real hardware.",
-    "No runtime updater, network CDK validation, native window, device operation or private credential access was performed.",
+    "This source-inspection audit did not execute a runtime updater, validate a network CDK, operate a native window or device, or access private credentials. Physical-device observations are recorded separately.",
   ],
 };
 writeFileSync(reportPath, JSON.stringify(audit, null, 2) + "\n");

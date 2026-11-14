@@ -6,7 +6,7 @@ After authorization, choose the matching profile and tap the play icon on Home's
 
 <AndroidGameDemo locale="en" />
 
-The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tapping it opens native controls:
+The demonstration above and image below record the older embedded preview. Current builds add native fullscreen manual control. The embedded preview remains **read-only**; tap its upper-right status badge or the image to open native controls:
 
 | Icon action | Behavior                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
@@ -20,7 +20,7 @@ The demonstration above and image below record the older embedded preview. Curre
   alt="Native preview controls: Close, Take over and Restart from left to right"
 />
 
-The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Menus and dialogs hide the embedded preview so it cannot cover controls; a visible Home restores it. Changing pages does not automatically stop the background game or Python service.
+The embedded preview does not send game taps; enter fullscreen for manual control. Its draggable floating menu provides **Return to preview** and **Close game**. Returning retains the same game session. Blocking application menus and modal dialogs temporarily hide the embedded preview. The Home task-queue popover keeps it visible; dismiss blocking UI and return Home to restore a hidden preview. Changing pages does not automatically stop the background game or Python service.
 
 The close path sends a stop request without waiting for backend confirmation. The bottom Stop control alone leaves the game display open. Entering fullscreen does not automatically stop scheduling. Automation input takes priority and cancels or blocks conflicting manual gestures. Manual input still changes game state; stop scheduling and inspect the logs first to avoid interference. Restart ends the session and recreates the display; it does not restart the scheduler.
 

@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-11-14T10:28:58.164Z",
+  "checkedAt": "2026-11-14T11:48:48.479Z",
   "basePath": "",
   "cases": 48,
   "failures": 0,
   "dataSha256": "aaff3a99b4075d86fe3038b47b2f58af2aeff587b27c4324d925b039c5b80703",
   "summarySha256": "46760d1928c90f8b4fade27ec2efd880f386e2305b4727ac57161992413c0bf1",
-  "exportIndexSha256": "3990df858c54013b0d86517a9bb4626362f7c111a7ad5522b6d08137302ca8e7",
+  "exportIndexSha256": "5055c2f3297e3fa4f2c7e49b047d0e660ebb5976d7ebe21d06f8641644c71caf",
   "testedSources": {
     "docs/components/NativePayloadBenchmark.tsx": "b40d2fe2f07afe90a583ef6936595d25527925cdc5c12e1363a6ac14ff43dad7",
     "docs/content/docs/zh/reference/performance.mdx": "e7f2bc4a1abe17f57d9a3bacdcbc97e147fd2a7219e619cde5216433d4bac5f4",

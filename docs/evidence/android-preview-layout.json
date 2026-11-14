@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-14T10:34:39.668Z",
+  "checkedAt": "2026-11-14T11:49:53.603Z",
   "cases": 8,
   "scope": "Documentation navigation, diagram rendering and zoom; no emulator or native preview operated",
   "failures": 0,
@@ -8,9 +8,9 @@
     "docs/components/Mermaid.tsx": "e46c2f04a270b08a537f6e53c3711ac4b129f98f153ce8557b245efe06e1a65a",
     "docs/mdx-components.tsx": "4b02d7dc5151174f782fdd4ebb659464c95b531490fd1b0edab0368e9e2a9957",
     "docs/app/global.css": "71b3eae41e838097e91487ce7db01657ca1e4cfa3d9c5f1c8c6c255818ad833f",
-    "docs/content/docs/zh/guide/android.mdx": "9dcfae2ff33e9c33d8e7bd0f48986be894e84fb15d49a8acf703246738528bd5",
+    "docs/content/docs/zh/guide/android.mdx": "474184e3b7f91a13f419a08a5995e4037a3809acc21cdd9673e489b3d76ed744",
     "docs/content/docs/zh/reference/client-architecture.mdx": "32bd2d851155c470af7b2c94f455b7796ada19f6f2038f8862ca56b3ef2c0214",
-    "docs/content/docs/en/guide/android.mdx": "44e43196181c03a2346af64a599a28446ebdf548fa592e9622e8051b45c73487",
+    "docs/content/docs/en/guide/android.mdx": "dd54818e002e78b4785f9bcc2e714343db720e8316dd6a50262174e106cd18c0",
     "docs/content/docs/en/reference/client-architecture.mdx": "a5c1d0217dbb8e0500a9bdaf0c4a6a65e25a14e20b74c6bfc5d27c3b6592434f"
   },
   "results": [

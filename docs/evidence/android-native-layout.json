@@ -1,13 +1,13 @@
 {
-  "checkedAt": "2026-11-14T10:34:39.668Z",
+  "checkedAt": "2026-11-14T11:49:53.603Z",
   "cases": 8,
   "failures": 0,
   "mediaManifestSha256": "357e19e84e7a3a12edcab5aaeaaa8920b1ae350edad851adc778e563f331e02b",
   "sourceRevision": "e3ed51d7339ea33dc5b6a397e1368b0dfee48e19",
   "testedSources": {
-    "docs/content/docs/zh/guide/android.mdx": "9dcfae2ff33e9c33d8e7bd0f48986be894e84fb15d49a8acf703246738528bd5",
+    "docs/content/docs/zh/guide/android.mdx": "474184e3b7f91a13f419a08a5995e4037a3809acc21cdd9673e489b3d76ed744",
     "docs/content/docs/zh/reference/troubleshooting.mdx": "ec44fc7aa24b5bf0bba7658fadf041d0f03c6f2345783a6c6c65194c199b04d5",
-    "docs/content/docs/en/guide/android.mdx": "44e43196181c03a2346af64a599a28446ebdf548fa592e9622e8051b45c73487",
+    "docs/content/docs/en/guide/android.mdx": "dd54818e002e78b4785f9bcc2e714343db720e8316dd6a50262174e106cd18c0",
     "docs/content/docs/en/reference/troubleshooting.mdx": "bbd0dad5efe94c0c087430a973f38d3964289f055b230c38384c9ebb60aa3dfc",
     "docs/components/AndroidGameDemo.tsx": "f837ef15c863294433a14cfeb97e540e879872385a73d318665d63414a4ef6c3",
     "docs/components/ImageZoom.tsx": "09145f9f3a965ffe3956e006c7a27a8c4ecfaaa16e85c0711bd44daaab2875dc",

@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-14T10:29:11.455Z",
+  "checkedAt": "2026-11-14T11:49:00.455Z",
   "basePath": "",
   "cases": 64,
   "failures": 0,
@@ -13,7 +13,7 @@
   },
   "dataSha256": "b10d06ee14a9c7e453a19c0890e83b59630fb733303e8f5c06b850c9cfff7510",
   "summarySha256": "b368d043a6645801f82862391a22297a494ecf23bea7477444faf4e3998e174b",
-  "exportIndexSha256": "3990df858c54013b0d86517a9bb4626362f7c111a7ad5522b6d08137302ca8e7",
+  "exportIndexSha256": "5055c2f3297e3fa4f2c7e49b047d0e660ebb5976d7ebe21d06f8641644c71caf",
   "results": [
     {
       "locale": "zh",
