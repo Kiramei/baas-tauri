@@ -1,4 +1,9 @@
-import { zipSync } from "fflate";
+import {
+  createProfileNameAllocator,
+  prepareProfileFiles,
+  sendProfileArchive,
+  type ProfileNameAllocator,
+} from "./ProfileArchiveImport";
 
 export interface ProfileFolderFile {
   /** Relative to the chosen config directory: profile-id/config.json. */
@@ -35,7 +40,21 @@ const safePart = (part: string) =>
   part === part.replace(/[ .]+$/, "");
 
 /** Only direct child profile directories qualify; config-root metadata is ignored. */
-export function groupProfileFolderFiles(files: ProfileFolderFile[]): ProfileFolderSelection {
+export function groupProfileFolderFiles(
+  files: ProfileFolderFile[],
+  selectedFolderName = "config"
+): ProfileFolderSelection {
+  if (files.some((file) => file.path === "config.json")) {
+    const folder =
+      safePart(selectedFolderName) && !selectedFolderName.includes("/")
+        ? selectedFolderName
+        : "config";
+    return {
+      profiles: [
+        { folder, files: files.map((file) => ({ ...file, path: `${folder}/${file.path}` })) },
+      ],
+    };
+  }
   const groups = new Map<string, ProfileFolderFile[]>();
   for (const file of files) {
     const parts = file.path.split("/");
@@ -104,6 +123,22 @@ async function nativeSelection(title: string): Promise<ProfileFolderSelection | 
     }
   };
   const children = await list(root);
+  if (children.some((entry) => entry.name === "config.json" && entry.isFile && !entry.isSymlink)) {
+    let name = "config";
+    try {
+      name = decodeURIComponent(root).split(/[\\/]/).filter(Boolean).pop() || name;
+    } catch {
+      /* Display labels are optional for opaque content URIs. */
+    }
+    const folder = safePart(name) ? name : "config";
+    const files: ProfileFolderFile[] = [];
+    try {
+      await walk(root, folder, files);
+      return { profiles: [{ folder, files }] };
+    } catch (error) {
+      return { profiles: [{ folder, files, error: errorMessage(error) }] };
+    }
+  }
   for (const entry of children.sort((a, b) => a.name.localeCompare(b.name))) {
     if (!entry.isDirectory || entry.isSymlink) continue;
     const files: ProfileFolderFile[] = [];
@@ -158,7 +193,8 @@ function browserSelection(): Promise<ProfileFolderSelection | null> {
           files.map((file) => ({
             path: file.webkitRelativePath.split("/").slice(1).join("/"),
             read: async () => new Uint8Array(await file.arrayBuffer()),
-          }))
+          })),
+          files[0]?.webkitRelativePath.split("/")[0]
         )
       );
     };
@@ -182,10 +218,12 @@ export async function importProfileFolders(
   options: {
     importArchive: (name: string, bytes: Uint8Array) => Promise<{ serial: string }>;
     onProgress?: (progress: FolderImportProgress) => void;
+    nameAllocator?: ProfileNameAllocator;
   }
 ): Promise<FolderImportReport> {
   if (!selection.profiles.length) throw new ProfileFolderImportError("no_profiles");
   const report: FolderImportReport = { imported: [], failed: [] };
+  const allocator = options.nameAllocator ?? createProfileNameAllocator();
   const total = selection.profiles.length;
   let completed = 0;
   options.onProgress?.({ completed, total });
@@ -204,18 +242,8 @@ export async function importProfileFolders(
         names.add(canonical);
         archive[relative] = await file.read();
       }
-      if (!archive["config.json"]) throw new Error("Missing config.json");
-      const config = JSON.parse(new TextDecoder().decode(archive["config.json"]));
-      if (
-        !config ||
-        typeof config !== "object" ||
-        typeof config.name !== "string" ||
-        !config.name.trim()
-      )
-        throw new Error("Profile config.json must contain a name");
-      const result = await options.importArchive(`${profile.folder}.zip`, zipSync(archive));
-      if (typeof result?.serial !== "string" || !result.serial)
-        throw new Error("Missing imported profile ID");
+      const prepared = prepareProfileFiles(archive, allocator);
+      const result = await sendProfileArchive(prepared, options.importArchive, allocator);
       report.imported.push({ folder: profile.folder, serial: result.serial });
     } catch (error) {
       report.failed.push({ folder: profile.folder, error: errorMessage(error) });

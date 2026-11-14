@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "../../src/components/ui/Sonner";
+import ConfigArchiveDropOverlay from "../../src/components/ConfigArchiveDropOverlay";
 import { Main as DesktopMain } from "../../src/App";
 import { Main as AndroidMain, useAndroidViewport } from "../../src/android/App";
 import { AppProvider } from "../../src/context/AppContext";
@@ -127,6 +128,14 @@ window.fetch = (input, init) => {
     return Promise.reject(new Error(`Fixture blocked API request: ${url.origin}${url.pathname}`));
   return nativeFetch(input, init);
 };
+let savedCursorPreference: boolean | undefined;
+if (query.get("persistCursors") === "1") {
+  try {
+    savedCursorPreference = JSON.parse(localStorage.getItem("uiSettings") || "{}").enableBACursors;
+  } catch {
+    /* A fresh fixture uses the product default. */
+  }
+}
 localStorage.setItem(
   "uiSettings",
   JSON.stringify({
@@ -134,6 +143,9 @@ localStorage.setItem(
     theme: query.get("theme") || "light",
     idleAutoUpdate: false,
     lowPerformanceMode: false,
+    ...(typeof savedCursorPreference === "boolean"
+      ? { enableBACursors: savedCursorPreference }
+      : {}),
     settingsSection: query.get("section") || "appearance",
   })
 );
@@ -414,6 +426,27 @@ const fixtureTasks = schedulerPreview
   ? schedulerTasks
   : ["cafe_reward", "collect_daily_power", "create", "collect_reward"].map((name) => task(name));
 const commands: string[] = [];
+const importedArchives: {
+  root: string;
+  filename: unknown;
+  name: string;
+  serial: string;
+  files: string[];
+}[] = [];
+if (profileFeatures)
+  window.addEventListener("fixture:import-results", (event) => {
+    const reply = (event as CustomEvent).detail;
+    if (typeof reply === "function")
+      reply({
+        imports: importedArchives,
+        profiles: Object.fromEntries(
+          Object.entries(useWebSocketStore.getState().configStore).map(([id, config]) => [
+            id,
+            (config as { name?: string }).name,
+          ])
+        ),
+      });
+  });
 const blocked = async () => {
   throw new Error("Fixture has no backend connection");
 };
@@ -522,6 +555,7 @@ useWebSocketStore.setState({
   connections: profileFeatures ? { trigger: { readyState: 1 } as WebSocket } : {},
   ...(profileFeatures ? { _session: { sessionId: "isolated-profile-features" } as never } : {}),
   configStore: query.get("profiles") === "0" ? {} : profiles,
+  _receivedSnapshots: { config_list: true },
   staticStore: {
     ...useWebSocketStore.getState().staticStore,
     ...(configurationPreview ? configurationStatic : { student_names: [] }),
@@ -586,11 +620,29 @@ useWebSocketStore.setState({
   triggerBinary: (payload, binary, callback) => {
     if (!profileFeatures || payload.command !== "import_config") return trigger(payload, callback);
     const files = unzipSync(binary instanceof Uint8Array ? binary : new Uint8Array(binary));
-    const config = JSON.parse(new TextDecoder().decode(files["config.json"]));
+    const configPath = Object.keys(files)
+      .filter((path) => path === "config.json" || path.endsWith("/config.json"))
+      .sort((left, right) => left.split("/").length - right.split("/").length)[0];
+    if (!configPath) throw new Error("Missing imported config.json");
+    const config = JSON.parse(new TextDecoder().decode(files[configPath]));
     const serial = `fixture-import-${commands.filter((command) => command === "import_config").length + 1}`;
     commands.push("import_config");
+    importedArchives.push({
+      root: configPath.split("/")[0],
+      filename: payload.payload.filename,
+      name: config.name,
+      serial,
+      files: Object.keys(files),
+    });
     useWebSocketStore.setState((state) => ({
-      configStore: { ...state.configStore, [serial]: { ...profiles.alpha, ...config } },
+      configStore: {
+        ...Object.fromEntries(
+          Object.entries(state.configStore).filter(
+            ([, existing]) => (existing as { name?: string }).name !== config.name
+          )
+        ),
+        [serial]: { ...profiles.alpha, ...config },
+      },
       eventStore: { ...state.eventStore, [serial]: [] },
     }));
     callback?.({ status: "ok", data: { serial } });
@@ -782,6 +834,7 @@ function Fixture() {
             </div>
           </div>
           <Toaster />
+          {profileFeatures && <ConfigArchiveDropOverlay />}
         </TauriShortcutProvider>
       </TauriSelfUpdateProvider>
     </AppProvider>

@@ -266,11 +266,17 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
     try {
       const bytes = await StorageUtil.upload(t, ".zip");
       if (!bytes) return;
-      const result = await runProfileCommand(
-        useWebSocketStore.getState,
-        "import_config",
-        {},
-        bytes
+      const { profileNameAllocatorFor, destinationProfileNames, importProfileArchive } =
+        await import("@/shared/ProfileArchiveImport");
+      const allocator = profileNameAllocatorFor(
+        useWebSocketStore.getState().connections.trigger,
+        () => destinationProfileNames(useWebSocketStore.getState())
+      );
+      const result = await importProfileArchive(
+        bytes,
+        (filename, binary) =>
+          runProfileCommand(useWebSocketStore.getState, "import_config", { filename }, binary),
+        allocator
       );
       setEditor(null);
       try {
@@ -300,12 +306,23 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
       };
       const { pickProfileFolder, importProfileFolders } =
         await import("@/shared/ProfileFolderImport");
+      const { profileNameAllocatorFor, destinationProfileNames } =
+        await import("@/shared/ProfileArchiveImport");
       const selection = await pickProfileFolder(t("profile.importFolder"));
       if (!selection) return null;
       const report = await importProfileFolders(selection, {
-        importArchive: async (_name, bytes) => {
+        nameAllocator: profileNameAllocatorFor(
+          useWebSocketStore.getState().connections.trigger,
+          () => destinationProfileNames(useWebSocketStore.getState())
+        ),
+        importArchive: async (filename, bytes) => {
           if (!sameConnection()) throw new Error(t("plugins.errors.sessionChanged"));
-          return runProfileCommand(useWebSocketStore.getState, "import_config", {}, bytes);
+          return runProfileCommand(
+            useWebSocketStore.getState,
+            "import_config",
+            { filename },
+            bytes
+          );
         },
         onProgress,
       });
@@ -463,14 +480,14 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
               <button
                 className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.left ? "pointer-events-none opacity-40" : ""}`}
                 onClick={() => scrollBy(-200)}
-                aria-label="scroll-left"
+                aria-label={t("nav.scrollLeft")}
               >
                 <ChevronLeft className="h-[20px] w-[20px]" />
               </button>
               <button
                 className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg hover:bg-accent ${!canScroll.right ? "pointer-events-none opacity-40" : ""}`}
                 onClick={() => scrollBy(200)}
-                aria-label="scroll-right"
+                aria-label={t("nav.scrollRight")}
               >
                 <ChevronRight className="h-[20px] w-[20px]" />
               </button>

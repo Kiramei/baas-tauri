@@ -9,6 +9,14 @@ import {
   type ProfileFolderFile,
 } from "../../src/shared/ProfileFolderImport";
 
+const unpack = (bytes: Uint8Array) =>
+  Object.fromEntries(
+    Object.entries(unzipSync(bytes)).map(([path, data]) => [
+      path.split("/").slice(1).join("/"),
+      data,
+    ])
+  );
+
 const file = (path: string, value: string): ProfileFolderFile => ({
   path,
   read: async () => new TextEncoder().encode(value),
@@ -34,12 +42,12 @@ test("folder selection imports immediate profiles with the archive layout accept
     onProgress: (value) => progress.push(value),
     importArchive: async (name, bytes) => {
       archives.push(name);
-      const files = unzipSync(bytes);
+      const files = unpack(bytes);
       expect(JSON.parse(strFromU8(files["config.json"])).name).toBe(
-        name === "profile-a.zip" ? "国际服" : "日服"
+        archives.length === 1 ? "国际服" : "日服"
       );
       expect(Object.keys(files).every((path) => !path.startsWith("profile-"))).toBe(true);
-      if (name === "profile-b.zip") {
+      if (archives.length === 2) {
         expect(strFromU8(files["event.json"])).toBe('{"tasks":[]}');
         expect(strFromU8(files["history/old.json"])).toBe("old");
         expect(JSON.parse(strFromU8(files["plugins.json"])).schema_version).toBe(1);
@@ -47,7 +55,9 @@ test("folder selection imports immediate profiles with the archive layout accept
       return { serial: name + "-new-id" };
     },
   });
-  expect(archives).toEqual(["profile-a.zip", "profile-b.zip"]);
+  expect(archives).toHaveLength(2);
+  expect(archives.every((name) => /^profile-[a-f0-9-]+\.zip$/.test(name))).toBe(true);
+  expect(archives[0]).not.toBe(archives[1]);
   expect(report.failed).toEqual([]);
   expect(report.imported).toHaveLength(2);
   expect(progress).toEqual([
@@ -62,7 +72,8 @@ test("partial failure continues in order without reading or importing a successf
   const calls: string[] = [];
   const selected = groupProfileFolderFiles([config("a"), config("b"), config("c")]);
   const report = await importProfileFolders(selected, {
-    importArchive: async (name) => {
+    importArchive: async (_name, bytes) => {
+      const name = JSON.parse(strFromU8(unpack(bytes)["config.json"])).name + ".zip";
       expect(inFlight).toBe(false);
       inFlight = true;
       calls.push(name);
@@ -88,7 +99,8 @@ test("invalid paths, duplicate portable names and malformed JSON are isolated be
   ]);
   const calls: string[] = [];
   const report = await importProfileFolders(selected, {
-    importArchive: async (name) => {
+    importArchive: async (_name, bytes) => {
+      const name = JSON.parse(strFromU8(unpack(bytes)["config.json"])).name + ".zip";
       calls.push(name);
       return { serial: name };
     },
@@ -187,7 +199,7 @@ describe("native directory selection", () => {
     expect(listed.some((path) => path.includes("link"))).toBe(false);
     const report = await importProfileFolders(selected!, {
       importArchive: async (_name, bytes) => {
-        expect(Object.keys(unzipSync(bytes))).toEqual([
+        expect(Object.keys(unpack(bytes))).toEqual([
           "config.json",
           "event.json",
           "extra/data.json",
