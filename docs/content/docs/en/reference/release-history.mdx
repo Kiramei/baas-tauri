@@ -5,6 +5,22 @@ description: BAAS Tauri release notes, affected areas, upgrade guidance, and tro
 
 This page tracks BAAS Tauri changes across the desktop client, Android client, updater, docs site, and runtime integration. When an issue appears after upgrading, first confirm the version, then check the affected areas and upgrade notes below.
 
+## 0.0.10
+
+The stable release adds signed Android client updates, stable backend defaults, and local MirrorChyan CDK management. Publication status, packages and signatures are listed in the [0.0.10 release](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.10).
+
+- New backend installations default to Stable; existing installations retain their saved channel. Development remains available in Settings.
+- Android verifies signed APK downloads before opening the system installer. Game display recovery adds **Open on device**, avoids restarting an already active game during page reconnection, and recognizes Global Teen and ONE store variants. Device-specific capture and launch limits remain documented in the [Android guide](../guide/android).
+- Desktop and Android store verified MirrorChyan CDKs in private device storage. Stable backend packages are checked against SHA-256 before application. See [update settings](../features/update).
+- CI checks follow the changed module, frontend/backend layer and applicable platform. Documentation and README changes use their own checks.
+- BAASX distribution sources support six OS/CPU targets and optional platform runtime packages. The native helper is named `baasx-runtime`, with legacy lookup retained. BAASX uses an independent version and release tag; registry installation uses `@kiramei/baasx` while the unscoped name is on hold. See [BAASX installation](../baasx/installation).
+
+Export important profiles before upgrading. Android APK installation needs system confirmation; background game support depends on the device and its privileged-display capabilities.
+
+## 0.0.9.post1
+
+This stable maintenance release improves Android first-run setup, backend installation recovery and startup diagnostics, along with profile initialization, configuration navigation and localization. It also standardizes public and native version ordering. See the [0.0.9.post1 release](https://github.com/Kiramei/baas-tauri/releases/tag/0.0.9.post1) for its published packages and upgrade notes.
+
 ## v0.0.9
 
 Use [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases) for published assets, signatures, and release status.
