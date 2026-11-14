@@ -53,7 +53,6 @@ class NativeGamePreview(private val activity: Activity) {
   private var controls: FrameLayout? = null
   private var status: TextView? = null
   private var badge: TextView? = null
-  private var closeButton: ImageButton? = null
   private var controlRow: LinearLayout? = null
   private val controlButtons = mutableListOf<Pair<String, ImageButton>>()
   private var palette = NativePreviewPalette.DARK
@@ -142,7 +141,6 @@ class NativeGamePreview(private val activity: Activity) {
     manualInputLease = lease
     touch.beginSession(displayId, lease.token)
     controls?.visibility = View.GONE; badge?.visibility = View.GONE
-    closeButton?.visibility = View.GONE
     previousAccessibility = webView?.importantForAccessibility ?: View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     webView?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
     fullscreen = NativeGameFullscreen(activity, parent, host, width, height, palette, language, { frame ->
@@ -170,7 +168,6 @@ class NativeGamePreview(private val activity: Activity) {
     manualInputLease?.close(); manualInputLease = null
     webView?.importantForAccessibility = previousAccessibility
     controls?.visibility = View.GONE; badge?.visibility = View.VISIBLE
-    closeButton?.visibility = View.VISIBLE
     (activity as? MainActivity)?.setGameFullscreen(false)
     inlineLayout?.let { layout -> update(layout.x, layout.y, layout.width, layout.height, layout.viewportWidth,
       layout.enabled, layout.clipTop, layout.clipBottom) }
@@ -202,7 +199,6 @@ class NativeGamePreview(private val activity: Activity) {
     controls?.setBackgroundColor(palette.alpha(palette.background, 112))
     controlRow?.background = rounded(palette.alpha(palette.background, 245), 24)
     controlButtons.forEach { (action, button) -> buttonColors(button, action == "fullscreen") }
-    closeButton?.let { buttonColors(it, false) }
     status?.setTextColor(palette.foreground)
     status?.setBackgroundColor(palette.alpha(palette.background, 224))
     badge?.setTextColor(palette.mutedForeground)
@@ -294,26 +290,16 @@ class NativeGamePreview(private val activity: Activity) {
     val live = TextView(activity).apply {
       text = "● " + NativeGameText.text(previewLanguage, NativeGameLabel.LIVE); textSize = 11f; setTextColor(palette.mutedForeground)
       background = rounded(palette.alpha(palette.background, 224), 24)
-      setPadding(dp(10), dp(4), dp(10), dp(4)); isClickable = false
+      setPadding(dp(10), dp(4), dp(10), dp(4)); isFocusable = true
     }
     badge = live
-    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(8), dp(8), dp(8), 0) })
-    val close = ImageButton(activity).apply {
-      setImageResource(R.drawable.preview_close)
-      contentDescription = NativeGameText.text(previewLanguage, NativeGameLabel.CLOSE_PREVIEW)
-      scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-      setPadding(dp(12), dp(12), dp(12), dp(12))
-      setOnClickListener { dismissPreview() }
-    }
-    closeButton = close
-    buttonColors(close, false)
-    host.addView(close, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.END).apply {
-      setMargins(dp(4), dp(4), dp(4), 0)
-    })
-    view.setOnClickListener {
+    host.addView(live, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(8), dp(8), dp(8), 0) })
+    val toggleControls = View.OnClickListener {
       overlay.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
       live.visibility = if (overlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
     }
+    live.setOnClickListener(toggleControls)
+    view.setOnClickListener(toggleControls)
     view.setOnTouchListener { _, event ->
       if (fullscreen == null) false else {
         if (!paused && !focusing && view.width > 0 && view.height > 0) touch.submit(mapTouch(event, view.width, view.height))
@@ -522,7 +508,6 @@ class NativeGamePreview(private val activity: Activity) {
   }
   internal fun setStatus(state: PreviewFrameState, error: String?, language: String? = null) {
     if (language != null) previewLanguage = language
-    closeButton?.contentDescription = NativeGameText.text(previewLanguage, NativeGameLabel.CLOSE_PREVIEW)
     controlButtons.forEach { (action, button) -> button.contentDescription = NativeGameText.action(previewLanguage, action) }
     val label = NativeGameText.text(previewLanguage, when (state) {
       PreviewFrameState.WAITING -> NativeGameLabel.WAITING
