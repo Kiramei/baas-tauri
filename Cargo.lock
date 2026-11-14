@@ -263,7 +263,7 @@ dependencies = [
 
 [[package]]
 name = "baas-cli-runtime"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "baasx-runtime",
  "serde_json",
@@ -272,11 +272,11 @@ dependencies = [
 
 [[package]]
 name = "baas-i18n"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 
 [[package]]
 name = "baas-notifier"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 dependencies = [
  "serde",
  "tauri",
@@ -287,7 +287,7 @@ dependencies = [
 
 [[package]]
 name = "baas-shortcut"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 dependencies = [
  "serde",
  "tauri",
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "baas-tauri"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 dependencies = [
  "baas-i18n",
  "baas-notifier",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "baas-term"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 dependencies = [
  "chrono",
  "portable-pty",
@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "baas-updater"
-version = "0.0.10-0.post.1"
+version = "0.0.10"
 dependencies = [
  "baas-term",
  "flate2",
@@ -372,7 +372,7 @@ dependencies = [
 
 [[package]]
 name = "baasx-runtime"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "baas-term",
  "baas-updater",

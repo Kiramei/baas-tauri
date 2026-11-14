@@ -1,11 +1,11 @@
 [package]
 name = "baas-cli-runtime"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2024"
 description = "Compatibility package for the BAASX runtime helper"
 
 [dependencies]
-baasx-runtime = { version = "0.0.9", path = "../baasx-runtime" }
+baasx-runtime = { version = "0.0.10", path = "../baasx-runtime" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
