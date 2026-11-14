@@ -53,7 +53,11 @@ test("updater documentation pins inspected sources without claiming a runtime up
   expect(packaging.verificationKind).toContain("code inspection");
   expect(packaging.runtimeUpdateExecuted).toBe(false);
   expect(packaging.sources.some(source => source.file === "src-tauri/src/platform/linux_package.rs")).toBe(true);
-  for (const source of new Map([...integration.sources, ...packaging.sources].map(source => [source.file, source])).values()) {
+  const devIntegration = audit.clientDevIntegrationSupplement;
+  expect(devIntegration.verificationKind).toContain("code inspection");
+  expect(devIntegration.runtimeUpdateExecuted).toBe(false);
+  expect(devIntegration.sources.map(source => source.file)).toEqual(["scripts/ci/release-contract.mjs"]);
+  for (const source of new Map([...integration.sources, ...packaging.sources, ...devIntegration.sources].map(source => [source.file, source])).values()) {
     expect(source.gitContentVerified).toBe(true);
     expect(source.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(sha(read(source.file))).toBe(source.sha256);
