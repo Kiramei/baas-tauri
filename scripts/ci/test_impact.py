@@ -43,6 +43,7 @@ class Routing(unittest.TestCase):
             "crates/baasx-runtime/src/platform/windows/process.rs": {"baasx-native:windows"},
             "crates/baas-cli-runtime/src/main.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
             "crates/baasx-runtime/src/progress.rs": {"baasx-native:windows","baasx-native:linux","baasx-native:macos"},
+            "crates/baas-updater/src/mirrorc.rs": {"native:windows", "native:linux", "native:macos", "android:arm64", "android-tests", "baasx-native:windows", "baasx-native:linux", "baasx-native:macos"},
             "scripts/docker/entrypoint.sh": {"docker"},
         }
         for path, expected in cases.items():
