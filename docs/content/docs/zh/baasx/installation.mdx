@@ -11,7 +11,8 @@ import { PackageManagerInstall } from "@/components/PackageManagerInstall";
 | --------------------- | ---------------------------------------- | -------------------------- |
 | npm 注册表包          | Node.js 20.3+ 或 Deno                    | 全局安装 `baasx` 命令      |
 | 原生发行包 `.tar.gz`  | 对应操作系统和架构，无需 Bun / Rust      | 希望解压即用               |
-| Bun 发行包 `-bun.tgz` | Bun 1.4.4+，无需 Rust                    | 已经使用 Bun               |
+| Bun 发行包 `-bun.tgz` | Bun 1.4.4+ 与 Node.js 20.3+，无需 Rust   | 使用 Bun 的 x64／ARM64 用户 |
+| ARM32 包 `-node.tgz`  | ARMv7 硬浮点 Linux 与 Node.js 20.3+     | 安装已下载的 ARMv7l／armhf 包 |
 | 从源码启动或构建      | Bun 1.4.4+、Rust 1.95+ 和 C/C++ 编译工具 | 尚无发行包，或需要开发版本 |
 
 ## npm 注册表安装
@@ -28,7 +29,9 @@ cnpm 默认使用 npm 镜像，新版本可能需要等待镜像同步。若暂�
 
 Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局可执行目录（默认 `~/.deno/bin`）加入 PATH。Deno 2.9 起默认等待版本发布满 24 小时；如需立即安装，可在 Deno 2.9 或更新版本的命令中加入 `--min-dep-age=0`。
 
-带作用域的包安装 JavaScript CLI。包管理器根据系统和 CPU 自动选择同版本的运行时。Linux、macOS 和 Windows 各提供 x64、ARM64 CLI。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64，其他平台可连接远程服务或使用演示模式。GitHub Packages 发布带作用域的包。
+带作用域的包安装 JavaScript CLI。包管理器根据系统和 CPU 自动选择同版本的运行时。Linux、macOS 和 Windows 各提供 x64、ARM64 CLI；从 v0.1.5 起另支持 Linux ARMv7 硬浮点。`armv7l` 与 Debian `armhf` 使用同一个 `@kiramei/baasx-linux-arm` 包，对应 npm 的 `arm` CPU 值，只下载一份匹配的原生组件。GitHub Packages 发布带作用域的包；无作用域的 `baasx` 包仍暂缓发布。
+
+Linux ARM32 可配合 ARM32 Node.js 使用 npm、pnpm、Yarn 或 cnpm，或选择下方独立归档。Bun 不支持 ARM32。ARM32 支持终端工作台、演示模式、远程配置编辑、任务与调度控制、日志，以及通过 `--server`／`--pipe` 连接已有服务。目前不支持托管本地安装和本地识别：上游没有 ARM32 OCR 预构建，后端的 Python／依赖／OCR 整体环境也尚未在 ARM32 验证。本地 OCR 当前支持 Linux x64、macOS ARM64 和 Windows x64。
 
 独立版本发布后，可从 [GitHub Releases](https://github.com/Kiramei/baas-tauri/releases?q=baasx-v) 的 `baasx-v<版本>` 下载归档。桌面客户端的 Latest 安装包为另一发行物。
 
@@ -43,6 +46,7 @@ Deno 的 `-A` 为启动器授予全部权限。安装后需将 Deno 和其全局
 | Apple Silicon Mac | `baasx-<版本>-macOS-ARM64.tar.gz` |
 | Windows ARM64 | `baasx-<版本>-Windows-ARM64.tar.gz` |
 | Linux ARM64 | `baasx-<版本>-Linux-ARM64.tar.gz` |
+| Linux ARMv7l / armhf | `baasx-<版本>-Linux-ARMV7L.tar.gz` |
 | Intel Mac | `baasx-<版本>-macOS-X64.tar.gz` |
 
 ### Windows PowerShell
@@ -84,11 +88,15 @@ baasx/                   # 解压目录，可自行改名
 
 **不要只复制主程序而丢弃 `runtime/`。** 加入 PATH 时指向整个解压目录，或创建指向原程序的启动方式。Release 中的 `SHA256SUMS` 用于与下载归档的 SHA-256 对照；Linux 可在归档目录运行 `sha256sum --check --ignore-missing SHA256SUMS`，PowerShell 用 `Get-FileHash -Algorithm SHA256 <文件名>` 与清单比对。
 
+Linux ARMv7l／armhf 独立归档内置 Node.js 22.23.5 和真实的 ARMv7 硬浮点 Rust 组件，无需另装 Node.js、Bun 或 Rust。其 `baasx` 启动器还需要 `dist/baasx-node.mjs`、`runtime/node` 和 `runtime/NODE_LICENSE`，请与其余解压文件一起保留。在符合这些 CPU 与 ABI 条件的系统上，两种名称选择同一个发行物。BAASX 归档和 Release 附件不包含 `.sig` 文件，使用 `SHA256SUMS` 校验完整性。
+
+ARM32 发行物需要 GNU/Linux ARMv7 硬浮点、glibc 2.35+、`libstdc++6` 和 `libatomic1`。兼容的 Debian／Ubuntu 系统可用 `sudo apt install libstdc++6 libatomic1` 补齐运行库。`armhf` 这一名称本身不能确定 CPU 下限，部分发行版也用它表示 ARMv6；此发行物不支持 ARMv6、软浮点 `armel` 和 musl Linux。
+
 新版发行包使用 `runtime/baasx-runtime`（Windows 为 `baasx-runtime.exe`）。旧安装中可能仍是 `runtime/baas-cli-runtime`（Windows 为 `baas-cli-runtime.exe`），当前启动器也会识别旧名称。需要指定组件路径时可设置 `BAASX_RUNTIME_HELPER`；旧变量 `BAAS_RUNTIME_HELPER` 仍作为回退支持。
 
 ## Bun 发行包
 
-先确认 `bun --version` 满足 1.4.4+，再安装与系统和架构对应的本地附件：
+在 x64／ARM64 上，先确认 `bun --version` 满足 1.4.4+，并已安装 Node.js 20.3+，再安装与系统和架构对应的本地附件：
 
 ```sh
 bun add -g ./baasx-<版本>-Linux-X64-bun.tgz
@@ -97,6 +105,15 @@ baasx --demo
 ```
 
 Windows 和 macOS 使用各自的包名。全局安装后若找不到命令，检查 Bun 的全局 bin 目录是否在 PATH 中。发布包已带 JS 和安装组件，不应临时调用 Cargo。
+
+Linux ARMv7l／armhf 使用 Node.js 附件：
+
+```sh
+npm install -g ./baasx-<版本>-Linux-ARMV7L-node.tgz
+baasx --demo --lang zh
+```
+
+该附件使用电脑已安装的 ARM32 Node.js 20.3+，并包含原生组件；需要解压即用时，选择已内置 Node.js 的 `.tar.gz` 独立归档。
 
 ## 从源码启动
 
@@ -124,7 +141,11 @@ Windows 使用 `.\baasx\dist\baasx.exe`。构建按当前系统和架构进行�
 npm exec --yes --package=bun@1.4.4-canary.20261105.1 -- bun run baasx:binary --no-trim
 ```
 
+ARM32 源码构建需要在支持 Bun 的 Linux x64／ARM64 主机进行。准备 `armv7-unknown-linux-gnueabihf` Rust target 及硬浮点 C/C++ 交叉工具链后，运行 `bun run baasx:binary --target=linux-arm`；`--target=linux-armv7l` 和 `--target=linux-armhf` 等价。构建会交叉编译 Rust 组件，并打包固定版本、经 SHA-256 校验的 Node.js ARMv7 运行时，不使用 Bun ARM32 编译目标。
+
 ## 首次安装本地环境
+
+托管本地安装需要后端／OCR 支持的平台。Linux ARM32 请按下方说明连接已有服务。
 
 1. 去掉 `--demo` 启动，选择语言。
 2. 选择本地安装，检查安装位置并明确确认。
@@ -189,5 +210,7 @@ Windows 使用后端实际创建的命名管道路径。不要照抄另一个进
 | `/quit`             | 退出 BAASX                                                             |
 
 应用本地更新前，CLI 所持有后端的所有配置档都必须没有正在运行的任务、调度和等待队列；其他 CLI 实例仍使用该环境时也会阻止替换。`--server` / `--pipe` 连接的外部服务不由这里更新。
+
+通过注册表安装的终端程序可用 `npm update -g @kiramei/baasx` 升级。下载归档的用户应整体替换解压目录，包括 `runtime/` 和 ARM32 的 `dist/`；本地后端 `/update` 和工作台 `/reload` 都不会安装新版 BAASX。
 
 退出 CLI 会关闭本次 CLI 自己启动的本地后端。外部服务及已提交任务则继续运行。需要常驻后台服务时，自行启动服务后用 `--server` 或 `--pipe` 连接；不要把关闭终端当作停止远程任务的方法。

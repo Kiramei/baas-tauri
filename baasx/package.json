@@ -1,6 +1,6 @@
 {
   "name": "@baas/baasx",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Independent BAAS automation terminal",
   "license": "GPL-3.0-only",
   "type": "module",
@@ -11,6 +11,7 @@
   "files": [
     "bin",
     "dist/baasx.js",
+    "dist/baasx-node.mjs",
     "packs",
     "README.md",
     "README_zh.md",
@@ -18,7 +19,7 @@
     "runtime"
   ],
   "engines": {
-    "bun": ">=1.4.4-0"
+    "node": ">=20.3.0"
   },
   "scripts": {
     "dev": "bun scripts/dev.ts",

@@ -28,7 +28,7 @@ jobs:
       - uses: ./.github/actions/setup-baasx
       - run: bun run baasx:check
       - run: bun run baasx:test
-      - run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests
+      - run: node node_modules/eslint/bin/eslint.js baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests
       - run: bun baasx/scripts/build.ts --js-only
       - run: node baasx/dist/baasx-node.mjs --demo --json status
 
@@ -60,6 +60,18 @@ jobs:
       - if: matrix.rust
         uses: dtolnay/rust-toolchain@master
         with: {toolchain: "1.95.0"}
+      - if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        uses: ./.github/actions/setup-linux-arm
+        with:
+          arch: armhf
+          triplet: arm-linux-gnueabihf
+          target: armv7-unknown-linux-gnueabihf
+          headless: "true"
+      - if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: rustup target add armv7-unknown-linux-gnueabihf
+      - if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        uses: docker/setup-qemu-action@v3
+        with: {platforms: arm}
       - if: matrix.rust
         uses: Swatinem/rust-cache@v2
         with:
@@ -67,7 +79,7 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-1.95.0-helper
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/baasx-dev' }}
       - if: matrix.rust
-        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime
+        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
       - name: Verify the Windows legacy helper forwards commands
         if: matrix.rust && runner.os == 'Windows'
         shell: pwsh
@@ -83,7 +95,7 @@ jobs:
         shell: bash
         run: |
           suffix=""
-          helper_dir="$GITHUB_WORKSPACE/target/debug"
+          helper_dir="$GITHUB_WORKSPACE/target/${{ matrix.target && format('{0}/', matrix.target) || '' }}debug"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             suffix=".exe"
             helper_dir="$RUNNER_TEMP"

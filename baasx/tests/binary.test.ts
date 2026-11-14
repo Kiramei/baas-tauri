@@ -7,6 +7,7 @@ import { terminalText } from "../src/ui";
 // Source tests cannot detect a dependency reaching an API removed by --trim.
 // CI runs these checks against the actual native artifact on every platform.
 const executable = process.env.BAASX_TEST_BINARY;
+const timeoutScale = process.env.BAASX_TEST_EMULATED === "1" ? 4 : 1;
 
 test.skipIf(!executable)(
   "compiled CLI supports direct start without confirmation, configuration and packs",
@@ -55,7 +56,8 @@ test.skipIf(!executable)(
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-  }
+  },
+  timeoutScale === 1 ? 5000 : 60000
 );
 
 test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !== "function")(
@@ -84,7 +86,7 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
     });
     let cursor = 0;
     const until = async (value: string) => {
-      const deadline = Date.now() + 8000;
+      const deadline = Date.now() + 8000 * timeoutScale;
       for (;;) {
         const text = terminalText(output);
         const index = text.indexOf(value, cursor);
@@ -99,14 +101,16 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
     };
     const key = async (value: string) => {
       terminal.write(value);
-      await Bun.sleep(100);
+      await Bun.sleep(100 * timeoutScale);
     };
     try {
       await until("已连接");
       await until("输入 /");
       await key("/config");
       await key("\r");
+      await until("配置分类");
       await key("screenshot_method");
+      await until("截图方式");
       await key("\r");
       await until("保存");
       await key("\x1b[B");
@@ -152,5 +156,5 @@ test.skipIf(!executable || process.platform === "win32" || typeof Bun.Terminal !
       await rm(directory, { recursive: true, force: true });
     }
   },
-  25000
+  25000 * timeoutScale
 );

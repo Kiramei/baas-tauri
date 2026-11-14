@@ -173,7 +173,8 @@ async function fixture(mode: Record<string, unknown> = {}) {
   cleanups.push(async () => {
     manager.close();
     await new Promise((done) => setTimeout(done, 250));
-    await rm(directory, { recursive: true, force: true });
+    // Windows may retain executable mappings briefly after the child exits.
+    await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
   return {
     directory,

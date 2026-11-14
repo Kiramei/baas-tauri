@@ -17,6 +17,7 @@ import {
 import { compareReleaseVersions, parseReleaseVersion } from "../../src/shared/ReleaseVersion.mjs";
 import { validateAssets } from "../../scripts/ci/release-contract.mjs";
 import { existingRelease, parseAppReleaseTag, publishExistingRelease, uploadedAssets } from "../../scripts/release-publication.mjs";
+import { platforms, platformFor } from "../../baasx/scripts/distribution-platforms.mjs";
 
 const temporary: string[] = [];
 afterEach(() =>
@@ -87,6 +88,25 @@ test("the next client schema validates AppImages without requiring discontinued 
   expect(uploadedAssets("0.0.11", [fixture.assets])).toHaveLength(28);
   expect(fixture.publish()).toMatchObject({ tag: "0.0.11", assets: 28, changed: true });
   for (const name of fixture.assets.map(asset => asset.name)) expect(name).not.toMatch(/fixed_webview2|armhf|armv7hl/);
+});
+
+test("client and BAASX release generations retain independent asset contracts", () => {
+  for (const tag of ["0.0.10", "0.0.11"]) {
+    const fixture = publicationFixture(tag);
+    expect(() => validateAssets("app", tag, fixture.assets.map(asset => asset.name))).not.toThrow();
+    expect(fixture.assets).toHaveLength(tag === "0.0.10" ? 36 : 28);
+  }
+  expect(platforms).toHaveLength(7);
+  const arm = platformFor("linux", "arm");
+  for (const alias of ["arm", "armv7l", "armhf"]) expect(platformFor("linux", alias)).toBe(arm);
+  expect(arm).toMatchObject({ asset: "Linux-ARMV7L", packageExtension: "-node.tgz" });
+  for (const [version, count] of [["0.1.4", 7], ["0.1.5", 15]] as const) {
+    const selected = version === "0.1.4" ? platforms.filter(platform => ["Linux-X64", "macOS-ARM64", "Windows-X64"].includes(platform.asset)) : platforms;
+    const names = ["SHA256SUMS", ...selected.flatMap(platform => [".tar.gz", platform.packageExtension].map(extension => `baasx-${version}-${platform.asset}${extension}`))];
+    expect(names).toHaveLength(count);
+    expect(() => validateAssets("baasx", `baasx-v${version}`, names)).not.toThrow();
+    expect(() => validateAssets("baasx", `baasx-v${version}`, [...names, "archive.sig"])).toThrow("signature assets");
+  }
 });
 
 test("publication recovery rejects malformed tags, missing/duplicate releases and incomplete or changing assets without writing", () => {

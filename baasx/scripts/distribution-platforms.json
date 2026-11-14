@@ -12,6 +12,16 @@
     "localRuntime": false
   },
   {
+    "os": "linux",
+    "cpu": "arm",
+    "assetCpu": "armv7l",
+    "aliases": ["armv7l", "armhf"],
+    "runner": "ubuntu-22.04",
+    "rustTarget": "armv7-unknown-linux-gnueabihf",
+    "runtime": "node",
+    "localRuntime": false
+  },
+  {
     "os": "darwin",
     "cpu": "arm64",
     "runner": "macos-15",

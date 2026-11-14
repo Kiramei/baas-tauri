@@ -7,7 +7,7 @@ on:
         description: Distribution to build
         type: choice
         default: all
-        options: [all, linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64]
+        options: [all, linux-x64, linux-arm64, linux-arm, linux-armv7l, linux-armhf, darwin-x64, darwin-arm64, win32-x64, win32-arm64]
   workflow_call:
     inputs:
       target:
@@ -39,9 +39,9 @@ jobs:
           TARGET: ${{ inputs.target }}
         run: |
           node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
-          import { platforms } from './baasx/scripts/distribution-platforms.mjs';
+          import { platforms, platformFor } from './baasx/scripts/distribution-platforms.mjs';
           const target = process.env.TARGET;
-          const include = target === "all" ? platforms : platforms.filter(p => p.os + "-" + p.cpu === target);
+          const include = target === "all" ? platforms : [platformFor(target)].filter(Boolean);
           if (!include.length) throw new Error("Unknown BAASX distribution: " + target);
           console.log("matrix=" + JSON.stringify({include}));
           JS
@@ -60,6 +60,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.95.0"
+      - name: Prepare Linux ARM32 cross toolchain
+        if: matrix.cpu == 'arm'
+        uses: ./.github/actions/setup-linux-arm
+        with:
+          arch: armhf
+          triplet: arm-linux-gnueabihf
+          target: armv7-unknown-linux-gnueabihf
+          headless: "true"
+      - name: Install the Rust ARM32 standard library
+        if: matrix.cpu == 'arm'
+        run: rustup target add armv7-unknown-linux-gnueabihf
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.cpu == 'arm'
+        with:
+          platforms: arm
       - uses: Swatinem/rust-cache@v2
         with:
           # Native objects depend on the runner image ABI (for example glibc 2.35 vs 2.39).
@@ -77,21 +92,31 @@ jobs:
       - name: Verify native architectures of Bun and Rust
         env:
           EXPECTED_OS: ${{ matrix.os }}
-          EXPECTED_CPU: ${{ matrix.cpu }}
+          EXPECTED_CPU: ${{ matrix.cpu == 'arm' && 'x64' || matrix.cpu }}
         run: |
           bun -e 'if(process.platform!==process.env.EXPECTED_OS || process.arch!==process.env.EXPECTED_CPU) throw new Error("Runner/Bun architecture mismatch")'
           rust_arch=x86_64
           if [[ "$EXPECTED_CPU" == arm64 ]]; then rust_arch=aarch64; fi
           rustc -vV | grep -E "^host: ${rust_arch}-"
       - name: Test native helper protocol, update and lifecycle
-        run: cargo test --locked -p baasx-runtime -p baas-cli-runtime
+        run: |
+          if [[ "${{ matrix.cpu }}" == arm ]]; then
+            cargo test --locked -p baasx-runtime -p baas-cli-runtime --target armv7-unknown-linux-gnueabihf
+          else
+            cargo test --locked -p baasx-runtime -p baas-cli-runtime
+          fi
       - if: matrix.os == 'linux' && matrix.cpu == 'x64'
         run: bun run baasx:check
       - run: bun run baasx:test
       - if: matrix.os == 'linux' && matrix.cpu == 'x64'
-        run: bunx eslint baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
+        run: node node_modules/eslint/bin/eslint.js baasx/src baasx/tests baasx/scripts baasx/packages/baas-client/src baasx/packages/baas-client/tests src/shared/SecureWebSocket.ts
       - name: Build the JS bundle, native helper and trimmed executable
-        run: bun run baasx:binary
+        run: |
+          if [[ "${{ matrix.cpu }}" == arm ]]; then
+            bun run baasx:binary --target=linux-arm
+          else
+            bun run baasx:binary
+          fi
       - run: bun baasx/bin/baasx.mjs --demo --json status
       - name: Use the minimum supported Node.js version
         uses: actions/setup-node@v6
@@ -114,6 +139,7 @@ jobs:
         if: matrix.os == 'linux' && matrix.cpu == 'x64'
         run: deno run -A baasx/dist/baasx-node.mjs --demo --json status
       - name: Exercise the compiled CLI and terminal
+        if: matrix.cpu != 'arm'
         shell: bash
         env:
           BAASX_TEST_BINARY: ${{ github.workspace }}/baasx/dist/${{ matrix.executable }}
@@ -123,6 +149,15 @@ jobs:
         run: |
           ./baasx/dist/${{ matrix.executable }} --demo --json status
           ./baasx/dist/runtime/${{ matrix.helper }} inspect --root "$RUNNER_TEMP/baasx-not-installed"
+      - name: Exercise ARM32 Node runtime and terminal through QEMU
+        if: matrix.cpu == 'arm'
+        env:
+          BAASX_TEST_BINARY: ${{ github.workspace }}/baasx/dist/baasx
+          BAASX_TEST_EMULATED: "1"
+        run: |
+          ./baasx/dist/runtime/node -e 'if(process.arch!=="arm" || process.config.variables.arm_float_abi!=="hard") throw new Error("Expected ARM hard-float Node")'
+          ./baasx/dist/runtime/node --test baasx/tests/node-bundle.check.mjs
+          bun test baasx/tests/binary.test.ts
       - name: Pack the already verified JS bundle and helper
         working-directory: baasx
         run: bun pm pack --destination dist --ignore-scripts
@@ -130,18 +165,24 @@ jobs:
         run: |
           set -euo pipefail
           version=$(node -p 'require("./baasx/package.json").version')
-          asset="baasx-${version}-${RUNNER_OS}-${RUNNER_ARCH}"
+          asset="baasx-${version}-${{ matrix.asset }}"
           mkdir -p baasx/dist/release
           packages=(baasx/dist/*.tgz)
           test "${#packages[@]}" -eq 1
-          mv "${packages[0]}" "baasx/dist/release/${asset}-bun.tgz"
-          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${{ matrix.executable }}" runtime -C .. README.md README_zh.md LICENSE
+          mv "${packages[0]}" "baasx/dist/release/${asset}${{ matrix.packageExtension }}"
+          members=("${{ matrix.executable }}" runtime)
+          if [[ "${{ matrix.cpu }}" == arm ]]; then members+=(dist); fi
+          tar -czf "baasx/dist/release/${asset}.tar.gz" -C baasx/dist "${members[@]}" -C .. README.md README_zh.md LICENSE
 
           smoke=$(mktemp -d)
           mkdir -p "$smoke/native" "$smoke/package"
           tar -xzf "baasx/dist/release/${asset}.tar.gz" -C "$smoke/native"
-          tar -xzf "baasx/dist/release/${asset}-bun.tgz" -C "$smoke/package"
+          tar -xzf "baasx/dist/release/${asset}${{ matrix.packageExtension }}" -C "$smoke/package"
           "$smoke/native/${{ matrix.executable }}" --demo --json status
+          if [[ "${{ matrix.cpu }}" == arm ]]; then
+            ln -s "$smoke/native/baasx" "$smoke/baasx linked"
+            (cd / && "$smoke/baasx linked" --demo --json status)
+          fi
           "$smoke/native/runtime/${{ matrix.helper }}" inspect --root "$smoke/not-installed"
           node baasx/scripts/check-runtime-alias.mjs "$smoke/native/runtime/${{ matrix.legacyHelper }}" "$smoke/native/runtime/${{ matrix.helper }}"
           bun "$smoke/package/package/bin/baasx.mjs" --demo --json status
@@ -154,7 +195,7 @@ jobs:
           node baasx/scripts/registry-smoke.mjs "$RUNNER_TEMP/baasx-host.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: baasx-${{ runner.os }}-${{ runner.arch }}
+          name: baasx-${{ matrix.asset }}
           path: baasx/dist/release/*
           retention-days: 7
           compression-level: 0
