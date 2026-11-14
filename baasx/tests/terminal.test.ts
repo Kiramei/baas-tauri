@@ -11,6 +11,113 @@ import { marqueeText } from "../src/terminal-components";
 import { displayWidth } from "../src/ui";
 
 describe("terminal interaction protocol", () => {
+  test("text followed by Enter in one source chunk remains two input events", () => {
+    const screen = screenFixture(false);
+    try {
+      screen.source.write("/reload\r");
+      expect(screen.session.input.read()).toBe("/reload");
+      expect(screen.session.input.read()).toBe("\r");
+      expect(screen.session.input.read()).toBeNull();
+    } finally {
+      screen.close();
+    }
+  });
+  test("coalesced keys retain escape sequences, control keys and CRLF boundaries", () => {
+    const screen = screenFixture(false);
+    const drain = () => {
+      const result: string[] = [];
+      let event: string | null;
+      while ((event = screen.session.input.read()) !== null) result.push(event);
+      return result;
+    };
+    try {
+      screen.source.write("\x1b[6~/reload\r\n\x1b[D\x13");
+      expect(drain()).toEqual(["\x1b[6~", "/reload", "\r", "\x1b[D", "\x13"]);
+      screen.source.write("老师\r");
+      screen.source.write("\n");
+      expect(drain()).toEqual(["老师", "\r", "\r"]);
+      screen.source.write("paste\nlines");
+      expect(drain()).toEqual(["paste\nlines"]);
+      screen.source.write("\x1b[1;");
+      expect(drain()).toEqual([]);
+      screen.source.write("5Dtail");
+      expect(drain()).toEqual(["\x1b[1;5D", "tail"]);
+      screen.source.write("\x1b[<0;9;\x03");
+      expect(drain()).toEqual(["\x03"]);
+      screen.source.write("\x1b[<oopsMtail");
+      expect(drain()).toEqual(["tail"]);
+    } finally {
+      screen.close();
+    }
+  });
+  test("split bracketed paste keeps embedded controls and mouse reports out of input actions", () => {
+    const paste = "\x1b[200~/reload\r\n/quit\x13\x1b[<0;2;2M\x1b[201~\r";
+    for (let split = 1; split < paste.length; split++) {
+      const screen = screenFixture(false);
+      const mouse: MouseEvent[] = [];
+      screen.mouse.on("mouse", (event) => mouse.push(event));
+      try {
+        screen.source.write(paste.slice(0, split));
+        screen.source.write(paste.slice(split));
+        expect(screen.session.input.read()).toBe("/reload\n/quit");
+        expect(screen.session.input.read()).toBe("\r");
+        expect(screen.session.input.read()).toBeNull();
+        expect(mouse).toEqual([]);
+      } finally {
+        screen.close();
+      }
+    }
+  });
+  test("UTF-8 split at every byte retains CJK, emoji and combining text before Return", () => {
+    const screen = screenFixture(false);
+    const text = "老师👩‍💻é";
+    const bytes = Buffer.from(text);
+    try {
+      for (const byte of bytes) screen.source.write(Buffer.from([byte]));
+      screen.source.write("\r");
+      let event: string | null;
+      const events: string[] = [];
+      while ((event = screen.session.input.read()) !== null) events.push(event);
+      expect(events.pop()).toBe("\r");
+      expect(events.join("")).toBe(text);
+    } finally {
+      screen.close();
+    }
+  });
+  test("oversized reports and paste stay bounded and recover only at their terminator", () => {
+    const screen = screenFixture(false);
+    try {
+      screen.source.write("\x1b[<" + "1".repeat(100));
+      expect(screen.session.input.read()).toBeNull();
+      screen.source.write("1".repeat(100) + "M\x03");
+      expect(screen.session.input.read()).toBe("\x03");
+      expect(screen.session.input.read()).toBeNull();
+      screen.source.write("\x1b[200~" + "x".repeat(8193));
+      screen.source.write("/reload\r\x03");
+      expect(screen.session.input.read()).toBeNull();
+      screen.source.write("\x1b[201~safe\r");
+      expect(screen.session.input.read()).toBe("safe");
+      expect(screen.session.input.read()).toBe("\r");
+      expect(screen.session.input.read()).toBeNull();
+    } finally {
+      screen.close();
+    }
+  });
+  test("lone and repeated Escape keys flush without becoming Alt text", async () => {
+    for (const sequence of ["\x1b", "\x1b\x1b", "\x1b\x1b\x1b", "\x1b["]) {
+      const screen = screenFixture(false);
+      try {
+        screen.source.write(sequence);
+        await Bun.sleep(40);
+        const events: string[] = [];
+        let event: string | null;
+        while ((event = screen.session.input.read()) !== null) events.push(event);
+        expect(events.join("")).toBe(sequence);
+      } finally {
+        screen.close();
+      }
+    }
+  });
   test("decodes split mouse reports without sending coordinate text to input", () => {
     const events: MouseEvent[] = [];
     const decoder = new MouseDecoder((event) => events.push(event));
@@ -146,6 +253,8 @@ describe("terminal interaction protocol", () => {
     expect(output).toContain("\x1b[?1006h");
     expect(output).toContain("\x1b[?1002h");
     expect(output).toContain("\x1b[?1004h");
+    expect(output.match(/2004h/g)).toHaveLength(1);
+    expect(output.match(/2004l/g)).toHaveLength(1);
     expect(output.match(/1004h/g)).toHaveLength(1);
     expect(output.match(/1004l/g)).toHaveLength(1);
     expect(output.match(/1002l/g)).toHaveLength(1);
@@ -180,14 +289,17 @@ function screenFixture(interactive = true) {
   const chunks: string[] = [];
   const target = Object.assign(new PassThrough(), { isTTY: interactive, rows: 4, columns: 12 });
   target.on("data", (chunk) => chunks.push(String(chunk)));
+  const mouse = new MouseBus();
   const session = terminalSession(
     source as unknown as NodeJS.ReadStream,
     target as unknown as NodeJS.WriteStream,
-    new MouseBus()
+    mouse
   );
   chunks.length = 0;
   return {
     chunks,
+    source,
+    mouse,
     target,
     session,
     write: (text: string) =>
