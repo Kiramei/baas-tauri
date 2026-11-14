@@ -27,6 +27,7 @@ class Routing(unittest.TestCase):
             "src/App.tsx": {"ui:webui", "ui:tauri"},
             "src/main.tsx": {"ui:webui", "ui:tauri", "ui:android"},
             "src/shared/SweepCounts.ts": {"ui:webui", "ui:tauri", "ui:android", "baasx-source"},
+            "baasx/src/runtime.ts": {"baasx-source", "baasx-js:windows", "baasx-js:linux", "baasx-js:macos"},
             "baasx/src/workspace.ts": {"baasx-source"},
             "baasx/registry/alias.mjs": {"registry"},
             "baasx/src/platform/posix/process-tree.ts": {"baasx-js:linux", "baasx-js:macos"},

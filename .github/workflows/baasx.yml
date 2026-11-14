@@ -71,6 +71,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends pkg-config libssl-dev cmake make g++
       - uses: ./.github/actions/setup-baasx
+      - name: Verify Windows npm package assembly
+        if: runner.os == 'Windows'
+        run: bun test baasx/tests/registry-package.test.mjs -t "Windows bsdtar"
       - name: Verify native architectures of Bun and Rust
         env:
           EXPECTED_OS: ${{ matrix.os }}
