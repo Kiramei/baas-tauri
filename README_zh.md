@@ -7,7 +7,7 @@
   <a href="LICENSE"><kbd>GPL-3.0-only</kbd></a>
 </p>
 
-BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script) 的桌面客户端，支持 Windows、macOS 和 Linux。可管理配置档、任务调度、功能配置、日志、更新和远程设备画面，设备连接、识别与任务执行由 BAAS 后端完成。
+BAAS Tauri 是 [Blue Archive Auto Script](https://github.com/pur1fying/blue_archive_auto_script) 的客户端，支持 Windows、macOS、Linux 和 Android。可管理配置档、任务调度、功能配置、日志、更新和远程设备画面，设备连接、识别与任务执行由 BAAS 后端完成。
 
 <p>
   <img src="docs/public/baas-icon.webp" width="72" alt="BAAS 图标" />

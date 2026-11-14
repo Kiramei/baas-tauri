@@ -4,7 +4,9 @@
 
   <h1>BAAS Tauri App</h1>
 
-  <p><strong>Desktop command center for multi-profile Blue Archive automation</strong></p>
+  <p><strong>Cross-platform command center for multi-profile Blue Archive automation</strong></p>
+
+  <p>BAAS Tauri is a client for <a href="https://github.com/pur1fying/blue_archive_auto_script">Blue Archive Auto Script</a> on Windows, macOS, Linux and Android. It manages profiles, scheduling, feature settings, logs, updates and remote device display. The BAAS backend handles device connections, recognition and task execution.</p>
 
   <p>
     <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-38BD78.svg?logo=tauri&logoColor=white" />
