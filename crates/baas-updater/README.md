@@ -120,13 +120,20 @@ Managed UV is installed under:
 $BAAS_ROOT_PATH/<toolkit_path>/uv
 ```
 
-UV cache is kept under the BAAS root and retained after dependency sync so
-later updates can reuse downloaded and built wheels. Cache cleanup is an
-explicit maintenance action (`uv cache prune` for unused entries, or
-`uv cache clean` to clear everything); accumulated cache uses additional disk
-space. Pass `--cache-dir "$BAAS_ROOT_PATH/<toolkit_path>/uv/cache"` when running
-either command manually so it operates on the updater's cache. When
-`python.runtime_path` is not `default`, managed UV setup and dependency sync are
+After a successful dependency sync, the updater runs `uv cache clean` only on
+`$BAAS_ROOT_PATH/<toolkit_path>/uv/cache`. Requirements cache hits also clean
+older retained artifacts. Failed or cancelled dependency sync does not start
+cleanup, retaining artifacts for diagnosis and retry. The installed `.venv`,
+managed CPython and user configuration remain.
+Managed sync uses hard links (with UV's copy fallback), so removing cache names
+does not remove installed files. Legacy environments still using cache symlinks,
+external cache paths and overlapping Python directories are retained with a
+diagnostic. Cleanup failures are warnings and can be retried on the next start.
+Hard-linked files share disk blocks, so the physical space reclaimed can be less
+than the cache's apparent size. See UV's [cache cleanup](https://docs.astral.sh/uv/concepts/cache/#clearing-the-cache)
+and [link modes](https://docs.astral.sh/uv/reference/settings/#link-mode).
+Android uses embedded Python and has no UV cache. When `python.runtime_path` is
+not `default`, managed UV setup and dependency sync are
 skipped, and launch commands use the configured interpreter directly.
 
 ## Tauri Adapter

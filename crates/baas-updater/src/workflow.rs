@@ -6,12 +6,12 @@ use crate::{
     config::{ConfigManager, UpdaterConfig},
     environ::{
         CommandSpec, EnvironmentManager, EnvironmentSourceKind, HttpSourceProbe, RealProcessRunner,
-        ReqwestDownloader, ensure_uv_installed_from, launch_backend_command,
-        launch_backend_pipe_command, launch_backend_shm_command, managed_python_configured,
-        requirements_compile_cached, requirements_path, save_requirements_cache,
-        uses_managed_runtime, uv_compile_command_with_index, uv_executable,
-        uv_python_install_command_with_mirror, uv_sync_command_with_index, uv_venv_command,
-        validate_backend_shm_support, with_cpython_install_mirror,
+        ReqwestDownloader, cleanup_uv_cache_after_sync, ensure_uv_installed_from,
+        launch_backend_command, launch_backend_pipe_command, launch_backend_shm_command,
+        managed_python_configured, requirements_compile_cached, requirements_path,
+        save_requirements_cache, uses_managed_runtime, uv_compile_command_with_index,
+        uv_executable, uv_python_install_command_with_mirror, uv_sync_command_with_index,
+        uv_venv_command, validate_backend_shm_support, with_cpython_install_mirror,
         with_environment_source_failover,
     },
     mirrorc::{MirrorCClient, MirrorUpdateRequest, ReqwestMirrorHttp, supports_mirror_package},
@@ -694,12 +694,12 @@ pub fn terminal_workflow_plan() -> WorkflowPlan {
             "If it takes too long time, restart by clicking the red button.",
             "uv pip sync",
         )
-        .process_task(
+        .thread_task(
             "uv-cache-clean",
             "uv-cache-clean",
-            "Retain UV Cache",
-            "Keep downloaded and built wheels for subsequent dependency updates.",
-            "Retain UV cache",
+            "Clean UV Cache",
+            "Release this installation's package cache after dependencies are ready.",
+            "uv cache clean",
         )
         .serial(vec![
             WorkflowTask::new(
@@ -1576,15 +1576,52 @@ fn run_terminal_dependency_stage(
     {
         return false;
     }
-    if !run_terminal_skip_task(
-        context,
-        "uv-cache-clean",
-        "Retaining UV cache for subsequent dependency updates",
-    ) {
+    if spawn_thread_task_with_outcome(
+        context.inner,
+        context.session_id,
+        planned_thread_task(context.workflow_plan, "uv-cache-clean"),
+        context.renderer_tx,
+        context.completion_tx,
+        TerminalUvCacheCleanArgs {
+            config: config.clone(),
+            process: TerminalProcessContext::new(context),
+        },
+        terminal_uv_cache_clean_task,
+    )
+    .is_err()
+        || !wait_for_task(context.completion_rx, "uv-cache-clean")
+    {
         return false;
     }
 
     run_terminal_launch_stage(context, config, launch, pipe_name, shm_name)
+}
+
+struct TerminalUvCacheCleanArgs {
+    config: UpdaterConfig,
+    process: TerminalProcessContext,
+}
+
+fn terminal_uv_cache_clean_task(
+    output: ThreadOutput,
+    cancelled: Arc<AtomicBool>,
+    args: TerminalUvCacheCleanArgs,
+) -> Result<ThreadTaskOutcome, String> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("UV cache cleanup cancelled".to_string());
+    }
+    let cleaned = cleanup_uv_cache_after_sync(&args.config, &output, |command| {
+        args.process.run(command, &output, &cancelled)
+    })
+    .map_err(|error| error.message())?;
+    if cancelled.load(Ordering::Relaxed) {
+        return Err("UV cache cleanup cancelled".to_string());
+    }
+    Ok(if cleaned {
+        ThreadTaskOutcome::Success
+    } else {
+        ThreadTaskOutcome::Skipped
+    })
 }
 
 /// Performs the run terminal skip task operation.
@@ -2239,6 +2276,9 @@ mod tests {
             uv_sync_command_with_index(&config, "https://unused.invalid/simple"),
         ] {
             command.program = uv.clone();
+            command
+                .env
+                .push(("UV_LINK_MODE".to_string(), "symlink".to_string()));
             command.args.extend([
                 "--offline".to_string(),
                 "--no-index".to_string(),
@@ -2278,6 +2318,42 @@ mod tests {
         assert!(
             requirements_compile_cached(&config, &requirements, "https://unused.invalid/simple")
                 .unwrap()
+        );
+        let user_config = root.path().join("config/account.json");
+        fs::create_dir_all(user_config.parent().unwrap()).unwrap();
+        fs::write(&user_config, "preserve user configuration").unwrap();
+        let shared_cache = tempfile::tempdir().unwrap();
+        let shared_marker = shared_cache.path().join("unrelated-wheel");
+        fs::write(&shared_marker, "preserve unrelated cache").unwrap();
+        assert!(
+            cleanup_uv_cache_after_sync(&config, &output, |command| {
+                let mut command = command.clone();
+                command.program = uv.clone();
+                command.env.push((
+                    "UV_CACHE_DIR".to_string(),
+                    shared_cache.path().to_string_lossy().into_owned(),
+                ));
+                context.run(&command, &output, &cancelled)
+            })
+            .unwrap()
+        );
+        context
+            .run(
+                &CommandSpec::new(crate::environ::venv_python(&config))
+                    .arg("-c")
+                    .arg("import baas_pty_fixture; assert baas_pty_fixture.value == 1")
+                    .cwd(root.path()),
+                &output,
+                &cancelled,
+            )
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(user_config).unwrap(),
+            "preserve user configuration"
+        );
+        assert_eq!(
+            fs::read_to_string(shared_marker).unwrap(),
+            "preserve unrelated cache"
         );
         assert_eq!(context.inner.lock().unwrap().tasks.len(), 1);
     }
