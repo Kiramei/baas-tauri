@@ -25,6 +25,7 @@ const event = (id: string, kind = "completed"): SystemNotificationRequest => ({
   key: `run:${id}:${kind}`,
   runKey: `run:${id}`,
   terminal: kind !== "started",
+  failure: kind === "failed",
   group: `script:${kind}`,
   payload: { title: kind, body: id, tag: `script:${id}:${kind}` },
 });
@@ -180,6 +181,40 @@ describe("bounded notification batches", () => {
     await dispatcher.flush();
     expect(sent).toHaveLength(2);
     expect(sent[1].body).toBe("2: third");
+  });
+
+  test("a failure supersedes pending completion and cannot be overwritten by a late completion", async () => {
+    const { sent, dispatcher } = fixture();
+    await dispatcher.enqueue(event("one"));
+    await dispatcher.enqueue(event("one", "failed"));
+    await dispatcher.enqueue({ ...event("one"), key: "a-late-completion-copy" });
+    await dispatcher.flush();
+    expect(sent.map((payload) => payload.title)).toEqual(["failed"]);
+  });
+
+  test("reversed native focus responses cannot restore a superseded completion", async () => {
+    let calls = 0;
+    const resolve: ((value: boolean) => void)[] = [];
+    const sent: SystemNotificationPayload[] = [];
+    const dispatcher = new SystemNotificationDispatcher({
+      enabled: () => true,
+      isBackground: () =>
+        ++calls <= 2 ? new Promise<boolean>((done) => resolve.push(done)) : Promise.resolve(true),
+      send: async (payload) => {
+        sent.push(payload);
+      },
+      summarize: (latest) => latest,
+      setTimer: () => 1,
+      clearTimer: () => {},
+    });
+    const completion = dispatcher.enqueue(event("one"));
+    const failure = dispatcher.enqueue(event("one", "failed"));
+    resolve[1](true);
+    await failure;
+    resolve[0](true);
+    await completion;
+    await dispatcher.flush();
+    expect(sent.map((payload) => payload.title)).toEqual(["failed"]);
   });
 
   test("one disconnect storm emits once, and a later genuine outage can notify", async () => {

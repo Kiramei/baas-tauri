@@ -10,6 +10,7 @@ export interface SystemNotificationRequest {
   payload: SystemNotificationPayload;
   runKey?: string;
   terminal?: boolean;
+  failure?: boolean;
   cooldownMs?: number;
 }
 
@@ -30,7 +31,7 @@ interface NotificationDependencies {
 export class SystemNotificationDispatcher {
   private pending = new Map<string, Map<string, PendingNotification>>();
   private seen = new Map<string, number>();
-  private terminalRuns = new Set<string>();
+  private terminalRuns = new Map<string, boolean>();
   private sentAt = new Map<string, number>();
   private timer: unknown = null;
   private flushing = false;
@@ -60,13 +61,18 @@ export class SystemNotificationDispatcher {
     // Foreground/disabled events are consumed too, never saved for a later hide.
     this.seen.set(request.key, createdAt);
     if (this.seen.size > 512) this.seen.delete(this.seen.keys().next().value!);
+    if (request.runKey && this.terminalRuns.get(request.runKey) && !request.failure) return;
     if (request.terminal && request.runKey) {
-      this.terminalRuns.add(request.runKey);
+      this.terminalRuns.set(request.runKey, request.failure === true);
       if (this.terminalRuns.size > 512)
-        this.terminalRuns.delete(this.terminalRuns.values().next().value!);
+        this.terminalRuns.delete(this.terminalRuns.keys().next().value!);
       for (const group of this.pending.values()) {
         for (const [key, pending] of group) {
-          if (pending.runKey === request.runKey && !pending.terminal) group.delete(key);
+          if (
+            pending.runKey === request.runKey &&
+            (!pending.terminal || (request.failure && !pending.failure))
+          )
+            group.delete(key);
         }
       }
     }
@@ -74,6 +80,7 @@ export class SystemNotificationDispatcher {
     const generation = this.generation;
     if (!this.dependencies.enabled() || !(await this.dependencies.isBackground())) return;
     if (generation !== this.generation || !this.dependencies.enabled()) return;
+    if (request.runKey && this.terminalRuns.get(request.runKey) && !request.failure) return;
     if (!request.terminal && request.runKey && this.terminalRuns.has(request.runKey)) return;
     const now = this.now();
     if (now - createdAt > 10_000) return;
@@ -129,7 +136,11 @@ export class SystemNotificationDispatcher {
           return;
         }
         if (generation !== this.generation || !this.dependencies.enabled()) return;
-        const fresh = entries.filter((entry) => entry.expiresAt >= this.now());
+        const fresh = entries.filter(
+          (entry) =>
+            entry.expiresAt >= this.now() &&
+            !(entry.runKey && this.terminalRuns.get(entry.runKey) && !entry.failure)
+        );
         if (!fresh.length) continue;
         const current = fresh[fresh.length - 1];
         this.sentAt.set(name, this.now());

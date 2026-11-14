@@ -1,4 +1,4 @@
-import { getExecutionOutcome } from "@/shared/ExecutionOutcome";
+import { getExecutionOutcome, isFailureExitCode } from "@/shared/ExecutionOutcome";
 import type { ScriptStatusDelivery } from "@/shared/ScriptStatusEvents";
 
 export type ScriptStatus = {
@@ -126,6 +126,7 @@ export class ScriptNotificationTracker {
       ) {
         emit("failed");
       } else if (
+        !isFailureExitCode(next.exitCode) &&
         previous?.running &&
         ((scheduler &&
           previous.currentTask &&

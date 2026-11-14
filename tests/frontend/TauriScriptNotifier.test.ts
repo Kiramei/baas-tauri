@@ -120,6 +120,15 @@ describe("new provider events", () => {
     ).toEqual([]);
   });
 
+  test("a failing worker that is still unwinding does not report successful completion", () => {
+    const tracker = new ScriptNotificationTracker();
+    snapshot(tracker, { a: active });
+    expect(update(tracker, { ...done, running: true, exit_code: 1 })).toEqual([]);
+    expect(
+      update(tracker, { ...done, running: false, exit_code: 1 }).map((event) => event.kind)
+    ).toEqual(["failed"]);
+  });
+
   test("OS replacement tags stay stable across runs, but failure has its own slot", () => {
     const tracker = new ScriptNotificationTracker();
     snapshot(tracker, { a: active });

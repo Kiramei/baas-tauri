@@ -54,6 +54,7 @@ const TauriScriptNotifier: React.FC = () => {
           group: `script:${event.kind}`,
           runKey: event.key.slice(0, event.key.lastIndexOf(":")),
           terminal: event.kind !== "started",
+          failure: event.kind === "failed",
           payload: { title, body, tag: event.tag },
         });
       }
