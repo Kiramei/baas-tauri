@@ -3,7 +3,14 @@ import { getExecutionOutcome, mergeExecutionStatus } from "../../src/shared/Exec
 
 describe("execution outcomes", () => {
   test("requires an explicit exit failure, never a historical log or idle marker", () => {
-    for (const status of [undefined, {}, { running: false }, { exit_code: 0 }, { exit_code: "0" }, { exit_code: null }]) {
+    for (const status of [
+      undefined,
+      {},
+      { running: false },
+      { exit_code: 0 },
+      { exit_code: "0" },
+      { exit_code: null },
+    ]) {
       expect(getExecutionOutcome(status)).toBe("idle");
     }
     expect(getExecutionOutcome({ running: false, exit_code: 1 })).toBe("failed");
@@ -30,6 +37,8 @@ describe("execution outcomes", () => {
     const stopped = mergeExecutionStatus(stopping, { running: false, exit_code: 1 });
     expect(getExecutionOutcome(stopped)).toBe("idle");
     const next = mergeExecutionStatus(stopped, { running: true, run_id: "new" });
-    expect(getExecutionOutcome(mergeExecutionStatus(next, { running: false, exit_code: 1 }))).toBe("failed");
+    expect(getExecutionOutcome(mergeExecutionStatus(next, { running: false, exit_code: 1 }))).toBe(
+      "failed"
+    );
   });
 });

@@ -26,7 +26,8 @@ export function mergeExecutionStatus<T extends ExecutionStatus & { run_id?: stri
   previous: T | undefined,
   incoming: Partial<T>
 ): T {
-  const starting = incoming.running === true &&
+  const starting =
+    incoming.running === true &&
     (!previous?.running || (!!incoming.run_id && incoming.run_id !== previous.run_id));
   return {
     ...previous,

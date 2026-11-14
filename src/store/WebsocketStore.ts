@@ -34,6 +34,14 @@ import { isUserProfileId } from "@/shared/ProfileTabs";
 import { publicUpdateSettings } from "@/shared/MirrorCdk";
 import { resolveClientVersion } from "@/shared/ClientVersion";
 import { compareReleaseVersions } from "@/shared/ReleaseVersion.mjs";
+import { mergeExecutionStatus } from "@/shared/ExecutionOutcome";
+import {
+  beginScriptStatusSource,
+  isReplayedStatus,
+  publishScriptStatus,
+  publishRejectedStopOutcome,
+  statusTimestamp,
+} from "@/shared/ScriptStatusEvents";
 
 import { resolveBackendAddress } from "@/shared/BackendAddress";
 
@@ -81,6 +89,7 @@ const invalidateTransportGeneration = () => {
   flushPendingLogBatches();
   pendingLogBatches.clear();
   transportGeneration += 1;
+  beginScriptStatusSource();
   connectionOpenPromises.clear();
   pendingSyncPatches.clear();
 };
@@ -674,11 +683,15 @@ export const useWebSocketStore = create<WebSocketState>()(
           import("@/shared/TauriInvoke"),
           import("@tauri-apps/api/app"),
         ]);
-        const currentVersion = resolveClientVersion(await getVersion().catch(() => __APP_VERSION__));
+        const currentVersion = resolveClientVersion(
+          await getVersion().catch(() => __APP_VERSION__)
+        );
         const update = await invoke<ClientUpdateReport>("tauri_client_check_update", {
           request: { currentVersion },
         });
-        const missingPackage = update.androidPackageAvailable === false && update.version !== null &&
+        const missingPackage =
+          update.androidPackageAvailable === false &&
+          update.version !== null &&
           compareReleaseVersions(update.version, currentVersion) > 0;
         set((state) => ({
           versionStore: {
@@ -1015,6 +1028,8 @@ export const useWebSocketStore = create<WebSocketState>()(
         const connectionGeneration = transportGeneration;
         const session = get()._session;
         const transportMode = get().transportMode;
+        let statusSource = 0;
+        const statusSnapshotWatermarks = new Map<string, number>();
         if (transportMode === "websocket" && !session) {
           throw new Error("No authenticated session is available");
         }
@@ -1180,27 +1195,55 @@ export const useWebSocketStore = create<WebSocketState>()(
               const firstKey = Object.keys(data)[0];
               if (!firstKey) {
                 set({ statusStore: {} });
+                if (name === "provider") {
+                  statusSnapshotWatermarks.clear();
+                  publishScriptStatus({ source: statusSource, kind: "snapshot", statuses: {} });
+                }
               } else if (isPlainObject(data[firstKey]) && "config_id" in data[firstKey]) {
                 set((state) => {
                   const statusStore = { ...state.statusStore };
                   Object.keys(data).forEach((key) => {
-                    statusStore[key] = {
-                      ...(statusStore[key] ?? {}),
-                      ...(data[key] as StatusItem),
-                    };
+                    statusStore[key] = mergeExecutionStatus(
+                      statusStore[key],
+                      data[key] as StatusItem
+                    );
                   });
                   return { statusStore };
                 });
+                if (name === "provider") {
+                  const statuses = Object.fromEntries(
+                    Object.keys(data).map((key) => {
+                      const timestamp = statusTimestamp(data[key] as StatusItem);
+                      if (timestamp !== null) statusSnapshotWatermarks.set(key, timestamp);
+                      return [key, get().statusStore[key]];
+                    })
+                  );
+                  publishScriptStatus({ source: statusSource, kind: "snapshot", statuses });
+                }
               } else if (typeof data.config_id === "string" && isPlainObject(data.status)) {
+                if (
+                  isReplayedStatus(
+                    data.status as StatusItem,
+                    get().statusStore[data.config_id],
+                    statusSnapshotWatermarks.get(data.config_id)
+                  )
+                )
+                  return;
                 set((state) => ({
                   statusStore: {
                     ...state.statusStore,
-                    [data.config_id]: {
-                      ...(state.statusStore[data.config_id] ?? {}),
-                      ...(data as WrappedStatusItem).status,
-                    },
+                    [data.config_id]: mergeExecutionStatus(
+                      state.statusStore[data.config_id],
+                      (data as WrappedStatusItem).status
+                    ),
                   },
                 }));
+                if (name === "provider")
+                  publishScriptStatus({
+                    source: statusSource,
+                    kind: "update",
+                    statuses: { [data.config_id]: get().statusStore[data.config_id] },
+                  });
               }
             }
           },
@@ -1366,6 +1409,7 @@ export const useWebSocketStore = create<WebSocketState>()(
           // A restarted backend may publish no sessions. Register the in-flight
           // open before notifying subscribers, and never clear a newer generation.
           if (name === "provider" && connectionGeneration === transportGeneration) {
+            statusSource = beginScriptStatusSource();
             set({ statusStore: {} });
           }
           await ws.connect((message: any) => {
@@ -1766,9 +1810,41 @@ export const useWebSocketStore = create<WebSocketState>()(
     trigger: (payload, callback) => {
       const timestamp = commandTimestamp(payload.timestamp, get());
       const stopConfigId = payload.command === "stop_scheduler" ? payload.config_id : undefined;
+      const stoppedEntries = new Set<string>();
+      if (stopConfigId || payload.command === "stop_all_tasks") {
+        set((state) => {
+          const statusStore = { ...state.statusStore };
+          for (const [id, previous] of Object.entries(statusStore)) {
+            if (!previous.running || (stopConfigId && id !== stopConfigId)) continue;
+            stoppedEntries.add(id);
+            statusStore[id] = { ...previous, _stopRequested: true, _stopRequestToken: timestamp };
+          }
+          return { statusStore };
+        });
+      }
+      const restoreUnsentStops = () => {
+        const corrections: Record<string, StatusItem> = {};
+        set((state) => {
+          const statusStore = { ...state.statusStore };
+          for (const id of stoppedEntries) {
+            if (statusStore[id]?._stopRequestToken === timestamp) {
+              statusStore[id] = {
+                ...statusStore[id],
+                _stopRequested: false,
+                _stopRequestToken: null,
+              };
+              corrections[id] = statusStore[id];
+            }
+          }
+          return { statusStore };
+        });
+        for (const [id, status] of Object.entries(corrections))
+          publishRejectedStopOutcome(id, status);
+      };
       if (stopConfigId) {
         const statusAtRequest = get().statusStore[stopConfigId];
         get().pendingCallbacks[timestamp] = (response) => {
+          if (response?.status === "error") restoreUnsentStops();
           if (
             statusAtRequest &&
             response?.command === "stop_scheduler" &&
@@ -1790,16 +1866,22 @@ export const useWebSocketStore = create<WebSocketState>()(
       } else {
         // Even fire-and-forget commands receive an ACK. Reserve its ID until
         // then so that it cannot accidentally resolve another command's wait.
-        get().pendingCallbacks[timestamp] = callback ?? (() => {});
+        get().pendingCallbacks[timestamp] = (response) => {
+          if (response?.status === "error") restoreUnsentStops();
+          callback?.(response);
+        };
       }
       const normalizedPayload = {
         ...payload,
         timestamp,
       };
-      get().send("trigger", {
-        type: "command",
-        ...normalizedPayload,
-      });
+      try {
+        get().send("trigger", { type: "command", ...normalizedPayload });
+      } catch (error) {
+        restoreUnsentStops();
+        delete get().pendingCallbacks[timestamp];
+        throw error;
+      }
       return timestamp;
     },
 
