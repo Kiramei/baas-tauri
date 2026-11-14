@@ -149,10 +149,11 @@ describe("Android manual game control", () => {
     androidManualControl.setActive(false);
     expect(androidManualControl.isActive()).toBe(false);
     const updater = readFileSync(
-      new URL("../../src/components/IdleBackendUpdater.tsx", import.meta.url),
+      new URL("../../src/android/StartupBackendUpdate.ts", import.meta.url),
       "utf8"
     );
-    expect(updater).toContain("if (__WITH_ANDROID__ && androidManualControl.isActive()) return;");
+    expect(updater).toContain("manualActive: () => androidManualControl.isActive()");
+    expect(updater).toContain("beginUpdate: () => androidManualControl.beginBackendUpdate()");
     const home = readFileSync(new URL("../../src/pages/HomePage.tsx", import.meta.url), "utf8");
     expect(home).toContain("if (androidManualControl.isActive()) return;");
     const panel = readFileSync(
