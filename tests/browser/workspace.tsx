@@ -15,6 +15,7 @@ import { NavigationHistoryProvider } from "../../src/context/NavigationHistoryPr
 import { TauriSelfUpdateProvider } from "../../src/context/TauriSelfUpdateProvider";
 import { TauriShortcutProvider } from "../../src/context/TauriShortcutProvider";
 import GlobalAppearanceEffects from "../../src/components/GlobalAppearanceEffects";
+import GlobalContextMenu from "../../src/components/GlobalContextMenu";
 import TitlebarMenus from "../../src/components/layout/TitlebarMenus";
 import LanguageSelect from "../../src/components/LanguageSelect";
 import i18n, { initI18n, loadLocale } from "../../src/shared/I18nTranslator";
@@ -521,6 +522,10 @@ const trigger: ReturnType<typeof useWebSocketStore.getState>["trigger"] = (paylo
     return;
   }
   const pid = payload.config_id;
+  if (query.get("homePolicy") === "1" && payload.command === "start_scheduler") {
+    callback?.({ status: "error", message: "Fixture OCR resource unavailable" });
+    return;
+  }
   if (pid && ["start_scheduler", "stop_scheduler"].includes(payload.command)) {
     useWebSocketStore.setState((state) => ({
       statusStore: {
@@ -721,6 +726,7 @@ function Fixture() {
       <TauriSelfUpdateProvider>
         <TauriShortcutProvider>
           <GlobalAppearanceEffects />
+          {query.get("homePolicy") === "1" && <GlobalContextMenu />}
           <div
             className="app-window-frame flex h-full min-h-0 flex-col overflow-hidden text-foreground"
             data-fixture-isolated="true"

@@ -40,9 +40,16 @@ const noScrollbarStyle =
   "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Renders the header component. */
-const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = ({
+const Header: React.FC<{
+  desktopExpanded?: boolean;
+  settingsMode?: boolean;
+  allowContextMenu?: boolean;
+  allowCreate?: boolean;
+}> = ({
   desktopExpanded = true,
   settingsMode = false,
+  allowContextMenu = true,
+  allowCreate = true,
 }) => {
   const { t } = useTranslation();
   const { activeProfile, setActiveProfile } = useApp();
@@ -108,6 +115,9 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
   };
 
   const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; tab?: Tab } | null>(null);
+  useEffect(() => {
+    if (!allowContextMenu) setCtxMenu(null);
+  }, [allowContextMenu]);
   const ctxMenuRef = React.useRef<HTMLDivElement>(null);
   const ctxMenuOpener = React.useRef<HTMLElement | null>(null);
 
@@ -464,16 +474,18 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
               <span className="text-[14px] font-medium text-muted-foreground">
                 {t("profile.list")}
               </span>
-              <IconTooltip content={t("profile.add")} side="bottom">
-                <button
-                  type="button"
-                  onClick={() => setEditor({ mode: "create" })}
-                  aria-label={t("profile.add")}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                >
-                  <FilePlus2 className="h-4 w-4" strokeWidth={1.6} />
-                </button>
-              </IconTooltip>
+              {allowCreate && (
+                <IconTooltip content={t("profile.add")} side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setEditor({ mode: "create" })}
+                    aria-label={t("profile.add")}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                  >
+                    <FilePlus2 className="h-4 w-4" strokeWidth={1.6} />
+                  </button>
+                </IconTooltip>
+              )}
             </div>
             {/* Left side: scroll controls */}
             <div className={__WITH_ANDROID__ ? "hidden" : "mr-1 flex items-center gap-1 lg:hidden"}>
@@ -535,6 +547,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                           (event.shiftKey && event.key === "F10")
                         ) {
                           event.preventDefault();
+                          if (!allowContextMenu) return;
                           const bounds = event.currentTarget.getBoundingClientRect();
                           ctxMenuOpener.current = event.currentTarget;
                           setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
@@ -555,7 +568,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                   `}
                       onClick={() => onSelect(tab)}
                       onPointerDown={(e: any) => {
-                        if ((e as any).button === 1) {
+                        if (allowContextMenu && (e as any).button === 1) {
                           e.preventDefault();
                           setConfirmDelete(tab);
                         }
@@ -563,6 +576,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                       onContextMenu={(e: any) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (!allowContextMenu) return;
                         ctxMenuOpener.current = e.currentTarget;
                         setCtxMenu({ x: e.clientX, y: e.clientY, tab });
                       }}
@@ -584,39 +598,50 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
                       </span>
 
                       {/* A single action slot keeps activity and menu icons aligned. */}
-                      <IconTooltip
-                        content={
-                          rightIndicator
-                            ? `${statusLabel} · ${t("profile.edit")}`
-                            : t("profile.edit")
-                        }
-                        side="bottom"
-                      >
-                        <button
-                          type="button"
-                          aria-label={`${t("profile.edit")} ${tab.name}${statusLabel ? ` · ${statusLabel}` : ""}`}
-                          aria-haspopup="menu"
-                          aria-expanded={menuOpen}
-                          className={`absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${__WITH_ANDROID__ ? "size-11 opacity-100" : "size-6 opacity-0"} ${rightIndicator ? "opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const bounds = e.currentTarget.getBoundingClientRect();
-                            ctxMenuOpener.current = e.currentTarget;
-                            setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
-                          }}
+                      {allowContextMenu ? (
+                        <IconTooltip
+                          content={
+                            rightIndicator
+                              ? `${statusLabel} · ${t("profile.edit")}`
+                              : t("profile.edit")
+                          }
+                          side="bottom"
                         >
-                          {rightIndicator && !menuOpen && (
-                            <ProfileRunIndicator
-                              outcome={outcome}
-                              label={statusLabel}
-                              className="group-hover:hidden group-focus-within:hidden"
+                          <button
+                            type="button"
+                            aria-label={`${t("profile.edit")} ${tab.name}${statusLabel ? ` · ${statusLabel}` : ""}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menuOpen}
+                            className={`absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-secondary lg:right-0 lg:size-7 ${__WITH_ANDROID__ ? "size-11 opacity-100" : "size-6 opacity-0"} ${rightIndicator ? "opacity-100" : ""} ${menuOpen ? "opacity-100" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const bounds = e.currentTarget.getBoundingClientRect();
+                              ctxMenuOpener.current = e.currentTarget;
+                              setCtxMenu({ x: bounds.right - 8, y: bounds.bottom, tab });
+                            }}
+                          >
+                            {rightIndicator && !menuOpen && (
+                              <ProfileRunIndicator
+                                outcome={outcome}
+                                label={statusLabel}
+                                className="group-hover:hidden group-focus-within:hidden"
+                              />
+                            )}
+                            <MoreHorizontal
+                              className={`h-4 w-4 ${rightIndicator && !menuOpen ? "hidden group-hover:block group-focus-within:block" : ""}`}
                             />
-                          )}
-                          <MoreHorizontal
-                            className={`h-4 w-4 ${rightIndicator && !menuOpen ? "hidden group-hover:block group-focus-within:block" : ""}`}
+                          </button>
+                        </IconTooltip>
+                      ) : (
+                        rightIndicator && (
+                          <ProfileRunIndicator
+                            outcome={outcome}
+                            label={statusLabel}
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
+                            tooltip
                           />
-                        </button>
-                      </IconTooltip>
+                        )
+                      )}
                     </Reorder.Item>
                   );
                 })}
@@ -624,17 +649,19 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
             </div>
 
             {/* Right side: create button */}
-            <div className="ml-1 lg:hidden">
-              <IconTooltip content={t("profile.add")} side="bottom">
-                <button
-                  onClick={() => setEditor({ mode: "create" })}
-                  aria-label={t("profile.add")}
-                  className={`flex shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary ${__WITH_ANDROID__ ? "size-11" : "size-8"}`}
-                >
-                  <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
-                </button>
-              </IconTooltip>
-            </div>
+            {allowCreate && (
+              <div className="ml-1 lg:hidden">
+                <IconTooltip content={t("profile.add")} side="bottom">
+                  <button
+                    onClick={() => setEditor({ mode: "create" })}
+                    aria-label={t("profile.add")}
+                    className={`flex shrink-0 items-center justify-center rounded-lg p-0 text-foreground transition-colors hover:bg-secondary ${__WITH_ANDROID__ ? "size-11" : "size-8"}`}
+                  >
+                    <FilePlus2 className="block h-[20px] w-[20px] shrink-0" />
+                  </button>
+                </IconTooltip>
+              </div>
+            )}
           </>
         )}
       </header>
@@ -642,7 +669,7 @@ const Header: React.FC<{ desktopExpanded?: boolean; settingsMode?: boolean }> = 
         <>
           {/* Menus live outside the scrolling sidebar so they remain visible at any zoom. */}
           <AnimatePresence>
-            {ctxMenu && ctxMenu.tab && (
+            {allowContextMenu && ctxMenu && ctxMenu.tab && (
               <motion.div
                 ref={ctxMenuRef}
                 role="menu"

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Play, Smartphone } from "lucide-react";
-import { toast } from "sonner";
-import CButton from "@/components/ui/CButton";
+import { Loader2, Play } from "lucide-react";
+import { useProfileNotice } from "@/shared/ProfileNotice";
 import { invoke } from "@/shared/TauriInvoke";
 import { AndroidNativePreviewOwnership } from "@/shared/AndroidNativePreviewOwnership";
 import { useAppTranslation } from "@/shared/useAppTranslation";
@@ -31,26 +30,27 @@ const updateNativePreview = <T,>(request: Record<string, unknown>): Promise<T> =
 };
 
 interface AndroidGamePanelProps {
+  profileId?: string;
   active: boolean;
   configuredPackage?: string;
   virtualDisplayActive: boolean;
   virtualDisplayBusy: boolean;
   onToggleVirtualDisplay: (active: boolean, packageName?: string) => Promise<boolean>;
-  onOpenOnDevice: () => Promise<void>;
   onBeforeManualControl: () => Promise<void>;
 }
 
 /** Read-only live game preview backed by the privileged Android virtual display. */
 const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
+  profileId,
   active,
   configuredPackage,
   virtualDisplayActive,
   virtualDisplayBusy,
   onToggleVirtualDisplay,
-  onOpenOnDevice,
   onBeforeManualControl,
 }) => {
   const { t, language } = useAppTranslation();
+  const notice = useProfileNotice(profileId);
   const [games, setGames] = useState<AndroidInstalledGame[]>([]);
   const [shizukuGranted, setShizukuGranted] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
@@ -69,9 +69,9 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       setGames(report.games);
       setShizukuGranted(report.shizukuGranted);
     } catch (error) {
-      toast.error(t("android.game.inspectFailed"), { description: String(error) });
+      notice.error(t("android.game.inspectFailed"), { description: String(error) });
     }
-  }, [t]);
+  }, [notice, t]);
 
   useEffect(() => {
     if (!active) return;
@@ -261,8 +261,8 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
   const takeOverGame = async () => {
     if (!selectedGame || !virtualDisplayActive || takingOver || virtualDisplayBusy) return;
     if (!androidManualControl.begin()) {
-      toast.error(t("android.game.takeoverFailed"), {
-        description: "The game is already in manual control or a backend update is in progress",
+      notice.error(t("android.game.takeoverFailed"), {
+        description: t("android.game.takeoverBusy"),
       });
       return;
     }
@@ -274,7 +274,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
         !previewRef.current?.getClientRects().length ||
         previewRef.current.closest("[hidden], [aria-hidden='true']")
       ) {
-        throw new Error("The game preview is no longer visible");
+        throw new Error(t("android.game.previewHidden"));
       }
       const report = await invoke<{ active: boolean }>("android_game_fullscreen", {
         request: {
@@ -287,7 +287,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       if (!report.active) throw new Error("Fullscreen game control was not enabled");
     } catch (error) {
       androidManualControl.setActive(false);
-      toast.error(t("android.game.takeoverFailed"), { description: String(error) });
+      notice.error(t("android.game.takeoverFailed"), { description: String(error) });
     } finally {
       setTakingOver(false);
     }
@@ -300,7 +300,7 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
       if (!(await onToggleVirtualDisplay(false, selectedGame.packageName))) return;
       await onToggleVirtualDisplay(true, selectedGame.packageName);
     } catch (error) {
-      toast.error(t("android.game.restartFailed"), { description: String(error) });
+      notice.error(t("android.game.restartFailed"), { description: String(error) });
     } finally {
       setRestarting(false);
     }
@@ -385,18 +385,6 @@ const AndroidGamePanel: React.FC<AndroidGamePanelProps> = ({
           </div>
         )}
       </section>
-      {(!virtualDisplayActive || !previewReady) && (
-        <CButton
-          type="button"
-          variant="secondary"
-          disabled={virtualDisplayBusy || restarting || takingOver}
-          onClick={() => void onOpenOnDevice()}
-          className="self-start"
-        >
-          <Smartphone className="h-4 w-4" aria-hidden="true" />
-          {t("android.game.openOnDevice")}
-        </CButton>
-      )}
     </>
   );
 };

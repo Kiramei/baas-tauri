@@ -42,6 +42,17 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({ children, activePage, se
       className="app-layout flex h-full w-full min-h-0 flex-col overflow-hidden text-foreground lg:flex-row"
       ref={zoomRef}
       data-sidebar-expanded={desktopSidebarExpanded}
+      onContextMenuCapture={(event) => {
+        if (!__WITH_ANDROID__ || activePage !== "home") return;
+        // Native text selection/copy remains available in the read-only logs.
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-android-readonly-log], [data-android-profile-log]")
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
     >
       <Sidebar
         activePage={activePage}

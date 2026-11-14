@@ -19,8 +19,6 @@ import { getTimestampMs } from "@/shared/GlobalUtilities.ts";
 import { reloadWithoutPrompt } from "@/shared/reload";
 import { useTauriSelfUpdate } from "@/context/TauriSelfUpdateProvider";
 import { useUISetting } from "@/context/UISettingsProvider.tsx";
-import { invoke } from "@/shared/TauriInvoke";
-import { listen } from "@tauri-apps/api/event";
 import Header from "@/components/layout/Header";
 import SettingsNavigation from "@/components/layout/SettingsNavigation";
 import ConfigurationNavigation from "@/components/layout/ConfigurationNavigation";
@@ -32,8 +30,6 @@ import { useApp } from "@/context/AppContext";
 import WorkspaceSwitcher from "@/components/layout/WorkspaceSwitcher";
 import { resolveSidebarPane, type SidebarPeekContext } from "@/shared/SidebarPane";
 import { MOBILE_PAGE_KEYS, mobileNavigationPage } from "@/shared/PageKey";
-
-const InlineXTermLog = React.lazy(() => import("@/components/InlineXTermLog"));
 
 interface SidebarProps {
   activePage: string;
@@ -67,15 +63,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const triggerStream = useWebSocketStore((state) => state.triggerStream);
   const [backendUpdating, setBackendUpdating] = useState(false);
   const [backendUpdateLogs, setBackendUpdateLogs] = useState<string[]>([]);
-  const [backendUpdateTerminalText, setBackendUpdateTerminalText] = useState("");
   const [backendUpdateLogOpen, setBackendUpdateLogOpen] = useState(false);
   const tauriUpdate = useTauriSelfUpdate();
   const tauriVersion = versionConfig["tauri"] ?? {};
   const hasBackendUpdate =
     __WITH_TAURI__ &&
+    !__WITH_ANDROID__ &&
     Boolean(versionConfig["remote"]) &&
     versionConfig["local"] !== versionConfig["remote"];
-  const hasTauriUpdate = Boolean(__WITH_TAURI__ && tauriVersion.updateAvailable);
+  const hasTauriUpdate = Boolean(
+    __WITH_TAURI__ && !__WITH_ANDROID__ && tauriVersion.updateAvailable
+  );
   const hasAnyUpdate = hasBackendUpdate || hasTauriUpdate;
   const sidebarToggleLabel = desktopExpanded ? t("app.collapseSidebar") : t("app.expandSidebar");
   const profilePaneVisible = desktopExpanded || peek;
@@ -211,91 +209,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
   const handleBackendUpdate = async (): Promise<void> => {
     setBackendUpdating(true);
     setBackendUpdateLogs([]);
-    setBackendUpdateTerminalText("");
     setBackendUpdateLogOpen(true);
     try {
-      if (__WITH_ANDROID__) {
-        const stableRegions = new Map<string, any>();
-        const shownStableRegions = new Set<string>();
-        let sawAndroidUpdateError = false;
-
-        const appendTerminal = (chunk: string) => {
-          if (!chunk) return;
-          setBackendUpdateTerminalText((prev) => prev + chunk);
-        };
-
-        const appendTerminalLine = (line: string) => {
-          appendTerminal(`${line}\r\n`);
-        };
-
-        const appendStableRegion = (payload: any) => {
-          const regionKey = String(payload.regionId ?? payload.taskId ?? "");
-          if (regionKey && shownStableRegions.has(regionKey)) return;
-          if (regionKey) shownStableRegions.add(regionKey);
-          const lines = [payload.title, ...(payload.lines ?? [])]
-            .map((line) => String(line ?? "").trimEnd())
-            .filter(Boolean);
-          if (!lines.length) return;
-          appendTerminalLine(lines.join("\r\n"));
-        };
-
-        const unlisteners = await Promise.all([
-          listen<any>("term:chunk", (event) => {
-            appendTerminal(String(event.payload?.chunk ?? ""));
-          }),
-          listen<any>("term:task-started", (event) => {
-            const payload = event.payload;
-            appendTerminalLine(
-              `[${payload.stepIndex}/${payload.stepTotal}] ${payload.name} started`
-            );
-          }),
-          listen<any>("term:region-stable", (event) => {
-            const payload = event.payload ?? {};
-            stableRegions.set(String(payload.taskId ?? ""), payload);
-            if (sawAndroidUpdateError) {
-              appendStableRegion(payload);
-            }
-          }),
-          listen<any>("term:task-status", (event) => {
-            const payload = event.payload;
-            if (payload.status === "failed" || payload.status === "stopped") {
-              sawAndroidUpdateError = true;
-              appendTerminalLine(
-                `${payload.status.toUpperCase()} ${payload.taskId}: ${payload.error ?? ""}`
-              );
-              const stableRegion = stableRegions.get(String(payload.taskId ?? ""));
-              if (stableRegion) {
-                appendStableRegion(stableRegion);
-              }
-            }
-          }),
-          listen<any>("term:session-finished", async (event) => {
-            const success = Boolean(event.payload?.success);
-            appendTerminalLine(
-              success ? "DONE android git2 update" : "ERROR android git2 update failed"
-            );
-            setBackendUpdating(false);
-            for (const unlisten of unlisteners) unlisten();
-            if (success) {
-              toast.success(t("update.backendStarted"));
-              try {
-                await invoke("updater_reset_backend_auth_and_restart");
-                reloadWithoutPrompt();
-              } catch (error) {
-                toast.error(t("update.backendStartFailed"), {
-                  description: error instanceof Error ? error.message : String(error),
-                });
-              }
-            } else {
-              toast.error(t("update.backendStartFailed"));
-            }
-          }),
-        ]);
-        appendTerminalLine("START android git2 update");
-        await invoke("updater_start_workflow", { request: { launch: true } });
-        toast.info(t("update.backendStarted"));
-        return;
-      }
       await stopAllTasks();
       if (__WITH_TAURI__ && !__WITH_ANDROID__) {
         reloadWithoutPrompt();
@@ -339,16 +254,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
               toast.success(t("update.backendStarted"), {
                 description: result.current ?? result.channel ?? undefined,
               });
-              if (__WITH_ANDROID__) {
-                try {
-                  await invoke("updater_reset_backend_auth_and_restart");
-                  reloadWithoutPrompt();
-                } catch (error) {
-                  toast.error(t("update.backendStartFailed"), {
-                    description: error instanceof Error ? error.message : String(error),
-                  });
-                }
-              }
               return;
             }
             if (result.status === "skipped") {
@@ -541,7 +446,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         <div
           className={`profile-pane-content flex min-h-0 min-w-0 [&>.profile-navigation]:min-w-0 [&>.profile-navigation]:flex-1 lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-2 ${panePage === "configuration" ? "profile-pane-content--configuration" : ""}`}
         >
-          <Header desktopExpanded={profilePaneVisible} settingsMode={panePage === "settings"} />
+          <Header
+            desktopExpanded={profilePaneVisible}
+            settingsMode={panePage === "settings"}
+            allowContextMenu={!__WITH_ANDROID__ || activePage !== "home"}
+            allowCreate={!__WITH_ANDROID__ || activePage !== "home"}
+          />
           {panePage === "settings" && (
             <div className="hidden min-h-0 flex-1 flex-col lg:flex">
               <SettingsNavigation />
@@ -669,37 +579,23 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, desktopExp
         </div>
       )}
 
-      {backendUpdateLogOpen && (
+      {!__WITH_ANDROID__ && backendUpdateLogOpen && (
         <div className="mobile-update-log fixed inset-x-4 bottom-24 z-60 mx-auto max-w-2xl rounded-lg border border-slate-300 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-950 lg:bottom-6">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Android update log
+              {t("update.backendAction")}
             </div>
             <button
               type="button"
               className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               onClick={() => setBackendUpdateLogOpen(false)}
             >
-              Close
+              {t("common.close")}
             </button>
           </div>
-          {__WITH_ANDROID__ ? (
-            <div className="h-64 overflow-hidden rounded bg-slate-950 p-3">
-              <React.Suspense
-                fallback={
-                  <pre className="h-full overflow-auto text-xs leading-5 text-slate-100">
-                    {backendUpdateTerminalText || "waiting...\r\n"}
-                  </pre>
-                }
-              >
-                <InlineXTermLog text={backendUpdateTerminalText || "waiting...\r\n"} />
-              </React.Suspense>
-            </div>
-          ) : (
-            <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
-              {(backendUpdateLogs.length ? backendUpdateLogs : ["waiting..."]).join("\n")}
-            </pre>
-          )}
+          <pre className="max-h-64 overflow-auto rounded bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+            {(backendUpdateLogs.length ? backendUpdateLogs : [t("androidSetup.noLogs")]).join("\n")}
+          </pre>
         </div>
       )}
     </div>
