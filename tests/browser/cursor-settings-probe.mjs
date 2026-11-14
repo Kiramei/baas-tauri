@@ -50,6 +50,16 @@ try {
     await page.waitForFunction(() => document.documentElement.dataset.baCursors === "enabled");
     styles = await pointers();
     assert(styles.every((value) => value.includes("/cursors/")));
+    await context.addInitScript(() =>
+      localStorage.setItem("uiSettings", JSON.stringify({ enableBACursors: false }))
+    );
+    await page.route("**/auth/**", (route) => route.abort());
+    await page.route("**/health", (route) => route.abort());
+    await page.goto(origin, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.dataset.baCursors === "disabled");
+    assert.equal(await page.locator(".app-layout").count(), 0);
+    styles = await pointers();
+    assert(styles.every((value) => !value.includes("url(")));
     assert.deepEqual(errors, []);
     console.log(
       `PASS ${theme}: default on, above BAComet, all pointer types restore, persisted off, re-enable`

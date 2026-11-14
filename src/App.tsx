@@ -243,6 +243,14 @@ const WrappedApp: React.FC = () => {
   const [hideLoading, setHideLoading] = useState(false);
   const lowPerformanceMode = useUISetting((settings) => settings.lowPerformanceMode);
   const enableBAComet = useUISetting((settings) => settings.enableBAComet);
+  const enableBACursors = useUISetting((settings) => settings.enableBACursors ?? true);
+  useLayoutEffect(() => {
+    if (hasReadyOnce) return;
+    // Honor saved cursors while setup/authentication still owns the window.
+    const root = document.documentElement;
+    root.setAttribute("data-ba-cursors", enableBACursors ? "enabled" : "disabled");
+    return () => root.removeAttribute("data-ba-cursors");
+  }, [enableBACursors, hasReadyOnce]);
 
   useEffect(() => {
     if (ready) {
