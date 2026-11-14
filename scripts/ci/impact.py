@@ -71,7 +71,7 @@ RULES = [
     ((".github/actions/setup-linux-arm/*",), {"native:linux:armv7", "native:linux:arm64"}),
     ((".github/workflows/baasx-checks.yml", ".github/actions/setup-baasx/*"), JS | REGISTRY | BAASX_NATIVE),
     ((".github/workflows/client-native.yml", ".github/actions/setup-tauri-build-env/*"), NATIVE | ANDROID),
-    ((".github/workflows/client-frontend.yml", "scripts/ci/client-frontend.mjs", "scripts/ci/build-frontend-adapter.mjs", "scripts/ci/test_client_frontend.py"), UI | {"ui:" + name for name in DESKTOP}),
+    ((".github/workflows/client-frontend.yml", "scripts/ci/client-frontend.mjs", "scripts/ci/frontend-adapter-inputs.mjs", "scripts/ci/build-frontend-adapter.mjs", "scripts/ci/test_client_frontend.py"), UI | {"ui:" + name for name in DESKTOP}),
     ((".github/workflows/baasx.yml", ".github/workflows/release-baasx.yml"), CONTRACTS | REGISTRY),
     ((".github/actions/setup-bun-deps/*",), UI | JS),
     (("scripts/ci/*", ".github/workflows/*", ".github/actions/*", "scripts/*updat*", "scripts/*release*",
